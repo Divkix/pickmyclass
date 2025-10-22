@@ -15,7 +15,6 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = createClient()
 
   useEffect(() => {
     // Check if user just registered
@@ -42,6 +41,7 @@ function LoginForm() {
     }
 
     try {
+      const supabase = createClient()
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,

@@ -31,8 +31,6 @@ export default function ForgotPasswordPage() {
     )
   }
 
-  const supabase = createClient()
-
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -45,6 +43,7 @@ export default function ForgotPasswordPage() {
     }
 
     try {
+      const supabase = createClient()
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       })

@@ -34,8 +34,6 @@ export default function RegisterPage() {
     )
   }
 
-  const supabase = createClient()
-
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -61,6 +59,7 @@ export default function RegisterPage() {
     }
 
     try {
+      const supabase = createClient()
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
