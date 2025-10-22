@@ -43,3 +43,7 @@ next-env.d.ts
 # opennext and wrangler files
 .wrangler
 .open-next
+
+# supabase local files
+supabase/.temp/
+supabase/.branches/
