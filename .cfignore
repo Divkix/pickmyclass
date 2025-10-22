@@ -1,0 +1,34 @@
+# Cloudflare Workers Deployment Ignore File
+# Files and directories that should NOT be uploaded to Cloudflare Workers
+
+# Scraper service (deployed separately to Oracle Cloud via Coolify)
+scraper/
+
+# Supabase local development files (migrations handled separately)
+supabase/
+
+# Test and debug scripts
+test-scraper.js
+debug-page.js
+
+# Documentation (except main README)
+*.md
+!README.md
+CLAUDE.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local environment files (already in .gitignore but explicit here)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Git directory
+.git/
+.github/
