@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { Header } from '@/components/Header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -27,15 +28,10 @@ export default function RegisterPage() {
 
   if (!mounted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="w-full max-w-md space-y-4">
-          <Link
-            href="/"
-            className="inline-flex items-center text-sm font-medium text-foreground hover:text-muted-foreground"
-          >
-            ← Back to home
-          </Link>
-          <Card className="w-full">
+      <div className="flex min-h-screen flex-col bg-background">
+        <Header />
+        <div className="flex flex-1 items-center justify-center p-4">
+          <Card className="w-full max-w-md">
             <CardHeader className="text-center">
               <CardTitle className="text-3xl">Loading...</CardTitle>
             </CardHeader>
@@ -100,15 +96,10 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-4">
-        <Link
-          href="/"
-          className="inline-flex items-center text-sm font-medium text-foreground hover:text-muted-foreground"
-        >
-          ← Back to home
-        </Link>
-        <Card className="w-full">
+    <div className="flex min-h-screen flex-col bg-background">
+      <Header />
+      <div className="flex flex-1 items-center justify-center p-4">
+        <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl">Create Account</CardTitle>
           <CardDescription>

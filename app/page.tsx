@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/lib/contexts/AuthContext'
 import AuthButton from '@/components/AuthButton'
+import { Header } from '@/components/Header'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -10,12 +11,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="flex items-center justify-between border-b border-border bg-card px-6 py-4">
-        <h1 className="text-xl font-bold text-foreground">
-          PickMyClass
-        </h1>
-        <AuthButton />
-      </header>
+      <Header />
 
       <main className="flex flex-1 items-center justify-center px-6 py-16">
         <div className="w-full max-w-2xl space-y-8 text-center">

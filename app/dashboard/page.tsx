@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/contexts/AuthContext'
 import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates'
+import { Header } from '@/components/Header'
 import { ClassWatchCard } from '@/components/ClassWatchCard'
 import { AddClassWatch } from '@/components/AddClassWatch'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -109,10 +110,13 @@ export default function DashboardPage() {
   // Show loading state while checking auth
   if (authLoading) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Skeleton className="h-8 w-64 mb-6" />
-        <Skeleton className="h-32 w-full mb-4" />
-        <Skeleton className="h-48 w-full" />
+      <div className="flex min-h-screen flex-col bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <Skeleton className="h-8 w-64 mb-6" />
+          <Skeleton className="h-32 w-full mb-4" />
+          <Skeleton className="h-48 w-full" />
+        </div>
       </div>
     )
   }
@@ -123,7 +127,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="flex min-h-screen flex-col bg-background">
+      <Header />
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Class Watch Dashboard</h1>
         <p className="text-zinc-600 dark:text-zinc-400">
@@ -189,6 +195,7 @@ export default function DashboardPage() {
           })}
         </div>
       )}
+      </div>
     </div>
   )
 }
