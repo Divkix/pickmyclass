@@ -22,6 +22,10 @@ function LoginForm() {
     if (searchParams.get('registered') === 'true') {
       setSuccess('Account created successfully! Please sign in.')
     }
+    // Check if password was reset
+    if (searchParams.get('password_reset') === 'true') {
+      setSuccess('Password reset successfully! Please sign in with your new password.')
+    }
   }, [searchParams])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -97,12 +101,20 @@ function LoginForm() {
             </div>
 
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-zinc-950 dark:text-zinc-50"
-              >
-                Password
-              </label>
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-zinc-950 dark:text-zinc-50"
+                >
+                  Password
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-sm font-medium text-zinc-950 hover:text-zinc-700 dark:text-zinc-50 dark:hover:text-zinc-300"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 id="password"
                 name="password"
