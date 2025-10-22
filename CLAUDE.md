@@ -152,23 +152,24 @@ The API returns **401 Unauthorized** when called directly (without browser conte
 
 ### Implementation Options (Ranked by Cost)
 
-#### **Option 1: Self-Hosted Puppeteer on Free Tier (RECOMMENDED)**
-Deploy your own Puppeteer scraper service on free hosting:
+#### **Option 1: Oracle Free Tier + Coolify + Cloudflare Tunnel (RECOMMENDED)**
+Use your existing Oracle Cloud free tier server with Coolify and Cloudflare Tunnel.
 
-**Recommended Platforms:**
-- **Fly.io** - 3 free VMs forever, 3GB storage (BEST)
-- **Railway** - $5 free credits/month
-- **Google Cloud Run** - 2M requests/month free
-- **Render** - 750 hours/month free tier
+**What You Have:**
+- Oracle Cloud Free Tier (4 ARM CPUs, 24GB RAM - permanent free tier)
+- Coolify (self-hosted PaaS for easy Docker deployments)
+- Cloudflare Tunnel (secure public HTTPS access without exposing IP)
 
-**Cost: $0/month** (or $0-5/month on Railway)
+**Cost: $0/month** ✅
 
 **Architecture:**
 ```
 Cloudflare Workers (cron every 15 min)
-  ↓ HTTP POST
-Self-Hosted Puppeteer Service (Fly.io/Railway)
-  ↓ Scrape
+  ↓ HTTPS POST (with Bearer token auth)
+Cloudflare Tunnel → https://scraper.yourdomain.com
+  ↓ Secure tunnel
+Oracle Server (Coolify-managed Puppeteer container)
+  ↓ Scrape with headless Chromium
 ASU Class Search Website
   ↓ Return parsed data
 Cloudflare Workers
@@ -177,61 +178,193 @@ Supabase Database
 ```
 
 **Implementation Steps:**
-1. Create a simple Express/Fastify API with Puppeteer
-2. Single endpoint: `POST /scrape` accepts `{sectionNumber, term}`
-3. Returns JSON: `{instructor, seatsAvailable, seatsCapacity}`
-4. Deploy to Fly.io (free tier)
-5. Workers cron calls: `POST https://your-scraper.fly.dev/scrape`
 
-**Pros:**
-- ✅ **FREE** or very cheap
-- ✅ Full control over scraping logic
-- ✅ Can optimize for ASU's specific site structure
-- ✅ No per-request costs
+**1. Create Puppeteer Service Structure:**
+```
+scraper-service/
+├── package.json
+├── docker-compose.yml  # For Coolify
+├── Dockerfile
+└── src/
+    ├── index.ts        # Express server
+    └── scraper.ts      # Puppeteer logic
+```
 
-**Cons:**
-- ❌ Must maintain infrastructure
-- ❌ Need to handle failures and retries
-- ❌ May need to implement anti-bot measures if ASU blocks
+**2. Docker Compose for Coolify:**
+```yaml
+services:
+  asu-scraper:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - SECRET_TOKEN=${SECRET_TOKEN}  # Set in Coolify
+    restart: unless-stopped
+```
 
-**Example Puppeteer Service (TODO):**
+**3. Dockerfile:**
+```dockerfile
+FROM node:18-slim
+
+# Install Chromium dependencies
+RUN apt-get update && apt-get install -y \
+    chromium \
+    fonts-liberation \
+    libappindicator3-1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+
+EXPOSE 3000
+CMD ["node", "src/index.js"]
+```
+
+**4. Express Server with Authentication (src/index.ts):**
 ```typescript
-// scraper-service/src/index.ts
 import express from 'express';
-import puppeteer from 'puppeteer';
+import { scrapeClassSection } from './scraper';
 
-app.post('/scrape', async (req, res) => {
-  const { sectionNumber, term } = req.body;
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
+const app = express();
+app.use(express.json());
 
-  await page.goto(`https://catalog.apps.asu.edu/catalog/classes/classlist?keywords=${sectionNumber}&term=${term}`);
-  await page.waitForSelector('.class-results-table'); // Wait for data to load
+// Bearer token authentication
+const authenticate = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const expectedToken = process.env.SECRET_TOKEN;
 
-  const data = await page.evaluate(() => {
-    // Extract instructor, seats, etc. from DOM
-    const instructor = document.querySelector('.instructor-column')?.textContent;
-    const seats = document.querySelector('.seats-column')?.textContent;
-    return { instructor, seats };
-  });
+  if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+};
 
-  await browser.close();
-  res.json(data);
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+app.post('/scrape', authenticate, async (req, res) => {
+  try {
+    const { sectionNumber, term } = req.body;
+
+    if (!sectionNumber || !term) {
+      return res.status(400).json({ error: 'Missing sectionNumber or term' });
+    }
+
+    const result = await scrapeClassSection(sectionNumber, term);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Scraping error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Scraper service running on port ${PORT}`);
 });
 ```
 
-#### **Option 2: External Scraping Service (Paid)**
-Use ScrapingBee, Scraper API, or BrightData if you want zero maintenance:
-- ❌ **Cost**: $5-50/month for 4,800 requests/day
-- ✅ No infrastructure to maintain
+**5. Deploy to Coolify:**
+- Create new service in Coolify
+- Point to your Git repo or use Docker Compose directly
+- Set environment variable: `SECRET_TOKEN=your-random-token-here`
+- Coolify will automatically build and deploy
+
+**6. Configure Cloudflare Tunnel:**
+```bash
+# If not already set up, create tunnel route
+cloudflared tunnel route dns <tunnel-name> scraper.yourdomain.com
+```
+
+Now accessible at: `https://scraper.yourdomain.com/scrape`
+
+**7. Call from Cloudflare Workers:**
+```typescript
+// In app/api/cron/route.ts
+const response = await fetch('https://scraper.yourdomain.com/scrape', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${env.SCRAPER_SECRET_TOKEN}`,
+  },
+  body: JSON.stringify({ sectionNumber: '12431', term: '2261' }),
+});
+```
+
+**Pros:**
+- ✅ **$0/month** - Everything already paid for
+- ✅ **Powerful hardware** - 4 CPUs, 24GB RAM (vs Fly.io's 256MB)
+- ✅ **Coolify** - Easy deployment like Railway/Vercel
+- ✅ **Cloudflare Tunnel** - Secure public access, DDoS protection
+- ✅ **Full control** - Customize everything
+- ✅ **Permanent free tier** - Oracle won't remove it
+
+**Cons:**
+- ❌ Must keep Oracle server online
+- ❌ Need to maintain infrastructure (but Coolify makes it easy)
+- ❌ Cloudflare Tunnel adds ~50-100ms latency
+
+**Security Notes:**
+- ✅ Use Bearer token authentication (shown above)
+- ✅ Cloudflare Tunnel hides your server IP
+- ✅ Set rate limiting in Express if needed
+- ✅ Consider using Cloudflare Access for additional security
+
+---
+
+#### **Option 2: Self-Hosted Puppeteer on Fly.io/Railway (Alternative)**
+If you don't want to use your Oracle server:
+
+**Platforms:**
+- **Fly.io** - 3 free VMs, 256MB RAM each
+- **Railway** - $5 free credits/month
+
+**Cost: $0-5/month**
+
+**Same architecture as Option 1, just different hosting.**
+
+**Pros:**
+- ✅ FREE or very cheap
+- ✅ No server maintenance
+- ✅ Auto-scaling and restarts
+
+**Cons:**
+- ❌ Less powerful than Oracle (256MB vs 24GB RAM)
+- ❌ Another service to manage
+
+---
+
+#### **Option 3: External Scraping Service (Paid)**
+ScrapingBee, Scraper API, or BrightData:
+- ❌ **Cost**: $5-50/month
+- ✅ Zero maintenance
 - ✅ Built-in anti-bot measures
 
-**Only use if free tier doesn't work or you prefer managed service.**
+**Only use if Options 1 & 2 fail.**
 
-#### **Option 3: Cloudflare Browser Rendering API (Not Recommended)**
-- ❌ **Cost**: $5/month + usage fees
-- ❌ 2M request/month limit
-- Not cost-effective for this use case
+---
+
+#### **Option 4: Cloudflare Browser Rendering API (Expensive)**
+- ❌ **Cost**: ~$22/month for your usage (200 hours/month)
+- ❌ Less cost-effective than self-hosting
+
+**Not recommended given your existing infrastructure.**
+
+---
+
+### Cost Comparison
+
+| Solution | Monthly Cost | Hardware | Maintenance | Notes |
+|----------|--------------|----------|-------------|-------|
+| **Oracle + Coolify** | **$0** | 4 CPUs, 24GB RAM | Low (Coolify) | ✅ **BEST - Use existing infra** |
+| Fly.io Free Tier | $0 | 256MB RAM | Low | Good alternative |
+| Railway | $0-5 | Varies | Low | $5 credits/month |
+| ScrapingBee | $5-50 | N/A | None | Paid service |
+| Cloudflare Browser | ~$22 | N/A | None | Too expensive |
 
 ### Scraping Strategy
 For each monitored section number:
