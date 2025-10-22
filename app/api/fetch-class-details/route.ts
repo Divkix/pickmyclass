@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
- * Stub API endpoint for fetching class details from section number and term.
+ * API endpoint for fetching class details from section number and term.
  *
- * TODO: Implement actual scraping logic when the scraper service is ready.
- * This endpoint should:
- * 1. Accept term and class_nbr (section number)
- * 2. Query the ASU class search API/scraper for that section
- * 3. Return the subject, catalog_nbr, and title
- *
- * For now, returns placeholder data to enable frontend development.
+ * Integrates with the scraper service to fetch real-time class data from ASU.
+ * Falls back to stub data if scraper is not configured (development mode).
  */
 
 interface FetchClassDetailsRequest {
@@ -21,6 +16,21 @@ interface FetchClassDetailsResponse {
   subject: string
   catalog_nbr: string
   title: string
+}
+
+interface ScraperResponse {
+  success: boolean
+  data?: {
+    subject: string
+    catalog_nbr: string
+    title: string
+    instructor?: string
+    seats_available?: number
+    seats_capacity?: number
+    location?: string
+    meeting_times?: string
+  }
+  error?: string
 }
 
 export async function POST(request: NextRequest) {
@@ -51,24 +61,57 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Replace this stub logic with actual API call to scraper service
-    // Example implementation:
-    // const response = await fetch('https://scraper.yourdomain.com/scrape', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //     'Authorization': `Bearer ${process.env.SCRAPER_SECRET_TOKEN}`,
-    //   },
-    //   body: JSON.stringify({ sectionNumber: class_nbr, term }),
-    // })
-    // const data = await response.json()
-    // return NextResponse.json({
-    //   subject: data.subject,
-    //   catalog_nbr: data.catalog_nbr,
-    //   title: data.title,
-    // })
+    // Check if scraper service is configured
+    const scraperUrl = process.env.SCRAPER_URL
+    const scraperToken = process.env.SCRAPER_SECRET_TOKEN
 
-    // Stub response with placeholder data
+    if (scraperUrl && scraperToken) {
+      // Production mode: Call real scraper service
+      try {
+        console.log(`[API] Calling scraper service at ${scraperUrl}`)
+
+        const scraperResponse = await fetch(`${scraperUrl}/scrape`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${scraperToken}`,
+          },
+          body: JSON.stringify({ sectionNumber: class_nbr, term }),
+          signal: AbortSignal.timeout(60000), // 60 second timeout
+        })
+
+        if (!scraperResponse.ok) {
+          const errorText = await scraperResponse.text()
+          console.error(`[API] Scraper service error (${scraperResponse.status}): ${errorText}`)
+          throw new Error(`Scraper service returned ${scraperResponse.status}`)
+        }
+
+        const scraperData = (await scraperResponse.json()) as ScraperResponse
+
+        if (!scraperData.success || !scraperData.data) {
+          console.error('[API] Scraper returned unsuccessful response:', scraperData.error)
+          throw new Error(scraperData.error || 'Scraper returned no data')
+        }
+
+        console.log('[API] Successfully fetched class details from scraper')
+
+        // Return the scraped data
+        const response: FetchClassDetailsResponse = {
+          subject: scraperData.data.subject,
+          catalog_nbr: scraperData.data.catalog_nbr,
+          title: scraperData.data.title,
+        }
+
+        return NextResponse.json(response, { status: 200 })
+      } catch (error) {
+        // If scraper fails, log and fall through to stub
+        console.error('[API] Scraper service failed, falling back to stub:', error)
+      }
+    } else {
+      console.log('[API] Scraper not configured, using stub data (development mode)')
+    }
+
+    // Development mode / Fallback: Return stub data
     const stubResponse: FetchClassDetailsResponse = {
       subject: 'CSE',
       catalog_nbr: '240',
