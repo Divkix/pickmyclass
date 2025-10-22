@@ -6,40 +6,97 @@ import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Button } from './ui/button'
 import { Alert } from './ui/alert'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select'
+import { Lock, Search } from 'lucide-react'
 
 interface AddClassWatchProps {
   onAdd: (watch: { term: string; subject: string; catalog_nbr: string; class_nbr: string }) => Promise<void>
 }
 
+interface FetchedClassDetails {
+  subject: string
+  catalog_nbr: string
+  title: string
+}
+
 export function AddClassWatch({ onAdd }: AddClassWatchProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isFetching, setIsFetching] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fetchedDetails, setFetchedDetails] = useState<FetchedClassDetails | null>(null)
 
-  const [formData, setFormData] = useState({
-    term: '',
-    subject: '',
-    catalog_nbr: '',
-    class_nbr: '',
-  })
+  const [university] = useState('asu')
+  const [term, setTerm] = useState('')
+  const [classNbr, setClassNbr] = useState('')
+
+  const handleFetchDetails = async () => {
+    if (!term || !classNbr) {
+      setError('Please select a term and enter a section number first')
+      return
+    }
+
+    if (classNbr.length !== 5 || !/^\d{5}$/.test(classNbr)) {
+      setError('Section number must be exactly 5 digits')
+      return
+    }
+
+    setError(null)
+    setIsFetching(true)
+
+    try {
+      const response = await fetch('/api/fetch-class-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ term, class_nbr: classNbr }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch class details')
+      }
+
+      const data = await response.json()
+      setFetchedDetails(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch class details')
+      setFetchedDetails(null)
+    } finally {
+      setIsFetching(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    if (!fetchedDetails) {
+      setError('Please fetch class details before adding the watch')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
-      await onAdd(formData)
+      await onAdd({
+        term,
+        subject: fetchedDetails.subject,
+        catalog_nbr: fetchedDetails.catalog_nbr,
+        class_nbr: classNbr,
+      })
       // Reset form on success
-      setFormData({ term: '', subject: '', catalog_nbr: '', class_nbr: '' })
+      setTerm('')
+      setClassNbr('')
+      setFetchedDetails(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add class watch')
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  const handleChange = (field: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }))
   }
 
   return (
@@ -58,67 +115,92 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
             </Alert>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="section_number">Section Number *</Label>
-              <Input
-                id="section_number"
-                placeholder="12431"
-                value={formData.class_nbr}
-                onChange={handleChange('class_nbr')}
-                required
-                maxLength={5}
-                pattern="\d{5}"
-                title="Must be a 5-digit section number"
-              />
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">5-digit section number</p>
+          {/* University Dropdown (Disabled) */}
+          <div className="space-y-2">
+            <Label htmlFor="university">University *</Label>
+            <div className="relative">
+              <Select value={university} disabled>
+                <SelectTrigger id="university">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asu">Arizona State University (ASU)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Lock className="absolute right-9 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="term">Term *</Label>
-              <Input
-                id="term"
-                placeholder="2261"
-                value={formData.term}
-                onChange={handleChange('term')}
-                required
-                maxLength={4}
-                pattern="\d{4}"
-                title="Must be a 4-digit term code"
-              />
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">4-digit term code (e.g., 2261)</p>
-            </div>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">More universities coming soon</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="subject">Subject *</Label>
-              <Input
-                id="subject"
-                placeholder="CSE"
-                value={formData.subject}
-                onChange={handleChange('subject')}
-                required
-                maxLength={10}
-              />
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">e.g., CSE, MAT, ENG</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="catalog_nbr">Catalog Number *</Label>
-              <Input
-                id="catalog_nbr"
-                placeholder="240"
-                value={formData.catalog_nbr}
-                onChange={handleChange('catalog_nbr')}
-                required
-                maxLength={10}
-              />
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">Course number (e.g., 240)</p>
-            </div>
+          {/* Term Dropdown */}
+          <div className="space-y-2">
+            <Label htmlFor="term">Term *</Label>
+            <Select value={term} onValueChange={setTerm} required>
+              <SelectTrigger id="term">
+                <SelectValue placeholder="Select term" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2261">Spring 2026 (2261)</SelectItem>
+                <SelectItem value="2264">Summer 2026 (2264)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">Select the term to monitor</p>
           </div>
 
-          <Button type="submit" disabled={isSubmitting} className="w-full">
+          {/* Section Number */}
+          <div className="space-y-2">
+            <Label htmlFor="section_number">Section Number *</Label>
+            <Input
+              id="section_number"
+              placeholder="12431"
+              value={classNbr}
+              onChange={(e) => {
+                setClassNbr(e.target.value)
+                setFetchedDetails(null) // Clear fetched details when section number changes
+              }}
+              required
+              maxLength={5}
+              pattern="\d{5}"
+              title="Must be a 5-digit section number"
+            />
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">5-digit section number</p>
+          </div>
+
+          {/* Fetch Details Button */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleFetchDetails}
+            disabled={isFetching || !term || !classNbr}
+            className="w-full gap-2"
+          >
+            <Search className="h-4 w-4" />
+            {isFetching ? 'Fetching...' : 'Fetch Class Details'}
+          </Button>
+
+          {/* Fetched Details (Read-only) */}
+          {fetchedDetails && (
+            <div className="space-y-3 p-4 rounded-md bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Class Details:</p>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-600 dark:text-zinc-400">Subject:</span>
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">{fetchedDetails.subject}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-600 dark:text-zinc-400">Catalog Number:</span>
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">{fetchedDetails.catalog_nbr}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-600 dark:text-zinc-400">Title:</span>
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">{fetchedDetails.title}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <Button type="submit" disabled={isSubmitting || !fetchedDetails} className="w-full">
             {isSubmitting ? 'Adding...' : 'Add Watch'}
           </Button>
         </form>
