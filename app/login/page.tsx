@@ -61,7 +61,7 @@ function LoginForm() {
 
       if (data.user) {
         // Successfully logged in
-        router.push('/')
+        router.push('/dashboard')
         router.refresh()
       }
     } catch (err) {

@@ -84,7 +84,7 @@ export default function RegisterPage() {
           setError('This email is already registered. Please sign in.')
         } else {
           // Successfully registered
-          router.push('/login?registered=true')
+          router.push('/dashboard')
         }
       }
     } catch (err) {

@@ -47,10 +47,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect to home if accessing auth pages while already authenticated
+  // Redirect to dashboard if accessing auth pages while already authenticated
   if (user && isPublicRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 
