@@ -60,7 +60,7 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
         throw new Error('Failed to fetch class details')
       }
 
-      const data = await response.json()
+      const data = (await response.json()) as FetchedClassDetails
       setFetchedDetails(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch class details')
