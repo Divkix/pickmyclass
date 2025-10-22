@@ -19,7 +19,7 @@ Students add university class sections they want to monitor by section number. T
 - ✅ Database schema with RLS policies
 - ✅ Class monitoring dashboard with Realtime updates
 - ✅ API routes for managing class watches
-- 🚧 ASU Class Search API integration (TODO)
+- ✅ ASU Class Search scraper service (Puppeteer-based, ready for deployment)
 - 🚧 Cron job for 15-minute checks (TODO)
 - 🚧 Email notification system (TODO)
 
@@ -55,6 +55,14 @@ bunx supabase db pull              # Pull remote schema changes to local
 bunx supabase migration new <name> # Create a new migration file
 ```
 
+### Scraper Service (in scraper/ directory)
+```bash
+bun run dev        # Start scraper service in watch mode (localhost:3000)
+bun run build      # Compile TypeScript to JavaScript
+bun run start      # Run production build
+bun run typecheck  # Type check without building
+```
+
 ## Architecture
 
 ### Authentication System
@@ -70,11 +78,17 @@ bunx supabase migration new <name> # Create a new migration file
   - Matches all routes except static assets
 
 ### Environment Variables
-Required Supabase configuration (see `.env.example`):
+Required configuration (see `.env.example`):
+
+**Supabase:**
 - `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
 
-**Build Handling**: Both client and server Supabase utilities use placeholder values during build when env vars are unavailable, preventing build failures.
+**Scraper Service:**
+- `SCRAPER_URL` - URL to scraper service (e.g., `https://scraper.yourdomain.com` or `http://localhost:3000` for local dev)
+- `SCRAPER_SECRET_TOKEN` - Bearer token for authenticating with scraper (must match token in `scraper/.env`)
+
+**Build Handling**: Both client and server Supabase utilities use placeholder values during build when env vars are unavailable, preventing build failures. The scraper integration gracefully falls back to stub data if `SCRAPER_URL` is not configured, enabling development without the scraper service running.
 
 ### Database Access via Hyperdrive
 - **Hyperdrive**: Cloudflare's connection pooling service for PostgreSQL/MySQL databases
@@ -158,6 +172,17 @@ supabase/
   ├── config.toml            # Supabase CLI configuration
   └── migrations/            # Database migration files
 
+scraper/                     # Standalone scraper service (Puppeteer)
+  ├── src/
+  │   ├── index.ts          # Express server with auth
+  │   ├── scraper.ts        # Puppeteer scraping logic
+  │   └── types.ts          # TypeScript interfaces
+  ├── Dockerfile            # Production container
+  ├── docker-compose.yml    # Coolify deployment config
+  ├── package.json          # Dependencies & scripts
+  ├── tsconfig.json         # TypeScript config
+  └── README.md             # Scraper documentation
+
 proxy.ts                     # Middleware for auth and session management
 open-next.config.ts          # OpenNext configuration for Cloudflare Workers
 wrangler.jsonc               # Cloudflare Workers configuration
@@ -224,7 +249,46 @@ https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search
 ### ⚠️ API Authentication Issue
 The API returns **401 Unauthorized** when called directly (without browser context). Additionally, the ASU class search page **loads data dynamically via JavaScript**, so simple HTML fetching won't work.
 
-### Implementation Options (Ranked by Cost)
+### ✅ Implementation Status
+
+**Scraper Service: COMPLETE**
+
+The scraper service has been fully implemented in the `scraper/` directory using Puppeteer for browser automation:
+
+**Location:** `/scraper/`
+
+**Key Features:**
+- Express server with Bearer token authentication
+- Puppeteer-based scraping of ASU class search (handles React SPA)
+- Browser instance pooling for performance optimization
+- Request interception to block images/fonts (saves bandwidth)
+- Comprehensive error handling and logging
+- TypeScript with strict typing
+- Docker + docker-compose for deployment
+- Ready for Coolify deployment on Oracle Cloud
+
+**Endpoints:**
+- `GET /health` - Health check
+- `POST /scrape` - Scrape class details (requires Bearer auth)
+
+**Integration:**
+- Main app's `/api/fetch-class-details` route calls scraper service
+- Graceful fallback to stub data if scraper not configured
+- Environment variables: `SCRAPER_URL` and `SCRAPER_SECRET_TOKEN`
+
+**Deployment:**
+1. Push to Git repo
+2. Deploy via Coolify on Oracle Cloud (Docker Compose)
+3. Configure Cloudflare Tunnel at `scraper.yourdomain.com`
+4. Set environment variables in main app
+
+**Documentation:** See `scraper/README.md` for detailed setup and API documentation.
+
+---
+
+### Implementation Options (For Reference)
+
+The following section documents the planning and architecture decisions that led to the current implementation:
 
 #### **Option 1: Oracle Free Tier + Coolify + Cloudflare Tunnel (RECOMMENDED)**
 Use your existing Oracle Cloud free tier server with Coolify and Cloudflare Tunnel.
