@@ -28,11 +28,19 @@ export default function RegisterPage() {
   if (!mounted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl">Loading...</CardTitle>
-          </CardHeader>
-        </Card>
+        <div className="w-full max-w-md space-y-4">
+          <Link
+            href="/"
+            className="inline-flex items-center text-sm font-medium text-foreground hover:text-muted-foreground"
+          >
+            ← Back to home
+          </Link>
+          <Card className="w-full">
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl">Loading...</CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
     )
   }
@@ -93,7 +101,14 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md space-y-4">
+        <Link
+          href="/"
+          className="inline-flex items-center text-sm font-medium text-foreground hover:text-muted-foreground"
+        >
+          ← Back to home
+        </Link>
+        <Card className="w-full">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl">Create Account</CardTitle>
           <CardDescription>
@@ -170,6 +185,7 @@ export default function RegisterPage() {
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }
