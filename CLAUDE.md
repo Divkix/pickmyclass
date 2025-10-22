@@ -16,11 +16,12 @@ Students add university class sections they want to monitor by section number. T
 ### Current Status
 - ✅ Authentication system (login/register/password-reset) with Supabase
 - ✅ Cloudflare Workers deployment setup
-- 🚧 Class monitoring dashboard (TODO)
+- ✅ Database schema with RLS policies
+- ✅ Class monitoring dashboard with Realtime updates
+- ✅ API routes for managing class watches
 - 🚧 ASU Class Search API integration (TODO)
 - 🚧 Cron job for 15-minute checks (TODO)
 - 🚧 Email notification system (TODO)
-- 🚧 Database schema for class watches (TODO)
 
 ### Future Plans
 - Support for additional universities beyond ASU
@@ -44,6 +45,14 @@ bun run cf-typegen       # Generate TypeScript types for Cloudflare environment 
 ### Clean Build
 ```bash
 rm -rf .next .open-next && bun run preview    # Clean build artifacts before preview
+```
+
+### Database Management
+```bash
+bunx supabase db push              # Push local migrations to remote database
+bunx supabase gen types typescript --linked > lib/supabase/database.types.ts  # Generate TypeScript types
+bunx supabase db pull              # Pull remote schema changes to local
+bunx supabase migration new <name> # Create a new migration file
 ```
 
 ## Architecture
@@ -117,24 +126,41 @@ Required Supabase configuration (see `.env.example`):
 
 ### Project Structure
 ```
-app/                    # Next.js App Router pages
-  ├── login/           # Login page
-  ├── register/        # Registration page
-  ├── forgot-password/ # Password reset request
-  ├── reset-password/  # Password reset form
-  ├── layout.tsx       # Root layout with AuthProvider
-  └── page.tsx         # Home page (client component using useAuth)
+app/                         # Next.js App Router pages
+  ├── api/
+  │   └── class-watches/     # API routes for class watch CRUD
+  ├── dashboard/             # Dashboard page with Realtime updates
+  ├── login/                 # Login page
+  ├── register/              # Registration page
+  ├── forgot-password/       # Password reset request
+  ├── reset-password/        # Password reset form
+  ├── layout.tsx             # Root layout with AuthProvider
+  └── page.tsx               # Home page
 
 lib/
-  ├── supabase/        # Supabase client utilities
-  └── contexts/        # React contexts (AuthContext)
+  ├── supabase/
+  │   ├── client.ts          # Browser client (typed)
+  │   ├── server.ts          # Server client (typed)
+  │   └── database.types.ts  # Generated database types
+  ├── hooks/
+  │   └── useRealtimeClassStates.ts  # Realtime subscription hook
+  └── contexts/
+      └── AuthContext.tsx    # Auth context
 
-components/            # React components
-  └── AuthButton.tsx   # Authentication button component
+components/
+  ├── ui/                    # shadcn/ui components
+  ├── AuthButton.tsx         # Authentication button
+  ├── ClassWatchCard.tsx     # Individual class watch card
+  ├── AddClassWatch.tsx      # Form to add new watch
+  └── ClassStateIndicator.tsx # Status indicator component
 
-proxy.ts               # Middleware for auth and session management
-open-next.config.ts    # OpenNext configuration for Cloudflare Workers
-wrangler.jsonc         # Cloudflare Workers configuration
+supabase/
+  ├── config.toml            # Supabase CLI configuration
+  └── migrations/            # Database migration files
+
+proxy.ts                     # Middleware for auth and session management
+open-next.config.ts          # OpenNext configuration for Cloudflare Workers
+wrangler.jsonc               # Cloudflare Workers configuration
 ```
 
 ### Deployment Target
@@ -436,45 +462,69 @@ Track these state changes:
 - Handle failures gracefully (retry logic, error logging)
 - Consider batching: Group section checks to minimize scraping service costs
 
-## Database Schema (TODO)
+## Database Schema
 
-### Proposed Tables
+All tables have Row Level Security (RLS) enabled. Migrations are managed via Supabase CLI in `supabase/migrations/`.
+
+### Tables
 
 #### `class_watches`
 Stores which users are watching which class sections.
-```sql
-- id (uuid, primary key)
-- user_id (uuid, foreign key to auth.users)
-- term (text) -- e.g., "2261"
-- subject (text) -- e.g., "CSE"
-- catalog_nbr (text) -- e.g., "240"
-- class_nbr (text) -- e.g., "12431" (section number)
-- created_at (timestamp)
-```
+- **Columns**: `id`, `user_id`, `term`, `subject`, `catalog_nbr`, `class_nbr`, `created_at`
+- **RLS**: Users can only CRUD their own watches (filtered by `user_id = auth.uid()`)
+- **Constraints**: Unique constraint on `(user_id, term, class_nbr)` to prevent duplicates
+- **Indexes**: `user_id`, `class_nbr`
 
 #### `class_states`
 Caches current state of monitored classes to detect changes.
-```sql
-- id (uuid, primary key)
-- term (text)
-- subject (text)
-- catalog_nbr (text)
-- class_nbr (text, unique)
-- instructor_name (text)
-- seats_available (integer)
-- seats_capacity (integer)
-- last_checked_at (timestamp)
-- last_changed_at (timestamp)
-```
+- **Columns**: `id`, `term`, `subject`, `catalog_nbr`, `class_nbr`, `title`, `instructor_name`, `seats_available`, `seats_capacity`, `location`, `meeting_times`, `last_checked_at`, `last_changed_at`
+- **RLS**: Authenticated users can read all states; only service_role can write
+- **Constraints**: Unique `class_nbr` (section numbers are globally unique)
+- **Indexes**: `class_nbr`, `last_checked_at`
+- **Triggers**: Auto-updates `last_changed_at` when seats or instructor changes
 
 #### `notifications_sent`
 Tracks which notifications have been sent to avoid duplicates.
-```sql
-- id (uuid, primary key)
-- class_watch_id (uuid, foreign key)
-- notification_type (text) -- "seat_available" or "instructor_assigned"
-- sent_at (timestamp)
+- **Columns**: `id`, `class_watch_id`, `notification_type`, `sent_at`
+- **RLS**: Users can view notifications for their own watches; only service_role can insert
+- **Constraints**: Unique `(class_watch_id, notification_type)` to prevent duplicate notifications
+- **Indexes**: `class_watch_id`
+
+### Realtime Subscriptions
+
+The dashboard uses Supabase Realtime to live-update class states:
+
+```typescript
+// lib/hooks/useRealtimeClassStates.ts
+// Subscribes to postgres_changes events on class_states table
+// Filters by user's watched class numbers
+// Auto-updates UI when seats or instructor changes
 ```
+
+**Example usage in dashboard:**
+```typescript
+const { classStates, loading } = useRealtimeClassStates({
+  classNumbers: ['12431', '12432'],
+  enabled: true,
+})
+```
+
+### API Routes
+
+**GET /api/class-watches**
+- Fetch all class watches for authenticated user
+- Returns watches with joined class_states data
+- Protected by Supabase auth (requires valid session)
+
+**POST /api/class-watches**
+- Add new class watch
+- Body: `{ term, subject, catalog_nbr, class_nbr }`
+- Validates section number (5 digits) and term (4 digits)
+- Returns 409 if duplicate watch exists
+
+**DELETE /api/class-watches?id={watch_id}**
+- Remove a class watch
+- RLS ensures user can only delete their own watches
 
 ## Cloudflare Workers Cron Configuration
 
