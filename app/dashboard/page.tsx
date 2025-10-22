@@ -133,7 +133,7 @@ export default function DashboardPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Class Watch Dashboard</h1>
         <p className="text-zinc-600 dark:text-zinc-400">
-          Monitor ASU classes for seat availability and instructor assignments.
+          Monitor University classes for seat availability and instructor assignments.
         </p>
       </div>
 

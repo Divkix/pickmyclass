@@ -81,7 +81,7 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
                 pattern="\d{5}"
                 title="Must be a 5-digit section number"
               />
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">5-digit ASU section number</p>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">5-digit section number</p>
             </div>
 
             <div className="space-y-2">
