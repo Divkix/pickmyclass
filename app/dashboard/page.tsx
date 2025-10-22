@@ -14,6 +14,14 @@ type ClassWatch = Database['public']['Tables']['class_watches']['Row'] & {
   class_state?: Database['public']['Tables']['class_states']['Row'] | null
 }
 
+interface GetClassWatchesResponse {
+  watches: ClassWatch[]
+}
+
+interface ErrorResponse {
+  error: string
+}
+
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth()
   const [watches, setWatches] = useState<ClassWatch[]>([])
@@ -47,7 +55,7 @@ export default function DashboardPage() {
         throw new Error('Failed to fetch class watches')
       }
 
-      const data = await response.json()
+      const data = (await response.json()) as GetClassWatchesResponse
       setWatches(data.watches || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load class watches')
@@ -76,7 +84,7 @@ export default function DashboardPage() {
     })
 
     if (!response.ok) {
-      const data = await response.json()
+      const data = (await response.json()) as ErrorResponse
       throw new Error(data.error || 'Failed to add class watch')
     }
 

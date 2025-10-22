@@ -4,6 +4,13 @@ import { Database } from '@/lib/supabase/database.types'
 
 type ClassState = Database['public']['Tables']['class_states']['Row']
 
+interface CreateClassWatchBody {
+  term: string
+  subject: string
+  catalog_nbr: string
+  class_nbr: string
+}
+
 /**
  * GET /api/class-watches
  * Fetch all class watches for the authenticated user with joined class_states data
@@ -87,7 +94,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json()
+    const body = (await request.json()) as CreateClassWatchBody
     const { term, subject, catalog_nbr, class_nbr } = body
 
     // Validation
