@@ -67,6 +67,54 @@ Required Supabase configuration (see `.env.example`):
 
 **Build Handling**: Both client and server Supabase utilities use placeholder values during build when env vars are unavailable, preventing build failures.
 
+### Database Access via Hyperdrive
+- **Hyperdrive**: Cloudflare's connection pooling service for PostgreSQL/MySQL databases
+- **Purpose**: Provides fast, pooled connections from Workers to Supabase PostgreSQL
+- **Utility**: `lib/db/hyperdrive.ts` - Helper functions for querying via Hyperdrive
+- **When to use**:
+  - ✅ Cron jobs that query the database
+  - ✅ API routes needing direct SQL access
+  - ✅ High-frequency database operations
+- **When NOT to use**:
+  - ❌ Supabase Auth operations (use Supabase client)
+  - ❌ Supabase Storage/Realtime (use Supabase client)
+  - ❌ Operations requiring Row Level Security
+
+**Setup Instructions**:
+1. Create Hyperdrive config via Cloudflare Dashboard:
+   - Go to Workers & Pages → Hyperdrive → Create Configuration
+   - Name: `pickmyclass-db`
+   - Connection string: `postgresql://postgres:[password]@db.[project-id].supabase.co:5432/postgres`
+2. Add Hyperdrive binding to `wrangler.jsonc`:
+   ```jsonc
+   {
+     "hyperdrive": [
+       {
+         "binding": "HYPERDRIVE",
+         "id": "your-hyperdrive-id-here"
+       }
+     ]
+   }
+   ```
+3. Use in Workers code:
+   ```typescript
+   import { queryHyperdrive } from '@/lib/db/hyperdrive';
+
+   export async function GET(request: Request, { env }: { env: { HYPERDRIVE: Hyperdrive } }) {
+     const result = await queryHyperdrive(
+       env.HYPERDRIVE,
+       'SELECT * FROM class_watches WHERE user_id = $1',
+       [userId]
+     );
+     return Response.json(result.rows);
+   }
+   ```
+
+**Connection Details**:
+- Supabase connection string: `postgresql://postgres:puhdip-vunfYk-xanhi4@db.osopxwuebsefhoxgeojh.supabase.co:5432/postgres`
+- Driver: `pg` (node-postgres) version 8.16.3+
+- Connection pool limit: 5 (Workers have 6 connection limit)
+
 ### Project Structure
 ```
 app/                    # Next.js App Router pages
