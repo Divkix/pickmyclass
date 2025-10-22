@@ -8,5 +8,12 @@
     "assets": {
         "directory": ".open-next/assets",
         "binding": "ASSETS"
-    }
+    },
+    "hyperdrive": [
+        {
+            "binding": "HYPERDRIVE",
+            "id": "cbaea9f7980549aa883ed6fec281af43",
+            "localConnectionString": "postgresql://postgres:puhdip-vunfYk-xanhi4@db.osopxwuebsefhoxgeojh.supabase.co:5432/postgres"
+        }
+    ]
 }
