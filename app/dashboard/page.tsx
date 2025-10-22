@@ -1,15 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/lib/contexts/AuthContext'
 import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates'
 import { Header } from '@/components/Header'
 import { ClassWatchCard } from '@/components/ClassWatchCard'
-import { AddClassWatch } from '@/components/AddClassWatch'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert } from '@/components/ui/alert'
 import { Database } from '@/lib/supabase/database.types'
 import { redirect } from 'next/navigation'
+import { Plus } from 'lucide-react'
 
 type ClassWatch = Database['public']['Tables']['class_watches']['Row'] & {
   class_state?: Database['public']['Tables']['class_states']['Row'] | null
@@ -17,10 +19,6 @@ type ClassWatch = Database['public']['Tables']['class_watches']['Row'] & {
 
 interface GetClassWatchesResponse {
   watches: ClassWatch[]
-}
-
-interface ErrorResponse {
-  error: string
 }
 
 export default function DashboardPage() {
@@ -70,28 +68,6 @@ export default function DashboardPage() {
       fetchWatches()
     }
   }, [user])
-
-  // Handle adding a new watch
-  const handleAddWatch = async (watchData: {
-    term: string
-    subject: string
-    catalog_nbr: string
-    class_nbr: string
-  }) => {
-    const response = await fetch('/api/class-watches', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(watchData),
-    })
-
-    if (!response.ok) {
-      const data = (await response.json()) as ErrorResponse
-      throw new Error(data.error || 'Failed to add class watch')
-    }
-
-    // Refresh the watches list
-    await fetchWatches()
-  }
 
   // Handle deleting a watch
   const handleDeleteWatch = async (watchId: string) => {
@@ -143,9 +119,14 @@ export default function DashboardPage() {
         </Alert>
       )}
 
-      {/* Add new watch form */}
+      {/* Add new watch button */}
       <div className="mb-6">
-        <AddClassWatch onAdd={handleAddWatch} />
+        <Link href="/dashboard/add">
+          <Button className="w-full gap-2">
+            <Plus className="h-4 w-4" />
+            Add Class to Watch
+          </Button>
+        </Link>
       </div>
 
       {/* Loading state */}

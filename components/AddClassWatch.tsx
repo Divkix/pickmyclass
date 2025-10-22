@@ -12,7 +12,6 @@ interface AddClassWatchProps {
 }
 
 export function AddClassWatch({ onAdd }: AddClassWatchProps) {
-  const [isOpen, setIsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -32,7 +31,6 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
       await onAdd(formData)
       // Reset form on success
       setFormData({ term: '', subject: '', catalog_nbr: '', class_nbr: '' })
-      setIsOpen(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add class watch')
     } finally {
@@ -42,14 +40,6 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
 
   const handleChange = (field: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }))
-  }
-
-  if (!isOpen) {
-    return (
-      <Button onClick={() => setIsOpen(true)} className="w-full">
-        + Add Class to Watch
-      </Button>
-    )
   }
 
   return (
@@ -128,23 +118,9 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
-              {isSubmitting ? 'Adding...' : 'Add Watch'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsOpen(false)
-                setError(null)
-                setFormData({ term: '', subject: '', catalog_nbr: '', class_nbr: '' })
-              }}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-          </div>
+          <Button type="submit" disabled={isSubmitting} className="w-full">
+            {isSubmitting ? 'Adding...' : 'Add Watch'}
+          </Button>
         </form>
       </CardContent>
     </Card>
