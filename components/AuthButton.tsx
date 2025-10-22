@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/contexts/AuthContext'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function AuthButton() {
   const { user, loading, signOut } = useAuth()
@@ -26,7 +28,7 @@ export default function AuthButton() {
   if (loading) {
     return (
       <div className="flex items-center gap-4">
-        <div className="h-10 w-24 animate-pulse rounded-md bg-zinc-200 dark:bg-zinc-800" />
+        <Skeleton className="h-10 w-24" />
       </div>
     )
   }
@@ -34,17 +36,15 @@ export default function AuthButton() {
   if (!user) {
     return (
       <div className="flex items-center gap-4">
-        <Link
-          href="/login"
-          className="rounded-md px-4 py-2 text-sm font-medium text-zinc-950 hover:text-zinc-700 dark:text-zinc-50 dark:hover:text-zinc-300"
-        >
-          Sign in
+        <Link href="/login">
+          <Button variant="ghost">
+            Sign in
+          </Button>
         </Link>
-        <Link
-          href="/register"
-          className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
-        >
-          Sign up
+        <Link href="/register">
+          <Button>
+            Sign up
+          </Button>
         </Link>
       </div>
     )
@@ -53,17 +53,17 @@ export default function AuthButton() {
   return (
     <div className="flex items-center gap-4">
       <div className="flex items-center gap-2">
-        <span className="text-sm text-zinc-600 dark:text-zinc-400">
+        <span className="text-sm text-muted-foreground">
           {user.email}
         </span>
       </div>
-      <button
+      <Button
         onClick={handleSignOut}
         disabled={signingOut}
-        className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-800"
+        variant="outline"
       >
         {signingOut ? 'Signing out...' : 'Sign out'}
-      </button>
+      </Button>
     </div>
   )
 }
