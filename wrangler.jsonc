@@ -15,5 +15,12 @@
             "id": "cbaea9f7980549aa883ed6fec281af43",
             "localConnectionString": "postgresql://postgres:puhdip-vunfYk-xanhi4@db.osopxwuebsefhoxgeojh.supabase.co:5432/postgres"
         }
-    ]
+    ],
+    "observability": {
+        "logs": {
+            "enabled": true,
+            "head_sampling_rate": 1,
+            "invocation_logs": true
+        }
+    }
 }
