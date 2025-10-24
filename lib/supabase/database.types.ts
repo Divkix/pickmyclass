@@ -120,18 +120,21 @@ export type Database = {
       notifications_sent: {
         Row: {
           class_watch_id: string
+          expires_at: string
           id: string
           notification_type: string
           sent_at: string
         }
         Insert: {
           class_watch_id: string
+          expires_at?: string
           id?: string
           notification_type: string
           sent_at?: string
         }
         Update: {
           class_watch_id?: string
+          expires_at?: string
           id?: string
           notification_type?: string
           sent_at?: string

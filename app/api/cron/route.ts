@@ -15,6 +15,7 @@ import {
   getClassWatchers,
   hasNotificationBeenSent,
   recordNotificationSent,
+  resetNotificationsForSection,
 } from '@/lib/db/queries'
 import {
   sendSeatAvailableEmail,
@@ -133,10 +134,20 @@ async function processClassSection(
     const newData = scraperResponse.data
 
     // Step 3: Detect changes
+    let seatsFilled = false
     let seatBecameAvailable = false
     let instructorAssigned = false
 
     if (oldState) {
+      // Detect seats filling: was > 0, now = 0
+      // This triggers notification reset for hybrid system (Safety Net #1)
+      if (oldState.seats_available > 0 && (newData.seats_available ?? 0) === 0) {
+        seatsFilled = true
+        console.log(
+          `[Cron] 🔄 Seats filled in ${watch.class_nbr} - will reset notifications`
+        )
+      }
+
       // Detect seat availability change: was 0, now > 0
       if (oldState.seats_available === 0 && (newData.seats_available ?? 0) > 0) {
         seatBecameAvailable = true
@@ -155,6 +166,17 @@ async function processClassSection(
         console.log(
           `[Cron] 👨‍🏫 Instructor assigned in ${watch.class_nbr}: ${newData.instructor}`
         )
+      }
+    }
+
+    // Step 3A: Reset notifications if seats filled
+    if (seatsFilled) {
+      try {
+        await resetNotificationsForSection(watch.class_nbr, 'seat_available')
+        console.log(`[Cron] 🧹 Reset seat_available notifications for ${watch.class_nbr}`)
+      } catch (error) {
+        console.error(`[Cron] Error resetting notifications for ${watch.class_nbr}:`, error)
+        // Continue processing - don't fail entire job due to reset errors
       }
     }
 

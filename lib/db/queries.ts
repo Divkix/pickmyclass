@@ -40,10 +40,11 @@ export async function getClassWatchers(classNbr: string): Promise<ClassWatcher[]
 
 /**
  * Check if a notification has already been sent for a class watch
+ * Now respects expiration timestamps - expired notifications are ignored
  *
  * @param watchId - Class watch ID
  * @param notificationType - Type of notification ('seat_available' | 'instructor_assigned')
- * @returns True if notification was already sent
+ * @returns True if notification was already sent AND not expired
  */
 export async function hasNotificationBeenSent(
   watchId: string,
@@ -56,6 +57,7 @@ export async function hasNotificationBeenSent(
     .select('id')
     .eq('class_watch_id', watchId)
     .eq('notification_type', notificationType)
+    .gt('expires_at', new Date().toISOString()) // Only check non-expired notifications
     .single()
 
   if (error && error.code !== 'PGRST116') {
@@ -69,6 +71,7 @@ export async function hasNotificationBeenSent(
 
 /**
  * Record that a notification has been sent
+ * Sets expiration to 24 hours from now
  *
  * @param watchId - Class watch ID
  * @param notificationType - Type of notification ('seat_available' | 'instructor_assigned')
@@ -79,9 +82,13 @@ export async function recordNotificationSent(
 ): Promise<void> {
   const supabase = getServiceClient()
 
+  const expiresAt = new Date()
+  expiresAt.setHours(expiresAt.getHours() + 24) // 24 hours from now
+
   const { error } = await supabase.from('notifications_sent').insert({
     class_watch_id: watchId,
     notification_type: notificationType,
+    expires_at: expiresAt.toISOString(),
   })
 
   if (error) {
@@ -97,5 +104,56 @@ export async function recordNotificationSent(
     throw new Error(`Failed to record notification: ${error.message}`)
   }
 
-  console.log(`[DB] Recorded ${notificationType} notification for watch ${watchId}`)
+  console.log(
+    `[DB] Recorded ${notificationType} notification for watch ${watchId} (expires: ${expiresAt.toISOString()})`
+  )
+}
+
+/**
+ * Reset seat_available notifications for a specific class section
+ * Called when seats fill back to zero, allowing users to be re-notified
+ * when seats open again.
+ *
+ * @param classNbr - Section number (e.g., "12431")
+ * @param notificationType - Type of notification to reset (default: 'seat_available')
+ */
+export async function resetNotificationsForSection(
+  classNbr: string,
+  notificationType: 'seat_available' | 'instructor_assigned' = 'seat_available'
+): Promise<void> {
+  const supabase = getServiceClient()
+
+  // Get all watch IDs for this section
+  const { data: watches, error: watchError } = await supabase
+    .from('class_watches')
+    .select('id')
+    .eq('class_nbr', classNbr)
+
+  if (watchError) {
+    console.error(`[DB] Error fetching watches for reset:`, watchError)
+    throw new Error(`Failed to fetch watches: ${watchError.message}`)
+  }
+
+  if (!watches || watches.length === 0) {
+    console.log(`[DB] No watches found for section ${classNbr}, nothing to reset`)
+    return
+  }
+
+  const watchIds = watches.map((w) => w.id)
+
+  // Delete notification records for all watchers of this section
+  const { error: deleteError } = await supabase
+    .from('notifications_sent')
+    .delete()
+    .in('class_watch_id', watchIds)
+    .eq('notification_type', notificationType)
+
+  if (deleteError) {
+    console.error('[DB] Error resetting notifications:', deleteError)
+    throw new Error(`Failed to reset notifications: ${deleteError.message}`)
+  }
+
+  console.log(
+    `[DB] Reset ${notificationType} notifications for ${watchIds.length} watchers of section ${classNbr}`
+  )
 }
