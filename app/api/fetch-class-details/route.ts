@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 
 /**
  * API endpoint for fetching class details from section number and term.
  *
  * Integrates with the scraper service to fetch real-time class data from ASU.
  * Falls back to stub data if scraper is not configured (development mode).
+ *
+ * Also persists scraped data to class_states table for immediate dashboard display.
  */
 
 interface FetchClassDetailsRequest {
@@ -16,6 +19,11 @@ interface FetchClassDetailsResponse {
   subject: string
   catalog_nbr: string
   title: string
+  instructor_name?: string | null
+  seats_available?: number
+  seats_capacity?: number
+  location?: string | null
+  meeting_times?: string | null
 }
 
 interface ScraperResponse {
@@ -95,11 +103,53 @@ export async function POST(request: NextRequest) {
 
         console.log('[API] Successfully fetched class details from scraper')
 
+        // Persist scraped data to class_states table for immediate dashboard display
+        try {
+          const supabaseServiceRole = createServiceRoleClient()
+
+          const { error: upsertError } = await supabaseServiceRole
+            .from('class_states')
+            .upsert(
+              {
+                term,
+                subject: scraperData.data.subject,
+                catalog_nbr: scraperData.data.catalog_nbr,
+                class_nbr,
+                title: scraperData.data.title,
+                instructor_name: scraperData.data.instructor || null,
+                seats_available: scraperData.data.seats_available || 0,
+                seats_capacity: scraperData.data.seats_capacity || 0,
+                location: scraperData.data.location || null,
+                meeting_times: scraperData.data.meeting_times || null,
+                last_checked_at: new Date().toISOString(),
+                last_changed_at: new Date().toISOString(),
+              },
+              {
+                onConflict: 'class_nbr', // Update if class_nbr already exists
+              }
+            )
+
+          if (upsertError) {
+            console.error('[API] Failed to upsert to class_states:', upsertError)
+            // Continue anyway - this is not critical for the user's immediate request
+          } else {
+            console.log('[API] Successfully persisted class state to database')
+          }
+        } catch (dbError) {
+          console.error('[API] Error persisting to database:', dbError)
+          // Continue anyway - graceful degradation
+        }
+
         // Return the scraped data
         const response: FetchClassDetailsResponse = {
           subject: scraperData.data.subject,
           catalog_nbr: scraperData.data.catalog_nbr,
           title: scraperData.data.title,
+          instructor_name: scraperData.data.instructor,
+          seats_available: scraperData.data.seats_available,
+          seats_capacity: scraperData.data.seats_capacity,
+          location: scraperData.data.location,
+          meeting_times: scraperData.data.meeting_times,
         }
 
         return NextResponse.json(response, { status: 200 })
