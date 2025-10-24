@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
+import {
+  checkRateLimit,
+  getClientIP,
+  createRateLimitResponse,
+  addRateLimitHeaders,
+  RATE_LIMITS,
+} from '@/lib/rate-limit'
+import { z } from 'zod'
 
 /**
  * API endpoint for fetching class details from section number and term.
@@ -10,10 +18,19 @@ import { createServiceRoleClient } from '@/lib/supabase/server'
  * Also persists scraped data to class_states table for immediate dashboard display.
  */
 
-interface FetchClassDetailsRequest {
-  term: string
-  class_nbr: string
-}
+/**
+ * Validation schema
+ */
+const fetchClassDetailsSchema = z.object({
+  term: z
+    .string()
+    .regex(/^\d{4}$/, 'Term must be a 4-digit code (e.g., "2261")')
+    .min(1, 'Term is required'),
+  class_nbr: z
+    .string()
+    .regex(/^\d{5}$/, 'Section number must be a 5-digit code (e.g., "12431")')
+    .min(1, 'Section number is required'),
+})
 
 interface FetchClassDetailsResponse {
   subject: string
@@ -42,32 +59,37 @@ interface ScraperResponse {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limiting check (use POST limits for scraper endpoint)
+  const clientIP = getClientIP(request)
+  const rateLimitResult = checkRateLimit(clientIP, RATE_LIMITS.POST)
+
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(
+      rateLimitResult.remaining,
+      rateLimitResult.resetAt,
+      RATE_LIMITS.POST.maxRequests
+    )
+  }
+
   try {
-    const body = (await request.json()) as FetchClassDetailsRequest
+    // Parse and validate request body
+    const body = await request.json()
+    const validation = fetchClassDetailsSchema.safeParse(body)
 
-    const { term, class_nbr } = body
-
-    // Validation
-    if (!term || !class_nbr) {
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Missing required fields: term and class_nbr' },
+        {
+          error: 'Invalid input',
+          details: validation.error.issues.map((issue) => ({
+            field: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
         { status: 400 }
       )
     }
 
-    if (!/^\d{4}$/.test(term)) {
-      return NextResponse.json(
-        { error: 'Term must be a 4-digit code' },
-        { status: 400 }
-      )
-    }
-
-    if (!/^\d{5}$/.test(class_nbr)) {
-      return NextResponse.json(
-        { error: 'Section number must be a 5-digit code' },
-        { status: 400 }
-      )
-    }
+    const { term, class_nbr } = validation.data
 
     // Check if scraper service is configured
     const scraperUrl = process.env.SCRAPER_URL
@@ -152,7 +174,14 @@ export async function POST(request: NextRequest) {
           meeting_times: scraperData.data.meeting_times,
         }
 
-        return NextResponse.json(response, { status: 200 })
+        const successResponse = NextResponse.json(response, { status: 200 })
+
+        return addRateLimitHeaders(
+          successResponse,
+          rateLimitResult.remaining,
+          rateLimitResult.resetAt,
+          RATE_LIMITS.POST.maxRequests
+        )
       } catch (error) {
         // If scraper fails, log and fall through to stub
         console.error('[API] Scraper service failed, falling back to stub:', error)
@@ -171,7 +200,14 @@ export async function POST(request: NextRequest) {
     // Simulate network delay
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    return NextResponse.json(stubResponse, { status: 200 })
+    const response = NextResponse.json(stubResponse, { status: 200 })
+
+    return addRateLimitHeaders(
+      response,
+      rateLimitResult.remaining,
+      rateLimitResult.resetAt,
+      RATE_LIMITS.POST.maxRequests
+    )
   } catch (error) {
     console.error('Error fetching class details:', error)
     return NextResponse.json(

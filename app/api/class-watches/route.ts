@@ -1,13 +1,34 @@
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { Database } from '@/lib/supabase/database.types'
+import {
+  checkRateLimit,
+  getClientIP,
+  createRateLimitResponse,
+  addRateLimitHeaders,
+  RATE_LIMITS,
+} from '@/lib/rate-limit'
+import { z } from 'zod'
 
 type ClassState = Database['public']['Tables']['class_states']['Row']
 
-interface CreateClassWatchBody {
-  term: string
-  class_nbr: string
-}
+/**
+ * Validation schemas
+ */
+const createClassWatchSchema = z.object({
+  term: z
+    .string()
+    .regex(/^\d{4}$/, 'Term must be a 4-digit code (e.g., "2261")')
+    .min(1, 'Term is required'),
+  class_nbr: z
+    .string()
+    .regex(/^\d{5}$/, 'Class number must be a 5-digit code (e.g., "12431")')
+    .min(1, 'Class number is required'),
+})
+
+const deleteClassWatchSchema = z.object({
+  id: z.string().uuid('Watch ID must be a valid UUID'),
+})
 
 interface ScraperResponse {
   success: boolean
@@ -24,11 +45,26 @@ interface ScraperResponse {
   error?: string
 }
 
+// Get max watches per user from env (default: 10)
+const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10)
+
 /**
  * GET /api/class-watches
  * Fetch all class watches for the authenticated user with joined class_states data
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Rate limiting check
+  const clientIP = getClientIP(request)
+  const rateLimitResult = checkRateLimit(clientIP, RATE_LIMITS.GET)
+
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(
+      rateLimitResult.remaining,
+      rateLimitResult.resetAt,
+      RATE_LIMITS.GET.maxRequests
+    )
+  }
+
   const supabase = await createClient()
 
   // Check authentication
@@ -81,7 +117,15 @@ export async function GET() {
       class_state: statesMap[watch.class_nbr] || null,
     }))
 
-    return NextResponse.json({ watches: watchesWithStates })
+    const response = NextResponse.json({ watches: watchesWithStates })
+
+    // Add rate limit headers to response
+    return addRateLimitHeaders(
+      response,
+      rateLimitResult.remaining,
+      rateLimitResult.resetAt,
+      RATE_LIMITS.GET.maxRequests
+    )
   } catch (error) {
     console.error('Error fetching class watches:', error)
     return NextResponse.json({ error: 'Failed to fetch class watches' }, { status: 500 })
@@ -100,6 +144,18 @@ export async function GET() {
  * Body: { term, class_nbr }
  */
 export async function POST(request: NextRequest) {
+  // Rate limiting check
+  const clientIP = getClientIP(request)
+  const rateLimitResult = checkRateLimit(clientIP, RATE_LIMITS.POST)
+
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(
+      rateLimitResult.remaining,
+      rateLimitResult.resetAt,
+      RATE_LIMITS.POST.maxRequests
+    )
+  }
+
   const supabase = await createClient()
 
   // Check authentication
@@ -113,32 +169,51 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json()) as CreateClassWatchBody
-    const { term, class_nbr } = body
+    // Check max watches per user limit
+    const { count: watchCount, error: countError } = await supabase
+      .from('class_watches')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
 
-    // Validation
-    if (!term || !class_nbr) {
+    if (countError) {
+      console.error('Error counting user watches:', countError)
+      throw countError
+    }
+
+    if (watchCount !== null && watchCount >= MAX_WATCHES_PER_USER) {
+      const response = NextResponse.json(
+        {
+          error: `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
+        },
+        { status: 429 }
+      )
+
+      return addRateLimitHeaders(
+        response,
+        rateLimitResult.remaining,
+        rateLimitResult.resetAt,
+        RATE_LIMITS.POST.maxRequests
+      )
+    }
+
+    // Parse and validate request body
+    const body = await request.json()
+    const validation = createClassWatchSchema.safeParse(body)
+
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Missing required fields: term, class_nbr' },
+        {
+          error: 'Invalid input',
+          details: validation.error.issues.map((issue) => ({
+            field: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
         { status: 400 }
       )
     }
 
-    // Validate section number format (ASU uses 5-digit numbers)
-    if (!/^\d{5}$/.test(class_nbr)) {
-      return NextResponse.json(
-        { error: 'Invalid section number. Must be 5 digits (e.g., "12431")' },
-        { status: 400 }
-      )
-    }
-
-    // Validate term format (e.g., "2261")
-    if (!/^\d{4}$/.test(term)) {
-      return NextResponse.json(
-        { error: 'Invalid term format. Must be 4 digits (e.g., "2261")' },
-        { status: 400 }
-      )
-    }
+    const { term, class_nbr } = validation.data
 
     // Step 1: Fetch class details from scraper
     console.log(`[API] Fetching class details for section ${class_nbr}, term ${term}`)
@@ -258,7 +333,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ watch: watchData }, { status: 201 })
+    const response = NextResponse.json({ watch: watchData }, { status: 201 })
+
+    return addRateLimitHeaders(
+      response,
+      rateLimitResult.remaining,
+      rateLimitResult.resetAt,
+      RATE_LIMITS.POST.maxRequests
+    )
   } catch (error) {
     console.error('Error creating class watch:', error)
     return NextResponse.json({ error: 'Failed to create class watch' }, { status: 500 })
@@ -270,6 +352,18 @@ export async function POST(request: NextRequest) {
  * Delete a class watch for the authenticated user
  */
 export async function DELETE(request: NextRequest) {
+  // Rate limiting check
+  const clientIP = getClientIP(request)
+  const rateLimitResult = checkRateLimit(clientIP, RATE_LIMITS.DELETE)
+
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(
+      rateLimitResult.remaining,
+      rateLimitResult.resetAt,
+      RATE_LIMITS.DELETE.maxRequests
+    )
+  }
+
   const supabase = await createClient()
 
   // Check authentication
@@ -286,16 +380,35 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const watchId = searchParams.get('id')
 
-    if (!watchId) {
-      return NextResponse.json({ error: 'Missing watch ID' }, { status: 400 })
+    // Validate watch ID
+    const validation = deleteClassWatchSchema.safeParse({ id: watchId })
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: validation.error.issues.map((issue) => ({
+            field: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+        { status: 400 }
+      )
     }
 
     // Delete the watch (RLS ensures user can only delete their own)
-    const { error } = await supabase.from('class_watches').delete().eq('id', watchId).eq('user_id', user.id)
+    const { error } = await supabase.from('class_watches').delete().eq('id', validation.data.id).eq('user_id', user.id)
 
     if (error) throw error
 
-    return NextResponse.json({ success: true })
+    const response = NextResponse.json({ success: true })
+
+    return addRateLimitHeaders(
+      response,
+      rateLimitResult.remaining,
+      rateLimitResult.resetAt,
+      RATE_LIMITS.DELETE.maxRequests
+    )
   } catch (error) {
     console.error('Error deleting class watch:', error)
     return NextResponse.json({ error: 'Failed to delete class watch' }, { status: 500 })
