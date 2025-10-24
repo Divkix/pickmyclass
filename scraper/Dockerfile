@@ -1,3 +1,26 @@
+# ===================================
+# Stage 1: Builder
+# ===================================
+FROM oven/bun:1.3-slim AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json bun.lock* ./
+
+# Install ALL dependencies (including devDependencies for building)
+RUN bun install --frozen-lockfile
+
+# Copy source code and config
+COPY src ./src
+COPY tsconfig.json ./
+
+# Build TypeScript to JavaScript
+RUN bun run build
+
+# ===================================
+# Stage 2: Runtime
+# ===================================
 FROM oven/bun:1.3-slim
 
 # Install Chromium and dependencies for Puppeteer
@@ -29,24 +52,16 @@ RUN apt-get update && apt-get install -y \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Create app directory
 WORKDIR /app
 
 # Copy package files
 COPY package.json bun.lock* ./
 
-# Install production dependencies
+# Install ONLY production dependencies
 RUN bun install --frozen-lockfile --production
 
-# Copy source code
-COPY src ./src
-COPY tsconfig.json ./
-
-# Build TypeScript
-RUN bun run build
-
-# Remove dev dependencies and source files to reduce image size
-RUN rm -rf src tsconfig.json
+# Copy compiled JavaScript from builder stage
+COPY --from=builder /app/dist ./dist
 
 # Create non-root user for security
 RUN useradd -m -u 1001 scraper && \
