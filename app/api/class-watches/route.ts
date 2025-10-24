@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { Database } from '@/lib/supabase/database.types'
 
@@ -6,9 +6,22 @@ type ClassState = Database['public']['Tables']['class_states']['Row']
 
 interface CreateClassWatchBody {
   term: string
-  subject: string
-  catalog_nbr: string
   class_nbr: string
+}
+
+interface ScraperResponse {
+  success: boolean
+  data?: {
+    subject: string
+    catalog_nbr: string
+    title: string
+    instructor?: string
+    seats_available?: number
+    seats_capacity?: number
+    location?: string
+    meeting_times?: string
+  }
+  error?: string
 }
 
 /**
@@ -78,7 +91,13 @@ export async function GET() {
 /**
  * POST /api/class-watches
  * Create a new class watch for the authenticated user
- * Body: { term, subject, catalog_nbr, class_nbr }
+ *
+ * This endpoint:
+ * 1. Calls the scraper service to fetch class details
+ * 2. Creates the class watch with scraped data
+ * 3. Persists class state to database
+ *
+ * Body: { term, class_nbr }
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -95,12 +114,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = (await request.json()) as CreateClassWatchBody
-    const { term, subject, catalog_nbr, class_nbr } = body
+    const { term, class_nbr } = body
 
     // Validation
-    if (!term || !subject || !catalog_nbr || !class_nbr) {
+    if (!term || !class_nbr) {
       return NextResponse.json(
-        { error: 'Missing required fields: term, subject, catalog_nbr, class_nbr' },
+        { error: 'Missing required fields: term, class_nbr' },
         { status: 400 }
       )
     }
@@ -121,31 +140,128 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Insert class watch
-    const { data, error } = await supabase
+    // Step 1: Fetch class details from scraper
+    console.log(`[API] Fetching class details for section ${class_nbr}, term ${term}`)
+
+    const scraperUrl = process.env.SCRAPER_URL
+    const scraperToken = process.env.SCRAPER_SECRET_TOKEN
+
+    let subject: string
+    let catalog_nbr: string
+    let title: string
+    let scrapedData: ScraperResponse['data'] | null = null
+
+    if (scraperUrl && scraperToken) {
+      try {
+        const scraperResponse = await fetch(`${scraperUrl}/scrape`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${scraperToken}`,
+          },
+          body: JSON.stringify({ sectionNumber: class_nbr, term }),
+          signal: AbortSignal.timeout(60000), // 60 second timeout
+        })
+
+        if (!scraperResponse.ok) {
+          const errorText = await scraperResponse.text()
+          console.error(`[API] Scraper service error (${scraperResponse.status}): ${errorText}`)
+          throw new Error(`Scraper service returned ${scraperResponse.status}`)
+        }
+
+        const scraperData = (await scraperResponse.json()) as ScraperResponse
+
+        if (!scraperData.success || !scraperData.data) {
+          console.error('[API] Scraper returned unsuccessful response:', scraperData.error)
+          throw new Error(scraperData.error || 'Scraper returned no data')
+        }
+
+        console.log('[API] Successfully fetched class details from scraper')
+        scrapedData = scraperData.data
+        subject = scraperData.data.subject
+        catalog_nbr = scraperData.data.catalog_nbr
+        title = scraperData.data.title
+      } catch (error) {
+        console.error('[API] Failed to fetch from scraper:', error)
+        return NextResponse.json(
+          { error: 'Failed to fetch class details. Please verify the section number and try again.' },
+          { status: 500 }
+        )
+      }
+    } else {
+      // Development fallback
+      console.log('[API] Scraper not configured, using stub data')
+      subject = 'CSE'
+      catalog_nbr = '240'
+      title = 'Introduction to Computer Science'
+    }
+
+    // Step 2: Create class watch
+    const { data: watchData, error: insertError } = await supabase
       .from('class_watches')
       .insert({
         user_id: user.id,
         term,
-        subject: subject.toUpperCase(), // Normalize to uppercase
+        subject: subject.toUpperCase(),
         catalog_nbr,
         class_nbr,
       })
       .select()
       .single()
 
-    if (error) {
+    if (insertError) {
       // Handle unique constraint violation
-      if (error.code === '23505') {
+      if (insertError.code === '23505') {
         return NextResponse.json(
           { error: 'You are already watching this class' },
           { status: 409 }
         )
       }
-      throw error
+      throw insertError
     }
 
-    return NextResponse.json({ watch: data }, { status: 201 })
+    console.log('[API] Successfully created class watch')
+
+    // Step 3: Persist class state if we have scraped data
+    if (scrapedData) {
+      try {
+        const supabaseServiceRole = createServiceRoleClient()
+
+        const { error: upsertError } = await supabaseServiceRole
+          .from('class_states')
+          .upsert(
+            {
+              term,
+              subject: scrapedData.subject,
+              catalog_nbr: scrapedData.catalog_nbr,
+              class_nbr,
+              title: scrapedData.title,
+              instructor_name: scrapedData.instructor || null,
+              seats_available: scrapedData.seats_available || 0,
+              seats_capacity: scrapedData.seats_capacity || 0,
+              location: scrapedData.location || null,
+              meeting_times: scrapedData.meeting_times || null,
+              last_checked_at: new Date().toISOString(),
+              last_changed_at: new Date().toISOString(),
+            },
+            {
+              onConflict: 'class_nbr',
+            }
+          )
+
+        if (upsertError) {
+          console.error('[API] Failed to upsert class state:', upsertError)
+          // Continue anyway - watch was created successfully
+        } else {
+          console.log('[API] Successfully persisted class state to database')
+        }
+      } catch (dbError) {
+        console.error('[API] Error persisting to database:', dbError)
+        // Continue anyway - watch was created successfully
+      }
+    }
+
+    return NextResponse.json({ watch: watchData }, { status: 201 })
   } catch (error) {
     console.error('Error creating class watch:', error)
     return NextResponse.json({ error: 'Failed to create class watch' }, { status: 500 })

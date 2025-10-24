@@ -29,8 +29,6 @@ export default function AddClassPage() {
   // Handle adding a new watch
   const handleAddWatch = async (watchData: {
     term: string
-    subject: string
-    catalog_nbr: string
     class_nbr: string
   }) => {
     const response = await fetch('/api/class-watches', {
