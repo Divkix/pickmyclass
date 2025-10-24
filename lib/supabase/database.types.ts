@@ -149,6 +149,39 @@ export type Database = {
           },
         ]
       }
+      user_profiles: {
+        Row: {
+          age_verified_at: string | null
+          agreed_to_terms_at: string | null
+          created_at: string
+          disabled_at: string | null
+          id: string
+          is_disabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          age_verified_at?: string | null
+          agreed_to_terms_at?: string | null
+          created_at?: string
+          disabled_at?: string | null
+          id?: string
+          is_disabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          age_verified_at?: string | null
+          agreed_to_terms_at?: string | null
+          created_at?: string
+          disabled_at?: string | null
+          id?: string
+          is_disabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

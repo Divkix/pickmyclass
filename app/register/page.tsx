@@ -17,6 +17,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [ageVerified, setAgeVerified] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -53,6 +55,18 @@ export default function RegisterPage() {
       return
     }
 
+    if (!ageVerified) {
+      setError('You must be 18 years or older to use this service')
+      setLoading(false)
+      return
+    }
+
+    if (!agreedToTerms) {
+      setError('You must agree to the Terms of Service and Privacy Policy')
+      setLoading(false)
+      return
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       setLoading(false)
@@ -83,6 +97,20 @@ export default function RegisterPage() {
         if (data.user.identities?.length === 0) {
           setError('This email is already registered. Please sign in.')
         } else {
+          // Update user profile with age verification and terms agreement
+          const { error: profileError } = await supabase
+            .from('user_profiles')
+            .update({
+              age_verified_at: new Date().toISOString(),
+              agreed_to_terms_at: new Date().toISOString(),
+            })
+            .eq('user_id', data.user.id)
+
+          if (profileError) {
+            console.error('Error updating profile:', profileError)
+            // Don't fail registration if profile update fails
+          }
+
           // Successfully registered
           router.push('/dashboard')
         }
@@ -149,6 +177,51 @@ export default function RegisterPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
                 />
+              </div>
+
+              <div className="space-y-4 pt-2">
+                <div className="flex items-start space-x-2">
+                  <input
+                    id="ageVerified"
+                    type="checkbox"
+                    checked={ageVerified}
+                    onChange={(e) => setAgeVerified(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-input"
+                    required
+                  />
+                  <Label htmlFor="ageVerified" className="text-sm font-normal cursor-pointer">
+                    I am 18 years or older and a resident of the United States
+                  </Label>
+                </div>
+
+                <div className="flex items-start space-x-2">
+                  <input
+                    id="agreedToTerms"
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-input"
+                    required
+                  />
+                  <Label htmlFor="agreedToTerms" className="text-sm font-normal cursor-pointer">
+                    I agree to the{' '}
+                    <Link
+                      href="/legal/terms"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                      target="_blank"
+                    >
+                      Terms of Service
+                    </Link>{' '}
+                    and{' '}
+                    <Link
+                      href="/legal/privacy"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                      target="_blank"
+                    >
+                      Privacy Policy
+                    </Link>
+                  </Label>
+                </div>
               </div>
             </div>
 

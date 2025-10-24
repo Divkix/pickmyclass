@@ -31,6 +31,14 @@ function LoginForm() {
     if (searchParams.get('password_reset') === 'true') {
       setSuccess('Password reset successfully! Please sign in with your new password.')
     }
+    // Check if account was deleted
+    if (searchParams.get('message')) {
+      setSuccess(searchParams.get('message')!)
+    }
+    // Check if account was disabled
+    if (searchParams.get('error') === 'account_disabled') {
+      setError('Your account has been disabled. If you believe this is an error, please contact support.')
+    }
   }, [searchParams])
 
   const handleLogin = async (e: React.FormEvent) => {

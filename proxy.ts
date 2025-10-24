@@ -35,10 +35,28 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Define public routes that don't require authentication
-  const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password']
+  const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/legal']
   const isPublicRoute = publicRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   )
+
+  // Check if user account is disabled (soft delete)
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('is_disabled')
+      .eq('user_id', user.id)
+      .single()
+
+    // If account is disabled, sign out and redirect to login
+    if (profile?.is_disabled) {
+      await supabase.auth.signOut()
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('error', 'account_disabled')
+      return NextResponse.redirect(url)
+    }
+  }
 
   // Redirect to login if accessing protected route while not authenticated
   if (!user && !isPublicRoute && request.nextUrl.pathname !== '/') {
@@ -48,7 +66,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Redirect to dashboard if accessing auth pages while already authenticated
-  if (user && isPublicRoute) {
+  if (user && isPublicRoute && !request.nextUrl.pathname.startsWith('/legal')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
