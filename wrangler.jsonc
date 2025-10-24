@@ -37,15 +37,19 @@
         "NOTIFICATION_FROM_EMAIL": "onboarding@resend.dev",
         "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.workers.dev"
     }
-    // IMPORTANT: Set these secrets via Cloudflare Dashboard or wrangler CLI:
-    // - NEXT_PUBLIC_SUPABASE_URL
+    // IMPORTANT: Set these via Cloudflare Dashboard (Workers & Pages → Settings → Variables):
+    //
+    // Plaintext Variables (Add as "Variable"):
+    // - NEXT_PUBLIC_SUPABASE_URL (your Supabase project URL)
+    // - SCRAPER_URL (your scraper service URL)
+    //
+    // Encrypted Secrets (Add as "Encrypt"):
     // - NEXT_PUBLIC_SUPABASE_ANON_KEY
     // - SUPABASE_SERVICE_ROLE_KEY
-    // - SCRAPER_URL
     // - SCRAPER_SECRET_TOKEN
     // - RESEND_API_KEY
     // - RESEND_WEBHOOK_SECRET
-    // - CRON_SECRET
+    // - CRON_SECRET (generate with: openssl rand -hex 32)
     // - SENTRY_DSN
     // - NEXT_PUBLIC_SENTRY_DSN
 }

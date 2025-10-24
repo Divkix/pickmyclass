@@ -165,14 +165,12 @@ See [`.env.example`](.env.example) for detailed descriptions.
 
 4. **Set Environment Variables**:
 
-   **Method 1: Cloudflare Dashboard (Recommended for secrets)**
+   **Method 1: Cloudflare Dashboard (Recommended)**
    - Go to Workers & Pages → Your Worker → Settings → Variables
    - Add these **encrypted secrets**:
      ```
-     NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
      NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
      SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
-     SCRAPER_URL=https://scraper.yourdomain.com
      SCRAPER_SECRET_TOKEN=your-token
      RESEND_API_KEY=re_xxx
      RESEND_WEBHOOK_SECRET=whsec_xxx
@@ -180,17 +178,25 @@ See [`.env.example`](.env.example) for detailed descriptions.
      SENTRY_DSN=https://...@sentry.io/...
      NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/...
      ```
+   - Add these **plaintext variables**:
+     ```
+     NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+     SCRAPER_URL=https://scraper.yourdomain.com
+     ```
 
    **Method 2: Wrangler CLI**
    ```bash
-   wrangler secret put NEXT_PUBLIC_SUPABASE_URL
+   # Secrets
    wrangler secret put NEXT_PUBLIC_SUPABASE_ANON_KEY
    wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+   wrangler secret put SCRAPER_SECRET_TOKEN
    wrangler secret put RESEND_API_KEY
    wrangler secret put RESEND_WEBHOOK_SECRET
    wrangler secret put CRON_SECRET
    wrangler secret put SENTRY_DSN
-   # ... etc
+   wrangler secret put NEXT_PUBLIC_SENTRY_DSN
+
+   # Plaintext vars go in wrangler.jsonc or Dashboard
    ```
 
 5. **Deploy**:

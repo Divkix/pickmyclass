@@ -101,10 +101,8 @@ Go to Workers & Pages → Your Worker → Settings → Variables
 Add these as **encrypted secrets**:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=<from Supabase dashboard>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<from Supabase dashboard>
 SUPABASE_SERVICE_ROLE_KEY=<from Supabase dashboard>
-SCRAPER_URL=https://scraper.yourdomain.com
 SCRAPER_SECRET_TOKEN=<from scraper .env>
 RESEND_API_KEY=<from step 3a>
 RESEND_WEBHOOK_SECRET=<from step 3c>
@@ -113,13 +111,21 @@ SENTRY_DSN=<from step 2>
 NEXT_PUBLIC_SENTRY_DSN=<from step 2>
 ```
 
+Add these as **plaintext variables** (not sensitive):
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://osopxwuebsefhoxgeojh.supabase.co
+SCRAPER_URL=https://scraper.yourdomain.com
+```
+
+Note: These can be plaintext because they're public URLs (NEXT_PUBLIC_* vars are exposed to client-side code anyway).
+
 **Method 2: CLI (Alternative)**
 
+For secrets:
 ```bash
-wrangler secret put NEXT_PUBLIC_SUPABASE_URL
 wrangler secret put NEXT_PUBLIC_SUPABASE_ANON_KEY
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-wrangler secret put SCRAPER_URL
 wrangler secret put SCRAPER_SECRET_TOKEN
 wrangler secret put RESEND_API_KEY
 wrangler secret put RESEND_WEBHOOK_SECRET
@@ -128,17 +134,19 @@ wrangler secret put SENTRY_DSN
 wrangler secret put NEXT_PUBLIC_SENTRY_DSN
 ```
 
+For plaintext variables, add to `wrangler.jsonc` vars section or use Dashboard.
+
 **Checklist:**
-- [ ] NEXT_PUBLIC_SUPABASE_URL
-- [ ] NEXT_PUBLIC_SUPABASE_ANON_KEY
-- [ ] SUPABASE_SERVICE_ROLE_KEY
-- [ ] SCRAPER_URL
-- [ ] SCRAPER_SECRET_TOKEN
-- [ ] RESEND_API_KEY
-- [ ] RESEND_WEBHOOK_SECRET
-- [ ] CRON_SECRET
-- [ ] SENTRY_DSN
-- [ ] NEXT_PUBLIC_SENTRY_DSN
+- [ ] NEXT_PUBLIC_SUPABASE_URL (plaintext)
+- [ ] NEXT_PUBLIC_SUPABASE_ANON_KEY (secret)
+- [ ] SUPABASE_SERVICE_ROLE_KEY (secret)
+- [ ] SCRAPER_URL (plaintext)
+- [ ] SCRAPER_SECRET_TOKEN (secret)
+- [ ] RESEND_API_KEY (secret)
+- [ ] RESEND_WEBHOOK_SECRET (secret)
+- [ ] CRON_SECRET (secret)
+- [ ] SENTRY_DSN (secret)
+- [ ] NEXT_PUBLIC_SENTRY_DSN (secret)
 
 ### 8. Update wrangler.jsonc
 
