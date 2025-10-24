@@ -190,7 +190,7 @@ async function processClassSection(
     // Step 4: Send notifications if changes detected
     if (seatBecameAvailable || instructorAssigned) {
       try {
-        // Get all users watching this section
+        // Get all users watching this section (filtered by email preferences)
         const watchers = await getClassWatchers(watch.class_nbr)
         console.log(`[Cron] Found ${watchers.length} watchers for ${watch.class_nbr}`)
 
@@ -217,7 +217,11 @@ async function processClassSection(
               'seat_available'
             )
             if (!alreadySent) {
-              const emailResult = await sendSeatAvailableEmail(watcher.email, classInfo)
+              const emailResult = await sendSeatAvailableEmail(
+                watcher.email,
+                watcher.user_id,
+                classInfo
+              )
               if (emailResult.success) {
                 await recordNotificationSent(watcher.watch_id, 'seat_available')
                 console.log(
@@ -242,7 +246,11 @@ async function processClassSection(
               'instructor_assigned'
             )
             if (!alreadySent) {
-              const emailResult = await sendInstructorAssignedEmail(watcher.email, classInfo)
+              const emailResult = await sendInstructorAssignedEmail(
+                watcher.email,
+                watcher.user_id,
+                classInfo
+              )
               if (emailResult.success) {
                 await recordNotificationSent(watcher.watch_id, 'instructor_assigned')
                 console.log(
@@ -314,14 +322,21 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
 
   try {
-    // Verify request is from Cloudflare Workers cron
-    const cronHeader = request.headers.get('X-Cloudflare-Cron')
-    if (cronHeader !== 'true') {
-      console.warn('[Cron] Unauthorized request - missing X-Cloudflare-Cron header')
+    // Authentication: Accept either Cloudflare cron header OR Bearer token
+    const authHeader = request.headers.get('authorization')
+    const cronHeader = request.headers.get('x-cloudflare-cron')
+    const expectedSecret = process.env.CRON_SECRET
+
+    const isAuthorized =
+      cronHeader === 'true' || // Cloudflare cron trigger
+      (expectedSecret && authHeader === `Bearer ${expectedSecret}`) // Manual trigger with secret
+
+    if (!isAuthorized) {
+      console.warn('[Cron] Unauthorized request - invalid or missing authentication')
       return NextResponse.json(
         {
           success: false,
-          error: 'Unauthorized - this endpoint can only be called by Cloudflare Workers cron',
+          error: 'Unauthorized - this endpoint requires authentication',
         },
         { status: 401 }
       )

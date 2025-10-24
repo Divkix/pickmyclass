@@ -117,6 +117,27 @@ export type Database = {
         }
         Relationships: []
       }
+      failed_login_attempts: {
+        Row: {
+          attempts: number | null
+          email: string
+          last_attempt_at: string | null
+          locked_until: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          email: string
+          last_attempt_at?: string | null
+          locked_until?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          email?: string
+          last_attempt_at?: string | null
+          locked_until?: string | null
+        }
+        Relationships: []
+      }
       notifications_sent: {
         Row: {
           class_watch_id: string
@@ -155,8 +176,14 @@ export type Database = {
           agreed_to_terms_at: string | null
           created_at: string
           disabled_at: string | null
+          email_bounced: boolean
+          email_bounced_at: string | null
           id: string
           is_disabled: boolean
+          notifications_enabled: boolean
+          spam_complained: boolean
+          spam_complained_at: string | null
+          unsubscribed_at: string | null
           updated_at: string
           user_id: string
         }
@@ -165,8 +192,14 @@ export type Database = {
           agreed_to_terms_at?: string | null
           created_at?: string
           disabled_at?: string | null
+          email_bounced?: boolean
+          email_bounced_at?: string | null
           id?: string
           is_disabled?: boolean
+          notifications_enabled?: boolean
+          spam_complained?: boolean
+          spam_complained_at?: string | null
+          unsubscribed_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -175,8 +208,14 @@ export type Database = {
           agreed_to_terms_at?: string | null
           created_at?: string
           disabled_at?: string | null
+          email_bounced?: boolean
+          email_bounced_at?: string | null
           id?: string
           is_disabled?: boolean
+          notifications_enabled?: boolean
+          spam_complained?: boolean
+          spam_complained_at?: string | null
+          unsubscribed_at?: string | null
           updated_at?: string
           user_id?: string
         }

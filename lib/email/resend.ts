@@ -10,6 +10,7 @@ import {
   SeatAvailableEmailTemplate,
   InstructorAssignedEmailTemplate,
 } from './templates'
+import { generateUnsubscribeUrl } from './unsubscribe-token'
 
 /**
  * Initialize Resend client
@@ -49,11 +50,13 @@ export interface EmailResult {
  * Send seat available notification email
  *
  * @param toEmail - Recipient email address
+ * @param userId - User ID for unsubscribe token
  * @param classInfo - Class information
  * @returns Email result
  */
 export async function sendSeatAvailableEmail(
   toEmail: string,
+  userId: string,
   classInfo: ClassInfo
 ): Promise<EmailResult> {
   try {
@@ -69,13 +72,21 @@ export async function sendSeatAvailableEmail(
       }
     }
 
+    // Generate unsubscribe URL for CAN-SPAM compliance
+    const unsubscribeUrl = generateUnsubscribeUrl(userId)
+
     const subject = `🎉 Seat Available: ${classInfo.subject} ${classInfo.catalog_nbr} (${classInfo.class_nbr})`
 
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: toEmail,
       subject,
-      html: SeatAvailableEmailTemplate(classInfo),
+      html: SeatAvailableEmailTemplate(classInfo, unsubscribeUrl),
+      headers: {
+        // CAN-SPAM compliance: List-Unsubscribe header for one-click unsubscribe
+        'List-Unsubscribe': `<${unsubscribeUrl}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
     })
 
     if (error) {
@@ -105,11 +116,13 @@ export async function sendSeatAvailableEmail(
  * Send instructor assigned notification email
  *
  * @param toEmail - Recipient email address
+ * @param userId - User ID for unsubscribe token
  * @param classInfo - Class information
  * @returns Email result
  */
 export async function sendInstructorAssignedEmail(
   toEmail: string,
+  userId: string,
   classInfo: ClassInfo
 ): Promise<EmailResult> {
   try {
@@ -125,13 +138,21 @@ export async function sendInstructorAssignedEmail(
       }
     }
 
+    // Generate unsubscribe URL for CAN-SPAM compliance
+    const unsubscribeUrl = generateUnsubscribeUrl(userId)
+
     const subject = `👨‍🏫 Instructor Assigned: ${classInfo.subject} ${classInfo.catalog_nbr} (${classInfo.class_nbr})`
 
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: toEmail,
       subject,
-      html: InstructorAssignedEmailTemplate(classInfo),
+      html: InstructorAssignedEmailTemplate(classInfo, unsubscribeUrl),
+      headers: {
+        // CAN-SPAM compliance: List-Unsubscribe header for one-click unsubscribe
+        'List-Unsubscribe': `<${unsubscribeUrl}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
     })
 
     if (error) {
