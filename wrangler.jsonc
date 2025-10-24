@@ -1,5 +1,5 @@
 {
-    "main": ".open-next/worker.js",
+    "main": "./worker.ts",
     "name": "pickmyclass",
     "compatibility_date": "2025-10-21",
     "compatibility_flags": [

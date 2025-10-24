@@ -39,16 +39,6 @@ interface ClassWatch {
 }
 
 /**
- * Interface for class state from database
- */
-interface ClassState {
-  class_nbr: string
-  instructor_name: string | null
-  seats_available: number
-  seats_capacity: number
-}
-
-/**
  * Sleep utility for rate limiting
  */
 function sleep(ms: number): Promise<void> {
@@ -164,6 +154,19 @@ export async function GET(request: NextRequest) {
   console.log('[Cron] Starting hourly class check')
 
   try {
+    // Verify request is from Cloudflare Workers cron
+    const cronHeader = request.headers.get('X-Cloudflare-Cron')
+    if (cronHeader !== 'true') {
+      console.warn('[Cron] Unauthorized request - missing X-Cloudflare-Cron header')
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized - this endpoint can only be called by Cloudflare Workers cron',
+        },
+        { status: 401 }
+      )
+    }
+
     // Get service role client
     const serviceClient = getServiceClient()
 
@@ -276,33 +279,5 @@ export async function GET(request: NextRequest) {
       },
       { status: 500 }
     )
-  }
-}
-
-/**
- * Handle scheduled cron trigger from Cloudflare Workers
- */
-export async function scheduled(event: ScheduledEvent) {
-  console.log('[Cron] Triggered by Cloudflare Workers cron at:', new Date(event.scheduledTime))
-
-  // Create a mock request to reuse the GET handler
-  const request = new Request('http://localhost/api/cron', {
-    method: 'GET',
-  }) as NextRequest
-
-  // @ts-expect-error - Add Cloudflare env to request
-  request.env = event.env
-
-  return GET(request)
-}
-
-/**
- * Cloudflare Workers cron event type
- */
-interface ScheduledEvent {
-  scheduledTime: number
-  cron: string
-  env: {
-    HYPERDRIVE: Hyperdrive
   }
 }
