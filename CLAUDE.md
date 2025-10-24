@@ -70,7 +70,7 @@ bun run typecheck  # Type check without building
 - **Client**: `lib/supabase/client.ts` - Browser client using `createBrowserClient`
 - **Server**: `lib/supabase/server.ts` - Server client using `createServerClient` with cookie handling
 - **Context**: `lib/contexts/AuthContext.tsx` - React context providing `user`, `session`, `loading`, and `signOut`
-- **Middleware**: `proxy.ts` - Proxy middleware per Next.js 16 convention (not `middleware.ts`), handles:
+- **Middleware**: `middleware.ts` - Standard Next.js middleware, handles:
   - Session refresh
   - Protected route redirects
   - Public routes: `/login`, `/register`, `/forgot-password`, `/reset-password`
@@ -223,7 +223,7 @@ scraper/                     # Standalone scraper service (Puppeteer)
   ├── tsconfig.json         # TypeScript config
   └── README.md             # Scraper documentation
 
-proxy.ts                     # Middleware for auth and session management
+middleware.ts                # Middleware for auth and session management
 open-next.config.ts          # OpenNext configuration for Cloudflare Workers
 wrangler.jsonc               # Cloudflare Workers configuration
 ```
@@ -244,11 +244,11 @@ wrangler.jsonc               # Cloudflare Workers configuration
 ### Next.js Version
 - Currently on Next.js 15.5.0 (upgraded from 15.3.0)
 - Previous downgrade to 15.3.0 was for Cloudflare Workers compatibility
-- Middleware migrated to `proxy.ts` per Next.js 16 convention
+- Using standard Next.js middleware pattern via `middleware.ts`
 
 ### Authentication Flow
 1. User navigates to protected route
-2. `proxy.ts` checks session via Supabase
+2. `middleware.ts` checks session via Supabase
 3. Redirects to `/login` if unauthenticated
 4. `AuthContext` manages client-side auth state
 5. Auth state changes trigger re-renders via context

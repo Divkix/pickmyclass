@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function proxy(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -60,8 +60,8 @@ export async function proxy(request: NextRequest) {
 
   // Check email verification status
   if (user && !user.email_confirmed_at) {
-    // Allow access to verification page and auth-related pages only
-    const allowedPaths = ['/verify-email', '/login', '/register', '/auth/callback']
+    // Allow access to verification page and auth callback only
+    const allowedPaths = ['/verify-email', '/auth/callback']
     const isAllowedPath = allowedPaths.some(path =>
       request.nextUrl.pathname.startsWith(path)
     )
