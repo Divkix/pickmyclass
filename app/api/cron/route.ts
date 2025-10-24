@@ -12,7 +12,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { queryHyperdrive, type Hyperdrive } from '@/lib/db/hyperdrive'
 import { getServiceClient } from '@/lib/supabase/service'
 import {
   getClassWatchers,
@@ -365,59 +364,44 @@ export async function GET(request: NextRequest) {
     const serviceClient = getServiceClient()
 
     // Fetch all unique class sections being watched
-    // Try to use Hyperdrive if available (Cloudflare Workers), otherwise use Supabase client (dev)
-    let watches: ClassWatch[] = []
+    console.log('[Cron] Using Supabase client for database access')
+    const { data, error } = await serviceClient
+      .from('class_watches')
+      .select('class_nbr, term')
+      .order('class_nbr')
 
-    // @ts-expect-error - Cloudflare Workers env types
-    const env = request.env as { HYPERDRIVE?: Hyperdrive }
-
-    if (env?.HYPERDRIVE) {
-      console.log('[Cron] Using Hyperdrive for database access')
-      const result = await queryHyperdrive(
-        env.HYPERDRIVE,
-        `SELECT DISTINCT class_nbr, term FROM class_watches ORDER BY class_nbr`
-      )
-      watches = result.rows as ClassWatch[]
-    } else {
-      console.log('[Cron] Using Supabase client for database access (dev mode)')
-      const { data, error } = await serviceClient
-        .from('class_watches')
-        .select('class_nbr, term')
-        .order('class_nbr')
-
-      if (error) {
-        throw new Error(`Failed to fetch class watches: ${error.message}`)
-      }
-
-      // Deduplicate watches by class_nbr
-      const uniqueWatches = new Map<string, ClassWatch>()
-      for (const watch of data || []) {
-        if (!uniqueWatches.has(watch.class_nbr)) {
-          uniqueWatches.set(watch.class_nbr, watch as ClassWatch)
-        }
-      }
-      watches = Array.from(uniqueWatches.values())
+    if (error) {
+      throw new Error(`Failed to fetch class watches: ${error.message}`)
     }
+
+    // Deduplicate watches by class_nbr
+    const uniqueWatches = new Map<string, ClassWatch>()
+    for (const watch of data || []) {
+      if (!uniqueWatches.has(watch.class_nbr)) {
+        uniqueWatches.set(watch.class_nbr, watch as ClassWatch)
+      }
+    }
+    const watches = Array.from(uniqueWatches.values())
 
     // Apply staggered filtering: split sections by even/odd last digit
     const allWatches = watches
-    watches = watches.filter((watch) => {
+    const filteredWatches = watches.filter((watch) => {
       const lastDigit = parseInt(watch.class_nbr.slice(-1), 10)
       const isEven = lastDigit % 2 === 0
       return staggerGroup === 'even' ? isEven : !isEven
     })
 
     console.log(
-      `[Cron] Found ${watches.length} sections to check (${staggerGroup}, filtered from ${allWatches.length} total)`
+      `[Cron] Found ${filteredWatches.length} sections to check (${staggerGroup}, filtered from ${allWatches.length} total)`
     )
 
     // ALERT: Check if we have 0 sections to process despite having active watches
-    if (watches.length === 0 && allWatches.length > 0) {
+    if (filteredWatches.length === 0 && allWatches.length > 0) {
       const message = `Cron job filtered to 0 sections despite ${allWatches.length} active watches`
       console.error(`[Cron] ⚠️  ${message}`)
     }
 
-    if (watches.length === 0) {
+    if (filteredWatches.length === 0) {
       console.log('[Cron] No sections to check')
       return NextResponse.json({
         success: true,
@@ -427,9 +411,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Process in batches to balance speed and rate limiting
-    const batches = chunk(watches, SCRAPER_BATCH_SIZE)
+    const batches = chunk(filteredWatches, SCRAPER_BATCH_SIZE)
     const results = {
-      total: watches.length,
+      total: filteredWatches.length,
       successful: 0,
       failed: 0,
       errors: [] as Array<{ class_nbr: string; error: string }>,

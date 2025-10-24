@@ -9,13 +9,6 @@
         "directory": ".open-next/assets",
         "binding": "ASSETS"
     },
-    "hyperdrive": [
-        {
-            "binding": "HYPERDRIVE",
-            "id": "cbaea9f7980549aa883ed6fec281af43",
-            "localConnectionString": "postgresql://postgres:puhdip-vunfYk-xanhi4@db.osopxwuebsefhoxgeojh.supabase.co:5432/postgres"
-        }
-    ],
     "triggers": {
         "crons": [
             "0,30 * * * *"
@@ -46,6 +39,4 @@
     // - RESEND_API_KEY
     // - RESEND_WEBHOOK_SECRET
     // - CRON_SECRET (generate with: openssl rand -hex 32)
-    // - SENTRY_DSN
-    // - NEXT_PUBLIC_SENTRY_DSN
 }
