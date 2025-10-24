@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { checkLockoutStatus, getRemainingLockoutTime } from '@/lib/auth/lockout'
 import { z } from 'zod'
 
-export const runtime = 'edge'
-
 /**
  * Validation schema
  */
