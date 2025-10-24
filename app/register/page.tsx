@@ -10,23 +10,45 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { PasswordStrengthMeter } from '@/components/PasswordStrengthMeter'
-import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core'
-import * as zxcvbnCommonPackage from '@zxcvbn-ts/language-common'
-import * as zxcvbnEnPackage from '@zxcvbn-ts/language-en'
 
 export const dynamic = 'force-dynamic'
 
-// Configure zxcvbn with English dictionary
-const options = {
-  translations: zxcvbnEnPackage.translations,
-  graphs: zxcvbnCommonPackage.adjacencyGraphs,
-  dictionary: {
-    ...zxcvbnCommonPackage.dictionary,
-    ...zxcvbnEnPackage.dictionary,
-  },
+/**
+ * Simple client-side password strength checker
+ * Returns score 0-4 based on password characteristics
+ */
+function calculatePasswordStrength(password: string): {
+  score: number
+  feedback: { warning?: string; suggestions?: string[] }
+} {
+  if (!password) return { score: 0, feedback: {} }
+
+  let score = 0
+  const feedback: string[] = []
+
+  // Length check
+  if (password.length >= 8) score++
+  if (password.length >= 12) score++
+  else if (password.length < 8) feedback.push('Use at least 8 characters')
+
+  // Character variety checks
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++
+  else feedback.push('Use both uppercase and lowercase letters')
+
+  if (/\d/.test(password)) score++
+  else feedback.push('Add numbers')
+
+  if (/[^a-zA-Z0-9]/.test(password)) score++
+  else feedback.push('Add special characters')
+
+  // Cap at 4
+  score = Math.min(score, 4)
+
+  return {
+    score,
+    feedback: { suggestions: feedback.length > 0 ? feedback : undefined },
+  }
 }
-zxcvbnOptions.setOptions(options)
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -66,16 +88,9 @@ export default function RegisterPage() {
     const pwd = e.target.value
     setPassword(pwd)
 
-    // Calculate password strength with zxcvbn
+    // Calculate password strength
     if (pwd.length > 0) {
-      const result = zxcvbn(pwd)
-      setPasswordStrength({
-        score: result.score,
-        feedback: {
-          warning: result.feedback.warning || undefined,
-          suggestions: result.feedback.suggestions || [],
-        },
-      })
+      setPasswordStrength(calculatePasswordStrength(pwd))
     } else {
       setPasswordStrength(null)
     }
@@ -246,10 +261,54 @@ export default function RegisterPage() {
                   placeholder="••••••••"
                 />
                 {password && passwordStrength && (
-                  <PasswordStrengthMeter
-                    score={passwordStrength.score}
-                    feedback={passwordStrength.feedback}
-                  />
+                  <div className="space-y-2">
+                    {/* Strength bar */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-300 ${
+                            passwordStrength.score <= 1
+                              ? 'bg-red-500'
+                              : passwordStrength.score === 2
+                                ? 'bg-yellow-500'
+                                : passwordStrength.score === 3
+                                  ? 'bg-blue-500'
+                                  : 'bg-green-500'
+                          }`}
+                          style={{ width: `${(passwordStrength.score / 4) * 100}%` }}
+                        />
+                      </div>
+                      <span
+                        className={`text-sm font-medium ${
+                          passwordStrength.score <= 1
+                            ? 'text-red-600 dark:text-red-400'
+                            : passwordStrength.score === 2
+                              ? 'text-yellow-600 dark:text-yellow-400'
+                              : passwordStrength.score === 3
+                                ? 'text-blue-600 dark:text-blue-400'
+                                : 'text-green-600 dark:text-green-400'
+                        }`}
+                      >
+                        {passwordStrength.score <= 1
+                          ? 'Weak'
+                          : passwordStrength.score === 2
+                            ? 'Fair'
+                            : passwordStrength.score === 3
+                              ? 'Good'
+                              : 'Strong'}
+                      </span>
+                    </div>
+
+                    {/* Feedback messages */}
+                    {passwordStrength.feedback.suggestions &&
+                      passwordStrength.feedback.suggestions.length > 0 && (
+                        <ul className="text-xs text-zinc-600 dark:text-zinc-400 list-disc list-inside space-y-0.5">
+                          {passwordStrength.feedback.suggestions.map((suggestion, idx) => (
+                            <li key={idx}>{suggestion}</li>
+                          ))}
+                        </ul>
+                      )}
+                  </div>
                 )}
                 {password && (!passwordStrength || passwordStrength.score < 3) && (
                   <p className="text-xs text-zinc-600 dark:text-zinc-400">

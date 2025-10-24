@@ -2,24 +2,24 @@
  * Email Templates for Class Notifications
  *
  * Simple HTML templates for seat availability and instructor assignment notifications.
- * All user-provided data is sanitized with DOMPurify to prevent XSS attacks.
+ * User-provided data is escaped to prevent XSS attacks.
  */
 
-import DOMPurify from 'isomorphic-dompurify'
 import type { ClassInfo } from '../resend'
 
 /**
- * Sanitize user-provided data before rendering in HTML
+ * Escape HTML entities to prevent XSS attacks
  *
- * Prevents XSS attacks by stripping dangerous HTML tags and attributes.
- * Allows only safe formatting tags (b, i, em, strong, a, br).
+ * Converts special characters to HTML entities.
+ * This is a lightweight alternative to DOMPurify for simple text sanitization.
  */
 function sanitize(dirty: string): string {
-  return DOMPurify.sanitize(dirty, {
-    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'br'],
-    ALLOWED_ATTR: ['href'],
-    ALLOW_DATA_ATTR: false,
-  })
+  return dirty
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
 }
 
 /**
