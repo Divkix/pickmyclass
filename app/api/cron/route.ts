@@ -1,29 +1,30 @@
 /**
  * Cloudflare Workers Cron Job
  *
- * This route is triggered every hour by Cloudflare Workers cron.
- * It checks all monitored class sections and updates the database.
+ * This route is triggered every 30 minutes by Cloudflare Workers cron.
+ * It checks monitored class sections in a staggered pattern and updates the database.
  *
- * Cron schedule: "0 * * * *" (every hour at :00)
+ * Cron schedule: "0,30 * * * *" (every 30 minutes)
+ * - :00 minutes → Even class numbers (0, 2, 4, 6, 8)
+ * - :30 minutes → Odd class numbers (1, 3, 5, 7, 9)
+ *
  * Configured in: wrangler.jsonc
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { queryHyperdrive, type Hyperdrive } from '@/lib/db/hyperdrive'
 import { getServiceClient } from '@/lib/supabase/service'
-import { getClassWatchers } from '@/lib/db/queries'
+import {
+  getClassWatchers,
+  hasNotificationBeenSent,
+  recordNotificationSent,
+  resetNotificationsForSection,
+} from '@/lib/db/queries'
 import {
   sendSeatAvailableEmail,
   sendInstructorAssignedEmail,
   type ClassInfo,
 } from '@/lib/email/resend'
-import {
-  getClassState,
-  setClassState,
-  hasNotificationBeenSentKV,
-  recordNotificationSentKV,
-  resetNotificationsKV,
-} from '@/lib/cache/kv'
 
 /**
  * Configuration
@@ -112,14 +113,21 @@ async function fetchClassDetails(
  */
 async function processClassSection(
   watch: ClassWatch,
-  serviceClient: ReturnType<typeof getServiceClient>,
-  kv: KVNamespace | undefined
+  serviceClient: ReturnType<typeof getServiceClient>
 ): Promise<{ success: boolean; error?: string }> {
   try {
     console.log(`[Cron] Processing section ${watch.class_nbr} (term: ${watch.term})`)
 
-    // Step 1: Fetch OLD state from KV cache (with PostgreSQL fallback)
-    const oldState = await getClassState(kv, watch.class_nbr)
+    // Step 1: Fetch OLD state from database
+    const { data: oldState, error: stateError } = await serviceClient
+      .from('class_states')
+      .select('*')
+      .eq('class_nbr', watch.class_nbr)
+      .single()
+
+    if (stateError && stateError.code !== 'PGRST116') {
+      console.error(`[Cron] Error fetching old state for ${watch.class_nbr}:`, stateError)
+    }
 
     // Step 2: Fetch latest data from scraper
     const scraperResponse = await fetchClassDetails(watch.class_nbr, watch.term)
@@ -171,7 +179,7 @@ async function processClassSection(
     // Step 3A: Reset notifications if seats filled
     if (seatsFilled) {
       try {
-        await resetNotificationsKV(kv, watch.class_nbr, 'seat_available')
+        await resetNotificationsForSection(watch.class_nbr, 'seat_available')
         console.log(`[Cron] 🧹 Reset seat_available notifications for ${watch.class_nbr}`)
       } catch (error) {
         console.error(`[Cron] Error resetting notifications for ${watch.class_nbr}:`, error)
@@ -204,15 +212,14 @@ async function processClassSection(
         for (const watcher of watchers) {
           // Send seat available notification
           if (seatBecameAvailable) {
-            const alreadySent = await hasNotificationBeenSentKV(
-              kv,
+            const alreadySent = await hasNotificationBeenSent(
               watcher.watch_id,
               'seat_available'
             )
             if (!alreadySent) {
               const emailResult = await sendSeatAvailableEmail(watcher.email, classInfo)
               if (emailResult.success) {
-                await recordNotificationSentKV(kv, watcher.watch_id, 'seat_available')
+                await recordNotificationSent(watcher.watch_id, 'seat_available')
                 console.log(
                   `[Cron] ✅ Sent seat available email to ${watcher.email} for ${watch.class_nbr}`
                 )
@@ -230,18 +237,14 @@ async function processClassSection(
 
           // Send instructor assigned notification
           if (instructorAssigned) {
-            const alreadySent = await hasNotificationBeenSentKV(
-              kv,
+            const alreadySent = await hasNotificationBeenSent(
               watcher.watch_id,
               'instructor_assigned'
             )
             if (!alreadySent) {
-              const emailResult = await sendInstructorAssignedEmail(
-                watcher.email,
-                classInfo
-              )
+              const emailResult = await sendInstructorAssignedEmail(watcher.email, classInfo)
               if (emailResult.success) {
-                await recordNotificationSentKV(kv, watcher.watch_id, 'instructor_assigned')
+                await recordNotificationSent(watcher.watch_id, 'instructor_assigned')
                 console.log(
                   `[Cron] ✅ Sent instructor assigned email to ${watcher.email} for ${watch.class_nbr}`
                 )
@@ -269,7 +272,7 @@ async function processClassSection(
       }
     }
 
-    // Step 5: Upsert class state in PostgreSQL AND KV cache
+    // Step 5: Upsert class state in PostgreSQL
     const newState = {
       term: watch.term,
       subject: newData.subject,
@@ -284,7 +287,6 @@ async function processClassSection(
       last_checked_at: new Date().toISOString(),
     }
 
-    // Write to PostgreSQL (source of truth)
     const { error: upsertError } = await serviceClient
       .from('class_states')
       .upsert(newState, {
@@ -296,9 +298,6 @@ async function processClassSection(
       return { success: false, error: upsertError.message }
     }
 
-    // Write to KV cache for fast reads
-    await setClassState(kv, watch.class_nbr, newState)
-
     console.log(`[Cron] Successfully updated ${watch.class_nbr}`)
     return { success: true }
   } catch (error) {
@@ -309,11 +308,10 @@ async function processClassSection(
 }
 
 /**
- * Main cron handler
+ * Main cron handler with staggered checking
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
-  console.log('[Cron] Starting hourly class check')
 
   try {
     // Verify request is from Cloudflare Workers cron
@@ -329,6 +327,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Determine stagger group based on current time
+    const now = new Date()
+    const currentMinute = now.getMinutes()
+    const staggerGroup = currentMinute === 0 ? 'even' : 'odd'
+
+    console.log(
+      `[Cron] Starting 30-minute class check (stagger: ${staggerGroup}, time: ${now.toISOString()})`
+    )
+
     // Get service role client
     const serviceClient = getServiceClient()
 
@@ -337,10 +344,7 @@ export async function GET(request: NextRequest) {
     let watches: ClassWatch[] = []
 
     // @ts-expect-error - Cloudflare Workers env types
-    const env = request.env as { HYPERDRIVE?: Hyperdrive; KV?: KVNamespace }
-
-    // Get KV namespace from env (if available)
-    const kv = env?.KV
+    const env = request.env as { HYPERDRIVE?: Hyperdrive }
 
     if (env?.HYPERDRIVE) {
       console.log('[Cron] Using Hyperdrive for database access')
@@ -370,7 +374,17 @@ export async function GET(request: NextRequest) {
       watches = Array.from(uniqueWatches.values())
     }
 
-    console.log(`[Cron] Found ${watches.length} unique sections to check`)
+    // Apply staggered filtering: split sections by even/odd last digit
+    const allWatches = watches
+    watches = watches.filter((watch) => {
+      const lastDigit = parseInt(watch.class_nbr.slice(-1), 10)
+      const isEven = lastDigit % 2 === 0
+      return staggerGroup === 'even' ? isEven : !isEven
+    })
+
+    console.log(
+      `[Cron] Found ${watches.length} sections to check (${staggerGroup}, filtered from ${allWatches.length} total)`
+    )
 
     if (watches.length === 0) {
       console.log('[Cron] No sections to check')
@@ -400,7 +414,7 @@ export async function GET(request: NextRequest) {
 
       // Process batch concurrently
       const batchResults = await Promise.all(
-        batch.map((watch) => processClassSection(watch, serviceClient, kv))
+        batch.map((watch) => processClassSection(watch, serviceClient))
       )
 
       // Aggregate results

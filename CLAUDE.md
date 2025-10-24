@@ -8,7 +8,7 @@ PickMyClass is a class seat notification system inspired by the original [pickac
 
 ### Product Concept
 Students add university class sections they want to monitor by section number. The system:
-1. Checks ASU's class search API every 15 minutes via Cloudflare Workers Cron Triggers
+1. Checks ASU's class search API every 30 minutes via Cloudflare Workers Cron Triggers (staggered)
 2. Detects when seats become available in full classes
 3. Detects when "Staff" instructors are assigned to specific professors
 4. Sends email notifications to all users watching that section
@@ -20,7 +20,7 @@ Students add university class sections they want to monitor by section number. T
 - ✅ Class monitoring dashboard with Realtime updates
 - ✅ API routes for managing class watches
 - ✅ ASU Class Search scraper service (Puppeteer-based, ready for deployment)
-- ✅ Cron job for hourly checks (Cloudflare Workers Cron Triggers)
+- ✅ Cron job for 30-minute staggered checks (Cloudflare Workers Cron Triggers)
 - ✅ Email notification system (Resend integration with change detection)
 
 ### Future Plans
@@ -147,35 +147,27 @@ Required configuration (see `.env.example`):
 - Driver: `pg` (node-postgres) version 8.16.3+
 - Connection pool limit: 5 (Workers have 6 connection limit)
 
-### Workers KV Cache Layer
-- **KV**: Cloudflare's edge key-value storage for caching
-- **Purpose**: Fast edge caching to reduce PostgreSQL queries and improve performance
-- **Utility**: `lib/cache/kv.ts` - Helper functions for KV operations with PostgreSQL fallback
-- **Architecture**: KV as cache layer, PostgreSQL as source of truth
-- **When to use**:
-  - ✅ Caching class states for change detection
-  - ✅ Notification deduplication flags
-  - ✅ Any frequently-read, infrequently-updated data
-- **Performance**: 5-10x faster reads (10-50ms vs 100-200ms for PostgreSQL)
-- **Cost**: FREE tier (1GB storage, 100k reads/day, 1k writes/day)
-
-**Setup Instructions**: See `docs/KV_SETUP.md` for production setup
-
-**Key Features**:
-1. **Automatic fallback**: If KV unavailable, falls back to PostgreSQL
-2. **Dual writes**: Updates written to both PostgreSQL + KV
-3. **TTL support**: Keys expire automatically (1 hour for class states, 24 hours for notifications)
-4. **Type-safe**: Full TypeScript support with `ClassState` interface
+### Database Query Helpers
+- **Location**: `lib/db/queries.ts`
+- **Purpose**: Reusable database queries for common operations
+- **Key Functions**:
+  - `getClassWatchers(classNbr)` - Get all users watching a section
+  - `hasNotificationBeenSent(watchId, type)` - Check notification deduplication
+  - `recordNotificationSent(watchId, type)` - Record sent notifications (24hr TTL)
+  - `resetNotificationsForSection(classNbr, type)` - Reset notifications when seats fill
 
 **Usage Example**:
 ```typescript
-import { getClassState, setClassState } from '@/lib/cache/kv';
+import { getClassWatchers, hasNotificationBeenSent, recordNotificationSent } from '@/lib/db/queries';
 
-// Read from KV (with PostgreSQL fallback)
-const state = await getClassState(env.KV, '12431');
+// Get all watchers for a section
+const watchers = await getClassWatchers('12431');
 
-// Write to both PostgreSQL + KV
-await setClassState(env.KV, '12431', newState);
+// Check if notification already sent (with expiration)
+const alreadySent = await hasNotificationBeenSent(watchId, 'seat_available');
+
+// Record notification sent (expires in 24 hours)
+await recordNotificationSent(watchId, 'seat_available');
 ```
 
 ### Project Structure
@@ -350,7 +342,7 @@ Use your existing Oracle Cloud free tier server with Coolify and Cloudflare Tunn
 
 **Architecture:**
 ```
-Cloudflare Workers (cron every 15 min)
+Cloudflare Workers (cron every 30 min, staggered)
   ↓ HTTPS POST (with Bearer token auth)
 Cloudflare Tunnel → https://scraper.yourdomain.com
   ↓ Secure tunnel
@@ -568,11 +560,11 @@ Track these state changes:
 - **Instructor assignment**: `"Staff"` → `"James Gordon"` (send notification)
 
 ### Implementation Notes
-- Use Cloudflare Workers Cron Triggers (every 15 minutes)
+- Use Cloudflare Workers Cron Triggers (every 30 minutes with staggered checking)
 - Store previous state in Supabase to detect changes
 - Rate limit: Space out requests by 2-3 seconds between sections to avoid rate limiting
 - Handle failures gracefully (retry logic, error logging)
-- Consider batching: Group section checks to minimize scraping service costs
+- Staggered batching: Split sections by even/odd class numbers to double capacity
 
 ## Database Schema
 
@@ -644,20 +636,29 @@ const { classStates, loading } = useRealtimeClassStates({
 ```jsonc
 {
   "triggers": {
-    "crons": ["0 * * * *"]  // Every hour at :00
+    "crons": ["0,30 * * * *"]  // Every 30 minutes at :00 and :30
   }
 }
 ```
 
 **Implementation**:
 - `worker.ts` - Custom worker with `scheduled` handler that calls `/api/cron` route
-- `app/api/cron/route.ts` - Main cron logic (291+ lines)
+- `app/api/cron/route.ts` - Main cron logic with staggered checking
+
+**Staggered Checking Strategy**:
+- **:00 and :30 minutes** → Even class numbers (last digit: 0, 2, 4, 6, 8)
+- Splits 2000+ sections into manageable batches
+- Each run processes ~50% of total sections
+- Allows 30-minute processing window per batch
+- **Capacity**: 4,000 sections at batch size 3
 
 **Cron Job Flow**:
 1. Verify request is from Cloudflare Workers cron (check `X-Cloudflare-Cron` header)
-2. Fetch unique class sections from `class_watches` table (via Hyperdrive or Supabase)
-3. Process sections in batches (configurable concurrency via `SCRAPER_BATCH_SIZE`)
-4. For each section:
+2. Determine stagger group from current minute (even vs odd)
+3. Fetch unique class sections from `class_watches` table (via Hyperdrive or Supabase)
+4. Filter sections by even/odd last digit of class_nbr
+5. Process filtered sections in batches (configurable via `SCRAPER_BATCH_SIZE`)
+6. For each section:
    - Fetch OLD state from `class_states` table
    - Scrape NEW data from ASU via scraper service
    - **Detect changes**:
@@ -669,9 +670,10 @@ const { classStates, loading } = useRealtimeClassStates({
      - Send email via Resend (`sendSeatAvailableEmail()` or `sendInstructorAssignedEmail()`)
      - Record notification in `notifications_sent` table
    - Upsert new state to `class_states` table
-5. Return aggregated results (successful/failed counts)
+7. Return aggregated results (successful/failed counts)
 
 **Rate Limiting**:
 - 2 second delay between batches
 - 100ms delay between individual emails
 - Configurable batch size (default: 3 concurrent scrapes per batch)
+- Staggering prevents scraper overload

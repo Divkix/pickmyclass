@@ -15,7 +15,6 @@ import { default as handler } from './.open-next/worker.js'
 interface Env {
   HYPERDRIVE: Hyperdrive
   ASSETS: Fetcher
-  KV: KVNamespace
 }
 
 /**
@@ -45,7 +44,7 @@ export default {
    * Scheduled handler - triggered by Cloudflare Cron
    *
    * Configured in wrangler.jsonc:
-   * "triggers": { "crons": ["0 * * * *"] } // Every hour
+   * "triggers": { "crons": ["0,30 * * * *"] } // Every 30 minutes
    */
   async scheduled(
     event: ScheduledEvent,
