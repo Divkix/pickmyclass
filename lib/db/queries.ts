@@ -24,36 +24,18 @@ export interface ClassWatcher {
 export async function getClassWatchers(classNbr: string): Promise<ClassWatcher[]> {
   const supabase = getServiceClient()
 
-  // Join class_watches with auth.users to get email addresses
-  // Use service_role client to bypass RLS and access auth.users
-  const { data, error } = await supabase
-    .from('class_watches')
-    .select(
-      `
-      id,
-      user_id,
-      users:user_id (
-        email
-      )
-    `
-    )
-    .eq('class_nbr', classNbr)
+  // Call PostgreSQL function that joins class_watches with auth.users
+  // SECURITY DEFINER allows accessing auth.users from service role context
+  const { data, error } = await supabase.rpc('get_class_watchers', {
+    section_number: classNbr,
+  })
 
   if (error) {
     console.error(`[DB] Error fetching watchers for section ${classNbr}:`, error)
     throw new Error(`Failed to fetch watchers: ${error.message}`)
   }
 
-  // Transform the result to flatten the structure
-  const watchers: ClassWatcher[] = (data || [])
-    .filter((watch) => watch.users && 'email' in watch.users)
-    .map((watch) => ({
-      user_id: watch.user_id,
-      email: (watch.users as { email: string }).email,
-      watch_id: watch.id,
-    }))
-
-  return watchers
+  return data || []
 }
 
 /**

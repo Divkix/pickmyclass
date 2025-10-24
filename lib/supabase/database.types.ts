@@ -151,6 +151,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_class_watchers: {
+        Args: { section_number: string }
+        Returns: {
+          email: string
+          user_id: string
+          watch_id: string
+        }[]
+      }
       user_owns_class_watch: { Args: { watch_id: string }; Returns: boolean }
     }
     Enums: {
