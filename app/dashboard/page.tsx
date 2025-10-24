@@ -26,7 +26,6 @@ export default function DashboardPage() {
   const [watches, setWatches] = useState<ClassWatch[]>([])
   const [isLoadingWatches, setIsLoadingWatches] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [autoRefreshCount, setAutoRefreshCount] = useState(0)
 
   // Get class numbers from watches for Realtime subscription
   const classNumbers = watches.map((w) => w.class_nbr)
@@ -69,46 +68,6 @@ export default function DashboardPage() {
       fetchWatches()
     }
   }, [user])
-
-  // Auto-refresh watches without class states
-  useEffect(() => {
-    if (watches.length === 0 || isLoadingWatches) return
-
-    const watchesWithoutStates = watches.filter((watch) => !watch.class_state)
-
-    if (watchesWithoutStates.length === 0) return
-
-    // Auto-refresh each watch without state
-    const autoRefresh = async () => {
-      console.log(`[Dashboard] Auto-refreshing ${watchesWithoutStates.length} watches without class states`)
-
-      for (const watch of watchesWithoutStates) {
-        try {
-          setAutoRefreshCount((prev) => prev + 1)
-          const response = await fetch('/api/class-watches/refresh', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              term: watch.term,
-              class_nbr: watch.class_nbr,
-            }),
-          })
-
-          if (response.ok) {
-            console.log(`[Dashboard] Auto-refreshed watch for ${watch.class_nbr}`)
-          }
-        } catch (error) {
-          console.error(`[Dashboard] Failed to auto-refresh watch ${watch.class_nbr}:`, error)
-        } finally {
-          setAutoRefreshCount((prev) => prev - 1)
-        }
-      }
-    }
-
-    autoRefresh()
-  }, [watches, isLoadingWatches])
 
   // Handle deleting a watch
   const handleDeleteWatch = async (watchId: string) => {
@@ -195,9 +154,9 @@ export default function DashboardPage() {
             <h2 className="text-xl font-semibold">
               Your Watches ({watches.length})
             </h2>
-            {(realtimeLoading || autoRefreshCount > 0) && (
+            {realtimeLoading && (
               <span className="text-sm text-zinc-500 dark:text-zinc-500 animate-pulse">
-                {autoRefreshCount > 0 ? `Refreshing ${autoRefreshCount}...` : 'Syncing...'}
+                Syncing...
               </span>
             )}
           </div>
