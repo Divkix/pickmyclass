@@ -139,11 +139,13 @@ async function setupPage(page: Page): Promise<void> {
 }
 
 /**
- * Parse seat availability from "X of Y" format
+ * Parse seat availability from "X of Y" or "X of Y open seats" format
  * @example parseSeats("5 of 150") => { available: 5, capacity: 150 }
+ * @example parseSeats("7 of 150 open seats") => { available: 7, capacity: 150 }
  */
 function parseSeats(seatsText: string): { available: number; capacity: number } | null {
-  const match = seatsText.trim().match(/^(\d+)\s+of\s+(\d+)$/i)
+  // Handle both old format "X of Y" and new format "X of Y open seats"
+  const match = seatsText.trim().match(/^(\d+)\s+of\s+(\d+)(?:\s+open\s+seats)?$/i)
   if (!match) {
     console.warn(`[Parser] Failed to parse seats: "${seatsText}"`)
     return null
@@ -193,18 +195,18 @@ export async function scrapeClassSection(
     await new Promise((resolve) => setTimeout(resolve, 2000))
 
     // Now try to find the results
-    // ASU class search can show results in different ways - we need to inspect the actual DOM
-    // Let's first check if ANY table exists
-    const hasTable = await page.evaluate(() => {
-      const tables = document.querySelectorAll('table')
-      console.log(`Found ${tables.length} tables`)
-      return tables.length > 0
+    // ASU updated their page structure - now uses div-based grid instead of tables
+    // Check if the results container exists
+    const hasResults = await page.evaluate(() => {
+      const resultsContainer = document.querySelector('.class-results-rows')
+      console.log(`Results container found: ${!!resultsContainer}`)
+      return !!resultsContainer
     })
 
-    if (!hasTable) {
-      // No table found - check for "no results" message
+    if (!hasResults) {
+      // No results container found - check for "no results" message
       const bodyText = await page.evaluate(() => document.body.textContent || '')
-      console.log('[Scraper] No table found. Page text preview:', bodyText.substring(0, 300))
+      console.log('[Scraper] No results container found. Page text preview:', bodyText.substring(0, 300))
 
       if (
         bodyText.toLowerCase().includes('no classes found') ||
@@ -215,75 +217,55 @@ export async function scrapeClassSection(
       }
 
       // Unknown state - throw timeout error
-      throw new Error('Page loaded but no results table found')
+      throw new Error('Page loaded but no results container found')
     }
 
-    // Extract data from the page
-    // We'll query for all tables and try to find the one with class data
-    console.log('[Scraper] Tables found, extracting class data...')
+    // Extract data from the page using new div-based structure
+    console.log('[Scraper] Results container found, extracting class data...')
 
     const classData = await page.evaluate(() => {
-      // Find the main content table (usually the first or second table)
-      const tables = Array.from(document.querySelectorAll('table'))
+      // Find the class results container
+      const resultsContainer = document.querySelector('.class-results-rows')
+      if (!resultsContainer) return null
 
-      for (const table of tables) {
-        const rows = Array.from(table.querySelectorAll('tbody tr'))
-        if (rows.length === 0) continue
+      // Get all data rows (skip header which is first child)
+      const dataRows = Array.from(resultsContainer.querySelectorAll('.class-accordion'))
+      if (dataRows.length === 0) return null
 
-        // Get the first data row
-        const row = rows[0]
-        const cells = Array.from(row.querySelectorAll('td'))
+      // Get the first data row
+      const row = dataRows[0]
 
-        if (cells.length < 5) continue // Need at least 5 columns for valid class data
-
-        // Helper to extract text content safely
-        const getText = (index: number): string => {
-          return cells[index]?.textContent?.trim() || ''
-        }
-
-        // Helper to extract link text (for instructor names)
-        const getLinkText = (index: number): string => {
-          const link = cells[index]?.querySelector('a')
-          return link?.textContent?.trim() || cells[index]?.textContent?.trim() || ''
-        }
-
-        // Try to extract data - column order might vary
-        // Common pattern: [Class Number, Subject/Course, Title, Instructor, Seats, ...]
-        const firstCell = getText(0)
-        const secondCell = getText(1)
-
-        // Heuristic: First cell should be a 5-digit number (class number)
-        if (/^\d{5}$/.test(firstCell)) {
-          return {
-            number: firstCell,
-            subjectCourse: secondCell,
-            title: getText(2),
-            instructor: getLinkText(3),
-            seats: getText(4),
-            location: getText(5),
-            times: getText(6),
-          }
-        }
-
-        // Alternative: Sometimes class number might be in second column
-        if (/^\d{5}$/.test(secondCell)) {
-          return {
-            number: secondCell,
-            subjectCourse: getText(0),
-            title: getText(2),
-            instructor: getLinkText(3),
-            seats: getText(4),
-            location: getText(5),
-            times: getText(6),
-          }
-        }
+      // Helper to extract text from cells by class name
+      const getCellText = (className: string): string => {
+        const cell = row.querySelector(`.class-results-cell.${className}`)
+        return cell?.textContent?.trim() || ''
       }
 
-      return null
+      // Helper to extract link text (for instructor names)
+      const getLinkText = (className: string): string => {
+        const cell = row.querySelector(`.class-results-cell.${className}`)
+        const link = cell?.querySelector('a')
+        return link?.textContent?.trim() || cell?.textContent?.trim() || ''
+      }
+
+      // Extract course code from the course cell (e.g., "CSE 412")
+      const courseText = getCellText('course')
+
+      // Extract all fields using CSS class selectors
+      return {
+        number: getCellText('number'),
+        subjectCourse: courseText,
+        title: getCellText('title'),
+        instructor: getLinkText('instructor'),
+        seats: getCellText('seats'),
+        location: getCellText('location'),
+        // Combine days, start, and end times into meeting_times
+        times: `${getCellText('days')} ${getCellText('start')}-${getCellText('end')}`.trim(),
+      }
     })
 
     if (!classData) {
-      throw new Error('Failed to extract class data from table - unexpected table structure')
+      throw new Error('Failed to extract class data from results - unexpected page structure')
     }
 
     console.log('[Scraper] Raw data extracted:', classData)
