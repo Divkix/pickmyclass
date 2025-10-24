@@ -35,15 +35,11 @@
         "MAX_WATCHES_PER_USER": "10",
         "SCRAPER_BATCH_SIZE": "3",
         "NOTIFICATION_FROM_EMAIL": "onboarding@resend.dev",
-        "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.workers.dev"
+        "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.workers.dev",
+        "NEXT_PUBLIC_SUPABASE_URL": "https://osopxwuebsefhoxgeojh.supabase.co",
+        "SCRAPER_URL": "https://pickmyclass-scraper.divkix.me"
     }
-    // IMPORTANT: Set these via Cloudflare Dashboard (Workers & Pages → Settings → Variables):
-    //
-    // Plaintext Variables (Add as "Variable"):
-    // - NEXT_PUBLIC_SUPABASE_URL (your Supabase project URL)
-    // - SCRAPER_URL (your scraper service URL)
-    //
-    // Encrypted Secrets (Add as "Encrypt"):
+    // IMPORTANT: Set these secrets via Cloudflare Dashboard (Workers & Pages → Settings → Variables → Encrypt):
     // - NEXT_PUBLIC_SUPABASE_ANON_KEY
     // - SUPABASE_SERVICE_ROLE_KEY
     // - SCRAPER_SECRET_TOKEN
