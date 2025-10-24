@@ -22,7 +22,7 @@
         ]
     },
     "observability": {
-        "enabled": false,
+        "enabled": true,
         "head_sampling_rate": 1,
         "logs": {
             "enabled": true,
@@ -30,5 +30,22 @@
             "persist": true,
             "invocation_logs": true
         }
+    },
+    "vars": {
+        "MAX_WATCHES_PER_USER": "10",
+        "SCRAPER_BATCH_SIZE": "3",
+        "NOTIFICATION_FROM_EMAIL": "onboarding@resend.dev",
+        "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.workers.dev"
     }
+    // IMPORTANT: Set these secrets via Cloudflare Dashboard or wrangler CLI:
+    // - NEXT_PUBLIC_SUPABASE_URL
+    // - NEXT_PUBLIC_SUPABASE_ANON_KEY
+    // - SUPABASE_SERVICE_ROLE_KEY
+    // - SCRAPER_URL
+    // - SCRAPER_SECRET_TOKEN
+    // - RESEND_API_KEY
+    // - RESEND_WEBHOOK_SECRET
+    // - CRON_SECRET
+    // - SENTRY_DSN
+    // - NEXT_PUBLIC_SENTRY_DSN
 }
