@@ -11,6 +11,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { queryHyperdrive, type Hyperdrive } from '@/lib/db/hyperdrive'
 import { getServiceClient } from '@/lib/supabase/service'
+import {
+  getClassWatchers,
+  hasNotificationBeenSent,
+  recordNotificationSent,
+} from '@/lib/db/queries'
+import {
+  sendSeatAvailableEmail,
+  sendInstructorAssignedEmail,
+  type ClassInfo,
+} from '@/lib/email/resend'
 
 /**
  * Configuration
@@ -104,7 +114,14 @@ async function processClassSection(
   try {
     console.log(`[Cron] Processing section ${watch.class_nbr} (term: ${watch.term})`)
 
-    // Fetch latest data from scraper
+    // Step 1: Fetch OLD state from database (if exists)
+    const { data: oldState } = await serviceClient
+      .from('class_states')
+      .select('*')
+      .eq('class_nbr', watch.class_nbr)
+      .single()
+
+    // Step 2: Fetch latest data from scraper
     const scraperResponse = await fetchClassDetails(watch.class_nbr, watch.term)
 
     if (!scraperResponse.success || !scraperResponse.data) {
@@ -113,23 +130,137 @@ async function processClassSection(
       return { success: false, error }
     }
 
-    const data = scraperResponse.data
+    const newData = scraperResponse.data
 
-    // Upsert class state in database
+    // Step 3: Detect changes
+    let seatBecameAvailable = false
+    let instructorAssigned = false
+
+    if (oldState) {
+      // Detect seat availability change: was 0, now > 0
+      if (oldState.seats_available === 0 && (newData.seats_available ?? 0) > 0) {
+        seatBecameAvailable = true
+        console.log(
+          `[Cron] 🎉 Seat became available in ${watch.class_nbr}: ${newData.seats_available} seats`
+        )
+      }
+
+      // Detect instructor assignment: was "Staff", now has a name
+      if (
+        oldState.instructor_name === 'Staff' &&
+        newData.instructor &&
+        newData.instructor !== 'Staff'
+      ) {
+        instructorAssigned = true
+        console.log(
+          `[Cron] 👨‍🏫 Instructor assigned in ${watch.class_nbr}: ${newData.instructor}`
+        )
+      }
+    }
+
+    // Step 4: Send notifications if changes detected
+    if (seatBecameAvailable || instructorAssigned) {
+      try {
+        // Get all users watching this section
+        const watchers = await getClassWatchers(watch.class_nbr)
+        console.log(`[Cron] Found ${watchers.length} watchers for ${watch.class_nbr}`)
+
+        // Prepare class info for email templates
+        const classInfo: ClassInfo = {
+          term: watch.term,
+          subject: newData.subject,
+          catalog_nbr: newData.catalog_nbr,
+          class_nbr: watch.class_nbr,
+          title: newData.title,
+          instructor_name: newData.instructor,
+          seats_available: newData.seats_available ?? 0,
+          seats_capacity: newData.seats_capacity ?? 0,
+          location: newData.location,
+          meeting_times: newData.meeting_times,
+        }
+
+        // Send notifications to each watcher
+        for (const watcher of watchers) {
+          // Send seat available notification
+          if (seatBecameAvailable) {
+            const alreadySent = await hasNotificationBeenSent(
+              watcher.watch_id,
+              'seat_available'
+            )
+            if (!alreadySent) {
+              const emailResult = await sendSeatAvailableEmail(watcher.email, classInfo)
+              if (emailResult.success) {
+                await recordNotificationSent(watcher.watch_id, 'seat_available')
+                console.log(
+                  `[Cron] ✅ Sent seat available email to ${watcher.email} for ${watch.class_nbr}`
+                )
+              } else {
+                console.error(
+                  `[Cron] ❌ Failed to send seat available email to ${watcher.email}: ${emailResult.error}`
+                )
+              }
+            } else {
+              console.log(
+                `[Cron] ⏭️  Skipped seat available email to ${watcher.email} (already sent)`
+              )
+            }
+          }
+
+          // Send instructor assigned notification
+          if (instructorAssigned) {
+            const alreadySent = await hasNotificationBeenSent(
+              watcher.watch_id,
+              'instructor_assigned'
+            )
+            if (!alreadySent) {
+              const emailResult = await sendInstructorAssignedEmail(
+                watcher.email,
+                classInfo
+              )
+              if (emailResult.success) {
+                await recordNotificationSent(watcher.watch_id, 'instructor_assigned')
+                console.log(
+                  `[Cron] ✅ Sent instructor assigned email to ${watcher.email} for ${watch.class_nbr}`
+                )
+              } else {
+                console.error(
+                  `[Cron] ❌ Failed to send instructor assigned email to ${watcher.email}: ${emailResult.error}`
+                )
+              }
+            } else {
+              console.log(
+                `[Cron] ⏭️  Skipped instructor assigned email to ${watcher.email} (already sent)`
+              )
+            }
+          }
+
+          // Small delay between emails to avoid rate limiting
+          await sleep(100)
+        }
+      } catch (notificationError) {
+        console.error(
+          `[Cron] Error sending notifications for ${watch.class_nbr}:`,
+          notificationError
+        )
+        // Continue processing - don't fail the entire job due to notification errors
+      }
+    }
+
+    // Step 5: Upsert class state in database
     const { error: upsertError } = await serviceClient
       .from('class_states')
       .upsert(
         {
           term: watch.term,
-          subject: data.subject,
-          catalog_nbr: data.catalog_nbr,
+          subject: newData.subject,
+          catalog_nbr: newData.catalog_nbr,
           class_nbr: watch.class_nbr,
-          title: data.title,
-          instructor_name: data.instructor,
-          seats_available: data.seats_available ?? 0,
-          seats_capacity: data.seats_capacity ?? 0,
-          location: data.location,
-          meeting_times: data.meeting_times,
+          title: newData.title,
+          instructor_name: newData.instructor,
+          seats_available: newData.seats_available ?? 0,
+          seats_capacity: newData.seats_capacity ?? 0,
+          location: newData.location,
+          meeting_times: newData.meeting_times,
           last_checked_at: new Date().toISOString(),
         },
         {

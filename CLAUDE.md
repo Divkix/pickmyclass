@@ -20,8 +20,8 @@ Students add university class sections they want to monitor by section number. T
 - ✅ Class monitoring dashboard with Realtime updates
 - ✅ API routes for managing class watches
 - ✅ ASU Class Search scraper service (Puppeteer-based, ready for deployment)
-- 🚧 Cron job for 15-minute checks (TODO)
-- 🚧 Email notification system (TODO)
+- ✅ Cron job for hourly checks (Cloudflare Workers Cron Triggers)
+- ✅ Email notification system (Resend integration with change detection)
 
 ### Future Plans
 - Support for additional universities beyond ASU
@@ -91,7 +91,13 @@ Required configuration (see `.env.example`):
   - Higher values = faster but more resource-intensive
   - Lower values = slower but safer and more conservative
 
-**Build Handling**: Both client and server Supabase utilities use placeholder values during build when env vars are unavailable, preventing build failures. The scraper integration gracefully falls back to stub data if `SCRAPER_URL` is not configured, enabling development without the scraper service running.
+**Email Notifications (Resend):**
+- `RESEND_API_KEY` - API key from [resend.com](https://resend.com/api-keys) (Free tier: 100 emails/day, 3,000/month)
+- `NOTIFICATION_FROM_EMAIL` - Verified sender email address
+  - Development: Use `onboarding@resend.dev` (no verification needed)
+  - Production: Use your own verified domain (e.g., `notifications@yourdomain.com`)
+
+**Build Handling**: Both client and server Supabase utilities use placeholder values during build when env vars are unavailable, preventing build failures. The scraper integration gracefully falls back to stub data if `SCRAPER_URL` is not configured, enabling development without the scraper service running. Email service gracefully skips sending if `RESEND_API_KEY` is not configured.
 
 ### Database Access via Hyperdrive
 - **Hyperdrive**: Cloudflare's connection pooling service for PostgreSQL/MySQL databases
@@ -158,7 +164,15 @@ lib/
   ├── supabase/
   │   ├── client.ts          # Browser client (typed)
   │   ├── server.ts          # Server client (typed)
+  │   ├── service.ts         # Service role client (bypasses RLS)
   │   └── database.types.ts  # Generated database types
+  ├── db/
+  │   ├── hyperdrive.ts      # Hyperdrive connection pooling helpers
+  │   └── queries.ts         # Reusable database queries (watchers, notifications)
+  ├── email/
+  │   ├── resend.ts          # Resend email service integration
+  │   └── templates/
+  │       └── index.ts       # Email templates (seat available, instructor assigned)
   ├── hooks/
   │   └── useRealtimeClassStates.ts  # Realtime subscription hook
   └── contexts/
@@ -595,23 +609,38 @@ const { classStates, loading } = useRealtimeClassStates({
 
 ## Cloudflare Workers Cron Configuration
 
-Add to `wrangler.jsonc`:
+**Configuration** (`wrangler.jsonc`):
 ```jsonc
 {
   "triggers": {
-    "crons": ["*/15 * * * *"]  // Every 15 minutes
+    "crons": ["0 * * * *"]  // Every hour at :00
   }
 }
 ```
 
-Create cron handler (TODO):
-```typescript
-// app/api/cron/route.ts or similar
-export async function GET(request: Request) {
-  // 1. Fetch unique class sections from class_watches
-  // 2. Query ASU API for each section
-  // 3. Compare with class_states to detect changes
-  // 4. Send email notifications for changes
-  // 5. Update class_states with new data
-}
-```
+**Implementation**:
+- `worker.ts` - Custom worker with `scheduled` handler that calls `/api/cron` route
+- `app/api/cron/route.ts` - Main cron logic (291+ lines)
+
+**Cron Job Flow**:
+1. Verify request is from Cloudflare Workers cron (check `X-Cloudflare-Cron` header)
+2. Fetch unique class sections from `class_watches` table (via Hyperdrive or Supabase)
+3. Process sections in batches (configurable concurrency via `SCRAPER_BATCH_SIZE`)
+4. For each section:
+   - Fetch OLD state from `class_states` table
+   - Scrape NEW data from ASU via scraper service
+   - **Detect changes**:
+     - Seat became available: `old.seats_available === 0 && new.seats_available > 0`
+     - Instructor assigned: `old.instructor_name === 'Staff' && new.instructor_name !== 'Staff'`
+   - If change detected:
+     - Get all users watching this section (`getClassWatchers()`)
+     - Check `notifications_sent` for deduplication
+     - Send email via Resend (`sendSeatAvailableEmail()` or `sendInstructorAssignedEmail()`)
+     - Record notification in `notifications_sent` table
+   - Upsert new state to `class_states` table
+5. Return aggregated results (successful/failed counts)
+
+**Rate Limiting**:
+- 2 second delay between batches
+- 100ms delay between individual emails
+- Configurable batch size (default: 3 concurrent scrapes per batch)
