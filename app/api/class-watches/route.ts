@@ -148,7 +148,6 @@ export async function POST(request: NextRequest) {
 
     let subject: string
     let catalog_nbr: string
-    let title: string
     let scrapedData: ScraperResponse['data'] | null = null
 
     if (scraperUrl && scraperToken) {
@@ -180,7 +179,6 @@ export async function POST(request: NextRequest) {
         scrapedData = scraperData.data
         subject = scraperData.data.subject
         catalog_nbr = scraperData.data.catalog_nbr
-        title = scraperData.data.title
       } catch (error) {
         console.error('[API] Failed to fetch from scraper:', error)
         return NextResponse.json(
@@ -193,7 +191,6 @@ export async function POST(request: NextRequest) {
       console.log('[API] Scraper not configured, using stub data')
       subject = 'CSE'
       catalog_nbr = '240'
-      title = 'Introduction to Computer Science'
     }
 
     // Step 2: Create class watch

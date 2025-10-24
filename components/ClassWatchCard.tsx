@@ -4,7 +4,7 @@ import { Database } from '@/lib/supabase/database.types'
 import { ClassStateIndicator } from './ClassStateIndicator'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
-import { Trash2 } from 'lucide-react'
+import { Trash2, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 
 type ClassWatch = Database['public']['Tables']['class_watches']['Row']
@@ -18,6 +18,7 @@ interface ClassWatchCardProps {
 
 export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardProps) {
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to stop watching this class?')) return
@@ -30,6 +31,35 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
       alert('Failed to delete watch. Please try again.')
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      const response = await fetch('/api/class-watches/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          term: watch.term,
+          class_nbr: watch.class_nbr,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string }
+        throw new Error(errorData.error || 'Failed to refresh class details')
+      }
+
+      // Realtime subscription will automatically update the UI
+      console.log('Class details refreshed successfully')
+    } catch (error) {
+      console.error('Failed to refresh class details:', error)
+      alert(`Failed to refresh class details. ${error instanceof Error ? error.message : 'Please try again.'}`)
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
@@ -52,15 +82,28 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
               </p>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+              title="Refresh class details"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+              title="Stop watching this class"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
