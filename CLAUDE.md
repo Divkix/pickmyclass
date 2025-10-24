@@ -87,6 +87,9 @@ Required configuration (see `.env.example`):
 **Scraper Service:**
 - `SCRAPER_URL` - URL to scraper service (e.g., `https://scraper.yourdomain.com` or `http://localhost:3000` for local dev)
 - `SCRAPER_SECRET_TOKEN` - Bearer token for authenticating with scraper (must match token in `scraper/.env`)
+- `SCRAPER_BATCH_SIZE` - Number of sections to scrape concurrently per batch (default: 3, range: 1-5)
+  - Higher values = faster but more resource-intensive
+  - Lower values = slower but safer and more conservative
 
 **Build Handling**: Both client and server Supabase utilities use placeholder values during build when env vars are unavailable, preventing build failures. The scraper integration gracefully falls back to stub data if `SCRAPER_URL` is not configured, enabling development without the scraper service running.
 

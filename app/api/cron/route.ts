@@ -13,6 +13,11 @@ import { queryHyperdrive, type Hyperdrive } from '@/lib/db/hyperdrive'
 import { getServiceClient } from '@/lib/supabase/service'
 
 /**
+ * Configuration
+ */
+const SCRAPER_BATCH_SIZE = parseInt(process.env.SCRAPER_BATCH_SIZE || '3', 10)
+
+/**
  * Interface for scraper response
  */
 interface ScraperResponse {
@@ -216,8 +221,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Process in batches of 3 to utilize scraper concurrency
-    const batches = chunk(watches, 3)
+    // Process in batches to balance speed and rate limiting
+    const batches = chunk(watches, SCRAPER_BATCH_SIZE)
     const results = {
       total: watches.length,
       successful: 0,
@@ -225,7 +230,9 @@ export async function GET(request: NextRequest) {
       errors: [] as Array<{ class_nbr: string; error: string }>,
     }
 
-    console.log(`[Cron] Processing ${batches.length} batches (3 concurrent per batch)`)
+    console.log(
+      `[Cron] Processing ${batches.length} batches (${SCRAPER_BATCH_SIZE} concurrent per batch)`
+    )
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i]
