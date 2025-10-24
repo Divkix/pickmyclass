@@ -1,13 +1,6 @@
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { Database } from '@/lib/supabase/database.types'
-import {
-  checkRateLimit,
-  getClientIP,
-  createRateLimitResponse,
-  addRateLimitHeaders,
-  RATE_LIMITS,
-} from '@/lib/rate-limit'
 import { z } from 'zod'
 
 type ClassState = Database['public']['Tables']['class_states']['Row']
@@ -52,19 +45,7 @@ const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 
  * GET /api/class-watches
  * Fetch all class watches for the authenticated user with joined class_states data
  */
-export async function GET(request: NextRequest) {
-  // Rate limiting check
-  const clientIP = getClientIP(request)
-  const rateLimitResult = checkRateLimit(clientIP, RATE_LIMITS.GET)
-
-  if (!rateLimitResult.allowed) {
-    return createRateLimitResponse(
-      rateLimitResult.remaining,
-      rateLimitResult.resetAt,
-      RATE_LIMITS.GET.maxRequests
-    )
-  }
-
+export async function GET() {
   const supabase = await createClient()
 
   // Check authentication
@@ -117,15 +98,7 @@ export async function GET(request: NextRequest) {
       class_state: statesMap[watch.class_nbr] || null,
     }))
 
-    const response = NextResponse.json({ watches: watchesWithStates })
-
-    // Add rate limit headers to response
-    return addRateLimitHeaders(
-      response,
-      rateLimitResult.remaining,
-      rateLimitResult.resetAt,
-      RATE_LIMITS.GET.maxRequests
-    )
+    return NextResponse.json({ watches: watchesWithStates })
   } catch (error) {
     console.error('Error fetching class watches:', error)
 
@@ -145,18 +118,6 @@ export async function GET(request: NextRequest) {
  * Body: { term, class_nbr }
  */
 export async function POST(request: NextRequest) {
-  // Rate limiting check
-  const clientIP = getClientIP(request)
-  const rateLimitResult = checkRateLimit(clientIP, RATE_LIMITS.POST)
-
-  if (!rateLimitResult.allowed) {
-    return createRateLimitResponse(
-      rateLimitResult.remaining,
-      rateLimitResult.resetAt,
-      RATE_LIMITS.POST.maxRequests
-    )
-  }
-
   const supabase = await createClient()
 
   // Check authentication
@@ -183,18 +144,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (watchCount !== null && watchCount >= MAX_WATCHES_PER_USER) {
-      const response = NextResponse.json(
+      return NextResponse.json(
         {
           error: `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
         },
         { status: 429 }
-      )
-
-      return addRateLimitHeaders(
-        response,
-        rateLimitResult.remaining,
-        rateLimitResult.resetAt,
-        RATE_LIMITS.POST.maxRequests
       )
     }
 
@@ -339,14 +293,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const response = NextResponse.json({ watch: watchData }, { status: 201 })
-
-    return addRateLimitHeaders(
-      response,
-      rateLimitResult.remaining,
-      rateLimitResult.resetAt,
-      RATE_LIMITS.POST.maxRequests
-    )
+    return NextResponse.json({ watch: watchData }, { status: 201 })
   } catch (error) {
     console.error('Error creating class watch:', error)
 
@@ -359,18 +306,6 @@ export async function POST(request: NextRequest) {
  * Delete a class watch for the authenticated user
  */
 export async function DELETE(request: NextRequest) {
-  // Rate limiting check
-  const clientIP = getClientIP(request)
-  const rateLimitResult = checkRateLimit(clientIP, RATE_LIMITS.DELETE)
-
-  if (!rateLimitResult.allowed) {
-    return createRateLimitResponse(
-      rateLimitResult.remaining,
-      rateLimitResult.resetAt,
-      RATE_LIMITS.DELETE.maxRequests
-    )
-  }
-
   const supabase = await createClient()
 
   // Check authentication
@@ -410,14 +345,7 @@ export async function DELETE(request: NextRequest) {
       throw error
     }
 
-    const response = NextResponse.json({ success: true })
-
-    return addRateLimitHeaders(
-      response,
-      rateLimitResult.remaining,
-      rateLimitResult.resetAt,
-      RATE_LIMITS.DELETE.maxRequests
-    )
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting class watch:', error)
 

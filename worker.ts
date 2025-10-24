@@ -6,22 +6,15 @@
  * executes cron jobs on a defined schedule.
  */
 
-// @ts-ignore `.open-next/worker.js` is generated at build time
+// @ts-expect-error `.open-next/worker.js` is generated at build time
 import { default as handler } from './.open-next/worker.js'
 
 /**
  * Cloudflare Workers environment bindings
  */
 interface Env {
-  HYPERDRIVE: Hyperdrive
   ASSETS: Fetcher
-}
-
-/**
- * Cloudflare Hyperdrive type (connection pooling for databases)
- */
-interface Hyperdrive {
-  connectionString: string
+  CRON_SECRET: string
 }
 
 /**
@@ -61,12 +54,12 @@ export default {
       const request = new Request('http://localhost/api/cron', {
         method: 'GET',
         headers: {
-          'X-Cloudflare-Cron': 'true', // Internal auth header
+          'Authorization': `Bearer ${env.CRON_SECRET}`,
           'User-Agent': 'Cloudflare-Workers-Cron',
         },
       })
 
-      // Add Cloudflare env to request for Hyperdrive access
+      // Pass environment bindings to the request handler
       // @ts-expect-error - NextRequest doesn't have env property, but we add it
       request.env = env
 

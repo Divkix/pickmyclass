@@ -278,6 +278,13 @@ async function processClassSection(
           // Small delay between emails to avoid rate limiting
           await sleep(100)
         }
+
+        // Log email statistics
+        if (emailsSent > 0 || emailsFailed > 0) {
+          console.log(
+            `[Cron] 📧 Email summary for ${watch.class_nbr}: ${emailsSent} sent, ${emailsFailed} failed`
+          )
+        }
       } catch (notificationError) {
         console.error(
           `[Cron] Error sending notifications for ${watch.class_nbr}:`,
@@ -330,14 +337,22 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
 
   try {
-    // Authentication: Accept either Cloudflare cron header OR Bearer token
+    // Authentication: Require CRON_SECRET Bearer token
     const authHeader = request.headers.get('authorization')
-    const cronHeader = request.headers.get('x-cloudflare-cron')
     const expectedSecret = process.env.CRON_SECRET
 
-    const isAuthorized =
-      cronHeader === 'true' || // Cloudflare cron trigger
-      (expectedSecret && authHeader === `Bearer ${expectedSecret}`) // Manual trigger with secret
+    if (!expectedSecret) {
+      console.error('[Cron] CRON_SECRET not configured')
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Server configuration error',
+        },
+        { status: 500 }
+      )
+    }
+
+    const isAuthorized = authHeader === `Bearer ${expectedSecret}`
 
     if (!isAuthorized) {
       console.warn('[Cron] Unauthorized request - invalid or missing authentication')

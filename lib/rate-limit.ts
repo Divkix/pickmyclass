@@ -1,6 +1,20 @@
 /**
  * Rate Limiting Utility for Cloudflare Workers
  *
+ * ⚠️ WARNING: This in-memory rate limiter does NOT work in production!
+ *
+ * Cloudflare Workers run in distributed isolates across multiple edge locations.
+ * In-memory state (Map) is NOT shared between worker instances, making rate
+ * limiting ineffective. Users can bypass limits by hitting different edge locations.
+ *
+ * This file is kept for reference but SHOULD NOT be used in production.
+ *
+ * For production rate limiting:
+ * - Use Cloudflare's built-in DDoS protection (recommended)
+ * - Use Cloudflare KV with TTL for distributed state
+ * - Use Cloudflare Durable Objects for stronger consistency
+ * - Implement database-based rate limiting with Supabase
+ *
  * In-memory rate limiter using Map with automatic cleanup.
  * Tracks requests by IP address with sliding window algorithm.
  */

@@ -85,21 +85,22 @@ export async function recordNotificationSent(
   const expiresAt = new Date()
   expiresAt.setHours(expiresAt.getHours() + 24) // 24 hours from now
 
-  const { error } = await supabase.from('notifications_sent').insert({
-    class_watch_id: watchId,
-    notification_type: notificationType,
-    expires_at: expiresAt.toISOString(),
-  })
+  // Use UPSERT instead of INSERT to handle expired notifications
+  // This updates the expires_at if a record already exists (e.g., from an expired notification)
+  const { error } = await supabase.from('notifications_sent').upsert(
+    {
+      class_watch_id: watchId,
+      notification_type: notificationType,
+      expires_at: expiresAt.toISOString(),
+      sent_at: new Date().toISOString(),
+    },
+    {
+      onConflict: 'class_watch_id,notification_type',
+      ignoreDuplicates: false, // Update existing row instead of ignoring
+    }
+  )
 
   if (error) {
-    // Ignore duplicate key errors (constraint violation)
-    if (error.code === '23505') {
-      console.log(
-        `[DB] Notification already recorded for watch ${watchId} (${notificationType})`
-      )
-      return
-    }
-
     console.error('[DB] Error recording notification:', error)
     throw new Error(`Failed to record notification: ${error.message}`)
   }

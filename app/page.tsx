@@ -59,7 +59,7 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-base">
-                    Know immediately when "Staff" sections get assigned to specific professors.
+                    Know immediately when &ldquo;Staff&rdquo; sections get assigned to specific professors.
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -104,7 +104,7 @@ export default function Home() {
                 <div>
                   <h3 className="mb-2 text-xl font-semibold text-foreground">We Monitor for You</h3>
                   <p className="text-muted-foreground">
-                    Our system checks ASU's class search every 30 minutes for seat availability and instructor changes.
+                    Our system checks ASU&apos;s class search every 30 minutes for seat availability and instructor changes.
                   </p>
                 </div>
               </div>
@@ -116,7 +116,7 @@ export default function Home() {
                 <div>
                   <h3 className="mb-2 text-xl font-semibold text-foreground">Get Notified Instantly</h3>
                   <p className="text-muted-foreground">
-                    Receive an email notification the moment a seat opens up or an instructor is assigned. Register before it's too late.
+                    Receive an email notification the moment a seat opens up or an instructor is assigned. Register before it&apos;s too late.
                   </p>
                 </div>
               </div>
