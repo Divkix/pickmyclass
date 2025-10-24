@@ -58,6 +58,21 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Check email verification status
+  if (user && !user.email_confirmed_at) {
+    // Allow access to verification page and auth-related pages only
+    const allowedPaths = ['/verify-email', '/login', '/register', '/auth/callback']
+    const isAllowedPath = allowedPaths.some(path =>
+      request.nextUrl.pathname.startsWith(path)
+    )
+
+    if (!isAllowedPath && request.nextUrl.pathname !== '/') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/verify-email'
+      return NextResponse.redirect(url)
+    }
+  }
+
   // Redirect to login if accessing protected route while not authenticated
   if (!user && !isPublicRoute && request.nextUrl.pathname !== '/') {
     const url = request.nextUrl.clone()
@@ -65,12 +80,37 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect to dashboard if accessing auth pages while already authenticated
-  if (user && isPublicRoute && !request.nextUrl.pathname.startsWith('/legal')) {
+  // Redirect to dashboard if accessing auth pages while already authenticated and verified
+  if (user && user.email_confirmed_at && isPublicRoute && !request.nextUrl.pathname.startsWith('/legal')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
+
+  // Add security headers to all responses
+  supabaseResponse.headers.set('X-Frame-Options', 'DENY')
+  supabaseResponse.headers.set('X-Content-Type-Options', 'nosniff')
+  supabaseResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  supabaseResponse.headers.set(
+    'Permissions-Policy',
+    'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), speaker=()'
+  )
+
+  // Content Security Policy
+  // Allow self, Supabase domains, Google OAuth, and inline styles for shadcn/ui
+  const cspDirectives = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-inline needed for Next.js hydration, unsafe-eval for dev
+    "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for Tailwind/shadcn
+    "img-src 'self' data: https:", // data: for base64 images, https: for external images
+    "font-src 'self' data:", // data: for inline fonts
+    "connect-src 'self' https://*.supabase.co", // Supabase API calls
+    "frame-ancestors 'none'", // Equivalent to X-Frame-Options: DENY
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; ')
+
+  supabaseResponse.headers.set('Content-Security-Policy', cspDirectives)
 
   return supabaseResponse
 }

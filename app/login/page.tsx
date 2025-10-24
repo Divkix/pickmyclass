@@ -25,7 +25,7 @@ function LoginForm() {
   useEffect(() => {
     // Check if user just registered
     if (searchParams.get('registered') === 'true') {
-      setSuccess('Account created successfully! Please sign in.')
+      setSuccess('Account created successfully! Please check your email to verify your account.')
     }
     // Check if password was reset
     if (searchParams.get('password_reset') === 'true') {
@@ -59,6 +59,24 @@ function LoginForm() {
     }
 
     try {
+      // Check lockout status via API route
+      const lockoutResponse = await fetch('/api/auth/check-lockout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+
+      const lockoutData = await lockoutResponse.json()
+
+      if (lockoutData.isLocked) {
+        const minutes = lockoutData.remainingMinutes || 15
+        setError(
+          `Account locked due to too many failed login attempts. Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`
+        )
+        setLoading(false)
+        return
+      }
+
       const supabase = createClient()
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -66,12 +84,49 @@ function LoginForm() {
       })
 
       if (signInError) {
-        setError(signInError.message)
+        // Increment failed attempts
+        await fetch('/api/auth/increment-failed-attempts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        })
+
+        // Check if we just triggered a lockout
+        const updatedLockoutResponse = await fetch('/api/auth/check-lockout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        })
+
+        const updatedLockoutData = await updatedLockoutResponse.json()
+
+        if (updatedLockoutData.isLocked) {
+          setError(
+            'Too many failed login attempts. Your account has been locked for 15 minutes.'
+          )
+        } else {
+          const remainingAttempts = 5 - (updatedLockoutData.attempts || 0)
+          if (remainingAttempts > 0 && remainingAttempts <= 3) {
+            setError(
+              `${signInError.message} (${remainingAttempts} attempt${remainingAttempts !== 1 ? 's' : ''} remaining)`
+            )
+          } else {
+            setError(signInError.message)
+          }
+        }
+
         setLoading(false)
         return
       }
 
       if (data.user) {
+        // Clear failed attempts on successful login
+        await fetch('/api/auth/clear-failed-attempts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        })
+
         // Successfully logged in
         router.push('/dashboard')
         router.refresh()

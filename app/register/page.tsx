@@ -10,8 +10,23 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { PasswordStrengthMeter } from '@/components/PasswordStrengthMeter'
+import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core'
+import * as zxcvbnCommonPackage from '@zxcvbn-ts/language-common'
+import * as zxcvbnEnPackage from '@zxcvbn-ts/language-en'
 
 export const dynamic = 'force-dynamic'
+
+// Configure zxcvbn with English dictionary
+const options = {
+  translations: zxcvbnEnPackage.translations,
+  graphs: zxcvbnCommonPackage.adjacencyGraphs,
+  dictionary: {
+    ...zxcvbnCommonPackage.dictionary,
+    ...zxcvbnEnPackage.dictionary,
+  },
+}
+zxcvbnOptions.setOptions(options)
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -22,6 +37,10 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [passwordStrength, setPasswordStrength] = useState<{
+    score: number
+    feedback: { warning?: string; suggestions?: string[] }
+  } | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -41,6 +60,25 @@ export default function RegisterPage() {
         </div>
       </div>
     )
+  }
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const pwd = e.target.value
+    setPassword(pwd)
+
+    // Calculate password strength with zxcvbn
+    if (pwd.length > 0) {
+      const result = zxcvbn(pwd)
+      setPasswordStrength({
+        score: result.score,
+        feedback: {
+          warning: result.feedback.warning || undefined,
+          suggestions: result.feedback.suggestions || [],
+        },
+      })
+    } else {
+      setPasswordStrength(null)
+    }
   }
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -73,8 +111,15 @@ export default function RegisterPage() {
       return
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters')
+      setLoading(false)
+      return
+    }
+
+    // Enforce minimum password strength (score 3 or higher)
+    if (passwordStrength && passwordStrength.score < 3) {
+      setError('Password is too weak. Please use a stronger password.')
       setLoading(false)
       return
     }
@@ -111,8 +156,9 @@ export default function RegisterPage() {
             // Don't fail registration if profile update fails
           }
 
-          // Successfully registered
-          router.push('/dashboard')
+          // Redirect to verification page
+          // The middleware will handle the redirect if email is not confirmed
+          router.push('/verify-email')
         }
       }
     } catch (err) {
@@ -154,6 +200,11 @@ export default function RegisterPage() {
     }
   }
 
+  // Check if form is valid and password is strong enough
+  const isFormValid = email && password && confirmPassword && ageVerified && agreedToTerms &&
+    password === confirmPassword && password.length >= 8 &&
+    passwordStrength && passwordStrength.score >= 3
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
@@ -191,9 +242,20 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={handlePasswordChange}
                   placeholder="••••••••"
                 />
+                {password && passwordStrength && (
+                  <PasswordStrengthMeter
+                    score={passwordStrength.score}
+                    feedback={passwordStrength.feedback}
+                  />
+                )}
+                {password && (!passwordStrength || passwordStrength.score < 3) && (
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                    Minimum password strength: Good (score 3/4)
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -262,7 +324,7 @@ export default function RegisterPage() {
               </Alert>
             )}
 
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading || !isFormValid} className="w-full">
               {loading ? 'Creating account...' : 'Create account'}
             </Button>
 
