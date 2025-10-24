@@ -11,17 +11,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { queryHyperdrive, type Hyperdrive } from '@/lib/db/hyperdrive'
 import { getServiceClient } from '@/lib/supabase/service'
-import {
-  getClassWatchers,
-  hasNotificationBeenSent,
-  recordNotificationSent,
-  resetNotificationsForSection,
-} from '@/lib/db/queries'
+import { getClassWatchers } from '@/lib/db/queries'
 import {
   sendSeatAvailableEmail,
   sendInstructorAssignedEmail,
   type ClassInfo,
 } from '@/lib/email/resend'
+import {
+  getClassState,
+  setClassState,
+  hasNotificationBeenSentKV,
+  recordNotificationSentKV,
+  resetNotificationsKV,
+} from '@/lib/cache/kv'
 
 /**
  * Configuration
@@ -110,17 +112,14 @@ async function fetchClassDetails(
  */
 async function processClassSection(
   watch: ClassWatch,
-  serviceClient: ReturnType<typeof getServiceClient>
+  serviceClient: ReturnType<typeof getServiceClient>,
+  kv: KVNamespace | undefined
 ): Promise<{ success: boolean; error?: string }> {
   try {
     console.log(`[Cron] Processing section ${watch.class_nbr} (term: ${watch.term})`)
 
-    // Step 1: Fetch OLD state from database (if exists)
-    const { data: oldState } = await serviceClient
-      .from('class_states')
-      .select('*')
-      .eq('class_nbr', watch.class_nbr)
-      .single()
+    // Step 1: Fetch OLD state from KV cache (with PostgreSQL fallback)
+    const oldState = await getClassState(kv, watch.class_nbr)
 
     // Step 2: Fetch latest data from scraper
     const scraperResponse = await fetchClassDetails(watch.class_nbr, watch.term)
@@ -172,7 +171,7 @@ async function processClassSection(
     // Step 3A: Reset notifications if seats filled
     if (seatsFilled) {
       try {
-        await resetNotificationsForSection(watch.class_nbr, 'seat_available')
+        await resetNotificationsKV(kv, watch.class_nbr, 'seat_available')
         console.log(`[Cron] 🧹 Reset seat_available notifications for ${watch.class_nbr}`)
       } catch (error) {
         console.error(`[Cron] Error resetting notifications for ${watch.class_nbr}:`, error)
@@ -205,14 +204,15 @@ async function processClassSection(
         for (const watcher of watchers) {
           // Send seat available notification
           if (seatBecameAvailable) {
-            const alreadySent = await hasNotificationBeenSent(
+            const alreadySent = await hasNotificationBeenSentKV(
+              kv,
               watcher.watch_id,
               'seat_available'
             )
             if (!alreadySent) {
               const emailResult = await sendSeatAvailableEmail(watcher.email, classInfo)
               if (emailResult.success) {
-                await recordNotificationSent(watcher.watch_id, 'seat_available')
+                await recordNotificationSentKV(kv, watcher.watch_id, 'seat_available')
                 console.log(
                   `[Cron] ✅ Sent seat available email to ${watcher.email} for ${watch.class_nbr}`
                 )
@@ -230,7 +230,8 @@ async function processClassSection(
 
           // Send instructor assigned notification
           if (instructorAssigned) {
-            const alreadySent = await hasNotificationBeenSent(
+            const alreadySent = await hasNotificationBeenSentKV(
+              kv,
               watcher.watch_id,
               'instructor_assigned'
             )
@@ -240,7 +241,7 @@ async function processClassSection(
                 classInfo
               )
               if (emailResult.success) {
-                await recordNotificationSent(watcher.watch_id, 'instructor_assigned')
+                await recordNotificationSentKV(kv, watcher.watch_id, 'instructor_assigned')
                 console.log(
                   `[Cron] ✅ Sent instructor assigned email to ${watcher.email} for ${watch.class_nbr}`
                 )
@@ -268,32 +269,35 @@ async function processClassSection(
       }
     }
 
-    // Step 5: Upsert class state in database
+    // Step 5: Upsert class state in PostgreSQL AND KV cache
+    const newState = {
+      term: watch.term,
+      subject: newData.subject,
+      catalog_nbr: newData.catalog_nbr,
+      class_nbr: watch.class_nbr,
+      title: newData.title,
+      instructor_name: newData.instructor,
+      seats_available: newData.seats_available ?? 0,
+      seats_capacity: newData.seats_capacity ?? 0,
+      location: newData.location,
+      meeting_times: newData.meeting_times,
+      last_checked_at: new Date().toISOString(),
+    }
+
+    // Write to PostgreSQL (source of truth)
     const { error: upsertError } = await serviceClient
       .from('class_states')
-      .upsert(
-        {
-          term: watch.term,
-          subject: newData.subject,
-          catalog_nbr: newData.catalog_nbr,
-          class_nbr: watch.class_nbr,
-          title: newData.title,
-          instructor_name: newData.instructor,
-          seats_available: newData.seats_available ?? 0,
-          seats_capacity: newData.seats_capacity ?? 0,
-          location: newData.location,
-          meeting_times: newData.meeting_times,
-          last_checked_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'class_nbr',
-        }
-      )
+      .upsert(newState, {
+        onConflict: 'class_nbr',
+      })
 
     if (upsertError) {
       console.error(`[Cron] Database error for ${watch.class_nbr}:`, upsertError)
       return { success: false, error: upsertError.message }
     }
+
+    // Write to KV cache for fast reads
+    await setClassState(kv, watch.class_nbr, newState)
 
     console.log(`[Cron] Successfully updated ${watch.class_nbr}`)
     return { success: true }
@@ -333,7 +337,10 @@ export async function GET(request: NextRequest) {
     let watches: ClassWatch[] = []
 
     // @ts-expect-error - Cloudflare Workers env types
-    const env = request.env as { HYPERDRIVE?: Hyperdrive }
+    const env = request.env as { HYPERDRIVE?: Hyperdrive; KV?: KVNamespace }
+
+    // Get KV namespace from env (if available)
+    const kv = env?.KV
 
     if (env?.HYPERDRIVE) {
       console.log('[Cron] Using Hyperdrive for database access')
@@ -393,7 +400,7 @@ export async function GET(request: NextRequest) {
 
       // Process batch concurrently
       const batchResults = await Promise.all(
-        batch.map((watch) => processClassSection(watch, serviceClient))
+        batch.map((watch) => processClassSection(watch, serviceClient, kv))
       )
 
       // Aggregate results

@@ -16,6 +16,13 @@
             "localConnectionString": "postgresql://postgres:puhdip-vunfYk-xanhi4@db.osopxwuebsefhoxgeojh.supabase.co:5432/postgres"
         }
     ],
+    "kv_namespaces": [
+        {
+            "binding": "KV",
+            "id": "874366ee93b6432f918e11cb51657127",
+            "preview_id": "a709b88f41b540bda8e197219c4cb5ee"
+        }
+    ],
     "triggers": {
         "crons": [
             "0 * * * *"

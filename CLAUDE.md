@@ -147,6 +147,37 @@ Required configuration (see `.env.example`):
 - Driver: `pg` (node-postgres) version 8.16.3+
 - Connection pool limit: 5 (Workers have 6 connection limit)
 
+### Workers KV Cache Layer
+- **KV**: Cloudflare's edge key-value storage for caching
+- **Purpose**: Fast edge caching to reduce PostgreSQL queries and improve performance
+- **Utility**: `lib/cache/kv.ts` - Helper functions for KV operations with PostgreSQL fallback
+- **Architecture**: KV as cache layer, PostgreSQL as source of truth
+- **When to use**:
+  - ✅ Caching class states for change detection
+  - ✅ Notification deduplication flags
+  - ✅ Any frequently-read, infrequently-updated data
+- **Performance**: 5-10x faster reads (10-50ms vs 100-200ms for PostgreSQL)
+- **Cost**: FREE tier (1GB storage, 100k reads/day, 1k writes/day)
+
+**Setup Instructions**: See `docs/KV_SETUP.md` for production setup
+
+**Key Features**:
+1. **Automatic fallback**: If KV unavailable, falls back to PostgreSQL
+2. **Dual writes**: Updates written to both PostgreSQL + KV
+3. **TTL support**: Keys expire automatically (1 hour for class states, 24 hours for notifications)
+4. **Type-safe**: Full TypeScript support with `ClassState` interface
+
+**Usage Example**:
+```typescript
+import { getClassState, setClassState } from '@/lib/cache/kv';
+
+// Read from KV (with PostgreSQL fallback)
+const state = await getClassState(env.KV, '12431');
+
+// Write to both PostgreSQL + KV
+await setClassState(env.KV, '12431', newState);
+```
+
 ### Project Structure
 ```
 app/                         # Next.js App Router pages

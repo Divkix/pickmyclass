@@ -14,6 +14,7 @@ import { default as handler } from './.open-next/worker.js'
 interface Env {
   HYPERDRIVE: Hyperdrive
   ASSETS: Fetcher
+  KV: KVNamespace
 }
 
 /**
