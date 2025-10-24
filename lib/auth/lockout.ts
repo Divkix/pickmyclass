@@ -36,7 +36,7 @@ export async function checkLockoutStatus(email: string): Promise<LockoutStatus> 
   if (lockedUntil && lockedUntil > now) {
     return {
       isLocked: true,
-      attempts: data.attempts,
+      attempts: data.attempts ?? 0,
       lockedUntil,
     }
   }
@@ -57,7 +57,7 @@ export async function checkLockoutStatus(email: string): Promise<LockoutStatus> 
 
   return {
     isLocked: false,
-    attempts: data.attempts,
+    attempts: data.attempts ?? 0,
     lockedUntil: null,
   }
 }
@@ -76,7 +76,7 @@ export async function incrementFailedAttempts(email: string): Promise<void> {
     .eq('email', normalizedEmail)
     .single()
 
-  const newAttempts = (existing?.attempts || 0) + 1
+  const newAttempts = (existing?.attempts ?? 0) + 1
   const shouldLock = newAttempts >= MAX_FAILED_ATTEMPTS
 
   const updateData: {

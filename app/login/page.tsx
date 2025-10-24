@@ -13,6 +13,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export const dynamic = 'force-dynamic'
 
+interface LockoutResponse {
+  isLocked: boolean
+  attempts: number
+  remainingMinutes?: number
+}
+
 function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -66,7 +72,7 @@ function LoginForm() {
         body: JSON.stringify({ email }),
       })
 
-      const lockoutData = await lockoutResponse.json()
+      const lockoutData = (await lockoutResponse.json()) as LockoutResponse
 
       if (lockoutData.isLocked) {
         const minutes = lockoutData.remainingMinutes || 15
@@ -98,7 +104,7 @@ function LoginForm() {
           body: JSON.stringify({ email }),
         })
 
-        const updatedLockoutData = await updatedLockoutResponse.json()
+        const updatedLockoutData = (await updatedLockoutResponse.json()) as LockoutResponse
 
         if (updatedLockoutData.isLocked) {
           setError(
