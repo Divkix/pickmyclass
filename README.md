@@ -136,7 +136,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 | `RESEND_API_KEY` | Resend API key | Yes | `re_xxx` |
 | `RESEND_WEBHOOK_SECRET` | Resend webhook signing secret | Yes | `whsec_xxx` |
 | `NOTIFICATION_FROM_EMAIL` | Verified sender email | Yes | `notifications@yourdomain.com` |
-| `NEXT_PUBLIC_SITE_URL` | Base URL for unsubscribe links | Yes | `https://pickmyclass.app` |
+| `NEXT_PUBLIC_SITE_URL` | Base URL for unsubscribe links | Yes | `https://pickmyclass.com` |
 | `CRON_SECRET` | Authentication secret for cron endpoint | Yes | `openssl rand -hex 32` |
 | `SENTRY_DSN` | Sentry error tracking DSN | Recommended | `https://...@sentry.io/...` |
 | `MAX_WATCHES_PER_USER` | Maximum watches per user | No | `10` |
@@ -228,7 +228,7 @@ See [`.env.example`](.env.example) for detailed descriptions.
    **Option B: Verify Your Own Domain (Production)**
    - Go to [Domains](https://resend.com/domains)
    - Click "Add Domain"
-   - Enter your domain (e.g., `pickmyclass.app`)
+   - Enter your domain (e.g., `pickmyclass.com`)
    - Add DNS records (MX, TXT, CNAME) to your domain provider
    - Wait for verification (usually <5 minutes)
    - Use `notifications@yourdomain.com` as sender email

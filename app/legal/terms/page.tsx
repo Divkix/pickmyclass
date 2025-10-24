@@ -188,7 +188,7 @@ export default function TermsOfServicePage() {
                   For questions about these Terms, please contact us at:
                 </p>
                 <p className="font-mono text-sm bg-muted p-3 rounded">
-                  legal@pickmyclass.app
+                  legal@pickmyclass.com
                 </p>
               </section>
 

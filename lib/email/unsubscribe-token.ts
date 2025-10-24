@@ -84,6 +84,6 @@ export function verifyUnsubscribeToken(token: string): string | null {
  */
 export function generateUnsubscribeUrl(userId: string, baseUrl?: string): string {
   const token = generateUnsubscribeToken(userId)
-  const url = baseUrl || process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app'
+  const url = baseUrl || process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.com'
   return `${url}/api/unsubscribe?token=${token}`
 }
