@@ -6,6 +6,7 @@
  * executes cron jobs on a defined schedule.
  */
 
+// @ts-ignore `.open-next/worker.js` is generated at build time
 import { default as handler } from './.open-next/worker.js'
 
 /**
@@ -74,13 +75,13 @@ export default {
       ctx.waitUntil(
         handler
           .fetch(request, env, ctx)
-          .then((response) => response.text())
-          .then((body) => {
+          .then((response: Response) => response.text())
+          .then((body: string) => {
             const duration = Date.now() - startTime
             console.log('[Scheduled] Cron completed in', duration, 'ms')
             console.log('[Scheduled] Response:', body)
           })
-          .catch((error) => {
+          .catch((error: unknown) => {
             const duration = Date.now() - startTime
             console.error('[Scheduled] Cron failed after', duration, 'ms:', error)
           })
