@@ -16,6 +16,11 @@
             "localConnectionString": "postgresql://postgres:puhdip-vunfYk-xanhi4@db.osopxwuebsefhoxgeojh.supabase.co:5432/postgres"
         }
     ],
+    "triggers": {
+        "crons": [
+            "0 * * * *"
+        ]
+    },
     "observability": {
         "enabled": false,
         "head_sampling_rate": 1,
