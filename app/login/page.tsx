@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/Header'
@@ -25,7 +25,6 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -143,9 +142,9 @@ function LoginForm() {
           body: JSON.stringify({ email }),
         }).catch(err => console.error('[Login] Failed to clear attempts:', err))
 
-        // Successfully logged in
-        router.push('/dashboard')
-        router.refresh()
+        // Successfully logged in - use window.location for full page reload
+        // This ensures auth cookies are properly included (Next.js 15 router.push bug workaround)
+        window.location.href = '/dashboard'
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
