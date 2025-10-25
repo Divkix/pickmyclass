@@ -49,6 +49,7 @@ export type Database = {
           last_checked_at: string
           location: string | null
           meeting_times: string | null
+          non_reserved_seats: number | null
           seats_available: number
           seats_capacity: number
           subject: string
@@ -64,6 +65,7 @@ export type Database = {
           last_checked_at?: string
           location?: string | null
           meeting_times?: string | null
+          non_reserved_seats?: number | null
           seats_available?: number
           seats_capacity?: number
           subject: string
@@ -79,6 +81,7 @@ export type Database = {
           last_checked_at?: string
           location?: string | null
           meeting_times?: string | null
+          non_reserved_seats?: number | null
           seats_available?: number
           seats_capacity?: number
           subject?: string

@@ -42,6 +42,7 @@ interface ScraperResponse {
     instructor: string
     seats_available?: number
     seats_capacity?: number
+    non_reserved_seats?: number | null
     location?: string
     meeting_times?: string
   }
@@ -140,26 +141,39 @@ async function processClassSection(
 
     const newData = scraperResponse.data
 
-    // Step 3: Detect changes
+    // Step 3: Detect changes using NON-RESERVED seats (strict policy)
     let seatsFilled = false
     let seatBecameAvailable = false
     let instructorAssigned = false
 
+    // Helper: Calculate truly open seats (non-reserved)
+    // Liberal fallback: if non_reserved_seats is null (couldn't determine), use seats_available
+    const getOpenSeats = (nonReserved: number | null | undefined, totalAvailable: number): number => {
+      return nonReserved ?? totalAvailable
+    }
+
     if (oldState) {
+      const oldOpenSeats = getOpenSeats(oldState.non_reserved_seats, oldState.seats_available)
+      const newOpenSeats = getOpenSeats(newData.non_reserved_seats, newData.seats_available ?? 0)
+
       // Detect seats filling: was > 0, now = 0
       // This triggers notification reset for hybrid system (Safety Net #1)
-      if (oldState.seats_available > 0 && (newData.seats_available ?? 0) === 0) {
+      if (oldOpenSeats > 0 && newOpenSeats === 0) {
         seatsFilled = true
         console.log(
-          `[Cron] 🔄 Seats filled in ${watch.class_nbr} - will reset notifications`
+          `[Cron] 🔄 Open seats filled in ${watch.class_nbr} - will reset notifications`
         )
       }
 
-      // Detect seat availability change: was 0, now > 0
-      if (oldState.seats_available === 0 && (newData.seats_available ?? 0) > 0) {
+      // Detect OPEN seat availability change: was 0, now > 0 (STRICT POLICY)
+      // Only trigger on truly available (non-reserved) seats
+      if (oldOpenSeats === 0 && newOpenSeats > 0) {
         seatBecameAvailable = true
+        const reservedInfo = newData.non_reserved_seats !== null
+          ? `(${newOpenSeats} non-reserved, ${(newData.seats_available ?? 0) - newOpenSeats} reserved)`
+          : '(reserved status unknown - using liberal fallback)'
         console.log(
-          `[Cron] 🎉 Seat became available in ${watch.class_nbr}: ${newData.seats_available} seats`
+          `[Cron] 🎉 OPEN seat became available in ${watch.class_nbr}: ${newOpenSeats} seats ${reservedInfo}`
         )
       }
 
@@ -204,6 +218,7 @@ async function processClassSection(
           instructor_name: newData.instructor,
           seats_available: newData.seats_available ?? 0,
           seats_capacity: newData.seats_capacity ?? 0,
+          non_reserved_seats: newData.non_reserved_seats ?? null,
           location: newData.location,
           meeting_times: newData.meeting_times,
         }
@@ -304,6 +319,7 @@ async function processClassSection(
       instructor_name: newData.instructor,
       seats_available: newData.seats_available ?? 0,
       seats_capacity: newData.seats_capacity ?? 0,
+      non_reserved_seats: newData.non_reserved_seats ?? null,
       location: newData.location,
       meeting_times: newData.meeting_times,
       last_checked_at: new Date().toISOString(),
