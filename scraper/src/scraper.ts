@@ -292,6 +292,62 @@ export async function scrapeClassSection(
     // Parse instructor (handle "Staff" or actual names)
     const instructor = classData.instructor || 'Staff'
 
+    // Step 4: Extract non-reserved seats from expanded accordion
+    let nonReservedSeats: number | null = null
+
+    try {
+      console.log('[Scraper] Attempting to extract non-reserved seat information...')
+
+      // Click "Class Details" button to expand accordion
+      const detailsButton = await page.$('.class-results-cell.seats button')
+      if (detailsButton) {
+        await detailsButton.click()
+        console.log('[Scraper] Clicked Class Details button')
+
+        // Wait for the reserved seat table to load
+        await page.waitForSelector('table', { timeout: 5000 })
+        console.log('[Scraper] Reserved seat table loaded')
+
+        // Extract non-reserved seats from table
+        nonReservedSeats = await page.evaluate(() => {
+          const tables = Array.from(document.querySelectorAll('table'))
+
+          // Find the table that contains reserved seat information
+          for (const table of tables) {
+            const rows = Array.from(table.querySelectorAll('tbody tr'))
+
+            // Look for the "Non Reserved Available Seats" row
+            const nonReservedRow = rows.find((row) =>
+              row.textContent?.includes('Non Reserved Available Seats')
+            )
+
+            if (nonReservedRow) {
+              // Extract number from "Non Reserved Available Seats: 6" format
+              const cellText = nonReservedRow.textContent || ''
+              const match = cellText.match(/Non Reserved Available Seats:\s*(\d+)/)
+
+              if (match) {
+                return parseInt(match[1], 10)
+              }
+            }
+          }
+
+          return null
+        })
+
+        if (nonReservedSeats !== null) {
+          console.log(`[Scraper] Extracted non-reserved seats: ${nonReservedSeats}`)
+        } else {
+          console.warn('[Scraper] Could not find non-reserved seats row in table')
+        }
+      } else {
+        console.warn('[Scraper] Class Details button not found - cannot extract reserved seat info')
+      }
+    } catch (error) {
+      console.warn('[Scraper] Failed to extract reserved seat information:', error)
+      // Continue with null value (graceful fallback)
+    }
+
     // Build response
     const result: ClassDetails = {
       subject,
@@ -300,6 +356,7 @@ export async function scrapeClassSection(
       instructor,
       seats_available: seatsInfo?.available,
       seats_capacity: seatsInfo?.capacity,
+      non_reserved_seats: nonReservedSeats,
       location: classData.location || undefined,
       meeting_times: classData.times || undefined,
     }

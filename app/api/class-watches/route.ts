@@ -32,6 +32,7 @@ interface ScraperResponse {
     instructor?: string
     seats_available?: number
     seats_capacity?: number
+    non_reserved_seats?: number | null
     location?: string
     meeting_times?: string
   }
@@ -271,6 +272,7 @@ export async function POST(request: NextRequest) {
               instructor_name: scrapedData.instructor || null,
               seats_available: scrapedData.seats_available || 0,
               seats_capacity: scrapedData.seats_capacity || 0,
+              non_reserved_seats: scrapedData.non_reserved_seats ?? null,
               location: scrapedData.location || null,
               meeting_times: scrapedData.meeting_times || null,
               last_checked_at: new Date().toISOString(),

@@ -114,9 +114,27 @@ export function SeatAvailableEmailTemplate(
           : ''
       }
       <p style="margin: 15px 0 5px 0; font-size: 18px; color: #059669; font-weight: bold;">
-        ${classInfo.seats_available} of ${classInfo.seats_capacity} seats available
+        ${classInfo.non_reserved_seats ?? classInfo.seats_available} open seat${(classInfo.non_reserved_seats ?? classInfo.seats_available) !== 1 ? 's' : ''} available
+      </p>
+      ${
+        classInfo.non_reserved_seats !== null && classInfo.non_reserved_seats !== undefined
+          ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;">These seats are available for general enrollment (not reserved for specific majors/programs)</p>`
+          : ''
+      }
+    </div>
+
+    ${
+      classInfo.non_reserved_seats === null || classInfo.non_reserved_seats === undefined
+        ? `
+    <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0;">
+      <p style="margin: 0; color: #92400e; font-size: 14px;">
+        ⚠️ <strong>Note:</strong> We couldn't verify if these seats are reserved for specific majors or programs.
+        Please check the ASU catalog for seat reservation details before enrolling.
       </p>
     </div>
+    `
+        : ''
+    }
 
     <p style="font-size: 14px; color: #6b7280; margin: 20px 0;">
       Act fast! Seats can fill up quickly. Click the button below to register:

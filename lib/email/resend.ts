@@ -33,6 +33,7 @@ export interface ClassInfo {
   instructor_name: string
   seats_available: number
   seats_capacity: number
+  non_reserved_seats?: number | null
   location?: string
   meeting_times?: string
 }

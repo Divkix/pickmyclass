@@ -16,6 +16,7 @@ export interface ClassDetails {
   instructor?: string
   seats_available?: number
   seats_capacity?: number
+  non_reserved_seats?: number | null  // null = couldn't determine reserved status
   location?: string
   meeting_times?: string
 }
