@@ -36,9 +36,9 @@ export default async function middleware(request: NextRequest) {
 
   // Define public routes that don't require authentication
   const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/legal', '/auth/callback']
-  const isPublicRoute = publicRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route)
-  )
+  const isPublicRoute =
+    publicRoutes.some((route) => request.nextUrl.pathname.startsWith(route)) ||
+    request.nextUrl.pathname.startsWith('/api/auth/') // Auth API routes must be public for login flow
 
   // Check if user account is disabled (soft delete)
   if (user) {

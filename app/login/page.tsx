@@ -52,7 +52,12 @@ function LoginForm() {
   }, [searchParams])
 
   const handleLogin = async (e: React.FormEvent) => {
+    // CRITICAL: Prevent form submission FIRST, before any other code
     e.preventDefault()
+    e.stopPropagation()
+
+    console.log('[Login] Form submit handled, natural submission prevented')
+
     setError(null)
     setSuccess(null)
     setLoading(true)
@@ -72,6 +77,11 @@ function LoginForm() {
         body: JSON.stringify({ email }),
       })
 
+      if (!lockoutResponse.ok) {
+        console.error('[Login] Lockout check failed:', lockoutResponse.status, lockoutResponse.statusText)
+        throw new Error(`Failed to check account status (${lockoutResponse.status})`)
+      }
+
       const lockoutData = (await lockoutResponse.json()) as LockoutResponse
 
       if (lockoutData.isLocked) {
@@ -90,12 +100,12 @@ function LoginForm() {
       })
 
       if (signInError) {
-        // Increment failed attempts
-        await fetch('/api/auth/increment-failed-attempts', {
+        // Increment failed attempts (fire and forget - don't block on errors)
+        fetch('/api/auth/increment-failed-attempts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
-        })
+        }).catch(err => console.error('[Login] Failed to increment attempts:', err))
 
         // Check if we just triggered a lockout
         const updatedLockoutResponse = await fetch('/api/auth/check-lockout', {
@@ -126,20 +136,20 @@ function LoginForm() {
       }
 
       if (data.user) {
-        // Clear failed attempts on successful login
-        await fetch('/api/auth/clear-failed-attempts', {
+        // Clear failed attempts on successful login (fire and forget)
+        fetch('/api/auth/clear-failed-attempts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
-        })
+        }).catch(err => console.error('[Login] Failed to clear attempts:', err))
 
         // Successfully logged in
         router.push('/dashboard')
         router.refresh()
       }
     } catch (err) {
-      setError('An unexpected error occurred')
-      console.error(err)
+      setError('An unexpected error occurred. Please try again.')
+      console.error('[Login Error]', err)
     } finally {
       setLoading(false)
     }
@@ -178,7 +188,7 @@ function LoginForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-6" noValidate>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email address</Label>
