@@ -100,7 +100,7 @@ export default async function middleware(request: NextRequest) {
   supabaseResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   supabaseResponse.headers.set(
     'Permissions-Policy',
-    'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), speaker=()'
+    'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()'
   )
 
   // Content Security Policy
@@ -111,7 +111,7 @@ export default async function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for Tailwind/shadcn
     "img-src 'self' data: https:", // data: for base64 images, https: for external images
     "font-src 'self' data:", // data: for inline fonts
-    "connect-src 'self' https://*.supabase.co", // Supabase API calls
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co", // Supabase API calls and Realtime WebSockets
     "frame-ancestors 'none'", // Equivalent to X-Frame-Options: DENY
     "base-uri 'self'",
     "form-action 'self'",
