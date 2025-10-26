@@ -1,4 +1,6 @@
 import { Database } from '@/lib/supabase/database.types'
+import { ExternalLink } from 'lucide-react'
+import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor'
 
 type ClassState = Database['public']['Tables']['class_states']['Row']
 
@@ -90,6 +92,19 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
           className={`h-2 w-2 rounded-full ${hasInstructor ? 'bg-blue-500' : 'bg-zinc-500'}`}
         />
         <span>Instructor: {instructor_name || 'TBA'}</span>
+        {isValidProfessorName(instructor_name) && (
+          <a
+            href={getRateMyProfessorUrl(instructor_name) || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-1 inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+            title="View on RateMyProfessor"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="h-3 w-3" />
+            <span className="hover:underline">RMP</span>
+          </a>
+        )}
       </div>
     </div>
   )

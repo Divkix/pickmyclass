@@ -13,6 +13,7 @@ export interface ClassWatcher {
   user_id: string
   email: string
   watch_id: string
+  class_nbr?: string // Added for bulk fetching
 }
 
 /**
@@ -34,6 +35,76 @@ export async function getClassWatchers(classNbr: string): Promise<ClassWatcher[]
     console.error(`[DB] Error fetching watchers for section ${classNbr}:`, error)
     throw new Error(`Failed to fetch watchers: ${error.message}`)
   }
+
+  return data || []
+}
+
+/**
+ * Get all users watching multiple class sections (bulk operation)
+ * Eliminates N+1 query pattern by fetching watchers for all sections in one query
+ *
+ * @param classNumbers - Array of section numbers (e.g., ["12431", "12432"])
+ * @returns Map of section number to array of watchers
+ */
+export async function getBulkClassWatchers(
+  classNumbers: string[]
+): Promise<Map<string, ClassWatcher[]>> {
+  const supabase = getServiceClient()
+
+  if (classNumbers.length === 0) {
+    return new Map()
+  }
+
+  // Call PostgreSQL function that bulk fetches watchers for multiple sections
+  const { data, error } = await supabase.rpc('get_watchers_for_sections', {
+    section_numbers: classNumbers,
+  })
+
+  if (error) {
+    console.error(`[DB] Error bulk fetching watchers:`, error)
+    throw new Error(`Failed to bulk fetch watchers: ${error.message}`)
+  }
+
+  // Group watchers by section number
+  const watcherMap = new Map<string, ClassWatcher[]>()
+
+  for (const watcher of data || []) {
+    const { class_nbr, ...watcherData } = watcher
+    if (!watcherMap.has(class_nbr)) {
+      watcherMap.set(class_nbr, [])
+    }
+    watcherMap.get(class_nbr)!.push(watcherData)
+  }
+
+  console.log(
+    `[DB] Bulk fetched watchers for ${classNumbers.length} sections (total: ${data?.length || 0} watchers)`
+  )
+
+  return watcherMap
+}
+
+/**
+ * Get sections to check based on stagger type (even/odd)
+ * Uses server-side filtering for optimal performance
+ *
+ * @param staggerType - 'even', 'odd', or 'all'
+ * @returns Array of unique sections to check
+ */
+export async function getSectionsToCheck(
+  staggerType: 'even' | 'odd' | 'all' = 'all'
+): Promise<Array<{ class_nbr: string; term: string }>> {
+  const supabase = getServiceClient()
+
+  const { data, error } = await supabase.rpc('get_sections_to_check', {
+    stagger_type: staggerType,
+  })
+
+  if (error) {
+    console.error(`[DB] Error fetching sections to check:`, error)
+    throw new Error(`Failed to fetch sections: ${error.message}`)
+  }
+
+  console.log(`[DB] Found ${data?.length || 0} sections to check (stagger: ${staggerType})`)
 
   return data || []
 }

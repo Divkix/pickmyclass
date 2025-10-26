@@ -14,6 +14,23 @@
             "0,30 * * * *"
         ]
     },
+    "queues": {
+        "producers": [
+            {
+                "binding": "CLASS_CHECK_QUEUE",
+                "queue": "class-check-queue"
+            }
+        ],
+        "consumers": [
+            {
+                "queue": "class-check-queue",
+                "max_batch_size": 10,
+                "max_batch_timeout": 5,
+                "max_retries": 3,
+                "dead_letter_queue": "class-check-dlq"
+            }
+        ]
+    },
     "observability": {
         "enabled": true,
         "head_sampling_rate": 1,

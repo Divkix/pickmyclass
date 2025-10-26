@@ -2,50 +2,154 @@ import puppeteer, { Browser, Page } from 'puppeteer'
 import type { ClassDetails } from './types.js'
 
 /**
- * Browser pool to reuse browser instances across requests
- * Maintains a single headless browser instance for performance
+ * CONCURRENCY CONFIGURATION
+ *
+ * This scraper is designed for high concurrent load from Cloudflare Workers cron jobs.
+ * Expected load: 6,250 requests per 30 minutes (batch size 3, 2000+ sections)
+ *
+ * Browser Pool Strategy:
+ * - Maintain pool of 5 browser instances (reduced from 10 for reliability)
+ * - Each browser can handle 1 concurrent scrape job (Puppeteer pages are isolated)
+ * - Queue system prevents overwhelming the server (max 100 concurrent jobs)
+ * - Browser reuse avoids expensive launch/close overhead (~2-3 seconds per browser)
+ * - Batched launching prevents timeout during initialization
+ *
+ * Memory considerations:
+ * - Each browser instance: ~50-150MB RAM
+ * - Total with 5 browsers: ~750MB RAM max
+ * - Oracle server has 24GB RAM - this is very conservative
+ *
+ * Performance:
+ * - 5 browsers still provides 5x parallelization vs single browser
+ * - Sufficient for 10k users with queue-based architecture
+ * - More reliable initialization on resource-constrained servers
+ *
+ * Adjust MAX_CONCURRENT_BROWSERS based on your server:
+ * - 2GB RAM server: 3-5 browsers (current setting)
+ * - 4GB RAM server: 8-10 browsers
+ * - 24GB RAM server (Oracle): Can increase to 10-15 if needed
+ */
+const MAX_CONCURRENT_BROWSERS = 5 // Maximum number of browser instances (reduced for reliable initialization)
+const BROWSER_LAUNCH_BATCH_SIZE = 2 // Launch browsers in batches to avoid timeout
+const MAX_QUEUE_SIZE = 100 // Maximum queued scrape jobs before rejecting new ones
+
+/**
+ * Browser pool with concurrency control
+ * Maintains multiple browser instances and queues scrape jobs
  */
 class BrowserPool {
-  private browser: Browser | null = null
-  private isLaunching = false
-  private launchPromise: Promise<Browser> | null = null
+  private browsers: Browser[] = []
+  private availableBrowsers: Browser[] = []
+  private isShuttingDown = false
+  private queue: Array<{
+    resolve: (browser: Browser) => void
+    reject: (error: Error) => void
+  }> = []
 
   /**
-   * Get or create browser instance
-   * Reuses existing browser to avoid launch overhead
+   * Initialize browser pool
+   * Called on first scrape request (lazy initialization)
+   *
+   * Launches browsers in small batches to prevent timeout on resource-constrained servers
    */
-  async getBrowser(): Promise<Browser> {
-    // If browser exists and is connected, return it
-    if (this.browser && this.browser.connected) {
-      return this.browser
+  private async initializePool(): Promise<void> {
+    if (this.browsers.length > 0) return // Already initialized
+
+    console.log(`[BrowserPool] Initializing pool with ${MAX_CONCURRENT_BROWSERS} browsers (batches of ${BROWSER_LAUNCH_BATCH_SIZE})...`)
+    const startTime = Date.now()
+
+    // Launch browsers in batches to prevent timeout during initialization
+    this.browsers = []
+    for (let i = 0; i < MAX_CONCURRENT_BROWSERS; i += BROWSER_LAUNCH_BATCH_SIZE) {
+      const batchSize = Math.min(BROWSER_LAUNCH_BATCH_SIZE, MAX_CONCURRENT_BROWSERS - i)
+      const batchNum = Math.floor(i / BROWSER_LAUNCH_BATCH_SIZE) + 1
+      const totalBatches = Math.ceil(MAX_CONCURRENT_BROWSERS / BROWSER_LAUNCH_BATCH_SIZE)
+
+      console.log(`[BrowserPool] Launching batch ${batchNum}/${totalBatches} (${batchSize} browsers)...`)
+
+      const batchPromises = Array.from({ length: batchSize }, (_, j) =>
+        this.launchBrowser(i + j + 1)
+      )
+
+      const launchedBrowsers = await Promise.all(batchPromises)
+      this.browsers.push(...launchedBrowsers)
+
+      console.log(`[BrowserPool] Batch ${batchNum}/${totalBatches} complete - ${this.browsers.length}/${MAX_CONCURRENT_BROWSERS} browsers ready`)
     }
 
-    // If another request is launching, wait for it
-    if (this.isLaunching && this.launchPromise) {
-      return this.launchPromise
+    this.availableBrowsers = [...this.browsers]
+
+    const duration = Date.now() - startTime
+    console.log(`[BrowserPool] Pool fully initialized in ${duration}ms - ${this.browsers.length} browsers ready`)
+  }
+
+  /**
+   * Acquire browser from pool
+   * Waits in queue if all browsers are busy
+   */
+  async acquireBrowser(): Promise<Browser> {
+    // Initialize pool on first request
+    if (this.browsers.length === 0) {
+      await this.initializePool()
     }
 
-    // Launch new browser
-    this.isLaunching = true
-    this.launchPromise = this.launchBrowser()
-
-    try {
-      this.browser = await this.launchPromise
-      return this.browser
-    } finally {
-      this.isLaunching = false
-      this.launchPromise = null
+    if (this.isShuttingDown) {
+      throw new Error('Browser pool is shutting down')
     }
+
+    // Check queue size
+    if (this.queue.length >= MAX_QUEUE_SIZE) {
+      throw new Error(`Queue is full (${MAX_QUEUE_SIZE} jobs waiting) - server overloaded`)
+    }
+
+    // If browser available, return immediately
+    if (this.availableBrowsers.length > 0) {
+      const browser = this.availableBrowsers.pop()!
+      console.log(`[BrowserPool] Browser acquired - ${this.availableBrowsers.length}/${this.browsers.length} available`)
+      return browser
+    }
+
+    // Wait in queue for next available browser
+    console.log(`[BrowserPool] All browsers busy - queuing (${this.queue.length + 1} waiting)`)
+    return new Promise((resolve, reject) => {
+      this.queue.push({ resolve, reject })
+    })
+  }
+
+  /**
+   * Release browser back to pool
+   * Gives browser to next queued job or marks as available
+   */
+  releaseBrowser(browser: Browser): void {
+    if (this.isShuttingDown) {
+      // During shutdown, close browsers instead of releasing
+      browser.close().catch(console.error)
+      return
+    }
+
+    // If jobs are queued, give browser to next job
+    const next = this.queue.shift()
+    if (next) {
+      console.log(`[BrowserPool] Browser assigned to queued job - ${this.queue.length} still waiting`)
+      next.resolve(browser)
+      return
+    }
+
+    // No queue - mark browser as available
+    this.availableBrowsers.push(browser)
+    console.log(`[BrowserPool] Browser released - ${this.availableBrowsers.length}/${this.browsers.length} available`)
   }
 
   /**
    * Launch headless Chromium with optimized settings
+   * Increased timeout to 60s for reliable initialization on slower servers
    */
-  private async launchBrowser(): Promise<Browser> {
-    console.log('[BrowserPool] Launching new browser instance')
+  private async launchBrowser(id: number): Promise<Browser> {
+    console.log(`[BrowserPool] Launching browser #${id}...`)
 
     const browser = await puppeteer.launch({
       headless: true,
+      timeout: 60000, // Increased from default 30s to 60s for slower servers
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -72,27 +176,48 @@ class BrowserPool {
       },
     })
 
-    console.log('[BrowserPool] Browser launched successfully')
+    console.log(`[BrowserPool] Browser #${id} launched successfully`)
     return browser
   }
 
   /**
-   * Close browser gracefully
+   * Close all browsers gracefully
    */
   async close(): Promise<void> {
-    if (this.browser) {
-      console.log('[BrowserPool] Closing browser')
-      await this.browser.close()
-      this.browser = null
-      console.log('[BrowserPool] Browser closed')
+    this.isShuttingDown = true
+
+    console.log(`[BrowserPool] Shutting down - rejecting ${this.queue.length} queued jobs`)
+
+    // Reject all queued jobs
+    for (const { reject } of this.queue) {
+      reject(new Error('Browser pool shutting down'))
     }
+    this.queue = []
+
+    // Close all browsers
+    console.log(`[BrowserPool] Closing ${this.browsers.length} browsers...`)
+    await Promise.all(this.browsers.map(browser => browser.close()))
+
+    this.browsers = []
+    this.availableBrowsers = []
+    console.log('[BrowserPool] All browsers closed')
   }
 
   /**
-   * Check if browser is running
+   * Get pool status for monitoring
    */
-  isConnected(): boolean {
-    return this.browser?.connected || false
+  getStatus(): {
+    total: number
+    available: number
+    busy: number
+    queued: number
+  } {
+    return {
+      total: this.browsers.length,
+      available: this.availableBrowsers.length,
+      busy: this.browsers.length - this.availableBrowsers.length,
+      queued: this.queue.length,
+    }
   }
 }
 
@@ -175,7 +300,8 @@ export async function scrapeClassSection(
 ): Promise<ClassDetails> {
   console.log(`[Scraper] Starting scrape: section=${sectionNumber}, term=${term}`)
 
-  const browser = await browserPool.getBrowser()
+  // Acquire browser from pool (waits if all busy)
+  const browser = await browserPool.acquireBrowser()
   const page = await browser.newPage()
 
   try {
@@ -298,11 +424,11 @@ export async function scrapeClassSection(
     try {
       console.log('[Scraper] Attempting to extract non-reserved seat information...')
 
-      // Click "Class Details" button to expand accordion
-      const detailsButton = await page.$('.class-results-cell.seats button')
+      // Click course cell to expand accordion (ASU uses clickable course cell, not a button)
+      const detailsButton = await page.$('.class-results-cell.course.pointer')
       if (detailsButton) {
         await detailsButton.click()
-        console.log('[Scraper] Clicked Class Details button')
+        console.log('[Scraper] Clicked course cell to expand accordion')
 
         // Wait for the reserved seat table to load
         await page.waitForSelector('table', { timeout: 5000 })
@@ -341,7 +467,7 @@ export async function scrapeClassSection(
           console.warn('[Scraper] Could not find non-reserved seats row in table')
         }
       } else {
-        console.warn('[Scraper] Class Details button not found - cannot extract reserved seat info')
+        console.warn('[Scraper] Course cell not found - cannot extract reserved seat info')
       }
     } catch (error) {
       console.warn('[Scraper] Failed to extract reserved seat information:', error)
@@ -386,9 +512,10 @@ export async function scrapeClassSection(
       `Scraping failed for section ${sectionNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
   } finally {
-    // Always close the page
+    // Always close the page and release browser back to pool
     await page.close()
-    console.log('[Scraper] Page closed')
+    browserPool.releaseBrowser(browser)
+    console.log('[Scraper] Page closed, browser released to pool')
   }
 }
 
@@ -409,8 +536,11 @@ export function isValidTerm(term: string): boolean {
 /**
  * Get browser pool status (for debugging/monitoring)
  */
-export function getBrowserStatus(): { connected: boolean } {
-  return {
-    connected: browserPool.isConnected(),
-  }
+export function getBrowserStatus(): {
+  total: number
+  available: number
+  busy: number
+  queued: number
+} {
+  return browserPool.getStatus()
 }

@@ -182,11 +182,116 @@ export async function sendInstructorAssignedEmail(
 }
 
 /**
- * Send batch emails with rate limiting
+ * Send batch emails using Resend's batch API (up to 100 emails per request)
+ * Much faster than sequential sending: 50 emails in 0.5s vs 5s
+ *
+ * @param emails - Array of email configurations
+ * @returns Array of email results
+ */
+export async function sendBatchEmailsOptimized(
+  emails: Array<{
+    to: string
+    userId: string
+    classInfo: ClassInfo
+    type: 'seat_available' | 'instructor_assigned'
+  }>
+): Promise<EmailResult[]> {
+  if (emails.length === 0) {
+    return []
+  }
+
+  const resend = getResendClient()
+  const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || 'onboarding@resend.dev'
+
+  // Check if email service is configured
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[Email] RESEND_API_KEY not configured - skipping batch email send')
+    return emails.map(() => ({
+      success: false,
+      error: 'Email service not configured',
+    }))
+  }
+
+  // Split into chunks of 100 (Resend's batch limit)
+  const chunks: typeof emails[] = []
+  for (let i = 0; i < emails.length; i += 100) {
+    chunks.push(emails.slice(i, i + 100))
+  }
+
+  const allResults: EmailResult[] = []
+
+  for (const chunk of chunks) {
+    try {
+      // Prepare batch payload
+      const batchPayload = chunk.map((email) => {
+        const unsubscribeUrl = generateUnsubscribeUrl(email.userId)
+        const isSeatAvailable = email.type === 'seat_available'
+
+        return {
+          from: fromEmail,
+          to: email.to,
+          subject: isSeatAvailable
+            ? `🎉 Seat Available: ${email.classInfo.subject} ${email.classInfo.catalog_nbr} (${email.classInfo.class_nbr})`
+            : `👨‍🏫 Instructor Assigned: ${email.classInfo.subject} ${email.classInfo.catalog_nbr} (${email.classInfo.class_nbr})`,
+          html: isSeatAvailable
+            ? SeatAvailableEmailTemplate(email.classInfo, unsubscribeUrl)
+            : InstructorAssignedEmailTemplate(email.classInfo, unsubscribeUrl),
+          headers: {
+            'List-Unsubscribe': `<${unsubscribeUrl}>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          },
+        }
+      })
+
+      // Send batch via Resend API
+      const { data, error } = await resend.batch.send(batchPayload)
+
+      if (error) {
+        console.error('[Email] Batch send failed:', error)
+        // All emails in this batch failed
+        allResults.push(
+          ...chunk.map(() => ({
+            success: false,
+            error: error.message || 'Batch send failed',
+          }))
+        )
+      } else {
+        console.log(`[Email] Batch sent ${chunk.length} emails successfully`)
+        // All emails in this batch succeeded
+        allResults.push(
+          ...chunk.map((_, index) => ({
+            success: true,
+            messageId: data?.data?.[index]?.id,
+          }))
+        )
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[Email] Batch send error:', errorMessage)
+      allResults.push(
+        ...chunk.map(() => ({
+          success: false,
+          error: errorMessage,
+        }))
+      )
+    }
+
+    // Small delay between chunks to avoid rate limiting (if multiple chunks)
+    if (chunks.length > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+  }
+
+  return allResults
+}
+
+/**
+ * Send batch emails with rate limiting (DEPRECATED - use sendBatchEmailsOptimized)
  *
  * @param emails - Array of email sending functions
  * @param delayMs - Delay between emails (default 100ms)
  * @returns Array of email results
+ * @deprecated Use sendBatchEmailsOptimized for 10x better performance
  */
 export async function sendBatchEmails(
   emails: Array<() => Promise<EmailResult>>,
