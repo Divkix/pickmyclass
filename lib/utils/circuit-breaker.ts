@@ -15,6 +15,19 @@ export enum CircuitState {
 }
 
 /**
+ * Circuit breaker error with metadata
+ */
+export class CircuitBreakerError extends Error {
+  circuitBreakerOpen: boolean
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'CircuitBreakerError'
+    this.circuitBreakerOpen = true
+  }
+}
+
+/**
  * Circuit breaker configuration
  */
 export interface CircuitBreakerOptions {
@@ -84,11 +97,9 @@ export class CircuitBreaker {
         this.state = CircuitState.HALF_OPEN
         this.successCount = 0
       } else {
-        const error = new Error(
+        throw new CircuitBreakerError(
           `Circuit breaker is OPEN for ${this.options.name} (service unavailable)`
         )
-        ;(error as any).circuitBreakerOpen = true
-        throw error
       }
     }
 

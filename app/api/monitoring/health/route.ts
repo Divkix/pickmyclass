@@ -4,9 +4,19 @@
  * Provides real-time system status including circuit breakers, database, and scraper.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getServiceClient } from '@/lib/supabase/service'
 import { getScraperCircuitBreaker } from '@/lib/utils/circuit-breaker'
+
+/**
+ * Health status response
+ */
+interface HealthStatus {
+  timestamp: string
+  status: 'healthy' | 'degraded' | 'unhealthy'
+  checks: Record<string, unknown>
+  response_time_ms?: number
+}
 
 /**
  * GET /api/monitoring/health
@@ -14,9 +24,9 @@ import { getScraperCircuitBreaker } from '@/lib/utils/circuit-breaker'
  * Returns system health status for monitoring and alerting
  * Public endpoint - no authentication required
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   const startTime = Date.now()
-  const health: any = {
+  const health: HealthStatus = {
     timestamp: new Date().toISOString(),
     status: 'healthy',
     checks: {},
