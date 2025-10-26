@@ -9,6 +9,9 @@
         "directory": ".open-next/assets",
         "binding": "ASSETS"
     },
+    // IMPORTANT: Cron triggers require explicit deployment via 'wrangler triggers deploy'
+    // This is automatically included in 'bun run deploy' script
+    // Schedule: Every 30 minutes at :00 (even class numbers) and :30 (odd class numbers)
     "triggers": {
         "crons": [
             "0,30 * * * *"

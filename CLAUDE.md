@@ -49,9 +49,11 @@ bun run lint             # Run ESLint
 ### Cloudflare Workers Deployment
 ```bash
 bun run preview          # Build with OpenNext and preview locally on Cloudflare Workers
-bun run deploy           # Build and deploy to Cloudflare Workers
+bun run deploy           # Build and deploy to Cloudflare Workers (includes trigger deployment)
 bun run cf-typegen       # Generate TypeScript types for Cloudflare environment bindings
 ```
+
+**IMPORTANT**: The `deploy` script now includes `wrangler triggers deploy` to ensure cron schedules are deployed. This is required for the queue-based class checking system to function.
 
 ### Clean Build
 ```bash
