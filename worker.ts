@@ -74,21 +74,18 @@ export default {
       // @ts-expect-error - NextRequest doesn't have env property, but we add it
       request.env = env
 
-      // Execute the cron job (don't await - let it run in background)
-      ctx.waitUntil(
-        handler
-          .fetch(request, env, ctx)
-          .then((response: Response) => response.text())
-          .then((body: string) => {
-            const duration = Date.now() - startTime
-            console.log('[Scheduled] Cron completed in', duration, 'ms')
-            console.log('[Scheduled] Response:', body)
-          })
-          .catch((error: unknown) => {
-            const duration = Date.now() - startTime
-            console.error('[Scheduled] Cron failed after', duration, 'ms:', error)
-          })
-      )
+      // Execute the cron job and await completion
+      // We await instead of using ctx.waitUntil() to ensure the work actually executes
+      const response = await handler.fetch(request, env, ctx)
+      const body = await response.text()
+      const duration = Date.now() - startTime
+
+      console.log('[Scheduled] Cron completed in', duration, 'ms')
+      console.log('[Scheduled] Response:', body)
+
+      if (!response.ok) {
+        console.error('[Scheduled] Cron returned error status:', response.status)
+      }
     } catch (error) {
       const duration = Date.now() - startTime
       console.error('[Scheduled] Fatal error after', duration, 'ms:', error)

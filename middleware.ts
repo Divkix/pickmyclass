@@ -38,7 +38,12 @@ export default async function middleware(request: NextRequest) {
   const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/legal', '/auth/callback']
   const isPublicRoute =
     publicRoutes.some((route) => request.nextUrl.pathname.startsWith(route)) ||
-    request.nextUrl.pathname.startsWith('/api/auth/') // Auth API routes must be public for login flow
+    request.nextUrl.pathname.startsWith('/api/auth/') || // Auth API routes must be public for login flow
+    request.nextUrl.pathname.startsWith('/api/cron') || // Cron routes use Bearer token auth
+    request.nextUrl.pathname.startsWith('/api/queue/') || // Queue routes use Bearer token auth
+    request.nextUrl.pathname.startsWith('/api/webhooks/') || // Webhook routes use their own auth
+    request.nextUrl.pathname.startsWith('/api/monitoring/') || // Monitoring routes are public
+    request.nextUrl.pathname.startsWith('/api/unsubscribe') // Unsubscribe routes are public
 
   // Check if user account is disabled (soft delete)
   if (user) {
