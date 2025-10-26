@@ -2,7 +2,7 @@
  * RateMyProfessor integration utilities
  */
 
-const ASU_SCHOOL_ID = "1081"; // Arizona State University school ID on RMP
+const ASU_SCHOOL_ID = "15723"; // Arizona State University (Tempe) school ID on RMP
 
 /**
  * Generates a RateMyProfessor search URL for a professor at ASU
