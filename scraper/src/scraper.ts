@@ -8,22 +8,29 @@ import type { ClassDetails } from './types.js'
  * Expected load: 6,250 requests per 30 minutes (batch size 3, 2000+ sections)
  *
  * Browser Pool Strategy:
- * - Maintain pool of 8-10 browser instances (configurable)
+ * - Maintain pool of 5 browser instances (reduced from 10 for reliability)
  * - Each browser can handle 1 concurrent scrape job (Puppeteer pages are isolated)
- * - Queue system prevents overwhelming the server (max 10 concurrent jobs)
+ * - Queue system prevents overwhelming the server (max 100 concurrent jobs)
  * - Browser reuse avoids expensive launch/close overhead (~2-3 seconds per browser)
+ * - Batched launching prevents timeout during initialization
  *
  * Memory considerations:
  * - Each browser instance: ~50-150MB RAM
- * - Total with 10 browsers: ~1.5GB RAM max
- * - Oracle server has 24GB RAM - this is conservative
+ * - Total with 5 browsers: ~750MB RAM max
+ * - Oracle server has 24GB RAM - this is very conservative
+ *
+ * Performance:
+ * - 5 browsers still provides 5x parallelization vs single browser
+ * - Sufficient for 10k users with queue-based architecture
+ * - More reliable initialization on resource-constrained servers
  *
  * Adjust MAX_CONCURRENT_BROWSERS based on your server:
- * - 2GB RAM server: 5-8 browsers
- * - 4GB RAM server: 10-15 browsers
- * - 24GB RAM server (Oracle): 10-20 browsers
+ * - 2GB RAM server: 3-5 browsers (current setting)
+ * - 4GB RAM server: 8-10 browsers
+ * - 24GB RAM server (Oracle): Can increase to 10-15 if needed
  */
-const MAX_CONCURRENT_BROWSERS = 10 // Maximum number of browser instances
+const MAX_CONCURRENT_BROWSERS = 5 // Maximum number of browser instances (reduced for reliable initialization)
+const BROWSER_LAUNCH_BATCH_SIZE = 2 // Launch browsers in batches to avoid timeout
 const MAX_QUEUE_SIZE = 100 // Maximum queued scrape jobs before rejecting new ones
 
 /**
@@ -42,23 +49,38 @@ class BrowserPool {
   /**
    * Initialize browser pool
    * Called on first scrape request (lazy initialization)
+   *
+   * Launches browsers in small batches to prevent timeout on resource-constrained servers
    */
   private async initializePool(): Promise<void> {
     if (this.browsers.length > 0) return // Already initialized
 
-    console.log(`[BrowserPool] Initializing pool with ${MAX_CONCURRENT_BROWSERS} browsers...`)
+    console.log(`[BrowserPool] Initializing pool with ${MAX_CONCURRENT_BROWSERS} browsers (batches of ${BROWSER_LAUNCH_BATCH_SIZE})...`)
     const startTime = Date.now()
 
-    // Launch browsers in parallel for faster startup
-    const launchPromises = Array.from({ length: MAX_CONCURRENT_BROWSERS }, (_, i) =>
-      this.launchBrowser(i + 1)
-    )
+    // Launch browsers in batches to prevent timeout during initialization
+    this.browsers = []
+    for (let i = 0; i < MAX_CONCURRENT_BROWSERS; i += BROWSER_LAUNCH_BATCH_SIZE) {
+      const batchSize = Math.min(BROWSER_LAUNCH_BATCH_SIZE, MAX_CONCURRENT_BROWSERS - i)
+      const batchNum = Math.floor(i / BROWSER_LAUNCH_BATCH_SIZE) + 1
+      const totalBatches = Math.ceil(MAX_CONCURRENT_BROWSERS / BROWSER_LAUNCH_BATCH_SIZE)
 
-    this.browsers = await Promise.all(launchPromises)
+      console.log(`[BrowserPool] Launching batch ${batchNum}/${totalBatches} (${batchSize} browsers)...`)
+
+      const batchPromises = Array.from({ length: batchSize }, (_, j) =>
+        this.launchBrowser(i + j + 1)
+      )
+
+      const launchedBrowsers = await Promise.all(batchPromises)
+      this.browsers.push(...launchedBrowsers)
+
+      console.log(`[BrowserPool] Batch ${batchNum}/${totalBatches} complete - ${this.browsers.length}/${MAX_CONCURRENT_BROWSERS} browsers ready`)
+    }
+
     this.availableBrowsers = [...this.browsers]
 
     const duration = Date.now() - startTime
-    console.log(`[BrowserPool] Pool initialized in ${duration}ms - ${this.browsers.length} browsers ready`)
+    console.log(`[BrowserPool] Pool fully initialized in ${duration}ms - ${this.browsers.length} browsers ready`)
   }
 
   /**
@@ -120,12 +142,14 @@ class BrowserPool {
 
   /**
    * Launch headless Chromium with optimized settings
+   * Increased timeout to 60s for reliable initialization on slower servers
    */
   private async launchBrowser(id: number): Promise<Browser> {
     console.log(`[BrowserPool] Launching browser #${id}...`)
 
     const browser = await puppeteer.launch({
       headless: true,
+      timeout: 60000, // Increased from default 30s to 60s for slower servers
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
