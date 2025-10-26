@@ -6,7 +6,8 @@
  * executes cron jobs on a defined schedule.
  */
 
-// @ts-expect-error `.open-next/worker.js` is generated at build time
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - `.open-next/worker.js` is generated at build time
 import { default as handler } from './.open-next/worker.js'
 
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue'
