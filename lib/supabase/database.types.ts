@@ -237,6 +237,22 @@ export type Database = {
           watch_id: string
         }[]
       }
+      get_sections_to_check: {
+        Args: { stagger_type: string }
+        Returns: {
+          class_nbr: string
+          term: string
+        }[]
+      }
+      get_watchers_for_sections: {
+        Args: { section_numbers: string[] }
+        Returns: {
+          class_nbr: string
+          email: string
+          user_id: string
+          watch_id: string
+        }[]
+      }
       user_owns_class_watch: { Args: { watch_id: string }; Returns: boolean }
     }
     Enums: {
