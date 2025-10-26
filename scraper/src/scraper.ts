@@ -424,11 +424,11 @@ export async function scrapeClassSection(
     try {
       console.log('[Scraper] Attempting to extract non-reserved seat information...')
 
-      // Click "Class Details" button to expand accordion
-      const detailsButton = await page.$('.class-results-cell.seats button')
+      // Click course cell to expand accordion (ASU uses clickable course cell, not a button)
+      const detailsButton = await page.$('.class-results-cell.course.pointer')
       if (detailsButton) {
         await detailsButton.click()
-        console.log('[Scraper] Clicked Class Details button')
+        console.log('[Scraper] Clicked course cell to expand accordion')
 
         // Wait for the reserved seat table to load
         await page.waitForSelector('table', { timeout: 5000 })
@@ -467,7 +467,7 @@ export async function scrapeClassSection(
           console.warn('[Scraper] Could not find non-reserved seats row in table')
         }
       } else {
-        console.warn('[Scraper] Class Details button not found - cannot extract reserved seat info')
+        console.warn('[Scraper] Course cell not found - cannot extract reserved seat info')
       }
     } catch (error) {
       console.warn('[Scraper] Failed to extract reserved seat information:', error)
