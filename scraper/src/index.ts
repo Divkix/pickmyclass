@@ -3,7 +3,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
-import { scrapeClassSection, isValidSectionNumber, isValidTerm } from './scraper.js'
+import { scrapeClassSection, isValidSectionNumber, isValidTerm, getBrowserStatus } from './scraper.js'
 import type { ScrapeRequest, ScrapeResponse } from './types.js'
 
 // Load environment variables
@@ -22,11 +22,27 @@ app.use(helmet())
 app.use(cors())
 app.use(express.json())
 
-// Rate limiting: 100 requests per 15 minutes
+/**
+ * Rate limiting configuration for high concurrency workload
+ *
+ * PRODUCTION NOTES:
+ * - This service is designed to handle high concurrent load from Cloudflare Workers
+ * - Cron jobs will send 6,250 requests every 30 minutes (batch size 3, 2000+ sections)
+ * - Peak load: ~350 req/min during cron execution windows
+ * - Bearer token authentication provides security - rate limiting is for safety only
+ *
+ * Current settings: 1000 req/min per IP
+ * - Allows ~16.6 req/sec sustained throughput
+ * - Prevents accidental DDoS from misconfigurations
+ * - Does NOT throttle legitimate Cloudflare Workers traffic
+ *
+ * If you need to REMOVE rate limiting entirely (not recommended):
+ * Comment out lines 43-49 and line 51
+ */
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message: { error: 'Too many requests, please try again later' },
+  windowMs: 60 * 1000, // 1 minute window
+  max: 1000, // 1000 requests per minute (16.6 req/sec)
+  message: { error: 'Rate limit exceeded - contact admin if you need higher limits' },
   standardHeaders: true,
   legacyHeaders: false,
 })
@@ -73,6 +89,31 @@ app.get('/health', (_req: Request, res: Response) => {
     version: '1.0.0',
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
+  })
+})
+
+/**
+ * Browser pool status endpoint
+ * Public - for monitoring and debugging
+ *
+ * Returns:
+ * - total: Total browser instances in pool
+ * - available: Browsers ready to accept jobs
+ * - busy: Browsers currently processing jobs
+ * - queued: Scrape jobs waiting for a browser
+ */
+app.get('/status', (_req: Request, res: Response) => {
+  const poolStatus = getBrowserStatus()
+  res.json({
+    status: 'ok',
+    service: 'pickmyclass-scraper',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    browserPool: poolStatus,
+    health: {
+      overloaded: poolStatus.queued > 50, // Warning if queue is large
+      ready: poolStatus.total > 0 && poolStatus.available > 0
+    }
   })
 })
 
@@ -146,6 +187,7 @@ app.use((_req: Request, res: Response) => {
     error: 'Route not found',
     availableEndpoints: {
       health: 'GET /health',
+      status: 'GET /status (browser pool metrics)',
       scrape: 'POST /scrape (requires auth)'
     }
   })
@@ -171,6 +213,9 @@ app.listen(PORT, () => {
   console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`)
   console.log(`[Server] Listening on port ${PORT}`)
   console.log(`[Server] Health check: http://localhost:${PORT}/health`)
+  console.log(`[Server] Pool status: http://localhost:${PORT}/status`)
   console.log(`[Server] Auth enabled: ${!!SECRET_TOKEN}`)
+  console.log(`[Server] Rate limit: 1000 req/min (16.6 req/sec)`)
+  console.log(`[Server] Designed for high concurrent load from Workers`)
   console.log('='.repeat(50))
 })

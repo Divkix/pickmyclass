@@ -2,47 +2,127 @@ import puppeteer, { Browser, Page } from 'puppeteer'
 import type { ClassDetails } from './types.js'
 
 /**
- * Browser pool to reuse browser instances across requests
- * Maintains a single headless browser instance for performance
+ * CONCURRENCY CONFIGURATION
+ *
+ * This scraper is designed for high concurrent load from Cloudflare Workers cron jobs.
+ * Expected load: 6,250 requests per 30 minutes (batch size 3, 2000+ sections)
+ *
+ * Browser Pool Strategy:
+ * - Maintain pool of 8-10 browser instances (configurable)
+ * - Each browser can handle 1 concurrent scrape job (Puppeteer pages are isolated)
+ * - Queue system prevents overwhelming the server (max 10 concurrent jobs)
+ * - Browser reuse avoids expensive launch/close overhead (~2-3 seconds per browser)
+ *
+ * Memory considerations:
+ * - Each browser instance: ~50-150MB RAM
+ * - Total with 10 browsers: ~1.5GB RAM max
+ * - Oracle server has 24GB RAM - this is conservative
+ *
+ * Adjust MAX_CONCURRENT_BROWSERS based on your server:
+ * - 2GB RAM server: 5-8 browsers
+ * - 4GB RAM server: 10-15 browsers
+ * - 24GB RAM server (Oracle): 10-20 browsers
+ */
+const MAX_CONCURRENT_BROWSERS = 10 // Maximum number of browser instances
+const MAX_QUEUE_SIZE = 100 // Maximum queued scrape jobs before rejecting new ones
+
+/**
+ * Browser pool with concurrency control
+ * Maintains multiple browser instances and queues scrape jobs
  */
 class BrowserPool {
-  private browser: Browser | null = null
-  private isLaunching = false
-  private launchPromise: Promise<Browser> | null = null
+  private browsers: Browser[] = []
+  private availableBrowsers: Browser[] = []
+  private isShuttingDown = false
+  private queue: Array<{
+    resolve: (browser: Browser) => void
+    reject: (error: Error) => void
+  }> = []
 
   /**
-   * Get or create browser instance
-   * Reuses existing browser to avoid launch overhead
+   * Initialize browser pool
+   * Called on first scrape request (lazy initialization)
    */
-  async getBrowser(): Promise<Browser> {
-    // If browser exists and is connected, return it
-    if (this.browser && this.browser.connected) {
-      return this.browser
+  private async initializePool(): Promise<void> {
+    if (this.browsers.length > 0) return // Already initialized
+
+    console.log(`[BrowserPool] Initializing pool with ${MAX_CONCURRENT_BROWSERS} browsers...`)
+    const startTime = Date.now()
+
+    // Launch browsers in parallel for faster startup
+    const launchPromises = Array.from({ length: MAX_CONCURRENT_BROWSERS }, (_, i) =>
+      this.launchBrowser(i + 1)
+    )
+
+    this.browsers = await Promise.all(launchPromises)
+    this.availableBrowsers = [...this.browsers]
+
+    const duration = Date.now() - startTime
+    console.log(`[BrowserPool] Pool initialized in ${duration}ms - ${this.browsers.length} browsers ready`)
+  }
+
+  /**
+   * Acquire browser from pool
+   * Waits in queue if all browsers are busy
+   */
+  async acquireBrowser(): Promise<Browser> {
+    // Initialize pool on first request
+    if (this.browsers.length === 0) {
+      await this.initializePool()
     }
 
-    // If another request is launching, wait for it
-    if (this.isLaunching && this.launchPromise) {
-      return this.launchPromise
+    if (this.isShuttingDown) {
+      throw new Error('Browser pool is shutting down')
     }
 
-    // Launch new browser
-    this.isLaunching = true
-    this.launchPromise = this.launchBrowser()
-
-    try {
-      this.browser = await this.launchPromise
-      return this.browser
-    } finally {
-      this.isLaunching = false
-      this.launchPromise = null
+    // Check queue size
+    if (this.queue.length >= MAX_QUEUE_SIZE) {
+      throw new Error(`Queue is full (${MAX_QUEUE_SIZE} jobs waiting) - server overloaded`)
     }
+
+    // If browser available, return immediately
+    if (this.availableBrowsers.length > 0) {
+      const browser = this.availableBrowsers.pop()!
+      console.log(`[BrowserPool] Browser acquired - ${this.availableBrowsers.length}/${this.browsers.length} available`)
+      return browser
+    }
+
+    // Wait in queue for next available browser
+    console.log(`[BrowserPool] All browsers busy - queuing (${this.queue.length + 1} waiting)`)
+    return new Promise((resolve, reject) => {
+      this.queue.push({ resolve, reject })
+    })
+  }
+
+  /**
+   * Release browser back to pool
+   * Gives browser to next queued job or marks as available
+   */
+  releaseBrowser(browser: Browser): void {
+    if (this.isShuttingDown) {
+      // During shutdown, close browsers instead of releasing
+      browser.close().catch(console.error)
+      return
+    }
+
+    // If jobs are queued, give browser to next job
+    const next = this.queue.shift()
+    if (next) {
+      console.log(`[BrowserPool] Browser assigned to queued job - ${this.queue.length} still waiting`)
+      next.resolve(browser)
+      return
+    }
+
+    // No queue - mark browser as available
+    this.availableBrowsers.push(browser)
+    console.log(`[BrowserPool] Browser released - ${this.availableBrowsers.length}/${this.browsers.length} available`)
   }
 
   /**
    * Launch headless Chromium with optimized settings
    */
-  private async launchBrowser(): Promise<Browser> {
-    console.log('[BrowserPool] Launching new browser instance')
+  private async launchBrowser(id: number): Promise<Browser> {
+    console.log(`[BrowserPool] Launching browser #${id}...`)
 
     const browser = await puppeteer.launch({
       headless: true,
@@ -72,27 +152,48 @@ class BrowserPool {
       },
     })
 
-    console.log('[BrowserPool] Browser launched successfully')
+    console.log(`[BrowserPool] Browser #${id} launched successfully`)
     return browser
   }
 
   /**
-   * Close browser gracefully
+   * Close all browsers gracefully
    */
   async close(): Promise<void> {
-    if (this.browser) {
-      console.log('[BrowserPool] Closing browser')
-      await this.browser.close()
-      this.browser = null
-      console.log('[BrowserPool] Browser closed')
+    this.isShuttingDown = true
+
+    console.log(`[BrowserPool] Shutting down - rejecting ${this.queue.length} queued jobs`)
+
+    // Reject all queued jobs
+    for (const { reject } of this.queue) {
+      reject(new Error('Browser pool shutting down'))
     }
+    this.queue = []
+
+    // Close all browsers
+    console.log(`[BrowserPool] Closing ${this.browsers.length} browsers...`)
+    await Promise.all(this.browsers.map(browser => browser.close()))
+
+    this.browsers = []
+    this.availableBrowsers = []
+    console.log('[BrowserPool] All browsers closed')
   }
 
   /**
-   * Check if browser is running
+   * Get pool status for monitoring
    */
-  isConnected(): boolean {
-    return this.browser?.connected || false
+  getStatus(): {
+    total: number
+    available: number
+    busy: number
+    queued: number
+  } {
+    return {
+      total: this.browsers.length,
+      available: this.availableBrowsers.length,
+      busy: this.browsers.length - this.availableBrowsers.length,
+      queued: this.queue.length,
+    }
   }
 }
 
@@ -175,7 +276,8 @@ export async function scrapeClassSection(
 ): Promise<ClassDetails> {
   console.log(`[Scraper] Starting scrape: section=${sectionNumber}, term=${term}`)
 
-  const browser = await browserPool.getBrowser()
+  // Acquire browser from pool (waits if all busy)
+  const browser = await browserPool.acquireBrowser()
   const page = await browser.newPage()
 
   try {
@@ -386,9 +488,10 @@ export async function scrapeClassSection(
       `Scraping failed for section ${sectionNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
   } finally {
-    // Always close the page
+    // Always close the page and release browser back to pool
     await page.close()
-    console.log('[Scraper] Page closed')
+    browserPool.releaseBrowser(browser)
+    console.log('[Scraper] Page closed, browser released to pool')
   }
 }
 
@@ -409,8 +512,11 @@ export function isValidTerm(term: string): boolean {
 /**
  * Get browser pool status (for debugging/monitoring)
  */
-export function getBrowserStatus(): { connected: boolean } {
-  return {
-    connected: browserPool.isConnected(),
-  }
+export function getBrowserStatus(): {
+  total: number
+  available: number
+  busy: number
+  queued: number
+} {
+  return browserPool.getStatus()
 }
