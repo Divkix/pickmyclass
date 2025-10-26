@@ -14,6 +14,7 @@ import {
 } from '@/lib/db/queries'
 import { sendBatchEmailsOptimized, type ClassInfo } from '@/lib/email/resend'
 import type { ClassCheckMessage } from '@/lib/types/queue'
+import { getScraperCircuitBreaker } from '@/lib/utils/circuit-breaker'
 
 /**
  * Interface for scraper response
@@ -121,8 +122,9 @@ export async function POST(request: NextRequest) {
       console.error(`[Queue-Processor] Error fetching old state for ${class_nbr}:`, stateError)
     }
 
-    // Step 2: Fetch latest data from scraper
-    const scraperResponse = await fetchClassDetails(class_nbr, term)
+    // Step 2: Fetch latest data from scraper with circuit breaker protection
+    const circuitBreaker = getScraperCircuitBreaker()
+    const scraperResponse = await circuitBreaker.execute(() => fetchClassDetails(class_nbr, term))
 
     if (!scraperResponse.success || !scraperResponse.data) {
       const error = scraperResponse.error || 'Unknown error'
