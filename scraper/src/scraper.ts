@@ -308,8 +308,12 @@ export async function scrapeClassSection(
     // Setup page with optimizations
     await setupPage(page)
 
-    // Construct ASU class search URL
-    const url = `https://catalog.apps.asu.edu/catalog/classes/classlist?keywords=${sectionNumber}&term=${term}`
+    // Construct ASU class search URL with all required parameters
+    // campusOrOnlineSelection=A: Include all campus locations
+    // honors=F: Include non-honors classes
+    // promod=F: Include non-professional/modular classes
+    // searchType=all: Search all class types
+    const url = `https://catalog.apps.asu.edu/catalog/classes/classlist?campusOrOnlineSelection=A&honors=F&keywords=${sectionNumber}&promod=F&searchType=all&term=${term}`
     console.log(`[Scraper] Navigating to: ${url}`)
 
     // Navigate and wait for network to be idle (React app loads + API call completes)
