@@ -19,11 +19,13 @@ type ClassWatch = Database['public']['Tables']['class_watches']['Row'] & {
 
 interface GetClassWatchesResponse {
   watches: ClassWatch[]
+  maxWatches: number
 }
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth()
   const [watches, setWatches] = useState<ClassWatch[]>([])
+  const [maxWatches, setMaxWatches] = useState<number>(10)
   const [isLoadingWatches, setIsLoadingWatches] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -56,6 +58,7 @@ export default function DashboardPage() {
 
       const data = (await response.json()) as GetClassWatchesResponse
       setWatches(data.watches || [])
+      setMaxWatches(data.maxWatches || 10)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load class watches')
     } finally {
@@ -152,7 +155,7 @@ export default function DashboardPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">
-              Your Watches ({watches.length})
+              Your Watches ({watches.length}/{maxWatches})
             </h2>
             {realtimeLoading && (
               <span className="text-sm text-zinc-500 dark:text-zinc-500 animate-pulse">

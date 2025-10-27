@@ -99,7 +99,10 @@ export async function GET() {
       class_state: statesMap[watch.class_nbr] || null,
     }))
 
-    return NextResponse.json({ watches: watchesWithStates })
+    return NextResponse.json({
+      watches: watchesWithStates,
+      maxWatches: MAX_WATCHES_PER_USER,
+    })
   } catch (error) {
     console.error('Error fetching class watches:', error)
 
