@@ -44,6 +44,13 @@
             "invocation_logs": true
         }
     },
+    "kv_namespaces": [
+        {
+            "binding": "RATE_LIMIT_KV",
+            "id": "REPLACE_WITH_PRODUCTION_KV_ID",
+            "preview_id": "REPLACE_WITH_PREVIEW_KV_ID"
+        }
+    ],
     "vars": {
         "MAX_WATCHES_PER_USER": "10",
         "SCRAPER_BATCH_SIZE": "3",

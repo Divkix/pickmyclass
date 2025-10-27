@@ -16,6 +16,7 @@ declare namespace Cloudflare {
 		NOTIFICATION_FROM_EMAIL: string;
 		HYPERDRIVE: Hyperdrive;
 		ASSETS: Fetcher;
+		RATE_LIMIT_KV: KVNamespace;
 	}
 }
 interface CloudflareEnv extends Cloudflare.Env {}
