@@ -33,7 +33,7 @@ export interface ClassCheckMessage {
 /**
  * Extended Cloudflare environment with queue bindings
  */
-export interface Env {
+export interface Env extends Record<string, unknown> {
   // Existing bindings
   ASSETS: Fetcher
   HYPERDRIVE?: Hyperdrive

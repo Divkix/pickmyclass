@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSectionsToCheck } from '@/lib/db/queries'
 import type { ClassCheckMessage, Env } from '@/lib/types/queue'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 /**
  * Main cron handler with staggered checking
@@ -60,9 +61,9 @@ export async function GET(request: NextRequest) {
       `[Cron] Starting 30-minute class check (stagger: ${staggerGroup}, time: ${now.toISOString()})`
     )
 
-    // Get queue binding from environment
-    // @ts-expect-error - env added by worker.ts
-    const env = request.env as Env
+    // Get queue binding from Cloudflare context
+    const context = await getCloudflareContext()
+    const env = context.env as unknown as Env
     const queue = env.CLASS_CHECK_QUEUE
 
     if (!queue) {

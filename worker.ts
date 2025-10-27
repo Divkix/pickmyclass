@@ -70,12 +70,9 @@ export default {
         },
       })
 
-      // Pass environment bindings to the request handler
-      // @ts-expect-error - NextRequest doesn't have env property, but we add it
-      request.env = env
-
       // Execute the cron job and await completion
-      // We await instead of using ctx.waitUntil() to ensure the work actually executes
+      // Environment bindings are passed via handler.fetch(request, env, ctx)
+      // and accessed in API routes via getCloudflareContext()
       const response = await handler.fetch(request, env, ctx)
       const body = await response.text()
       const duration = Date.now() - startTime
