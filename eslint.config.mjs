@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     ".open-next/**",
     ".wrangler/**",
     "cloudflare-env.d.ts",
+    // Scraper service (separate Node.js project):
+    "scraper",
   ]),
 ]);
 
