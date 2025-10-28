@@ -56,7 +56,7 @@
         "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
         "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app",
         "NEXT_PUBLIC_SUPABASE_URL": "https://osopxwuebsefhoxgeojh.supabase.co",
-        "SCRAPER_URL": "http://pickmyclass-scraper.divkix.me"
+        "SCRAPER_URL": "https://pickmyclass-scraper.divkix.me"
     }
     // IMPORTANT: Set these secrets via Cloudflare Dashboard (Workers & Pages → Settings → Variables → Encrypt):
     // - NEXT_PUBLIC_SUPABASE_ANON_KEY
