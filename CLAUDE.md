@@ -98,7 +98,7 @@ Required configuration (see `.env.example`):
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
 
 **Scraper Service:**
-- `SCRAPER_URL` - URL to scraper service (e.g., `https://scraper.yourdomain.com` or `http://localhost:3000` for local dev)
+- `SCRAPER_URL` - URL to scraper service (e.g., `http://pickmyclass-scraper.divkix.me` or `http://localhost:3000` for local dev)
 - `SCRAPER_SECRET_TOKEN` - Bearer token for authenticating with scraper (must match token in `scraper/.env`)
 - `SCRAPER_BATCH_SIZE` - Number of sections to scrape concurrently per batch (default: 3, range: 1-5)
   - Higher values = faster but more resource-intensive
@@ -108,7 +108,7 @@ Required configuration (see `.env.example`):
 - `RESEND_API_KEY` - API key from [resend.com](https://resend.com/api-keys) (Free tier: 100 emails/day, 3,000/month)
 - `NOTIFICATION_FROM_EMAIL` - Verified sender email address
   - Development: Use `onboarding@resend.dev` (no verification needed)
-  - Production: Use your own verified domain (e.g., `notifications@yourdomain.com`)
+  - Production: Use your own verified domain (e.g., `notifications@pickmyclass.app`)
 
 **Build Handling**: Both client and server Supabase utilities use placeholder values during build when env vars are unavailable, preventing build failures. The scraper integration gracefully falls back to stub data if `SCRAPER_URL` is not configured, enabling development without the scraper service running. Email service gracefully skips sending if `RESEND_API_KEY` is not configured.
 
@@ -272,7 +272,7 @@ await recordNotificationSent(watchId, 'seat_available');
   - Circuit breaker state
   - Configuration validation
   - Email service status
-- Scraper status: `GET https://scraper.yourdomain.com/status`
+- Scraper status: `GET http://pickmyclass-scraper.divkix.me/status`
   - Browser pool metrics (total, available, busy, queued)
   - Health indicators
 
@@ -437,7 +437,7 @@ The scraper service has been fully implemented in the `scraper/` directory using
 **Deployment:**
 1. Push to Git repo
 2. Deploy via Coolify on Oracle Cloud (Docker Compose)
-3. Configure Cloudflare Tunnel at `scraper.yourdomain.com`
+3. Configure Cloudflare Tunnel at `pickmyclass-scraper.divkix.me`
 4. Set environment variables in main app
 
 **Documentation:** See `scraper/README.md` for detailed setup and API documentation.
@@ -462,7 +462,7 @@ Use your existing Oracle Cloud free tier server with Coolify and Cloudflare Tunn
 ```
 Cloudflare Workers (cron every 30 min, staggered)
   ↓ HTTPS POST (with Bearer token auth)
-Cloudflare Tunnel → https://scraper.yourdomain.com
+Cloudflare Tunnel → http://pickmyclass-scraper.divkix.me
   ↓ Secure tunnel
 Oracle Server (Coolify-managed Puppeteer container)
   ↓ Scrape with headless Chromium
@@ -573,15 +573,15 @@ app.listen(PORT, () => {
 **6. Configure Cloudflare Tunnel:**
 ```bash
 # If not already set up, create tunnel route
-cloudflared tunnel route dns <tunnel-name> scraper.yourdomain.com
+cloudflared tunnel route dns <tunnel-name> scraper.pickmyclass.app
 ```
 
-Now accessible at: `https://scraper.yourdomain.com/scrape`
+Now accessible at: `https://scraper.pickmyclass.app/scrape`
 
 **7. Call from Cloudflare Workers:**
 ```typescript
 // In app/api/cron/route.ts
-const response = await fetch('https://scraper.yourdomain.com/scrape', {
+const response = await fetch('https://scraper.pickmyclass.app/scrape', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',

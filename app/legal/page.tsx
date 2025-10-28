@@ -90,7 +90,7 @@ export default function LegalPage() {
           <div className="text-center text-sm text-muted-foreground border-t pt-6">
             <p>
               Questions about our legal policies?{' '}
-              <a href="mailto:legal@pickmyclass.com" className="text-blue-600 dark:text-blue-400 underline">
+              <a href="mailto:legal@pickmyclass.app" className="text-blue-600 dark:text-blue-400 underline">
                 Contact us
               </a>
             </p>

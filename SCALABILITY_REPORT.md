@@ -385,7 +385,7 @@ Queue Consumers (100+ concurrent Workers)
 
 3. **Test health endpoint**:
    ```bash
-   curl https://pickmyclass.workers.dev/api/monitoring/health
+   curl https://pickmyclass.app/api/monitoring/health
    ```
    Should return `200 OK` with `"status": "healthy"`
 
@@ -396,7 +396,7 @@ Queue Consumers (100+ concurrent Workers)
 
 5. **Check scraper status**:
    ```bash
-   curl https://scraper.yourdomain.com/status
+   curl https://scraper.pickmyclass.app/status
    ```
    Should show browser pool metrics
 

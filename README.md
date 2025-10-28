@@ -91,7 +91,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # Scraper Service
-SCRAPER_URL=http://localhost:3000  # or https://scraper.yourdomain.com
+SCRAPER_URL=http://localhost:3000  # or https://scraper.pickmyclass.app
 SCRAPER_SECRET_TOKEN=your_secret_token_here
 SCRAPER_BATCH_SIZE=3
 
@@ -130,13 +130,13 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes | `https://xxx.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Yes | `eyJhbGc...` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (bypasses RLS) | Yes | `eyJhbGc...` |
-| `SCRAPER_URL` | URL to scraper service | Yes | `https://scraper.yourdomain.com` |
+| `SCRAPER_URL` | URL to scraper service | Yes | `https://scraper.pickmyclass.app` |
 | `SCRAPER_SECRET_TOKEN` | Bearer token for scraper auth | Yes | `random-secure-token` |
 | `SCRAPER_BATCH_SIZE` | Concurrent scrapes per batch (1-5) | No | `3` |
 | `RESEND_API_KEY` | Resend API key | Yes | `re_xxx` |
 | `RESEND_WEBHOOK_SECRET` | Resend webhook signing secret | Yes | `whsec_xxx` |
-| `NOTIFICATION_FROM_EMAIL` | Verified sender email | Yes | `notifications@yourdomain.com` |
-| `NEXT_PUBLIC_SITE_URL` | Base URL for unsubscribe links | Yes | `https://pickmyclass.com` |
+| `NOTIFICATION_FROM_EMAIL` | Verified sender email | Yes | `notifications@pickmyclass.app` |
+| `NEXT_PUBLIC_SITE_URL` | Base URL for unsubscribe links | Yes | `https://pickmyclass.app` |
 | `CRON_SECRET` | Authentication secret for cron endpoint | Yes | `openssl rand -hex 32` |
 | `SENTRY_DSN` | Sentry error tracking DSN | Recommended | `https://...@sentry.io/...` |
 | `MAX_WATCHES_PER_USER` | Maximum watches per user | No | `10` |
@@ -181,7 +181,7 @@ See [`.env.example`](.env.example) for detailed descriptions.
    - Add these **plaintext variables**:
      ```
      NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-     SCRAPER_URL=https://scraper.yourdomain.com
+     SCRAPER_URL=https://scraper.pickmyclass.app
      ```
 
    **Method 2: Wrangler CLI**
@@ -228,15 +228,15 @@ See [`.env.example`](.env.example) for detailed descriptions.
    **Option B: Verify Your Own Domain (Production)**
    - Go to [Domains](https://resend.com/domains)
    - Click "Add Domain"
-   - Enter your domain (e.g., `pickmyclass.com`)
+   - Enter your domain (e.g., `pickmyclass.app`)
    - Add DNS records (MX, TXT, CNAME) to your domain provider
    - Wait for verification (usually <5 minutes)
-   - Use `notifications@yourdomain.com` as sender email
+   - Use `notifications@pickmyclass.app` as sender email
 
 4. **Configure Webhooks** (for bounce/spam handling):
    - Go to [Webhooks](https://resend.com/webhooks)
    - Click "Add Webhook"
-   - **Endpoint URL**: `https://yourdomain.com/api/webhooks/resend`
+   - **Endpoint URL**: `https://pickmyclass.app/api/webhooks/resend`
    - **Events to subscribe**:
      - ✅ `email.bounced` - Handle hard bounces
      - ✅ `email.complained` - Handle spam complaints
