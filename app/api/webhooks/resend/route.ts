@@ -175,7 +175,8 @@ export async function POST(request: NextRequest) {
     const webhookSecret = process.env.RESEND_WEBHOOK_SECRET
 
     if (!webhookSecret) {
-      console.error('[Resend Webhook] RESEND_WEBHOOK_SECRET not configured')
+      console.error('[Resend Webhook] CRITICAL: RESEND_WEBHOOK_SECRET not configured in environment')
+      console.error('[Resend Webhook] Set this in Cloudflare Dashboard: Workers & Pages → Settings → Variables → Encrypt')
       return NextResponse.json(
         { success: false, error: 'Webhook not configured' },
         { status: 500 }
@@ -186,42 +187,52 @@ export async function POST(request: NextRequest) {
     const body = await request.text()
     const signature = request.headers.get('resend-signature')
 
+    console.log(`[Resend Webhook] Incoming request - Signature present: ${!!signature}`)
+
     // Verify webhook signature
     if (!verifyWebhookSignature(body, signature, webhookSecret)) {
-      console.warn('[Resend Webhook] Invalid signature')
+      console.warn('[Resend Webhook] FAILED: Invalid signature')
+      console.warn(`[Resend Webhook] Signature received: ${signature?.substring(0, 20)}...`)
+      console.warn(`[Resend Webhook] Body length: ${body.length} bytes`)
       return NextResponse.json(
         { success: false, error: 'Invalid signature' },
         { status: 401 }
       )
     }
 
+    console.log('[Resend Webhook] SUCCESS: Signature verified')
+
     // Parse event
     const event: ResendWebhookEvent = JSON.parse(body)
 
-    console.log(`[Resend Webhook] Received event: ${event.type}`)
+    console.log(`[Resend Webhook] Processing event: ${event.type} for ${event.data.to[0]}`)
 
     // Handle different event types
     switch (event.type) {
       case 'email.bounced':
         await handleBounce(event)
+        console.log(`[Resend Webhook] ✓ Bounce event processed for ${event.data.to[0]}`)
         break
 
       case 'email.complained':
         await handleSpamComplaint(event)
+        console.log(`[Resend Webhook] ✓ Spam complaint processed for ${event.data.to[0]}`)
         break
 
       case 'email.delivered':
         // Optional: Log successful deliveries
-        console.log(`[Resend Webhook] Email delivered: ${event.data.email_id}`)
+        console.log(`[Resend Webhook] ✓ Email delivered: ${event.data.email_id}`)
         break
 
       default:
-        console.log(`[Resend Webhook] Unhandled event type: ${event.type}`)
+        console.log(`[Resend Webhook] ⚠ Unhandled event type: ${event.type}`)
     }
 
+    console.log(`[Resend Webhook] ✓ Webhook processed successfully`)
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('[Resend Webhook] Error processing webhook:', error)
+    console.error('[Resend Webhook] ✗ ERROR processing webhook:', error)
+    console.error('[Resend Webhook] Error details:', error instanceof Error ? error.stack : String(error))
     return NextResponse.json(
       {
         success: false,
