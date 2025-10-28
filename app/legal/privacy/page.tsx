@@ -195,7 +195,7 @@ export default function PrivacyPolicyPage() {
                 </p>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>Using the self-service tools in your <Link href="/settings" className="text-blue-600 dark:text-blue-400 underline">Settings</Link> page (fastest)</li>
-                  <li>Emailing us at: <span className="font-mono text-sm bg-muted px-2 py-1 rounded">privacy@pickmyclass.app</span></li>
+                  <li>Emailing us at: <span className="font-mono text-sm bg-muted px-2 py-1 rounded">support@pickmyclass.app</span></li>
                 </ul>
                 <p className="text-sm text-muted-foreground mt-2">
                   We will respond to verified requests within 45 days.
@@ -225,7 +225,7 @@ export default function PrivacyPolicyPage() {
                 </p>
                 <p>
                   If you are a parent or guardian and believe your child has provided us with personal information, please contact us at
-                  <span className="font-mono text-sm bg-muted px-2 py-1 rounded ml-1">privacy@pickmyclass.app</span> and we will delete it.
+                  <span className="font-mono text-sm bg-muted px-2 py-1 rounded ml-1">support@pickmyclass.app</span> and we will delete it.
                 </p>
               </section>
 
@@ -249,8 +249,7 @@ export default function PrivacyPolicyPage() {
                   If you have questions about this Privacy Policy or want to exercise your privacy rights, contact us at:
                 </p>
                 <div className="bg-muted p-4 rounded space-y-2 mt-2">
-                  <p><strong>Privacy Inquiries:</strong> <span className="font-mono text-sm">privacy@pickmyclass.app</span></p>
-                  <p><strong>General Legal:</strong> <span className="font-mono text-sm">legal@pickmyclass.app</span></p>
+                  <p><strong>Support & Legal Inquiries:</strong> <span className="font-mono text-sm">support@pickmyclass.app</span></p>
                   <p><strong>Response Time:</strong> Within 45 days for CCPA requests</p>
                 </div>
               </section>
