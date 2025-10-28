@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { useAuth } from '@/lib/contexts/AuthContext'
 import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates'
 import { Header } from '@/components/Header'
@@ -9,9 +10,11 @@ import { ClassWatchCard } from '@/components/ClassWatchCard'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert } from '@/components/ui/alert'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Database } from '@/lib/supabase/database.types'
 import { redirect } from 'next/navigation'
-import { Plus } from 'lucide-react'
+import { Plus, Eye, CheckCircle2, Users, Search, TrendingUp, Calendar } from 'lucide-react'
+import { staggerContainer, staggerItem, fadeInUp } from '@/lib/animations'
 
 type ClassWatch = Database['public']['Tables']['class_watches']['Row'] & {
   class_state?: Database['public']['Tables']['class_states']['Row'] | null
@@ -28,6 +31,7 @@ export default function DashboardPage() {
   const [maxWatches, setMaxWatches] = useState<number>(10)
   const [isLoadingWatches, setIsLoadingWatches] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Get class numbers from watches for Realtime subscription
   const classNumbers = watches.map((w) => w.class_nbr)
@@ -86,6 +90,38 @@ export default function DashboardPage() {
     setWatches((prev) => prev.filter((w) => w.id !== watchId))
   }
 
+  // Filter watches based on search query
+  const filteredWatches = useMemo(() => {
+    if (!searchQuery.trim()) return watches
+
+    const query = searchQuery.toLowerCase()
+    return watches.filter((watch) => {
+      const liveState = classStates[watch.class_nbr] || watch.class_state
+      return (
+        watch.class_nbr.toLowerCase().includes(query) ||
+        watch.subject?.toLowerCase().includes(query) ||
+        watch.catalog_nbr?.toLowerCase().includes(query) ||
+        liveState?.title?.toLowerCase().includes(query) ||
+        liveState?.instructor_name?.toLowerCase().includes(query)
+      )
+    })
+  }, [watches, searchQuery, classStates])
+
+  // Calculate quick stats
+  const stats = useMemo(() => {
+    const totalWatches = watches.length
+    const availableSeats = watches.filter((watch) => {
+      const liveState = classStates[watch.class_nbr] || watch.class_state
+      return liveState && liveState.seats_available > 0
+    }).length
+    const fullClasses = watches.filter((watch) => {
+      const liveState = classStates[watch.class_nbr] || watch.class_state
+      return liveState && liveState.seats_available === 0
+    }).length
+
+    return { totalWatches, availableSeats, fullClasses }
+  }, [watches, classStates])
+
   // Show loading state while checking auth
   if (authLoading) {
     return (
@@ -108,78 +144,219 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Class Watch Dashboard</h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          Monitor University classes for seat availability and instructor assignments.
-        </p>
-      </div>
-
-      {error && (
-        <Alert className="mb-6 bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800">
-          {error}
-        </Alert>
-      )}
-
-      {/* Add new watch button */}
-      <div className="mb-6">
-        <Link href="/dashboard/add">
-          <Button className="w-full gap-2">
-            <Plus className="h-4 w-4" />
-            Add Class to Watch
-          </Button>
-        </Link>
-      </div>
-
-      {/* Loading state */}
-      {isLoadingWatches && (
-        <div className="space-y-4">
-          <Skeleton className="h-48 w-full" />
-          <Skeleton className="h-48 w-full" />
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!isLoadingWatches && watches.length === 0 && (
-        <div className="text-center py-12 bg-zinc-50 dark:bg-zinc-900 rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-800">
-          <p className="text-zinc-600 dark:text-zinc-400 mb-2">No class watches yet</p>
-          <p className="text-sm text-zinc-500 dark:text-zinc-500">
-            Add a class above to start monitoring for seat availability.
+      <main className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
+        {/* Page Header */}
+        <motion.div
+          className="mb-8"
+          initial="hidden"
+          animate="visible"
+          variants={fadeInUp}
+        >
+          <h1 className="text-3xl font-bold mb-2 sm:text-4xl">Class Watch Dashboard</h1>
+          <p className="text-muted-foreground">
+            Monitor University classes for seat availability and instructor assignments.
           </p>
-        </div>
-      )}
+        </motion.div>
 
-      {/* Class watches list */}
-      {!isLoadingWatches && watches.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">
-              Your Watches ({watches.length}/{maxWatches})
-            </h2>
-            {realtimeLoading && (
-              <span className="text-sm text-zinc-500 dark:text-zinc-500 animate-pulse">
-                Syncing...
-              </span>
-            )}
-          </div>
+        {error && (
+          <Alert className="mb-6 bg-destructive/10 text-destructive border-destructive/20">
+            {error}
+          </Alert>
+        )}
 
-          {watches.map((watch) => {
-            // Use real-time state if available, otherwise use the initial state
-            const liveState = classStates[watch.class_nbr] || watch.class_state || null
+        {/* Quick Stats */}
+        {!isLoadingWatches && watches.length > 0 && (
+          <motion.div
+            className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+          >
+            <motion.div variants={staggerItem}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Total Watches
+                    </CardTitle>
+                    <Eye className="size-4 text-muted-foreground" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.totalWatches}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {maxWatches - stats.totalWatches} remaining
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-            return (
-              <ClassWatchCard
-                key={watch.id}
-                watch={watch}
-                classState={liveState}
-                onDelete={handleDeleteWatch}
+            <motion.div variants={staggerItem}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Available
+                    </CardTitle>
+                    <CheckCircle2 className="size-4 text-success" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-success">{stats.availableSeats}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Classes with open seats
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div variants={staggerItem}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Full
+                    </CardTitle>
+                    <Users className="size-4 text-destructive" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-destructive">{stats.fullClasses}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Classes at capacity
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div variants={staggerItem}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Status
+                    </CardTitle>
+                    <TrendingUp className="size-4 text-primary" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2">
+                    {realtimeLoading ? (
+                      <span className="text-sm text-muted-foreground animate-pulse">Syncing...</span>
+                    ) : (
+                      <span className="text-sm font-medium text-success">Live</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Real-time updates active
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Search and Add Button */}
+        <motion.div
+          className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+          initial="hidden"
+          animate="visible"
+          variants={fadeInUp}
+        >
+          {watches.length > 0 && (
+            <div className="relative flex-1 sm:max-w-sm">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search classes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
-            )
-          })}
-        </div>
-      )}
-      </div>
+            </div>
+          )}
+
+          <Link href="/dashboard/add" className="w-full sm:w-auto">
+            <Button variant="gradient" className="w-full gap-2 sm:w-auto">
+              <Plus className="size-4" />
+              Add Class
+            </Button>
+          </Link>
+        </motion.div>
+
+        {/* Loading state */}
+        {isLoadingWatches && (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Skeleton className="h-48 w-full rounded-xl" />
+            <Skeleton className="h-48 w-full rounded-xl" />
+            <Skeleton className="h-48 w-full rounded-xl" />
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!isLoadingWatches && watches.length === 0 && (
+          <motion.div
+            className="text-center py-16 bg-muted/20 rounded-xl border-2 border-dashed border-border"
+            initial="hidden"
+            animate="visible"
+            variants={fadeInUp}
+          >
+            <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 mx-auto mb-4">
+              <Calendar className="size-8 text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No class watches yet</h3>
+            <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+              Add your first class to start monitoring for seat availability and instructor assignments.
+            </p>
+            <Link href="/dashboard/add">
+              <Button variant="gradient">
+                <Plus className="size-4" />
+                Add Your First Class
+              </Button>
+            </Link>
+          </motion.div>
+        )}
+
+        {/* Class watches grid */}
+        {!isLoadingWatches && filteredWatches.length > 0 && (
+          <motion.div
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+          >
+            {filteredWatches.map((watch) => {
+              const liveState = classStates[watch.class_nbr] || watch.class_state || null
+
+              return (
+                <motion.div key={watch.id} variants={staggerItem}>
+                  <ClassWatchCard
+                    watch={watch}
+                    classState={liveState}
+                    onDelete={handleDeleteWatch}
+                  />
+                </motion.div>
+              )
+            })}
+          </motion.div>
+        )}
+
+        {/* No search results */}
+        {!isLoadingWatches && watches.length > 0 && filteredWatches.length === 0 && (
+          <motion.div
+            className="text-center py-12"
+            initial="hidden"
+            animate="visible"
+            variants={fadeInUp}
+          >
+            <Search className="size-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No results found</h3>
+            <p className="text-muted-foreground">
+              Try adjusting your search query
+            </p>
+          </motion.div>
+        )}
+      </main>
     </div>
   )
 }

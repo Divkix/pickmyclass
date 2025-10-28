@@ -1,16 +1,42 @@
+"use client";
+
 import * as React from "react"
+import { motion, type HTMLMotionProps } from "framer-motion"
 
 import { cn } from "@/lib/utils"
+import { cardHover } from "@/lib/animations"
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+type MotionDivProps = Omit<HTMLMotionProps<"div">, "onDrag" | "onDragStart" | "onDragEnd">
+
+interface CardProps extends React.ComponentProps<"div"> {
+  interactive?: boolean;
+}
+
+function Card({ className, interactive = false, ...props }: CardProps) {
+  if (!interactive) {
+    return (
+      <div
+        data-slot="card"
+        className={cn(
+          "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-smooth transition-shadow",
+          className
+        )}
+        {...props}
+      />
+    )
+  }
+
   return (
-    <div
+    <motion.div
       data-slot="card"
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-smooth transition-shadow cursor-pointer hover:shadow-smooth-lg",
         className
       )}
-      {...props}
+      initial="rest"
+      whileHover="hover"
+      variants={cardHover}
+      {...(props as unknown as MotionDivProps)}
     />
   )
 }
