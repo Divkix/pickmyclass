@@ -396,7 +396,7 @@ Queue Consumers (100+ concurrent Workers)
 
 5. **Check scraper status**:
    ```bash
-   curl https://scraper.pickmyclass.app/status
+   curl http://pickmyclass-scraper.divkix.me/status
    ```
    Should show browser pool metrics
 

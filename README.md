@@ -91,7 +91,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # Scraper Service
-SCRAPER_URL=http://localhost:3000  # or https://scraper.pickmyclass.app
+SCRAPER_URL=http://localhost:3000  # or http://pickmyclass-scraper.divkix.me
 SCRAPER_SECRET_TOKEN=your_secret_token_here
 SCRAPER_BATCH_SIZE=3
 
@@ -130,7 +130,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes | `https://xxx.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Yes | `eyJhbGc...` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (bypasses RLS) | Yes | `eyJhbGc...` |
-| `SCRAPER_URL` | URL to scraper service | Yes | `https://scraper.pickmyclass.app` |
+| `SCRAPER_URL` | URL to scraper service | Yes | `http://pickmyclass-scraper.divkix.me` |
 | `SCRAPER_SECRET_TOKEN` | Bearer token for scraper auth | Yes | `random-secure-token` |
 | `SCRAPER_BATCH_SIZE` | Concurrent scrapes per batch (1-5) | No | `3` |
 | `RESEND_API_KEY` | Resend API key | Yes | `re_xxx` |
@@ -181,7 +181,7 @@ See [`.env.example`](.env.example) for detailed descriptions.
    - Add these **plaintext variables**:
      ```
      NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-     SCRAPER_URL=https://scraper.pickmyclass.app
+     SCRAPER_URL=http://pickmyclass-scraper.divkix.me
      ```
 
    **Method 2: Wrangler CLI**

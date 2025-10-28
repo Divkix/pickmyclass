@@ -573,15 +573,15 @@ app.listen(PORT, () => {
 **6. Configure Cloudflare Tunnel:**
 ```bash
 # If not already set up, create tunnel route
-cloudflared tunnel route dns <tunnel-name> scraper.pickmyclass.app
+cloudflared tunnel route dns <tunnel-name> pickmyclass-scraper.divkix.me
 ```
 
-Now accessible at: `https://scraper.pickmyclass.app/scrape`
+Now accessible at: `http://pickmyclass-scraper.divkix.me/scrape`
 
 **7. Call from Cloudflare Workers:**
 ```typescript
 // In app/api/cron/route.ts
-const response = await fetch('https://scraper.pickmyclass.app/scrape', {
+const response = await fetch('http://pickmyclass-scraper.divkix.me/scrape', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',

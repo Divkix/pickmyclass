@@ -221,7 +221,7 @@ Deploy to your existing Oracle free tier server using Coolify.
 3. Point to repo
 4. Set `SECRET_TOKEN` environment variable
 5. Deploy
-6. Configure Cloudflare Tunnel route: `scraper.pickmyclass.app`
+6. Configure Cloudflare Tunnel route: `pickmyclass-scraper.divkix.me`
 
 **Docker Configuration** (see `docker-compose.yml`):
 ```yaml
@@ -282,7 +282,7 @@ node debug-page.js
 In your Cloudflare Workers cron job (`app/api/cron/route.ts`):
 
 ```typescript
-const response = await fetch('https://scraper.pickmyclass.app/scrape', {
+const response = await fetch('http://pickmyclass-scraper.divkix.me/scrape', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -307,7 +307,7 @@ if (result.success) {
 ```jsonc
 {
   "vars": {
-    "SCRAPER_URL": "https://scraper.pickmyclass.app"
+    "SCRAPER_URL": "http://pickmyclass-scraper.divkix.me"
   },
   "secrets": [
     "SCRAPER_SECRET_TOKEN"
