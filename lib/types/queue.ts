@@ -36,7 +36,6 @@ export interface ClassCheckMessage {
 export interface Env extends Record<string, unknown> {
   // Existing bindings
   ASSETS: Fetcher
-  HYPERDRIVE?: Hyperdrive
 
   // Queue bindings
   CLASS_CHECK_QUEUE: Queue<ClassCheckMessage>
