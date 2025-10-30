@@ -2,6 +2,8 @@
 
 Production-grade Puppeteer scraper service for extracting ASU class details with circuit breaker protection, request queuing, health monitoring, and auto-recovery.
 
+**Status**: Active deployment with v2.0.0 features enabled.
+
 ## Architecture
 
 This service runs as a standalone Express server that:
