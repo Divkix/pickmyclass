@@ -53,9 +53,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Determine stagger group based on current time
+    // Use modulo calculation to properly handle both :00 and :30 minute triggers
+    // Math.floor(currentMinute / 30) gives us: 0 for :00-:29, 1 for :30-:59
+    // Modulo 2 alternates between 0 and 1 for each 30-minute window
+    // Result: :00 → even (0 % 2 = 0), :30 → odd (1 % 2 = 1)
     const now = new Date()
     const currentMinute = now.getMinutes()
-    const staggerGroup = currentMinute === 0 ? 'even' : 'odd'
+    const staggerGroup = Math.floor(currentMinute / 30) % 2 === 0 ? 'even' : 'odd'
 
     console.log(
       `[Cron] Starting 30-minute class check (stagger: ${staggerGroup}, time: ${now.toISOString()})`
