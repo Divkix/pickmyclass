@@ -546,16 +546,22 @@ export async function scrapeClassSection(
     )
   } finally {
     // Always close the page and release browser back to pool
-    // CRITICAL: Wrap page.close() in try-catch to ensure browser is ALWAYS released
-    // even if page.close() fails (e.g., browser crash, already closed)
+    // CRITICAL: Wrap page.close() in try-catch AND timeout to ensure browser is ALWAYS released
+    // even if page.close() fails (e.g., browser crash, already closed) or hangs
     try {
-      await page.close()
+      // Add 5-second timeout to page.close() to prevent hanging
+      const closePromise = page.close()
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Page close timeout (5s)')), 5000)
+      )
+
+      await Promise.race([closePromise, timeoutPromise])
       console.log('[Scraper] Page closed successfully')
     } catch (closeError) {
       console.error('[Scraper] Error closing page (non-fatal):', closeError)
     }
 
-    // ALWAYS release browser back to pool (even if page.close failed)
+    // ALWAYS release browser back to pool (even if page.close failed or timed out)
     browserPool.releaseBrowser(browser)
     console.log('[Scraper] Browser released to pool')
   }
