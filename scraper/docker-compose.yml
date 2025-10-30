@@ -13,18 +13,24 @@ services:
       - PORT=${PORT:-3000}
       - SECRET_TOKEN=${SECRET_TOKEN}
       - NODE_ENV=${NODE_ENV:-production}
+      # Production-grade feature flags (v2.0.0)
+      - MAX_CONCURRENT_BROWSERS=${MAX_CONCURRENT_BROWSERS:-3}
+      - MAX_CONCURRENT_REQUESTS=${MAX_CONCURRENT_REQUESTS:-10}
+      - CIRCUIT_BREAKER_THRESHOLD=${CIRCUIT_BREAKER_THRESHOLD:-10}
+      - CIRCUIT_BREAKER_TIMEOUT=${CIRCUIT_BREAKER_TIMEOUT:-120000}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${PORT:-3000}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    # Resource limits (adjust based on your server capacity)
+    # Resource limits (increased for 3-browser pool + production features)
+    # Memory increased: 1GB → 2GB for stability with circuit breaker, queue, and health monitoring
     deploy:
       resources:
         limits:
           cpus: '1.0'
-          memory: 1G
+          memory: 2G  # Increased from 1G - supports 3 browsers + ~1.5GB headroom
         reservations:
           cpus: '0.25'
-          memory: 256M
+          memory: 512M  # Increased from 256M for reliable startup

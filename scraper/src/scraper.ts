@@ -8,28 +8,28 @@ import type { ClassDetails } from './types.js'
  * Expected load: 6,250 requests per 30 minutes (batch size 3, 2000+ sections)
  *
  * Browser Pool Strategy:
- * - Maintain pool of 5 browser instances (reduced from 10 for reliability)
+ * - Maintain pool of 3 browser instances (conservative for reliability)
  * - Each browser can handle 1 concurrent scrape job (Puppeteer pages are isolated)
  * - Queue system prevents overwhelming the server (max 100 concurrent jobs)
  * - Browser reuse avoids expensive launch/close overhead (~2-3 seconds per browser)
  * - Batched launching prevents timeout during initialization
  *
  * Memory considerations:
- * - Each browser instance: ~50-150MB RAM
- * - Total with 5 browsers: ~750MB RAM max
- * - Oracle server has 24GB RAM - this is very conservative
+ * - Each browser instance: ~80-150MB RAM (depends on page complexity)
+ * - Total with 3 browsers: ~450MB RAM max
+ * - Docker limit: 2GB (ample headroom for page operations)
  *
  * Performance:
- * - 5 browsers still provides 5x parallelization vs single browser
+ * - 3 browsers provides 3x parallelization vs single browser
  * - Sufficient for 10k users with queue-based architecture
  * - More reliable initialization on resource-constrained servers
  *
  * Adjust MAX_CONCURRENT_BROWSERS based on your server:
- * - 2GB RAM server: 3-5 browsers (current setting)
- * - 4GB RAM server: 8-10 browsers
+ * - 1-2GB RAM server: 3 browsers (current setting - RECOMMENDED)
+ * - 4GB RAM server: 5-8 browsers
  * - 24GB RAM server (Oracle): Can increase to 10-15 if needed
  */
-const MAX_CONCURRENT_BROWSERS = 10 // Maximum number of browser instances (balanced for performance and reliability)
+const MAX_CONCURRENT_BROWSERS = 3 // Maximum number of browser instances (conservative for reliability)
 const BROWSER_LAUNCH_BATCH_SIZE = 3 // Launch browsers in batches to avoid timeout
 const MAX_QUEUE_SIZE = 100 // Maximum queued scrape jobs before rejecting new ones
 
@@ -362,7 +362,8 @@ export async function scrapeClassSection(
     // Extract data from the page using new div-based structure
     console.log('[Scraper] Results container found, extracting class data...')
 
-    const classData = await page.evaluate(() => {
+    // Add timeout protection to page.evaluate() to prevent hanging
+    const evaluatePromise = page.evaluate(() => {
       // Find the class results container
       const resultsContainer = document.querySelector('.class-results-rows')
       if (!resultsContainer) return null
@@ -402,6 +403,13 @@ export async function scrapeClassSection(
         times: `${getCellText('days')} ${getCellText('start')}-${getCellText('end')}`.trim(),
       }
     })
+
+    // Wrap with timeout (30 seconds max)
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Page evaluation timeout (30s)')), 30000)
+    )
+
+    const classData = await Promise.race([evaluatePromise, timeoutPromise])
 
     if (!classData) {
       throw new Error('Failed to extract class data from results - unexpected page structure')
@@ -447,8 +455,8 @@ export async function scrapeClassSection(
         await page.waitForSelector('table', { timeout: 5000 })
         console.log('[Scraper] Reserved seat table loaded')
 
-        // Extract non-reserved seats from table
-        nonReservedSeats = await page.evaluate(() => {
+        // Extract non-reserved seats from table (with timeout protection)
+        const nonReservedPromise = page.evaluate(() => {
           const tables = Array.from(document.querySelectorAll('table'))
 
           // Find the table that contains reserved seat information
@@ -473,6 +481,18 @@ export async function scrapeClassSection(
 
           return null
         })
+
+        // Wrap with timeout (10 seconds max for accordion extraction)
+        const nonReservedTimeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Non-reserved seats extraction timeout (10s)')), 10000)
+        )
+
+        nonReservedSeats = await Promise.race([nonReservedPromise, nonReservedTimeout]).catch(
+          (error) => {
+            console.warn('[Scraper] Failed to extract non-reserved seats:', error)
+            return null // Graceful fallback
+          }
+        )
 
         if (nonReservedSeats !== null) {
           console.log(`[Scraper] Extracted non-reserved seats: ${nonReservedSeats}`)
@@ -526,9 +546,18 @@ export async function scrapeClassSection(
     )
   } finally {
     // Always close the page and release browser back to pool
-    await page.close()
+    // CRITICAL: Wrap page.close() in try-catch to ensure browser is ALWAYS released
+    // even if page.close() fails (e.g., browser crash, already closed)
+    try {
+      await page.close()
+      console.log('[Scraper] Page closed successfully')
+    } catch (closeError) {
+      console.error('[Scraper] Error closing page (non-fatal):', closeError)
+    }
+
+    // ALWAYS release browser back to pool (even if page.close failed)
     browserPool.releaseBrowser(browser)
-    console.log('[Scraper] Page closed, browser released to pool')
+    console.log('[Scraper] Browser released to pool')
   }
 }
 

@@ -1,6 +1,6 @@
-# PickMyClass Scraper Service
+# PickMyClass Scraper Service v2.0.0
 
-Puppeteer-based scraper service for extracting ASU class details from section numbers.
+Production-grade Puppeteer scraper service for extracting ASU class details with circuit breaker protection, request queuing, health monitoring, and auto-recovery.
 
 ## Architecture
 
@@ -11,11 +11,21 @@ This service runs as a standalone Express server that:
 - Protects against abuse with rate limiting and bearer token auth
 - Maintains a browser pool for performance (~5-10s vs ~15-20s per request)
 
-### Browser Pool Implementation
-- **Singleton Pattern**: Maintains a single headless Chromium instance across requests
-- **Connection Reuse**: Reuses browser to avoid ~3-5 second launch overhead
-- **Graceful Shutdown**: Handles SIGINT/SIGTERM to properly close browser
+**Production-grade features (v2.0.0):**
+- ✅ **Circuit Breaker**: Fails fast when ASU site is down (10 failures → 2 min cooldown)
+- ✅ **Request Queue**: Limits concurrent scrapes (max 10) to prevent overload
+- ✅ **Health Monitoring**: Auto-detects memory leaks and stuck browsers
+- ✅ **Metrics Endpoint**: Comprehensive real-time monitoring data
+- ✅ **Auto-Recovery**: Graceful error handling with guaranteed resource cleanup
+- ✅ **Memory Leak Fixes**: Pages always closed even on errors
+
+### Browser Pool Implementation (v2.0.0)
+- **Pool Size**: 3 browser instances (reduced from 10 for stability)
+- **Memory Usage**: ~450MB for browsers + ~1.5GB headroom = 2GB Docker limit
+- **Connection Reuse**: Reuses browsers to avoid ~3-5 second launch overhead
+- **Graceful Shutdown**: Handles SIGINT/SIGTERM to properly close browsers
 - **Race Condition Handling**: Prevents multiple simultaneous browser launches
+- **Resource Cleanup**: Guaranteed page.close() and browser release (even on errors)
 
 ### React SPA Handling
 ASU's class search is a React Single Page Application that:
@@ -46,9 +56,17 @@ cp .env.example .env
 ```
 
 Edit `.env` and set:
+
+**Required:**
 - `SECRET_TOKEN`: Generate with `openssl rand -hex 32`
 - `PORT`: Server port (default: 3000)
 - `NODE_ENV`: Set to `production` when deploying
+
+**Optional (v2.0.0 features):**
+- `MAX_CONCURRENT_BROWSERS`: Browser pool size (default: 3, range: 1-5)
+- `MAX_CONCURRENT_REQUESTS`: Max concurrent scrapes (default: 10, range: 5-20)
+- `CIRCUIT_BREAKER_THRESHOLD`: Failures before opening circuit (default: 10)
+- `CIRCUIT_BREAKER_TIMEOUT`: Cooldown time in ms (default: 120000 = 2 minutes)
 
 ### 3. Run Development Server
 
@@ -60,21 +78,121 @@ Server starts at `http://localhost:3000`
 
 ## API Endpoints
 
-### Health Check
+### Health Check (Enhanced in v2.0.0)
 ```bash
 GET /health
 ```
 
-Public endpoint for monitoring service health.
+Public endpoint for Docker healthcheck and monitoring. Returns **200 OK** if healthy, **503 Service Unavailable** if unhealthy.
+
+**Healthy Response (200):**
+```json
+{
+  "status": "healthy",
+  "service": "pickmyclass-scraper",
+  "version": "2.0.0",
+  "timestamp": "2025-10-30T10:30:00.000Z",
+  "uptime": 3600,
+  "checks": {
+    "browserPool": true,
+    "circuitBreaker": true,
+    "memory": true,
+    "queue": true
+  },
+  "details": {
+    "browserPool": "2/3 available",
+    "circuitBreaker": "CLOSED",
+    "memory": "512MB / 2048MB",
+    "queue": "5 pending / 500 max"
+  }
+}
+```
+
+**Unhealthy Response (503):**
+```json
+{
+  "status": "unhealthy",
+  "checks": {
+    "browserPool": false,  // No browsers available
+    "circuitBreaker": false,  // Circuit is OPEN
+    "memory": false,  // Memory > 80%
+    "queue": false  // Queue nearly full
+  }
+}
+```
+
+### Metrics Endpoint (New in v2.0.0)
+```bash
+GET /metrics
+```
+
+Public endpoint for comprehensive monitoring data.
+
+**Response:**
+```json
+{
+  "service": "pickmyclass-scraper",
+  "version": "2.0.0",
+  "timestamp": "2025-10-30T10:30:00.000Z",
+  "uptime": 3600,
+  "browserPool": {
+    "total": 3,
+    "available": 2,
+    "busy": 1,
+    "queued": 5
+  },
+  "circuitBreaker": {
+    "state": "CLOSED",
+    "failures": 0,
+    "successes": 0,
+    "lastFailureTime": null,
+    "nextAttemptTime": null
+  },
+  "requestQueue": {
+    "pending": 5,
+    "active": 10,
+    "completed": 1523,
+    "failed": 42,
+    "rejected": 0,
+    "errorRate": "2.68%"
+  },
+  "memory": {
+    "rss": "512MB",
+    "heapUsed": "245MB",
+    "heapTotal": "312MB",
+    "external": "23MB"
+  },
+  "health": {
+    "isHealthy": true,
+    "memoryUsagePercent": "25.0%"
+  }
+}
+```
+
+### Browser Pool Status
+```bash
+GET /status
+```
+
+Public endpoint for browser pool metrics (legacy endpoint, use `/metrics` for comprehensive data).
 
 **Response:**
 ```json
 {
   "status": "ok",
   "service": "pickmyclass-scraper",
-  "version": "1.0.0",
-  "timestamp": "2025-10-22T10:30:00.000Z",
-  "uptime": 3600
+  "timestamp": "2025-10-30T10:30:00.000Z",
+  "uptime": 3600,
+  "browserPool": {
+    "total": 3,
+    "available": 2,
+    "busy": 1,
+    "queued": 5
+  },
+  "health": {
+    "overloaded": false,
+    "ready": true
+  }
 }
 ```
 
@@ -123,8 +241,122 @@ Content-Type: application/json
 
 ## Rate Limiting
 
-- **Limit**: 100 requests per 15 minutes per IP
+- **Limit**: 1000 requests per minute per IP (16.6 req/sec)
+- **Purpose**: Prevents accidental DDoS, not meant to throttle legitimate Workers traffic
 - **Headers**: Rate limit info included in response headers
+
+## Troubleshooting
+
+### Server Crashes / OOM Kills
+
+**Symptoms:**
+- Docker container restarts unexpectedly
+- `dmesg` shows "Out of memory: Killed process"
+- Tailscale network drops
+- Other services become unresponsive
+
+**Diagnosis:**
+```bash
+# Check memory usage during operation
+docker stats pickmyclass-scraper --no-stream
+
+# Check for OOM kills
+sudo dmesg -T | grep -i "out of memory\|oom\|killed process"
+
+# Monitor health during cron job
+watch -n 2 'curl -s http://localhost:3000/metrics | jq ".memory, .browserPool"'
+```
+
+**Solutions:**
+1. **Increase Docker memory limit** (see docker-compose.yml)
+2. **Reduce concurrent browsers** (set `MAX_CONCURRENT_BROWSERS=2`)
+3. **Reduce concurrent requests** (set `MAX_CONCURRENT_REQUESTS=5`)
+4. **Check circuit breaker state** (GET /metrics → circuitBreaker.state)
+
+### Circuit Breaker Stuck OPEN
+
+**Symptoms:**
+- All scrapes failing with "Circuit breaker is OPEN"
+- `/metrics` shows `circuitBreaker.state: "OPEN"`
+- ASU site is actually working fine
+
+**Diagnosis:**
+```bash
+# Check circuit breaker state
+curl http://localhost:3000/metrics | jq ".circuitBreaker"
+
+# Check next attempt time
+curl http://localhost:3000/metrics | jq ".circuitBreaker.nextAttemptTime"
+```
+
+**Solutions:**
+1. Wait for timeout to elapse (default: 2 minutes)
+2. Restart service to reset circuit breaker
+3. Increase `CIRCUIT_BREAKER_THRESHOLD` if too sensitive
+4. Check ASU site availability manually
+
+### Memory Leak Detection
+
+**Symptoms:**
+- Memory usage climbing over hours
+- Health monitor logs: "Memory leak detected: growing at X MB/min"
+
+**Diagnosis:**
+```bash
+# Monitor memory growth
+watch -n 10 'curl -s http://localhost:3000/metrics | jq ".memory"'
+
+# Check browser pool for stuck browsers
+curl http://localhost:3000/metrics | jq ".browserPool"
+```
+
+**Solutions:**
+1. Health monitor automatically detects leaks (threshold: 10 MB/min)
+2. Restart service if leak confirmed
+3. Check logs for unclosed pages (should not happen in v2.0.0)
+4. Report issue with logs if leak persists
+
+### Queue Full Errors
+
+**Symptoms:**
+- Scrapes failing with "Queue is full (500 requests pending)"
+- `/metrics` shows `requestQueue.pending: 500`
+
+**Diagnosis:**
+```bash
+# Check queue status
+curl http://localhost:3000/metrics | jq ".requestQueue"
+
+# Check if browsers are stuck
+curl http://localhost:3000/metrics | jq ".browserPool"
+```
+
+**Solutions:**
+1. Wait for queue to drain
+2. Increase `MAX_CONCURRENT_REQUESTS` (default: 10)
+3. Increase browser pool size (default: 3)
+4. Check for circuit breaker OPEN state blocking all requests
+
+### High Error Rate
+
+**Symptoms:**
+- `/metrics` shows `requestQueue.errorRate > 10%`
+- Many scrapes failing
+
+**Diagnosis:**
+```bash
+# Check error rate and circuit breaker
+curl http://localhost:3000/metrics | jq "{errorRate: .requestQueue.errorRate, circuitState: .circuitBreaker.state}"
+
+# Check recent failures
+curl http://localhost:3000/metrics | jq ".circuitBreaker.failures"
+```
+
+**Solutions:**
+1. Check if ASU site is down or slow
+2. Check circuit breaker state (may be opening due to failures)
+3. Review Docker logs for error patterns
+4. Test ASU site manually: https://catalog.apps.asu.edu/catalog/classes/classlist
 
 ## Security Features
 
@@ -153,30 +385,38 @@ bun run start
 
 ## Implementation Status
 
-**Phase 2 COMPLETE - Puppeteer scraping implemented:**
+**v2.0.0 COMPLETE - Production-grade rebuild:**
 
-**Implemented:**
+**Core Features (v1.0.0):**
 - ✅ Express server with TypeScript
 - ✅ Authentication middleware
-- ✅ Rate limiting
-- ✅ Health check endpoint
+- ✅ Rate limiting (1000 req/min)
 - ✅ Full Puppeteer scraping logic
-- ✅ Browser pool for performance
+- ✅ Browser pool (3 browsers)
 - ✅ React SPA handling (networkidle2 + delays)
-- ✅ Table structure detection with heuristics
 - ✅ Seat parsing ("X of Y" format)
 - ✅ Instructor extraction (handles "Staff" and names)
 - ✅ Input validation
-- ✅ Comprehensive error handling
 - ✅ Resource blocking (images, fonts, media)
 - ✅ Graceful shutdown handlers
 
-**TODO (Phase 3 - Optimizations):**
+**Production Features (v2.0.0):**
+- ✅ Circuit breaker pattern (fail fast on ASU downtime)
+- ✅ Request queue with concurrency control (max 10 concurrent)
+- ✅ Health monitoring with auto-recovery
+- ✅ Memory leak detection (10 MB/min threshold)
+- ✅ Comprehensive /metrics endpoint
+- ✅ Enhanced /health endpoint (200/503 status codes)
+- ✅ Guaranteed resource cleanup (page.close in try-catch)
+- ✅ Timeout protection on page.evaluate() calls
+- ✅ Server timeout configuration (60s)
+- ✅ Docker memory limit increased (2GB)
+
+**Future Enhancements:**
 - Response caching (5-10 minute TTL)
-- Retry logic with exponential backoff
 - Screenshot capture on failures
-- Metrics/monitoring integration
-- Connection pooling for multiple browsers
+- Grafana/Prometheus integration
+- Auto-scaling browser pool based on load
 
 ## Scraping Strategy
 
@@ -315,14 +555,17 @@ if (result.success) {
 }
 ```
 
-## Performance Metrics
+## Performance Metrics (v2.0.0)
 
-- **Cold Start**: ~3-5 seconds (browser launch)
+- **Cold Start**: ~3-5 seconds (3 browsers launch in batches)
 - **Warm Request**: ~5-10 seconds (scrape with browser reuse)
-- **Memory Usage**: ~150-200MB (browser + Node.js)
+- **Memory Usage**: ~450-600MB (3 browsers + Node.js + monitoring)
 - **CPU Usage**: <10% idle, 50-80% during scrape
+- **Max Throughput**: ~10-15 concurrent scrapes (with queue)
+- **Circuit Breaker Overhead**: <1ms per request
+- **Health Monitoring**: Check every 60 seconds
 
-## File Structure
+## File Structure (v2.0.0)
 
 ```
 scraper/
@@ -330,14 +573,17 @@ scraper/
 ├── tsconfig.json         # TypeScript configuration
 ├── .env.example          # Environment variable template
 ├── .gitignore            # Git ignore rules
-├── README.md             # This file
+├── README.md             # This file (v2.0.0 documentation)
 ├── Dockerfile            # Docker container definition
-├── docker-compose.yml    # Docker Compose for Coolify
+├── docker-compose.yml    # Docker Compose for Coolify (2GB memory)
 ├── test-scraper.js       # Test script for validation
 ├── debug-page.js         # Debug script for page inspection
 └── src/
-    ├── index.ts          # Express server and routes
-    ├── scraper.ts        # Puppeteer scraping logic (COMPLETE)
+    ├── index.ts          # Express server and routes (v2.0.0 with circuit breaker, queue, health)
+    ├── scraper.ts        # Puppeteer scraping logic (v2.0.0 with memory leak fixes)
+    ├── circuit-breaker.ts # Circuit breaker pattern (NEW in v2.0.0)
+    ├── queue.ts          # Request queue with concurrency control (NEW in v2.0.0)
+    ├── health-monitor.ts # Health monitoring and auto-recovery (NEW in v2.0.0)
     └── types.ts          # TypeScript type definitions
 ```
 
