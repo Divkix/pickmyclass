@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import {
-  checkRateLimit,
-  getClientIP,
-  createRateLimitResponse,
-  addRateLimitHeaders,
-  RATE_LIMITS,
-} from '@/lib/rate-limit'
 import { z } from 'zod'
 
 /**
@@ -52,6 +45,7 @@ interface ScraperResponse {
     instructor?: string
     seats_available?: number
     seats_capacity?: number
+    non_reserved_seats?: number | null
     location?: string
     meeting_times?: string
   }
@@ -59,18 +53,6 @@ interface ScraperResponse {
 }
 
 export async function POST(request: NextRequest) {
-  // Rate limiting check (use POST limits for scraper endpoint)
-  const clientIP = getClientIP(request)
-  const rateLimitResult = checkRateLimit(clientIP, RATE_LIMITS.POST)
-
-  if (!rateLimitResult.allowed) {
-    return createRateLimitResponse(
-      rateLimitResult.remaining,
-      rateLimitResult.resetAt,
-      RATE_LIMITS.POST.maxRequests
-    )
-  }
-
   try {
     // Parse and validate request body
     const body = await request.json()
@@ -141,6 +123,7 @@ export async function POST(request: NextRequest) {
                 instructor_name: scraperData.data.instructor || null,
                 seats_available: scraperData.data.seats_available || 0,
                 seats_capacity: scraperData.data.seats_capacity || 0,
+                non_reserved_seats: scraperData.data.non_reserved_seats ?? null,
                 location: scraperData.data.location || null,
                 meeting_times: scraperData.data.meeting_times || null,
                 last_checked_at: new Date().toISOString(),
@@ -174,14 +157,7 @@ export async function POST(request: NextRequest) {
           meeting_times: scraperData.data.meeting_times,
         }
 
-        const successResponse = NextResponse.json(response, { status: 200 })
-
-        return addRateLimitHeaders(
-          successResponse,
-          rateLimitResult.remaining,
-          rateLimitResult.resetAt,
-          RATE_LIMITS.POST.maxRequests
-        )
+        return NextResponse.json(response, { status: 200 })
       } catch (error) {
         // If scraper fails, log and fall through to stub
         console.error('[API] Scraper service failed, falling back to stub:', error)
@@ -200,14 +176,7 @@ export async function POST(request: NextRequest) {
     // Simulate network delay
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    const response = NextResponse.json(stubResponse, { status: 200 })
-
-    return addRateLimitHeaders(
-      response,
-      rateLimitResult.remaining,
-      rateLimitResult.resetAt,
-      RATE_LIMITS.POST.maxRequests
-    )
+    return NextResponse.json(stubResponse, { status: 200 })
   } catch (error) {
     console.error('Error fetching class details:', error)
     return NextResponse.json(
