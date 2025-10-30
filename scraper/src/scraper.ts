@@ -29,8 +29,8 @@ import type { ClassDetails } from './types.js'
  * - 4GB RAM server: 8-10 browsers
  * - 24GB RAM server (Oracle): Can increase to 10-15 if needed
  */
-const MAX_CONCURRENT_BROWSERS = 5 // Maximum number of browser instances (reduced for reliable initialization)
-const BROWSER_LAUNCH_BATCH_SIZE = 2 // Launch browsers in batches to avoid timeout
+const MAX_CONCURRENT_BROWSERS = 10 // Maximum number of browser instances (balanced for performance and reliability)
+const BROWSER_LAUNCH_BATCH_SIZE = 3 // Launch browsers in batches to avoid timeout
 const MAX_QUEUE_SIZE = 100 // Maximum queued scrape jobs before rejecting new ones
 
 /**
@@ -316,13 +316,22 @@ export async function scrapeClassSection(
     const url = `https://catalog.apps.asu.edu/catalog/classes/classlist?campusOrOnlineSelection=A&honors=F&keywords=${sectionNumber}&promod=F&searchType=all&term=${term}`
     console.log(`[Scraper] Navigating to: ${url}`)
 
-    // Navigate and wait for network to be idle (React app loads + API call completes)
-    console.log('[Scraper] Waiting for React SPA to load and hydrate...')
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 })
-    console.log('[Scraper] Page network idle, waiting for results to render...')
+    // Navigate and wait for DOM content loaded (React app loads + initial render)
+    // Using 'domcontentloaded' instead of 'networkidle2' to avoid hanging on analytics/tracking
+    console.log('[Scraper] Navigating and waiting for DOM ready...')
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    console.log('[Scraper] DOM loaded, waiting for React SPA to hydrate and render results...')
 
-    // Wait a bit more for React to render (using Promise instead of deprecated waitForTimeout)
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    // Wait for results container to appear (max 15s) - more reliable than networkidle2
+    try {
+      await page.waitForSelector('.class-results-rows', { timeout: 15000 })
+      console.log('[Scraper] Results container found')
+    } catch (e) {
+      console.warn('[Scraper] Results container not found within 15s, checking page state...')
+    }
+
+    // Give React a moment to finish rendering
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     // Now try to find the results
     // ASU updated their page structure - now uses div-based grid instead of tables

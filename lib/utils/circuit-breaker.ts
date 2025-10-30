@@ -239,7 +239,7 @@ export function getScraperCircuitBreaker(): CircuitBreaker {
       failureThreshold: 10, // Higher threshold since we have high volume
       resetTimeout: 120000, // 2 minutes
       successThreshold: 3, // Require 3 successes to close
-      timeout: 55000, // 55 second timeout (scraping can be slow, queue has 60s limit)
+      timeout: 90000, // 90 second timeout (increased from 55s to handle peak load)
     })
   }
   return scraperCircuitBreaker
