@@ -3,6 +3,7 @@
 import { Database } from '@/lib/supabase/database.types'
 import { ClassStateIndicator } from './ClassStateIndicator'
 import { ClassDetailsDialog } from './ClassDetailsDialog'
+import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Trash2, Info } from 'lucide-react'
@@ -20,20 +21,20 @@ interface ClassWatchCardProps {
 export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to stop watching this class?')) return
-
     setIsDeleting(true)
     try {
       await onDelete(watch.id)
     } catch (error) {
       console.error('Failed to delete watch:', error)
       alert('Failed to delete watch. Please try again.')
-    } finally {
       setIsDeleting(false)
     }
   }
+
+  const classTitle = `${watch.subject} ${watch.catalog_nbr}${classState?.title ? ` - ${classState.title}` : ''}`
 
   return (
     <>
@@ -61,19 +62,21 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
                 size="icon"
                 onClick={() => setShowDetails(true)}
                 className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                aria-label={`View class details for ${classTitle}`}
                 title="View class details"
               >
-                <Info className="h-4 w-4" />
+                <Info className="h-4 w-4" aria-hidden="true" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleDelete}
+                onClick={() => setShowDeleteConfirm(true)}
                 disabled={isDeleting}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                aria-label={`Stop watching ${classTitle}`}
                 title="Stop watching this class"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
           </div>
@@ -93,6 +96,16 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
         classState={classState}
         open={showDetails}
         onOpenChange={setShowDetails}
+      />
+
+      <DeleteConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        onConfirm={handleDelete}
+        title="Stop watching this class?"
+        description={`You will no longer receive notifications for ${classTitle}. You can always add it back later.`}
+        confirmText="Stop Watching"
+        isDeleting={isDeleting}
       />
     </>
   )

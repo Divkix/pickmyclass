@@ -18,8 +18,8 @@ export function Header() {
         </Link>
         {!loading && user && (
           <Link href="/dashboard">
-            <Button variant="ghost" size="sm" className="text-base">
-              <LayoutDashboard className="size-4" />
+            <Button variant="ghost" size="sm" className="text-base" aria-label="Go to dashboard">
+              <LayoutDashboard className="size-4" aria-hidden="true" />
               Dashboard
             </Button>
           </Link>

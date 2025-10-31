@@ -105,8 +105,9 @@ export function ClassDetailsDialog({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2"
+                    aria-label={`View ${classState.instructor_name} on RateMyProfessor`}
                   >
-                    <ExternalLink className="h-4 w-4" />
+                    <ExternalLink className="h-4 w-4" aria-hidden="true" />
                     View on RateMyProfessor
                   </a>
                 </Button>

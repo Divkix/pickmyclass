@@ -119,9 +119,20 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
               pattern="\d{5}"
               title="Must be a 5-digit section number"
             />
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-              5-digit section number (e.g., 19439 for CSE 412)
-            </p>
+            <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 p-3 text-sm">
+              <p className="text-blue-800 dark:text-blue-200">
+                💡 <strong>How to find this:</strong> Go to the{' '}
+                <a
+                  href="https://catalog.apps.asu.edu/catalog/classes/classlist"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-blue-600 dark:hover:text-blue-300"
+                >
+                  ASU Class Search page
+                </a>
+                , search for your class, and look for the 5-digit number in the &quot;Class #&quot; column.
+              </p>
+            </div>
           </div>
 
           {/* Submit Button */}
