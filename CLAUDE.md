@@ -23,16 +23,49 @@ Students add university class sections they want to monitor by section number. T
 - ✅ **Cloudflare Queues** for parallel section processing (scales to 10k+ users)
 - ✅ **Optimized database queries** with server-side filtering
 - ✅ **Batch email API** using Resend (10x faster than sequential)
-- ✅ **Circuit breaker** pattern for scraper fault tolerance
-- ✅ Health monitoring endpoint
+- ✅ **Durable Objects circuit breaker** for distributed fault tolerance (replaces per-isolate singleton)
+- ✅ **Atomic notification deduplication** via PostgreSQL functions (prevents race conditions)
+- ✅ Health monitoring endpoint with circuit breaker status
 
 ### Scalability
 **Designed for 10,000+ users:**
 - **Parallel Processing**: Cloudflare Queues enable 100+ concurrent workers (vs 3 sequential)
 - **Database Optimization**: Server-side filtering reduces queries by 2,500x
 - **Batch Operations**: Email sending 10x faster via Resend batch API
+- **Distributed Coordination**: Durable Objects provide global state across all Worker isolates
+- **Atomic Operations**: PostgreSQL functions eliminate race conditions in concurrent processing
 - **Performance**: Processes 6,250 sections in ~5 minutes (was 69.5 min - failed)
-- **Cost**: ~$34/month at 10k users ($0.0034 per user)
+- **Cost**: ~$35/month at 10k users ($0.0035 per user, includes Durable Objects)
+
+### Recent Improvements (October 2025)
+
+**Critical Bug Fixes:**
+1. **Durable Objects Circuit Breaker** - Replaced per-isolate singleton with distributed Durable Object
+   - **Problem:** In-memory singleton doesn't work with 100+ concurrent Worker isolates
+   - **Solution:** Single Durable Object instance coordinates all Workers
+   - **Impact:** True fleet-wide protection against cascading failures
+
+2. **Atomic Notification Deduplication** - Eliminated race condition in notification sending
+   - **Problem:** Check-then-insert pattern allowed duplicate emails with concurrent processing
+   - **Solution:** PostgreSQL function with `INSERT...ON CONFLICT` for atomic check-and-insert
+   - **Impact:** Guaranteed exactly-once email delivery at scale
+
+3. **Rate Limiter Removal** - Deleted ineffective in-memory rate limiter
+   - **Problem:** Per-isolate Map doesn't enforce limits across distributed Workers
+   - **Solution:** Removed entirely, rely on Cloudflare's DDoS protection
+   - **Impact:** Eliminated false sense of security
+
+**Minor Fixes:**
+4. Added missing `non_reserved_seats` field to class state persistence
+5. Added 5-second timeout to `page.close()` in scraper to prevent browser pool starvation
+6. Reduced `max_batch_timeout` from 60s to 30s per Cloudflare API limits
+7. Fixed cron stagger logic to use modulo calculation (handles cron drift)
+
+**Architecture Notes:**
+- **Cloudflare Workers Memory Model:** Global variables are per-isolate, not shared across Workers
+- **Durable Objects Required:** For any state that must be coordinated across Workers (circuit breakers, rate limiters, etc.)
+- **Atomic Database Operations:** Use PostgreSQL functions with proper locking for concurrent operations
+- **Race Conditions:** Always design for concurrent execution with 100+ parallel Workers
 
 ### Future Plans
 - Support for additional universities beyond ASU
@@ -119,13 +152,14 @@ Required configuration (see `.env.example`):
   - `getSectionsToCheck(staggerType)` - Server-side filtering for even/odd sections (eliminates client-side filtering)
   - `getBulkClassWatchers(classNumbers[])` - Bulk fetch watchers for multiple sections (eliminates N+1 queries)
   - `getClassWatchers(classNbr)` - Get all users watching a section
-  - `hasNotificationBeenSent(watchId, type)` - Check notification deduplication
-  - `recordNotificationSent(watchId, type)` - Record sent notifications (24hr TTL)
+  - `tryRecordNotification(watchId, type)` - **NEW:** Atomic check-and-insert for notifications (race-condition safe)
+  - `hasNotificationBeenSent(watchId, type)` - **@deprecated** Check notification deduplication (has race condition)
+  - `recordNotificationSent(watchId, type)` - **@deprecated** Record sent notifications (has race condition)
   - `resetNotificationsForSection(classNbr, type)` - Reset notifications when seats fill
 
-**Usage Example**:
+**Usage Example (Current - Race-Condition Safe)**:
 ```typescript
-import { getSectionsToCheck, getBulkClassWatchers, recordNotificationSent } from '@/lib/db/queries';
+import { getSectionsToCheck, getBulkClassWatchers, tryRecordNotification } from '@/lib/db/queries';
 
 // Get sections with server-side filtering (90% less data transfer)
 const sections = await getSectionsToCheck('even');
@@ -134,9 +168,14 @@ const sections = await getSectionsToCheck('even');
 const watcherMap = await getBulkClassWatchers(['12431', '12432', '12433']);
 const watchers = watcherMap.get('12431') || [];
 
-// Record notification sent (expires in 24 hours)
-await recordNotificationSent(watchId, 'seat_available');
+// Atomically check and record notification (returns true if should send)
+const shouldSend = await tryRecordNotification(watchId, 'seat_available');
+if (shouldSend) {
+  await sendEmail(...);  // Only send if not already sent
+}
 ```
+
+**Important:** Use `tryRecordNotification()` instead of the deprecated `hasNotificationBeenSent()` + `recordNotificationSent()` pattern to avoid race conditions in concurrent processing.
 
 ### Cloudflare Queues Architecture
 
@@ -205,11 +244,14 @@ await recordNotificationSent(watchId, 'seat_available');
    - Batch email API (up to 100 emails/request)
    - Returns processing metrics
 
-4. **Circuit Breaker** (`lib/utils/circuit-breaker.ts`):
+4. **Circuit Breaker** (Durable Object in `worker.ts`):
+   - **Distributed coordination** via Cloudflare Durable Objects (global state across all 100+ Workers)
    - Protects against scraper cascading failures
    - States: CLOSED (healthy), OPEN (blocking), HALF_OPEN (testing)
    - Thresholds: 10 failures → OPEN, 2 minutes recovery, 3 successes → CLOSED
-   - Timeout: 45 seconds per scrape request
+   - Timeout: 90 seconds per scrape request
+   - **Single instance** named "scraper-circuit-breaker" coordinates all queue consumers
+   - Persistent state survives Worker restarts and isolate recycling
 
 **Performance**:
 - **Before**: Sequential batches, 69.5 min for 6,250 sections (FAILED at 30min CPU limit)
