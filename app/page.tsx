@@ -17,7 +17,7 @@ export default function Home() {
         {/* Hero Section - Modernized */}
         <section className="relative overflow-hidden border-b border-border px-6 py-24 sm:py-32">
           {/* Gradient Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
+          <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-background to-accent/5" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(99,102,241,0.1),transparent_50%)]" />
 
           <motion.div
@@ -182,7 +182,7 @@ export default function Home() {
 
             <div className="relative space-y-12">
               {/* Connecting Line */}
-              <div className="absolute left-5 top-5 bottom-5 w-0.5 bg-gradient-to-b from-primary via-accent to-success sm:left-6" />
+              <div className="absolute left-5 top-5 bottom-5 w-0.5 bg-linear-to-b from-primary via-accent to-success sm:left-6" />
 
               {/* Step 1 */}
               <motion.div className="relative flex items-start gap-6" variants={staggerItem}>
