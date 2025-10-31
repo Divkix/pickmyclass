@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useAuth } from '@/lib/contexts/AuthContext'
 import AuthButton from '@/components/AuthButton'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/Logo'
 import { LayoutDashboard } from 'lucide-react'
@@ -25,7 +26,10 @@ export function Header() {
           </Link>
         )}
       </div>
-      <AuthButton />
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
+        <AuthButton />
+      </div>
     </header>
   )
 }

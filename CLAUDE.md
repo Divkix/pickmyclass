@@ -26,6 +26,7 @@ Students add university class sections they want to monitor by section number. T
 - ✅ **Durable Objects circuit breaker** for distributed fault tolerance (replaces per-isolate singleton)
 - ✅ **Atomic notification deduplication** via PostgreSQL functions (prevents race conditions)
 - ✅ Health monitoring endpoint with circuit breaker status
+- ✅ **Dark mode support** with system preference detection and manual toggle
 
 ### Scalability
 **Designed for 10,000+ users:**
@@ -366,11 +367,24 @@ wrangler.jsonc               # Cloudflare Workers configuration
 4. `AuthContext` manages client-side auth state
 5. Auth state changes trigger re-renders via context
 
-### Styling
-- Tailwind CSS 4 with PostCSS
-- Dark mode support using `dark:` prefix
-- Geist and Geist Mono fonts loaded via `next/font/google`
-- Color scheme: Zinc palette (50, 200, 400, 600, 800, 900, 950)
+### Styling & Dark Mode
+- **CSS Framework**: Tailwind CSS 4 with PostCSS
+- **Fonts**: Geist and Geist Mono loaded via `next/font/google`
+- **Color System**: OKLch color space for perceptual color accuracy
+  - Brand colors: Indigo primary, Emerald accent
+  - Complete light and dark mode palettes defined in `globals.css`
+
+**Dark Mode Implementation:**
+- **Provider**: `next-themes` package with `ThemeProvider` in `lib/contexts/ThemeContext.tsx`
+- **Toggle**: `ThemeToggle` component in Header with sun/moon icons
+- **Features**:
+  - System preference detection (respects OS dark mode setting)
+  - Manual toggle with localStorage persistence
+  - Smooth transitions between themes
+  - Prevents flash of unstyled content on page load
+- **CSS Variant**: Custom Tailwind variant `@custom-variant dark (&:is(.dark *))` in `globals.css`
+- **Usage**: Apply dark mode styles using `dark:` prefix (e.g., `dark:bg-gray-900`)
+- **Color Variables**: All colors use CSS custom properties that automatically switch based on theme
 
 ## Common Issues
 
