@@ -6,11 +6,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { getServiceClient } from '@/lib/supabase/service'
 import { tryRecordNotification, resetNotificationsForSection } from '@/lib/db/queries'
 import { sendBatchEmailsOptimized, type ClassInfo } from '@/lib/email/resend'
 import type { ClassCheckMessage } from '@/lib/types/queue'
-import { getScraperCircuitBreaker } from '@/lib/utils/circuit-breaker'
 
 /**
  * Interface for scraper response
@@ -32,36 +32,78 @@ interface ScraperResponse {
 }
 
 /**
- * Fetch class details from scraper service
+ * Fetch class details from scraper service with circuit breaker protection
+ *
+ * Uses Durable Object circuit breaker for distributed coordination across
+ * all Worker isolates. This prevents cascading failures when the scraper
+ * is overloaded or down.
  */
-async function fetchClassDetails(
+async function fetchClassDetailsWithCircuitBreaker(
   sectionNumber: string,
-  term: string
+  term: string,
+  circuitBreakerStub: DurableObjectStub
 ): Promise<ScraperResponse> {
-  const scraperUrl = process.env.SCRAPER_URL
-  const scraperToken = process.env.SCRAPER_SECRET_TOKEN
-
-  if (!scraperUrl || !scraperToken) {
-    throw new Error('SCRAPER_URL and SCRAPER_SECRET_TOKEN must be set')
+  // Check circuit breaker state
+  const checkResponse = await circuitBreakerStub.fetch('http://do/check')
+  const checkResult = await checkResponse.json() as {
+    allowed: boolean
+    state: string
+    message?: string
   }
 
-  const response = await fetch(`${scraperUrl}/scrape`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${scraperToken}`,
-    },
-    body: JSON.stringify({
-      sectionNumber,
-      term,
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Scraper returned ${response.status}: ${response.statusText}`)
+  if (!checkResult.allowed) {
+    console.warn(
+      `[Queue-Processor] Circuit breaker is OPEN: ${checkResult.message}`
+    )
+    return {
+      success: false,
+      error: checkResult.message || 'Circuit breaker is OPEN',
+    }
   }
 
-  return response.json()
+  // Attempt to scrape
+  try {
+    const scraperUrl = process.env.SCRAPER_URL
+    const scraperToken = process.env.SCRAPER_SECRET_TOKEN
+
+    if (!scraperUrl || !scraperToken) {
+      throw new Error('SCRAPER_URL and SCRAPER_SECRET_TOKEN must be set')
+    }
+
+    const response = await fetch(`${scraperUrl}/scrape`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${scraperToken}`,
+      },
+      body: JSON.stringify({
+        sectionNumber,
+        term,
+      }),
+      // Timeout: 90 seconds (matches circuit breaker config)
+      signal: AbortSignal.timeout(90000),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Scraper returned ${response.status}: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    // Record success in circuit breaker
+    await circuitBreakerStub.fetch('http://do/success', {
+      method: 'POST',
+    })
+
+    return result
+  } catch (error) {
+    // Record failure in circuit breaker
+    await circuitBreakerStub.fetch('http://do/failure', {
+      method: 'POST',
+    })
+
+    throw error
+  }
 }
 
 /**
@@ -105,6 +147,26 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Queue-Processor] Processing section ${class_nbr} (term: ${term})`)
 
+    // Get Cloudflare context and circuit breaker DO stub
+    const { env } = await getCloudflareContext<{
+      CIRCUIT_BREAKER_DO: DurableObjectNamespace
+    }>()
+
+    if (!env?.CIRCUIT_BREAKER_DO) {
+      console.error('[Queue-Processor] CIRCUIT_BREAKER_DO binding not available')
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Circuit breaker not configured',
+        },
+        { status: 500 }
+      )
+    }
+
+    // Get Durable Object stub for scraper circuit breaker
+    const doId = env.CIRCUIT_BREAKER_DO.idFromName('scraper-circuit-breaker')
+    const circuitBreakerStub = env.CIRCUIT_BREAKER_DO.get(doId)
+
     const serviceClient = getServiceClient()
 
     // Step 1: Fetch OLD state from database
@@ -119,12 +181,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2: Fetch latest data from scraper with circuit breaker protection
-    const circuitBreaker = getScraperCircuitBreaker()
-    const scraperResponse = await circuitBreaker.execute(() => fetchClassDetails(class_nbr, term))
+    const scraperResponse = await fetchClassDetailsWithCircuitBreaker(
+      class_nbr,
+      term,
+      circuitBreakerStub
+    )
 
     if (!scraperResponse.success || !scraperResponse.data) {
       const error = scraperResponse.error || 'Unknown error'
       console.error(`[Queue-Processor] Failed to scrape ${class_nbr}: ${error}`)
+
+      // If circuit breaker is OPEN, return 503 Service Unavailable
+      if (error.includes('Circuit breaker is OPEN')) {
+        return NextResponse.json({ success: false, error }, { status: 503 })
+      }
+
       return NextResponse.json({ success: false, error }, { status: 500 })
     }
 

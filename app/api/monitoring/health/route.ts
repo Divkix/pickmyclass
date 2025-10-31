@@ -5,8 +5,8 @@
  */
 
 import { NextResponse } from 'next/server'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { getServiceClient } from '@/lib/supabase/service'
-import { getScraperCircuitBreaker } from '@/lib/utils/circuit-breaker'
 
 /**
  * Health status response
@@ -57,28 +57,58 @@ export async function GET() {
     health.status = 'unhealthy'
   }
 
-  // 2. Check Scraper Circuit Breaker
-  const scraperCircuitBreaker = getScraperCircuitBreaker()
-  const cbStatus = scraperCircuitBreaker.getStatus()
+  // 2. Check Scraper Circuit Breaker (Durable Object)
+  try {
+    const { env } = await getCloudflareContext<{
+      CIRCUIT_BREAKER_DO: DurableObjectNamespace
+    }>()
 
-  health.checks.scraper = {
-    status:
-      cbStatus.state === 'CLOSED'
-        ? 'healthy'
-        : cbStatus.state === 'HALF_OPEN'
-          ? 'degraded'
-          : 'unhealthy',
-    circuit_breaker: {
-      state: cbStatus.state,
-      failure_count: cbStatus.failureCount,
-      success_count: cbStatus.successCount,
-      last_failure: cbStatus.lastFailureTime
-        ? new Date(cbStatus.lastFailureTime).toISOString()
-        : null,
-    },
-  }
+    if (env?.CIRCUIT_BREAKER_DO) {
+      const doId = env.CIRCUIT_BREAKER_DO.idFromName('scraper-circuit-breaker')
+      const circuitBreakerStub = env.CIRCUIT_BREAKER_DO.get(doId)
 
-  if (cbStatus.state === 'OPEN') {
+      const statusResponse = await circuitBreakerStub.fetch('http://do/status')
+      const cbStatus = await statusResponse.json() as {
+        state: string
+        failureCount: number
+        successCount: number
+        lastFailureTime: number | null
+        lastStateChange: number
+      }
+
+      health.checks.circuit_breaker = {
+        status:
+          cbStatus.state === 'CLOSED'
+            ? 'healthy'
+            : cbStatus.state === 'HALF_OPEN'
+              ? 'degraded'
+              : 'unhealthy',
+        type: 'durable_object',
+        state: cbStatus.state,
+        failure_count: cbStatus.failureCount,
+        success_count: cbStatus.successCount,
+        last_failure: cbStatus.lastFailureTime
+          ? new Date(cbStatus.lastFailureTime).toISOString()
+          : null,
+        last_state_change: new Date(cbStatus.lastStateChange).toISOString(),
+      }
+
+      if (cbStatus.state === 'OPEN') {
+        health.status = 'degraded'
+      }
+    } else {
+      health.checks.circuit_breaker = {
+        status: 'not_configured',
+        type: 'durable_object',
+        message: 'CIRCUIT_BREAKER_DO binding not available',
+      }
+    }
+  } catch (error) {
+    health.checks.circuit_breaker = {
+      status: 'unhealthy',
+      type: 'durable_object',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
     health.status = 'degraded'
   }
 
