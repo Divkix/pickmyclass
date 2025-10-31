@@ -49,7 +49,7 @@ export default async function middleware(request: NextRequest) {
   // Note: This is just a basic auth check for redirects. Real admin role verification
   // happens server-side in the actual admin pages/API routes using Supabase RLS and
   // user_profiles.is_admin checks. Never trust middleware alone for authorization.
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
+  // Admin routes are protected by standard auth check below (not in publicRoutes).
 
   // Check if user account is disabled (soft delete)
   if (user) {

@@ -4,7 +4,6 @@ import {
   getTotalUsers,
   getTotalClassesWatched,
 } from '@/lib/db/admin-queries'
-import { Header } from '@/components/Header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Mail, Users, Eye, Activity, TrendingUp, Clock } from 'lucide-react'
 
@@ -36,9 +35,7 @@ export default async function AdminDashboardPage() {
   const avgEmailsPerUser = totalUsers > 0 ? (totalEmails / totalUsers).toFixed(1) : '0'
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <Header />
-      <main className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
+    <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2 sm:text-4xl">Admin Dashboard</h1>
@@ -184,13 +181,12 @@ export default async function AdminDashboardPage() {
           </Card>
         </div>
 
-        {/* System Info Footer */}
-        <div className="text-xs text-muted-foreground text-center py-4 border-t border-border/40">
-          <p>
-            Admin dashboard for PickMyClass monitoring system. All times in UTC.
-          </p>
-        </div>
-      </main>
+      {/* System Info Footer */}
+      <div className="text-xs text-muted-foreground text-center py-4 border-t border-border/40">
+        <p>
+          Admin dashboard for PickMyClass monitoring system. All times in UTC.
+        </p>
+      </div>
     </div>
   )
 }
