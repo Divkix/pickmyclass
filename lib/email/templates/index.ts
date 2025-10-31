@@ -73,7 +73,9 @@ export function SeatAvailableEmailTemplate(
   const safeTerm = classInfo.term.replace(/[^0-9]/g, '')
   const safeClassNbrUrl = classInfo.class_nbr.replace(/[^0-9]/g, '')
 
-  const catalogUrl = `https://catalog.apps.asu.edu/catalog/classes/classlist?keywords=${safeClassNbrUrl}&term=${safeTerm}`
+  // Use internal redirect URL to match sending domain (improves email deliverability)
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app'
+  const catalogUrl = `${siteUrl}/go/asu?classNbr=${safeClassNbrUrl}&term=${safeTerm}`
 
   return `
 <!DOCTYPE html>
@@ -177,7 +179,9 @@ export function InstructorAssignedEmailTemplate(
   const safeTerm = classInfo.term.replace(/[^0-9]/g, '')
   const safeClassNbrUrl = classInfo.class_nbr.replace(/[^0-9]/g, '')
 
-  const catalogUrl = `https://catalog.apps.asu.edu/catalog/classes/classlist?keywords=${safeClassNbrUrl}&term=${safeTerm}`
+  // Use internal redirect URL to match sending domain (improves email deliverability)
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app'
+  const catalogUrl = `${siteUrl}/go/asu?classNbr=${safeClassNbrUrl}&term=${safeTerm}`
 
   return `
 <!DOCTYPE html>
