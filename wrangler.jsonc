@@ -40,6 +40,25 @@
             }
         ]
     },
+    "durable_objects": {
+        "bindings": [
+            {
+                "name": "CIRCUIT_BREAKER_DO",
+                "class_name": "CircuitBreakerDO",
+                "script_name": "pickmyclass"
+            }
+        ]
+    },
+    // Durable Objects migrations
+    // This declares the CircuitBreakerDO class and makes it available
+    "migrations": [
+        {
+            "tag": "v1",
+            "new_classes": [
+                "CircuitBreakerDO"
+            ]
+        }
+    ],
     "observability": {
         "enabled": true,
         "head_sampling_rate": 1,
