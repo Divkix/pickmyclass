@@ -7,11 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceClient } from '@/lib/supabase/service'
-import {
-  hasNotificationBeenSent,
-  recordNotificationSent,
-  resetNotificationsForSection,
-} from '@/lib/db/queries'
+import { tryRecordNotification, resetNotificationsForSection } from '@/lib/db/queries'
 import { sendBatchEmailsOptimized, type ClassInfo } from '@/lib/email/resend'
 import type { ClassCheckMessage } from '@/lib/types/queue'
 import { getScraperCircuitBreaker } from '@/lib/utils/circuit-breaker'
@@ -201,7 +197,8 @@ export async function POST(request: NextRequest) {
           meeting_times: newData.meeting_times,
         }
 
-        // Prepare batch email list
+        // Prepare batch email list using ATOMIC notification check
+        // This eliminates race conditions in parallel processing
         const emailsToSend: Array<{
           to: string
           userId: string
@@ -209,10 +206,14 @@ export async function POST(request: NextRequest) {
           type: 'seat_available' | 'instructor_assigned'
         }> = []
 
+        // CRITICAL FIX: Use atomic check BEFORE building email list
+        // Previously: check-then-send pattern allowed duplicates
+        // Now: tryRecordNotification() atomically claims the notification slot
         for (const watcher of watchers) {
           if (seatBecameAvailable) {
-            const alreadySent = await hasNotificationBeenSent(watcher.watch_id, 'seat_available')
-            if (!alreadySent) {
+            // Atomic check-and-record: only returns true if this worker claimed the slot
+            const shouldSend = await tryRecordNotification(watcher.watch_id, 'seat_available')
+            if (shouldSend) {
               emailsToSend.push({
                 to: watcher.email,
                 userId: watcher.user_id,
@@ -223,11 +224,12 @@ export async function POST(request: NextRequest) {
           }
 
           if (instructorAssigned) {
-            const alreadySent = await hasNotificationBeenSent(
+            // Atomic check-and-record: only returns true if this worker claimed the slot
+            const shouldSend = await tryRecordNotification(
               watcher.watch_id,
               'instructor_assigned'
             )
-            if (!alreadySent) {
+            if (shouldSend) {
               emailsToSend.push({
                 to: watcher.email,
                 userId: watcher.user_id,
@@ -242,21 +244,17 @@ export async function POST(request: NextRequest) {
         if (emailsToSend.length > 0) {
           const results = await sendBatchEmailsOptimized(emailsToSend)
 
-          // Record notifications
-          for (let i = 0; i < results.length; i++) {
-            if (results[i].success) {
-              const email = emailsToSend[i]
-              const watcher = watchers.find((w) => w.email === email.to)
-              if (watcher) {
-                await recordNotificationSent(watcher.watch_id, email.type)
-                emailsSent++
-              }
-            }
-          }
+          // Count successful sends (notifications already recorded via tryRecordNotification)
+          emailsSent = results.filter((r) => r.success).length
 
-          console.log(
-            `[Queue-Processor] ✉️  Sent ${emailsSent} emails for ${class_nbr} (${results.filter((r) => !r.success).length} failed)`
-          )
+          const failed = results.filter((r) => !r.success).length
+          if (failed > 0) {
+            console.warn(
+              `[Queue-Processor] ⚠️  ${failed} emails failed for ${class_nbr} (${emailsSent} succeeded)`
+            )
+          } else {
+            console.log(`[Queue-Processor] ✉️  Sent ${emailsSent} emails for ${class_nbr}`)
+          }
         }
       }
     }

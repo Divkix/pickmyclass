@@ -110,8 +110,70 @@ export async function getSectionsToCheck(
 }
 
 /**
+ * Atomically check and record notification in one operation
+ * Eliminates race condition in parallel queue processing
+ *
+ * @param watchId - Class watch ID
+ * @param notificationType - Type of notification ('seat_available' | 'instructor_assigned')
+ * @param expiresHours - Hours until notification expires (default: 24, max: 168)
+ * @returns True if notification was recorded (safe to send email), false if already exists (skip)
+ *
+ * @example
+ * // CORRECT: Check atomically BEFORE sending email
+ * const shouldSend = await tryRecordNotification(watchId, 'seat_available')
+ * if (shouldSend) {
+ *   await sendEmail(...)
+ * }
+ *
+ * @example
+ * // WRONG: Check-then-send pattern (race condition!)
+ * const alreadySent = await hasNotificationBeenSent(watchId, 'seat_available')
+ * if (!alreadySent) {
+ *   await sendEmail(...)
+ *   await recordNotificationSent(watchId, 'seat_available')
+ * }
+ */
+export async function tryRecordNotification(
+  watchId: string,
+  notificationType: 'seat_available' | 'instructor_assigned',
+  expiresHours: number = 24
+): Promise<boolean> {
+  const supabase = getServiceClient()
+
+  const { data, error } = await supabase.rpc('try_record_notification', {
+    p_class_watch_id: watchId,
+    p_notification_type: notificationType,
+    p_expires_hours: expiresHours,
+  })
+
+  if (error) {
+    console.error('[DB] Error in atomic notification check:', error)
+    throw new Error(`Failed to record notification: ${error.message}`)
+  }
+
+  const wasRecorded = data === true
+
+  if (wasRecorded) {
+    console.log(
+      `[DB] ✅ Recorded ${notificationType} notification for watch ${watchId} (expires in ${expiresHours}h)`
+    )
+  } else {
+    console.log(
+      `[DB] ⏭️  Skipped ${notificationType} notification for watch ${watchId} (already sent)`
+    )
+  }
+
+  return wasRecorded
+}
+
+/**
+ * @deprecated Use tryRecordNotification() instead to prevent race conditions
+ *
  * Check if a notification has already been sent for a class watch
  * Now respects expiration timestamps - expired notifications are ignored
+ *
+ * WARNING: This function has a race condition when used in parallel processing:
+ * Two workers can both check and both see "false", then both send duplicate emails.
  *
  * @param watchId - Class watch ID
  * @param notificationType - Type of notification ('seat_available' | 'instructor_assigned')
@@ -141,8 +203,13 @@ export async function hasNotificationBeenSent(
 }
 
 /**
+ * @deprecated Use tryRecordNotification() instead to prevent race conditions
+ *
  * Record that a notification has been sent
  * Sets expiration to 24 hours from now
+ *
+ * WARNING: This function has a race condition when used with hasNotificationBeenSent():
+ * Two workers can both check, both see "false", and both call this function.
  *
  * @param watchId - Class watch ID
  * @param notificationType - Type of notification ('seat_available' | 'instructor_assigned')

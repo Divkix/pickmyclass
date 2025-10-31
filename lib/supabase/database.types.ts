@@ -253,6 +253,14 @@ export type Database = {
           watch_id: string
         }[]
       }
+      try_record_notification: {
+        Args: {
+          p_class_watch_id: string
+          p_expires_hours?: number
+          p_notification_type: string
+        }
+        Returns: boolean
+      }
       user_owns_class_watch: { Args: { watch_id: string }; Returns: boolean }
     }
     Enums: {
