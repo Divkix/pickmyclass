@@ -20,9 +20,9 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { uni: string } }
+  context: { params: Promise<{ uni: string }> }
 ) {
-  const { uni } = params
+  const { uni } = await context.params
   const { searchParams } = new URL(request.url)
   const classNbr = searchParams.get('classNbr')
   const term = searchParams.get('term')
