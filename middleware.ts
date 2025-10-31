@@ -1,12 +1,36 @@
 import { createServerClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
+import type { Database } from './lib/supabase/database.types'
+
+/**
+ * Helper function to determine redirect path based on user's admin status.
+ * Defaults to /dashboard if query fails or user is not admin (safe fallback).
+ */
+async function getRedirectPath(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<string> {
+  try {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('is_admin')
+      .eq('user_id', userId)
+      .single()
+
+    return profile?.is_admin ? '/admin' : '/dashboard'
+  } catch (error) {
+    console.error('Error checking admin status:', error)
+    return '/dashboard' // Safe default
+  }
+}
 
 export default async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   })
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -92,17 +116,19 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect to dashboard if accessing auth pages while already authenticated and verified
+  // Redirect to admin or dashboard based on user role when accessing auth pages while authenticated
   if (user && user.email_confirmed_at && isPublicRoute && !request.nextUrl.pathname.startsWith('/legal')) {
+    const redirectPath = await getRedirectPath(supabase, user.id)
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = redirectPath
     return NextResponse.redirect(url)
   }
 
-  // Redirect authenticated users from home page to dashboard
+  // Redirect authenticated users from home page to admin or dashboard based on role
   if (user && user.email_confirmed_at && request.nextUrl.pathname === '/') {
+    const redirectPath = await getRedirectPath(supabase, user.id)
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = redirectPath
     return NextResponse.redirect(url)
   }
 

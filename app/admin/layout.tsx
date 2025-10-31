@@ -3,15 +3,10 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Logo } from '@/components/Logo'
-import {
-  LayoutDashboard,
-  BookOpen,
-  Users,
-  ArrowLeft,
-  Shield,
-} from 'lucide-react'
+import { LayoutDashboard, BookOpen, Users, Shield } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { AdminNavigation } from './AdminNavigation'
+import { SignOutButton } from '@/components/admin/SignOutButton'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -69,12 +64,7 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Sidebar Footer */}
         <div className="border-t border-border px-3 py-4 space-y-2">
-          <Link href="/dashboard" className="block">
-            <Button variant="outline" size="sm" className="w-full justify-start gap-2">
-              <ArrowLeft className="size-4" />
-              Back to Dashboard
-            </Button>
-          </Link>
+          <SignOutButton />
         </div>
       </aside>
 
@@ -87,11 +77,7 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
           </Link>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Link href="/dashboard">
-              <Button variant="outline" size="icon-sm">
-                <ArrowLeft className="size-4" />
-              </Button>
-            </Link>
+            <SignOutButton variant="icon" />
           </div>
         </header>
 
