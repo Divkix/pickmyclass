@@ -182,6 +182,7 @@ export type Database = {
           email_bounced: boolean
           email_bounced_at: string | null
           id: string
+          is_admin: boolean
           is_disabled: boolean
           notifications_enabled: boolean
           spam_complained: boolean
@@ -198,6 +199,7 @@ export type Database = {
           email_bounced?: boolean
           email_bounced_at?: string | null
           id?: string
+          is_admin?: boolean
           is_disabled?: boolean
           notifications_enabled?: boolean
           spam_complained?: boolean
@@ -214,6 +216,7 @@ export type Database = {
           email_bounced?: boolean
           email_bounced_at?: string | null
           id?: string
+          is_admin?: boolean
           is_disabled?: boolean
           notifications_enabled?: boolean
           spam_complained?: boolean
@@ -232,6 +235,7 @@ export type Database = {
       get_class_watchers: {
         Args: { section_number: string }
         Returns: {
+          created_at: string
           email: string
           user_id: string
           watch_id: string

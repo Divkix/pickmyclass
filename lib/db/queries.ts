@@ -13,6 +13,7 @@ export interface ClassWatcher {
   user_id: string
   email: string
   watch_id: string
+  created_at?: string // Optional for backward compatibility
   class_nbr?: string // Added for bulk fetching
 }
 
@@ -20,7 +21,7 @@ export interface ClassWatcher {
  * Get all users watching a specific class section
  *
  * @param classNbr - Section number (e.g., "12431")
- * @returns Array of watchers with email addresses
+ * @returns Array of watchers with email addresses and creation timestamps
  */
 export async function getClassWatchers(classNbr: string): Promise<ClassWatcher[]> {
   const supabase = getServiceClient()

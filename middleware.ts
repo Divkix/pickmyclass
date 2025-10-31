@@ -45,6 +45,12 @@ export default async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/api/monitoring/') || // Monitoring routes are public
     request.nextUrl.pathname.startsWith('/api/unsubscribe') // Unsubscribe routes are public
 
+  // Check if accessing admin routes
+  // Note: This is just a basic auth check for redirects. Real admin role verification
+  // happens server-side in the actual admin pages/API routes using Supabase RLS and
+  // user_profiles.is_admin checks. Never trust middleware alone for authorization.
+  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
+
   // Check if user account is disabled (soft delete)
   if (user) {
     const { data: profile } = await supabase
@@ -79,6 +85,7 @@ export default async function middleware(request: NextRequest) {
   }
 
   // Redirect to login if accessing protected route while not authenticated
+  // This includes admin routes - unauthenticated users cannot access admin pages
   if (!user && !isPublicRoute && request.nextUrl.pathname !== '/') {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
