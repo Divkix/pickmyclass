@@ -24,7 +24,6 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
   // Determine seat availability state with 4 cases
   let seatState: 'open' | 'reserved-only' | 'full' | 'unknown'
   let seatColor: string
-  let seatDotColor: string
   let seatMessage: string
   let SeatIcon: typeof CheckCircle
   let ariaLabel: string
@@ -35,12 +34,10 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
     SeatIcon = HelpCircle
     if (seats_available > 0) {
       seatColor = 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'
-      seatDotColor = 'bg-yellow-500'
       seatMessage = `${seats_available} of ${seats_capacity} seats available`
       ariaLabel = `Unknown seat status: ${seats_available} of ${seats_capacity} seats available, reserved seat data unavailable`
     } else {
       seatColor = 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
-      seatDotColor = 'bg-red-500'
       seatMessage = `0 of ${seats_capacity} seats available`
       ariaLabel = `Class is full: 0 of ${seats_capacity} seats available`
     }
@@ -48,7 +45,6 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
     // Case 2: Truly open (non-reserved) seats available - GREEN
     seatState = 'open'
     seatColor = 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
-    seatDotColor = 'bg-green-500'
     SeatIcon = CheckCircle
     const reservedCount = seats_available - non_reserved_seats
     if (reservedCount > 0) {
@@ -62,7 +58,6 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
     // Case 3: Only reserved seats available - ORANGE
     seatState = 'reserved-only'
     seatColor = 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200'
-    seatDotColor = 'bg-orange-500'
     SeatIcon = AlertCircle
     seatMessage = `${seats_available} seat${seats_available > 1 ? 's' : ''} available (all reserved)`
     ariaLabel = `Reserved seats only: ${seats_available} seat${seats_available > 1 ? 's' : ''} available, all are reserved`
@@ -70,7 +65,6 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
     // Case 4: Completely full - RED
     seatState = 'full'
     seatColor = 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
-    seatDotColor = 'bg-red-500'
     SeatIcon = XCircle
     seatMessage = `0 of ${seats_capacity} seats available`
     ariaLabel = `Class is full: 0 of ${seats_capacity} seats available`
