@@ -27,6 +27,7 @@ export interface UserWithWatchCount {
   last_sign_in_at: string | null
   email_confirmed_at: string | null
   watch_count: number
+  is_admin: boolean
 }
 
 /**
@@ -89,6 +90,33 @@ export async function getTotalUsers(): Promise<number> {
     console.error('[Admin] Exception fetching users:', err)
     throw err
   }
+}
+
+/**
+ * Get total number of admin users
+ *
+ * Counts users where is_admin = true in user_profiles table.
+ *
+ * @returns Total count of admin users
+ *
+ * @example
+ * const total = await getAdminCount()
+ * console.log(`Total admins: ${total}`)
+ */
+export async function getAdminCount(): Promise<number> {
+  const supabase = getServiceClient()
+
+  const { count, error } = await supabase
+    .from('user_profiles')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_admin', true)
+
+  if (error) {
+    console.error('[Admin] Error fetching admin count:', error)
+    throw new Error(`Failed to fetch admin count: ${error.message}`)
+  }
+
+  return count || 0
 }
 
 /**
@@ -180,16 +208,17 @@ export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> 
 }
 
 /**
- * Get all users with their watch counts
+ * Get all users with their watch counts and admin status
  *
  * Retrieves all users from auth.users and joins with class_watches
- * to show how many classes each user is monitoring. Sorted by created_at descending.
+ * and user_profiles to show how many classes each user is monitoring
+ * and their admin status. Sorted by created_at descending.
  *
- * @returns Array of users with watch counts
+ * @returns Array of users with watch counts and admin status
  *
  * @example
  * const users = await getAllUsersWithWatchCount()
- * console.log(`Newest user: ${users[0].email} (${users[0].watch_count} watches)`)
+ * console.log(`Newest user: ${users[0].email} (${users[0].watch_count} watches, admin: ${users[0].is_admin})`)
  */
 export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]> {
   const supabase = getServiceClient()
@@ -225,7 +254,23 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
       watchCountMap.set(watch.user_id, (watchCountMap.get(watch.user_id) || 0) + 1)
     }
 
-    // Combine user data with watch counts
+    // Get user profiles (for admin status)
+    const { data: profiles, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('user_id, is_admin')
+
+    if (profileError) {
+      console.error('[Admin] Error fetching user profiles:', profileError)
+      throw new Error(`Failed to fetch user profiles: ${profileError.message}`)
+    }
+
+    // Create map of admin status by user_id
+    const adminStatusMap = new Map<string, boolean>()
+    for (const profile of profiles || []) {
+      adminStatusMap.set(profile.user_id, profile.is_admin)
+    }
+
+    // Combine user data with watch counts and admin status
     const usersWithWatchCount: UserWithWatchCount[] = users
       .map((user) => ({
         id: user.id,
@@ -234,6 +279,7 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
         last_sign_in_at: user.last_sign_in_at || null,
         email_confirmed_at: user.email_confirmed_at || null,
         watch_count: watchCountMap.get(user.id) || 0,
+        is_admin: adminStatusMap.get(user.id) || false,
       }))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 

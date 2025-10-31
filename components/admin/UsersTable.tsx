@@ -100,12 +100,20 @@ export function UsersTable({ users }: UsersTableProps) {
                   onClick={(e) => handleRowClick(user.id, e)}
                 >
                   <TableCell className="font-medium">
-                    <Link
-                      href={`/admin/users/${user.id}`}
-                      className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-sm"
-                    >
-                      {user.email}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/admin/users/${user.id}`}
+                        className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {user.email}
+                      </Link>
+                      {user.is_admin && (
+                        <Badge variant="destructive" className="text-xs">
+                          Admin
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <span className="text-muted-foreground text-sm">

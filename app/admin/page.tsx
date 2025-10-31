@@ -3,6 +3,7 @@ import {
   getTotalEmailsSent,
   getTotalUsers,
   getTotalClassesWatched,
+  getAdminCount,
 } from '@/lib/db/admin-queries'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Mail, Users, Eye, Activity, TrendingUp, Clock } from 'lucide-react'
@@ -24,10 +25,11 @@ export default async function AdminDashboardPage() {
   const adminUser = await verifyAdmin()
 
   // Fetch all statistics in parallel
-  const [totalEmails, totalUsers, totalClasses] = await Promise.all([
+  const [totalEmails, totalUsers, totalClasses, adminCount] = await Promise.all([
     getTotalEmailsSent(),
     getTotalUsers(),
     getTotalClassesWatched(),
+    getAdminCount(),
   ])
 
   // Calculate engagement metrics
@@ -79,9 +81,16 @@ export default async function AdminDashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{totalUsers.toLocaleString()}</div>
+              <div className="text-3xl font-bold">
+                {totalUsers.toLocaleString()}
+                {adminCount > 0 && (
+                  <span className="text-base font-normal text-muted-foreground ml-2">
+                    ({adminCount} admin{adminCount !== 1 ? 's' : ''})
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Active accounts on platform
+                Total user accounts (including admins)
               </p>
             </CardContent>
           </Card>
