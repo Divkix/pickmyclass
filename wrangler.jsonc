@@ -9,6 +9,9 @@
         "directory": ".open-next/assets",
         "binding": "ASSETS"
     },
+    "placement": {
+        "mode": "smart"
+    },
     "routes": [
         {
             "pattern": "pickmyclass.app",
