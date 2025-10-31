@@ -66,6 +66,8 @@ Students add university class sections they want to monitor by section number. T
 - **Durable Objects Required:** For any state that must be coordinated across Workers (circuit breakers, rate limiters, etc.)
 - **Atomic Database Operations:** Use PostgreSQL functions with proper locking for concurrent operations
 - **Race Conditions:** Always design for concurrent execution with 100+ parallel Workers
+- **TypeScript Strict Mode:** `Response.json()` returns `unknown` - always use type assertions (e.g., `as ScraperResponse`)
+- **Durable Objects Types:** Extend `DurableObject<Cloudflare.Env>` and use `Cloudflare.Env` in constructor (not local `Env` interface)
 
 ### Future Plans
 - Support for additional universities beyond ASU
