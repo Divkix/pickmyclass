@@ -80,7 +80,7 @@ interface CircuitBreakerState {
  * - OPEN: Blocking all requests, waiting for reset timeout
  * - HALF_OPEN: Testing recovery, one failure → OPEN, 3 successes → CLOSED
  */
-export class CircuitBreakerDO extends DurableObject {
+export class CircuitBreakerDO extends DurableObject<Cloudflare.Env> {
   private state: CircuitBreakerState
   private readonly FAILURE_THRESHOLD = 10
   private readonly RESET_TIMEOUT_MS = 120000 // 2 minutes
@@ -92,7 +92,7 @@ export class CircuitBreakerDO extends DurableObject {
    * Uses ctx.blockConcurrencyWhile() to ensure state is loaded before
    * processing any requests. This prevents race conditions during initialization.
    */
-  constructor(ctx: DurableObjectState, env: Env) {
+  constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env)
 
     // Initialize default state

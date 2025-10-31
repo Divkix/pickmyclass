@@ -88,7 +88,7 @@ async function fetchClassDetailsWithCircuitBreaker(
       throw new Error(`Scraper returned ${response.status}: ${response.statusText}`)
     }
 
-    const result = await response.json()
+    const result = await response.json() as ScraperResponse
 
     // Record success in circuit breaker
     await circuitBreakerStub.fetch('http://do/success', {
