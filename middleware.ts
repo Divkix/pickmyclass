@@ -143,9 +143,15 @@ export default async function middleware(request: NextRequest) {
 
   // Content Security Policy
   // Allow self, Supabase domains, Google OAuth, and inline styles for shadcn/ui
+  // Remove 'unsafe-eval' in production for security hardening
+  const isDevelopment = process.env.NODE_ENV === 'development'
+  const scriptSrc = isDevelopment
+    ? "'self' 'unsafe-eval' 'unsafe-inline'" // Dev: unsafe-eval needed for HMR
+    : "'self' 'unsafe-inline'" // Production: no eval
+
   const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-inline needed for Next.js hydration, unsafe-eval for dev
+    `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for Tailwind/shadcn
     "img-src 'self' data: https:", // data: for base64 images, https: for external images
     "font-src 'self' data:", // data: for inline fonts
