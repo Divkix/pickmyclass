@@ -62,6 +62,8 @@ export default async function middleware(request: NextRequest) {
   const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/legal', '/auth/callback', '/go']
   const isPublicRoute =
     publicRoutes.some((route) => request.nextUrl.pathname.startsWith(route)) ||
+    request.nextUrl.pathname === '/sitemap.xml' || // SEO sitemap
+    request.nextUrl.pathname === '/robots.txt' || // SEO robots file
     request.nextUrl.pathname.startsWith('/api/auth/') || // Auth API routes must be public for login flow
     request.nextUrl.pathname.startsWith('/api/cron') || // Cron routes use Bearer token auth
     request.nextUrl.pathname.startsWith('/api/queue/') || // Queue routes use Bearer token auth
