@@ -134,6 +134,27 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Redirect admin users from /dashboard to /admin
+  // Regular users can access /dashboard, but admins should use /admin exclusively
+  if (user && user.email_confirmed_at && request.nextUrl.pathname.startsWith('/dashboard')) {
+    try {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('is_admin')
+        .eq('user_id', user.id)
+        .single()
+
+      if (profile?.is_admin) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/admin'
+        return NextResponse.redirect(url)
+      }
+    } catch (error) {
+      console.error('Error checking admin status for dashboard redirect:', error)
+      // Continue to dashboard on error (safe fallback)
+    }
+  }
+
   // Add security headers to all responses
   supabaseResponse.headers.set('X-Frame-Options', 'DENY')
   supabaseResponse.headers.set('X-Content-Type-Options', 'nosniff')

@@ -125,7 +125,41 @@ bun run typecheck  # Type check without building
   - Protected route redirects
   - Public routes: `/login`, `/register`, `/forgot-password`, `/reset-password`
   - Redirects authenticated users away from auth pages
+  - Role-based redirects (admins to `/admin`, regular users to `/dashboard`)
+  - Admin users are blocked from accessing `/dashboard` (redirected to `/admin`)
   - Matches all routes except static assets
+
+### Admin Role System
+- **Database**: `user_profiles.is_admin` boolean flag (defaults to `false`)
+- **Admin Pages**: `app/admin/*` - Admin dashboard with user/class management
+- **Authorization**: `lib/auth/admin.ts` - `verifyAdmin()` function for server-side protection
+- **Routing**:
+  - Login redirects admins to `/admin` and regular users to `/dashboard`
+  - OAuth callback respects role-based routing
+  - Admins cannot access `/dashboard` (enforced by middleware)
+  - Header navigation dynamically shows "Admin" or "Dashboard" link based on role
+- **Security**:
+  - Middleware checks are for routing only
+  - Real authorization happens server-side via `verifyAdmin()` and RLS policies
+  - Non-admin users trying to access `/admin` are redirected to `/dashboard`
+
+**Promoting Users to Admin:**
+```sql
+-- Connect to Supabase SQL Editor or psql
+UPDATE user_profiles
+SET is_admin = true
+WHERE user_id = 'user-uuid-here';
+
+-- To find a user's UUID by email:
+SELECT id FROM auth.users WHERE email = 'user@example.com';
+
+-- Combined query to promote by email:
+UPDATE user_profiles
+SET is_admin = true
+WHERE user_id = (SELECT id FROM auth.users WHERE email = 'user@example.com');
+```
+
+**Note**: User must log out and log back in for admin status to take effect in the UI.
 
 ### Environment Variables
 Required configuration (see `.env.example`):

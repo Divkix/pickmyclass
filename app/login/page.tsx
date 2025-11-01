@@ -144,7 +144,8 @@ function LoginForm() {
 
         // Successfully logged in - use window.location for full page reload
         // This ensures auth cookies are properly included (Next.js 15 router.push bug workaround)
-        window.location.href = '/dashboard'
+        // Redirect to home - middleware will route to /admin or /dashboard based on is_admin flag
+        window.location.href = '/'
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
