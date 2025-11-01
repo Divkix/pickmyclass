@@ -40,6 +40,10 @@ export interface Env extends Record<string, unknown> {
   // Queue bindings
   CLASS_CHECK_QUEUE: Queue<ClassCheckMessage>
 
+  // Durable Object bindings
+  CIRCUIT_BREAKER_DO: DurableObjectNamespace
+  CRON_LOCK_DO: DurableObjectNamespace
+
   // Environment variables
   NEXT_PUBLIC_SUPABASE_URL: string
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string

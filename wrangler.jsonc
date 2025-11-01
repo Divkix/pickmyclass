@@ -54,16 +54,27 @@
                 "name": "CIRCUIT_BREAKER_DO",
                 "class_name": "CircuitBreakerDO",
                 "script_name": "pickmyclass"
+            },
+            {
+                "name": "CRON_LOCK_DO",
+                "class_name": "CronLockDO",
+                "script_name": "pickmyclass"
             }
         ]
     },
     // Durable Objects migrations
-    // This declares the CircuitBreakerDO class and makes it available
+    // This declares the CircuitBreakerDO and CronLockDO classes and makes them available
     "migrations": [
         {
             "tag": "v1",
             "new_classes": [
                 "CircuitBreakerDO"
+            ]
+        },
+        {
+            "tag": "v2",
+            "new_classes": [
+                "CronLockDO"
             ]
         }
     ],

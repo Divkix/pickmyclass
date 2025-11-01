@@ -21,6 +21,8 @@ import { getCloudflareContext } from '@opennextjs/cloudflare'
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
+  const lockHolder = `cron-${Date.now()}`
+  let lockAcquired = false
 
   try {
     // Authentication: Require CRON_SECRET Bearer token
@@ -52,6 +54,42 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Get distributed lock to prevent concurrent cron runs
+    const context = await getCloudflareContext()
+    const env = context.env as unknown as Env
+
+    if (env.CRON_LOCK_DO) {
+      const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock')
+      const lockStub = env.CRON_LOCK_DO.get(lockId)
+
+      const lockResponse = await lockStub.fetch('http://do/acquire?holder=' + lockHolder, {
+        method: 'POST',
+      })
+      const lockResult = (await lockResponse.json()) as {
+        acquired: boolean
+        message: string
+        lockHolder?: string
+      }
+
+      if (!lockResult.acquired) {
+        console.warn('[Cron] Lock acquisition failed:', lockResult.message)
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Another cron job is already running',
+            details: lockResult.message,
+            current_holder: lockResult.lockHolder,
+          },
+          { status: 409 }
+        )
+      }
+
+      lockAcquired = true
+      console.log('[Cron] Lock acquired successfully')
+    } else {
+      console.warn('[Cron] CRON_LOCK_DO not available - proceeding without lock')
+    }
+
     // Determine stagger group based on current time
     // Use modulo calculation to properly handle both :00 and :30 minute triggers
     // Math.floor(currentMinute / 30) gives us: 0 for :00-:29, 1 for :30-:59
@@ -65,9 +103,7 @@ export async function GET(request: NextRequest) {
       `[Cron] Starting 30-minute class check (stagger: ${staggerGroup}, time: ${now.toISOString()})`
     )
 
-    // Get queue binding from Cloudflare context
-    const context = await getCloudflareContext()
-    const env = context.env as unknown as Env
+    // Get queue binding (reuse context from lock acquisition)
     const queue = env.CLASS_CHECK_QUEUE
 
     if (!queue) {
@@ -131,5 +167,26 @@ export async function GET(request: NextRequest) {
       },
       { status: 500 }
     )
+  } finally {
+    // Release lock if it was acquired
+    if (lockAcquired) {
+      try {
+        const context = await getCloudflareContext()
+        const env = context.env as unknown as Env
+
+        if (env.CRON_LOCK_DO) {
+          const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock')
+          const lockStub = env.CRON_LOCK_DO.get(lockId)
+
+          await lockStub.fetch('http://do/release?holder=' + lockHolder, {
+            method: 'POST',
+          })
+          console.log('[Cron] Lock released')
+        }
+      } catch (error) {
+        console.error('[Cron] Error releasing lock:', error)
+        // Don't throw - lock will auto-expire after 25 minutes
+      }
+    }
   }
 }

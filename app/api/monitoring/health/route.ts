@@ -59,9 +59,11 @@ export async function GET() {
 
   // 2. Check Scraper Circuit Breaker (Durable Object)
   try {
-    const { env } = await getCloudflareContext<{
-      CIRCUIT_BREAKER_DO: DurableObjectNamespace
-    }>()
+    const context = await getCloudflareContext()
+    const env = context.env as unknown as {
+      CIRCUIT_BREAKER_DO?: DurableObjectNamespace
+      CRON_LOCK_DO?: DurableObjectNamespace
+    }
 
     if (env?.CIRCUIT_BREAKER_DO) {
       const doId = env.CIRCUIT_BREAKER_DO.idFromName('scraper-circuit-breaker')
@@ -101,6 +103,41 @@ export async function GET() {
         status: 'not_configured',
         type: 'durable_object',
         message: 'CIRCUIT_BREAKER_DO binding not available',
+      }
+    }
+
+    // 2b. Check Cron Lock Status
+    if (env?.CRON_LOCK_DO) {
+      const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock')
+      const lockStub = env.CRON_LOCK_DO.get(lockId)
+
+      const lockStatusResponse = await lockStub.fetch('http://do/status')
+      const lockStatus = await lockStatusResponse.json() as {
+        locked: boolean
+        lockHolder: string | null
+        lockAcquiredAt: number | null
+        timeHeldMs: number | null
+        expiresAt: number | null
+      }
+
+      health.checks.cron_lock = {
+        status: 'healthy',
+        type: 'durable_object',
+        locked: lockStatus.locked,
+        lock_holder: lockStatus.lockHolder,
+        time_held_ms: lockStatus.timeHeldMs,
+        lock_acquired_at: lockStatus.lockAcquiredAt
+          ? new Date(lockStatus.lockAcquiredAt).toISOString()
+          : null,
+        expires_at: lockStatus.expiresAt
+          ? new Date(lockStatus.expiresAt).toISOString()
+          : null,
+      }
+    } else {
+      health.checks.cron_lock = {
+        status: 'not_configured',
+        type: 'durable_object',
+        message: 'CRON_LOCK_DO binding not available',
       }
     }
   } catch (error) {
