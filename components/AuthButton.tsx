@@ -27,7 +27,7 @@ export default function AuthButton() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <Skeleton className="h-10 w-24" />
       </div>
     )
@@ -35,14 +35,14 @@ export default function AuthButton() {
 
   if (!user) {
     return (
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <Link href="/login">
-          <Button variant="ghost">
+          <Button variant="ghost" className="min-h-11">
             Sign in
           </Button>
         </Link>
         <Link href="/register">
-          <Button>
+          <Button className="min-h-11">
             Sign up
           </Button>
         </Link>
@@ -51,9 +51,12 @@ export default function AuthButton() {
   }
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-2 sm:gap-4">
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">
+        <span
+          className="hidden truncate text-sm text-muted-foreground xs:inline-block xs:max-w-[120px] sm:max-w-[180px]"
+          title={user.email ?? undefined}
+        >
           {user.email}
         </span>
       </div>
@@ -61,6 +64,7 @@ export default function AuthButton() {
         onClick={handleSignOut}
         disabled={signingOut}
         variant="outline"
+        className="min-h-11"
       >
         {signingOut ? 'Signing out...' : 'Sign out'}
       </Button>

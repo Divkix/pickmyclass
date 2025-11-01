@@ -263,7 +263,7 @@ export default function RegisterPage() {
                 {password && passwordStrength && (
                   <div className="space-y-2">
                     {/* Strength bar */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                       <div className="flex-1 h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
                         <div
                           className={`h-full transition-all duration-300 ${
@@ -279,7 +279,7 @@ export default function RegisterPage() {
                         />
                       </div>
                       <span
-                        className={`text-sm font-medium ${
+                        className={`text-sm font-medium whitespace-nowrap ${
                           passwordStrength.score <= 1
                             ? 'text-red-600 dark:text-red-400'
                             : passwordStrength.score === 2

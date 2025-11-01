@@ -46,22 +46,22 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between border-b border-border/40 bg-background/80 px-4 py-3 backdrop-blur-lg sm:px-6 sm:py-4">
-      <div className="flex items-center gap-4 sm:gap-6">
+      <div className="flex items-center gap-2 sm:gap-4 lg:gap-6">
         <Link href="/" className="transition-opacity hover:opacity-80">
           <Logo variant="full" size="md" />
         </Link>
         {!loading && !checkingAdmin && user && (
           <Link href={isAdmin ? '/admin' : '/dashboard'}>
-            <Button variant="ghost" size="sm" className="text-base" aria-label={isAdmin ? 'Go to admin panel' : 'Go to dashboard'}>
+            <Button variant="ghost" size="sm" className="min-h-11 text-base" aria-label={isAdmin ? 'Go to admin panel' : 'Go to dashboard'}>
               {isAdmin ? (
                 <>
                   <Shield className="size-4" aria-hidden="true" />
-                  Admin
+                  <span className="hidden xs:inline">Admin</span>
                 </>
               ) : (
                 <>
                   <LayoutDashboard className="size-4" aria-hidden="true" />
-                  Dashboard
+                  <span className="hidden xs:inline">Dashboard</span>
                 </>
               )}
             </Button>

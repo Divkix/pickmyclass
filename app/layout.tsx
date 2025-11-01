@@ -4,6 +4,8 @@ import Script from "next/script";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
 import { ThemeProvider } from "@/lib/contexts/ThemeContext";
 import { Footer } from "@/components/Footer";
+import { BottomNavWrapper } from "@/components/BottomNavWrapper";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,8 +41,10 @@ export default function RootLayout({
         />
         <ThemeProvider>
           <AuthProvider>
-            <div className="flex-1">{children}</div>
+            <div className="flex-1 pb-20 md:pb-0">{children}</div>
             <Footer />
+            <BottomNavWrapper />
+            <Toaster position="top-center" richColors />
           </AuthProvider>
         </ThemeProvider>
       </body>

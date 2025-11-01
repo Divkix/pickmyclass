@@ -5,16 +5,19 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/lib/contexts/AuthContext'
 import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates'
+import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh'
 import { Header } from '@/components/Header'
 import { ClassWatchCard } from '@/components/ClassWatchCard'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator'
 import { Database } from '@/lib/supabase/database.types'
 import { redirect } from 'next/navigation'
 import { Plus, Eye, CheckCircle2, Users, Search, TrendingUp, Calendar } from 'lucide-react'
 import { staggerContainer, staggerItem, fadeInUp } from '@/lib/animations'
+import { toast } from 'sonner'
 
 type ClassWatch = Database['public']['Tables']['class_watches']['Row'] & {
   class_state?: Database['public']['Tables']['class_states']['Row'] | null
@@ -37,7 +40,7 @@ export default function DashboardPage() {
   const classNumbers = watches.map((w) => w.class_nbr)
 
   // Subscribe to real-time updates
-  const { classStates, loading: realtimeLoading } = useRealtimeClassStates({
+  const { classStates, loading: realtimeLoading, refetch: refetchClassStates } = useRealtimeClassStates({
     classNumbers,
     enabled: classNumbers.length > 0,
   })
@@ -75,6 +78,37 @@ export default function DashboardPage() {
       fetchWatches()
     }
   }, [user])
+
+  // Handle pull-to-refresh
+  const handleRefresh = async () => {
+    try {
+      // Re-fetch class watches and class states in parallel
+      await Promise.all([
+        fetchWatches(),
+        classNumbers.length > 0 ? refetchClassStates() : Promise.resolve(),
+      ])
+
+      // Show success toast with count and timestamp
+      const timeString = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+      toast.success(`Dashboard refreshed at ${timeString}`, {
+        description: `Updated ${watches.length} class watch${watches.length !== 1 ? 'es' : ''}`,
+      })
+    } catch (err) {
+      toast.error('Failed to refresh dashboard', {
+        description: err instanceof Error ? err.message : 'Please try again',
+      })
+    }
+  }
+
+  // Pull-to-refresh hook
+  const { pullDistance, isRefreshing, containerRef } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    threshold: 80,
+    resistance: 2.5,
+  })
 
   // Handle deleting a watch
   const handleDeleteWatch = async (watchId: string) => {
@@ -142,8 +176,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div ref={containerRef} className="flex min-h-screen flex-col bg-background">
       <Header />
+      <PullToRefreshIndicator
+        pullDistance={pullDistance}
+        isRefreshing={isRefreshing}
+        threshold={80}
+      />
       <main className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
         {/* Page Header */}
         <motion.div
@@ -167,7 +206,7 @@ export default function DashboardPage() {
         {/* Quick Stats */}
         {!isLoadingWatches && watches.length > 0 && (
           <motion.div
-            className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+            className="mb-8 grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-4"
             initial="hidden"
             animate="visible"
             variants={staggerContainer}
@@ -271,7 +310,7 @@ export default function DashboardPage() {
                 placeholder="Search classes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded-md border border-input bg-background px-3 py-3 pl-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
           )}
@@ -286,7 +325,7 @@ export default function DashboardPage() {
 
         {/* Loading state */}
         {isLoadingWatches && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <Skeleton className="h-48 w-full rounded-xl" />
             <Skeleton className="h-48 w-full rounded-xl" />
             <Skeleton className="h-48 w-full rounded-xl" />
@@ -301,8 +340,8 @@ export default function DashboardPage() {
             animate="visible"
             variants={fadeInUp}
           >
-            <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 mx-auto mb-4">
-              <Calendar className="size-8 text-primary" />
+            <div className="flex size-12 sm:size-16 items-center justify-center rounded-full bg-primary/10 mx-auto mb-4">
+              <Calendar className="size-6 sm:size-8 text-primary" />
             </div>
             <h3 className="text-lg font-semibold mb-2">No class watches yet</h3>
             <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
@@ -320,7 +359,7 @@ export default function DashboardPage() {
         {/* Class watches grid */}
         {!isLoadingWatches && filteredWatches.length > 0 && (
           <motion.div
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3"
             initial="hidden"
             animate="visible"
             variants={staggerContainer}

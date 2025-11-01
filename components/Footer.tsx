@@ -9,7 +9,7 @@ export function Footer() {
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} PickMyClass
             </p>
-            <div className="flex items-center gap-4 text-sm">
+            <div className="flex flex-wrap items-center justify-center gap-3 text-sm sm:gap-4">
               <Link
                 href="/legal/terms"
                 className="text-muted-foreground hover:text-foreground transition-colors"
