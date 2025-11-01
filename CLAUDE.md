@@ -27,6 +27,7 @@ Students add university class sections they want to monitor by section number. T
 - ✅ **Atomic notification deduplication** via PostgreSQL functions (prevents race conditions)
 - ✅ Health monitoring endpoint with circuit breaker status
 - ✅ **Dark mode support** with system preference detection and manual toggle
+- ✅ **SEO optimization** with dynamic sitemap.xml and robots.txt for Google Search Console
 
 ### Scalability
 **Designed for 10,000+ users:**
@@ -147,6 +148,36 @@ Required configuration (see `.env.example`):
   - Production: Use your own verified domain (e.g., `notifications@pickmyclass.app`)
 
 **Build Handling**: Both client and server Supabase utilities use placeholder values during build when env vars are unavailable, preventing build failures. The scraper integration gracefully falls back to stub data if `SCRAPER_URL` is not configured, enabling development without the scraper service running. Email service gracefully skips sending if `RESEND_API_KEY` is not configured.
+
+### SEO Configuration
+
+**Sitemap & Robots.txt:**
+- **Location**: `app/sitemap.ts` and `app/robots.ts`
+- **Implementation**: Dynamic sitemap using Next.js 15 MetadataRoute API
+- **Access**: Publicly accessible at `/sitemap.xml` and `/robots.txt` (no authentication required)
+
+**Indexed Pages (in sitemap):**
+- `/` - Home page (priority: 1.0, changefreq: monthly)
+- `/legal` - Legal hub (priority: 0.3, changefreq: yearly)
+- `/legal/terms` - Terms of Service (priority: 0.3, changefreq: yearly)
+- `/legal/privacy` - Privacy Policy (priority: 0.3, changefreq: yearly)
+
+**Excluded from Indexing (robots.txt):**
+- All authentication pages (`/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`)
+- All protected pages (`/dashboard/*`, `/settings`, `/admin/*`)
+- All API routes (`/api/*`)
+- Auth callbacks and redirects (`/auth/*`, `/go/*`)
+
+**Middleware Configuration:**
+- SEO files are explicitly marked as public routes in `middleware.ts`
+- Both the middleware matcher exclusion AND `isPublicRoute` check ensure accessibility
+- This dual approach prevents authentication redirects in production
+
+**Google Search Console Setup:**
+1. Deploy to production: `bun run deploy`
+2. Verify ownership at [Google Search Console](https://search.google.com/search-console)
+3. Submit sitemap: `https://pickmyclass.app/sitemap.xml`
+4. Monitor indexing (typically 24-48 hours for first crawl)
 
 ### Database Query Helpers
 - **Location**: `lib/db/queries.ts`
