@@ -10,6 +10,11 @@
 // @ts-ignore - `.open-next/worker.js` is generated at build time
 import { default as handler } from './.open-next/worker.js'
 
+// Re-export OpenNext's internal Durable Objects (required for caching)
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - `.open-next/worker.js` is generated at build time
+export { DOQueueHandler, DOShardedTagCache, BucketCachePurge } from './.open-next/worker.js'
+
 import { DurableObject } from 'cloudflare:workers'
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue'
 
@@ -596,7 +601,7 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
 }
 
 /**
- * Export the worker with fetch, scheduled, and queue handlers
+ * Export the worker with fetch, scheduled, queue handlers, and Durable Object classes
  */
 export default {
   /**
@@ -726,6 +731,13 @@ export default {
       `[Queue] Batch complete in ${totalDuration}ms: ${successful} successful, ${failed} failed`
     )
   },
+
+  /**
+   * Durable Object classes exported for Cloudflare Workers
+   * These must be included in the default export AND exported as named exports (see class definitions above)
+   */
+  CircuitBreakerDO,
+  CronLockDO,
 } satisfies ExportedHandler<Env>
 
 /**
@@ -745,4 +757,7 @@ interface ExportedHandler<Env = unknown> {
   fetch?: (request: Request, env: Env, ctx: ExecutionContext) => Response | Promise<Response>
   scheduled?: (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => void | Promise<void>
   queue?: (batch: QueueMessageBatch, env: Env, ctx: ExecutionContext) => void | Promise<void>
+  // Durable Object class exports (for OpenNext bundling compatibility)
+  CircuitBreakerDO?: typeof CircuitBreakerDO
+  CronLockDO?: typeof CronLockDO
 }
