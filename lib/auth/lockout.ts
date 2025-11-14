@@ -1,6 +1,6 @@
 import { createServiceRoleClient } from '@/lib/supabase/server'
 
-const MAX_FAILED_ATTEMPTS = 5
+export const MAX_FAILED_ATTEMPTS = 5
 const LOCKOUT_DURATION_MINUTES = 15
 
 export interface LockoutStatus {

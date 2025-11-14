@@ -13,12 +13,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export const dynamic = 'force-dynamic'
 
-interface LockoutResponse {
-  isLocked: boolean
-  attempts: number
-  remainingMinutes?: number
-}
-
 function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -69,84 +63,32 @@ function LoginForm() {
     }
 
     try {
-      // Check lockout status via API route
-      const lockoutResponse = await fetch('/api/auth/check-lockout', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, password }),
       })
 
-      if (!lockoutResponse.ok) {
-        console.error('[Login] Lockout check failed:', lockoutResponse.status, lockoutResponse.statusText)
-        throw new Error(`Failed to check account status (${lockoutResponse.status})`)
-      }
+      const data = await response.json()
 
-      const lockoutData = (await lockoutResponse.json()) as LockoutResponse
-
-      if (lockoutData.isLocked) {
-        const minutes = lockoutData.remainingMinutes || 15
-        setError(
-          `Account locked due to too many failed login attempts. Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`
-        )
-        setLoading(false)
-        return
-      }
-
-      const supabase = createClient()
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (signInError) {
-        // Increment failed attempts (fire and forget - don't block on errors)
-        fetch('/api/auth/increment-failed-attempts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        }).catch(err => console.error('[Login] Failed to increment attempts:', err))
-
-        // Check if we just triggered a lockout
-        const updatedLockoutResponse = await fetch('/api/auth/check-lockout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        })
-
-        const updatedLockoutData = (await updatedLockoutResponse.json()) as LockoutResponse
-
-        if (updatedLockoutData.isLocked) {
+      if (!response.ok) {
+        if (response.status === 423 && data.remainingMinutes) {
+          const minutes = data.remainingMinutes || 15
           setError(
-            'Too many failed login attempts. Your account has been locked for 15 minutes.'
+            `Account locked due to too many failed login attempts. Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`
+          )
+        } else if (typeof data.remainingAttempts === 'number' && data.remainingAttempts > 0 && data.remainingAttempts <= 3) {
+          setError(
+            `${data.error || 'Invalid email or password'} (${data.remainingAttempts} attempt${data.remainingAttempts !== 1 ? 's' : ''} remaining)`
           )
         } else {
-          const remainingAttempts = 5 - (updatedLockoutData.attempts || 0)
-          if (remainingAttempts > 0 && remainingAttempts <= 3) {
-            setError(
-              `${signInError.message} (${remainingAttempts} attempt${remainingAttempts !== 1 ? 's' : ''} remaining)`
-            )
-          } else {
-            setError(signInError.message)
-          }
+          setError(data.error || 'Failed to sign in')
         }
-
         setLoading(false)
         return
       }
 
-      if (data.user) {
-        // Clear failed attempts on successful login (fire and forget)
-        fetch('/api/auth/clear-failed-attempts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        }).catch(err => console.error('[Login] Failed to clear attempts:', err))
-
-        // Successfully logged in - use window.location for full page reload
-        // This ensures auth cookies are properly included (Next.js 15 router.push bug workaround)
-        // Redirect to home - middleware will route to /admin or /dashboard based on is_admin flag
-        window.location.href = '/'
-      }
+      window.location.href = '/'
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
       console.error('[Login Error]', err)
