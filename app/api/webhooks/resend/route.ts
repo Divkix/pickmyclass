@@ -67,24 +67,17 @@ function verifyWebhookSignature(
 async function getUserIdFromEmail(email: string): Promise<string | null> {
   const supabase = getServiceClient()
 
-  // Use Supabase Admin API to get user by email
-  // Service role client has admin privileges
-  const { data, error } = await supabase.auth.admin.listUsers()
+  const { data, error } = await supabase.auth.admin.getUserByEmail(email)
 
-  if (error) {
-    console.error('[Resend Webhook] Error fetching users:', error)
-    return null
-  }
-
-  // Find user with matching email
-  const user = data.users.find(u => u.email === email)
-
-  if (!user) {
+  if (error || !data?.user) {
     console.warn(`[Resend Webhook] User not found for email: ${email}`)
+    if (error) {
+      console.error('[Resend Webhook] Error fetching user by email:', error)
+    }
     return null
   }
 
-  return user.id
+  return data.user.id
 }
 
 /**

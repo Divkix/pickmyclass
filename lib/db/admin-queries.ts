@@ -9,6 +9,7 @@
 
 import { getServiceClient } from '@/lib/supabase/service'
 import type { Tables } from '@/lib/supabase/database.types'
+import type { User } from '@supabase/supabase-js'
 
 /**
  * Class state with aggregated watcher count
@@ -35,6 +36,33 @@ export interface UserWithWatchCount {
  */
 export interface WatchWithClass extends Tables<'class_watches'> {
   class_state: Tables<'class_states'> | null
+}
+
+async function fetchAllAuthUsers(): Promise<User[]> {
+  const supabase = getServiceClient()
+  const perPage = 1000
+  let page = 1
+  const users: User[] = []
+
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage })
+
+    if (error) {
+      console.error('[Admin] Error fetching users:', error)
+      throw new Error(`Failed to fetch users: ${error.message}`)
+    }
+
+    const batch = data?.users || []
+    users.push(...batch)
+
+    if (batch.length < perPage) {
+      break
+    }
+
+    page += 1
+  }
+
+  return users
 }
 
 /**
@@ -75,21 +103,8 @@ export async function getTotalEmailsSent(): Promise<number> {
  * console.log(`Total users: ${total}`)
  */
 export async function getTotalUsers(): Promise<number> {
-  const supabase = getServiceClient()
-
-  try {
-    const { data, error } = await supabase.auth.admin.listUsers()
-
-    if (error) {
-      console.error('[Admin] Error fetching total users:', error)
-      throw new Error(`Failed to fetch user count: ${error.message}`)
-    }
-
-    return data?.users?.length || 0
-  } catch (err) {
-    console.error('[Admin] Exception fetching users:', err)
-    throw err
-  }
+  const users = await fetchAllAuthUsers()
+  return users.length
 }
 
 /**
@@ -224,15 +239,7 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
   const supabase = getServiceClient()
 
   try {
-    // Get all users from auth.users
-    const { data: authData, error: authError } = await supabase.auth.admin.listUsers()
-
-    if (authError) {
-      console.error('[Admin] Error fetching users:', authError)
-      throw new Error(`Failed to fetch users: ${authError.message}`)
-    }
-
-    const users = authData?.users || []
+    const users = await fetchAllAuthUsers()
 
     if (users.length === 0) {
       return []
