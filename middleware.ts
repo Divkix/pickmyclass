@@ -169,8 +169,8 @@ export default async function middleware(request: NextRequest) {
   // Remove 'unsafe-eval' in production for security hardening
   const isDevelopment = process.env.NODE_ENV === 'development'
   const scriptSrc = isDevelopment
-    ? "'self' 'unsafe-eval' 'unsafe-inline'" // Dev: unsafe-eval needed for HMR
-    : "'self' 'unsafe-inline'" // Production: no eval
+    ? "'self' 'unsafe-eval' 'unsafe-inline' https://analytics.divkix.me" // Dev: unsafe-eval needed for HMR
+    : "'self' 'unsafe-inline' https://analytics.divkix.me" // Production: allow analytics script
 
   const cspDirectives = [
     "default-src 'self'",
