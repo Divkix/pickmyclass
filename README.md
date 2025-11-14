@@ -2,8 +2,6 @@
 
 A real-time class seat notification system for university students. Monitor class availability, get notified when seats open up, and track instructor assignments.
 
-Inspired by the original [pickaclass.app](https://www.pickaclass.app) (now defunct), built with modern web technologies and deployed on Cloudflare Workers.
-
 ## Features
 
 - **Seat Monitoring** - Track when seats become available in full classes
