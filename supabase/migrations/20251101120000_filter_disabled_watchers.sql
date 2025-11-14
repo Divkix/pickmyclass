@@ -1,6 +1,8 @@
 -- Ensure disabled accounts never receive notifications
 
-CREATE OR REPLACE FUNCTION public.get_class_watchers(section_number TEXT)
+DROP FUNCTION IF EXISTS public.get_class_watchers(TEXT);
+
+CREATE FUNCTION public.get_class_watchers(section_number TEXT)
 RETURNS TABLE (
   user_id UUID,
   email TEXT,
@@ -26,7 +28,9 @@ $$;
 
 COMMENT ON FUNCTION public.get_class_watchers(TEXT) IS 'Returns users watching a class section who have notifications enabled, valid emails, and active accounts (CAN-SPAM compliant)';
 
-CREATE OR REPLACE FUNCTION public.get_watchers_for_sections(section_numbers TEXT[])
+DROP FUNCTION IF EXISTS public.get_watchers_for_sections(TEXT[]);
+
+CREATE FUNCTION public.get_watchers_for_sections(section_numbers TEXT[])
 RETURNS TABLE (
   user_id UUID,
   email TEXT,
