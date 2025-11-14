@@ -24,12 +24,16 @@ export async function DELETE() {
       )
     }
 
-    // Soft delete: Set is_disabled flag and timestamp
+    const deletionTimestamp = new Date().toISOString()
+
+    // Soft delete: Set is_disabled flag and disable notifications
     const { error: updateError } = await supabase
       .from('user_profiles')
       .update({
         is_disabled: true,
-        disabled_at: new Date().toISOString(),
+        disabled_at: deletionTimestamp,
+        notifications_enabled: false,
+        unsubscribed_at: deletionTimestamp,
       })
       .eq('user_id', user.id)
 
@@ -52,7 +56,7 @@ export async function DELETE() {
     return NextResponse.json({
       success: true,
       message: 'Account disabled successfully. Your data will be permanently deleted after 30 days.',
-      disabled_at: new Date().toISOString(),
+      disabled_at: deletionTimestamp,
       permanent_deletion_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     })
   } catch (error) {
