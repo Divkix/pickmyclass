@@ -67,17 +67,24 @@ function verifyWebhookSignature(
 async function getUserIdFromEmail(email: string): Promise<string | null> {
   const supabase = getServiceClient()
 
-  const { data, error } = await supabase.auth.admin.getUserByEmail(email)
+  const normalizedEmail = email.trim().toLowerCase()
 
-  if (error || !data?.user) {
-    console.warn(`[Resend Webhook] User not found for email: ${email}`)
+  const { data: user, error } = await supabase
+    .schema('auth')
+    .from('users')
+    .select('id')
+    .eq('email', normalizedEmail)
+    .maybeSingle()
+
+  if (error || !user?.id) {
+    console.warn(`[Resend Webhook] User not found for email: ${normalizedEmail}`)
     if (error) {
       console.error('[Resend Webhook] Error fetching user by email:', error)
     }
     return null
   }
 
-  return data.user.id
+  return user.id
 }
 
 /**

@@ -69,7 +69,13 @@ function LoginForm() {
         body: JSON.stringify({ email, password }),
       })
 
-      const data = await response.json()
+      type LoginResponse = {
+        error?: string
+        remainingMinutes?: number
+        remainingAttempts?: number
+      }
+
+      const data: LoginResponse = await response.json()
 
       if (!response.ok) {
         if (response.status === 423 && data.remainingMinutes) {
