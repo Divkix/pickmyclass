@@ -9,7 +9,9 @@ CREATE TABLE used_unsubscribe_tokens (
 -- Index for fast lookups
 CREATE INDEX idx_used_unsubscribe_tokens_hash ON used_unsubscribe_tokens(token_hash);
 
--- Auto-cleanup old tokens (older than 90 days) - they're expired anyway
+-- Index for cleanup queries. Cleanup must be done externally via:
+-- DELETE FROM used_unsubscribe_tokens WHERE used_at < NOW() - INTERVAL '90 days';
+-- Run this via Cloudflare cron or external scheduler (Supabase doesn't support pg_cron)
 CREATE INDEX idx_used_unsubscribe_tokens_used_at ON used_unsubscribe_tokens(used_at);
 
 -- RLS: Only service role can access this table
