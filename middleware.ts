@@ -177,7 +177,12 @@ export default async function middleware(request: NextRequest) {
   supabaseResponse.headers.set('X-Frame-Options', 'DENY')
   supabaseResponse.headers.set('X-Content-Type-Options', 'nosniff')
   supabaseResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+
+  // HSTS with includeSubDomains: Requires ALL subdomains to use HTTPS
+  // This is safe for Cloudflare Workers deployments where all traffic is HTTPS
+  // Remove includeSubDomains if any subdomain needs HTTP (e.g., local dev subdomains)
   supabaseResponse.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+
   supabaseResponse.headers.set(
     'Permissions-Policy',
     'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()'
