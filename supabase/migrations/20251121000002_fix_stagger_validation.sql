@@ -12,9 +12,9 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- Validate input to prevent unexpected behavior
-  IF stagger_type NOT IN ('even', 'odd', 'all') THEN
-    RAISE EXCEPTION 'Invalid stagger_type: %. Must be even, odd, or all', stagger_type;
+  -- Validate input to prevent log injection and unexpected behavior
+  IF stagger_type !~ '^(even|odd|all)$' THEN
+    RAISE EXCEPTION 'Invalid stagger_type: expected even, odd, or all';
   END IF;
 
   RETURN QUERY
