@@ -1,4 +1,5 @@
-import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
+import { getServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { Database } from '@/lib/supabase/database.types'
 import { z } from 'zod'
@@ -261,7 +262,7 @@ export async function POST(request: NextRequest) {
     // Step 3: Persist class state if we have scraped data
     if (scrapedData) {
       try {
-        const supabaseServiceRole = createServiceRoleClient()
+        const supabaseServiceRole = getServiceClient()
 
         const { error: upsertError } = await supabaseServiceRole
           .from('class_states')

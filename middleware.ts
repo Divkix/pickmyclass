@@ -1,28 +1,43 @@
 import { createServerClient } from '@supabase/ssr'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from './lib/supabase/database.types'
 
 /**
- * Helper function to determine redirect path based on user's admin status.
- * Defaults to /dashboard if query fails or user is not admin (safe fallback).
+ * User profile data from database
  */
-async function getRedirectPath(
-  supabase: SupabaseClient<Database>,
+interface UserProfile {
+  is_admin: boolean
+  is_disabled: boolean
+}
+
+/**
+ * Get user profile data from database (cached per request)
+ * Returns null if user not found or error occurs
+ */
+async function getUserProfile(
+  supabase: ReturnType<typeof createServerClient<Database>>,
   userId: string
-): Promise<string> {
+): Promise<UserProfile | null> {
   try {
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('is_admin')
+      .select('is_admin, is_disabled')
       .eq('user_id', userId)
       .single()
 
-    return profile?.is_admin ? '/admin' : '/dashboard'
+    return profile
   } catch (error) {
-    console.error('Error checking admin status:', error)
-    return '/dashboard' // Safe default
+    console.error('Error fetching user profile:', error)
+    return null
   }
+}
+
+/**
+ * Helper function to determine redirect path based on user's admin status.
+ * Defaults to /dashboard if user is not admin.
+ */
+function getRedirectPath(profile: UserProfile | null): string {
+  return profile?.is_admin ? '/admin' : '/dashboard'
 }
 
 export default async function middleware(request: NextRequest) {
@@ -77,16 +92,13 @@ export default async function middleware(request: NextRequest) {
   // user_profiles.is_admin checks. Never trust middleware alone for authorization.
   // Admin routes are protected by standard auth check below (not in publicRoutes).
 
-  // Check if user account is disabled (soft delete)
+  // Fetch user profile data once and cache for the entire request
+  let userProfile: UserProfile | null = null
   if (user) {
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('is_disabled')
-      .eq('user_id', user.id)
-      .single()
+    userProfile = await getUserProfile(supabase, user.id)
 
     // If account is disabled, sign out and redirect to login
-    if (profile?.is_disabled) {
+    if (userProfile?.is_disabled) {
       await supabase.auth.signOut()
       const url = request.nextUrl.clone()
       url.pathname = '/login'
@@ -120,7 +132,7 @@ export default async function middleware(request: NextRequest) {
 
   // Redirect to admin or dashboard based on user role when accessing auth pages while authenticated
   if (user && user.email_confirmed_at && isPublicRoute && !request.nextUrl.pathname.startsWith('/legal')) {
-    const redirectPath = await getRedirectPath(supabase, user.id)
+    const redirectPath = getRedirectPath(userProfile)
     const url = request.nextUrl.clone()
     url.pathname = redirectPath
     return NextResponse.redirect(url)
@@ -128,7 +140,7 @@ export default async function middleware(request: NextRequest) {
 
   // Redirect authenticated users from home page to admin or dashboard based on role
   if (user && user.email_confirmed_at && request.nextUrl.pathname === '/') {
-    const redirectPath = await getRedirectPath(supabase, user.id)
+    const redirectPath = getRedirectPath(userProfile)
     const url = request.nextUrl.clone()
     url.pathname = redirectPath
     return NextResponse.redirect(url)
@@ -137,21 +149,10 @@ export default async function middleware(request: NextRequest) {
   // Redirect admin users from /dashboard to /admin
   // Regular users can access /dashboard, but admins should use /admin exclusively
   if (user && user.email_confirmed_at && request.nextUrl.pathname.startsWith('/dashboard')) {
-    try {
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('is_admin')
-        .eq('user_id', user.id)
-        .single()
-
-      if (profile?.is_admin) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/admin'
-        return NextResponse.redirect(url)
-      }
-    } catch (error) {
-      console.error('Error checking admin status for dashboard redirect:', error)
-      // Continue to dashboard on error (safe fallback)
+    if (userProfile?.is_admin) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin'
+      return NextResponse.redirect(url)
     }
   }
 

@@ -1,5 +1,4 @@
 import { createServerClient } from '@supabase/ssr'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { Database } from './database.types'
 
@@ -32,27 +31,4 @@ export async function createClient() {
       },
     }
   )
-}
-
-/**
- * Create a Supabase client with service role privileges.
- * This bypasses Row Level Security (RLS) and should only be used in secure server-side contexts.
- *
- * Use cases:
- * - Cron jobs that need to update class_states
- * - API routes that need to write to tables with service_role-only policies
- * - Background tasks that don't operate in user context
- *
- * @returns Supabase client with service role access
- */
-export function createServiceRoleClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role-key'
-
-  return createSupabaseClient<Database>(url, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  })
 }

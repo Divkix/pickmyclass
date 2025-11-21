@@ -22,6 +22,37 @@ const getResendClient = () => {
 }
 
 /**
+ * Common email configuration helper
+ * Initializes email service and checks configuration
+ */
+interface EmailConfig {
+  resend: Resend
+  fromEmail: string
+  unsubscribeUrl: string
+}
+
+function initializeEmailConfig(userId: string): EmailConfig | EmailResult {
+  // Check if email service is configured
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[Email] RESEND_API_KEY not configured - skipping email send')
+    return {
+      success: false,
+      error: 'Email service not configured',
+    }
+  }
+
+  const resend = getResendClient()
+  const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || 'onboarding@resend.dev'
+  const unsubscribeUrl = generateUnsubscribeUrl(userId)
+
+  return {
+    resend,
+    fromEmail,
+    unsubscribeUrl,
+  }
+}
+
+/**
  * Class information for email templates
  */
 export interface ClassInfo {
@@ -61,20 +92,14 @@ export async function sendSeatAvailableEmail(
   classInfo: ClassInfo
 ): Promise<EmailResult> {
   try {
-    const resend = getResendClient()
-    const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || 'onboarding@resend.dev'
+    const config = initializeEmailConfig(userId)
 
-    // Check if email service is configured
-    if (!process.env.RESEND_API_KEY) {
-      console.warn('[Email] RESEND_API_KEY not configured - skipping email send')
-      return {
-        success: false,
-        error: 'Email service not configured',
-      }
+    // Check if initialization failed
+    if ('error' in config) {
+      return config as EmailResult
     }
 
-    // Generate unsubscribe URL for CAN-SPAM compliance
-    const unsubscribeUrl = generateUnsubscribeUrl(userId)
+    const { resend, fromEmail, unsubscribeUrl } = config as EmailConfig
 
     const subject = `🎉 Seat Available: ${classInfo.subject} ${classInfo.catalog_nbr} (${classInfo.class_nbr})`
 
@@ -127,20 +152,14 @@ export async function sendInstructorAssignedEmail(
   classInfo: ClassInfo
 ): Promise<EmailResult> {
   try {
-    const resend = getResendClient()
-    const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || 'onboarding@resend.dev'
+    const config = initializeEmailConfig(userId)
 
-    // Check if email service is configured
-    if (!process.env.RESEND_API_KEY) {
-      console.warn('[Email] RESEND_API_KEY not configured - skipping email send')
-      return {
-        success: false,
-        error: 'Email service not configured',
-      }
+    // Check if initialization failed
+    if ('error' in config) {
+      return config as EmailResult
     }
 
-    // Generate unsubscribe URL for CAN-SPAM compliance
-    const unsubscribeUrl = generateUnsubscribeUrl(userId)
+    const { resend, fromEmail, unsubscribeUrl } = config as EmailConfig
 
     const subject = `👨‍🏫 Instructor Assigned: ${classInfo.subject} ${classInfo.catalog_nbr} (${classInfo.class_nbr})`
 
@@ -200,9 +219,6 @@ export async function sendBatchEmailsOptimized(
     return []
   }
 
-  const resend = getResendClient()
-  const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || 'onboarding@resend.dev'
-
   // Check if email service is configured
   if (!process.env.RESEND_API_KEY) {
     console.warn('[Email] RESEND_API_KEY not configured - skipping batch email send')
@@ -211,6 +227,9 @@ export async function sendBatchEmailsOptimized(
       error: 'Email service not configured',
     }))
   }
+
+  const resend = getResendClient()
+  const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || 'onboarding@resend.dev'
 
   // Split into chunks of 100 (Resend's batch limit)
   const chunks: typeof emails[] = []
@@ -285,29 +304,3 @@ export async function sendBatchEmailsOptimized(
   return allResults
 }
 
-/**
- * Send batch emails with rate limiting (DEPRECATED - use sendBatchEmailsOptimized)
- *
- * @param emails - Array of email sending functions
- * @param delayMs - Delay between emails (default 100ms)
- * @returns Array of email results
- * @deprecated Use sendBatchEmailsOptimized for 10x better performance
- */
-export async function sendBatchEmails(
-  emails: Array<() => Promise<EmailResult>>,
-  delayMs = 100
-): Promise<EmailResult[]> {
-  const results: EmailResult[] = []
-
-  for (const sendEmail of emails) {
-    const result = await sendEmail()
-    results.push(result)
-
-    // Rate limiting delay between emails
-    if (emails.length > 1 && delayMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs))
-    }
-  }
-
-  return results
-}

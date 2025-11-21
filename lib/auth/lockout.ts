@@ -1,4 +1,4 @@
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { getServiceClient } from '@/lib/supabase/service'
 
 export const MAX_FAILED_ATTEMPTS = 5
 const LOCKOUT_DURATION_MINUTES = 15
@@ -13,7 +13,7 @@ export interface LockoutStatus {
  * Check if an email address is currently locked out
  */
 export async function checkLockoutStatus(email: string): Promise<LockoutStatus> {
-  const supabase = createServiceRoleClient()
+  const supabase = getServiceClient()
 
   const { data, error } = await supabase
     .from('failed_login_attempts')
@@ -67,7 +67,7 @@ export async function checkLockoutStatus(email: string): Promise<LockoutStatus> 
  * Locks account after MAX_FAILED_ATTEMPTS
  */
 export async function incrementFailedAttempts(email: string): Promise<void> {
-  const supabase = createServiceRoleClient()
+  const supabase = getServiceClient()
   const normalizedEmail = email.toLowerCase()
 
   const { data: existing } = await supabase
@@ -105,7 +105,7 @@ export async function incrementFailedAttempts(email: string): Promise<void> {
  * Clear failed login attempts after successful login
  */
 export async function clearFailedAttempts(email: string): Promise<void> {
-  const supabase = createServiceRoleClient()
+  const supabase = getServiceClient()
 
   await supabase
     .from('failed_login_attempts')
