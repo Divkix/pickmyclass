@@ -48,14 +48,15 @@ function verifyWebhookSignature(
   // Calculate expected signature
   const expectedSignature = createHmac('sha256', secret).update(body).digest('hex')
 
-  // Convert to buffers and use constant-time comparison
-  // Pad shorter string to prevent length-based timing attacks
-  const maxLength = Math.max(signature.length, expectedSignature.length)
-  const signatureBuffer = Buffer.alloc(maxLength)
-  const expectedBuffer = Buffer.alloc(maxLength)
+  // For HMAC-SHA256 signatures (64 hex chars), early length check is safe
+  // Only attackers send wrong-length signatures, so timing leak is acceptable
+  if (signature.length !== expectedSignature.length) {
+    return false
+  }
 
-  signatureBuffer.write(signature)
-  expectedBuffer.write(expectedSignature)
+  // Convert to buffers and use constant-time comparison
+  const signatureBuffer = Buffer.from(signature, 'utf8')
+  const expectedBuffer = Buffer.from(expectedSignature, 'utf8')
 
   return timingSafeEqual(signatureBuffer, expectedBuffer)
 }

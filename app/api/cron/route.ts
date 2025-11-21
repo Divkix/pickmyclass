@@ -21,12 +21,15 @@ import { getCloudflareContext } from '@opennextjs/cloudflare'
  * Constant-time string comparison to prevent timing attacks
  */
 function secureCompare(a: string, b: string): boolean {
+  // Reject empty strings
   if (!a || !b) return false
-  const maxLength = Math.max(a.length, b.length)
-  const bufferA = Buffer.alloc(maxLength)
-  const bufferB = Buffer.alloc(maxLength)
-  bufferA.write(a)
-  bufferB.write(b)
+
+  // For fixed-length tokens (HMAC-SHA256 = 64 chars), early length check is safe
+  // Only attackers send wrong-length tokens, so timing leak is acceptable
+  if (a.length !== b.length) return false
+
+  const bufferA = Buffer.from(a, 'utf8')
+  const bufferB = Buffer.from(b, 'utf8')
   return timingSafeEqual(bufferA, bufferB)
 }
 
