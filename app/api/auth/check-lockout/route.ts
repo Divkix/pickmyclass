@@ -11,6 +11,17 @@ const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 const RATE_LIMIT_WINDOW_MS = 60000 // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 10 // 10 requests per minute per IP
 
+/**
+ * Simple in-memory rate limiter for lockout check endpoint
+ *
+ * LIMITATIONS:
+ * - Per-isolate only (not shared across Cloudflare Worker isolates)
+ * - Has race conditions with concurrent requests from same IP
+ * - For production use, consider Cloudflare Rate Limiting Rules or Durable Objects
+ *
+ * This provides basic protection against rapid-fire requests but is not a
+ * security boundary. Real rate limiting should happen at infrastructure level.
+ */
 function isRateLimited(ip: string): boolean {
   const now = Date.now()
   const record = rateLimitMap.get(ip)
