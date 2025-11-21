@@ -44,24 +44,10 @@ interface ScraperResponse {
 const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10)
 
 /**
- * Check if user account is disabled
- * Returns true (disabled) on errors to fail closed for security
+ * NOTE: Disabled user checks are performed in middleware.ts
+ * Disabled users are signed out and redirected before reaching this API route.
+ * No need to duplicate the check here - it would cause 3 extra DB queries per request (60ms overhead).
  */
-async function isUserDisabled(userId: string): Promise<boolean> {
-  const supabase = getServiceClient()
-  const { data: profile, error } = await supabase
-    .from('user_profiles')
-    .select('is_disabled')
-    .eq('user_id', userId)
-    .single()
-
-  if (error) {
-    console.error('Error checking disabled status:', error)
-    return true  // Fail closed - treat as disabled
-  }
-
-  return profile?.is_disabled === true
-}
 
 /**
  * Sanitize validation error details for production
@@ -92,11 +78,6 @@ export async function GET() {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Check if user is disabled
-  if (await isUserDisabled(user.id)) {
-    return NextResponse.json({ error: 'Account is disabled' }, { status: 403 })
   }
 
   try {
@@ -172,11 +153,6 @@ export async function POST(request: NextRequest) {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Check if user is disabled
-  if (await isUserDisabled(user.id)) {
-    return NextResponse.json({ error: 'Account is disabled' }, { status: 403 })
   }
 
   try {
@@ -363,11 +339,6 @@ export async function DELETE(request: NextRequest) {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Check if user is disabled
-  if (await isUserDisabled(user.id)) {
-    return NextResponse.json({ error: 'Account is disabled' }, { status: 403 })
   }
 
   try {
