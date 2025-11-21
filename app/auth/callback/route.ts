@@ -2,11 +2,42 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
+/**
+ * Validates the `next` parameter to prevent open redirect attacks.
+ * Only allows safe internal paths.
+ */
+function validateNextPath(next: string | null): string {
+  // Default to home page
+  if (!next) return '/'
+
+  // Reject if contains protocol (external URL)
+  if (next.includes('://')) return '/'
+
+  // Reject path traversal attempts
+  if (next.includes('..')) return '/'
+
+  // Must start with /
+  if (!next.startsWith('/')) return '/'
+
+  // Reject if starts with // (protocol-relative URL)
+  if (next.startsWith('//')) return '/'
+
+  // Whitelist of allowed path prefixes
+  const allowedPrefixes = ['/', '/dashboard', '/admin', '/settings']
+  const isAllowed = allowedPrefixes.some(
+    (prefix) => next === prefix || next.startsWith(prefix + '/')
+  )
+
+  if (!isAllowed) return '/'
+
+  return next
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  // Default to home - middleware will route to /admin or /dashboard based on is_admin flag
-  const next = searchParams.get('next') ?? '/'
+  // Validate next parameter to prevent open redirect
+  const next = validateNextPath(searchParams.get('next'))
 
   if (code) {
     const cookieStore = await cookies()
