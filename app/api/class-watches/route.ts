@@ -45,14 +45,20 @@ const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 
 
 /**
  * Check if user account is disabled
+ * Returns true (disabled) on errors to fail closed for security
  */
 async function isUserDisabled(userId: string): Promise<boolean> {
   const supabase = getServiceClient()
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('user_profiles')
     .select('is_disabled')
     .eq('user_id', userId)
     .single()
+
+  if (error) {
+    console.error('Error checking disabled status:', error)
+    return true  // Fail closed - treat as disabled
+  }
 
   return profile?.is_disabled === true
 }
@@ -61,14 +67,14 @@ async function isUserDisabled(userId: string): Promise<boolean> {
  * Sanitize validation error details for production
  * Returns generic message instead of exposing field names
  */
-function sanitizeValidationErrors(issues: z.ZodIssue[]): { message: string }[] {
+function sanitizeValidationErrors(issues: z.ZodIssue[]): Array<{ message: string } | { field: string; message: string }> {
   if (process.env.NODE_ENV === 'production') {
     return [{ message: 'Invalid input format' }]
   }
   return issues.map((issue) => ({
     field: issue.path.join('.'),
     message: issue.message,
-  })) as { message: string }[]
+  }))
 }
 
 /**
