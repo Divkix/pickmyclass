@@ -1,6 +1,11 @@
 {
     "main": "./worker.ts",
     "name": "pickmyclass",
+    // Fix __name is not defined error with next-themes and other libraries
+    // See: https://opennext.js.org/cloudflare/howtos/keep_names
+    "build": {
+        "keep_names": false
+    },
     "compatibility_date": "2025-10-21",
     "compatibility_flags": [
         // Enable Node.js API
