@@ -150,6 +150,7 @@ export async function GET() {
   }
 
   // 3. Check Environment Configuration
+  // Security: Only report status, not which specific variables are missing
   const requiredEnvVars = [
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
@@ -159,14 +160,13 @@ export async function GET() {
     'CRON_SECRET',
   ]
 
-  const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key])
+  const missingCount = requiredEnvVars.filter((key) => !process.env[key]).length
 
   health.checks.configuration = {
-    status: missingEnvVars.length === 0 ? 'healthy' : 'unhealthy',
-    missing_vars: missingEnvVars.length > 0 ? missingEnvVars : undefined,
+    status: missingCount === 0 ? 'healthy' : 'unhealthy',
   }
 
-  if (missingEnvVars.length > 0) {
+  if (missingCount > 0) {
     health.status = 'unhealthy'
   }
 
