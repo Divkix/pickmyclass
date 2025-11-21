@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { getServiceClient } from '@/lib/supabase/service'
 import { z } from 'zod'
 
 /**
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
 
         // Persist scraped data to class_states table for immediate dashboard display
         try {
-          const supabaseServiceRole = createServiceRoleClient()
+          const supabaseServiceRole = getServiceClient()
 
           const { error: upsertError } = await supabaseServiceRole
             .from('class_states')

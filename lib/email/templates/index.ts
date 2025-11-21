@@ -23,6 +23,55 @@ function sanitize(dirty: string): string {
 }
 
 /**
+ * Sanitize class information for use in email templates
+ * Escapes HTML entities and validates URL parameters
+ */
+interface SanitizedClassInfo {
+  subject: string
+  catalogNbr: string
+  title: string
+  classNbr: string
+  instructor: string
+  location: string | null
+  meetingTimes: string | null
+  termUrl: string
+  classNbrUrl: string
+  catalogUrl: string
+}
+
+function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
+  // Sanitize all user-provided data
+  const safeSubject = sanitize(classInfo.subject)
+  const safeCatalogNbr = sanitize(classInfo.catalog_nbr)
+  const safeTitle = sanitize(classInfo.title)
+  const safeClassNbr = sanitize(classInfo.class_nbr)
+  const safeInstructor = sanitize(classInfo.instructor_name)
+  const safeLocation = classInfo.location ? sanitize(classInfo.location) : null
+  const safeMeetingTimes = classInfo.meeting_times ? sanitize(classInfo.meeting_times) : null
+
+  // Term and class_nbr are used in URLs - validate format (numbers only)
+  const safeTerm = classInfo.term.replace(/[^0-9]/g, '')
+  const safeClassNbrUrl = classInfo.class_nbr.replace(/[^0-9]/g, '')
+
+  // Use internal redirect URL to match sending domain (improves email deliverability)
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app'
+  const catalogUrl = `${siteUrl}/go/asu?classNbr=${safeClassNbrUrl}&term=${safeTerm}`
+
+  return {
+    subject: safeSubject,
+    catalogNbr: safeCatalogNbr,
+    title: safeTitle,
+    classNbr: safeClassNbr,
+    instructor: safeInstructor,
+    location: safeLocation,
+    meetingTimes: safeMeetingTimes,
+    termUrl: safeTerm,
+    classNbrUrl: safeClassNbrUrl,
+    catalogUrl,
+  }
+}
+
+/**
  * Generate email footer with unsubscribe link (CAN-SPAM compliance)
  */
 function getEmailFooter(unsubscribeUrl?: string): string {
@@ -60,22 +109,8 @@ export function SeatAvailableEmailTemplate(
   classInfo: ClassInfo,
   unsubscribeUrl?: string
 ): string {
-  // Sanitize all user-provided data
-  const safeSubject = sanitize(classInfo.subject)
-  const safeCatalogNbr = sanitize(classInfo.catalog_nbr)
-  const safeTitle = sanitize(classInfo.title)
-  const safeClassNbr = sanitize(classInfo.class_nbr)
-  const safeInstructor = sanitize(classInfo.instructor_name)
-  const safeLocation = classInfo.location ? sanitize(classInfo.location) : null
-  const safeMeetingTimes = classInfo.meeting_times ? sanitize(classInfo.meeting_times) : null
-
-  // Term and class_nbr are used in URLs - validate format (numbers only)
-  const safeTerm = classInfo.term.replace(/[^0-9]/g, '')
-  const safeClassNbrUrl = classInfo.class_nbr.replace(/[^0-9]/g, '')
-
-  // Use internal redirect URL to match sending domain (improves email deliverability)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app'
-  const catalogUrl = `${siteUrl}/go/asu?classNbr=${safeClassNbrUrl}&term=${safeTerm}`
+  // Sanitize all class information
+  const safe = sanitizeClassInfo(classInfo)
 
   return `
 <!DOCTYPE html>
@@ -83,7 +118,7 @@ export function SeatAvailableEmailTemplate(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Seat Available - ${safeSubject} ${safeCatalogNbr}</title>
+  <title>Seat Available - ${safe.subject} ${safe.catalogNbr}</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
@@ -97,22 +132,22 @@ export function SeatAvailableEmailTemplate(
 
     <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
       <h2 style="margin: 0 0 10px 0; color: #1f2937; font-size: 20px;">
-        ${safeSubject} ${safeCatalogNbr}: ${safeTitle}
+        ${safe.subject} ${safe.catalogNbr}: ${safe.title}
       </h2>
       <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">
-        <strong>Section:</strong> ${safeClassNbr}
+        <strong>Section:</strong> ${safe.classNbr}
       </p>
       <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">
-        <strong>Instructor:</strong> ${safeInstructor}
+        <strong>Instructor:</strong> ${safe.instructor}
       </p>
       ${
-        safeLocation
-          ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Location:</strong> ${safeLocation}</p>`
+        safe.location
+          ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Location:</strong> ${safe.location}</p>`
           : ''
       }
       ${
-        safeMeetingTimes
-          ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Meeting Times:</strong> ${safeMeetingTimes}</p>`
+        safe.meetingTimes
+          ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Meeting Times:</strong> ${safe.meetingTimes}</p>`
           : ''
       }
       <p style="margin: 15px 0 5px 0; font-size: 18px; color: #059669; font-weight: bold;">
@@ -143,7 +178,7 @@ export function SeatAvailableEmailTemplate(
     </p>
 
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${catalogUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+      <a href="${safe.catalogUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
         View Class on ASU Catalog
       </a>
     </div>
@@ -166,22 +201,8 @@ export function InstructorAssignedEmailTemplate(
   classInfo: ClassInfo,
   unsubscribeUrl?: string
 ): string {
-  // Sanitize all user-provided data
-  const safeSubject = sanitize(classInfo.subject)
-  const safeCatalogNbr = sanitize(classInfo.catalog_nbr)
-  const safeTitle = sanitize(classInfo.title)
-  const safeClassNbr = sanitize(classInfo.class_nbr)
-  const safeInstructor = sanitize(classInfo.instructor_name)
-  const safeLocation = classInfo.location ? sanitize(classInfo.location) : null
-  const safeMeetingTimes = classInfo.meeting_times ? sanitize(classInfo.meeting_times) : null
-
-  // Term and class_nbr are used in URLs - validate format (numbers only)
-  const safeTerm = classInfo.term.replace(/[^0-9]/g, '')
-  const safeClassNbrUrl = classInfo.class_nbr.replace(/[^0-9]/g, '')
-
-  // Use internal redirect URL to match sending domain (improves email deliverability)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app'
-  const catalogUrl = `${siteUrl}/go/asu?classNbr=${safeClassNbrUrl}&term=${safeTerm}`
+  // Sanitize all class information
+  const safe = sanitizeClassInfo(classInfo)
 
   return `
 <!DOCTYPE html>
@@ -189,7 +210,7 @@ export function InstructorAssignedEmailTemplate(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Instructor Assigned - ${safeSubject} ${safeCatalogNbr}</title>
+  <title>Instructor Assigned - ${safe.subject} ${safe.catalogNbr}</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
@@ -203,22 +224,22 @@ export function InstructorAssignedEmailTemplate(
 
     <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
       <h2 style="margin: 0 0 10px 0; color: #1f2937; font-size: 20px;">
-        ${safeSubject} ${safeCatalogNbr}: ${safeTitle}
+        ${safe.subject} ${safe.catalogNbr}: ${safe.title}
       </h2>
       <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">
-        <strong>Section:</strong> ${safeClassNbr}
+        <strong>Section:</strong> ${safe.classNbr}
       </p>
       <p style="margin: 15px 0 5px 0; font-size: 18px; color: #ea580c; font-weight: bold;">
-        Instructor: ${safeInstructor}
+        Instructor: ${safe.instructor}
       </p>
       ${
-        safeLocation
-          ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Location:</strong> ${safeLocation}</p>`
+        safe.location
+          ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Location:</strong> ${safe.location}</p>`
           : ''
       }
       ${
-        safeMeetingTimes
-          ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Meeting Times:</strong> ${safeMeetingTimes}</p>`
+        safe.meetingTimes
+          ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Meeting Times:</strong> ${safe.meetingTimes}</p>`
           : ''
       }
       <p style="margin: 15px 0 5px 0; color: ${classInfo.seats_available > 0 ? '#059669' : '#dc2626'}; font-size: 14px;">
@@ -231,7 +252,7 @@ export function InstructorAssignedEmailTemplate(
     </p>
 
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${catalogUrl}" style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+      <a href="${safe.catalogUrl}" style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
         View Class on ASU Catalog
       </a>
     </div>
