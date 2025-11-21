@@ -19,9 +19,6 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "eslint-config-next"
         update-types: ["version-update:semver-major"]
-      # Keep @types/node aligned with Node 18-20 runtime
-      - dependency-name: "@types/node"
-        versions: [">=21.0.0"]
     groups:
       # Group minor/patch updates to reduce PR noise
       react-ecosystem:
@@ -68,10 +65,6 @@ updates:
     labels:
       - "dependencies"
       - "scraper"
-    ignore:
-      # Scraper uses node:18-slim in Docker, keep types aligned
-      - dependency-name: "@types/node"
-        versions: [">=19.0.0"]
     groups:
       express-ecosystem:
         patterns:
