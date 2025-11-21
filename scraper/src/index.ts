@@ -12,6 +12,15 @@ import type { ScrapeRequest, ScrapeResponse } from './types.js'
 // Load environment variables
 dotenv.config()
 
+const SECRET_TOKEN = process.env.SECRET_TOKEN
+
+// CRITICAL: Fail fast if SECRET_TOKEN is not set
+if (!SECRET_TOKEN) {
+  console.error('[FATAL] SECRET_TOKEN environment variable is not set')
+  console.error('[FATAL] Authentication cannot function without a valid token')
+  process.exit(1)
+}
+
 // Initialize production-grade components
 const circuitBreaker = new CircuitBreaker({
   failureThreshold: parseInt(process.env.CIRCUIT_BREAKER_THRESHOLD || '10'),
@@ -39,11 +48,9 @@ console.log('[HealthMonitor] Started with 60s interval')
 
 const app = express()
 const PORT = process.env.PORT || 3000
-const SECRET_TOKEN = process.env.SECRET_TOKEN
 
-if (!SECRET_TOKEN) {
-  console.warn('[Warning] SECRET_TOKEN not set in environment - authentication will fail')
-}
+// Trust proxy for rate limiting behind reverse proxies (Cloudflare, nginx, etc.)
+app.set('trust proxy', 1)
 
 // Middleware
 app.use(helmet())
@@ -96,7 +103,8 @@ const authenticate = (req: Request, res: Response, next: NextFunction): void => 
 
   const token = authHeader.substring(7) // Remove 'Bearer ' prefix
 
-  if (token !== SECRET_TOKEN) {
+  // CRITICAL: Reject empty tokens and invalid tokens
+  if (!token || token !== SECRET_TOKEN) {
     console.warn('[Auth] Unauthorized access attempt with invalid token')
     res.status(401).json({ error: 'Invalid token' })
     return
@@ -153,7 +161,7 @@ app.get('/health', (_req: Request, res: Response) => {
 
 /**
  * Browser pool status endpoint
- * Public - for monitoring and debugging
+ * Protected - requires Bearer token authentication
  *
  * Returns:
  * - total: Total browser instances in pool
@@ -161,7 +169,7 @@ app.get('/health', (_req: Request, res: Response) => {
  * - busy: Browsers currently processing jobs
  * - queued: Scrape jobs waiting for a browser
  */
-app.get('/status', (_req: Request, res: Response) => {
+app.get('/status', authenticate, (_req: Request, res: Response) => {
   const poolStatus = getBrowserStatus()
   res.json({
     status: 'ok',
@@ -178,7 +186,7 @@ app.get('/status', (_req: Request, res: Response) => {
 
 /**
  * Metrics endpoint
- * Public - comprehensive monitoring data
+ * Protected - requires Bearer token authentication
  *
  * Returns detailed metrics for all system components:
  * - Browser pool (total, available, busy, queued)
@@ -187,7 +195,7 @@ app.get('/status', (_req: Request, res: Response) => {
  * - Memory usage (RSS, heap used/total, external)
  * - Uptime and error rates
  */
-app.get('/metrics', (_req: Request, res: Response) => {
+app.get('/metrics', authenticate, (_req: Request, res: Response) => {
   const poolStatus = getBrowserStatus()
   const circuitStats = circuitBreaker.getStats()
   const queueStats = requestQueue.getStats()
@@ -319,8 +327,8 @@ app.use((_req: Request, res: Response) => {
     error: 'Route not found',
     availableEndpoints: {
       health: 'GET /health (healthcheck)',
-      metrics: 'GET /metrics (detailed metrics)',
-      status: 'GET /status (browser pool status)',
+      metrics: 'GET /metrics (detailed metrics, requires auth)',
+      status: 'GET /status (browser pool status, requires auth)',
       scrape: 'POST /scrape (requires auth)'
     }
   })
@@ -346,9 +354,9 @@ const server = app.listen(PORT, () => {
   console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`)
   console.log(`[Server] Listening on port ${PORT}`)
   console.log(`[Server] Health check: http://localhost:${PORT}/health`)
-  console.log(`[Server] Metrics: http://localhost:${PORT}/metrics`)
-  console.log(`[Server] Pool status: http://localhost:${PORT}/status`)
-  console.log(`[Server] Auth enabled: ${!!SECRET_TOKEN}`)
+  console.log(`[Server] Metrics: http://localhost:${PORT}/metrics (auth required)`)
+  console.log(`[Server] Pool status: http://localhost:${PORT}/status (auth required)`)
+  console.log(`[Server] Auth enabled: true`)
   console.log(`[Server] Rate limit: 1000 req/min (16.6 req/sec)`)
   console.log(`[Server] Max concurrent: ${process.env.MAX_CONCURRENT_REQUESTS || 10} scrapes`)
   console.log(`[Server] Circuit breaker: ${process.env.CIRCUIT_BREAKER_THRESHOLD || 10} failures`)
