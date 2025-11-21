@@ -17,12 +17,46 @@ function getSigningSecret(): string {
 }
 
 /**
+ * Allowed hosts for unsubscribe URLs (prevents open redirect)
+ */
+const ALLOWED_HOSTS = [
+  'pickmyclass.app',
+  'www.pickmyclass.app',
+  'localhost',
+  '127.0.0.1',
+]
+
+/**
+ * Validate that a URL is safe to use as base URL
+ * Prevents open redirect vulnerabilities
+ */
+function isValidBaseUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    // Only allow https (or http for localhost)
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return false
+    }
+    // Only allow http for localhost
+    if (parsed.protocol === 'http:' && !parsed.hostname.match(/^(localhost|127\.0\.0\.1)$/)) {
+      return false
+    }
+    // Check against allowed hosts
+    return ALLOWED_HOSTS.some(
+      (host) => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`)
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
  * Generate a signed unsubscribe token
  *
  * Token format: base64(userId:expiresAt:signature)
- * Expires in 90 days by default
+ * Expires in 30 days by default (reduced from 90 for security)
  */
-export function generateUnsubscribeToken(userId: string, expiresInDays = 90): string {
+export function generateUnsubscribeToken(userId: string, expiresInDays = 30): string {
   const expiresAt = Date.now() + expiresInDays * 24 * 60 * 60 * 1000
   const payload = `${userId}:${expiresAt}`
 
@@ -81,9 +115,23 @@ export function verifyUnsubscribeToken(token: string): string | null {
 
 /**
  * Generate unsubscribe URL for email footer
+ * Validates baseUrl to prevent open redirect attacks
  */
 export function generateUnsubscribeUrl(userId: string, baseUrl?: string): string {
   const token = generateUnsubscribeToken(userId)
-  const url = baseUrl || process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app'
+
+  // Default to production URL
+  const defaultUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app'
+
+  // Validate provided baseUrl, fall back to default if invalid
+  let url = defaultUrl
+  if (baseUrl) {
+    if (isValidBaseUrl(baseUrl)) {
+      url = baseUrl
+    } else {
+      console.warn(`[UnsubscribeToken] Invalid baseUrl rejected: ${baseUrl}`)
+    }
+  }
+
   return `${url}/api/unsubscribe?token=${token}`
 }
