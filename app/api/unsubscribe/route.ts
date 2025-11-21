@@ -48,9 +48,9 @@ async function tryUseToken(
     if (error.code === '23505') {
       return { success: false, alreadyUsed: true }
     }
-    // Other error - log but allow through (fail open for UX)
+    // Other error - fail closed for security
     console.error('[Unsubscribe] Error recording token use:', error)
-    return { success: true, alreadyUsed: false }
+    return { success: false, alreadyUsed: false }
   }
 
   return { success: true, alreadyUsed: false }
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Check if token was already used
-  const { alreadyUsed } = await tryUseToken(validation.data.token, userId)
+  const { success: tokenSuccess, alreadyUsed } = await tryUseToken(validation.data.token, userId)
 
   if (alreadyUsed) {
     return new NextResponse(
@@ -172,6 +172,42 @@ export async function GET(request: NextRequest) {
       `.trim(),
       {
         status: 400,
+        headers: { 'Content-Type': 'text/html' },
+      }
+    )
+  }
+
+  // If token recording failed (not due to duplicate), fail closed
+  if (!tokenSuccess) {
+    return new NextResponse(
+      `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Unsubscribe Error</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      text-align: center;
+    }
+    .error { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <h1 class="error">Error Processing Unsubscribe</h1>
+  <p>We encountered an error while processing your request.</p>
+  <p>Please try again later or contact support.</p>
+  <p><a href="/">Return to PickMyClass</a></p>
+</body>
+</html>
+      `.trim(),
+      {
+        status: 500,
         headers: { 'Content-Type': 'text/html' },
       }
     )
@@ -309,12 +345,20 @@ export async function POST(request: NextRequest) {
   }
 
   // Check if token was already used
-  const { alreadyUsed } = await tryUseToken(validation.data.token, userId)
+  const { success: tokenSuccess, alreadyUsed } = await tryUseToken(validation.data.token, userId)
 
   if (alreadyUsed) {
     return NextResponse.json(
       { success: false, error: 'Token already used' },
       { status: 400 }
+    )
+  }
+
+  // If token recording failed (not due to duplicate), fail closed
+  if (!tokenSuccess) {
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
     )
   }
 
