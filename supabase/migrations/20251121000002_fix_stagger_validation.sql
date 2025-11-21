@@ -25,9 +25,17 @@ BEGIN
   WHERE
     CASE
       WHEN stagger_type = 'even' THEN
-        (CAST(SUBSTRING(cw.class_nbr FROM LENGTH(cw.class_nbr) FOR 1) AS INTEGER) % 2) = 0
+        CASE
+          WHEN SUBSTRING(cw.class_nbr FROM LENGTH(cw.class_nbr) FOR 1) ~ '^\d$'
+          THEN (CAST(SUBSTRING(cw.class_nbr FROM LENGTH(cw.class_nbr) FOR 1) AS INTEGER) % 2) = 0
+          ELSE FALSE
+        END
       WHEN stagger_type = 'odd' THEN
-        (CAST(SUBSTRING(cw.class_nbr FROM LENGTH(cw.class_nbr) FOR 1) AS INTEGER) % 2) = 1
+        CASE
+          WHEN SUBSTRING(cw.class_nbr FROM LENGTH(cw.class_nbr) FOR 1) ~ '^\d$'
+          THEN (CAST(SUBSTRING(cw.class_nbr FROM LENGTH(cw.class_nbr) FOR 1) AS INTEGER) % 2) = 1
+          ELSE FALSE
+        END
       ELSE
         TRUE  -- 'all' returns everything
     END
