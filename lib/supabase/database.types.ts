@@ -357,6 +357,27 @@ export type Database = {
         }
         Relationships: []
       }
+      used_unsubscribe_tokens: {
+        Row: {
+          id: string
+          token_hash: string
+          user_id: string
+          used_at: string
+        }
+        Insert: {
+          id?: string
+          token_hash: string
+          user_id: string
+          used_at?: string
+        }
+        Update: {
+          id?: string
+          token_hash?: string
+          user_id?: string
+          used_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

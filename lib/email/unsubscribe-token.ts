@@ -121,10 +121,10 @@ export function generateUnsubscribeUrl(userId: string, baseUrl?: string): string
   const token = generateUnsubscribeToken(userId)
 
   // Default to production URL
-  const defaultUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app'
+  const defaultUrl: string = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app'
 
   // Validate provided baseUrl, fall back to default if invalid
-  let url = defaultUrl
+  let url: string = defaultUrl
   if (baseUrl) {
     if (isValidBaseUrl(baseUrl)) {
       url = baseUrl
