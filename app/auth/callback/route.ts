@@ -7,25 +7,35 @@ import { cookies } from 'next/headers'
  * Only allows safe internal paths.
  */
 function validateNextPath(next: string | null): string {
-  // Default to home page
   if (!next) return '/'
 
-  // Reject if contains protocol (external URL)
-  if (next.includes('://')) return '/'
+  // Decode and check for double-encoding attacks
+  let decodedNext: string
+  try {
+    decodedNext = decodeURIComponent(next)
+  } catch {
+    return '/'
+  }
 
-  // Reject path traversal attempts
+  // Reject if decoding changed the value (double encoding attack)
+  if (decodedNext !== next) return '/'
+
+  // Reject path traversal
   if (next.includes('..')) return '/'
 
-  // Must start with /
-  if (!next.startsWith('/')) return '/'
+  // Must start with / but not //
+  if (!next.startsWith('/') || next.startsWith('//')) return '/'
 
-  // Reject if starts with // (protocol-relative URL)
-  if (next.startsWith('//')) return '/'
+  // Reject external URLs
+  if (next.includes('://')) return '/'
+
+  // Extract path only (ignore query params for validation)
+  const pathOnly = next.split('?')[0].split('#')[0]
 
   // Whitelist of allowed path prefixes
   const allowedPrefixes = ['/', '/dashboard', '/admin', '/settings']
   const isAllowed = allowedPrefixes.some(
-    (prefix) => next === prefix || next.startsWith(prefix + '/')
+    (prefix) => pathOnly === prefix || pathOnly.startsWith(prefix + '/')
   )
 
   if (!isAllowed) return '/'
