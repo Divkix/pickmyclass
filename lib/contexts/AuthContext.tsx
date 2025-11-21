@@ -21,7 +21,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false)
   const supabase = createClient()
 
-  // Fetch admin status from user_profiles
+  /**
+   * Fetches admin status for UI display purposes only.
+   * WARNING: This isAdmin value is for UI hints (showing/hiding admin menu items).
+   * NEVER use this for authorization decisions - always verify admin status server-side
+   * via middleware.ts, API route checks, or RLS policies.
+   */
   const fetchAdminStatus = async (userId: string) => {
     try {
       const { data: profile, error } = await supabase
