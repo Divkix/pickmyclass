@@ -17,7 +17,6 @@ export default function AuthButton() {
       setSigningOut(true)
       await signOut()
       router.push('/login')
-      router.refresh()
     } catch (error) {
       console.error('Error signing out:', error)
     } finally {
