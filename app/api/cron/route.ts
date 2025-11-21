@@ -21,6 +21,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare'
  * Constant-time string comparison to prevent timing attacks
  */
 function secureCompare(a: string, b: string): boolean {
+  if (!a || !b) return false
   const maxLength = Math.max(a.length, b.length)
   const bufferA = Buffer.alloc(maxLength)
   const bufferB = Buffer.alloc(maxLength)
