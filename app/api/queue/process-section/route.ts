@@ -159,8 +159,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Extract and validate Bearer token format
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Invalid Authorization header format. Use: Bearer <token>' },
+        { status: 401 }
+      )
+    }
+
+    const providedToken = authHeader.slice(7).trim()
+
+    if (!providedToken) {
+      return NextResponse.json(
+        { error: 'Missing token in Authorization header' },
+        { status: 401 }
+      )
+    }
+
     // Use constant-time comparison to prevent timing attacks
-    const providedToken = authHeader?.replace('Bearer ', '') || ''
     const isAuthorized = secureCompare(providedToken, expectedSecret)
 
     if (!isAuthorized) {
