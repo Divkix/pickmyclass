@@ -44,6 +44,34 @@ interface ScraperResponse {
 const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10)
 
 /**
+ * Check if user account is disabled
+ */
+async function isUserDisabled(userId: string): Promise<boolean> {
+  const supabase = getServiceClient()
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('is_disabled')
+    .eq('user_id', userId)
+    .single()
+
+  return profile?.is_disabled === true
+}
+
+/**
+ * Sanitize validation error details for production
+ * Returns generic message instead of exposing field names
+ */
+function sanitizeValidationErrors(issues: z.ZodIssue[]): { message: string }[] {
+  if (process.env.NODE_ENV === 'production') {
+    return [{ message: 'Invalid input format' }]
+  }
+  return issues.map((issue) => ({
+    field: issue.path.join('.'),
+    message: issue.message,
+  })) as { message: string }[]
+}
+
+/**
  * GET /api/class-watches
  * Fetch all class watches for the authenticated user with joined class_states data
  */
@@ -58,6 +86,11 @@ export async function GET() {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Check if user is disabled
+  if (await isUserDisabled(user.id)) {
+    return NextResponse.json({ error: 'Account is disabled' }, { status: 403 })
   }
 
   try {
@@ -135,6 +168,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Check if user is disabled
+  if (await isUserDisabled(user.id)) {
+    return NextResponse.json({ error: 'Account is disabled' }, { status: 403 })
+  }
+
   try {
     // Check max watches per user limit
     const { count: watchCount, error: countError } = await supabase
@@ -165,10 +203,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid input',
-          details: validation.error.issues.map((issue) => ({
-            field: issue.path.join('.'),
-            message: issue.message,
-          })),
+          details: sanitizeValidationErrors(validation.error.issues),
         },
         { status: 400 }
       )
@@ -324,6 +359,11 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Check if user is disabled
+  if (await isUserDisabled(user.id)) {
+    return NextResponse.json({ error: 'Account is disabled' }, { status: 403 })
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const watchId = searchParams.get('id')
@@ -335,10 +375,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid input',
-          details: validation.error.issues.map((issue) => ({
-            field: issue.path.join('.'),
-            message: issue.message,
-          })),
+          details: sanitizeValidationErrors(validation.error.issues),
         },
         { status: 400 }
       )
