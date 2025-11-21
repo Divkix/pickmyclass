@@ -19,11 +19,17 @@ async function getUserProfile(
   userId: string
 ): Promise<UserProfile | null> {
   try {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('user_profiles')
       .select('is_admin, is_disabled')
       .eq('user_id', userId)
       .single()
+
+    // Treat database errors as unauthenticated (deny by default)
+    if (error) {
+      console.error('Error fetching user profile:', error)
+      return null
+    }
 
     return profile
   } catch (error) {
@@ -97,6 +103,17 @@ export default async function middleware(request: NextRequest) {
   if (user) {
     userProfile = await getUserProfile(supabase, user.id)
 
+    // SECURITY: If profile fetch failed (null), treat as unauthenticated
+    // This prevents admin bypass via database errors or missing profiles
+    if (userProfile === null && !isPublicRoute && request.nextUrl.pathname !== '/') {
+      console.warn(`Security: User ${user.id} has no profile, redirecting to login`)
+      await supabase.auth.signOut()
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('error', 'profile_error')
+      return NextResponse.redirect(url)
+    }
+
     // If account is disabled, sign out and redirect to login
     if (userProfile?.is_disabled) {
       await supabase.auth.signOut()
@@ -160,6 +177,7 @@ export default async function middleware(request: NextRequest) {
   supabaseResponse.headers.set('X-Frame-Options', 'DENY')
   supabaseResponse.headers.set('X-Content-Type-Options', 'nosniff')
   supabaseResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  supabaseResponse.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
   supabaseResponse.headers.set(
     'Permissions-Policy',
     'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()'
