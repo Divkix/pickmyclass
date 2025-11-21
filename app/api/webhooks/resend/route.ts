@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { getServiceClient } from '@/lib/supabase/service'
 
 /**
@@ -32,7 +32,7 @@ interface ResendWebhookEvent {
 }
 
 /**
- * Verify Resend webhook signature
+ * Verify Resend webhook signature using constant-time comparison
  * Signature is HMAC-SHA256 of request body using webhook secret
  */
 function verifyWebhookSignature(
@@ -48,17 +48,16 @@ function verifyWebhookSignature(
   // Calculate expected signature
   const expectedSignature = createHmac('sha256', secret).update(body).digest('hex')
 
-  // Constant-time comparison to prevent timing attacks
-  if (signature.length !== expectedSignature.length) {
-    return false
-  }
+  // Convert to buffers and use constant-time comparison
+  // Pad shorter string to prevent length-based timing attacks
+  const maxLength = Math.max(signature.length, expectedSignature.length)
+  const signatureBuffer = Buffer.alloc(maxLength)
+  const expectedBuffer = Buffer.alloc(maxLength)
 
-  let mismatch = 0
-  for (let i = 0; i < signature.length; i++) {
-    mismatch |= signature.charCodeAt(i) ^ expectedSignature.charCodeAt(i)
-  }
+  signatureBuffer.write(signature)
+  expectedBuffer.write(expectedSignature)
 
-  return mismatch === 0
+  return timingSafeEqual(signatureBuffer, expectedBuffer)
 }
 
 /**
