@@ -41,10 +41,8 @@ function isValidBaseUrl(url: string): boolean {
     if (parsed.protocol === 'http:' && !parsed.hostname.match(/^(localhost|127\.0\.0\.1)$/)) {
       return false
     }
-    // Check against allowed hosts
-    return ALLOWED_HOSTS.some(
-      (host) => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`)
-    )
+    // Check against allowed hosts (exact match only to prevent subdomain attacks)
+    return ALLOWED_HOSTS.includes(parsed.hostname)
   } catch {
     return false
   }
