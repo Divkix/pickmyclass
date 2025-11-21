@@ -6,11 +6,37 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { getServiceClient } from '@/lib/supabase/service'
 import { tryRecordNotification, resetNotificationsForSection } from '@/lib/db/queries'
 import { sendBatchEmailsOptimized, type ClassInfo } from '@/lib/email/resend'
 import type { ClassCheckMessage } from '@/lib/types/queue'
+
+/**
+ * Constant-time string comparison to prevent timing attacks
+ */
+function secureCompare(a: string, b: string): boolean {
+  const maxLength = Math.max(a.length, b.length)
+  const bufferA = Buffer.alloc(maxLength)
+  const bufferB = Buffer.alloc(maxLength)
+  bufferA.write(a)
+  bufferB.write(b)
+  return timingSafeEqual(bufferA, bufferB)
+}
+
+/**
+ * HTML encode string to prevent XSS in email templates
+ */
+function htmlEncode(str: string | null | undefined): string {
+  if (!str) return ''
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
 
 /**
  * Interface for scraper response
@@ -128,7 +154,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const isAuthorized = authHeader === `Bearer ${expectedSecret}`
+    // Use constant-time comparison to prevent timing attacks
+    const providedToken = authHeader?.replace('Bearer ', '') || ''
+    const isAuthorized = secureCompare(providedToken, expectedSecret)
 
     if (!isAuthorized) {
       console.warn('[Queue-Processor] Unauthorized request')
@@ -254,18 +282,19 @@ export async function POST(request: NextRequest) {
       } else if (watchers && watchers.length > 0) {
         console.log(`[Queue-Processor] Found ${watchers.length} watchers for ${class_nbr}`)
 
+        // Sanitize scraper data before passing to email templates to prevent XSS
         const classInfo: ClassInfo = {
           term,
-          subject: newData.subject,
-          catalog_nbr: newData.catalog_nbr,
+          subject: htmlEncode(newData.subject),
+          catalog_nbr: htmlEncode(newData.catalog_nbr),
           class_nbr,
-          title: newData.title,
-          instructor_name: newData.instructor,
+          title: htmlEncode(newData.title),
+          instructor_name: htmlEncode(newData.instructor),
           seats_available: newData.seats_available ?? 0,
           seats_capacity: newData.seats_capacity ?? 0,
           non_reserved_seats: newData.non_reserved_seats ?? null,
-          location: newData.location,
-          meeting_times: newData.meeting_times,
+          location: htmlEncode(newData.location),
+          meeting_times: htmlEncode(newData.meeting_times),
         }
 
         // Prepare batch email list using ATOMIC notification check
@@ -330,7 +359,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Step 5: Upsert class state
+    // Step 5: Upsert class state (store raw data in DB, sanitization is for emails only)
     const newState = {
       term,
       subject: newData.subject,
