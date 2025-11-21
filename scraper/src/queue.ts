@@ -9,6 +9,7 @@
  * - Reject requests when queue is full (default: 500 pending)
  * - Track metrics (pending, active, completed, failed)
  * - Priority support for urgent requests
+ * - Atomic check-and-add to prevent race conditions
  */
 
 import PQueue from 'p-queue'
@@ -30,6 +31,8 @@ export class RequestQueue {
     failed: 0,
     rejected: 0,
   }
+  // Mutex for atomic check-and-add operations
+  private addLock: Promise<void> = Promise.resolve()
 
   constructor(
     maxConcurrent: number = 10,
@@ -52,24 +55,52 @@ export class RequestQueue {
   }
 
   /**
-   * Add task to queue
+   * Add task to queue with atomic check-and-add
+   * Uses a simple mutex pattern to prevent race conditions where
+   * multiple concurrent calls could all pass the size check before
+   * any of them add to the queue.
+   *
    * @throws Error if queue is full
    */
   async add<T>(fn: () => Promise<T>, priority: number = 0): Promise<T> {
-    // Check if queue is full
-    if (this.queue.size >= this.maxQueueSize) {
-      this.stats.rejected++
-      throw new Error(
-        `Queue is full (${this.maxQueueSize} requests pending) - server overloaded`
-      )
-    }
+    // Acquire lock for atomic check-and-add
+    const previousLock = this.addLock
+    let releaseLock: () => void
+
+    this.addLock = new Promise<void>((resolve) => {
+      releaseLock = resolve
+    })
 
     try {
-      const result = await this.queue.add(fn, { priority })
+      // Wait for previous add operation to complete
+      await previousLock
+
+      // Now we have exclusive access to check and add
+      if (this.queue.size >= this.maxQueueSize) {
+        this.stats.rejected++
+        throw new Error(
+          `Queue is full (${this.maxQueueSize} requests pending) - server overloaded`
+        )
+      }
+
+      // Add to queue while still holding the lock
+      const resultPromise = this.queue.add(fn, { priority })
+
+      // Release lock after adding (but before waiting for result)
+      releaseLock!()
+
+      // Wait for result outside the critical section
+      const result = await resultPromise
       this.stats.completed++
       return result as T
     } catch (error) {
-      this.stats.failed++
+      // Ensure lock is released even on error
+      releaseLock!()
+
+      // Only count as failed if it wasn't a rejection
+      if (!(error instanceof Error && error.message.includes('Queue is full'))) {
+        this.stats.failed++
+      }
       throw error
     }
   }
