@@ -12,9 +12,22 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { getSectionsToCheck } from '@/lib/db/queries'
 import type { ClassCheckMessage, Env } from '@/lib/types/queue'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
+
+/**
+ * Constant-time string comparison to prevent timing attacks
+ */
+function secureCompare(a: string, b: string): boolean {
+  const maxLength = Math.max(a.length, b.length)
+  const bufferA = Buffer.alloc(maxLength)
+  const bufferB = Buffer.alloc(maxLength)
+  bufferA.write(a)
+  bufferB.write(b)
+  return timingSafeEqual(bufferA, bufferB)
+}
 
 /**
  * Main cron handler with staggered checking
@@ -40,7 +53,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const isAuthorized = authHeader === `Bearer ${expectedSecret}`
+    // Use constant-time comparison to prevent timing attacks
+    const providedToken = authHeader?.replace('Bearer ', '') || ''
+    const isAuthorized = secureCompare(providedToken, expectedSecret)
 
     if (!isAuthorized) {
       console.warn('[Cron] Unauthorized request - invalid or missing authentication')
@@ -78,7 +93,6 @@ export async function GET(request: NextRequest) {
             success: false,
             error: 'Another cron job is already running',
             details: lockResult.message,
-            current_holder: lockResult.lockHolder,
           },
           { status: 409 }
         )
