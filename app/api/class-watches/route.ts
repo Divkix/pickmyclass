@@ -67,7 +67,7 @@ async function isUserDisabled(userId: string): Promise<boolean> {
  * Sanitize validation error details for production
  * Returns generic message instead of exposing field names
  */
-function sanitizeValidationErrors(issues: z.ZodIssue[]): Array<{ message: string } | { field: string; message: string }> {
+function sanitizeValidationErrors(issues: z.ZodIssue[]): Array<{ field?: string; message: string }> {
   if (process.env.NODE_ENV === 'production') {
     return [{ message: 'Invalid input format' }]
   }
