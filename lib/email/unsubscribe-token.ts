@@ -37,8 +37,8 @@ function isValidBaseUrl(url: string): boolean {
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
       return false
     }
-    // Only allow http for localhost
-    if (parsed.protocol === 'http:' && !parsed.hostname.match(/^(localhost|127\.0\.0\.1)$/)) {
+    // Only allow http for localhost (IPv4, IPv6, and hostname)
+    if (parsed.protocol === 'http:' && !parsed.hostname.match(/^(localhost|127\.0\.0\.1|::1|\[::1\])$/)) {
       return false
     }
     // Check against allowed hosts (exact match only to prevent subdomain attacks)
