@@ -109,7 +109,7 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
                   onClick={item.onClick}
                   type="button"
                   className={cn(
-                    'flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg min-w-[4rem]',
+                    'flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg min-w-16',
                     'transition-all duration-200',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     isActive
@@ -130,7 +130,7 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
                 key={item.label}
                 href={item.href}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg min-w-[4rem]',
+                  'flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg min-w-16',
                   'transition-all duration-200',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   isActive

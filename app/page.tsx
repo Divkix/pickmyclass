@@ -182,7 +182,7 @@ export default function Home() {
 
             <div className="relative space-y-12">
               {/* Connecting Line */}
-              <div className="absolute left-[1.125rem] top-5 bottom-5 w-0.5 bg-linear-to-b from-primary via-accent to-success sm:left-6" />
+              <div className="absolute left-4.5 top-5 bottom-5 w-0.5 bg-linear-to-b from-primary via-accent to-success sm:left-6" />
 
               {/* Step 1 */}
               <motion.div className="relative flex items-start gap-6" variants={staggerItem}>
