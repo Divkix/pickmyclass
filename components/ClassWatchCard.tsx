@@ -1,16 +1,16 @@
 'use client';
 
-import { Database } from '@/lib/supabase/database.types';
-import { ClassStateIndicator } from './ClassStateIndicator';
-import { ClassDetailsDialog } from './ClassDetailsDialog';
-import { DeleteConfirmDialog } from './DeleteConfirmDialog';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Trash2, Info } from 'lucide-react';
-import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { useSwipe } from '@/lib/hooks/useSwipe';
+import { Info, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useSwipe } from '@/lib/hooks/useSwipe';
+import type { Database } from '@/lib/supabase/database.types';
+import { ClassDetailsDialog } from './ClassDetailsDialog';
+import { ClassStateIndicator } from './ClassStateIndicator';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 type ClassWatch = Database['public']['Tables']['class_watches']['Row'];
 type ClassState = Database['public']['Tables']['class_states']['Row'];

@@ -1,7 +1,6 @@
-import { verifyAdmin } from '@/lib/auth/admin';
-import { getClassWatchers } from '@/lib/db/queries';
-import { getServiceClient } from '@/lib/supabase/service';
+import { ArrowLeft, BookOpen, Calendar, Clock, MapPin, Users } from 'lucide-react';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,8 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Calendar, Clock, MapPin, Users, BookOpen } from 'lucide-react';
-import { notFound } from 'next/navigation';
+import { verifyAdmin } from '@/lib/auth/admin';
+import { getClassWatchers } from '@/lib/db/queries';
+import { getServiceClient } from '@/lib/supabase/service';
 
 interface AdminClassDetailPageProps {
   params: Promise<{

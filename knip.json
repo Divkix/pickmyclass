@@ -1,11 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": [
-    "app/**/*.{ts,tsx}",
-    "components/**/*.{ts,tsx}",
-    "lib/**/*.{ts,tsx}",
-    "worker.ts"
-  ],
+  "entry": ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}", "worker.ts"],
   "project": ["**/*.{ts,tsx,js,jsx,mjs}"],
   "ignore": [
     ".next/**",
@@ -20,12 +15,7 @@
     "scraper/**",
     "*.config.{ts,js,mjs}"
   ],
-  "ignoreDependencies": [
-    "supabase",
-    "tailwindcss",
-    "tw-animate-css",
-    "eslint-config-next"
-  ],
+  "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css", "eslint-config-next"],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false
 }

@@ -10,12 +10,7 @@
     "start": "bun dist/index.js",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": [
-    "scraper",
-    "puppeteer",
-    "asu",
-    "class-search"
-  ],
+  "keywords": ["scraper", "puppeteer", "asu", "class-search"],
   "author": "",
   "license": "ISC",
   "dependencies": {

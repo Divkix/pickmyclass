@@ -1,5 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr';
-import { Database } from './database.types';
+import type { Database } from './database.types';
 
 export function createClient() {
   // Use placeholder values during build if env vars are not available

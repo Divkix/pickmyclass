@@ -1,8 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -11,10 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
-import { UsersTableFiltersComponent, type UsersTableFilters } from './UsersTableFilters';
 import type { UserWithWatchCount } from '@/lib/db/admin-queries';
+import { type UsersTableFilters, UsersTableFiltersComponent } from './UsersTableFilters';
 
 interface UsersTableProps {
   users: UserWithWatchCount[];

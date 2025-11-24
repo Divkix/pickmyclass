@@ -6,14 +6,12 @@
  * executes cron jobs on a defined schedule.
  */
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - `.open-next/worker.js` is generated at build time
 import { default as handler } from './.open-next/worker.js';
 
 // Re-export OpenNext's internal Durable Objects (required for caching)
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - `.open-next/worker.js` is generated at build time
-export { DOQueueHandler, DOShardedTagCache, BucketCachePurge } from './.open-next/worker.js';
+export { BucketCachePurge, DOQueueHandler, DOShardedTagCache } from './.open-next/worker.js';
 
 import { DurableObject } from 'cloudflare:workers';
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';

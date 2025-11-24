@@ -1,13 +1,13 @@
 'use client';
 
+import { Lock } from 'lucide-react';
 import { useState } from 'react';
+import { Alert } from './ui/alert';
+import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Button } from './ui/button';
-import { Alert } from './ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Lock } from 'lucide-react';
 
 interface AddClassWatchProps {
   onAdd: (watch: { term: string; class_nbr: string }) => Promise<void>;

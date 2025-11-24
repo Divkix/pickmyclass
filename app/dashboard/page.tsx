@@ -1,23 +1,23 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { useAuth } from '@/lib/contexts/AuthContext';
-import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates';
-import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh';
-import { Header } from '@/components/Header';
-import { ClassWatchCard } from '@/components/ClassWatchCard';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator';
-import { Database } from '@/lib/supabase/database.types';
+import { Calendar, CheckCircle2, Eye, Plus, Search, TrendingUp, Users } from 'lucide-react';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Plus, Eye, CheckCircle2, Users, Search, TrendingUp, Calendar } from 'lucide-react';
-import { staggerContainer, staggerItem, fadeInUp } from '@/lib/animations';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ClassWatchCard } from '@/components/ClassWatchCard';
+import { Header } from '@/components/Header';
+import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator';
+import { Alert } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { fadeInUp, staggerContainer, staggerItem } from '@/lib/animations';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh';
+import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates';
+import type { Database } from '@/lib/supabase/database.types';
 
 type ClassWatch = Database['public']['Tables']['class_watches']['Row'] & {
   class_state?: Database['public']['Tables']['class_states']['Row'] | null;
@@ -81,7 +81,7 @@ export default function DashboardPage() {
     if (user) {
       fetchWatches();
     }
-  }, [user]);
+  }, [user, fetchWatches]);
 
   // Handle pull-to-refresh
   const handleRefresh = async () => {

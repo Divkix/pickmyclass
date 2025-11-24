@@ -9,8 +9,8 @@
  * Security: Verifies webhook signature from Resend
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
+import { createHmac } from 'node:crypto';
+import { type NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase/service';
 
 /**

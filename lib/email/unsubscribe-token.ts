@@ -5,7 +5,7 @@
  * Tokens are HMAC-signed to prevent tampering.
  */
 
-import { createHmac } from 'crypto';
+import { createHmac } from 'node:crypto';
 
 /**
  * Generate a secret key for HMAC signing

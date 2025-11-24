@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
   checkLockoutStatus,
-  incrementFailedAttempts,
   clearFailedAttempts,
   getRemainingLockoutTime,
+  incrementFailedAttempts,
   MAX_FAILED_ATTEMPTS,
 } from '@/lib/auth/lockout';
 import { createClient } from '@/lib/supabase/server';

@@ -1,15 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth } from '@/lib/contexts/AuthContext';
-import { Header } from '@/components/Header';
+import { redirect, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { AddClassWatch } from '@/components/AddClassWatch';
+import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft } from 'lucide-react';
-import { redirect } from 'next/navigation';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 interface ErrorResponse {
   error: string;

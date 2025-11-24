@@ -26,7 +26,6 @@
       "!**/cloudflare-env.d.ts",
       "!**/next-env.d.ts",
       "!lib/supabase/database.types.ts",
-      "!**/scraper/",
       "!**/package-lock.json",
       "!**/bun.lock",
       "!**/*.lock",
@@ -45,7 +44,33 @@
       "!**/Thumbs.db"
     ]
   },
-  "linter": { "enabled": true, "rules": { "recommended": true } },
+  "linter": {
+    "enabled": true,
+    "includes": ["**", "!cloudflare-env.d.ts"],
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noNonNullAssertion": "off",
+        "noParameterAssign": "off"
+      },
+      "suspicious": {
+        "useIterableCallbackReturn": "off",
+        "noArrayIndexKey": "warn",
+        "noExplicitAny": "warn"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "warn"
+      },
+      "a11y": {
+        "noSvgWithoutTitle": "warn",
+        "noLabelWithoutControl": "warn",
+        "useSemanticElements": "warn"
+      },
+      "complexity": {
+        "noImportantStyles": "warn"
+      }
+    }
+  },
   "javascript": {
     "formatter": {
       "jsxQuoteStyle": "double",
@@ -67,7 +92,11 @@
   },
   "overrides": [
     { "includes": ["*.css"], "formatter": { "lineWidth": 120 } },
-    { "includes": ["*.md"] }
+    { "includes": ["*.md"] },
+    {
+      "includes": ["worker.ts"],
+      "linter": { "rules": { "suspicious": { "noTsIgnore": "off" } } }
+    }
   ],
   "assist": {
     "enabled": true,

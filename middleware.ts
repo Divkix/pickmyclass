@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import type { Database } from './lib/supabase/database.types';
 
 /**
@@ -139,7 +139,7 @@ export default async function middleware(request: NextRequest) {
   const authPages = ['/login', '/register', '/forgot-password', '/reset-password'];
   const isAuthPage = authPages.some((route) => request.nextUrl.pathname.startsWith(route));
 
-  if (user && user.email_confirmed_at && isAuthPage) {
+  if (user?.email_confirmed_at && isAuthPage) {
     const redirectPath = getRedirectPath(userProfile);
     // Only redirect if not already on the target path to prevent loops
     if (request.nextUrl.pathname !== redirectPath) {
@@ -150,7 +150,7 @@ export default async function middleware(request: NextRequest) {
   }
 
   // Redirect authenticated users from home page to admin or dashboard based on role
-  if (user && user.email_confirmed_at && request.nextUrl.pathname === '/') {
+  if (user?.email_confirmed_at && request.nextUrl.pathname === '/') {
     const redirectPath = getRedirectPath(userProfile);
     const url = request.nextUrl.clone();
     url.pathname = redirectPath;
@@ -159,7 +159,7 @@ export default async function middleware(request: NextRequest) {
 
   // Redirect admin users from /dashboard to /admin
   // Regular users can access /dashboard, but admins should use /admin exclusively
-  if (user && user.email_confirmed_at && request.nextUrl.pathname.startsWith('/dashboard')) {
+  if (user?.email_confirmed_at && request.nextUrl.pathname.startsWith('/dashboard')) {
     if (userProfile?.is_admin) {
       const url = request.nextUrl.clone();
       url.pathname = '/admin';

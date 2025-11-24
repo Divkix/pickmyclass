@@ -1,8 +1,8 @@
+import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import type { Database } from '@/lib/supabase/database.types';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
-import { NextRequest, NextResponse } from 'next/server';
-import { Database } from '@/lib/supabase/database.types';
-import { z } from 'zod';
 
 type ClassState = Database['public']['Tables']['class_states']['Row'];
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { useAuth } from '@/lib/contexts/AuthContext';
 import { BottomNav } from '@/components/BottomNav';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 /**
  * Wrapper component that conditionally renders BottomNav

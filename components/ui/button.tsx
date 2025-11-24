@@ -1,12 +1,11 @@
 'use client';
 
-import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { motion, type HTMLMotionProps } from 'framer-motion';
-
-import { cn } from '@/lib/utils';
+import { type HTMLMotionProps, motion } from 'framer-motion';
+import type * as React from 'react';
 import { buttonTap } from '@/lib/animations';
+import { cn } from '@/lib/utils';
 
 type MotionButtonProps = Omit<
   HTMLMotionProps<'button'>,

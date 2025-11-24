@@ -11,10 +11,10 @@
  * Configured in: wrangler.jsonc
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { type NextRequest, NextResponse } from 'next/server';
 import { getSectionsToCheck } from '@/lib/db/queries';
 import type { ClassCheckMessage, Env } from '@/lib/types/queue';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 /**
  * Main cron handler with staggered checking
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock');
       const lockStub = env.CRON_LOCK_DO.get(lockId);
 
-      const lockResponse = await lockStub.fetch('http://do/acquire?holder=' + lockHolder, {
+      const lockResponse = await lockStub.fetch(`http://do/acquire?holder=${lockHolder}`, {
         method: 'POST',
       });
       const lockResult = (await lockResponse.json()) as {
@@ -178,7 +178,7 @@ export async function GET(request: NextRequest) {
           const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock');
           const lockStub = env.CRON_LOCK_DO.get(lockId);
 
-          await lockStub.fetch('http://do/release?holder=' + lockHolder, {
+          await lockStub.fetch(`http://do/release?holder=${lockHolder}`, {
             method: 'POST',
           });
           console.log('[Cron] Lock released');

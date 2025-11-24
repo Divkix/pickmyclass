@@ -1,6 +1,6 @@
+import { UsersTable } from '@/components/admin/UsersTable';
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getAllUsersWithWatchCount } from '@/lib/db/admin-queries';
-import { UsersTable } from '@/components/admin/UsersTable';
 
 /**
  * Admin Users List Page

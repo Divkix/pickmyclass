@@ -7,7 +7,7 @@
  * Usage: /go/asu?classNbr=29941&term=2261
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /go/[uni]?classNbr=X&term=Y

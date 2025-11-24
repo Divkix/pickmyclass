@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServiceClient } from '@/lib/supabase/service';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getServiceClient } from '@/lib/supabase/service';
 
 /**
  * API endpoint for fetching class details from section number and term.

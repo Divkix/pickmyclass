@@ -1,9 +1,9 @@
 'use client';
 
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Database } from '@/lib/supabase/database.types';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/database.types';
 
 type ClassState = Database['public']['Tables']['class_states']['Row'];
 
@@ -120,7 +120,12 @@ export function useRealtimeClassStates({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classNumbers.join(','), enabled]); // Re-subscribe when class numbers change
+  }, [
+    enabled,
+    classNumbers.join,
+    classNumbers.length, // Initial fetch
+    fetchClassStates,
+  ]); // Re-subscribe when class numbers change
 
   return {
     classStates,

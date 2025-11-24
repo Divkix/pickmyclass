@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Admin authentication verification layer.

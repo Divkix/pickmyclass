@@ -1,9 +1,9 @@
 'use client';
 
+import { BookOpen, LayoutDashboard, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, BookOpen, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**

@@ -10,7 +10,7 @@
  * NEVER expose this client or the service_role key to the browser.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
 /**

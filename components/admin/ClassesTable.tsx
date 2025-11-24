@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { ChevronDown, ChevronsUpDown, ChevronUp, Clock, Users } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -12,9 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Users, Clock, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
-import { ClassesTableFiltersComponent, type ClassesTableFilters } from './ClassesTableFilters';
 import type { ClassWithWatchers } from '@/lib/db/admin-queries';
+import { type ClassesTableFilters, ClassesTableFiltersComponent } from './ClassesTableFilters';
 
 interface ClassesTableProps {
   classes: ClassWithWatchers[];

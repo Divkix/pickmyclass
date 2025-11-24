@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { LayoutDashboard, Shield } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth } from '@/lib/contexts/AuthContext';
-import { createClient } from '@/lib/supabase/client';
+import { useEffect, useState } from 'react';
 import AuthButton from '@/components/AuthButton';
+import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
-import { Logo } from '@/components/Logo';
-import { LayoutDashboard, Shield } from 'lucide-react';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
 
 export function Header() {
   const { user, loading } = useAuth();

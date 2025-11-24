@@ -12,33 +12,33 @@
     "nodejs_compat",
     // Allow to fetch URLs in your app
     // see https://developers.cloudflare.com/workers/configuration/compatibility-flags/#global-fetch-strictly-public
-    "global_fetch_strictly_public",
+    "global_fetch_strictly_public"
   ],
   "assets": {
     "directory": ".open-next/assets",
-    "binding": "ASSETS",
+    "binding": "ASSETS"
   },
   "placement": {
-    "mode": "smart",
+    "mode": "smart"
   },
   "routes": [
     {
       "pattern": "pickmyclass.app",
-      "custom_domain": true,
-    },
+      "custom_domain": true
+    }
   ],
   // IMPORTANT: Cron triggers require explicit deployment via 'wrangler triggers deploy'
   // This is automatically included in 'bun run deploy' script
   // Schedule: Every 30 minutes at :00 (even class numbers) and :30 (odd class numbers)
   "triggers": {
-    "crons": ["0,30 * * * *"],
+    "crons": ["0,30 * * * *"]
   },
   "queues": {
     "producers": [
       {
         "binding": "CLASS_CHECK_QUEUE",
-        "queue": "class-check-queue",
-      },
+        "queue": "class-check-queue"
+      }
     ],
     "consumers": [
       {
@@ -46,35 +46,35 @@
         "max_batch_size": 5,
         "max_batch_timeout": 30,
         "max_retries": 3,
-        "dead_letter_queue": "class-check-dlq",
-      },
-    ],
+        "dead_letter_queue": "class-check-dlq"
+      }
+    ]
   },
   "durable_objects": {
     "bindings": [
       {
         "name": "CIRCUIT_BREAKER_DO",
         "class_name": "CircuitBreakerDO",
-        "script_name": "pickmyclass",
+        "script_name": "pickmyclass"
       },
       {
         "name": "CRON_LOCK_DO",
         "class_name": "CronLockDO",
-        "script_name": "pickmyclass",
-      },
-    ],
+        "script_name": "pickmyclass"
+      }
+    ]
   },
   // Durable Objects migrations
   // This declares the CircuitBreakerDO and CronLockDO classes and makes them available
   "migrations": [
     {
       "tag": "v1",
-      "new_classes": ["CircuitBreakerDO"],
+      "new_classes": ["CircuitBreakerDO"]
     },
     {
       "tag": "v2",
-      "new_classes": ["CronLockDO"],
-    },
+      "new_classes": ["CronLockDO"]
+    }
   ],
   "observability": {
     "enabled": true,
@@ -83,8 +83,8 @@
       "enabled": true,
       "head_sampling_rate": 1,
       "persist": true,
-      "invocation_logs": true,
-    },
+      "invocation_logs": true
+    }
   },
   "vars": {
     "MAX_WATCHES_PER_USER": "10",
@@ -92,8 +92,8 @@
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
     "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app",
     "NEXT_PUBLIC_SUPABASE_URL": "https://osopxwuebsefhoxgeojh.supabase.co",
-    "SCRAPER_URL": "https://pickmyclass-scraper.divkix.me",
-  },
+    "SCRAPER_URL": "https://pickmyclass-scraper.divkix.me"
+  }
   // IMPORTANT: Set these secrets via Cloudflare Dashboard (Workers & Pages → Settings → Variables → Encrypt):
   // - NEXT_PUBLIC_SUPABASE_ANON_KEY
   // - SUPABASE_SERVICE_ROLE_KEY

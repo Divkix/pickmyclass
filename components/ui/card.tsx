@@ -1,10 +1,9 @@
 'use client';
 
-import * as React from 'react';
-import { motion, type HTMLMotionProps } from 'framer-motion';
-
-import { cn } from '@/lib/utils';
+import { type HTMLMotionProps, motion } from 'framer-motion';
+import type * as React from 'react';
 import { cardHover } from '@/lib/animations';
+import { cn } from '@/lib/utils';
 
 type MotionDivProps = Omit<HTMLMotionProps<'div'>, 'onDrag' | 'onDragStart' | 'onDragEnd'>;
 

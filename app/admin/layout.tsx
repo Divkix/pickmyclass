@@ -1,12 +1,12 @@
-import { verifyAdmin } from '@/lib/auth/admin';
+import { BookOpen, LayoutDashboard, Shield, Users } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { SignOutButton } from '@/components/admin/SignOutButton';
 import { Logo } from '@/components/Logo';
-import { LayoutDashboard, BookOpen, Users, Shield } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Button } from '@/components/ui/button';
+import { verifyAdmin } from '@/lib/auth/admin';
 import { createClient } from '@/lib/supabase/server';
 import { AdminNavigation } from './AdminNavigation';
-import { SignOutButton } from '@/components/admin/SignOutButton';
 
 interface AdminLayoutProps {
   children: React.ReactNode;

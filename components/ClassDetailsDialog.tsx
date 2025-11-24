@@ -1,10 +1,10 @@
 'use client';
 
-import { Database } from '@/lib/supabase/database.types';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
-import { Button } from './ui/button';
 import { ExternalLink } from 'lucide-react';
+import type { Database } from '@/lib/supabase/database.types';
 import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor';
+import { Button } from './ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 
 type ClassWatch = Database['public']['Tables']['class_watches']['Row'];
 type ClassState = Database['public']['Tables']['class_states']['Row'];

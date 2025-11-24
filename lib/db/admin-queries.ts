@@ -7,9 +7,9 @@
  * @module lib/db/admin-queries
  */
 
-import { getServiceClient } from '@/lib/supabase/service';
-import type { Tables } from '@/lib/supabase/database.types';
 import type { User } from '@supabase/supabase-js';
+import type { Tables } from '@/lib/supabase/database.types';
+import { getServiceClient } from '@/lib/supabase/service';
 
 /**
  * Class state with aggregated watcher count

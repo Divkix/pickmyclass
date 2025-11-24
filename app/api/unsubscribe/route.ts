@@ -5,10 +5,10 @@
  * Accepts signed tokens to verify authenticity.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token';
 import { getServiceClient } from '@/lib/supabase/service';
-import { z } from 'zod';
 
 /**
  * Validation schema for token query parameter

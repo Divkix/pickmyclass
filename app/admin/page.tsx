@@ -1,12 +1,12 @@
+import { Activity, Clock, Eye, Mail, TrendingUp, Users } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { verifyAdmin } from '@/lib/auth/admin';
 import {
+  getAdminCount,
+  getTotalClassesWatched,
   getTotalEmailsSent,
   getTotalUsers,
-  getTotalClassesWatched,
-  getAdminCount,
 } from '@/lib/db/admin-queries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, Users, Eye, Activity, TrendingUp, Clock } from 'lucide-react';
 
 /**
  * Admin Dashboard Page

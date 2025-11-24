@@ -1,12 +1,12 @@
 'use client';
 
-import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Bell, Clock, Eye, Sparkles, Mail, TrendingUp } from 'lucide-react';
+import { Bell, Clock, Eye, Mail, Sparkles, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { staggerContainer, staggerItem, scaleInSpring } from '@/lib/animations';
+import { scaleInSpring, staggerContainer, staggerItem } from '@/lib/animations';
 
 export default function Home() {
   return (

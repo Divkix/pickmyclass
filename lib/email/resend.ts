@@ -6,7 +6,7 @@
  */
 
 import { Resend } from 'resend';
-import { SeatAvailableEmailTemplate, InstructorAssignedEmailTemplate } from './templates';
+import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from './templates';
 import { generateUnsubscribeUrl } from './unsubscribe-token';
 
 /**

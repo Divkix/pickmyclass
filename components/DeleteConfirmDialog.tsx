@@ -1,5 +1,7 @@
 'use client';
 
+import { AlertTriangle } from 'lucide-react';
+import { Button } from './ui/button';
 import {
   Dialog,
   DialogContent,
@@ -8,8 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { Button } from './ui/button';
-import { AlertTriangle } from 'lucide-react';
 
 interface DeleteConfirmDialogProps {
   open: boolean;

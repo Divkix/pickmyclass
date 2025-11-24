@@ -5,11 +5,11 @@
  * It processes a single section: scrape → detect changes → send emails → update DB
  */
 
-import { NextRequest, NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { type NextRequest, NextResponse } from 'next/server';
+import { resetNotificationsForSection, tryRecordNotification } from '@/lib/db/queries';
+import { type ClassInfo, sendBatchEmailsOptimized } from '@/lib/email/resend';
 import { getServiceClient } from '@/lib/supabase/service';
-import { tryRecordNotification, resetNotificationsForSection } from '@/lib/db/queries';
-import { sendBatchEmailsOptimized, type ClassInfo } from '@/lib/email/resend';
 import type { ClassCheckMessage } from '@/lib/types/queue';
 
 /**

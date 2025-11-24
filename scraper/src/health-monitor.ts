@@ -10,25 +10,25 @@
 
 export interface HealthMetrics {
   memoryUsage: {
-    rss: number // Resident Set Size (total memory)
-    heapUsed: number // Heap memory used
-    heapTotal: number // Heap memory allocated
-    external: number // External memory (buffers, etc.)
-  }
-  uptime: number // Process uptime in seconds
-  timestamp: number // Current timestamp
+    rss: number; // Resident Set Size (total memory)
+    heapUsed: number; // Heap memory used
+    heapTotal: number; // Heap memory allocated
+    external: number; // External memory (buffers, etc.)
+  };
+  uptime: number; // Process uptime in seconds
+  timestamp: number; // Current timestamp
 }
 
 export interface HealthMonitorOptions {
-  checkInterval: number // How often to run health checks (ms)
-  memoryLeakThreshold: number // Memory growth rate threshold (MB/min)
-  onUnhealthy?: (reason: string, metrics: HealthMetrics) => void // Callback for unhealthy state
+  checkInterval: number; // How often to run health checks (ms)
+  memoryLeakThreshold: number; // Memory growth rate threshold (MB/min)
+  onUnhealthy?: (reason: string, metrics: HealthMetrics) => void; // Callback for unhealthy state
 }
 
 export class HealthMonitor {
-  private intervalId: NodeJS.Timeout | null = null
-  private lastMemoryCheck: { time: number; rss: number } | null = null
-  private lastMetrics: HealthMetrics | null = null
+  private intervalId: NodeJS.Timeout | null = null;
+  private lastMemoryCheck: { time: number; rss: number } | null = null;
+  private lastMetrics: HealthMetrics | null = null;
 
   constructor(private options: HealthMonitorOptions) {}
 
@@ -37,20 +37,20 @@ export class HealthMonitor {
    */
   start(): void {
     if (this.intervalId) {
-      console.log('[HealthMonitor] Already running')
-      return
+      console.log('[HealthMonitor] Already running');
+      return;
     }
 
     console.log(
       `[HealthMonitor] Starting health checks every ${this.options.checkInterval / 1000}s`
-    )
+    );
 
     this.intervalId = setInterval(() => {
-      this.runHealthCheck()
-    }, this.options.checkInterval)
+      this.runHealthCheck();
+    }, this.options.checkInterval);
 
     // Run initial health check
-    this.runHealthCheck()
+    this.runHealthCheck();
   }
 
   /**
@@ -58,9 +58,9 @@ export class HealthMonitor {
    */
   stop(): void {
     if (this.intervalId) {
-      clearInterval(this.intervalId)
-      this.intervalId = null
-      console.log('[HealthMonitor] Stopped health monitoring')
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+      console.log('[HealthMonitor] Stopped health monitoring');
     }
   }
 
@@ -68,21 +68,21 @@ export class HealthMonitor {
    * Run a health check
    */
   private runHealthCheck(): void {
-    const metrics = this.collectMetrics()
-    this.lastMetrics = metrics
+    const metrics = this.collectMetrics();
+    this.lastMetrics = metrics;
 
     // Check for memory leaks
-    this.checkMemoryLeak(metrics)
+    this.checkMemoryLeak(metrics);
 
     // Log health status
-    this.logHealthStatus(metrics)
+    this.logHealthStatus(metrics);
   }
 
   /**
    * Collect current health metrics
    */
   private collectMetrics(): HealthMetrics {
-    const memUsage = process.memoryUsage()
+    const memUsage = process.memoryUsage();
 
     return {
       memoryUsage: {
@@ -93,7 +93,7 @@ export class HealthMonitor {
       },
       uptime: Math.round(process.uptime()),
       timestamp: Date.now(),
-    }
+    };
   }
 
   /**
@@ -105,22 +105,22 @@ export class HealthMonitor {
       this.lastMemoryCheck = {
         time: metrics.timestamp,
         rss: metrics.memoryUsage.rss,
-      }
-      return
+      };
+      return;
     }
 
-    const timeDiffMs = metrics.timestamp - this.lastMemoryCheck.time
-    const memDiffMb = metrics.memoryUsage.rss - this.lastMemoryCheck.rss
+    const timeDiffMs = metrics.timestamp - this.lastMemoryCheck.time;
+    const memDiffMb = metrics.memoryUsage.rss - this.lastMemoryCheck.rss;
 
     // Calculate memory growth rate (MB/min)
-    const memoryGrowthRate = (memDiffMb / timeDiffMs) * 60000
+    const memoryGrowthRate = (memDiffMb / timeDiffMs) * 60000;
 
     if (memoryGrowthRate > this.options.memoryLeakThreshold) {
-      const reason = `Memory leak detected: growing at ${memoryGrowthRate.toFixed(2)} MB/min (threshold: ${this.options.memoryLeakThreshold} MB/min)`
-      console.warn(`[HealthMonitor] ⚠️  ${reason}`)
+      const reason = `Memory leak detected: growing at ${memoryGrowthRate.toFixed(2)} MB/min (threshold: ${this.options.memoryLeakThreshold} MB/min)`;
+      console.warn(`[HealthMonitor] ⚠️  ${reason}`);
 
       if (this.options.onUnhealthy) {
-        this.options.onUnhealthy(reason, metrics)
+        this.options.onUnhealthy(reason, metrics);
       }
     }
 
@@ -128,48 +128,48 @@ export class HealthMonitor {
     this.lastMemoryCheck = {
       time: metrics.timestamp,
       rss: metrics.memoryUsage.rss,
-    }
+    };
   }
 
   /**
    * Log current health status
    */
   private logHealthStatus(metrics: HealthMetrics): void {
-    const { memoryUsage, uptime } = metrics
+    const { memoryUsage, uptime } = metrics;
 
     console.log(
       `[HealthMonitor] Memory: ${memoryUsage.rss}MB RSS, ${memoryUsage.heapUsed}/${memoryUsage.heapTotal}MB heap | Uptime: ${uptime}s`
-    )
+    );
   }
 
   /**
    * Get last collected metrics
    */
   getLastMetrics(): HealthMetrics | null {
-    return this.lastMetrics
+    return this.lastMetrics;
   }
 
   /**
    * Get current metrics (real-time)
    */
   getCurrentMetrics(): HealthMetrics {
-    return this.collectMetrics()
+    return this.collectMetrics();
   }
 
   /**
    * Check if system is healthy
    */
   isHealthy(maxMemoryMb: number = 1800): boolean {
-    const metrics = this.getCurrentMetrics()
+    const metrics = this.getCurrentMetrics();
 
     // Check memory usage (80% of max)
     if (metrics.memoryUsage.rss > maxMemoryMb * 0.8) {
       console.warn(
         `[HealthMonitor] Memory usage high: ${metrics.memoryUsage.rss}MB / ${maxMemoryMb}MB (${Math.round((metrics.memoryUsage.rss / maxMemoryMb) * 100)}%)`
-      )
-      return false
+      );
+      return false;
     }
 
-    return true
+    return true;
   }
 }

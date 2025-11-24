@@ -74,7 +74,7 @@ export async function getBulkClassWatchers(
     if (!watcherMap.has(class_nbr)) {
       watcherMap.set(class_nbr, []);
     }
-    watcherMap.get(class_nbr)!.push(watcherData);
+    watcherMap.get(class_nbr)?.push(watcherData);
   }
 
   console.log(

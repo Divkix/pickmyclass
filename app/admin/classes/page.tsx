@@ -1,7 +1,7 @@
+import { ClassesTable } from '@/components/admin/ClassesTable';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getAllClassesWithWatchers } from '@/lib/db/admin-queries';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ClassesTable } from '@/components/admin/ClassesTable';
 
 /**
  * Admin Classes List Page

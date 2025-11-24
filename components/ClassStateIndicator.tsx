@@ -1,5 +1,5 @@
-import { Database } from '@/lib/supabase/database.types';
-import { ExternalLink, CheckCircle, AlertCircle, XCircle, HelpCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, ExternalLink, HelpCircle, XCircle } from 'lucide-react';
+import type { Database } from '@/lib/supabase/database.types';
 import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor';
 
 type ClassState = Database['public']['Tables']['class_states']['Row'];

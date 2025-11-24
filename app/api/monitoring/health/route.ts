@@ -4,8 +4,8 @@
  * Provides real-time system status including circuit breakers, database, and scraper.
  */
 
-import { NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase/service';
 
 /**

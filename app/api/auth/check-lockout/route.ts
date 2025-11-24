@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { checkLockoutStatus, getRemainingLockoutTime } from '@/lib/auth/lockout';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { checkLockoutStatus, getRemainingLockoutTime } from '@/lib/auth/lockout';
 
 /**
  * Validation schema

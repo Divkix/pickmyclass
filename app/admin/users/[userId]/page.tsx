@@ -1,9 +1,9 @@
-import { verifyAdmin } from '@/lib/auth/admin';
-import { getUserWatches } from '@/lib/db/admin-queries';
-import { getServiceClient } from '@/lib/supabase/service';
+import { ArrowLeft, Calendar, Clock, Eye, Mail, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -12,9 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Mail, Calendar, Shield, Eye, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { verifyAdmin } from '@/lib/auth/admin';
+import { getUserWatches } from '@/lib/db/admin-queries';
+import { getServiceClient } from '@/lib/supabase/service';
 
 interface AdminUserDetailPageProps {
   params: Promise<{
