@@ -1,25 +1,19 @@
-'use client'
+'use client';
 
-import { Database } from '@/lib/supabase/database.types'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog'
-import { Button } from './ui/button'
-import { ExternalLink } from 'lucide-react'
-import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor'
+import { Database } from '@/lib/supabase/database.types';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import { Button } from './ui/button';
+import { ExternalLink } from 'lucide-react';
+import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor';
 
-type ClassWatch = Database['public']['Tables']['class_watches']['Row']
-type ClassState = Database['public']['Tables']['class_states']['Row']
+type ClassWatch = Database['public']['Tables']['class_watches']['Row'];
+type ClassState = Database['public']['Tables']['class_states']['Row'];
 
 interface ClassDetailsDialogProps {
-  watch: ClassWatch
-  classState: ClassState | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  watch: ClassWatch;
+  classState: ClassState | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 export function ClassDetailsDialog({
@@ -28,9 +22,8 @@ export function ClassDetailsDialog({
   open,
   onOpenChange,
 }: ClassDetailsDialogProps) {
-  const hasInstructor =
-    classState?.instructor_name && classState.instructor_name !== 'Staff'
-  const rmpUrl = getRateMyProfessorUrl(classState?.instructor_name)
+  const hasInstructor = classState?.instructor_name && classState.instructor_name !== 'Staff';
+  const rmpUrl = getRateMyProfessorUrl(classState?.instructor_name);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,9 +42,7 @@ export function ClassDetailsDialog({
           {/* Seat Information */}
           {classState && (
             <div className="space-y-2">
-              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-                Seat Availability
-              </h3>
+              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Seat Availability</h3>
               <div className="bg-zinc-50 dark:bg-zinc-900 rounded-md p-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -68,9 +59,7 @@ export function ClassDetailsDialog({
                   </div>
                   {classState.non_reserved_seats !== null && (
                     <div className="col-span-2">
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                        Non-Reserved Seats
-                      </p>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400">Non-Reserved Seats</p>
                       <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                         {classState.non_reserved_seats}
                       </p>
@@ -95,11 +84,7 @@ export function ClassDetailsDialog({
                 {classState?.instructor_name || 'TBA'}
               </p>
               {isValidProfessorName(classState?.instructor_name) && rmpUrl && (
-                <Button
-                  variant="outline"
-                  className="mt-3"
-                  asChild
-                >
+                <Button variant="outline" className="mt-3" asChild>
                   <a
                     href={rmpUrl}
                     target="_blank"
@@ -114,7 +99,8 @@ export function ClassDetailsDialog({
               )}
               {!hasInstructor && (
                 <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
-                  Instructor has not been assigned yet. You&apos;ll be notified when one is assigned.
+                  Instructor has not been assigned yet. You&apos;ll be notified when one is
+                  assigned.
                 </p>
               )}
             </div>
@@ -152,5 +138,5 @@ export function ClassDetailsDialog({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

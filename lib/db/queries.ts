@@ -4,17 +4,17 @@
  * Reusable database queries for common operations.
  */
 
-import { getServiceClient } from '@/lib/supabase/service'
+import { getServiceClient } from '@/lib/supabase/service';
 
 /**
  * User watching a class section
  */
 export interface ClassWatcher {
-  user_id: string
-  email: string
-  watch_id: string
-  created_at?: string // Optional for backward compatibility
-  class_nbr?: string // Added for bulk fetching
+  user_id: string;
+  email: string;
+  watch_id: string;
+  created_at?: string; // Optional for backward compatibility
+  class_nbr?: string; // Added for bulk fetching
 }
 
 /**
@@ -24,20 +24,20 @@ export interface ClassWatcher {
  * @returns Array of watchers with email addresses and creation timestamps
  */
 export async function getClassWatchers(classNbr: string): Promise<ClassWatcher[]> {
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   // Call PostgreSQL function that joins class_watches with auth.users
   // SECURITY DEFINER allows accessing auth.users from service role context
   const { data, error } = await supabase.rpc('get_class_watchers', {
     section_number: classNbr,
-  })
+  });
 
   if (error) {
-    console.error(`[DB] Error fetching watchers for section ${classNbr}:`, error)
-    throw new Error(`Failed to fetch watchers: ${error.message}`)
+    console.error(`[DB] Error fetching watchers for section ${classNbr}:`, error);
+    throw new Error(`Failed to fetch watchers: ${error.message}`);
   }
 
-  return data || []
+  return data || [];
 }
 
 /**
@@ -50,38 +50,38 @@ export async function getClassWatchers(classNbr: string): Promise<ClassWatcher[]
 export async function getBulkClassWatchers(
   classNumbers: string[]
 ): Promise<Map<string, ClassWatcher[]>> {
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   if (classNumbers.length === 0) {
-    return new Map()
+    return new Map();
   }
 
   // Call PostgreSQL function that bulk fetches watchers for multiple sections
   const { data, error } = await supabase.rpc('get_watchers_for_sections', {
     section_numbers: classNumbers,
-  })
+  });
 
   if (error) {
-    console.error(`[DB] Error bulk fetching watchers:`, error)
-    throw new Error(`Failed to bulk fetch watchers: ${error.message}`)
+    console.error(`[DB] Error bulk fetching watchers:`, error);
+    throw new Error(`Failed to bulk fetch watchers: ${error.message}`);
   }
 
   // Group watchers by section number
-  const watcherMap = new Map<string, ClassWatcher[]>()
+  const watcherMap = new Map<string, ClassWatcher[]>();
 
   for (const watcher of data || []) {
-    const { class_nbr, ...watcherData } = watcher
+    const { class_nbr, ...watcherData } = watcher;
     if (!watcherMap.has(class_nbr)) {
-      watcherMap.set(class_nbr, [])
+      watcherMap.set(class_nbr, []);
     }
-    watcherMap.get(class_nbr)!.push(watcherData)
+    watcherMap.get(class_nbr)!.push(watcherData);
   }
 
   console.log(
     `[DB] Bulk fetched watchers for ${classNumbers.length} sections (total: ${data?.length || 0} watchers)`
-  )
+  );
 
-  return watcherMap
+  return watcherMap;
 }
 
 /**
@@ -94,20 +94,20 @@ export async function getBulkClassWatchers(
 export async function getSectionsToCheck(
   staggerType: 'even' | 'odd' | 'all' = 'all'
 ): Promise<Array<{ class_nbr: string; term: string }>> {
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   const { data, error } = await supabase.rpc('get_sections_to_check', {
     stagger_type: staggerType,
-  })
+  });
 
   if (error) {
-    console.error(`[DB] Error fetching sections to check:`, error)
-    throw new Error(`Failed to fetch sections: ${error.message}`)
+    console.error(`[DB] Error fetching sections to check:`, error);
+    throw new Error(`Failed to fetch sections: ${error.message}`);
   }
 
-  console.log(`[DB] Found ${data?.length || 0} sections to check (stagger: ${staggerType})`)
+  console.log(`[DB] Found ${data?.length || 0} sections to check (stagger: ${staggerType})`);
 
-  return data || []
+  return data || [];
 }
 
 /**
@@ -139,34 +139,33 @@ export async function tryRecordNotification(
   notificationType: 'seat_available' | 'instructor_assigned',
   expiresHours: number = 24
 ): Promise<boolean> {
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   const { data, error } = await supabase.rpc('try_record_notification', {
     p_class_watch_id: watchId,
     p_notification_type: notificationType,
     p_expires_hours: expiresHours,
-  })
+  });
 
   if (error) {
-    console.error('[DB] Error in atomic notification check:', error)
-    throw new Error(`Failed to record notification: ${error.message}`)
+    console.error('[DB] Error in atomic notification check:', error);
+    throw new Error(`Failed to record notification: ${error.message}`);
   }
 
-  const wasRecorded = data === true
+  const wasRecorded = data === true;
 
   if (wasRecorded) {
     console.log(
       `[DB] ✅ Recorded ${notificationType} notification for watch ${watchId} (expires in ${expiresHours}h)`
-    )
+    );
   } else {
     console.log(
       `[DB] ⏭️  Skipped ${notificationType} notification for watch ${watchId} (already sent)`
-    )
+    );
   }
 
-  return wasRecorded
+  return wasRecorded;
 }
-
 
 /**
  * Reset seat_available notifications for a specific class section
@@ -180,39 +179,39 @@ export async function resetNotificationsForSection(
   classNbr: string,
   notificationType: 'seat_available' | 'instructor_assigned' = 'seat_available'
 ): Promise<void> {
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   // Get all watch IDs for this section
   const { data: watches, error: watchError } = await supabase
     .from('class_watches')
     .select('id')
-    .eq('class_nbr', classNbr)
+    .eq('class_nbr', classNbr);
 
   if (watchError) {
-    console.error(`[DB] Error fetching watches for reset:`, watchError)
-    throw new Error(`Failed to fetch watches: ${watchError.message}`)
+    console.error(`[DB] Error fetching watches for reset:`, watchError);
+    throw new Error(`Failed to fetch watches: ${watchError.message}`);
   }
 
   if (!watches || watches.length === 0) {
-    console.log(`[DB] No watches found for section ${classNbr}, nothing to reset`)
-    return
+    console.log(`[DB] No watches found for section ${classNbr}, nothing to reset`);
+    return;
   }
 
-  const watchIds = watches.map((w) => w.id)
+  const watchIds = watches.map((w) => w.id);
 
   // Delete notification records for all watchers of this section
   const { error: deleteError } = await supabase
     .from('notifications_sent')
     .delete()
     .in('class_watch_id', watchIds)
-    .eq('notification_type', notificationType)
+    .eq('notification_type', notificationType);
 
   if (deleteError) {
-    console.error('[DB] Error resetting notifications:', deleteError)
-    throw new Error(`Failed to reset notifications: ${deleteError.message}`)
+    console.error('[DB] Error resetting notifications:', deleteError);
+    throw new Error(`Failed to reset notifications: ${deleteError.message}`);
   }
 
   console.log(
     `[DB] Reset ${notificationType} notifications for ${watchIds.length} watchers of section ${classNbr}`
-  )
+  );
 }

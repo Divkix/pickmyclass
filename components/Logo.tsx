@@ -1,36 +1,32 @@
-"use client";
+'use client';
 
-import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface LogoProps {
-  variant?: "full" | "icon";
-  size?: "sm" | "md" | "lg";
+  variant?: 'full' | 'icon';
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
   animated?: boolean;
 }
 
 const sizeClasses = {
-  sm: "h-8",
-  md: "h-10",
-  lg: "h-12",
+  sm: 'h-8',
+  md: 'h-10',
+  lg: 'h-12',
 };
 
-export function Logo({ variant = "full", size = "md", className, animated = false }: LogoProps) {
+export function Logo({ variant = 'full', size = 'md', className, animated = false }: LogoProps) {
   const iconContent = (
     <svg
       viewBox="0 0 40 40"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn(sizeClasses[size], "w-auto", className)}
+      className={cn(sizeClasses[size], 'w-auto', className)}
       aria-label="PickMyClass Logo"
     >
       {/* Graduation Cap Base */}
-      <path
-        d="M20 8L4 14L20 20L36 14L20 8Z"
-        className="fill-primary"
-        opacity="0.9"
-      />
+      <path d="M20 8L4 14L20 20L36 14L20 8Z" className="fill-primary" opacity="0.9" />
       <path
         d="M20 20L8 15V22C8 24.2091 13.3726 26 20 26C26.6274 26 32 24.2091 32 22V15L20 20Z"
         className="fill-primary"
@@ -39,12 +35,7 @@ export function Logo({ variant = "full", size = "md", className, animated = fals
 
       {/* Tassel */}
       <circle cx="20" cy="8" r="1.5" className="fill-accent" />
-      <path
-        d="M20 8V12"
-        className="stroke-accent"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
+      <path d="M20 8V12" className="stroke-accent" strokeWidth="1.5" strokeLinecap="round" />
 
       {/* Notification Bell - positioned top right */}
       <g transform="translate(26, 4)">
@@ -70,10 +61,10 @@ export function Logo({ variant = "full", size = "md", className, animated = fals
         className="flex items-center"
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
       >
         {iconContent}
-        {variant === "full" && wordmark}
+        {variant === 'full' && wordmark}
       </motion.div>
     );
   }
@@ -81,7 +72,7 @@ export function Logo({ variant = "full", size = "md", className, animated = fals
   return (
     <div className="flex items-center">
       {iconContent}
-      {variant === "full" && wordmark}
+      {variant === 'full' && wordmark}
     </div>
   );
 }

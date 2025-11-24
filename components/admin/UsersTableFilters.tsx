@@ -1,26 +1,26 @@
-'use client'
+'use client';
 
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Search, X } from 'lucide-react'
+} from '@/components/ui/select';
+import { Search, X } from 'lucide-react';
 
 export interface UsersTableFilters {
-  search: string
-  role: 'all' | 'admin' | 'user'
-  verified: 'all' | 'verified' | 'unverified'
-  watchCount: 'all' | 'none' | '1-5' | '6-10' | '10+'
+  search: string;
+  role: 'all' | 'admin' | 'user';
+  verified: 'all' | 'verified' | 'unverified';
+  watchCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
 }
 
 interface UsersTableFiltersProps {
-  filters: UsersTableFilters
-  onFiltersChange: (filters: UsersTableFilters) => void
+  filters: UsersTableFilters;
+  onFiltersChange: (filters: UsersTableFilters) => void;
 }
 
 /**
@@ -32,17 +32,11 @@ interface UsersTableFiltersProps {
  * - Filter by email verification status
  * - Filter by watch count ranges
  */
-export function UsersTableFiltersComponent({
-  filters,
-  onFiltersChange,
-}: UsersTableFiltersProps) {
+export function UsersTableFiltersComponent({ filters, onFiltersChange }: UsersTableFiltersProps) {
   // Update a single filter field
-  const updateFilter = <K extends keyof UsersTableFilters>(
-    key: K,
-    value: UsersTableFilters[K]
-  ) => {
-    onFiltersChange({ ...filters, [key]: value })
-  }
+  const updateFilter = <K extends keyof UsersTableFilters>(key: K, value: UsersTableFilters[K]) => {
+    onFiltersChange({ ...filters, [key]: value });
+  };
 
   // Reset all filters to defaults
   const clearFilters = () => {
@@ -51,15 +45,15 @@ export function UsersTableFiltersComponent({
       role: 'all',
       verified: 'all',
       watchCount: 'all',
-    })
-  }
+    });
+  };
 
   // Check if any filters are active
   const hasActiveFilters =
     filters.search !== '' ||
     filters.role !== 'all' ||
     filters.verified !== 'all' ||
-    filters.watchCount !== 'all'
+    filters.watchCount !== 'all';
 
   return (
     <div className="space-y-4">
@@ -130,20 +124,13 @@ export function UsersTableFiltersComponent({
       {/* Clear Filters Button */}
       {hasActiveFilters && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Filters active
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-            className="h-8 gap-1.5"
-          >
+          <p className="text-sm text-muted-foreground">Filters active</p>
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 gap-1.5">
             <X className="size-4" />
             Clear Filters
           </Button>
         </div>
       )}
     </div>
-  )
+  );
 }

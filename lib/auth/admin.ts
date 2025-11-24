@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import type { User } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import type { User } from '@supabase/supabase-js';
 
 /**
  * Admin authentication verification layer.
@@ -24,17 +24,17 @@ import type { User } from '@supabase/supabase-js'
  * ```
  */
 export async function verifyAdmin(): Promise<User> {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   // Check if user is authenticated
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (authError || !user) {
     // Not authenticated - redirect to login
-    redirect('/login')
+    redirect('/login');
   }
 
   // Check if user has admin privileges in user_profiles table
@@ -42,19 +42,19 @@ export async function verifyAdmin(): Promise<User> {
     .from('user_profiles')
     .select('is_admin')
     .eq('user_id', user.id)
-    .single()
+    .single();
 
   if (profileError) {
     // Profile doesn't exist or database error - treat as non-admin
-    console.error('Error fetching user profile:', profileError)
-    redirect('/dashboard')
+    console.error('Error fetching user profile:', profileError);
+    redirect('/dashboard');
   }
 
   if (!profile?.is_admin) {
     // User is authenticated but not an admin
-    redirect('/dashboard')
+    redirect('/dashboard');
   }
 
   // User is authenticated and verified as admin
-  return user
+  return user;
 }

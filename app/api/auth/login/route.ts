@@ -1,23 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   checkLockoutStatus,
   incrementFailedAttempts,
   clearFailedAttempts,
   getRemainingLockoutTime,
   MAX_FAILED_ATTEMPTS,
-} from '@/lib/auth/lockout'
-import { createClient } from '@/lib/supabase/server'
+} from '@/lib/auth/lockout';
+import { createClient } from '@/lib/supabase/server';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
   password: z.string().min(1, 'Password is required'),
-})
+});
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const validation = loginSchema.safeParse(body)
+    const body = await request.json();
+    const validation = loginSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
@@ -29,37 +29,36 @@ export async function POST(request: NextRequest) {
           })),
         },
         { status: 400 }
-      )
+      );
     }
 
-    const email = validation.data.email.toLowerCase()
-    const password = validation.data.password
+    const email = validation.data.email.toLowerCase();
+    const password = validation.data.password;
 
-    const lockoutStatus = await checkLockoutStatus(email)
+    const lockoutStatus = await checkLockoutStatus(email);
 
     if (lockoutStatus.isLocked) {
       return NextResponse.json(
         {
-          error:
-            'Account locked due to too many failed login attempts. Please try again later.',
+          error: 'Account locked due to too many failed login attempts. Please try again later.',
           isLocked: true,
           remainingMinutes: getRemainingLockoutTime(lockoutStatus.lockedUntil),
         },
         { status: 423 }
-      )
+      );
     }
 
-    const supabase = await createClient()
+    const supabase = await createClient();
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
-    })
+    });
 
     if (error || !data?.user) {
-      await incrementFailedAttempts(email)
-      const updatedStatus = await checkLockoutStatus(email)
-      const attempts = updatedStatus.attempts ?? 0
-      const remainingAttempts = Math.max(0, MAX_FAILED_ATTEMPTS - attempts)
+      await incrementFailedAttempts(email);
+      const updatedStatus = await checkLockoutStatus(email);
+      const attempts = updatedStatus.attempts ?? 0;
+      const remainingAttempts = Math.max(0, MAX_FAILED_ATTEMPTS - attempts);
 
       return NextResponse.json(
         {
@@ -73,14 +72,14 @@ export async function POST(request: NextRequest) {
             : undefined,
         },
         { status: updatedStatus.isLocked ? 423 : 401 }
-      )
+      );
     }
 
-    await clearFailedAttempts(email)
+    await clearFailedAttempts(email);
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[Auth Login] Unexpected error:', err)
-    return NextResponse.json({ error: 'Failed to sign in' }, { status: 500 })
+    console.error('[Auth Login] Unexpected error:', err);
+    return NextResponse.json({ error: 'Failed to sign in' }, { status: 500 });
   }
 }

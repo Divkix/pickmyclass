@@ -1,9 +1,9 @@
-import { verifyAdmin } from '@/lib/auth/admin'
-import { getUserWatches } from '@/lib/db/admin-queries'
-import { getServiceClient } from '@/lib/supabase/service'
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { Badge } from '@/components/ui/badge'
+import { verifyAdmin } from '@/lib/auth/admin';
+import { getUserWatches } from '@/lib/db/admin-queries';
+import { getServiceClient } from '@/lib/supabase/service';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -11,15 +11,15 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Mail, Calendar, Shield, Eye, Clock } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+} from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, Mail, Calendar, Shield, Eye, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface AdminUserDetailPageProps {
   params: Promise<{
-    userId: string
-  }>
+    userId: string;
+  }>;
 }
 
 /**
@@ -35,40 +35,40 @@ interface AdminUserDetailPageProps {
  */
 export default async function AdminUserDetailPage({ params }: AdminUserDetailPageProps) {
   // Verify admin authentication (redirects if unauthorized)
-  await verifyAdmin()
+  await verifyAdmin();
 
   // Await params in Next.js 15
-  const { userId } = await params
+  const { userId } = await params;
 
   // Create service client for auth.users access
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   // Fetch user information from auth.users
-  const { data: authData, error: authError } = await supabase.auth.admin.getUserById(userId)
+  const { data: authData, error: authError } = await supabase.auth.admin.getUserById(userId);
 
   if (authError || !authData?.user) {
-    console.error(`[Admin] User ${userId} not found:`, authError)
-    notFound()
+    console.error(`[Admin] User ${userId} not found:`, authError);
+    notFound();
   }
 
-  const user = authData.user
+  const user = authData.user;
 
   // Fetch user's class watches
-  const watches = await getUserWatches(userId)
+  const watches = await getUserWatches(userId);
 
   /**
    * Format ISO timestamp to readable date string
    */
   const formatDate = (timestamp: string | null | undefined): string => {
-    if (!timestamp) return 'Never'
+    if (!timestamp) return 'Never';
     return new Date(timestamp).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    })
-  }
+    });
+  };
 
   /**
    * Get seat status badge variant based on availability
@@ -77,26 +77,20 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
     available: number,
     capacity: number
   ): 'success' | 'destructive' | 'warning' => {
-    if (available === 0) return 'destructive'
-    if (available / capacity < 0.2) return 'warning'
-    return 'success'
-  }
+    if (available === 0) return 'destructive';
+    if (available / capacity < 0.2) return 'warning';
+    return 'success';
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Breadcrumb Navigation */}
       <div className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
-        <Link
-          href="/admin"
-          className="hover:text-foreground transition-colors"
-        >
+        <Link href="/admin" className="hover:text-foreground transition-colors">
           Admin
         </Link>
         <span>/</span>
-        <Link
-          href="/admin/users"
-          className="hover:text-foreground transition-colors"
-        >
+        <Link href="/admin/users" className="hover:text-foreground transition-colors">
           Users
         </Link>
         <span>/</span>
@@ -144,9 +138,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                 <Shield className="size-5 text-success" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">
-                  Email Verification
-                </p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Email Verification</p>
                 <div className="flex items-center gap-2">
                   {user.email_confirmed_at ? (
                     <>
@@ -172,9 +164,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                 <Calendar className="size-5 text-accent" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">
-                  Registration Date
-                </p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Registration Date</p>
                 <p className="font-medium">{formatDate(user.created_at)}</p>
               </div>
             </div>
@@ -210,9 +200,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Class Watches</CardTitle>
-              <CardDescription>
-                All classes this user is currently monitoring
-              </CardDescription>
+              <CardDescription>All classes this user is currently monitoring</CardDescription>
             </div>
             <Badge variant="outline" size="lg">
               {watches.length} {watches.length === 1 ? 'watch' : 'watches'}
@@ -239,7 +227,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
               </TableHeader>
               <TableBody>
                 {watches.map((watch) => {
-                  const classState = watch.class_state
+                  const classState = watch.class_state;
                   return (
                     <TableRow key={watch.id}>
                       <TableCell className="font-mono font-semibold">
@@ -252,9 +240,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                       </TableCell>
                       <TableCell>
                         <span className="font-medium">{watch.subject}</span>
-                        <span className="text-muted-foreground ml-1">
-                          {watch.catalog_nbr}
-                        </span>
+                        <span className="text-muted-foreground ml-1">{watch.catalog_nbr}</span>
                       </TableCell>
                       <TableCell>
                         <div className="max-w-[300px] truncate" title={classState?.title || ''}>
@@ -289,7 +275,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                         })}
                       </TableCell>
                     </TableRow>
-                  )
+                  );
                 })}
               </TableBody>
             </Table>
@@ -297,5 +283,5 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

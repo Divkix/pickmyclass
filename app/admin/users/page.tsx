@@ -1,6 +1,6 @@
-import { verifyAdmin } from '@/lib/auth/admin'
-import { getAllUsersWithWatchCount } from '@/lib/db/admin-queries'
-import { UsersTable } from '@/components/admin/UsersTable'
+import { verifyAdmin } from '@/lib/auth/admin';
+import { getAllUsersWithWatchCount } from '@/lib/db/admin-queries';
+import { UsersTable } from '@/components/admin/UsersTable';
 
 /**
  * Admin Users List Page
@@ -10,10 +10,10 @@ import { UsersTable } from '@/components/admin/UsersTable'
  */
 export default async function AdminUsersPage() {
   // Verify admin access
-  await verifyAdmin()
+  await verifyAdmin();
 
   // Fetch all users with watch counts
-  const users = await getAllUsersWithWatchCount()
+  const users = await getAllUsersWithWatchCount();
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
@@ -32,5 +32,5 @@ export default async function AdminUsersPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

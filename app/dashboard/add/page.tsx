@@ -1,50 +1,47 @@
-'use client'
+'use client';
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { useAuth } from '@/lib/contexts/AuthContext'
-import { Header } from '@/components/Header'
-import { AddClassWatch } from '@/components/AddClassWatch'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { ArrowLeft } from 'lucide-react'
-import { redirect } from 'next/navigation'
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { Header } from '@/components/Header';
+import { AddClassWatch } from '@/components/AddClassWatch';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ArrowLeft } from 'lucide-react';
+import { redirect } from 'next/navigation';
 
 interface ErrorResponse {
-  error: string
+  error: string;
 }
 
 export default function AddClassPage() {
-  const { user, loading: authLoading } = useAuth()
-  const router = useRouter()
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
 
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      redirect('/login')
+      redirect('/login');
     }
-  }, [user, authLoading])
+  }, [user, authLoading]);
 
   // Handle adding a new watch
-  const handleAddWatch = async (watchData: {
-    term: string
-    class_nbr: string
-  }) => {
+  const handleAddWatch = async (watchData: { term: string; class_nbr: string }) => {
     const response = await fetch('/api/class-watches', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(watchData),
-    })
+    });
 
     if (!response.ok) {
-      const data = (await response.json()) as ErrorResponse
-      throw new Error(data.error || 'Failed to add class watch')
+      const data = (await response.json()) as ErrorResponse;
+      throw new Error(data.error || 'Failed to add class watch');
     }
 
     // Navigate back to dashboard on success
-    router.push('/dashboard')
-  }
+    router.push('/dashboard');
+  };
 
   // Show loading state while checking auth
   if (authLoading) {
@@ -56,12 +53,12 @@ export default function AddClassPage() {
           <Skeleton className="h-96 w-full" />
         </div>
       </div>
-    )
+    );
   }
 
   // User is not authenticated (will redirect)
   if (!user) {
-    return null
+    return null;
   }
 
   return (
@@ -87,5 +84,5 @@ export default function AddClassPage() {
         <AddClassWatch onAdd={handleAddWatch} />
       </div>
     </div>
-  )
+  );
 }

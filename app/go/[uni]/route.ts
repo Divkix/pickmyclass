@@ -7,7 +7,7 @@
  * Usage: /go/asu?classNbr=29941&term=2261
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /go/[uni]?classNbr=X&term=Y
@@ -18,14 +18,11 @@ import { NextRequest, NextResponse } from 'next/server'
  * @param params - Dynamic route parameters (uni)
  * @returns 302 redirect to university catalog or error response
  */
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ uni: string }> }
-) {
-  const { uni } = await context.params
-  const { searchParams } = new URL(request.url)
-  const classNbr = searchParams.get('classNbr')
-  const term = searchParams.get('term')
+export async function GET(request: NextRequest, context: { params: Promise<{ uni: string }> }) {
+  const { uni } = await context.params;
+  const { searchParams } = new URL(request.url);
+  const classNbr = searchParams.get('classNbr');
+  const term = searchParams.get('term');
 
   // Validate required parameters
   if (!classNbr || !term) {
@@ -36,13 +33,13 @@ export async function GET(
         example: '/go/asu?classNbr=29941&term=2261',
       },
       { status: 400 }
-    )
+    );
   }
 
   // Route to appropriate university
   switch (uni.toLowerCase()) {
     case 'asu':
-      return redirectToASU(classNbr, term)
+      return redirectToASU(classNbr, term);
 
     default:
       return NextResponse.json(
@@ -52,7 +49,7 @@ export async function GET(
           supported: ['asu'],
         },
         { status: 404 }
-      )
+      );
   }
 }
 
@@ -65,15 +62,15 @@ export async function GET(
  */
 function redirectToASU(classNbr: string, term: string): NextResponse {
   // Sanitize inputs (allow only digits to prevent injection)
-  const safeClassNbr = classNbr.replace(/[^0-9]/g, '')
-  const safeTerm = term.replace(/[^0-9]/g, '')
+  const safeClassNbr = classNbr.replace(/[^0-9]/g, '');
+  const safeTerm = term.replace(/[^0-9]/g, '');
 
   // Build ASU catalog URL
-  const asuUrl = `https://catalog.apps.asu.edu/catalog/classes/classlist?keywords=${safeClassNbr}&term=${safeTerm}`
+  const asuUrl = `https://catalog.apps.asu.edu/catalog/classes/classlist?keywords=${safeClassNbr}&term=${safeTerm}`;
 
   // Optional: Track click analytics here in the future
   // Example: logRedirectClick({ uni: 'asu', classNbr, term, timestamp: Date.now() })
 
   // Return 302 temporary redirect
-  return NextResponse.redirect(asuUrl, 302)
+  return NextResponse.redirect(asuUrl, 302);
 }

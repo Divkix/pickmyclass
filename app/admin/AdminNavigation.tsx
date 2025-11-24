@@ -1,10 +1,10 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { LayoutDashboard, BookOpen, Users } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { LayoutDashboard, BookOpen, Users } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 /**
  * Admin Navigation Component
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
  * Uses usePathname to detect current route and apply active styles.
  */
 export function AdminNavigation() {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   const navItems = [
     {
@@ -34,19 +34,19 @@ export function AdminNavigation() {
       label: 'Users',
       exact: false,
     },
-  ]
+  ];
 
   const isActive = (href: string, exact: boolean) => {
     if (exact) {
-      return pathname === href
+      return pathname === href;
     }
-    return pathname.startsWith(href)
-  }
+    return pathname.startsWith(href);
+  };
 
   return (
     <>
       {navItems.map((item) => {
-        const active = isActive(item.href, item.exact)
+        const active = isActive(item.href, item.exact);
         return (
           <Link key={item.href} href={item.href} className="block">
             <Button
@@ -63,8 +63,8 @@ export function AdminNavigation() {
               {item.label}
             </Button>
           </Link>
-        )
+        );
       })}
     </>
-  )
+  );
 }

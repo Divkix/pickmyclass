@@ -5,7 +5,7 @@
  * User-provided data is escaped to prevent XSS attacks.
  */
 
-import type { ClassInfo } from '../resend'
+import type { ClassInfo } from '../resend';
 
 /**
  * Escape HTML entities to prevent XSS attacks
@@ -19,7 +19,7 @@ function sanitize(dirty: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
+    .replace(/'/g, '&#039;');
 }
 
 /**
@@ -27,35 +27,35 @@ function sanitize(dirty: string): string {
  * Escapes HTML entities and validates URL parameters
  */
 interface SanitizedClassInfo {
-  subject: string
-  catalogNbr: string
-  title: string
-  classNbr: string
-  instructor: string
-  location: string | null
-  meetingTimes: string | null
-  termUrl: string
-  classNbrUrl: string
-  catalogUrl: string
+  subject: string;
+  catalogNbr: string;
+  title: string;
+  classNbr: string;
+  instructor: string;
+  location: string | null;
+  meetingTimes: string | null;
+  termUrl: string;
+  classNbrUrl: string;
+  catalogUrl: string;
 }
 
 function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
   // Sanitize all user-provided data
-  const safeSubject = sanitize(classInfo.subject)
-  const safeCatalogNbr = sanitize(classInfo.catalog_nbr)
-  const safeTitle = sanitize(classInfo.title)
-  const safeClassNbr = sanitize(classInfo.class_nbr)
-  const safeInstructor = sanitize(classInfo.instructor_name)
-  const safeLocation = classInfo.location ? sanitize(classInfo.location) : null
-  const safeMeetingTimes = classInfo.meeting_times ? sanitize(classInfo.meeting_times) : null
+  const safeSubject = sanitize(classInfo.subject);
+  const safeCatalogNbr = sanitize(classInfo.catalog_nbr);
+  const safeTitle = sanitize(classInfo.title);
+  const safeClassNbr = sanitize(classInfo.class_nbr);
+  const safeInstructor = sanitize(classInfo.instructor_name);
+  const safeLocation = classInfo.location ? sanitize(classInfo.location) : null;
+  const safeMeetingTimes = classInfo.meeting_times ? sanitize(classInfo.meeting_times) : null;
 
   // Term and class_nbr are used in URLs - validate format (numbers only)
-  const safeTerm = classInfo.term.replace(/[^0-9]/g, '')
-  const safeClassNbrUrl = classInfo.class_nbr.replace(/[^0-9]/g, '')
+  const safeTerm = classInfo.term.replace(/[^0-9]/g, '');
+  const safeClassNbrUrl = classInfo.class_nbr.replace(/[^0-9]/g, '');
 
   // Use internal redirect URL to match sending domain (improves email deliverability)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app'
-  const catalogUrl = `${siteUrl}/go/asu?classNbr=${safeClassNbrUrl}&term=${safeTerm}`
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app';
+  const catalogUrl = `${siteUrl}/go/asu?classNbr=${safeClassNbrUrl}&term=${safeTerm}`;
 
   return {
     subject: safeSubject,
@@ -68,7 +68,7 @@ function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
     termUrl: safeTerm,
     classNbrUrl: safeClassNbrUrl,
     catalogUrl,
-  }
+  };
 }
 
 /**
@@ -82,11 +82,11 @@ function getEmailFooter(unsubscribeUrl?: string): string {
       <br>
       This is an automated notification sent by PickMyClass.
     </p>
-    `.trim()
+    `.trim();
   }
 
   // Sanitize unsubscribe URL to prevent XSS in query params
-  const safeUnsubscribeUrl = sanitize(unsubscribeUrl)
+  const safeUnsubscribeUrl = sanitize(unsubscribeUrl);
 
   return `
     <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
@@ -97,7 +97,7 @@ function getEmailFooter(unsubscribeUrl?: string): string {
     <p style="font-size: 11px; color: #9ca3af; text-align: center; margin: 10px 0 0 0;">
       Don't want these emails? <a href="${safeUnsubscribeUrl}" style="color: #6366f1; text-decoration: underline;">Unsubscribe</a>
     </p>
-  `.trim()
+  `.trim();
 }
 
 /**
@@ -105,12 +105,9 @@ function getEmailFooter(unsubscribeUrl?: string): string {
  *
  * Sent when a class section that was full now has available seats.
  */
-export function SeatAvailableEmailTemplate(
-  classInfo: ClassInfo,
-  unsubscribeUrl?: string
-): string {
+export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?: string): string {
   // Sanitize all class information
-  const safe = sanitizeClassInfo(classInfo)
+  const safe = sanitizeClassInfo(classInfo);
 
   return `
 <!DOCTYPE html>
@@ -189,7 +186,7 @@ export function SeatAvailableEmailTemplate(
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }
 
 /**
@@ -202,7 +199,7 @@ export function InstructorAssignedEmailTemplate(
   unsubscribeUrl?: string
 ): string {
   // Sanitize all class information
-  const safe = sanitizeClassInfo(classInfo)
+  const safe = sanitizeClassInfo(classInfo);
 
   return `
 <!DOCTYPE html>
@@ -263,5 +260,5 @@ export function InstructorAssignedEmailTemplate(
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }

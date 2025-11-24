@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { Bell, Clock, Eye, Sparkles, Mail, TrendingUp } from 'lucide-react'
-import { Header } from '@/components/Header'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { staggerContainer, staggerItem, scaleInSpring } from '@/lib/animations'
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { Bell, Clock, Eye, Sparkles, Mail, TrendingUp } from 'lucide-react';
+import { Header } from '@/components/Header';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { staggerContainer, staggerItem, scaleInSpring } from '@/lib/animations';
 
 export default function Home() {
   return (
@@ -36,12 +36,12 @@ export default function Home() {
               </motion.div>
 
               <h1 className="text-hero">
-                Never Miss a Seat in{" "}
-                <span className="text-gradient">Your Classes</span>
+                Never Miss a Seat in <span className="text-gradient">Your Classes</span>
               </h1>
 
               <p className="mx-auto max-w-2xl text-lg text-muted-foreground sm:text-xl">
-                Get instant email notifications when seats become available or instructors are assigned to your waitlisted ASU classes.
+                Get instant email notifications when seats become available or instructors are
+                assigned to your waitlisted ASU classes.
               </p>
             </motion.div>
 
@@ -94,13 +94,12 @@ export default function Home() {
             className="mx-auto max-w-6xl"
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: '-100px' }}
             variants={staggerContainer}
           >
             <motion.div className="mb-16 text-center" variants={staggerItem}>
               <h2 className="mb-4 text-3xl font-bold text-foreground sm:text-4xl">
-                Stop Refreshing. Start{" "}
-                <span className="text-gradient">Getting Notified</span>.
+                Stop Refreshing. Start <span className="text-gradient">Getting Notified</span>.
               </h2>
               <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
                 Let our system do the work while you focus on what matters.
@@ -121,7 +120,8 @@ export default function Home() {
                   </CardHeader>
                   <CardContent>
                     <CardDescription className="text-base leading-relaxed">
-                      Automatic checks every 30 minutes. Get notified the moment a seat opens in your full class.
+                      Automatic checks every 30 minutes. Get notified the moment a seat opens in
+                      your full class.
                     </CardDescription>
                   </CardContent>
                 </Card>
@@ -137,7 +137,8 @@ export default function Home() {
                   </CardHeader>
                   <CardContent>
                     <CardDescription className="text-base leading-relaxed">
-                      Know immediately when &ldquo;Staff&rdquo; sections get assigned to specific professors.
+                      Know immediately when &ldquo;Staff&rdquo; sections get assigned to specific
+                      professors.
                     </CardDescription>
                   </CardContent>
                 </Card>
@@ -153,7 +154,8 @@ export default function Home() {
                   </CardHeader>
                   <CardContent>
                     <CardDescription className="text-base leading-relaxed">
-                      Dashboard updates live with current seat counts and instructor info as data changes.
+                      Dashboard updates live with current seat counts and instructor info as data
+                      changes.
                     </CardDescription>
                   </CardContent>
                 </Card>
@@ -168,13 +170,11 @@ export default function Home() {
             className="mx-auto max-w-4xl"
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: '-100px' }}
             variants={staggerContainer}
           >
             <motion.div className="mb-16 text-center" variants={staggerItem}>
-              <h2 className="mb-4 text-3xl font-bold text-foreground sm:text-4xl">
-                How It Works
-              </h2>
+              <h2 className="mb-4 text-3xl font-bold text-foreground sm:text-4xl">How It Works</h2>
               <p className="text-lg text-muted-foreground">
                 Three simple steps to never miss a class again
               </p>
@@ -209,7 +209,8 @@ export default function Home() {
                     We Monitor for You
                   </h3>
                   <p className="text-base text-muted-foreground sm:text-lg">
-                    Our system checks ASU&apos;s class search every 30 minutes for seat availability and instructor changes.
+                    Our system checks ASU&apos;s class search every 30 minutes for seat availability
+                    and instructor changes.
                   </p>
                 </div>
               </motion.div>
@@ -224,7 +225,8 @@ export default function Home() {
                     Get Notified Instantly
                   </h3>
                   <p className="text-base text-muted-foreground sm:text-lg">
-                    Receive an email notification the moment a seat opens up or an instructor is assigned. Register before it&apos;s too late.
+                    Receive an email notification the moment a seat opens up or an instructor is
+                    assigned. Register before it&apos;s too late.
                   </p>
                 </div>
               </motion.div>
@@ -242,5 +244,5 @@ export default function Home() {
         </section>
       </main>
     </div>
-  )
+  );
 }

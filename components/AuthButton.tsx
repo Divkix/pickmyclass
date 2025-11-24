@@ -1,35 +1,35 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { useAuth } from '@/lib/contexts/AuthContext'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AuthButton() {
-  const { user, loading, signOut } = useAuth()
-  const [signingOut, setSigningOut] = useState(false)
-  const router = useRouter()
+  const { user, loading, signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+  const router = useRouter();
 
   const handleSignOut = async () => {
     try {
-      setSigningOut(true)
-      await signOut()
-      router.push('/login')
+      setSigningOut(true);
+      await signOut();
+      router.push('/login');
     } catch (error) {
-      console.error('Error signing out:', error)
+      console.error('Error signing out:', error);
     } finally {
-      setSigningOut(false)
+      setSigningOut(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 sm:gap-4">
         <Skeleton className="h-10 w-24" />
       </div>
-    )
+    );
   }
 
   if (!user) {
@@ -41,12 +41,10 @@ export default function AuthButton() {
           </Button>
         </Link>
         <Link href="/register">
-          <Button className="min-h-11">
-            Sign up
-          </Button>
+          <Button className="min-h-11">Sign up</Button>
         </Link>
       </div>
-    )
+    );
   }
 
   return (
@@ -59,14 +57,9 @@ export default function AuthButton() {
           {user.email}
         </span>
       </div>
-      <Button
-        onClick={handleSignOut}
-        disabled={signingOut}
-        variant="outline"
-        className="min-h-11"
-      >
+      <Button onClick={handleSignOut} disabled={signingOut} variant="outline" className="min-h-11">
         {signingOut ? 'Signing out...' : 'Sign out'}
       </Button>
     </div>
-  )
+  );
 }

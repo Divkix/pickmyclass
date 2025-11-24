@@ -1,15 +1,15 @@
-import { verifyAdmin } from '@/lib/auth/admin'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { Logo } from '@/components/Logo'
-import { LayoutDashboard, BookOpen, Users, Shield } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
-import { AdminNavigation } from './AdminNavigation'
-import { SignOutButton } from '@/components/admin/SignOutButton'
+import { verifyAdmin } from '@/lib/auth/admin';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Logo } from '@/components/Logo';
+import { LayoutDashboard, BookOpen, Users, Shield } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import { AdminNavigation } from './AdminNavigation';
+import { SignOutButton } from '@/components/admin/SignOutButton';
 
 interface AdminLayoutProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 /**
@@ -25,15 +25,15 @@ interface AdminLayoutProps {
  */
 export default async function AdminLayout({ children }: AdminLayoutProps) {
   // Verify admin access - will redirect if not admin
-  await verifyAdmin()
+  await verifyAdmin();
 
   // Get user email for display
-  const supabase = await createClient()
+  const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
-  const userEmail = user?.email || 'Admin'
+  const userEmail = user?.email || 'Admin';
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -119,5 +119,5 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>
-  )
+  );
 }

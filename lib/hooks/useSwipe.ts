@@ -1,22 +1,22 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback } from 'react';
 
 export interface UseSwipeOptions {
-  onSwipeLeft?: () => void
-  onSwipeRight?: () => void
-  threshold?: number
-  onSwipeStart?: () => void
-  onSwipeMove?: (offset: number) => void
-  onSwipeEnd?: () => void
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
+  threshold?: number;
+  onSwipeStart?: () => void;
+  onSwipeMove?: (offset: number) => void;
+  onSwipeEnd?: () => void;
 }
 
 export interface UseSwipeReturn {
   handlers: {
-    onTouchStart: (e: React.TouchEvent) => void
-    onTouchMove: (e: React.TouchEvent) => void
-    onTouchEnd: () => void
-  }
-  offset: number
-  isSwiping: boolean
+    onTouchStart: (e: React.TouchEvent) => void;
+    onTouchMove: (e: React.TouchEvent) => void;
+    onTouchEnd: () => void;
+  };
+  offset: number;
+  isSwiping: boolean;
 }
 
 /**
@@ -40,65 +40,65 @@ export function useSwipe(options: UseSwipeOptions = {}): UseSwipeReturn {
     onSwipeStart,
     onSwipeMove,
     onSwipeEnd,
-  } = options
+  } = options;
 
-  const [offset, setOffset] = useState(0)
-  const [isSwiping, setIsSwiping] = useState(false)
-  const touchStartX = useRef<number>(0)
-  const touchCurrentX = useRef<number>(0)
+  const [offset, setOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartX = useRef<number>(0);
+  const touchCurrentX = useRef<number>(0);
 
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      touchStartX.current = e.touches[0].clientX
-      touchCurrentX.current = e.touches[0].clientX
-      setIsSwiping(true)
-      onSwipeStart?.()
+      touchStartX.current = e.touches[0].clientX;
+      touchCurrentX.current = e.touches[0].clientX;
+      setIsSwiping(true);
+      onSwipeStart?.();
     },
     [onSwipeStart]
-  )
+  );
 
   const handleTouchMove = useCallback(
     (e: React.TouchEvent) => {
-      if (!isSwiping) return
+      if (!isSwiping) return;
 
-      touchCurrentX.current = e.touches[0].clientX
-      const diff = touchCurrentX.current - touchStartX.current
+      touchCurrentX.current = e.touches[0].clientX;
+      const diff = touchCurrentX.current - touchStartX.current;
 
       // Update offset for visual feedback
-      setOffset(diff)
-      onSwipeMove?.(diff)
+      setOffset(diff);
+      onSwipeMove?.(diff);
     },
     [isSwiping, onSwipeMove]
-  )
+  );
 
   const handleTouchEnd = useCallback(() => {
-    if (!isSwiping) return
+    if (!isSwiping) return;
 
-    const swipeDistance = touchCurrentX.current - touchStartX.current
-    const absDistance = Math.abs(swipeDistance)
+    const swipeDistance = touchCurrentX.current - touchStartX.current;
+    const absDistance = Math.abs(swipeDistance);
 
     // Check if threshold was exceeded
     if (absDistance >= threshold) {
       // Trigger haptic feedback if available
       if (navigator.vibrate) {
-        navigator.vibrate(50)
+        navigator.vibrate(50);
       }
 
       // Determine direction and trigger callback
       if (swipeDistance < 0) {
-        onSwipeLeft?.()
+        onSwipeLeft?.();
       } else {
-        onSwipeRight?.()
+        onSwipeRight?.();
       }
     }
 
     // Reset state
-    setIsSwiping(false)
-    setOffset(0)
-    touchStartX.current = 0
-    touchCurrentX.current = 0
-    onSwipeEnd?.()
-  }, [isSwiping, threshold, onSwipeLeft, onSwipeRight, onSwipeEnd])
+    setIsSwiping(false);
+    setOffset(0);
+    touchStartX.current = 0;
+    touchCurrentX.current = 0;
+    onSwipeEnd?.();
+  }, [isSwiping, threshold, onSwipeLeft, onSwipeRight, onSwipeEnd]);
 
   return {
     handlers: {
@@ -108,5 +108,5 @@ export function useSwipe(options: UseSwipeOptions = {}): UseSwipeReturn {
     },
     offset,
     isSwiping,
-  }
+  };
 }

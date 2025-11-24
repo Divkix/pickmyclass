@@ -1,48 +1,48 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useAuth } from '@/lib/contexts/AuthContext'
-import { createClient } from '@/lib/supabase/client'
-import AuthButton from '@/components/AuthButton'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { Button } from '@/components/ui/button'
-import { Logo } from '@/components/Logo'
-import { LayoutDashboard, Shield } from 'lucide-react'
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
+import AuthButton from '@/components/AuthButton';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/Logo';
+import { LayoutDashboard, Shield } from 'lucide-react';
 
 export function Header() {
-  const { user, loading } = useAuth()
-  const [isAdmin, setIsAdmin] = useState<boolean>(false)
-  const [checkingAdmin, setCheckingAdmin] = useState(true)
+  const { user, loading } = useAuth();
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
 
   // Fetch admin status when user changes
   useEffect(() => {
     async function checkAdminStatus() {
       if (!user) {
-        setIsAdmin(false)
-        setCheckingAdmin(false)
-        return
+        setIsAdmin(false);
+        setCheckingAdmin(false);
+        return;
       }
 
       try {
-        const supabase = createClient()
+        const supabase = createClient();
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('is_admin')
           .eq('user_id', user.id)
-          .single()
+          .single();
 
-        setIsAdmin(profile?.is_admin ?? false)
+        setIsAdmin(profile?.is_admin ?? false);
       } catch (error) {
-        console.error('Error checking admin status:', error)
-        setIsAdmin(false)
+        console.error('Error checking admin status:', error);
+        setIsAdmin(false);
       } finally {
-        setCheckingAdmin(false)
+        setCheckingAdmin(false);
       }
     }
 
-    checkAdminStatus()
-  }, [user])
+    checkAdminStatus();
+  }, [user]);
 
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between border-b border-border/40 bg-background/80 px-4 py-3 backdrop-blur-lg sm:px-6 sm:py-4">
@@ -52,7 +52,12 @@ export function Header() {
         </Link>
         {!loading && !checkingAdmin && user && (
           <Link href={isAdmin ? '/admin' : '/dashboard'}>
-            <Button variant="ghost" size="sm" className="min-h-11 text-base" aria-label={isAdmin ? 'Go to admin panel' : 'Go to dashboard'}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-h-11 text-base"
+              aria-label={isAdmin ? 'Go to admin panel' : 'Go to dashboard'}
+            >
               {isAdmin ? (
                 <>
                   <Shield className="size-4" aria-hidden="true" />
@@ -73,5 +78,5 @@ export function Header() {
         <AuthButton />
       </div>
     </header>
-  )
+  );
 }

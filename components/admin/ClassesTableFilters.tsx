@@ -1,28 +1,28 @@
-'use client'
+'use client';
 
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Search, X } from 'lucide-react'
+} from '@/components/ui/select';
+import { Search, X } from 'lucide-react';
 
 export interface ClassesTableFilters {
-  search: string
-  subject: string
-  seatStatus: 'all' | 'full' | 'limited' | 'available'
-  instructor: 'all' | 'staff' | 'named'
-  watcherCount: 'all' | 'none' | '1-5' | '6-10' | '10+'
+  search: string;
+  subject: string;
+  seatStatus: 'all' | 'full' | 'limited' | 'available';
+  instructor: 'all' | 'staff' | 'named';
+  watcherCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
 }
 
 interface ClassesTableFiltersProps {
-  subjects: string[]
-  filters: ClassesTableFilters
-  onFiltersChange: (filters: ClassesTableFilters) => void
+  subjects: string[];
+  filters: ClassesTableFilters;
+  onFiltersChange: (filters: ClassesTableFilters) => void;
 }
 
 /**
@@ -45,8 +45,8 @@ export function ClassesTableFiltersComponent({
     key: K,
     value: ClassesTableFilters[K]
   ) => {
-    onFiltersChange({ ...filters, [key]: value })
-  }
+    onFiltersChange({ ...filters, [key]: value });
+  };
 
   // Reset all filters to defaults
   const clearFilters = () => {
@@ -56,8 +56,8 @@ export function ClassesTableFiltersComponent({
       seatStatus: 'all',
       instructor: 'all',
       watcherCount: 'all',
-    })
-  }
+    });
+  };
 
   // Check if any filters are active
   const hasActiveFilters =
@@ -65,7 +65,7 @@ export function ClassesTableFiltersComponent({
     filters.subject !== 'all' ||
     filters.seatStatus !== 'all' ||
     filters.instructor !== 'all' ||
-    filters.watcherCount !== 'all'
+    filters.watcherCount !== 'all';
 
   return (
     <div className="space-y-4">
@@ -82,10 +82,7 @@ export function ClassesTableFiltersComponent({
         </div>
 
         {/* Subject Filter */}
-        <Select
-          value={filters.subject}
-          onValueChange={(value) => updateFilter('subject', value)}
-        >
+        <Select value={filters.subject} onValueChange={(value) => updateFilter('subject', value)}>
           <SelectTrigger>
             <SelectValue placeholder="All Subjects" />
           </SelectTrigger>
@@ -157,20 +154,13 @@ export function ClassesTableFiltersComponent({
       {/* Clear Filters Button */}
       {hasActiveFilters && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Filters active
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-            className="h-8 gap-1.5"
-          >
+          <p className="text-sm text-muted-foreground">Filters active</p>
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 gap-1.5">
             <X className="size-4" />
             Clear Filters
           </Button>
         </div>
       )}
     </div>
-  )
+  );
 }

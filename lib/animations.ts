@@ -1,4 +1,4 @@
-import { Variants } from "framer-motion";
+import { Variants } from 'framer-motion';
 
 /**
  * Reusable Framer Motion animation variants for consistent animations across the app
@@ -9,7 +9,7 @@ export const fadeIn: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { duration: 0.5, ease: "easeOut" },
+    transition: { duration: 0.5, ease: 'easeOut' },
   },
 };
 
@@ -18,7 +18,7 @@ export const fadeInUp: Variants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: "easeOut" },
+    transition: { duration: 0.5, ease: 'easeOut' },
   },
 };
 
@@ -27,7 +27,7 @@ export const fadeInDown: Variants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: "easeOut" },
+    transition: { duration: 0.5, ease: 'easeOut' },
   },
 };
 
@@ -36,7 +36,7 @@ export const fadeInLeft: Variants = {
   visible: {
     opacity: 1,
     x: 0,
-    transition: { duration: 0.5, ease: "easeOut" },
+    transition: { duration: 0.5, ease: 'easeOut' },
   },
 };
 
@@ -45,7 +45,7 @@ export const fadeInRight: Variants = {
   visible: {
     opacity: 1,
     x: 0,
-    transition: { duration: 0.5, ease: "easeOut" },
+    transition: { duration: 0.5, ease: 'easeOut' },
   },
 };
 
@@ -64,7 +64,7 @@ export const scaleInSpring: Variants = {
   visible: {
     opacity: 1,
     scale: 1,
-    transition: { type: "spring", stiffness: 300, damping: 20 },
+    transition: { type: 'spring', stiffness: 300, damping: 20 },
   },
 };
 
@@ -85,7 +85,7 @@ export const staggerItem: Variants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: "easeOut" },
+    transition: { duration: 0.5, ease: 'easeOut' },
   },
 };
 
@@ -95,7 +95,7 @@ export const cardHover: Variants = {
   hover: {
     scale: 1.02,
     y: -4,
-    transition: { duration: 0.3, ease: "easeOut" },
+    transition: { duration: 0.3, ease: 'easeOut' },
   },
 };
 
@@ -107,28 +107,28 @@ export const buttonTap = {
 
 // Slide animations for page transitions
 export const slideInRight: Variants = {
-  hidden: { x: "100%", opacity: 0 },
+  hidden: { x: '100%', opacity: 0 },
   visible: {
     x: 0,
     opacity: 1,
-    transition: { type: "spring", stiffness: 300, damping: 30 },
+    transition: { type: 'spring', stiffness: 300, damping: 30 },
   },
   exit: {
-    x: "-100%",
+    x: '-100%',
     opacity: 0,
     transition: { duration: 0.3 },
   },
 };
 
 export const slideInLeft: Variants = {
-  hidden: { x: "-100%", opacity: 0 },
+  hidden: { x: '-100%', opacity: 0 },
   visible: {
     x: 0,
     opacity: 1,
-    transition: { type: "spring", stiffness: 300, damping: 30 },
+    transition: { type: 'spring', stiffness: 300, damping: 30 },
   },
   exit: {
-    x: "100%",
+    x: '100%',
     opacity: 0,
     transition: { duration: 0.3 },
   },
@@ -136,14 +136,14 @@ export const slideInLeft: Variants = {
 
 // Notification/Toast animations
 export const toastSlideIn: Variants = {
-  hidden: { x: "100%", opacity: 0 },
+  hidden: { x: '100%', opacity: 0 },
   visible: {
     x: 0,
     opacity: 1,
-    transition: { type: "spring", stiffness: 500, damping: 40 },
+    transition: { type: 'spring', stiffness: 500, damping: 40 },
   },
   exit: {
-    x: "100%",
+    x: '100%',
     opacity: 0,
     transition: { duration: 0.2 },
   },
@@ -168,7 +168,7 @@ export const modalContent: Variants = {
     opacity: 1,
     scale: 1,
     y: 0,
-    transition: { type: "spring", stiffness: 500, damping: 30 },
+    transition: { type: 'spring', stiffness: 500, damping: 30 },
   },
   exit: {
     opacity: 0,
@@ -184,7 +184,7 @@ export const spinnerRotate = {
   transition: {
     duration: 1,
     repeat: Infinity,
-    ease: "linear",
+    ease: 'linear',
   },
 };
 
@@ -198,7 +198,7 @@ export const checkmarkDraw: Variants = {
     pathLength: 1,
     opacity: 1,
     transition: {
-      pathLength: { duration: 0.5, ease: "easeInOut" },
+      pathLength: { duration: 0.5, ease: 'easeInOut' },
       opacity: { duration: 0.1 },
     },
   },
@@ -212,18 +212,18 @@ export const pulse: Variants = {
     transition: {
       duration: 2,
       repeat: Infinity,
-      ease: "easeInOut",
+      ease: 'easeInOut',
     },
   },
 };
 
 // Skeleton loader shimmer
 export const shimmer = {
-  backgroundPosition: ["200% 0", "-200% 0"],
+  backgroundPosition: ['200% 0', '-200% 0'],
   transition: {
     duration: 2,
     repeat: Infinity,
-    ease: "linear",
+    ease: 'linear',
   },
 };
 
@@ -237,7 +237,7 @@ export const pageTransition: Variants = {
     y: 0,
     transition: {
       duration: 0.4,
-      ease: "easeOut",
+      ease: 'easeOut',
     },
   },
   exit: {
@@ -245,7 +245,7 @@ export const pageTransition: Variants = {
     y: -20,
     transition: {
       duration: 0.3,
-      ease: "easeIn",
+      ease: 'easeIn',
     },
   },
 };
@@ -268,7 +268,10 @@ export const createStagger = (staggerDelay = 0.1, delayChildren = 0) => ({
  * Utility to respect user's motion preferences
  */
 export const reduceMotion = (variants: Variants): Variants => {
-  if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  if (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
     // Return instant transitions for reduced motion
     return Object.keys(variants).reduce((acc, key) => {
       acc[key] = {

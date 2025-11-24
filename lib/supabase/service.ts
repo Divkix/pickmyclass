@@ -10,8 +10,8 @@
  * NEVER expose this client or the service_role key to the browser.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from './database.types'
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from './database.types';
 
 /**
  * Create a Supabase client with service role privileges
@@ -22,17 +22,15 @@ import type { Database } from './database.types'
  * @param serviceRoleKey - The service_role key from Supabase (required in production)
  * @returns Supabase client with service role privileges
  */
-export function createServiceClient(
-  serviceRoleKey: string
-): SupabaseClient<Database> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+export function createServiceClient(serviceRoleKey: string): SupabaseClient<Database> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   if (!supabaseUrl) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set')
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set');
   }
 
   if (!serviceRoleKey) {
-    throw new Error('Service role key is required')
+    throw new Error('Service role key is required');
   }
 
   return createClient<Database>(supabaseUrl, serviceRoleKey, {
@@ -40,7 +38,7 @@ export function createServiceClient(
       autoRefreshToken: false,
       persistSession: false,
     },
-  })
+  });
 }
 
 /**
@@ -57,14 +55,14 @@ export function createServiceClient(
  * await supabase.from('class_states').update({ ... })
  */
 export function getServiceClient(): SupabaseClient<Database> {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!serviceRoleKey) {
     throw new Error(
       'SUPABASE_SERVICE_ROLE_KEY is not set in environment variables. ' +
         'This is required for service role operations.'
-    )
+    );
   }
 
-  return createServiceClient(serviceRoleKey)
+  return createServiceClient(serviceRoleKey);
 }

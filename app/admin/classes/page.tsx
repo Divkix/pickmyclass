@@ -1,7 +1,7 @@
-import { verifyAdmin } from '@/lib/auth/admin'
-import { getAllClassesWithWatchers } from '@/lib/db/admin-queries'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ClassesTable } from '@/components/admin/ClassesTable'
+import { verifyAdmin } from '@/lib/auth/admin';
+import { getAllClassesWithWatchers } from '@/lib/db/admin-queries';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ClassesTable } from '@/components/admin/ClassesTable';
 
 /**
  * Admin Classes List Page
@@ -17,10 +17,10 @@ import { ClassesTable } from '@/components/admin/ClassesTable'
  */
 export default async function AdminClassesPage() {
   // Verify admin authentication (redirects if unauthorized)
-  await verifyAdmin()
+  await verifyAdmin();
 
   // Fetch all classes with watcher counts
-  const classes = await getAllClassesWithWatchers()
+  const classes = await getAllClassesWithWatchers();
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -76,14 +76,12 @@ export default async function AdminClassesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Classes Being Watched</CardTitle>
-          <CardDescription>
-            Click on a class number to view detailed information
-          </CardDescription>
+          <CardDescription>Click on a class number to view detailed information</CardDescription>
         </CardHeader>
         <CardContent>
           <ClassesTable classes={classes} />
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

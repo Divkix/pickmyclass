@@ -1,69 +1,64 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-import { Button } from './ui/button'
-import { Alert } from './ui/alert'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select'
-import { Lock } from 'lucide-react'
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Button } from './ui/button';
+import { Alert } from './ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Lock } from 'lucide-react';
 
 interface AddClassWatchProps {
-  onAdd: (watch: { term: string; class_nbr: string }) => Promise<void>
+  onAdd: (watch: { term: string; class_nbr: string }) => Promise<void>;
 }
 
 export function AddClassWatch({ onAdd }: AddClassWatchProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [university] = useState('asu')
-  const [term, setTerm] = useState('')
-  const [classNbr, setClassNbr] = useState('')
+  const [university] = useState('asu');
+  const [term, setTerm] = useState('');
+  const [classNbr, setClassNbr] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
     if (!term || !classNbr) {
-      setError('Please select a term and enter a section number')
-      return
+      setError('Please select a term and enter a section number');
+      return;
     }
 
     if (classNbr.length !== 5 || !/^\d{5}$/.test(classNbr)) {
-      setError('Section number must be exactly 5 digits')
-      return
+      setError('Section number must be exactly 5 digits');
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
       await onAdd({
         term,
         class_nbr: classNbr,
-      })
+      });
       // Reset form on success
-      setTerm('')
-      setClassNbr('')
+      setTerm('');
+      setClassNbr('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add class watch')
+      setError(err instanceof Error ? err.message : 'Failed to add class watch');
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Add New Class Watch</CardTitle>
         <CardDescription>
-          Enter the section number and term to start monitoring for seat availability and instructor assignments.
+          Enter the section number and term to start monitoring for seat availability and instructor
+          assignments.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -88,7 +83,9 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
               </Select>
               <Lock className="absolute right-9 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             </div>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">More universities coming soon</p>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              More universities coming soon
+            </p>
           </div>
 
           {/* Term Dropdown */}
@@ -130,7 +127,8 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
                 >
                   ASU Class Search page
                 </a>
-                , search for your class, and look for the 5-digit number in the &quot;Class #&quot; column.
+                , search for your class, and look for the 5-digit number in the &quot;Class #&quot;
+                column.
               </p>
             </div>
           </div>
@@ -148,5 +146,5 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
         </form>
       </CardContent>
     </Card>
-  )
+  );
 }

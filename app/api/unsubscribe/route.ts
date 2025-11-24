@@ -5,28 +5,28 @@
  * Accepts signed tokens to verify authenticity.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token'
-import { getServiceClient } from '@/lib/supabase/service'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token';
+import { getServiceClient } from '@/lib/supabase/service';
+import { z } from 'zod';
 
 /**
  * Validation schema for token query parameter
  */
 const tokenSchema = z.object({
   token: z.string().min(1, 'Token is required'),
-})
+});
 
 /**
  * GET handler for web-based unsubscribe
  * Renders an HTML page with unsubscribe confirmation
  */
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const token = searchParams.get('token')
+  const searchParams = request.nextUrl.searchParams;
+  const token = searchParams.get('token');
 
   // Validate token parameter
-  const validation = tokenSchema.safeParse({ token })
+  const validation = tokenSchema.safeParse({ token });
 
   if (!validation.success) {
     return new NextResponse(
@@ -59,11 +59,11 @@ export async function GET(request: NextRequest) {
         status: 400,
         headers: { 'Content-Type': 'text/html' },
       }
-    )
+    );
   }
 
   // Verify token
-  const userId = verifyUnsubscribeToken(validation.data.token)
+  const userId = verifyUnsubscribeToken(validation.data.token);
 
   if (!userId) {
     return new NextResponse(
@@ -97,12 +97,12 @@ export async function GET(request: NextRequest) {
         status: 400,
         headers: { 'Content-Type': 'text/html' },
       }
-    )
+    );
   }
 
   // Unsubscribe user
   try {
-    const supabase = getServiceClient()
+    const supabase = getServiceClient();
 
     const { error } = await supabase
       .from('user_profiles')
@@ -110,14 +110,14 @@ export async function GET(request: NextRequest) {
         notifications_enabled: false,
         unsubscribed_at: new Date().toISOString(),
       })
-      .eq('user_id', userId)
+      .eq('user_id', userId);
 
     if (error) {
-      console.error('[Unsubscribe] Database error:', error)
-      throw error
+      console.error('[Unsubscribe] Database error:', error);
+      throw error;
     }
 
-    console.log(`[Unsubscribe] User ${userId} unsubscribed successfully`)
+    console.log(`[Unsubscribe] User ${userId} unsubscribed successfully`);
 
     return new NextResponse(
       `
@@ -157,9 +157,9 @@ export async function GET(request: NextRequest) {
         status: 200,
         headers: { 'Content-Type': 'text/html' },
       }
-    )
+    );
   } catch (error) {
-    console.error('[Unsubscribe] Error processing unsubscribe:', error)
+    console.error('[Unsubscribe] Error processing unsubscribe:', error);
 
     return new NextResponse(
       `
@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
         status: 500,
         headers: { 'Content-Type': 'text/html' },
       }
-    )
+    );
   }
 }
 
@@ -201,11 +201,11 @@ export async function GET(request: NextRequest) {
  * Used by email clients that support List-Unsubscribe-Post
  */
 export async function POST(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const token = searchParams.get('token')
+  const searchParams = request.nextUrl.searchParams;
+  const token = searchParams.get('token');
 
   // Validate token parameter
-  const validation = tokenSchema.safeParse({ token })
+  const validation = tokenSchema.safeParse({ token });
 
   if (!validation.success) {
     return NextResponse.json(
@@ -218,22 +218,22 @@ export async function POST(request: NextRequest) {
         })),
       },
       { status: 400 }
-    )
+    );
   }
 
   // Verify token
-  const userId = verifyUnsubscribeToken(validation.data.token)
+  const userId = verifyUnsubscribeToken(validation.data.token);
 
   if (!userId) {
     return NextResponse.json(
       { success: false, error: 'Invalid or expired token' },
       { status: 400 }
-    )
+    );
   }
 
   // Unsubscribe user
   try {
-    const supabase = getServiceClient()
+    const supabase = getServiceClient();
 
     const { error } = await supabase
       .from('user_profiles')
@@ -241,21 +241,18 @@ export async function POST(request: NextRequest) {
         notifications_enabled: false,
         unsubscribed_at: new Date().toISOString(),
       })
-      .eq('user_id', userId)
+      .eq('user_id', userId);
 
     if (error) {
-      console.error('[Unsubscribe] Database error:', error)
-      throw error
+      console.error('[Unsubscribe] Database error:', error);
+      throw error;
     }
 
-    console.log(`[Unsubscribe] User ${userId} unsubscribed via POST`)
+    console.log(`[Unsubscribe] User ${userId} unsubscribed via POST`);
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[Unsubscribe] Error processing unsubscribe:', error)
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('[Unsubscribe] Error processing unsubscribe:', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

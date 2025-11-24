@@ -7,62 +7,62 @@
  * @module lib/db/admin-queries
  */
 
-import { getServiceClient } from '@/lib/supabase/service'
-import type { Tables } from '@/lib/supabase/database.types'
-import type { User } from '@supabase/supabase-js'
+import { getServiceClient } from '@/lib/supabase/service';
+import type { Tables } from '@/lib/supabase/database.types';
+import type { User } from '@supabase/supabase-js';
 
 /**
  * Class state with aggregated watcher count
  */
 export interface ClassWithWatchers extends Tables<'class_states'> {
-  watcher_count: number
+  watcher_count: number;
 }
 
 /**
  * User information with watch count
  */
 export interface UserWithWatchCount {
-  id: string
-  email: string
-  created_at: string
-  last_sign_in_at: string | null
-  email_confirmed_at: string | null
-  watch_count: number
-  is_admin: boolean
+  id: string;
+  email: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+  email_confirmed_at: string | null;
+  watch_count: number;
+  is_admin: boolean;
 }
 
 /**
  * Class watch with joined class state information
  */
 export interface WatchWithClass extends Tables<'class_watches'> {
-  class_state: Tables<'class_states'> | null
+  class_state: Tables<'class_states'> | null;
 }
 
 async function fetchAllAuthUsers(): Promise<User[]> {
-  const supabase = getServiceClient()
-  const perPage = 1000
-  let page = 1
-  const users: User[] = []
+  const supabase = getServiceClient();
+  const perPage = 1000;
+  let page = 1;
+  const users: User[] = [];
 
   while (true) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage })
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
 
     if (error) {
-      console.error('[Admin] Error fetching users:', error)
-      throw new Error(`Failed to fetch users: ${error.message}`)
+      console.error('[Admin] Error fetching users:', error);
+      throw new Error(`Failed to fetch users: ${error.message}`);
     }
 
-    const batch = data?.users || []
-    users.push(...batch)
+    const batch = data?.users || [];
+    users.push(...batch);
 
     if (batch.length < perPage) {
-      break
+      break;
     }
 
-    page += 1
+    page += 1;
   }
 
-  return users
+  return users;
 }
 
 /**
@@ -77,18 +77,18 @@ async function fetchAllAuthUsers(): Promise<User[]> {
  * console.log(`Total emails sent: ${total}`)
  */
 export async function getTotalEmailsSent(): Promise<number> {
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   const { count, error } = await supabase
     .from('notifications_sent')
-    .select('*', { count: 'exact', head: true })
+    .select('*', { count: 'exact', head: true });
 
   if (error) {
-    console.error('[Admin] Error fetching total emails sent:', error)
-    throw new Error(`Failed to fetch email count: ${error.message}`)
+    console.error('[Admin] Error fetching total emails sent:', error);
+    throw new Error(`Failed to fetch email count: ${error.message}`);
   }
 
-  return count || 0
+  return count || 0;
 }
 
 /**
@@ -103,8 +103,8 @@ export async function getTotalEmailsSent(): Promise<number> {
  * console.log(`Total users: ${total}`)
  */
 export async function getTotalUsers(): Promise<number> {
-  const users = await fetchAllAuthUsers()
-  return users.length
+  const users = await fetchAllAuthUsers();
+  return users.length;
 }
 
 /**
@@ -119,19 +119,19 @@ export async function getTotalUsers(): Promise<number> {
  * console.log(`Total admins: ${total}`)
  */
 export async function getAdminCount(): Promise<number> {
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   const { count, error } = await supabase
     .from('user_profiles')
     .select('*', { count: 'exact', head: true })
-    .eq('is_admin', true)
+    .eq('is_admin', true);
 
   if (error) {
-    console.error('[Admin] Error fetching admin count:', error)
-    throw new Error(`Failed to fetch admin count: ${error.message}`)
+    console.error('[Admin] Error fetching admin count:', error);
+    throw new Error(`Failed to fetch admin count: ${error.message}`);
   }
 
-  return count || 0
+  return count || 0;
 }
 
 /**
@@ -146,23 +146,23 @@ export async function getAdminCount(): Promise<number> {
  * console.log(`Total classes watched: ${total}`)
  */
 export async function getTotalClassesWatched(): Promise<number> {
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   // Fetch all class_nbr values and count unique ones
-  const { data: watches, error } = await supabase.from('class_watches').select('class_nbr')
+  const { data: watches, error } = await supabase.from('class_watches').select('class_nbr');
 
   if (error) {
-    console.error('[Admin] Error fetching total classes watched:', error)
-    throw new Error(`Failed to fetch class count: ${error.message}`)
+    console.error('[Admin] Error fetching total classes watched:', error);
+    throw new Error(`Failed to fetch class count: ${error.message}`);
   }
 
   // Count unique class numbers
-  const uniqueClasses = new Set(watches?.map((w) => w.class_nbr) || [])
-  const count = uniqueClasses.size
+  const uniqueClasses = new Set(watches?.map((w) => w.class_nbr) || []);
+  const count = uniqueClasses.size;
 
-  console.log(`[Admin] Counted ${count} unique classes being watched`)
+  console.log(`[Admin] Counted ${count} unique classes being watched`);
 
-  return count
+  return count;
 }
 
 /**
@@ -178,33 +178,33 @@ export async function getTotalClassesWatched(): Promise<number> {
  * console.log(`Most watched: ${classes[0].title} (${classes[0].watcher_count} watchers)`)
  */
 export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> {
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   // Fetch all class states
   const { data: classStates, error: classError } = await supabase
     .from('class_states')
     .select('*')
-    .order('class_nbr', { ascending: true })
+    .order('class_nbr', { ascending: true });
 
   if (classError) {
-    console.error('[Admin] Error fetching class states:', classError)
-    throw new Error(`Failed to fetch classes: ${classError.message}`)
+    console.error('[Admin] Error fetching class states:', classError);
+    throw new Error(`Failed to fetch classes: ${classError.message}`);
   }
 
   // Fetch all class watches
   const { data: watches, error: watchError } = await supabase
     .from('class_watches')
-    .select('class_nbr')
+    .select('class_nbr');
 
   if (watchError) {
-    console.error('[Admin] Error fetching class watches:', watchError)
-    throw new Error(`Failed to fetch watches: ${watchError.message}`)
+    console.error('[Admin] Error fetching class watches:', watchError);
+    throw new Error(`Failed to fetch watches: ${watchError.message}`);
   }
 
   // Count watchers per class
-  const watcherCountMap = new Map<string, number>()
+  const watcherCountMap = new Map<string, number>();
   for (const watch of watches || []) {
-    watcherCountMap.set(watch.class_nbr, (watcherCountMap.get(watch.class_nbr) || 0) + 1)
+    watcherCountMap.set(watch.class_nbr, (watcherCountMap.get(watch.class_nbr) || 0) + 1);
   }
 
   // Combine class states with watcher counts
@@ -213,13 +213,13 @@ export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> 
       ...classState,
       watcher_count: watcherCountMap.get(classState.class_nbr) || 0,
     }))
-    .sort((a, b) => b.watcher_count - a.watcher_count)
+    .sort((a, b) => b.watcher_count - a.watcher_count);
 
   console.log(
     `[Admin] Fetched ${classesWithWatchers.length} classes with watcher counts (total watchers: ${watches?.length || 0})`
-  )
+  );
 
-  return classesWithWatchers
+  return classesWithWatchers;
 }
 
 /**
@@ -236,45 +236,45 @@ export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> 
  * console.log(`Newest user: ${users[0].email} (${users[0].watch_count} watches, admin: ${users[0].is_admin})`)
  */
 export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]> {
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   try {
-    const users = await fetchAllAuthUsers()
+    const users = await fetchAllAuthUsers();
 
     if (users.length === 0) {
-      return []
+      return [];
     }
 
     // Get watch counts for all users in one query
     const { data: watchCounts, error: watchError } = await supabase
       .from('class_watches')
-      .select('user_id')
+      .select('user_id');
 
     if (watchError) {
-      console.error('[Admin] Error fetching watch counts:', watchError)
-      throw new Error(`Failed to fetch watch counts: ${watchError.message}`)
+      console.error('[Admin] Error fetching watch counts:', watchError);
+      throw new Error(`Failed to fetch watch counts: ${watchError.message}`);
     }
 
     // Count watches per user
-    const watchCountMap = new Map<string, number>()
+    const watchCountMap = new Map<string, number>();
     for (const watch of watchCounts || []) {
-      watchCountMap.set(watch.user_id, (watchCountMap.get(watch.user_id) || 0) + 1)
+      watchCountMap.set(watch.user_id, (watchCountMap.get(watch.user_id) || 0) + 1);
     }
 
     // Get user profiles (for admin status)
     const { data: profiles, error: profileError } = await supabase
       .from('user_profiles')
-      .select('user_id, is_admin')
+      .select('user_id, is_admin');
 
     if (profileError) {
-      console.error('[Admin] Error fetching user profiles:', profileError)
-      throw new Error(`Failed to fetch user profiles: ${profileError.message}`)
+      console.error('[Admin] Error fetching user profiles:', profileError);
+      throw new Error(`Failed to fetch user profiles: ${profileError.message}`);
     }
 
     // Create map of admin status by user_id
-    const adminStatusMap = new Map<string, boolean>()
+    const adminStatusMap = new Map<string, boolean>();
     for (const profile of profiles || []) {
-      adminStatusMap.set(profile.user_id, profile.is_admin)
+      adminStatusMap.set(profile.user_id, profile.is_admin);
     }
 
     // Combine user data with watch counts and admin status
@@ -288,14 +288,14 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
         watch_count: watchCountMap.get(user.id) || 0,
         is_admin: adminStatusMap.get(user.id) || false,
       }))
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    console.log(`[Admin] Fetched ${usersWithWatchCount.length} users with watch counts`)
+    console.log(`[Admin] Fetched ${usersWithWatchCount.length} users with watch counts`);
 
-    return usersWithWatchCount
+    return usersWithWatchCount;
   } catch (err) {
-    console.error('[Admin] Exception fetching users with watch counts:', err)
-    throw err
+    console.error('[Admin] Exception fetching users with watch counts:', err);
+    throw err;
   }
 }
 
@@ -313,50 +313,50 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
  * console.log(`User is watching ${watches.length} classes`)
  */
 export async function getUserWatches(userId: string): Promise<WatchWithClass[]> {
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
 
   // Fetch user's class watches
   const { data: watches, error: watchError } = await supabase
     .from('class_watches')
     .select('*')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: false });
 
   if (watchError) {
-    console.error(`[Admin] Error fetching watches for user ${userId}:`, watchError)
-    throw new Error(`Failed to fetch user watches: ${watchError.message}`)
+    console.error(`[Admin] Error fetching watches for user ${userId}:`, watchError);
+    throw new Error(`Failed to fetch user watches: ${watchError.message}`);
   }
 
   if (!watches || watches.length === 0) {
-    console.log(`[Admin] No watches found for user ${userId}`)
-    return []
+    console.log(`[Admin] No watches found for user ${userId}`);
+    return [];
   }
 
   // Fetch corresponding class states
-  const classNumbers = watches.map((w) => w.class_nbr)
+  const classNumbers = watches.map((w) => w.class_nbr);
   const { data: classStates, error: classError } = await supabase
     .from('class_states')
     .select('*')
-    .in('class_nbr', classNumbers)
+    .in('class_nbr', classNumbers);
 
   if (classError) {
-    console.error(`[Admin] Error fetching class states for user ${userId}:`, classError)
-    throw new Error(`Failed to fetch class states: ${classError.message}`)
+    console.error(`[Admin] Error fetching class states for user ${userId}:`, classError);
+    throw new Error(`Failed to fetch class states: ${classError.message}`);
   }
 
   // Create map of class states by class_nbr
-  const classStateMap = new Map<string, Tables<'class_states'>>()
+  const classStateMap = new Map<string, Tables<'class_states'>>();
   for (const classState of classStates || []) {
-    classStateMap.set(classState.class_nbr, classState)
+    classStateMap.set(classState.class_nbr, classState);
   }
 
   // Combine watches with class states
   const watchesWithClass: WatchWithClass[] = watches.map((watch) => ({
     ...watch,
     class_state: classStateMap.get(watch.class_nbr) || null,
-  }))
+  }));
 
-  console.log(`[Admin] Fetched ${watchesWithClass.length} watches for user ${userId}`)
+  console.log(`[Admin] Fetched ${watchesWithClass.length} watches for user ${userId}`);
 
-  return watchesWithClass
+  return watchesWithClass;
 }

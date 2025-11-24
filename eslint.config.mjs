@@ -1,6 +1,6 @@
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import { defineConfig, globalIgnores } from 'eslint/config';
+import nextVitals from 'eslint-config-next/core-web-vitals';
+import nextTs from 'eslint-config-next/typescript';
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -8,16 +8,21 @@ const eslintConfig = defineConfig([
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
     // Cloudflare Workers build artifacts:
-    ".open-next/**",
-    ".wrangler/**",
-    "cloudflare-env.d.ts",
+    '.open-next/**',
+    '.wrangler/**',
+    'cloudflare-env.d.ts',
+    // Generated TypeScript files:
+    'lib/supabase/database.types.ts',
+    '*.tsbuildinfo',
+    // Dependencies:
+    'node_modules/**',
     // Scraper service (separate Node.js project):
-    "scraper",
+    'scraper/**',
   ]),
 ]);
 

@@ -1,11 +1,11 @@
-'use client'
+'use client';
 
-import { Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react';
 
 export interface PullToRefreshIndicatorProps {
-  pullDistance: number
-  isRefreshing: boolean
-  threshold: number
+  pullDistance: number;
+  isRefreshing: boolean;
+  threshold: number;
 }
 
 /**
@@ -18,22 +18,22 @@ export function PullToRefreshIndicator({
   threshold,
 }: PullToRefreshIndicatorProps) {
   // Calculate opacity and rotation
-  const opacity = Math.min(pullDistance / threshold, 1)
-  const rotation = isRefreshing ? 0 : (pullDistance / threshold) * 360
-  const height = Math.min(pullDistance, 80)
+  const opacity = Math.min(pullDistance / threshold, 1);
+  const rotation = isRefreshing ? 0 : (pullDistance / threshold) * 360;
+  const height = Math.min(pullDistance, 80);
 
   // Determine message
   const getMessage = () => {
-    if (isRefreshing) return 'Refreshing...'
-    if (pullDistance >= threshold) return 'Release to refresh'
-    if (pullDistance > 0) return 'Pull to refresh'
-    return ''
-  }
+    if (isRefreshing) return 'Refreshing...';
+    if (pullDistance >= threshold) return 'Release to refresh';
+    if (pullDistance > 0) return 'Pull to refresh';
+    return '';
+  };
 
-  const message = getMessage()
+  const message = getMessage();
 
   // Don't render if not pulling and not refreshing
-  if (pullDistance === 0 && !isRefreshing) return null
+  if (pullDistance === 0 && !isRefreshing) return null;
 
   return (
     <div
@@ -45,21 +45,15 @@ export function PullToRefreshIndicator({
     >
       <div className="flex flex-col items-center justify-center h-full gap-2 pt-4">
         <div
-          className={`transition-transform duration-200 ${
-            isRefreshing ? 'animate-spin' : ''
-          }`}
+          className={`transition-transform duration-200 ${isRefreshing ? 'animate-spin' : ''}`}
           style={{
             transform: isRefreshing ? 'none' : `rotate(${rotation}deg)`,
           }}
         >
           <Loader2 className="size-6 text-primary" />
         </div>
-        {message && (
-          <span className="text-xs font-medium text-muted-foreground">
-            {message}
-          </span>
-        )}
+        {message && <span className="text-xs font-medium text-muted-foreground">{message}</span>}
       </div>
     </div>
-  )
+  );
 }

@@ -1,26 +1,26 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
-import { AuthProvider } from "@/lib/contexts/AuthContext";
-import { ThemeProvider } from "@/lib/contexts/ThemeContext";
-import { Footer } from "@/components/Footer";
-import { BottomNavWrapper } from "@/components/BottomNavWrapper";
-import { Toaster } from "sonner";
-import "./globals.css";
+import type { Metadata } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
+import Script from 'next/script';
+import { AuthProvider } from '@/lib/contexts/AuthContext';
+import { ThemeProvider } from '@/lib/contexts/ThemeContext';
+import { Footer } from '@/components/Footer';
+import { BottomNavWrapper } from '@/components/BottomNavWrapper';
+import { Toaster } from 'sonner';
+import './globals.css';
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "PickMyClass",
-  description: "Class selection made easy",
+  title: 'PickMyClass',
+  description: 'Class selection made easy',
 };
 
 export default function RootLayout({

@@ -1,16 +1,16 @@
-'use client'
+'use client';
 
-import { usePathname } from 'next/navigation'
-import Link from 'next/link'
-import { Home, PlusCircle, Settings } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { Home, PlusCircle, Settings } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface BottomNavProps {
-  onAddClass?: () => void
+  onAddClass?: () => void;
 }
 
 export function BottomNav({ onAddClass }: BottomNavProps) {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   const navItems = [
     {
@@ -33,13 +33,10 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
       href: '/settings',
       active: pathname === '/settings',
     },
-  ]
+  ];
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
-      aria-label="Mobile navigation"
-    >
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden" aria-label="Mobile navigation">
       {/* Safe area padding for notched devices */}
       <div
         className="border-t border-border/40 bg-background/80 backdrop-blur-lg"
@@ -49,9 +46,9 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
       >
         <div className="flex items-center justify-around px-4 py-2">
           {navItems.map((item) => {
-            const Icon = item.icon
-            const isActive = item.active
-            const isFab = item.isFab
+            const Icon = item.icon;
+            const isActive = item.active;
+            const isFab = item.isFab;
 
             // Floating Action Button (center button)
             if (isFab) {
@@ -76,7 +73,7 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
                   >
                     <Icon className="size-6" aria-hidden="true" />
                   </button>
-                )
+                );
               }
 
               return (
@@ -98,7 +95,7 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
                 >
                   <Icon className="size-6" aria-hidden="true" />
                 </Link>
-              )
+              );
             }
 
             // Regular navigation buttons
@@ -122,7 +119,7 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
                   <Icon className="size-6" aria-hidden="true" />
                   <span className="text-[10px] font-medium">{item.label}</span>
                 </button>
-              )
+              );
             }
 
             return (
@@ -143,10 +140,10 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
                 <Icon className="size-6" aria-hidden="true" />
                 <span className="text-[10px] font-medium">{item.label}</span>
               </Link>
-            )
+            );
           })}
         </div>
       </div>
     </nav>
-  )
+  );
 }

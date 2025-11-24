@@ -1,22 +1,22 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { Database } from '@/lib/supabase/database.types'
-import { RealtimeChannel } from '@supabase/supabase-js'
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Database } from '@/lib/supabase/database.types';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
-type ClassState = Database['public']['Tables']['class_states']['Row']
+type ClassState = Database['public']['Tables']['class_states']['Row'];
 
 interface UseRealtimeClassStatesOptions {
-  classNumbers: string[] // Array of class_nbr values to monitor
-  enabled?: boolean // Whether to subscribe (default: true)
+  classNumbers: string[]; // Array of class_nbr values to monitor
+  enabled?: boolean; // Whether to subscribe (default: true)
 }
 
 interface UseRealtimeClassStatesReturn {
-  classStates: Record<string, ClassState> // Keyed by class_nbr for easy lookup
-  loading: boolean
-  error: Error | null
-  refetch: () => Promise<void>
+  classStates: Record<string, ClassState>; // Keyed by class_nbr for easy lookup
+  loading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
 }
 
 /**
@@ -29,56 +29,56 @@ export function useRealtimeClassStates({
   classNumbers,
   enabled = true,
 }: UseRealtimeClassStatesOptions): UseRealtimeClassStatesReturn {
-  const [classStates, setClassStates] = useState<Record<string, ClassState>>({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+  const [classStates, setClassStates] = useState<Record<string, ClassState>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   // Fetch initial data
   const fetchClassStates = async () => {
-    const supabase = createClient()
+    const supabase = createClient();
     if (classNumbers.length === 0) {
-      setClassStates({})
-      setLoading(false)
-      return
+      setClassStates({});
+      setLoading(false);
+      return;
     }
 
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
       const { data, error: fetchError } = await supabase
         .from('class_states')
         .select('*')
-        .in('class_nbr', classNumbers)
+        .in('class_nbr', classNumbers);
 
-      if (fetchError) throw fetchError
+      if (fetchError) throw fetchError;
 
       // Convert array to object keyed by class_nbr
       const statesMap = (data || []).reduce(
         (acc, state) => {
-          acc[state.class_nbr] = state
-          return acc
+          acc[state.class_nbr] = state;
+          return acc;
         },
         {} as Record<string, ClassState>
-      )
+      );
 
-      setClassStates(statesMap)
+      setClassStates(statesMap);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch class states'))
+      setError(err instanceof Error ? err : new Error('Failed to fetch class states'));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled) return;
 
     // Initial fetch
-    fetchClassStates()
+    fetchClassStates();
 
     // Set up real-time subscription
-    const supabase = createClient()
-    let channel: RealtimeChannel | null = null
+    const supabase = createClient();
+    let channel: RealtimeChannel | null = null;
 
     if (classNumbers.length > 0) {
       channel = supabase
@@ -92,40 +92,40 @@ export function useRealtimeClassStates({
             filter: `class_nbr=in.(${classNumbers.join(',')})`,
           },
           (payload) => {
-            console.log('Real-time update received:', payload)
+            console.log('Real-time update received:', payload);
 
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const newState = payload.new as ClassState
+              const newState = payload.new as ClassState;
               setClassStates((prev) => ({
                 ...prev,
                 [newState.class_nbr]: newState,
-              }))
+              }));
             } else if (payload.eventType === 'DELETE') {
-              const oldState = payload.old as ClassState
+              const oldState = payload.old as ClassState;
               setClassStates((prev) => {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { [oldState.class_nbr]: _deleted, ...rest } = prev
-                return rest
-              })
+                const { [oldState.class_nbr]: _deleted, ...rest } = prev;
+                return rest;
+              });
             }
           }
         )
-        .subscribe()
+        .subscribe();
     }
 
     // Cleanup subscription on unmount or when dependencies change
     return () => {
       if (channel) {
-        supabase.removeChannel(channel)
+        supabase.removeChannel(channel);
       }
-    }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classNumbers.join(','), enabled]) // Re-subscribe when class numbers change
+  }, [classNumbers.join(','), enabled]); // Re-subscribe when class numbers change
 
   return {
     classStates,
     loading,
     error,
     refetch: fetchClassStates,
-  }
+  };
 }

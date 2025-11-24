@@ -1,16 +1,10 @@
-import { verifyAdmin } from '@/lib/auth/admin'
-import { getClassWatchers } from '@/lib/db/queries'
-import { getServiceClient } from '@/lib/supabase/service'
-import Link from 'next/link'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { verifyAdmin } from '@/lib/auth/admin';
+import { getClassWatchers } from '@/lib/db/queries';
+import { getServiceClient } from '@/lib/supabase/service';
+import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -18,14 +12,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { ArrowLeft, Calendar, Clock, MapPin, Users, BookOpen } from 'lucide-react'
-import { notFound } from 'next/navigation'
+} from '@/components/ui/table';
+import { ArrowLeft, Calendar, Clock, MapPin, Users, BookOpen } from 'lucide-react';
+import { notFound } from 'next/navigation';
 
 interface AdminClassDetailPageProps {
   params: Promise<{
-    classNbr: string
-  }>
+    classNbr: string;
+  }>;
 }
 
 /**
@@ -41,26 +35,26 @@ interface AdminClassDetailPageProps {
  */
 export default async function AdminClassDetailPage({ params }: AdminClassDetailPageProps) {
   // Verify admin authentication (redirects if unauthorized)
-  await verifyAdmin()
+  await verifyAdmin();
 
   // Resolve params promise
-  const { classNbr } = await params
+  const { classNbr } = await params;
 
   // Fetch class state from database
-  const supabase = getServiceClient()
+  const supabase = getServiceClient();
   const { data: classState, error: classError } = await supabase
     .from('class_states')
     .select('*')
     .eq('class_nbr', classNbr)
-    .single()
+    .single();
 
   // Handle case where class not found
   if (classError || !classState) {
-    notFound()
+    notFound();
   }
 
   // Fetch watchers for this class
-  const watchers = await getClassWatchers(classNbr)
+  const watchers = await getClassWatchers(classNbr);
 
   /**
    * Format timestamp to readable date/time string
@@ -72,25 +66,25 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    })
-  }
+    });
+  };
 
   /**
    * Format timestamp to relative time string
    */
   const formatRelativeTime = (timestamp: string): string => {
-    const now = new Date()
-    const then = new Date(timestamp)
-    const diffMs = now.getTime() - then.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMins / 60)
-    const diffDays = Math.floor(diffHours / 24)
+    const now = new Date();
+    const then = new Date(timestamp);
+    const diffMs = now.getTime() - then.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    return `${diffDays}d ago`
-  }
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
 
   /**
    * Get seat status badge variant based on availability
@@ -99,10 +93,10 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
     available: number,
     capacity: number
   ): 'success' | 'destructive' | 'warning' => {
-    if (available === 0) return 'destructive'
-    if (available / capacity < 0.2) return 'warning'
-    return 'success'
-  }
+    if (available === 0) return 'destructive';
+    if (available / capacity < 0.2) return 'warning';
+    return 'success';
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -126,10 +120,7 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
             <p className="text-muted-foreground text-lg">{classState.title || 'No title'}</p>
           </div>
           <Badge
-            variant={getSeatBadgeVariant(
-              classState.seats_available,
-              classState.seats_capacity
-            )}
+            variant={getSeatBadgeVariant(classState.seats_available, classState.seats_capacity)}
             className="text-base px-3 py-1"
           >
             {classState.seats_available}/{classState.seats_capacity} seats
@@ -148,16 +139,12 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
             {/* Left Column */}
             <div className="space-y-4">
               <div>
-                <div className="text-sm font-medium text-muted-foreground mb-1">
-                  Section Number
-                </div>
+                <div className="text-sm font-medium text-muted-foreground mb-1">Section Number</div>
                 <div className="font-mono text-lg font-semibold">{classState.class_nbr}</div>
               </div>
 
               <div>
-                <div className="text-sm font-medium text-muted-foreground mb-1">
-                  Course Code
-                </div>
+                <div className="text-sm font-medium text-muted-foreground mb-1">Course Code</div>
                 <div className="text-lg">
                   {classState.subject} {classState.catalog_nbr}
                 </div>
@@ -302,5 +289,5 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

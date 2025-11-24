@@ -1,35 +1,35 @@
-'use client'
+'use client';
 
-import { Database } from '@/lib/supabase/database.types'
-import { ClassStateIndicator } from './ClassStateIndicator'
-import { ClassDetailsDialog } from './ClassDetailsDialog'
-import { DeleteConfirmDialog } from './DeleteConfirmDialog'
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { Button } from './ui/button'
-import { Trash2, Info } from 'lucide-react'
-import { useState, useRef } from 'react'
-import { motion } from 'framer-motion'
-import { useSwipe } from '@/lib/hooks/useSwipe'
-import { toast } from 'sonner'
+import { Database } from '@/lib/supabase/database.types';
+import { ClassStateIndicator } from './ClassStateIndicator';
+import { ClassDetailsDialog } from './ClassDetailsDialog';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { Trash2, Info } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { useSwipe } from '@/lib/hooks/useSwipe';
+import { toast } from 'sonner';
 
-type ClassWatch = Database['public']['Tables']['class_watches']['Row']
-type ClassState = Database['public']['Tables']['class_states']['Row']
+type ClassWatch = Database['public']['Tables']['class_watches']['Row'];
+type ClassState = Database['public']['Tables']['class_states']['Row'];
 
 interface ClassWatchCardProps {
-  watch: ClassWatch
-  classState: ClassState | null
-  onDelete: (watchId: string) => Promise<void>
+  watch: ClassWatch;
+  classState: ClassState | null;
+  onDelete: (watchId: string) => Promise<void>;
 }
 
 export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardProps) {
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [showDetails, setShowDetails] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [swipeOffset, setSwipeOffset] = useState(0)
-  const [isSwipeDeleting, setIsSwipeDeleting] = useState(false)
-  const deletedWatchRef = useRef<ClassWatch | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwipeDeleting, setIsSwipeDeleting] = useState(false);
+  const deletedWatchRef = useRef<ClassWatch | null>(null);
 
-  const classTitle = `${watch.subject} ${watch.catalog_nbr}${classState?.title ? ` - ${classState.title}` : ''}`
+  const classTitle = `${watch.subject} ${watch.catalog_nbr}${classState?.title ? ` - ${classState.title}` : ''}`;
 
   // Swipe-to-delete functionality
   const { handlers } = useSwipe({
@@ -37,51 +37,51 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
     onSwipeMove: (offset) => {
       // Only allow left swipe (negative offset)
       if (offset < 0) {
-        setSwipeOffset(Math.max(offset, -120))
+        setSwipeOffset(Math.max(offset, -120));
       }
     },
     onSwipeLeft: () => {
-      handleSwipeDelete()
+      handleSwipeDelete();
     },
     onSwipeEnd: () => {
       // Reset if not deleted
       if (!isSwipeDeleting) {
-        setSwipeOffset(0)
+        setSwipeOffset(0);
       }
     },
-  })
+  });
 
   const handleSwipeDelete = async () => {
-    setIsSwipeDeleting(true)
-    setSwipeOffset(-500) // Slide out animation
-    deletedWatchRef.current = watch
+    setIsSwipeDeleting(true);
+    setSwipeOffset(-500); // Slide out animation
+    deletedWatchRef.current = watch;
 
     // Wait for slide animation
     setTimeout(async () => {
       try {
-        await onDelete(watch.id)
+        await onDelete(watch.id);
 
         // Show undo toast
         toast.success('Class watch removed', {
           action: {
             label: 'Undo',
             onClick: async () => {
-              await handleUndo()
+              await handleUndo();
             },
           },
           duration: 5000,
-        })
+        });
       } catch (error) {
-        console.error('Failed to delete watch:', error)
-        toast.error('Failed to delete watch. Please try again.')
-        setIsSwipeDeleting(false)
-        setSwipeOffset(0)
+        console.error('Failed to delete watch:', error);
+        toast.error('Failed to delete watch. Please try again.');
+        setIsSwipeDeleting(false);
+        setSwipeOffset(0);
       }
-    }, 300)
-  }
+    }, 300);
+  };
 
   const handleUndo = async () => {
-    if (!deletedWatchRef.current) return
+    if (!deletedWatchRef.current) return;
 
     try {
       const response = await fetch('/api/class-watches', {
@@ -93,45 +93,45 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
           catalog_nbr: deletedWatchRef.current.catalog_nbr,
           class_nbr: deletedWatchRef.current.class_nbr,
         }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to restore watch')
+        throw new Error('Failed to restore watch');
       }
 
-      toast.success('Class watch restored')
-      deletedWatchRef.current = null
+      toast.success('Class watch restored');
+      deletedWatchRef.current = null;
 
       // Force page refresh to show restored watch
-      window.location.reload()
+      window.location.reload();
     } catch (error) {
-      console.error('Failed to restore watch:', error)
-      toast.error('Failed to restore watch. Please add it again manually.')
+      console.error('Failed to restore watch:', error);
+      toast.error('Failed to restore watch. Please add it again manually.');
     }
-  }
+  };
 
   const handleDelete = async () => {
-    setIsDeleting(true)
+    setIsDeleting(true);
     try {
-      await onDelete(watch.id)
-      toast.success('Class watch removed')
+      await onDelete(watch.id);
+      toast.success('Class watch removed');
     } catch (error) {
-      console.error('Failed to delete watch:', error)
-      toast.error('Failed to delete watch. Please try again.')
-      setIsDeleting(false)
+      console.error('Failed to delete watch:', error);
+      toast.error('Failed to delete watch. Please try again.');
+      setIsDeleting(false);
     }
-  }
+  };
 
   // Calculate background color based on swipe
   const getBackgroundStyle = () => {
     if (swipeOffset < -10) {
-      const opacity = Math.min(Math.abs(swipeOffset) / 120, 1)
+      const opacity = Math.min(Math.abs(swipeOffset) / 120, 1);
       return {
         backgroundColor: `rgba(239, 68, 68, ${opacity * 0.1})`, // red-500 with opacity
-      }
+      };
     }
-    return {}
-  }
+    return {};
+  };
 
   return (
     <>
@@ -236,5 +236,5 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
         isDeleting={isDeleting}
       />
     </>
-  )
+  );
 }

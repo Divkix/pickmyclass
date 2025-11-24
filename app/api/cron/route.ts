@@ -11,39 +11,39 @@
  * Configured in: wrangler.jsonc
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getSectionsToCheck } from '@/lib/db/queries'
-import type { ClassCheckMessage, Env } from '@/lib/types/queue'
-import { getCloudflareContext } from '@opennextjs/cloudflare'
+import { NextRequest, NextResponse } from 'next/server';
+import { getSectionsToCheck } from '@/lib/db/queries';
+import type { ClassCheckMessage, Env } from '@/lib/types/queue';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 /**
  * Main cron handler with staggered checking
  */
 export async function GET(request: NextRequest) {
-  const startTime = Date.now()
-  const lockHolder = `cron-${Date.now()}`
-  let lockAcquired = false
+  const startTime = Date.now();
+  const lockHolder = `cron-${Date.now()}`;
+  let lockAcquired = false;
 
   try {
     // Authentication: Require CRON_SECRET Bearer token
-    const authHeader = request.headers.get('authorization')
-    const expectedSecret = process.env.CRON_SECRET
+    const authHeader = request.headers.get('authorization');
+    const expectedSecret = process.env.CRON_SECRET;
 
     if (!expectedSecret) {
-      console.error('[Cron] CRON_SECRET not configured')
+      console.error('[Cron] CRON_SECRET not configured');
       return NextResponse.json(
         {
           success: false,
           error: 'Server configuration error',
         },
         { status: 500 }
-      )
+      );
     }
 
-    const isAuthorized = authHeader === `Bearer ${expectedSecret}`
+    const isAuthorized = authHeader === `Bearer ${expectedSecret}`;
 
     if (!isAuthorized) {
-      console.warn('[Cron] Unauthorized request - invalid or missing authentication')
+      console.warn('[Cron] Unauthorized request - invalid or missing authentication');
 
       return NextResponse.json(
         {
@@ -51,28 +51,28 @@ export async function GET(request: NextRequest) {
           error: 'Unauthorized - this endpoint requires authentication',
         },
         { status: 401 }
-      )
+      );
     }
 
     // Get distributed lock to prevent concurrent cron runs
-    const context = await getCloudflareContext()
-    const env = context.env as unknown as Env
+    const context = await getCloudflareContext();
+    const env = context.env as unknown as Env;
 
     if (env.CRON_LOCK_DO) {
-      const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock')
-      const lockStub = env.CRON_LOCK_DO.get(lockId)
+      const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock');
+      const lockStub = env.CRON_LOCK_DO.get(lockId);
 
       const lockResponse = await lockStub.fetch('http://do/acquire?holder=' + lockHolder, {
         method: 'POST',
-      })
+      });
       const lockResult = (await lockResponse.json()) as {
-        acquired: boolean
-        message: string
-        lockHolder?: string
-      }
+        acquired: boolean;
+        message: string;
+        lockHolder?: string;
+      };
 
       if (!lockResult.acquired) {
-        console.warn('[Cron] Lock acquisition failed:', lockResult.message)
+        console.warn('[Cron] Lock acquisition failed:', lockResult.message);
         return NextResponse.json(
           {
             success: false,
@@ -81,13 +81,13 @@ export async function GET(request: NextRequest) {
             current_holder: lockResult.lockHolder,
           },
           { status: 409 }
-        )
+        );
       }
 
-      lockAcquired = true
-      console.log('[Cron] Lock acquired successfully')
+      lockAcquired = true;
+      console.log('[Cron] Lock acquired successfully');
     } else {
-      console.warn('[Cron] CRON_LOCK_DO not available - proceeding without lock')
+      console.warn('[Cron] CRON_LOCK_DO not available - proceeding without lock');
     }
 
     // Determine stagger group based on current time
@@ -95,43 +95,43 @@ export async function GET(request: NextRequest) {
     // Math.floor(currentMinute / 30) gives us: 0 for :00-:29, 1 for :30-:59
     // Modulo 2 alternates between 0 and 1 for each 30-minute window
     // Result: :00 → even (0 % 2 = 0), :30 → odd (1 % 2 = 1)
-    const now = new Date()
-    const currentMinute = now.getMinutes()
-    const staggerGroup = Math.floor(currentMinute / 30) % 2 === 0 ? 'even' : 'odd'
+    const now = new Date();
+    const currentMinute = now.getMinutes();
+    const staggerGroup = Math.floor(currentMinute / 30) % 2 === 0 ? 'even' : 'odd';
 
     console.log(
       `[Cron] Starting 30-minute class check (stagger: ${staggerGroup}, time: ${now.toISOString()})`
-    )
+    );
 
     // Get queue binding (reuse context from lock acquisition)
-    const queue = env.CLASS_CHECK_QUEUE
+    const queue = env.CLASS_CHECK_QUEUE;
 
     if (!queue) {
-      console.error('[Cron] CLASS_CHECK_QUEUE binding not found')
+      console.error('[Cron] CLASS_CHECK_QUEUE binding not found');
       return NextResponse.json(
         {
           success: false,
           error: 'Queue binding not configured',
         },
         { status: 500 }
-      )
+      );
     }
 
     // Use server-side filtering function to get sections for this stagger group
-    const sections = await getSectionsToCheck(staggerGroup)
+    const sections = await getSectionsToCheck(staggerGroup);
 
-    console.log(`[Cron] Enqueueing ${sections.length} sections to queue`)
+    console.log(`[Cron] Enqueueing ${sections.length} sections to queue`);
 
     // ALERT: Check if we have 0 sections to process
     if (sections.length === 0) {
-      console.log('[Cron] No sections to check')
+      console.log('[Cron] No sections to check');
       return NextResponse.json({
         success: true,
         message: 'No sections to check',
         sections_enqueued: 0,
         stagger_group: staggerGroup,
         duration: Date.now() - startTime,
-      })
+      });
     }
 
     // Enqueue all sections to Cloudflare Queue for parallel processing
@@ -142,22 +142,22 @@ export async function GET(request: NextRequest) {
         enqueued_at: new Date().toISOString(),
         stagger_group: staggerGroup,
       } satisfies ClassCheckMessage)
-    )
+    );
 
-    await Promise.all(enqueuePromises)
+    await Promise.all(enqueuePromises);
 
-    const duration = Date.now() - startTime
-    console.log(`[Cron] Enqueued ${sections.length} sections in ${duration}ms`)
+    const duration = Date.now() - startTime;
+    console.log(`[Cron] Enqueued ${sections.length} sections in ${duration}ms`);
 
     return NextResponse.json({
       success: true,
       sections_enqueued: sections.length,
       stagger_group: staggerGroup,
       duration,
-    })
+    });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    console.error('[Cron] Fatal error:', errorMessage)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Cron] Fatal error:', errorMessage);
 
     return NextResponse.json(
       {
@@ -166,25 +166,25 @@ export async function GET(request: NextRequest) {
         duration: Date.now() - startTime,
       },
       { status: 500 }
-    )
+    );
   } finally {
     // Release lock if it was acquired
     if (lockAcquired) {
       try {
-        const context = await getCloudflareContext()
-        const env = context.env as unknown as Env
+        const context = await getCloudflareContext();
+        const env = context.env as unknown as Env;
 
         if (env.CRON_LOCK_DO) {
-          const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock')
-          const lockStub = env.CRON_LOCK_DO.get(lockId)
+          const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock');
+          const lockStub = env.CRON_LOCK_DO.get(lockId);
 
           await lockStub.fetch('http://do/release?holder=' + lockHolder, {
             method: 'POST',
-          })
-          console.log('[Cron] Lock released')
+          });
+          console.log('[Cron] Lock released');
         }
       } catch (error) {
-        console.error('[Cron] Error releasing lock:', error)
+        console.error('[Cron] Error releasing lock:', error);
         // Don't throw - lock will auto-expire after 25 minutes
       }
     }

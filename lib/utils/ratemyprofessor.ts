@@ -2,7 +2,7 @@
  * RateMyProfessor integration utilities
  */
 
-const ASU_SCHOOL_ID = "15723"; // Arizona State University (Tempe) school ID on RMP
+const ASU_SCHOOL_ID = '15723'; // Arizona State University (Tempe) school ID on RMP
 
 /**
  * Generates a RateMyProfessor search URL for a professor at ASU
@@ -10,7 +10,7 @@ const ASU_SCHOOL_ID = "15723"; // Arizona State University (Tempe) school ID on 
  * @returns RMP search URL or null if professor name is invalid
  */
 export function getRateMyProfessorUrl(professorName: string | null | undefined): string | null {
-  if (!professorName || professorName.trim() === "" || professorName.toLowerCase() === "staff") {
+  if (!professorName || professorName.trim() === '' || professorName.toLowerCase() === 'staff') {
     return null;
   }
 
@@ -30,14 +30,14 @@ export function getRateMyProfessorUrl(professorName: string | null | undefined):
  * @returns true if the name can be looked up on RMP
  */
 export function isValidProfessorName(professorName: string | null | undefined): boolean {
-  if (!professorName || professorName.trim() === "") {
+  if (!professorName || professorName.trim() === '') {
     return false;
   }
 
   const cleanName = professorName.trim().toLowerCase();
 
   // Common placeholder values that shouldn't be looked up
-  const invalidNames = ["staff", "tba", "tbd", "to be announced", "to be determined"];
+  const invalidNames = ['staff', 'tba', 'tbd', 'to be announced', 'to be determined'];
 
   return !invalidNames.includes(cleanName);
 }

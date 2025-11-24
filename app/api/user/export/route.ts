@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Data Export API - CCPA Compliance
@@ -9,16 +9,16 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const supabase = await createClient();
 
     // Check if user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Fetch user profile
@@ -26,12 +26,13 @@ export async function GET() {
       .from('user_profiles')
       .select('*')
       .eq('user_id', user.id)
-      .single()
+      .single();
 
     // Fetch all class watches with their current states
     const { data: watches } = await supabase
       .from('class_watches')
-      .select(`
+      .select(
+        `
         *,
         class_states (
           title,
@@ -42,14 +43,16 @@ export async function GET() {
           meeting_times,
           last_checked_at
         )
-      `)
+      `
+      )
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false });
 
     // Fetch notification history
     const { data: notifications } = await supabase
       .from('notifications_sent')
-      .select(`
+      .select(
+        `
         *,
         class_watches (
           term,
@@ -57,9 +60,10 @@ export async function GET() {
           catalog_nbr,
           class_nbr
         )
-      `)
+      `
+      )
       .eq('class_watches.user_id', user.id)
-      .order('sent_at', { ascending: false })
+      .order('sent_at', { ascending: false });
 
     // Build export data
     const exportData = {
@@ -87,11 +91,11 @@ export async function GET() {
         total_notifications: notifications?.length || 0,
         active_watches: watches?.filter(() => !profile?.is_disabled).length || 0,
       },
-    }
+    };
 
     // Generate filename with timestamp
-    const timestamp = new Date().toISOString().split('T')[0]
-    const filename = `pickmyclass-data-${timestamp}.json`
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `pickmyclass-data-${timestamp}.json`;
 
     // Return JSON file for download
     return new NextResponse(JSON.stringify(exportData, null, 2), {
@@ -101,12 +105,9 @@ export async function GET() {
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Cache-Control': 'no-store',
       },
-    })
+    });
   } catch (error) {
-    console.error('Export error:', error)
-    return NextResponse.json(
-      { error: 'Failed to export data' },
-      { status: 500 }
-    )
+    console.error('Export error:', error);
+    return NextResponse.json({ error: 'Failed to export data' }, { status: 500 });
   }
 }

@@ -1,10 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
-import { getServiceClient } from '@/lib/supabase/service'
-import { NextRequest, NextResponse } from 'next/server'
-import { Database } from '@/lib/supabase/database.types'
-import { z } from 'zod'
+import { createClient } from '@/lib/supabase/server';
+import { getServiceClient } from '@/lib/supabase/service';
+import { NextRequest, NextResponse } from 'next/server';
+import { Database } from '@/lib/supabase/database.types';
+import { z } from 'zod';
 
-type ClassState = Database['public']['Tables']['class_states']['Row']
+type ClassState = Database['public']['Tables']['class_states']['Row'];
 
 /**
  * Validation schemas
@@ -18,46 +18,46 @@ const createClassWatchSchema = z.object({
     .string()
     .regex(/^\d{5}$/, 'Class number must be a 5-digit code (e.g., "12431")')
     .min(1, 'Class number is required'),
-})
+});
 
 const deleteClassWatchSchema = z.object({
   id: z.string().uuid('Watch ID must be a valid UUID'),
-})
+});
 
 interface ScraperResponse {
-  success: boolean
+  success: boolean;
   data?: {
-    subject: string
-    catalog_nbr: string
-    title: string
-    instructor?: string
-    seats_available?: number
-    seats_capacity?: number
-    non_reserved_seats?: number | null
-    location?: string
-    meeting_times?: string
-  }
-  error?: string
+    subject: string;
+    catalog_nbr: string;
+    title: string;
+    instructor?: string;
+    seats_available?: number;
+    seats_capacity?: number;
+    non_reserved_seats?: number | null;
+    location?: string;
+    meeting_times?: string;
+  };
+  error?: string;
 }
 
 // Get max watches per user from env (default: 10)
-const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10)
+const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10);
 
 /**
  * GET /api/class-watches
  * Fetch all class watches for the authenticated user with joined class_states data
  */
 export async function GET() {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   // Check authentication
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -66,48 +66,48 @@ export async function GET() {
       .from('class_watches')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false });
 
-    if (watchesError) throw watchesError
+    if (watchesError) throw watchesError;
 
     // Extract class numbers to fetch states
-    const classNumbers = watches?.map((w) => w.class_nbr) || []
+    const classNumbers = watches?.map((w) => w.class_nbr) || [];
 
     // Fetch corresponding class states
-    let classStates: ClassState[] = []
+    let classStates: ClassState[] = [];
     if (classNumbers.length > 0) {
       const { data: states, error: statesError } = await supabase
         .from('class_states')
         .select('*')
-        .in('class_nbr', classNumbers)
+        .in('class_nbr', classNumbers);
 
-      if (statesError) throw statesError
-      classStates = states || []
+      if (statesError) throw statesError;
+      classStates = states || [];
     }
 
     // Create a map of class_nbr -> class_state
     const statesMap = classStates.reduce(
       (acc, state) => {
-        acc[state.class_nbr] = state
-        return acc
+        acc[state.class_nbr] = state;
+        return acc;
       },
       {} as Record<string, ClassState>
-    )
+    );
 
     // Join watches with their states
     const watchesWithStates = watches?.map((watch) => ({
       ...watch,
       class_state: statesMap[watch.class_nbr] || null,
-    }))
+    }));
 
     return NextResponse.json({
       watches: watchesWithStates,
       maxWatches: MAX_WATCHES_PER_USER,
-    })
+    });
   } catch (error) {
-    console.error('Error fetching class watches:', error)
+    console.error('Error fetching class watches:', error);
 
-    return NextResponse.json({ error: 'Failed to fetch class watches' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch class watches' }, { status: 500 });
   }
 }
 
@@ -123,16 +123,16 @@ export async function GET() {
  * Body: { term, class_nbr }
  */
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   // Check authentication
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -140,12 +140,12 @@ export async function POST(request: NextRequest) {
     const { count: watchCount, error: countError } = await supabase
       .from('class_watches')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+      .eq('user_id', user.id);
 
     if (countError) {
-      console.error('Error counting user watches:', countError)
+      console.error('Error counting user watches:', countError);
 
-      throw countError
+      throw countError;
     }
 
     if (watchCount !== null && watchCount >= MAX_WATCHES_PER_USER) {
@@ -154,12 +154,12 @@ export async function POST(request: NextRequest) {
           error: `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
         },
         { status: 429 }
-      )
+      );
     }
 
     // Parse and validate request body
-    const body = await request.json()
-    const validation = createClassWatchSchema.safeParse(body)
+    const body = await request.json();
+    const validation = createClassWatchSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
@@ -171,20 +171,20 @@ export async function POST(request: NextRequest) {
           })),
         },
         { status: 400 }
-      )
+      );
     }
 
-    const { term, class_nbr } = validation.data
+    const { term, class_nbr } = validation.data;
 
     // Step 1: Fetch class details from scraper
-    console.log(`[API] Fetching class details for section ${class_nbr}, term ${term}`)
+    console.log(`[API] Fetching class details for section ${class_nbr}, term ${term}`);
 
-    const scraperUrl = process.env.SCRAPER_URL
-    const scraperToken = process.env.SCRAPER_SECRET_TOKEN
+    const scraperUrl = process.env.SCRAPER_URL;
+    const scraperToken = process.env.SCRAPER_SECRET_TOKEN;
 
-    let subject: string
-    let catalog_nbr: string
-    let scrapedData: ScraperResponse['data'] | null = null
+    let subject: string;
+    let catalog_nbr: string;
+    let scrapedData: ScraperResponse['data'] | null = null;
 
     if (scraperUrl && scraperToken) {
       try {
@@ -192,44 +192,46 @@ export async function POST(request: NextRequest) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${scraperToken}`,
+            Authorization: `Bearer ${scraperToken}`,
           },
           body: JSON.stringify({ sectionNumber: class_nbr, term }),
           signal: AbortSignal.timeout(60000), // 60 second timeout
-        })
+        });
 
         if (!scraperResponse.ok) {
-          const errorText = await scraperResponse.text()
-          console.error(`[API] Scraper service error (${scraperResponse.status}): ${errorText}`)
+          const errorText = await scraperResponse.text();
+          console.error(`[API] Scraper service error (${scraperResponse.status}): ${errorText}`);
 
-          throw new Error(`Scraper service returned ${scraperResponse.status}`)
+          throw new Error(`Scraper service returned ${scraperResponse.status}`);
         }
 
-        const scraperData = (await scraperResponse.json()) as ScraperResponse
+        const scraperData = (await scraperResponse.json()) as ScraperResponse;
 
         if (!scraperData.success || !scraperData.data) {
-          console.error('[API] Scraper returned unsuccessful response:', scraperData.error)
+          console.error('[API] Scraper returned unsuccessful response:', scraperData.error);
 
-          throw new Error(scraperData.error || 'Scraper returned no data')
+          throw new Error(scraperData.error || 'Scraper returned no data');
         }
 
-        console.log('[API] Successfully fetched class details from scraper')
-        scrapedData = scraperData.data
-        subject = scraperData.data.subject
-        catalog_nbr = scraperData.data.catalog_nbr
+        console.log('[API] Successfully fetched class details from scraper');
+        scrapedData = scraperData.data;
+        subject = scraperData.data.subject;
+        catalog_nbr = scraperData.data.catalog_nbr;
       } catch (error) {
-        console.error('[API] Failed to fetch from scraper:', error)
+        console.error('[API] Failed to fetch from scraper:', error);
 
         return NextResponse.json(
-          { error: 'Failed to fetch class details. Please verify the section number and try again.' },
+          {
+            error: 'Failed to fetch class details. Please verify the section number and try again.',
+          },
           { status: 500 }
-        )
+        );
       }
     } else {
       // Development fallback
-      console.log('[API] Scraper not configured, using stub data')
-      subject = 'CSE'
-      catalog_nbr = '240'
+      console.log('[API] Scraper not configured, using stub data');
+      subject = 'CSE';
+      catalog_nbr = '240';
     }
 
     // Step 2: Create class watch
@@ -243,67 +245,62 @@ export async function POST(request: NextRequest) {
         class_nbr,
       })
       .select()
-      .single()
+      .single();
 
     if (insertError) {
       // Handle unique constraint violation
       if (insertError.code === '23505') {
-        return NextResponse.json(
-          { error: 'You are already watching this class' },
-          { status: 409 }
-        )
+        return NextResponse.json({ error: 'You are already watching this class' }, { status: 409 });
       }
 
-      throw insertError
+      throw insertError;
     }
 
-    console.log('[API] Successfully created class watch')
+    console.log('[API] Successfully created class watch');
 
     // Step 3: Persist class state if we have scraped data
     if (scrapedData) {
       try {
-        const supabaseServiceRole = getServiceClient()
+        const supabaseServiceRole = getServiceClient();
 
-        const { error: upsertError } = await supabaseServiceRole
-          .from('class_states')
-          .upsert(
-            {
-              term,
-              subject: scrapedData.subject,
-              catalog_nbr: scrapedData.catalog_nbr,
-              class_nbr,
-              title: scrapedData.title,
-              instructor_name: scrapedData.instructor || null,
-              seats_available: scrapedData.seats_available || 0,
-              seats_capacity: scrapedData.seats_capacity || 0,
-              non_reserved_seats: scrapedData.non_reserved_seats ?? null,
-              location: scrapedData.location || null,
-              meeting_times: scrapedData.meeting_times || null,
-              last_checked_at: new Date().toISOString(),
-              last_changed_at: new Date().toISOString(),
-            },
-            {
-              onConflict: 'class_nbr',
-            }
-          )
+        const { error: upsertError } = await supabaseServiceRole.from('class_states').upsert(
+          {
+            term,
+            subject: scrapedData.subject,
+            catalog_nbr: scrapedData.catalog_nbr,
+            class_nbr,
+            title: scrapedData.title,
+            instructor_name: scrapedData.instructor || null,
+            seats_available: scrapedData.seats_available || 0,
+            seats_capacity: scrapedData.seats_capacity || 0,
+            non_reserved_seats: scrapedData.non_reserved_seats ?? null,
+            location: scrapedData.location || null,
+            meeting_times: scrapedData.meeting_times || null,
+            last_checked_at: new Date().toISOString(),
+            last_changed_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'class_nbr',
+          }
+        );
 
         if (upsertError) {
-          console.error('[API] Failed to upsert class state:', upsertError)
+          console.error('[API] Failed to upsert class state:', upsertError);
           // Continue anyway - watch was created successfully
         } else {
-          console.log('[API] Successfully persisted class state to database')
+          console.log('[API] Successfully persisted class state to database');
         }
       } catch (dbError) {
-        console.error('[API] Error persisting to database:', dbError)
+        console.error('[API] Error persisting to database:', dbError);
         // Continue anyway - watch was created successfully
       }
     }
 
-    return NextResponse.json({ watch: watchData }, { status: 201 })
+    return NextResponse.json({ watch: watchData }, { status: 201 });
   } catch (error) {
-    console.error('Error creating class watch:', error)
+    console.error('Error creating class watch:', error);
 
-    return NextResponse.json({ error: 'Failed to create class watch' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create class watch' }, { status: 500 });
   }
 }
 
@@ -312,24 +309,24 @@ export async function POST(request: NextRequest) {
  * Delete a class watch for the authenticated user
  */
 export async function DELETE(request: NextRequest) {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   // Check authentication
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const { searchParams } = new URL(request.url)
-    const watchId = searchParams.get('id')
+    const { searchParams } = new URL(request.url);
+    const watchId = searchParams.get('id');
 
     // Validate watch ID
-    const validation = deleteClassWatchSchema.safeParse({ id: watchId })
+    const validation = deleteClassWatchSchema.safeParse({ id: watchId });
 
     if (!validation.success) {
       return NextResponse.json(
@@ -341,20 +338,24 @@ export async function DELETE(request: NextRequest) {
           })),
         },
         { status: 400 }
-      )
+      );
     }
 
     // Delete the watch (RLS ensures user can only delete their own)
-    const { error } = await supabase.from('class_watches').delete().eq('id', validation.data.id).eq('user_id', user.id)
+    const { error } = await supabase
+      .from('class_watches')
+      .delete()
+      .eq('id', validation.data.id)
+      .eq('user_id', user.id);
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting class watch:', error)
+    console.error('Error deleting class watch:', error);
 
-    return NextResponse.json({ error: 'Failed to delete class watch' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete class watch' }, { status: 500 });
   }
 }

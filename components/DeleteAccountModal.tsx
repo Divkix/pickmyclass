@@ -1,7 +1,7 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -9,58 +9,58 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface DeleteAccountModalProps {
-  open: boolean
-  onClose: () => void
+  open: boolean;
+  onClose: () => void;
 }
 
 export function DeleteAccountModal({ open, onClose }: DeleteAccountModalProps) {
-  const [confirmText, setConfirmText] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
+  const [confirmText, setConfirmText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleDelete = async () => {
     if (confirmText !== 'DELETE') {
-      setError('Please type DELETE to confirm')
-      return
+      setError('Please type DELETE to confirm');
+      return;
     }
 
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
       const response = await fetch('/api/user/delete', {
         method: 'DELETE',
-      })
+      });
 
       if (!response.ok) {
-        const data = await response.json() as { error?: string }
-        throw new Error(data.error || 'Failed to delete account')
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error || 'Failed to delete account');
       }
 
       // Account deleted successfully, redirect to login
-      router.push('/login?message=Account deleted successfully')
+      router.push('/login?message=Account deleted successfully');
     } catch (err) {
-      console.error('Delete error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to delete account')
-      setLoading(false)
+      console.error('Delete error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete account');
+      setLoading(false);
     }
-  }
+  };
 
   const handleClose = () => {
     if (!loading) {
-      setConfirmText('')
-      setError(null)
-      onClose()
+      setConfirmText('');
+      setError(null);
+      onClose();
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -112,12 +112,7 @@ export function DeleteAccountModal({ open, onClose }: DeleteAccountModalProps) {
         </div>
 
         <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleClose}
-            disabled={loading}
-          >
+          <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
             Cancel
           </Button>
           <Button
@@ -131,5 +126,5 @@ export function DeleteAccountModal({ open, onClose }: DeleteAccountModalProps) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

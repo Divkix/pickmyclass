@@ -1,33 +1,33 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/contexts/AuthContext'
-import { Button } from '@/components/ui/button'
-import { LogOut } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { LogOut } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface SignOutButtonProps {
-  variant?: 'full' | 'icon'
-  className?: string
+  variant?: 'full' | 'icon';
+  className?: string;
 }
 
 export function SignOutButton({ variant = 'full', className }: SignOutButtonProps) {
-  const router = useRouter()
-  const { signOut } = useAuth()
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const { signOut } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSignOut = async () => {
     try {
-      setIsLoading(true)
-      await signOut()
-      router.push('/login')
+      setIsLoading(true);
+      await signOut();
+      router.push('/login');
     } catch (error) {
-      console.error('Error signing out:', error)
+      console.error('Error signing out:', error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   if (variant === 'icon') {
     return (
@@ -41,7 +41,7 @@ export function SignOutButton({ variant = 'full', className }: SignOutButtonProp
       >
         <LogOut className="size-4" />
       </Button>
-    )
+    );
   }
 
   return (
@@ -55,5 +55,5 @@ export function SignOutButton({ variant = 'full', className }: SignOutButtonProp
       <LogOut className="size-4" />
       {isLoading ? 'Signing out...' : 'Sign Out'}
     </Button>
-  )
+  );
 }

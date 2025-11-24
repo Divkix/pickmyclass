@@ -1,102 +1,102 @@
 version: 2
 updates:
   # Root package.json (Next.js app)
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "America/Phoenix"
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'America/Phoenix'
     open-pull-requests-limit: 10
     commit-message:
-      prefix: "deps"
+      prefix: 'deps'
     labels:
-      - "dependencies"
+      - 'dependencies'
     ignore:
       # Keep Next.js on v15.x until OpenNext Cloudflare adapter supports v16
-      - dependency-name: "next"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "eslint-config-next"
-        update-types: ["version-update:semver-major"]
+      - dependency-name: 'next'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'eslint-config-next'
+        update-types: ['version-update:semver-major']
     groups:
       # Group minor/patch updates to reduce PR noise
       react-ecosystem:
         patterns:
-          - "react*"
-          - "@types/react*"
+          - 'react*'
+          - '@types/react*'
       next-ecosystem:
         patterns:
-          - "next*"
-          - "eslint-config-next"
+          - 'next*'
+          - 'eslint-config-next'
       radix-ui:
         patterns:
-          - "@radix-ui/*"
+          - '@radix-ui/*'
       supabase:
         patterns:
-          - "@supabase/*"
-          - "supabase"
+          - '@supabase/*'
+          - 'supabase'
       cloudflare:
         patterns:
-          - "@opennextjs/*"
-          - "wrangler"
+          - '@opennextjs/*'
+          - 'wrangler'
       tailwind:
         patterns:
-          - "tailwindcss"
-          - "@tailwindcss/*"
-          - "tw-animate-css"
+          - 'tailwindcss'
+          - '@tailwindcss/*'
+          - 'tw-animate-css'
       dev-dependencies:
-        dependency-type: "development"
+        dependency-type: 'development'
         update-types:
-          - "minor"
-          - "patch"
+          - 'minor'
+          - 'patch'
 
   # Scraper service
-  - package-ecosystem: "npm"
-    directory: "/scraper"
+  - package-ecosystem: 'npm'
+    directory: '/scraper'
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "America/Phoenix"
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'America/Phoenix'
     open-pull-requests-limit: 5
     commit-message:
-      prefix: "deps(scraper)"
+      prefix: 'deps(scraper)'
     labels:
-      - "dependencies"
-      - "scraper"
+      - 'dependencies'
+      - 'scraper'
     groups:
       express-ecosystem:
         patterns:
-          - "express*"
-          - "@types/express*"
-          - "helmet"
-          - "cors"
-          - "@types/cors"
+          - 'express*'
+          - '@types/express*'
+          - 'helmet'
+          - 'cors'
+          - '@types/cors'
       puppeteer:
         patterns:
-          - "puppeteer*"
+          - 'puppeteer*'
 
   # Docker (scraper uses Dockerfile)
-  - package-ecosystem: "docker"
-    directory: "/scraper"
+  - package-ecosystem: 'docker'
+    directory: '/scraper'
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: 'weekly'
+      day: 'monday'
     commit-message:
-      prefix: "deps(docker)"
+      prefix: 'deps(docker)'
     labels:
-      - "dependencies"
-      - "docker"
+      - 'dependencies'
+      - 'docker'
 
   # GitHub Actions (future-proof)
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: 'weekly'
+      day: 'monday'
     commit-message:
-      prefix: "ci"
+      prefix: 'ci'
     labels:
-      - "ci"
-      - "dependencies"
+      - 'ci'
+      - 'dependencies'

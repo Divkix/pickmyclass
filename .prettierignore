@@ -1,0 +1,47 @@
+# Build artifacts
+.next/
+.open-next/
+.wrangler/
+out/
+build/
+dist/
+
+# Generated files
+cloudflare-env.d.ts
+next-env.d.ts
+lib/supabase/database.types.ts
+
+# Separate packages (have their own configs)
+scraper/
+
+# Lock files
+package-lock.json
+bun.lock
+*.lock
+
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Documentation
+CLAUDE.md
+*.md
+
+# Supabase migrations
+supabase/migrations/*.sql
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
