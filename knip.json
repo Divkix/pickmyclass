@@ -4,7 +4,6 @@
     "app/**/*.{ts,tsx}",
     "components/**/*.{ts,tsx}",
     "lib/**/*.{ts,tsx}",
-    "middleware.ts",
     "worker.ts"
   ],
   "project": ["**/*.{ts,tsx,js,jsx,mjs}"],
@@ -21,7 +20,12 @@
     "scraper/**",
     "*.config.{ts,js,mjs}"
   ],
-  "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css"],
+  "ignoreDependencies": [
+    "supabase",
+    "tailwindcss",
+    "tw-animate-css",
+    "eslint-config-next"
+  ],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false
 }
