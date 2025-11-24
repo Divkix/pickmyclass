@@ -134,17 +134,19 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect to admin or dashboard based on user role when accessing auth pages while authenticated
-  if (
-    user &&
-    user.email_confirmed_at &&
-    isPublicRoute &&
-    !request.nextUrl.pathname.startsWith('/legal')
-  ) {
+  // Redirect authenticated users from auth pages to their dashboard
+  // Only redirect from specific auth pages to avoid loops with next-themes
+  const authPages = ['/login', '/register', '/forgot-password', '/reset-password'];
+  const isAuthPage = authPages.some((route) => request.nextUrl.pathname.startsWith(route));
+
+  if (user && user.email_confirmed_at && isAuthPage) {
     const redirectPath = getRedirectPath(userProfile);
-    const url = request.nextUrl.clone();
-    url.pathname = redirectPath;
-    return NextResponse.redirect(url);
+    // Only redirect if not already on the target path to prevent loops
+    if (request.nextUrl.pathname !== redirectPath) {
+      const url = request.nextUrl.clone();
+      url.pathname = redirectPath;
+      return NextResponse.redirect(url);
+    }
   }
 
   // Redirect authenticated users from home page to admin or dashboard based on role
@@ -175,12 +177,12 @@ export default async function middleware(request: NextRequest) {
   );
 
   // Content Security Policy
-  // Allow self, Supabase domains, Google OAuth, and inline styles for shadcn/ui
+  // Allow self, Supabase domains, and inline styles for shadcn/ui
   // Remove 'unsafe-eval' in production for security hardening
   const isDevelopment = process.env.NODE_ENV === 'development';
   const scriptSrc = isDevelopment
-    ? "'self' 'unsafe-eval' 'unsafe-inline' https://analytics.divkix.me" // Dev: unsafe-eval needed for HMR
-    : "'self' 'unsafe-inline' https://analytics.divkix.me https://static.cloudflareinsights.com"; // Production: allow analytics + Cloudflare Insights
+    ? "'self' 'unsafe-eval' 'unsafe-inline'" // Dev: unsafe-eval needed for HMR
+    : "'self' 'unsafe-inline' https://static.cloudflareinsights.com"; // Production: allow Cloudflare Insights
 
   const cspDirectives = [
     "default-src 'self'",
@@ -188,7 +190,7 @@ export default async function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for Tailwind/shadcn
     "img-src 'self' data: https:", // data: for base64 images, https: for external images
     "font-src 'self' data:", // data: for inline fonts
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://analytics.divkix.me", // Supabase API calls, Realtime WebSockets, and analytics
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co", // Supabase API calls and Realtime WebSockets
     "frame-ancestors 'none'", // Equivalent to X-Frame-Options: DENY
     "base-uri 'self'",
     "form-action 'self'",

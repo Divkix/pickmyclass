@@ -3,9 +3,8 @@
   "name": "pickmyclass",
   // Fix __name is not defined error with next-themes and other libraries
   // See: https://opennext.js.org/cloudflare/howtos/keep_names
-  "build": {
-    "keep_names": false,
-  },
+  // Setting to false prevents __name insertion which breaks string-converted code
+  "keep_names": false,
   "compatibility_date": "2025-10-21",
   "compatibility_flags": [
     // Enable Node.js API
