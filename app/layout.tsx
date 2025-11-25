@@ -20,6 +20,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'PickMyClass',
   description: 'Class selection made easy',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({
