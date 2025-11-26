@@ -15,7 +15,7 @@
     "scraper/**",
     "*.config.{ts,js,mjs}"
   ],
-  "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css", "eslint-config-next"],
+  "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css"],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false
 }
