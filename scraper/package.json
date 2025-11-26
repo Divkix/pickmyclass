@@ -19,8 +19,8 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.0.0",
-    "p-queue": "^9.0.0",
-    "puppeteer": "^24.27.0"
+    "p-queue": "^9.0.1",
+    "puppeteer": "^24.31.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
