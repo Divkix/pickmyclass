@@ -1,7 +1,7 @@
 'use client';
 
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/database.types';
 
@@ -33,8 +33,11 @@ export function useRealtimeClassStates({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Memoize the class numbers key for stable dependency tracking
+  const classNumbersKey = useMemo(() => classNumbers.join(','), [classNumbers]);
+
   // Fetch initial data
-  const fetchClassStates = async () => {
+  const fetchClassStates = useCallback(async () => {
     const supabase = createClient();
     if (classNumbers.length === 0) {
       setClassStates({});
@@ -68,7 +71,7 @@ export function useRealtimeClassStates({
     } finally {
       setLoading(false);
     }
-  };
+  }, [classNumbers]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -80,7 +83,7 @@ export function useRealtimeClassStates({
     const supabase = createClient();
     let channel: RealtimeChannel | null = null;
 
-    if (classNumbers.length > 0) {
+    if (classNumbersKey) {
       channel = supabase
         .channel('class_states_changes')
         .on(
@@ -89,7 +92,7 @@ export function useRealtimeClassStates({
             event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
             schema: 'public',
             table: 'class_states',
-            filter: `class_nbr=in.(${classNumbers.join(',')})`,
+            filter: `class_nbr=in.(${classNumbersKey})`,
           },
           (payload) => {
             console.log('Real-time update received:', payload);
@@ -119,13 +122,7 @@ export function useRealtimeClassStates({
         supabase.removeChannel(channel);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    enabled,
-    classNumbers.join,
-    classNumbers.length, // Initial fetch
-    fetchClassStates,
-  ]); // Re-subscribe when class numbers change
+  }, [enabled, classNumbersKey, fetchClassStates]);
 
   return {
     classStates,

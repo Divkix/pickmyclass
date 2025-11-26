@@ -18,11 +18,14 @@ const sizeClasses = {
 
 export function Logo({ variant = 'full', size = 'md', className, animated = false }: LogoProps) {
   const iconContent = (
-    <img
-      src="/favicon.svg"
-      alt="PickMyClass Logo"
-      className={cn(sizeClasses[size], 'w-auto', className)}
-    />
+    <>
+      {/* biome-ignore lint/performance/noImgElement: SVG with dynamic Tailwind sizing requires native img - Image component incompatible */}
+      <img
+        src="/favicon.svg"
+        alt="PickMyClass Logo"
+        className={cn(sizeClasses[size], 'w-auto', className)}
+      />
+    </>
   );
 
   const wordmark = (

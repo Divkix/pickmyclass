@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Calendar, CheckCircle2, Eye, Plus, Search, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ClassWatchCard } from '@/components/ClassWatchCard';
 import { Header } from '@/components/Header';
@@ -57,7 +57,7 @@ export default function DashboardPage() {
   }, [user, authLoading]);
 
   // Fetch user's class watches
-  const fetchWatches = async () => {
+  const fetchWatches = useCallback(async () => {
     try {
       setIsLoadingWatches(true);
       setError(null);
@@ -75,7 +75,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoadingWatches(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (user) {

@@ -308,8 +308,8 @@ export default function RegisterPage() {
                       {passwordStrength.feedback.suggestions &&
                         passwordStrength.feedback.suggestions.length > 0 && (
                           <ul className="text-xs text-zinc-600 dark:text-zinc-400 list-disc list-inside space-y-0.5">
-                            {passwordStrength.feedback.suggestions.map((suggestion, idx) => (
-                              <li key={idx}>{suggestion}</li>
+                            {passwordStrength.feedback.suggestions.map((suggestion) => (
+                              <li key={suggestion}>{suggestion}</li>
                             ))}
                           </ul>
                         )}
@@ -407,7 +407,7 @@ export default function RegisterPage() {
                 onClick={handleGoogleSignUp}
                 className="w-full"
               >
-                <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                   <path
                     fill="currentColor"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"

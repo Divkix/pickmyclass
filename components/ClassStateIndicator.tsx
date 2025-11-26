@@ -73,14 +73,13 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
   return (
     <div className="flex flex-col gap-2">
       {/* Seats indicator with 4-state color system */}
-      <div
+      <output
         className={`inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm ${seatColor}`}
         aria-label={ariaLabel}
-        role="status"
       >
         <SeatIcon className="h-4 w-4" aria-hidden="true" />
         <span className="font-medium">{seatMessage}</span>
-      </div>
+      </output>
 
       {/* Warning badge for unknown reserved status */}
       {seatState === 'unknown' && seats_available > 0 && (

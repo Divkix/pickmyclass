@@ -116,16 +116,14 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Email Address
-                    </label>
+                    <span className="text-sm font-medium text-muted-foreground">Email Address</span>
                     <p className="text-lg font-mono">{user?.email}</p>
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">
+                    <span className="text-sm font-medium text-muted-foreground">
                       Account Created
-                    </label>
+                    </span>
                     <p className="text-lg">
                       {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                     </p>
