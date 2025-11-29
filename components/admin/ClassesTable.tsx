@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, ChevronsUpDown, ChevronUp, Clock, Users } from 'lucide-react';
+import { ChevronDown, ChevronsUpDown, ChevronUp, Clock, Mail, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -20,7 +20,14 @@ interface ClassesTableProps {
   classes: ClassWithWatchers[];
 }
 
-type SortField = 'class_nbr' | 'subject' | 'seats_available' | 'watcher_count' | 'last_checked_at';
+type SortField =
+  | 'class_nbr'
+  | 'subject'
+  | 'seats_available'
+  | 'watcher_count'
+  | 'seat_emails'
+  | 'instructor_emails'
+  | 'last_checked_at';
 type SortDirection = 'asc' | 'desc' | null;
 
 /**
@@ -182,6 +189,12 @@ export function ClassesTable({ classes }: ClassesTableProps) {
         } else if (sortField === 'watcher_count') {
           aVal = a.watcher_count;
           bVal = b.watcher_count;
+        } else if (sortField === 'seat_emails') {
+          aVal = a.seat_emails;
+          bVal = b.seat_emails;
+        } else if (sortField === 'instructor_emails') {
+          aVal = a.instructor_emails;
+          bVal = b.instructor_emails;
         } else if (sortField === 'last_checked_at') {
           aVal = a.last_checked_at;
           bVal = b.last_checked_at;
@@ -264,6 +277,26 @@ export function ClassesTable({ classes }: ClassesTableProps) {
                 </div>
               </TableHead>
               <TableHead
+                className="text-center w-[100px] cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => toggleSort('seat_emails')}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  <Mail className="size-4" />
+                  <span>Seat Emails</span>
+                  {renderSortIcon('seat_emails')}
+                </div>
+              </TableHead>
+              <TableHead
+                className="text-center w-[100px] cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => toggleSort('instructor_emails')}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  <Users className="size-4" />
+                  <span>Instructor Emails</span>
+                  {renderSortIcon('instructor_emails')}
+                </div>
+              </TableHead>
+              <TableHead
                 className="text-right w-[120px] cursor-pointer select-none hover:bg-muted/50"
                 onClick={() => toggleSort('last_checked_at')}
               >
@@ -278,7 +311,7 @@ export function ClassesTable({ classes }: ClassesTableProps) {
           <TableBody>
             {filteredAndSortedClasses.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   No classes match the selected filters
                 </TableCell>
               </TableRow>
@@ -328,6 +361,16 @@ export function ClassesTable({ classes }: ClassesTableProps) {
                   <TableCell className="text-center">
                     <Badge variant="outline" size="sm">
                       {classItem.watcher_count}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="outline" size="sm">
+                      {classItem.seat_emails}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="outline" size="sm">
+                      {classItem.instructor_emails}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right text-sm text-muted-foreground">

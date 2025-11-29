@@ -12,10 +12,20 @@ import type { Tables } from '@/lib/supabase/database.types';
 import { getServiceClient } from '@/lib/supabase/service';
 
 /**
+ * Email notification counts (seat and instructor)
+ */
+export interface EmailCounts {
+  seat_emails: number;
+  instructor_emails: number;
+}
+
+/**
  * Class state with aggregated watcher count
  */
 export interface ClassWithWatchers extends Tables<'class_states'> {
   watcher_count: number;
+  seat_emails: number;
+  instructor_emails: number;
 }
 
 /**
@@ -29,6 +39,8 @@ export interface UserWithWatchCount {
   email_confirmed_at: string | null;
   watch_count: number;
   is_admin: boolean;
+  seat_emails: number;
+  instructor_emails: number;
 }
 
 /**
@@ -36,6 +48,24 @@ export interface UserWithWatchCount {
  */
 export interface WatchWithClass extends Tables<'class_watches'> {
   class_state: Tables<'class_states'> | null;
+}
+
+/**
+ * RPC response type for notification counts by class
+ */
+interface NotificationCountByClassRow {
+  class_nbr: string;
+  seat_emails: number;
+  instructor_emails: number;
+}
+
+/**
+ * RPC response type for notification counts by user
+ */
+interface NotificationCountByUserRow {
+  user_id: string;
+  seat_emails: number;
+  instructor_emails: number;
 }
 
 async function fetchAllAuthUsers(): Promise<User[]> {
@@ -63,6 +93,70 @@ async function fetchAllAuthUsers(): Promise<User[]> {
   }
 
   return users;
+}
+
+/**
+ * Get notification counts grouped by class number
+ *
+ * Calls the get_notification_counts_by_class RPC function to aggregate
+ * seat_available and instructor_assigned notification counts per class.
+ *
+ * @returns Map of class_nbr to EmailCounts
+ */
+export async function getNotificationCountsByClass(): Promise<Map<string, EmailCounts>> {
+  const supabase = getServiceClient();
+
+  // Cast to unknown first to bypass strict type checking until types are regenerated
+  const { data, error } = (await supabase.rpc(
+    'get_notification_counts_by_class' as 'get_class_watchers'
+  )) as unknown as { data: NotificationCountByClassRow[] | null; error: Error | null };
+
+  if (error) {
+    console.error('[Admin] Error fetching notification counts by class:', error);
+    throw new Error(`Failed to fetch notification counts by class: ${error.message}`);
+  }
+
+  const countsMap = new Map<string, EmailCounts>();
+  for (const row of data || []) {
+    countsMap.set(row.class_nbr, {
+      seat_emails: row.seat_emails || 0,
+      instructor_emails: row.instructor_emails || 0,
+    });
+  }
+
+  return countsMap;
+}
+
+/**
+ * Get notification counts grouped by user ID
+ *
+ * Calls the get_notification_counts_by_user RPC function to aggregate
+ * seat_available and instructor_assigned notification counts per user.
+ *
+ * @returns Map of user_id to EmailCounts
+ */
+export async function getNotificationCountsByUser(): Promise<Map<string, EmailCounts>> {
+  const supabase = getServiceClient();
+
+  // Cast to unknown first to bypass strict type checking until types are regenerated
+  const { data, error } = (await supabase.rpc(
+    'get_notification_counts_by_user' as 'get_class_watchers'
+  )) as unknown as { data: NotificationCountByUserRow[] | null; error: Error | null };
+
+  if (error) {
+    console.error('[Admin] Error fetching notification counts by user:', error);
+    throw new Error(`Failed to fetch notification counts by user: ${error.message}`);
+  }
+
+  const countsMap = new Map<string, EmailCounts>();
+  for (const row of data || []) {
+    countsMap.set(row.user_id, {
+      seat_emails: row.seat_emails || 0,
+      instructor_emails: row.instructor_emails || 0,
+    });
+  }
+
+  return countsMap;
 }
 
 /**
@@ -180,21 +274,20 @@ export async function getTotalClassesWatched(): Promise<number> {
 export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> {
   const supabase = getServiceClient();
 
-  // Fetch all class states
-  const { data: classStates, error: classError } = await supabase
-    .from('class_states')
-    .select('*')
-    .order('class_nbr', { ascending: true });
+  // Fetch all class states, watches, and notification counts in parallel
+  const [classStatesResult, watchesResult, notificationCounts] = await Promise.all([
+    supabase.from('class_states').select('*').order('class_nbr', { ascending: true }),
+    supabase.from('class_watches').select('class_nbr'),
+    getNotificationCountsByClass(),
+  ]);
+
+  const { data: classStates, error: classError } = classStatesResult;
+  const { data: watches, error: watchError } = watchesResult;
 
   if (classError) {
     console.error('[Admin] Error fetching class states:', classError);
     throw new Error(`Failed to fetch classes: ${classError.message}`);
   }
-
-  // Fetch all class watches
-  const { data: watches, error: watchError } = await supabase
-    .from('class_watches')
-    .select('class_nbr');
 
   if (watchError) {
     console.error('[Admin] Error fetching class watches:', watchError);
@@ -207,12 +300,17 @@ export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> 
     watcherCountMap.set(watch.class_nbr, (watcherCountMap.get(watch.class_nbr) || 0) + 1);
   }
 
-  // Combine class states with watcher counts
+  // Combine class states with watcher counts and notification counts
   const classesWithWatchers: ClassWithWatchers[] = (classStates || [])
-    .map((classState) => ({
-      ...classState,
-      watcher_count: watcherCountMap.get(classState.class_nbr) || 0,
-    }))
+    .map((classState) => {
+      const emailCounts = notificationCounts.get(classState.class_nbr);
+      return {
+        ...classState,
+        watcher_count: watcherCountMap.get(classState.class_nbr) || 0,
+        seat_emails: emailCounts?.seat_emails || 0,
+        instructor_emails: emailCounts?.instructor_emails || 0,
+      };
+    })
     .sort((a, b) => b.watcher_count - a.watcher_count);
 
   console.log(
@@ -245,14 +343,24 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
       return [];
     }
 
-    // Get watch counts for all users in one query
-    const { data: watchCounts, error: watchError } = await supabase
-      .from('class_watches')
-      .select('user_id');
+    // Get watch counts, profiles, and notification counts in parallel
+    const [watchCountsResult, profilesResult, notificationCounts] = await Promise.all([
+      supabase.from('class_watches').select('user_id'),
+      supabase.from('user_profiles').select('user_id, is_admin'),
+      getNotificationCountsByUser(),
+    ]);
+
+    const { data: watchCounts, error: watchError } = watchCountsResult;
+    const { data: profiles, error: profileError } = profilesResult;
 
     if (watchError) {
       console.error('[Admin] Error fetching watch counts:', watchError);
       throw new Error(`Failed to fetch watch counts: ${watchError.message}`);
+    }
+
+    if (profileError) {
+      console.error('[Admin] Error fetching user profiles:', profileError);
+      throw new Error(`Failed to fetch user profiles: ${profileError.message}`);
     }
 
     // Count watches per user
@@ -261,33 +369,28 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
       watchCountMap.set(watch.user_id, (watchCountMap.get(watch.user_id) || 0) + 1);
     }
 
-    // Get user profiles (for admin status)
-    const { data: profiles, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('user_id, is_admin');
-
-    if (profileError) {
-      console.error('[Admin] Error fetching user profiles:', profileError);
-      throw new Error(`Failed to fetch user profiles: ${profileError.message}`);
-    }
-
     // Create map of admin status by user_id
     const adminStatusMap = new Map<string, boolean>();
     for (const profile of profiles || []) {
       adminStatusMap.set(profile.user_id, profile.is_admin);
     }
 
-    // Combine user data with watch counts and admin status
+    // Combine user data with watch counts, admin status, and notification counts
     const usersWithWatchCount: UserWithWatchCount[] = users
-      .map((user) => ({
-        id: user.id,
-        email: user.email || '',
-        created_at: user.created_at,
-        last_sign_in_at: user.last_sign_in_at || null,
-        email_confirmed_at: user.email_confirmed_at || null,
-        watch_count: watchCountMap.get(user.id) || 0,
-        is_admin: adminStatusMap.get(user.id) || false,
-      }))
+      .map((user) => {
+        const emailCounts = notificationCounts.get(user.id);
+        return {
+          id: user.id,
+          email: user.email || '',
+          created_at: user.created_at,
+          last_sign_in_at: user.last_sign_in_at || null,
+          email_confirmed_at: user.email_confirmed_at || null,
+          watch_count: watchCountMap.get(user.id) || 0,
+          is_admin: adminStatusMap.get(user.id) || false,
+          seat_emails: emailCounts?.seat_emails || 0,
+          instructor_emails: emailCounts?.instructor_emails || 0,
+        };
+      })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     console.log(`[Admin] Fetched ${usersWithWatchCount.length} users with watch counts`);

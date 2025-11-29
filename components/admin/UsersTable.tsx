@@ -20,7 +20,13 @@ interface UsersTableProps {
   users: UserWithWatchCount[];
 }
 
-type SortField = 'email' | 'created_at' | 'last_sign_in_at' | 'watch_count';
+type SortField =
+  | 'email'
+  | 'created_at'
+  | 'last_sign_in_at'
+  | 'watch_count'
+  | 'seat_emails'
+  | 'instructor_emails';
 type SortDirection = 'asc' | 'desc' | null;
 
 /**
@@ -164,6 +170,12 @@ export function UsersTable({ users }: UsersTableProps) {
         } else if (sortField === 'watch_count') {
           aVal = a.watch_count;
           bVal = b.watch_count;
+        } else if (sortField === 'seat_emails') {
+          aVal = a.seat_emails;
+          bVal = b.seat_emails;
+        } else if (sortField === 'instructor_emails') {
+          aVal = a.instructor_emails;
+          bVal = b.instructor_emails;
         } else {
           return 0;
         }
@@ -245,13 +257,31 @@ export function UsersTable({ users }: UsersTableProps) {
                   {renderSortIcon('watch_count')}
                 </div>
               </TableHead>
+              <TableHead
+                className="text-center cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => toggleSort('seat_emails')}
+              >
+                <div className="flex items-center justify-center">
+                  Seat Emails
+                  {renderSortIcon('seat_emails')}
+                </div>
+              </TableHead>
+              <TableHead
+                className="text-center cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => toggleSort('instructor_emails')}
+              >
+                <div className="flex items-center justify-center">
+                  Instructor Emails
+                  {renderSortIcon('instructor_emails')}
+                </div>
+              </TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAndSortedUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No users found
                 </TableCell>
               </TableRow>
@@ -298,6 +328,14 @@ export function UsersTable({ users }: UsersTableProps) {
                     </TableCell>
                     <TableCell className="text-center">
                       <span className="font-semibold text-foreground">{user.watch_count}</span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="font-semibold text-foreground">{user.seat_emails}</span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="font-semibold text-foreground">
+                        {user.instructor_emails}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <Badge variant="default" size="sm">
