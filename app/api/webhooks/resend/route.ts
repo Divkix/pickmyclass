@@ -65,7 +65,8 @@ async function getUserIdFromEmail(email: string): Promise<string | null> {
 
   const normalizedEmail = email.trim().toLowerCase();
 
-  const { data: user, error } = await supabase
+  // biome-ignore lint/suspicious/noExplicitAny: auth schema accessible via service role but not in generated types
+  const { data: user, error } = await (supabase as any)
     .schema('auth')
     .from('users')
     .select('id')
