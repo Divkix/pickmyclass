@@ -137,6 +137,18 @@ class BrowserPool {
       return;
     }
 
+    // Validate browser belongs to this pool
+    if (!this.browsers.includes(browser)) {
+      console.error('[BrowserPool] Attempted to release unknown browser - ignoring');
+      return;
+    }
+
+    // Prevent double-release
+    if (this.availableBrowsers.includes(browser)) {
+      console.error('[BrowserPool] Attempted to double-release browser - ignoring');
+      return;
+    }
+
     // If jobs are queued, give browser to next job
     const next = this.queue.shift();
     if (next) {
@@ -520,7 +532,8 @@ export async function scrapeClassSection(
         console.warn('[Scraper] Course cell not found - cannot extract reserved seat info');
       }
     } catch (error) {
-      console.warn('[Scraper] Failed to extract reserved seat information:', error);
+      // Expected for classes without reserved seats (iCourses, etc.) - not an error
+      console.log('[Scraper] Reserved seat info not available (normal for some classes)');
       // Continue with null value (graceful fallback)
     }
 
