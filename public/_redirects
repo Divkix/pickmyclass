@@ -1,0 +1,5 @@
+# Umami Analytics Proxy - Bypass ad blockers
+# Proxies analytics requests through same-origin to avoid detection
+
+/u/s.js  https://analytics.divkix.me/script.js  200
+/u/e/*   https://analytics.divkix.me/api/send/:splat  200

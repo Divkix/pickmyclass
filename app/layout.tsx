@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import Script from 'next/script';
 import { Toaster } from 'sonner';
 import { BottomNavWrapper } from '@/components/BottomNavWrapper';
 import { Footer } from '@/components/Footer';
@@ -43,6 +44,12 @@ export default function RootLayout({
             <Toaster position="top-center" richColors />
           </AuthProvider>
         </ThemeProvider>
+        <Script
+          src="/u/s.js"
+          data-website-id="f2ef7132-055d-4c9a-8040-dcd07f22e84d"
+          data-host-url="/u/e"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
