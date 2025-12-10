@@ -182,7 +182,7 @@ export default async function middleware(request: NextRequest) {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const scriptSrc = isDevelopment
     ? "'self' 'unsafe-eval' 'unsafe-inline'" // Dev: unsafe-eval needed for HMR
-    : "'self' 'unsafe-inline' https://static.cloudflareinsights.com"; // Production: allow Cloudflare Insights
+    : "'self' 'unsafe-inline' https://static.cloudflareinsights.com https://analytics.divkix.me"; // Production: allow Cloudflare Insights + analytics
 
   const cspDirectives = [
     "default-src 'self'",
@@ -190,7 +190,7 @@ export default async function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for Tailwind/shadcn
     "img-src 'self' data: https:", // data: for base64 images, https: for external images
     "font-src 'self' data:", // data: for inline fonts
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co", // Supabase API calls and Realtime WebSockets
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://analytics.divkix.me", // Supabase API calls and Realtime WebSockets + analytics
     "frame-ancestors 'none'", // Equivalent to X-Frame-Options: DENY
     "base-uri 'self'",
     "form-action 'self'",
