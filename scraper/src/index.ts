@@ -125,9 +125,13 @@ app.get('/health', (_req: Request, res: Response) => {
   const currentMetrics = healthMonitor.getCurrentMetrics();
 
   // Check if system is healthy
+  // Note: Browser pool 0/0 is OK - browsers are lazy-initialized on first request
+  const browserPoolHealthy =
+    poolStatus.total === 0 || // Not yet initialized (OK)
+    poolStatus.available > 0; // Or has available browsers
+
   const isHealthy =
-    poolStatus.total > 0 && // At least 1 browser initialized
-    poolStatus.available > 0 && // At least 1 browser available
+    browserPoolHealthy &&
     circuitStats.state !== 'OPEN' && // Circuit not permanently open
     healthMonitor.isHealthy(1800) && // Memory under 80% of 2GB (1.8GB)
     queueStats.pending < 400; // Queue not nearly full
@@ -142,7 +146,7 @@ app.get('/health', (_req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     uptime: Math.round(process.uptime()),
     checks: {
-      browserPool: poolStatus.total > 0 && poolStatus.available > 0,
+      browserPool: browserPoolHealthy,
       circuitBreaker: circuitStats.state !== 'OPEN',
       memory: healthMonitor.isHealthy(1800),
       queue: queueStats.pending < 400,
