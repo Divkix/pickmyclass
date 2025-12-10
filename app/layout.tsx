@@ -45,10 +45,8 @@ export default function RootLayout({
           </AuthProvider>
         </ThemeProvider>
         <Script
-          src="/u/s.js"
+          src="https://analytics.divkix.me/s.js"
           data-website-id="f2ef7132-055d-4c9a-8040-dcd07f22e84d"
-          data-host-url="/u/e"
-          strategy="afterInteractive"
         />
       </body>
     </html>
