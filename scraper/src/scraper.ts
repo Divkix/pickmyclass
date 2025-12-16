@@ -531,7 +531,7 @@ export async function scrapeClassSection(
       } else {
         console.warn('[Scraper] Course cell not found - cannot extract reserved seat info');
       }
-    } catch (error) {
+    } catch (_error) {
       // Expected for classes without reserved seats (iCourses, etc.) - not an error
       console.log('[Scraper] Reserved seat info not available (normal for some classes)');
       // Continue with null value (graceful fallback)

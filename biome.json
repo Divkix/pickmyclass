@@ -1,8 +1,18 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.8/schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-  "files": { "ignoreUnknown": false },
-  "css": { "parser": { "tailwindDirectives": true } },
+  "$schema": "https://biomejs.dev/schemas/2.3.9/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "formatter": {
     "enabled": true,
     "formatWithErrors": false,
@@ -91,15 +101,32 @@
     }
   },
   "overrides": [
-    { "includes": ["*.css"], "formatter": { "lineWidth": 120 } },
-    { "includes": ["*.md"] },
+    {
+      "includes": ["*.css"],
+      "formatter": {
+        "lineWidth": 120
+      }
+    },
+    {
+      "includes": ["*.md"]
+    },
     {
       "includes": ["worker.ts"],
-      "linter": { "rules": { "suspicious": { "noTsIgnore": "off" } } }
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noTsIgnore": "off"
+          }
+        }
+      }
     }
   ],
   "assist": {
     "enabled": true,
-    "actions": { "source": { "organizeImports": "on" } }
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
   }
 }
