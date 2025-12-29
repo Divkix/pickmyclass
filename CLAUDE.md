@@ -4,868 +4,169 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PickMyClass is a class seat notification system inspired by the original [pickaclass.app](https://www.pickaclass.app) (now defunct). Built with Next.js 15.5, Supabase authentication, and deployed on Cloudflare Workers via OpenNext.
+PickMyClass is a class seat notification system for university students. Built with Next.js 15.5, Supabase authentication, and deployed on Cloudflare Workers via OpenNext.
 
-### Product Concept
-Students add university class sections they want to monitor by section number. The system:
-1. Checks ASU's class search API every 30 minutes via Cloudflare Workers Cron Triggers (staggered)
-2. Detects when seats become available in full classes
-3. Detects when "Staff" instructors are assigned to specific professors
-4. Sends email notifications to all users watching that section
+**Core Flow:**
+1. Students add class sections to monitor by section number
+2. Cloudflare Workers Cron Triggers run every 30 minutes (staggered by even/odd section numbers)
+3. Queue consumers (100+ concurrent Workers) scrape ASU class search via Puppeteer service
+4. Detects seat availability changes or instructor assignments
+5. Sends email notifications via Resend batch API
 
-### Current Status
-- ✅ Authentication system (login/register/password-reset) with Supabase
-- ✅ Cloudflare Workers deployment setup
-- ✅ Database schema with RLS policies
-- ✅ Class monitoring dashboard with Realtime updates
-- ✅ API routes for managing class watches
-- ✅ ASU Class Search scraper service (Puppeteer-based with browser pooling)
-- ✅ **Cloudflare Queues** for parallel section processing (scales to 10k+ users)
-- ✅ **Optimized database queries** with server-side filtering
-- ✅ **Batch email API** using Resend (10x faster than sequential)
-- ✅ **Durable Objects circuit breaker** for distributed fault tolerance (replaces per-isolate singleton)
-- ✅ **Atomic notification deduplication** via PostgreSQL functions (prevents race conditions)
-- ✅ Health monitoring endpoint with circuit breaker status
-- ✅ **Dark mode support** with system preference detection and manual toggle
-- ✅ **SEO optimization** with dynamic sitemap.xml and robots.txt for Google Search Console
-
-### Scalability
-**Designed for 10,000+ users:**
-- **Parallel Processing**: Cloudflare Queues enable 100+ concurrent workers (vs 3 sequential)
-- **Database Optimization**: Server-side filtering reduces queries by 2,500x
-- **Batch Operations**: Email sending 10x faster via Resend batch API
-- **Distributed Coordination**: Durable Objects provide global state across all Worker isolates
-- **Atomic Operations**: PostgreSQL functions eliminate race conditions in concurrent processing
-- **Performance**: Processes 6,250 sections in ~5 minutes (was 69.5 min - failed)
-- **Cost**: ~$35/month at 10k users ($0.0035 per user, includes Durable Objects)
-
-### Recent Improvements (October 2025)
-
-**Critical Bug Fixes:**
-1. **Durable Objects Circuit Breaker** - Replaced per-isolate singleton with distributed Durable Object
-   - **Problem:** In-memory singleton doesn't work with 100+ concurrent Worker isolates
-   - **Solution:** Single Durable Object instance coordinates all Workers
-   - **Impact:** True fleet-wide protection against cascading failures
-
-2. **Atomic Notification Deduplication** - Eliminated race condition in notification sending
-   - **Problem:** Check-then-insert pattern allowed duplicate emails with concurrent processing
-   - **Solution:** PostgreSQL function with `INSERT...ON CONFLICT` for atomic check-and-insert
-   - **Impact:** Guaranteed exactly-once email delivery at scale
-
-3. **Rate Limiter Removal** - Deleted ineffective in-memory rate limiter
-   - **Problem:** Per-isolate Map doesn't enforce limits across distributed Workers
-   - **Solution:** Removed entirely, rely on Cloudflare's DDoS protection
-   - **Impact:** Eliminated false sense of security
-
-**Minor Fixes:**
-4. Added missing `non_reserved_seats` field to class state persistence
-5. Added 5-second timeout to `page.close()` in scraper to prevent browser pool starvation
-6. Reduced `max_batch_timeout` from 60s to 30s per Cloudflare API limits
-7. Fixed cron stagger logic to use modulo calculation (handles cron drift)
-
-**Architecture Notes:**
-- **Cloudflare Workers Memory Model:** Global variables are per-isolate, not shared across Workers
-- **Durable Objects Required:** For any state that must be coordinated across Workers (circuit breakers, rate limiters, etc.)
-- **Atomic Database Operations:** Use PostgreSQL functions with proper locking for concurrent operations
-- **Race Conditions:** Always design for concurrent execution with 100+ parallel Workers
-- **TypeScript Strict Mode:** `Response.json()` returns `unknown` - always use type assertions (e.g., `as ScraperResponse`)
-- **Durable Objects Types:** Extend `DurableObject<Cloudflare.Env>` and use `Cloudflare.Env` in constructor (not local `Env` interface)
-
-### Future Plans
-- Support for additional universities beyond ASU
+**Scalability:** Designed for 10,000+ users with parallel queue processing, atomic PostgreSQL operations for deduplication, and Durable Objects for distributed coordination.
 
 ## Key Commands
 
 ### Development
 ```bash
-bun run dev              # Start Next.js development server on localhost:3000
-bun run build            # Build the Next.js application
-bun run lint             # Run ESLint
+bun run dev              # Start Next.js dev server (localhost:3000)
+bun run build            # Build Next.js application
+bun run lint             # Run Biome linter
+bun run lint:fix         # Fix lint issues
+bun run format           # Format code with Biome
+bun run knip             # Find unused exports/dependencies
 ```
 
-### Cloudflare Workers Deployment
+### Cloudflare Workers
 ```bash
-bun run preview          # Build with OpenNext and preview locally on Cloudflare Workers
-bun run deploy           # Build and deploy to Cloudflare Workers (includes trigger deployment)
-bun run cf-typegen       # Generate TypeScript types for Cloudflare environment bindings
+bun run preview          # Build with OpenNext and preview locally
+bun run deploy           # Build and deploy (includes wrangler triggers deploy)
+bun run cf-typegen       # Generate TypeScript types for Cloudflare env bindings
+rm -rf .next .open-next && bun run preview    # Clean build
 ```
 
-**IMPORTANT**: The `deploy` script now includes `wrangler triggers deploy` to ensure cron schedules are deployed. This is required for the queue-based class checking system to function.
-
-### Clean Build
+### Database (Supabase)
 ```bash
-rm -rf .next .open-next && bun run preview    # Clean build artifacts before preview
+bunx supabase db push                        # Push migrations to remote
+bunx supabase db pull                        # Pull remote schema changes
+bunx supabase migration new <name>           # Create new migration
+bunx supabase gen types typescript --linked > lib/supabase/database.types.ts  # Generate types
 ```
 
-### Database Management
+### Scraper Service (in `scraper/` directory)
 ```bash
-bunx supabase db push              # Push local migrations to remote database
-bunx supabase gen types typescript --linked > lib/supabase/database.types.ts  # Generate TypeScript types
-bunx supabase db pull              # Pull remote schema changes to local
-bunx supabase migration new <name> # Create a new migration file
-```
-
-### Scraper Service (in scraper/ directory)
-```bash
-bun run dev        # Start scraper service in watch mode (localhost:3000)
-bun run build      # Compile TypeScript to JavaScript
+bun run dev        # Start scraper in watch mode
+bun run build      # Compile TypeScript
 bun run start      # Run production build
 bun run typecheck  # Type check without building
 ```
 
 ## Architecture
 
-### Authentication System
-- **Supabase SSR**: Authentication is handled via `@supabase/ssr` with server and client implementations
-- **Client**: `lib/supabase/client.ts` - Browser client using `createBrowserClient`
-- **Server**: `lib/supabase/server.ts` - Server client using `createServerClient` with cookie handling
-- **Context**: `lib/contexts/AuthContext.tsx` - React context providing `user`, `session`, `loading`, and `signOut`
-- **Middleware**: `middleware.ts` - Standard Next.js middleware, handles:
-  - Session refresh
-  - Protected route redirects
-  - Public routes: `/login`, `/register`, `/forgot-password`, `/reset-password`
-  - Redirects authenticated users away from auth pages
-  - Role-based redirects (admins to `/admin`, regular users to `/dashboard`)
-  - Admin users are blocked from accessing `/dashboard` (redirected to `/admin`)
-  - Matches all routes except static assets
+### Request Flow
+```
+User Browser → Next.js (Cloudflare Workers) → Supabase (Auth + PostgreSQL + Realtime)
+                                              ↑
+Cron (every 30 min) → Cloudflare Queue → Queue Consumers (100+ Workers)
+                                              ↓
+                      Scraper Service (Oracle Cloud + Puppeteer) → ASU Class Search
+                                              ↓
+                      Change Detection → Resend Email API → User Notifications
+```
 
-### Admin Role System
-- **Database**: `user_profiles.is_admin` boolean flag (defaults to `false`)
-- **Admin Pages**: `app/admin/*` - Admin dashboard with user/class management
-- **Authorization**: `lib/auth/admin.ts` - `verifyAdmin()` function for server-side protection
-- **Routing**:
-  - Login redirects admins to `/admin` and regular users to `/dashboard`
-  - OAuth callback respects role-based routing
-  - Admins cannot access `/dashboard` (enforced by middleware)
-  - Header navigation dynamically shows "Admin" or "Dashboard" link based on role
-- **Security**:
-  - Middleware checks are for routing only
-  - Real authorization happens server-side via `verifyAdmin()` and RLS policies
-  - Non-admin users trying to access `/admin` are redirected to `/dashboard`
+### Key Components
 
-**Promoting Users to Admin:**
+| Location | Purpose |
+|----------|---------|
+| `worker.ts` | Custom Cloudflare Worker with cron, queue handlers, and Durable Objects |
+| `app/api/cron/route.ts` | Cron job entry point - enqueues sections to queue |
+| `app/api/queue/process-section/route.ts` | Queue consumer - processes single section |
+| `lib/db/queries.ts` | Database query helpers (bulk operations, atomic deduplication) |
+| `lib/supabase/service.ts` | Service role client (bypasses RLS) |
+| `lib/email/resend.ts` | Resend email integration with batch API |
+| `middleware.ts` | Auth middleware with role-based routing (admin vs user) |
+| `scraper/` | Standalone Puppeteer service on Oracle Cloud |
+
+### Durable Objects (in `worker.ts`)
+
+**CircuitBreakerDO** - Distributed fault tolerance for scraper
+- States: CLOSED (healthy) → OPEN (blocking, 10 failures) → HALF_OPEN (testing recovery)
+- Single instance coordinates all 100+ Worker isolates
+- Access: `env.CIRCUIT_BREAKER_DO.get(env.CIRCUIT_BREAKER_DO.idFromName('scraper-circuit-breaker'))`
+
+**CronLockDO** - Prevents duplicate cron executions
+- Auto-expires after 25 minutes
+- Ensures only one cron job runs at a time across all isolates
+
+### Database Schema
+
+All tables use Row Level Security (RLS). Key tables:
+
+- `class_watches` - User → Section mappings (unique per user/term/section)
+- `class_states` - Cached section state for change detection
+- `notifications_sent` - Deduplication tracking (unique per watch/type)
+- `user_profiles` - User metadata including `is_admin` flag
+
+**Atomic Notification Deduplication:**
+```typescript
+// Use this - race-condition safe
+const shouldSend = await tryRecordNotification(watchId, 'seat_available');
+if (shouldSend) await sendEmail(...);
+
+// NOT this - deprecated, has race condition
+const sent = await hasNotificationBeenSent(watchId, type); // ❌
+```
+
+## Critical Implementation Notes
+
+### Cloudflare Workers Memory Model
+- **Global variables are per-isolate**, not shared across Workers
+- For coordinated state (circuit breakers, rate limiters): use Durable Objects
+- For concurrent operations: use PostgreSQL functions with `INSERT...ON CONFLICT`
+
+### TypeScript Strict Mode Gotchas
+- `Response.json()` returns `unknown` - always use type assertions: `as ScraperResponse`
+- Durable Objects: extend `DurableObject<Cloudflare.Env>`, not local `Env` interface
+
+### Queue Configuration (`wrangler.jsonc`)
+- `max_batch_size: 5` - Messages per batch
+- `max_batch_timeout: 30` - Max seconds to wait for batch (Cloudflare API limit)
+- `max_retries: 3` - Retries before dead letter queue
+
+### Staggered Cron Strategy
+- `:00` and `:30` runs process even class numbers (last digit: 0, 2, 4, 6, 8)
+- This was the original design but currently both runs process all sections
+- Staggering doubles effective capacity when enabled
+
+## Environment Variables
+
+**Required (set as Cloudflare secrets):**
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` - Bypasses RLS for service operations
+- `SCRAPER_URL`, `SCRAPER_SECRET_TOKEN` - Scraper service authentication
+- `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` - Email service
+- `CRON_SECRET` - Authenticates internal cron/queue requests
+
+**Build Handling:** Supabase clients use placeholders when env vars unavailable during build. Scraper/email services gracefully skip operations when not configured.
+
+## Admin System
+
+Admins are flagged via `user_profiles.is_admin` boolean.
+
+**Promote user to admin:**
 ```sql
--- Connect to Supabase SQL Editor or psql
-UPDATE user_profiles
-SET is_admin = true
-WHERE user_id = 'user-uuid-here';
-
--- To find a user's UUID by email:
-SELECT id FROM auth.users WHERE email = 'user@example.com';
-
--- Combined query to promote by email:
 UPDATE user_profiles
 SET is_admin = true
 WHERE user_id = (SELECT id FROM auth.users WHERE email = 'user@example.com');
 ```
 
-**Note**: User must log out and log back in for admin status to take effect in the UI.
-
-### Environment Variables
-Required configuration (see `.env.example`):
-
-**Supabase:**
-- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
-
-**Scraper Service:**
-- `SCRAPER_URL` - URL to scraper service (e.g., `http://pickmyclass-scraper.divkix.me` or `http://localhost:3000` for local dev)
-- `SCRAPER_SECRET_TOKEN` - Bearer token for authenticating with scraper (must match token in `scraper/.env`)
-- `SCRAPER_BATCH_SIZE` - Number of sections to scrape concurrently per batch (default: 3, range: 1-5)
-  - Higher values = faster but more resource-intensive
-  - Lower values = slower but safer and more conservative
-
-**Email Notifications (Resend):**
-- `RESEND_API_KEY` - API key from [resend.com](https://resend.com/api-keys) (Free tier: 100 emails/day, 3,000/month)
-- `NOTIFICATION_FROM_EMAIL` - Verified sender email address
-  - Development: Use `onboarding@resend.dev` (no verification needed)
-  - Production: Use your own verified domain (e.g., `notifications@pickmyclass.app`)
-
-**Build Handling**: Both client and server Supabase utilities use placeholder values during build when env vars are unavailable, preventing build failures. The scraper integration gracefully falls back to stub data if `SCRAPER_URL` is not configured, enabling development without the scraper service running. Email service gracefully skips sending if `RESEND_API_KEY` is not configured.
-
-### SEO Configuration
-
-**Sitemap & Robots.txt:**
-- **Location**: `app/sitemap.ts` and `app/robots.ts`
-- **Implementation**: Dynamic sitemap using Next.js 15 MetadataRoute API
-- **Access**: Publicly accessible at `/sitemap.xml` and `/robots.txt` (no authentication required)
-
-**Indexed Pages (in sitemap):**
-- `/` - Home page (priority: 1.0, changefreq: monthly)
-- `/legal` - Legal hub (priority: 0.3, changefreq: yearly)
-- `/legal/terms` - Terms of Service (priority: 0.3, changefreq: yearly)
-- `/legal/privacy` - Privacy Policy (priority: 0.3, changefreq: yearly)
-
-**Excluded from Indexing (robots.txt):**
-- All authentication pages (`/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`)
-- All protected pages (`/dashboard/*`, `/settings`, `/admin/*`)
-- All API routes (`/api/*`)
-- Auth callbacks and redirects (`/auth/*`, `/go/*`)
-
-**Middleware Configuration:**
-- SEO files are explicitly marked as public routes in `middleware.ts`
-- Both the middleware matcher exclusion AND `isPublicRoute` check ensure accessibility
-- This dual approach prevents authentication redirects in production
-
-**Google Search Console Setup:**
-1. Deploy to production: `bun run deploy`
-2. Verify ownership at [Google Search Console](https://search.google.com/search-console)
-3. Submit sitemap: `https://pickmyclass.app/sitemap.xml`
-4. Monitor indexing (typically 24-48 hours for first crawl)
-
-### Database Query Helpers
-- **Location**: `lib/db/queries.ts`
-- **Purpose**: Reusable database queries for common operations
-- **Key Functions**:
-  - `getSectionsToCheck(staggerType)` - Server-side filtering for even/odd sections (eliminates client-side filtering)
-  - `getBulkClassWatchers(classNumbers[])` - Bulk fetch watchers for multiple sections (eliminates N+1 queries)
-  - `getClassWatchers(classNbr)` - Get all users watching a section
-  - `tryRecordNotification(watchId, type)` - **NEW:** Atomic check-and-insert for notifications (race-condition safe)
-  - `hasNotificationBeenSent(watchId, type)` - **@deprecated** Check notification deduplication (has race condition)
-  - `recordNotificationSent(watchId, type)` - **@deprecated** Record sent notifications (has race condition)
-  - `resetNotificationsForSection(classNbr, type)` - Reset notifications when seats fill
-
-**Usage Example (Current - Race-Condition Safe)**:
-```typescript
-import { getSectionsToCheck, getBulkClassWatchers, tryRecordNotification } from '@/lib/db/queries';
-
-// Get sections with server-side filtering (90% less data transfer)
-const sections = await getSectionsToCheck('even');
-
-// Bulk fetch watchers (1 query instead of N queries)
-const watcherMap = await getBulkClassWatchers(['12431', '12432', '12433']);
-const watchers = watcherMap.get('12431') || [];
-
-// Atomically check and record notification (returns true if should send)
-const shouldSend = await tryRecordNotification(watchId, 'seat_available');
-if (shouldSend) {
-  await sendEmail(...);  // Only send if not already sent
-}
-```
-
-**Important:** Use `tryRecordNotification()` instead of the deprecated `hasNotificationBeenSent()` + `recordNotificationSent()` pattern to avoid race conditions in concurrent processing.
-
-### Cloudflare Queues Architecture
-
-**Purpose**: Enable parallel processing of thousands of class sections at scale.
-
-**Configuration** (`wrangler.jsonc`):
-```jsonc
-{
-  "queues": {
-    "producers": [
-      {
-        "binding": "CLASS_CHECK_QUEUE",
-        "queue": "class-check-queue"
-      }
-    ],
-    "consumers": [
-      {
-        "queue": "class-check-queue",
-        "max_batch_size": 10,
-        "max_batch_timeout": 5,
-        "max_retries": 3,
-        "dead_letter_queue": "class-check-dlq"
-      }
-    ]
-  }
-}
-```
-
-**Architecture Flow**:
-```
-1. Cron Job (every 30 min)
-   ↓ Query DB for sections to check (server-side filtered)
-   ↓ Enqueue all sections to CLASS_CHECK_QUEUE
-   ↓ Complete in ~10 seconds
-
-2. Queue Consumers (100+ concurrent Workers)
-   ↓ Receive batches of 10 messages
-   ↓ Process each section in parallel:
-     - Scrape with circuit breaker protection
-     - Detect changes (seat/instructor)
-     - Send batch emails (Resend API)
-     - Update database state
-   ↓ Acknowledge or retry
-   ↓ Failed messages → Dead Letter Queue
-
-3. Dead Letter Queue
-   ↓ Capture permanently failed sections
-   ↓ Manual review/replay capability
-```
-
-**Key Components**:
-
-1. **Producer** (`app/api/cron/route.ts`):
-   - Fetches sections using `getSectionsToCheck(staggerGroup)`
-   - Enqueues `ClassCheckMessage` objects to queue
-   - Completes in ~10 seconds (was 69.5 minutes)
-
-2. **Consumer** (`worker.ts` `queue()` handler):
-   - Receives batches of up to 10 messages
-   - Calls `/api/queue/process-section` for each message
-   - Implements `ack()` on success, `retry()` on failure
-
-3. **Processor** (`app/api/queue/process-section/route.ts`):
-   - Processes single section end-to-end
-   - Circuit breaker protects scraper calls
-   - Batch email API (up to 100 emails/request)
-   - Returns processing metrics
-
-4. **Circuit Breaker** (Durable Object in `worker.ts`):
-   - **Distributed coordination** via Cloudflare Durable Objects (global state across all 100+ Workers)
-   - Protects against scraper cascading failures
-   - States: CLOSED (healthy), OPEN (blocking), HALF_OPEN (testing)
-   - Thresholds: 10 failures → OPEN, 2 minutes recovery, 3 successes → CLOSED
-   - Timeout: 90 seconds per scrape request
-   - **Single instance** named "scraper-circuit-breaker" coordinates all queue consumers
-   - Persistent state survives Worker restarts and isolate recycling
-
-**Performance**:
-- **Before**: Sequential batches, 69.5 min for 6,250 sections (FAILED at 30min CPU limit)
-- **After**: Parallel queue processing
-  - Cron: 10 seconds to enqueue 6,250 messages ✅
-  - Queue: ~5 minutes to process all sections ✅
-  - Concurrency: 100+ workers (vs 3 sequential)
-
-**Monitoring**:
-- Health endpoint: `GET /api/monitoring/health`
-  - Database connection status
-  - Circuit breaker state
-  - Configuration validation
-  - Email service status
-- Scraper status: `GET http://pickmyclass-scraper.divkix.me/status`
-  - Browser pool metrics (total, available, busy, queued)
-  - Health indicators
-
-**Queue Setup**:
-1. Create queues via Cloudflare Dashboard or `wrangler`:
-   ```bash
-   wrangler queues create class-check-queue
-   wrangler queues create class-check-dlq
-   ```
-2. Deploy worker with queue bindings:
-   ```bash
-   bun run deploy
-   ```
-3. Monitor queue metrics in Cloudflare Dashboard
-
-### Project Structure
-```
-app/                         # Next.js App Router pages
-  ├── api/
-  │   └── class-watches/     # API routes for class watch CRUD
-  ├── dashboard/             # Dashboard page with Realtime updates
-  ├── login/                 # Login page
-  ├── register/              # Registration page
-  ├── forgot-password/       # Password reset request
-  ├── reset-password/        # Password reset form
-  ├── layout.tsx             # Root layout with AuthProvider
-  └── page.tsx               # Home page
-
-lib/
-  ├── supabase/
-  │   ├── client.ts          # Browser client (typed)
-  │   ├── server.ts          # Server client (typed)
-  │   ├── service.ts         # Service role client (bypasses RLS)
-  │   └── database.types.ts  # Generated database types
-  ├── db/
-  │   └── queries.ts         # Reusable database queries (watchers, notifications)
-  ├── email/
-  │   ├── resend.ts          # Resend email service integration
-  │   └── templates/
-  │       └── index.ts       # Email templates (seat available, instructor assigned)
-  ├── hooks/
-  │   └── useRealtimeClassStates.ts  # Realtime subscription hook
-  └── contexts/
-      └── AuthContext.tsx    # Auth context
-
-components/
-  ├── ui/                    # shadcn/ui components
-  ├── AuthButton.tsx         # Authentication button
-  ├── ClassWatchCard.tsx     # Individual class watch card
-  ├── AddClassWatch.tsx      # Form to add new watch
-  └── ClassStateIndicator.tsx # Status indicator component
-
-supabase/
-  ├── config.toml            # Supabase CLI configuration
-  └── migrations/            # Database migration files
-
-scraper/                     # Standalone scraper service (Puppeteer)
-  ├── src/
-  │   ├── index.ts          # Express server with auth
-  │   ├── scraper.ts        # Puppeteer scraping logic
-  │   └── types.ts          # TypeScript interfaces
-  ├── Dockerfile            # Production container
-  ├── docker-compose.yml    # Coolify deployment config
-  ├── package.json          # Dependencies & scripts
-  ├── tsconfig.json         # TypeScript config
-  └── README.md             # Scraper documentation
-
-middleware.ts                # Middleware for auth and session management
-open-next.config.ts          # OpenNext configuration for Cloudflare Workers
-wrangler.jsonc               # Cloudflare Workers configuration
-```
-
-### Deployment Target
-- **Primary**: Cloudflare Workers via OpenNext (`@opennextjs/cloudflare`)
-- **Build Output**: `.open-next/` directory contains worker and assets
-- **Assets Binding**: Configured in `wrangler.jsonc` as `ASSETS`
-- **Compatibility**: Uses `nodejs_compat` flag for Node.js API support
-
-### TypeScript Configuration
-- Path alias: `@/*` maps to project root
-- Target: ES2017
-- Strict mode enabled
-
-## Development Notes
-
-### Next.js Version
-- Currently on Next.js 15.5.0 (upgraded from 15.3.0)
-- Previous downgrade to 15.3.0 was for Cloudflare Workers compatibility
-- Using standard Next.js middleware pattern via `middleware.ts`
-
-### Authentication Flow
-1. User navigates to protected route
-2. `middleware.ts` checks session via Supabase
-3. Redirects to `/login` if unauthenticated
-4. `AuthContext` manages client-side auth state
-5. Auth state changes trigger re-renders via context
-
-### Styling & Dark Mode
-- **CSS Framework**: Tailwind CSS 4 with PostCSS
-- **Fonts**: Geist and Geist Mono loaded via `next/font/google`
-- **Color System**: OKLch color space for perceptual color accuracy
-  - Brand colors: Indigo primary, Emerald accent
-  - Complete light and dark mode palettes defined in `globals.css`
-
-**Dark Mode Implementation:**
-- **Provider**: `next-themes` package with `ThemeProvider` in `lib/contexts/ThemeContext.tsx`
-- **Toggle**: `ThemeToggle` component in Header with sun/moon icons
-- **Features**:
-  - System preference detection (respects OS dark mode setting)
-  - Manual toggle with localStorage persistence
-  - Smooth transitions between themes
-  - Prevents flash of unstyled content on page load
-- **CSS Variant**: Custom Tailwind variant `@custom-variant dark (&:is(.dark *))` in `globals.css`
-- **Usage**: Apply dark mode styles using `dark:` prefix (e.g., `dark:bg-gray-900`)
-- **Color Variables**: All colors use CSS custom properties that automatically switch based on theme
+User must log out and back in for admin status to take effect.
 
 ## Common Issues
 
-### Supabase Env Vars During Build
-If builds fail due to missing Supabase credentials, ensure placeholder logic in `lib/supabase/client.ts` and `lib/supabase/server.ts` is intact. These files gracefully handle missing env vars during build.
+**Build fails with missing Supabase credentials**
+- Ensure placeholder logic in `lib/supabase/client.ts` and `lib/supabase/server.ts` is intact
 
-### Cloudflare Workers Compatibility
-When adding dependencies or Node.js APIs, verify compatibility with Cloudflare Workers runtime. Use `wrangler` to test locally before deploying.
+**Cloudflare Workers compatibility**
+- Test new dependencies with `bun run preview` before deploying
+- Uses `nodejs_compat` flag for Node.js API support
 
-## ASU Class Search Integration
+**Cron triggers not deploying**
+- `bun run deploy` includes `wrangler triggers deploy` automatically
+- Verify in Cloudflare Dashboard → Workers → Triggers
 
-### Search Method
-Users search for classes by **section number** (e.g., `12431`) using the keyword field on ASU's class search:
-```
-https://catalog.apps.asu.edu/catalog/classes/classlist?keywords=12431&term=2261
-```
+## Monitoring
 
-### API Discovery
-ASU uses an internal API:
-```
-https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search
-```
-
-**Key Endpoints:**
-- `GET /classes?keywords=12431&term=2261` - Search by section number (keyword)
-- `GET /terms` - Get available terms
-- `GET /subjects?sl=Y&term=2261` - Get subjects for a term
-
-### ⚠️ API Authentication Issue
-The API returns **401 Unauthorized** when called directly (without browser context). Additionally, the ASU class search page **loads data dynamically via JavaScript**, so simple HTML fetching won't work.
-
-### ✅ Implementation Status
-
-**Scraper Service: COMPLETE**
-
-The scraper service has been fully implemented in the `scraper/` directory using Puppeteer for browser automation:
-
-**Location:** `/scraper/`
-
-**Key Features:**
-- Express server with Bearer token authentication
-- Puppeteer-based scraping of ASU class search (handles React SPA)
-- Browser instance pooling for performance optimization
-- Request interception to block images/fonts (saves bandwidth)
-- Comprehensive error handling and logging
-- TypeScript with strict typing
-- Docker + docker-compose for deployment
-- Ready for Coolify deployment on Oracle Cloud
-
-**Endpoints:**
-- `GET /health` - Health check
-- `POST /scrape` - Scrape class details (requires Bearer auth)
-
-**Integration:**
-- Main app's `/api/fetch-class-details` route calls scraper service
-- Graceful fallback to stub data if scraper not configured
-- Environment variables: `SCRAPER_URL` and `SCRAPER_SECRET_TOKEN`
-
-**Deployment:**
-1. Push to Git repo
-2. Deploy via Coolify on Oracle Cloud (Docker Compose)
-3. Configure Cloudflare Tunnel at `pickmyclass-scraper.divkix.me`
-4. Set environment variables in main app
-
-**Documentation:** See `scraper/README.md` for detailed setup and API documentation.
-
----
-
-### Implementation Options (For Reference)
-
-The following section documents the planning and architecture decisions that led to the current implementation:
-
-#### **Option 1: Oracle Free Tier + Coolify + Cloudflare Tunnel (RECOMMENDED)**
-Use your existing Oracle Cloud free tier server with Coolify and Cloudflare Tunnel.
-
-**What You Have:**
-- Oracle Cloud Free Tier (4 ARM CPUs, 24GB RAM - permanent free tier)
-- Coolify (self-hosted PaaS for easy Docker deployments)
-- Cloudflare Tunnel (secure public HTTPS access without exposing IP)
-
-**Cost: $0/month** ✅
-
-**Architecture:**
-```
-Cloudflare Workers (cron every 30 min, staggered)
-  ↓ HTTPS POST (with Bearer token auth)
-Cloudflare Tunnel → http://pickmyclass-scraper.divkix.me
-  ↓ Secure tunnel
-Oracle Server (Coolify-managed Puppeteer container)
-  ↓ Scrape with headless Chromium
-ASU Class Search Website
-  ↓ Return parsed data
-Cloudflare Workers
-  ↓ Store in
-Supabase Database
-```
-
-**Implementation Steps:**
-
-**1. Create Puppeteer Service Structure:**
-```
-scraper-service/
-├── package.json
-├── docker-compose.yml  # For Coolify
-├── Dockerfile
-└── src/
-    ├── index.ts        # Express server
-    └── scraper.ts      # Puppeteer logic
-```
-
-**2. Docker Compose for Coolify:**
-```yaml
-services:
-  asu-scraper:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - SECRET_TOKEN=${SECRET_TOKEN}  # Set in Coolify
-    restart: unless-stopped
-```
-
-**3. Dockerfile:**
-```dockerfile
-FROM node:18-slim
-
-# Install Chromium dependencies
-RUN apt-get update && apt-get install -y \
-    chromium \
-    fonts-liberation \
-    libappindicator3-1 \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-
-EXPOSE 3000
-CMD ["node", "src/index.js"]
-```
-
-**4. Express Server with Authentication (src/index.ts):**
-```typescript
-import express from 'express';
-import { scrapeClassSection } from './scraper';
-
-const app = express();
-app.use(express.json());
-
-// Bearer token authentication
-const authenticate = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  const expectedToken = process.env.SECRET_TOKEN;
-
-  if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-};
-
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-app.post('/scrape', authenticate, async (req, res) => {
-  try {
-    const { sectionNumber, term } = req.body;
-
-    if (!sectionNumber || !term) {
-      return res.status(400).json({ error: 'Missing sectionNumber or term' });
-    }
-
-    const result = await scrapeClassSection(sectionNumber, term);
-    res.json({ success: true, data: result });
-  } catch (error) {
-    console.error('Scraping error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Scraper service running on port ${PORT}`);
-});
-```
-
-**5. Deploy to Coolify:**
-- Create new service in Coolify
-- Point to your Git repo or use Docker Compose directly
-- Set environment variable: `SECRET_TOKEN=your-random-token-here`
-- Coolify will automatically build and deploy
-
-**6. Configure Cloudflare Tunnel:**
-```bash
-# If not already set up, create tunnel route
-cloudflared tunnel route dns <tunnel-name> pickmyclass-scraper.divkix.me
-```
-
-Now accessible at: `http://pickmyclass-scraper.divkix.me/scrape`
-
-**7. Call from Cloudflare Workers:**
-```typescript
-// In app/api/cron/route.ts
-const response = await fetch('http://pickmyclass-scraper.divkix.me/scrape', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${env.SCRAPER_SECRET_TOKEN}`,
-  },
-  body: JSON.stringify({ sectionNumber: '12431', term: '2261' }),
-});
-```
-
-**Pros:**
-- ✅ **$0/month** - Everything already paid for
-- ✅ **Powerful hardware** - 4 CPUs, 24GB RAM (vs Fly.io's 256MB)
-- ✅ **Coolify** - Easy deployment like Railway/Vercel
-- ✅ **Cloudflare Tunnel** - Secure public access, DDoS protection
-- ✅ **Full control** - Customize everything
-- ✅ **Permanent free tier** - Oracle won't remove it
-
-**Cons:**
-- ❌ Must keep Oracle server online
-- ❌ Need to maintain infrastructure (but Coolify makes it easy)
-- ❌ Cloudflare Tunnel adds ~50-100ms latency
-
-**Security Notes:**
-- ✅ Use Bearer token authentication (shown above)
-- ✅ Cloudflare Tunnel hides your server IP
-- ✅ Set rate limiting in Express if needed
-- ✅ Consider using Cloudflare Access for additional security
-
----
-
-#### **Option 2: Self-Hosted Puppeteer on Fly.io/Railway (Alternative)**
-If you don't want to use your Oracle server:
-
-**Platforms:**
-- **Fly.io** - 3 free VMs, 256MB RAM each
-- **Railway** - $5 free credits/month
-
-**Cost: $0-5/month**
-
-**Same architecture as Option 1, just different hosting.**
-
-**Pros:**
-- ✅ FREE or very cheap
-- ✅ No server maintenance
-- ✅ Auto-scaling and restarts
-
-**Cons:**
-- ❌ Less powerful than Oracle (256MB vs 24GB RAM)
-- ❌ Another service to manage
-
----
-
-#### **Option 3: External Scraping Service (Paid)**
-ScrapingBee, Scraper API, or BrightData:
-- ❌ **Cost**: $5-50/month
-- ✅ Zero maintenance
-- ✅ Built-in anti-bot measures
-
-**Only use if Options 1 & 2 fail.**
-
----
-
-#### **Option 4: Cloudflare Browser Rendering API (Expensive)**
-- ❌ **Cost**: ~$22/month for your usage (200 hours/month)
-- ❌ Less cost-effective than self-hosting
-
-**Not recommended given your existing infrastructure.**
-
----
-
-### Cost Comparison
-
-| Solution | Monthly Cost | Hardware | Maintenance | Notes |
-|----------|--------------|----------|-------------|-------|
-| **Oracle + Coolify** | **$0** | 4 CPUs, 24GB RAM | Low (Coolify) | ✅ **BEST - Use existing infra** |
-| Fly.io Free Tier | $0 | 256MB RAM | Low | Good alternative |
-| Railway | $0-5 | Varies | Low | $5 credits/month |
-| ScrapingBee | $5-50 | N/A | None | Paid service |
-| Cloudflare Browser | ~$22 | N/A | None | Too expensive |
-
-### Scraping Strategy
-For each monitored section number:
-1. Navigate to: `https://catalog.apps.asu.edu/catalog/classes/classlist?keywords={section_nbr}&term={term}`
-2. Wait for results table to load (check for presence of data)
-3. Extract from the HTML table:
-   - **Section number**: Text in "Number" column
-   - **Instructor**: Link text or "Staff" text in "Instructor(s)" column
-   - **Seats available**: Parse "140 of 150" format from "Open Seats" column
-   - **Course info**: Subject, catalog number, title, location, times
-
-### Data to Monitor
-Track these state changes:
-- **Seat availability**: `"0 of 150"` → `"5 of 150"` (send notification)
-- **Instructor assignment**: `"Staff"` → `"James Gordon"` (send notification)
-
-### Implementation Notes
-- Use Cloudflare Workers Cron Triggers (every 30 minutes with staggered checking)
-- Store previous state in Supabase to detect changes
-- Rate limit: Space out requests by 2-3 seconds between sections to avoid rate limiting
-- Handle failures gracefully (retry logic, error logging)
-- Staggered batching: Split sections by even/odd class numbers to double capacity
-
-## Database Schema
-
-All tables have Row Level Security (RLS) enabled. Migrations are managed via Supabase CLI in `supabase/migrations/`.
-
-### Tables
-
-#### `class_watches`
-Stores which users are watching which class sections.
-- **Columns**: `id`, `user_id`, `term`, `subject`, `catalog_nbr`, `class_nbr`, `created_at`
-- **RLS**: Users can only CRUD their own watches (filtered by `user_id = auth.uid()`)
-- **Constraints**: Unique constraint on `(user_id, term, class_nbr)` to prevent duplicates
-- **Indexes**: `user_id`, `class_nbr`
-
-#### `class_states`
-Caches current state of monitored classes to detect changes.
-- **Columns**: `id`, `term`, `subject`, `catalog_nbr`, `class_nbr`, `title`, `instructor_name`, `seats_available`, `seats_capacity`, `location`, `meeting_times`, `last_checked_at`, `last_changed_at`
-- **RLS**: Authenticated users can read all states; only service_role can write
-- **Constraints**: Unique `class_nbr` (section numbers are globally unique)
-- **Indexes**: `class_nbr`, `last_checked_at`
-- **Triggers**: Auto-updates `last_changed_at` when seats or instructor changes
-
-#### `notifications_sent`
-Tracks which notifications have been sent to avoid duplicates.
-- **Columns**: `id`, `class_watch_id`, `notification_type`, `sent_at`
-- **RLS**: Users can view notifications for their own watches; only service_role can insert
-- **Constraints**: Unique `(class_watch_id, notification_type)` to prevent duplicate notifications
-- **Indexes**: `class_watch_id`
-
-### Realtime Subscriptions
-
-The dashboard uses Supabase Realtime to live-update class states:
-
-```typescript
-// lib/hooks/useRealtimeClassStates.ts
-// Subscribes to postgres_changes events on class_states table
-// Filters by user's watched class numbers
-// Auto-updates UI when seats or instructor changes
-```
-
-**Example usage in dashboard:**
-```typescript
-const { classStates, loading } = useRealtimeClassStates({
-  classNumbers: ['12431', '12432'],
-  enabled: true,
-})
-```
-
-### API Routes
-
-**GET /api/class-watches**
-- Fetch all class watches for authenticated user
-- Returns watches with joined class_states data
-- Protected by Supabase auth (requires valid session)
-
-**POST /api/class-watches**
-- Add new class watch
-- Body: `{ term, subject, catalog_nbr, class_nbr }`
-- Validates section number (5 digits) and term (4 digits)
-- Returns 409 if duplicate watch exists
-
-**DELETE /api/class-watches?id={watch_id}**
-- Remove a class watch
-- RLS ensures user can only delete their own watches
-
-## Cloudflare Workers Cron Configuration
-
-**Configuration** (`wrangler.jsonc`):
-```jsonc
-{
-  "triggers": {
-    "crons": ["0,30 * * * *"]  // Every 30 minutes at :00 and :30
-  }
-}
-```
-
-**Implementation**:
-- `worker.ts` - Custom worker with `scheduled` handler that calls `/api/cron` route
-- `app/api/cron/route.ts` - Main cron logic with staggered checking
-
-**Staggered Checking Strategy**:
-- **:00 and :30 minutes** → Even class numbers (last digit: 0, 2, 4, 6, 8)
-- Splits 2000+ sections into manageable batches
-- Each run processes ~50% of total sections
-- Allows 30-minute processing window per batch
-- **Capacity**: 4,000 sections at batch size 3
-
-**Cron Job Flow**:
-1. Verify request is from Cloudflare Workers cron (check `X-Cloudflare-Cron` header)
-2. Determine stagger group from current minute (even vs odd)
-3. Fetch unique class sections from `class_watches` table (via Supabase)
-4. Filter sections by even/odd last digit of class_nbr
-5. Process filtered sections in batches (configurable via `SCRAPER_BATCH_SIZE`)
-6. For each section:
-   - Fetch OLD state from `class_states` table
-   - Scrape NEW data from ASU via scraper service
-   - **Detect changes**:
-     - Seat became available: `old.seats_available === 0 && new.seats_available > 0`
-     - Instructor assigned: `old.instructor_name === 'Staff' && new.instructor_name !== 'Staff'`
-   - If change detected:
-     - Get all users watching this section (`getClassWatchers()`)
-     - Check `notifications_sent` for deduplication
-     - Send email via Resend (`sendSeatAvailableEmail()` or `sendInstructorAssignedEmail()`)
-     - Record notification in `notifications_sent` table
-   - Upsert new state to `class_states` table
-7. Return aggregated results (successful/failed counts)
-
-**Rate Limiting**:
-- 2 second delay between batches
-- 100ms delay between individual emails
-- Configurable batch size (default: 3 concurrent scrapes per batch)
-- Staggering prevents scraper overload
+- **Health endpoint:** `GET /api/monitoring/health` - DB, circuit breaker, email service status
+- **Scraper status:** `GET https://pickmyclass-scraper.divkix.me/status` - Browser pool metrics
+- **Queue metrics:** Cloudflare Dashboard → Queues → class-check-queue
