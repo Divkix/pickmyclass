@@ -1,7 +1,20 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}", "worker.ts"],
-  "project": ["**/*.{ts,tsx,js,jsx,mjs}"],
+  "next": {
+    "entry": [
+      "app/**/page.tsx",
+      "app/**/layout.tsx",
+      "app/**/route.ts",
+      "app/**/loading.tsx",
+      "app/**/error.tsx",
+      "app/**/not-found.tsx",
+      "app/sitemap.ts",
+      "app/robots.ts",
+      "middleware.ts"
+    ]
+  },
+  "entry": ["worker.ts", "open-next.config.ts"],
+  "project": ["**/*.{ts,tsx}"],
   "ignore": [
     ".next/**",
     ".open-next/**",
@@ -11,11 +24,11 @@
     "cloudflare-env.d.ts",
     "next-env.d.ts",
     "lib/supabase/database.types.ts",
-    ".next/types/**",
     "scraper/**",
-    "*.config.{ts,js,mjs}"
+    "components/ui/**",
+    "lib/animations.ts"
   ],
-  "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css"],
+  "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css", "postcss"],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false
 }

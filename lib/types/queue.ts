@@ -75,18 +75,3 @@ export interface QueueMessage<T = ClassCheckMessage> {
   retry(): void;
   ack(): void;
 }
-
-/**
- * Result of processing a class section
- */
-export interface ClassCheckResult {
-  class_nbr: string;
-  success: boolean;
-  error?: string;
-  changes_detected?: {
-    seat_became_available?: boolean;
-    instructor_assigned?: boolean;
-  };
-  emails_sent?: number;
-  processing_time_ms?: number;
-}
