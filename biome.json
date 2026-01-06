@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -56,7 +56,10 @@
   },
   "linter": {
     "enabled": true,
-    "includes": ["**", "!cloudflare-env.d.ts"],
+    "includes": [
+      "**",
+      "!cloudflare-env.d.ts"
+    ],
     "rules": {
       "recommended": true,
       "style": {
@@ -102,16 +105,22 @@
   },
   "overrides": [
     {
-      "includes": ["*.css"],
+      "includes": [
+        "*.css"
+      ],
       "formatter": {
         "lineWidth": 120
       }
     },
     {
-      "includes": ["*.md"]
+      "includes": [
+        "*.md"
+      ]
     },
     {
-      "includes": ["worker.ts"],
+      "includes": [
+        "worker.ts"
+      ],
       "linter": {
         "rules": {
           "suspicious": {
