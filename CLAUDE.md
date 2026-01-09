@@ -168,5 +168,5 @@ User must log out and back in for admin status to take effect.
 ## Monitoring
 
 - **Health endpoint:** `GET /api/monitoring/health` - DB, circuit breaker, email service status
-- **Scraper status:** `GET https://pickmyclass-scraper.divkix.me/status` - Browser pool metrics
+- **Scraper status:** `GET <your-scraper-url>/status` - Browser pool metrics
 - **Queue metrics:** Cloudflare Dashboard → Queues → class-check-queue

@@ -56,10 +56,7 @@
   },
   "linter": {
     "enabled": true,
-    "includes": [
-      "**",
-      "!cloudflare-env.d.ts"
-    ],
+    "includes": ["**", "!**/cloudflare-env.d.ts"],
     "rules": {
       "recommended": true,
       "style": {
@@ -105,22 +102,16 @@
   },
   "overrides": [
     {
-      "includes": [
-        "*.css"
-      ],
+      "includes": ["*.css"],
       "formatter": {
         "lineWidth": 120
       }
     },
     {
-      "includes": [
-        "*.md"
-      ]
+      "includes": ["*.md"]
     },
     {
-      "includes": [
-        "worker.ts"
-      ],
+      "includes": ["worker.ts"],
       "linter": {
         "rules": {
           "suspicious": {

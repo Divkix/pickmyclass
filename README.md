@@ -1,6 +1,8 @@
 # PickMyClass
 
-A real-time class seat notification system for university students. Monitor class availability, get notified when seats open up, and track instructor assignments.
+A high-performance, scalable class seat notification system for university students. Monitor class availability, get notified when seats open up, and track instructor assignments.
+
+Built with Next.js 15, Supabase, and deployed on Cloudflare Workers for edge performance.
 
 ## Features
 
@@ -8,71 +10,125 @@ A real-time class seat notification system for university students. Monitor clas
 - **Instructor Tracking** - Get notified when "Staff" instructors are assigned to specific professors
 - **Real-time Updates** - Dashboard updates live via Supabase Realtime subscriptions
 - **Email Notifications** - Instant email alerts via Resend when changes are detected
-- **Smart Deduplication** - Prevents duplicate notifications for the same event
-- **High Performance** - Edge-first architecture with Workers KV cache layer (5-10x faster reads)
-- **15-Minute Checks** - Automated hourly scraping via Cloudflare Workers Cron Triggers
-- **User Authentication** - Secure login/register with Supabase Auth
+- **Smart Deduplication** - Prevents duplicate notifications using atomic PostgreSQL operations
+- **Circuit Breaker** - Distributed fault tolerance with Durable Objects
+- **Scalable Queue Processing** - Handles 10,000+ users with parallel Cloudflare Queues
+- **30-Minute Checks** - Automated scraping via Cloudflare Workers Cron Triggers
 
-## Tech Stack
+## Why Cloudflare Workers?
 
-- **Frontend**: Next.js 15.5 (App Router), React, TypeScript, Tailwind CSS 4
-- **Backend**: Cloudflare Workers (OpenNext), Supabase (PostgreSQL + Auth + Realtime)
-- **Scraper**: Puppeteer (headless Chrome), Express.js, deployed on Oracle Cloud via Coolify
-- **Database**: PostgreSQL (Supabase) with Row Level Security (RLS)
-- **Cache**: Cloudflare Workers KV (edge caching for 5-10x performance boost)
-- **Email**: Resend (100 emails/day free tier)
-- **Deployment**: Cloudflare Workers + Pages, Cloudflare Tunnel for scraper access
+We chose Cloudflare Workers as our deployment platform for several compelling reasons:
+
+### Edge-First Architecture
+- **Global Distribution**: Code runs in 300+ data centers worldwide, ensuring low latency for all users
+- **No Cold Starts**: Workers are always warm, providing consistent sub-100ms response times
+- **Smart Placement**: Automatic routing to the nearest data center
+
+### Cost Efficiency
+- **Generous Free Tier**: 100,000 requests/day free, more than enough for most deployments
+- **Pay-Per-Use**: Only pay for actual compute time, not idle servers
+- **No Infrastructure Management**: Zero DevOps overhead
+
+### Native Primitives for Scalability
+- **Cloudflare Queues**: Reliable message queue for processing class checks at scale
+- **Durable Objects**: Distributed coordination for circuit breakers and cron locks
+- **Workers KV**: Edge caching for fast data retrieval
+- **Hyperdrive**: Connection pooling for PostgreSQL with automatic optimization
+
+### Reliability
+- **Automatic Failover**: Built-in redundancy across data centers
+- **DDoS Protection**: Enterprise-grade security by default
+- **99.99% Uptime SLA**: Production-grade reliability
+
+### Developer Experience
+- **OpenNext Compatibility**: Deploy standard Next.js apps without modification
+- **Instant Deployments**: Sub-second deployments via Wrangler CLI
+- **Integrated Monitoring**: Real-time logs and analytics
 
 ## Architecture
 
 ```
 User Browser
-  ↓
-Next.js App (Cloudflare Workers)
-  ↓
-Supabase (Auth + PostgreSQL + Realtime)
-  ↓
-Cloudflare Workers Cron (every hour)
-  ↓
-Scraper Service (Oracle Cloud + Coolify + Cloudflare Tunnel)
-  ↓
-ASU Class Search Website
-  ↓
-Email Notifications (Resend)
+     |
+     v
+Next.js App (Cloudflare Workers) <---> Supabase (Auth + PostgreSQL + Realtime)
+     |
+     v
+Cloudflare Cron (every 30 min)
+     |
+     v
+Cloudflare Queue (class-check-queue)
+     |
+     v
+Queue Consumers (100+ concurrent Workers)
+     |                    |
+     v                    v
+Durable Objects      Scraper Service
+(Circuit Breaker)    (Puppeteer on external server)
+     |                    |
+     v                    v
+Change Detection <--- ASU Class Search
+     |
+     v
+Resend Email API --> User Notifications
 ```
 
 ### Key Components
 
-- **Authentication**: Supabase SSR with `@supabase/ssr` (server + client)
-- **Database Access**: Cloudflare Hyperdrive for fast PostgreSQL connection pooling
-- **Caching**: Workers KV for edge caching with PostgreSQL fallback
-- **Scraping**: Puppeteer service with browser pooling and request interception
-- **Notifications**: Resend email service with HTML templates
+| Component | Purpose |
+|-----------|---------|
+| `worker.ts` | Custom Cloudflare Worker with cron, queue handlers, and Durable Objects |
+| `app/api/cron/route.ts` | Cron job entry point - enqueues sections to queue |
+| `app/api/queue/process-section/route.ts` | Queue consumer - processes single section |
+| `lib/db/queries.ts` | Database query helpers with atomic deduplication |
+| `scraper/` | Standalone Puppeteer service for web scraping |
 
-## Prerequisites
+### Durable Objects
+
+**CircuitBreakerDO** - Distributed fault tolerance
+- States: CLOSED (healthy) -> OPEN (blocking, 10 failures) -> HALF_OPEN (testing recovery)
+- Single instance coordinates all 100+ Worker isolates
+- Prevents cascade failures when scraper is down
+
+**CronLockDO** - Prevents duplicate cron executions
+- Auto-expires after 25 minutes
+- Ensures only one cron job runs at a time across all isolates
+
+## Self-Hosting Guide
+
+### Prerequisites
 
 - [Bun](https://bun.sh/) (package manager)
-- [Supabase Account](https://supabase.com/) (free tier)
-- [Cloudflare Account](https://cloudflare.com/) (free tier)
+- [Supabase Account](https://supabase.com/) (free tier available)
+- [Cloudflare Account](https://cloudflare.com/) (free tier available)
 - [Resend Account](https://resend.com/) (free tier: 100 emails/day)
-- [Oracle Cloud Account](https://cloud.oracle.com/) (optional, for scraper deployment)
+- A server for the Puppeteer scraper (Oracle Cloud free tier recommended)
 
-## Getting Started
-
-### 1. Clone the Repository
+### 1. Clone and Install
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/yourusername/pickmyclass.git
 cd pickmyclass
-```
-
-### 2. Install Dependencies
-
-```bash
 bun install
 ```
 
-### 3. Set Up Environment Variables
+### 2. Set Up Supabase
+
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Link your local project:
+   ```bash
+   bunx supabase link --project-ref your-project-id
+   ```
+3. Push database migrations:
+   ```bash
+   bunx supabase db push
+   ```
+4. Generate TypeScript types:
+   ```bash
+   bunx supabase gen types typescript --linked > lib/supabase/database.types.ts
+   ```
+
+### 3. Configure Environment Variables
 
 Copy `.env.example` to `.env.local`:
 
@@ -80,236 +136,143 @@ Copy `.env.example` to `.env.local`:
 cp .env.example .env.local
 ```
 
-Edit `.env.local` with your credentials:
+Required variables:
 
-```bash
-# Supabase (from https://app.supabase.com/project/_/settings/api)
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+| Variable | Description | Where to Get It |
+|----------|-------------|-----------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Supabase Dashboard -> Settings -> API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Supabase Dashboard -> Settings -> API |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (bypasses RLS) | Supabase Dashboard -> Settings -> API |
+| `SCRAPER_URL` | URL to your scraper service | Your deployed scraper URL |
+| `SCRAPER_SECRET_TOKEN` | Auth token for scraper | Generate: `openssl rand -hex 32` |
+| `RESEND_API_KEY` | Resend API key | [resend.com/api-keys](https://resend.com/api-keys) |
+| `CRON_SECRET` | Auth for cron endpoint | Generate: `openssl rand -hex 32` |
 
-# Scraper Service
-SCRAPER_URL=http://localhost:3000  # or http://pickmyclass-scraper.divkix.me
-SCRAPER_SECRET_TOKEN=your_secret_token_here
-SCRAPER_BATCH_SIZE=3
+### 4. Update Cloudflare Configuration
 
-# Email Notifications (from https://resend.com/api-keys)
-RESEND_API_KEY=re_your_api_key_here
-NOTIFICATION_FROM_EMAIL=onboarding@resend.dev
+Edit `wrangler.jsonc` and update the placeholder values:
+
+```jsonc
+{
+  "vars": {
+    "NOTIFICATION_FROM_EMAIL": "notifications@your-domain.com",
+    "NEXT_PUBLIC_SITE_URL": "https://your-domain.com",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://your-project-id.supabase.co",
+    "SCRAPER_URL": "https://your-scraper-url.example.com"
+  }
+}
 ```
 
-### 4. Set Up Database
+Optionally configure a custom domain:
 
-Initialize Supabase locally (optional) or use remote project:
-
-```bash
-# Link to your Supabase project
-bunx supabase link --project-ref your-project-id
-
-# Push migrations to remote database
-bunx supabase db push
-
-# Generate TypeScript types
-bunx supabase gen types typescript --linked > lib/supabase/database.types.ts
+```jsonc
+{
+  "routes": [
+    {
+      "pattern": "your-domain.com",
+      "custom_domain": true
+    }
+  ]
+}
 ```
 
-### 5. Run Development Server
+### 5. Deploy the Scraper Service
+
+See [`scraper/README.md`](scraper/README.md) for detailed deployment instructions.
+
+Recommended setup:
+- Oracle Cloud Always Free tier (4 CPUs, 24GB RAM)
+- Docker + Coolify for easy deployment
+- Cloudflare Tunnel for secure public access
+
+### 6. Set Cloudflare Secrets
 
 ```bash
-bun run dev
+# Authenticate with Cloudflare
+wrangler login
+
+# Set secrets (you'll be prompted for values)
+wrangler secret put NEXT_PUBLIC_SUPABASE_ANON_KEY
+wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+wrangler secret put SCRAPER_SECRET_TOKEN
+wrangler secret put RESEND_API_KEY
+wrangler secret put RESEND_WEBHOOK_SECRET
+wrangler secret put CRON_SECRET
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the app.
-
-## Environment Variables
-
-| Variable | Description | Required | Example |
-|----------|-------------|----------|---------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes | `https://xxx.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Yes | `eyJhbGc...` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (bypasses RLS) | Yes | `eyJhbGc...` |
-| `SCRAPER_URL` | URL to scraper service | Yes | `http://pickmyclass-scraper.divkix.me` |
-| `SCRAPER_SECRET_TOKEN` | Bearer token for scraper auth | Yes | `random-secure-token` |
-| `SCRAPER_BATCH_SIZE` | Concurrent scrapes per batch (1-5) | No | `3` |
-| `RESEND_API_KEY` | Resend API key | Yes | `re_xxx` |
-| `RESEND_WEBHOOK_SECRET` | Resend webhook signing secret | Yes | `whsec_xxx` |
-| `NOTIFICATION_FROM_EMAIL` | Verified sender email | Yes | `notifications@pickmyclass.app` |
-| `NEXT_PUBLIC_SITE_URL` | Base URL for unsubscribe links | Yes | `https://pickmyclass.app` |
-| `CRON_SECRET` | Authentication secret for cron endpoint | Yes | `openssl rand -hex 32` |
-| `SENTRY_DSN` | Sentry error tracking DSN | Recommended | `https://...@sentry.io/...` |
-| `MAX_WATCHES_PER_USER` | Maximum watches per user | No | `10` |
-
-See [`.env.example`](.env.example) for detailed descriptions.
-
-## Deployment
-
-### Deploy to Cloudflare Workers
-
-1. **Install Wrangler CLI** (if not already installed):
-   ```bash
-   bun install -g wrangler
-   ```
-
-2. **Authenticate with Cloudflare**:
-   ```bash
-   wrangler login
-   ```
-
-3. **Set Up Cloudflare Hyperdrive** (database connection pooling):
-   - Go to Workers & Pages → Hyperdrive → Create Configuration
-   - Name: `pickmyclass-db`
-   - Connection string: `postgresql://postgres:[password]@db.[project-id].supabase.co:5432/postgres`
-   - Copy the Hyperdrive ID and update `wrangler.jsonc`
-
-4. **Set Environment Variables**:
-
-   **Method 1: Cloudflare Dashboard (Recommended)**
-   - Go to Workers & Pages → Your Worker → Settings → Variables
-   - Add these **encrypted secrets**:
-     ```
-     NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
-     SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
-     SCRAPER_SECRET_TOKEN=your-token
-     RESEND_API_KEY=re_xxx
-     RESEND_WEBHOOK_SECRET=whsec_xxx
-     CRON_SECRET=<generate with: openssl rand -hex 32>
-     SENTRY_DSN=https://...@sentry.io/...
-     NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/...
-     ```
-   - Add these **plaintext variables**:
-     ```
-     NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-     SCRAPER_URL=http://pickmyclass-scraper.divkix.me
-     ```
-
-   **Method 2: Wrangler CLI**
-   ```bash
-   # Secrets
-   wrangler secret put NEXT_PUBLIC_SUPABASE_ANON_KEY
-   wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-   wrangler secret put SCRAPER_SECRET_TOKEN
-   wrangler secret put RESEND_API_KEY
-   wrangler secret put RESEND_WEBHOOK_SECRET
-   wrangler secret put CRON_SECRET
-   wrangler secret put SENTRY_DSN
-   wrangler secret put NEXT_PUBLIC_SENTRY_DSN
-
-   # Plaintext vars go in wrangler.jsonc or Dashboard
-   ```
-
-5. **Deploy**:
-   ```bash
-   bun run deploy
-   ```
-
-   Your app will be live at `https://your-worker.workers.dev`
-
-### Set Up Resend Email Service
-
-1. **Create Resend Account**:
-   - Sign up at [resend.com](https://resend.com) (free tier: 100 emails/day, 3,000/month)
-   - Verify your email address
-
-2. **Get API Key**:
-   - Go to [API Keys](https://resend.com/api-keys)
-   - Click "Create API Key"
-   - Name: `PickMyClass Production`
-   - Copy the key → Set as `RESEND_API_KEY` in Cloudflare
-
-3. **Verify Domain** (for production):
-
-   **Option A: Use Resend's Test Domain (Development)**
-   - Use `onboarding@resend.dev` as sender email
-   - No verification needed
-   - Limited to 1 email per recipient per day
-
-   **Option B: Verify Your Own Domain (Production)**
-   - Go to [Domains](https://resend.com/domains)
-   - Click "Add Domain"
-   - Enter your domain (e.g., `pickmyclass.app`)
-   - Add DNS records (MX, TXT, CNAME) to your domain provider
-   - Wait for verification (usually <5 minutes)
-   - Use `notifications@pickmyclass.app` as sender email
-
-4. **Configure Webhooks** (for bounce/spam handling):
-   - Go to [Webhooks](https://resend.com/webhooks)
-   - Click "Add Webhook"
-   - **Endpoint URL**: `https://pickmyclass.app/api/webhooks/resend`
-   - **Events to subscribe**:
-     - ✅ `email.bounced` - Handle hard bounces
-     - ✅ `email.complained` - Handle spam complaints
-     - ✅ `email.delivered` - Track successful deliveries (optional)
-   - Click "Create Webhook"
-   - Copy the **Signing Secret** (starts with `whsec_...`)
-   - Set as `RESEND_WEBHOOK_SECRET` in Cloudflare
-
-5. **Test Email Delivery**:
-   ```bash
-   # Send test notification by adding a watch in the dashboard
-   # Check Resend dashboard → Emails for delivery status
-   ```
-
-6. **Monitor Email Health**:
-   - Check [Resend Dashboard](https://resend.com/emails) for:
-     - Delivery rate (should be >95%)
-     - Bounce rate (should be <5%)
-     - Spam complaints (should be <0.1%)
-   - High bounce/spam rates will trigger account suspension
-
-### Deploy Scraper Service
-
-See [`scraper/README.md`](scraper/README.md) for detailed deployment instructions using Coolify + Oracle Cloud + Cloudflare Tunnel.
-
-## Database Management
-
-### Create a New Migration
+### 7. Deploy
 
 ```bash
-bunx supabase migration new <migration-name>
+bun run deploy
 ```
 
-### Apply Migrations
+Your app will be live at `https://your-worker.workers.dev` or your custom domain.
+
+### 8. Set Up Cloudflare Queues
+
+Create the required queues in Cloudflare Dashboard:
+
+1. Go to Workers & Pages -> Queues
+2. Create `class-check-queue`
+3. Create `class-check-dlq` (dead letter queue)
+
+### 9. Customize Legal Pages (Optional)
+
+The `app/legal/` directory contains Terms of Service and Privacy Policy pages with ASU-specific content and hardcoded email addresses (`support@pickmyclass.app`). For your deployment:
+
+- Update contact email addresses in:
+  - `app/legal/page.tsx`
+  - `app/legal/terms/page.tsx`
+  - `app/legal/privacy/page.tsx`
+- Review and customize legal content for your institution/jurisdiction
+- Update the privacy policy to reflect your data practices
+
+### 10. Verify Deployment
+
+- Check the health endpoint: `https://your-domain.com/api/monitoring/health`
+- Verify cron triggers in Cloudflare Dashboard -> Workers -> Triggers
+- Test by adding a class watch in the dashboard
+
+## Development
+
+### Local Development
 
 ```bash
-# Local database
-bunx supabase db reset
-
-# Remote database
-bunx supabase db push
-```
-
-### Generate TypeScript Types
-
-```bash
-bunx supabase gen types typescript --linked > lib/supabase/database.types.ts
-```
-
-### Pull Remote Schema
-
-```bash
-bunx supabase db pull
-```
-
-## Development Commands
-
-```bash
-# Development
 bun run dev              # Start Next.js dev server (localhost:3000)
-bun run build            # Build for production
-bun run lint             # Run ESLint
-
-# Cloudflare Workers
-bun run preview          # Build with OpenNext and preview locally
-bun run deploy           # Deploy to Cloudflare Workers
-bun run cf-typegen       # Generate Cloudflare env types
-
-# Database
-bunx supabase db push    # Push migrations to remote
-bunx supabase gen types  # Generate TypeScript types
-
-# Clean build
-rm -rf .next .open-next && bun run preview
 ```
+
+### Preview with Cloudflare
+
+```bash
+bun run preview          # Build with OpenNext and preview locally
+```
+
+### Other Commands
+
+```bash
+bun run build            # Build Next.js application
+bun run lint             # Run Biome linter
+bun run lint:fix         # Fix lint issues
+bun run format           # Format code with Biome
+bun run knip             # Find unused exports/dependencies
+bun run cf-typegen       # Generate TypeScript types for Cloudflare env
+```
+
+### Database Commands
+
+```bash
+bunx supabase db push                # Push migrations to remote
+bunx supabase db pull                # Pull remote schema changes
+bunx supabase migration new <name>   # Create new migration
+```
+
+## Tech Stack
+
+- **Frontend**: Next.js 15.5 (App Router), React 19, TypeScript, Tailwind CSS 4
+- **Backend**: Cloudflare Workers (via OpenNext), Supabase (PostgreSQL + Auth + Realtime)
+- **Scraper**: Puppeteer, Express.js, deployed on Oracle Cloud
+- **Email**: Resend (transactional emails)
+- **Deployment**: Cloudflare Workers + Pages
 
 ## Project Structure
 
@@ -318,51 +281,68 @@ app/                         # Next.js App Router
   ├── api/
   │   ├── class-watches/     # CRUD API for user watches
   │   ├── cron/              # Cloudflare Workers cron handler
-  │   └── fetch-class-details/ # Scraper integration
+  │   ├── queue/             # Queue consumer handlers
+  │   └── webhooks/          # Resend webhook handlers
   ├── dashboard/             # Main dashboard with Realtime updates
   ├── login/                 # Authentication pages
-  └── layout.tsx             # Root layout with AuthProvider
+  └── layout.tsx             # Root layout
 
 lib/
   ├── supabase/              # Supabase clients (browser, server, service)
-  ├── db/                    # Hyperdrive helpers + SQL queries
-  ├── cache/                 # Workers KV cache layer
+  ├── db/                    # Database query helpers
   ├── email/                 # Resend integration + templates
   └── hooks/                 # React hooks (Realtime subscriptions)
 
 components/
   ├── ui/                    # shadcn/ui components
-  ├── ClassWatchCard.tsx     # Class watch display
-  └── AddClassWatch.tsx      # Add new watch form
+  └── ...                    # Feature components
 
 supabase/
   └── migrations/            # Database migrations
 
 scraper/                     # Standalone Puppeteer service
   ├── src/
-  │   ├── index.ts          # Express server
-  │   └── scraper.ts        # Puppeteer logic
-  └── docker-compose.yml    # Coolify deployment
+  │   ├── index.ts           # Express server
+  │   ├── scraper.ts         # Puppeteer logic
+  │   ├── circuit-breaker.ts # Fault tolerance
+  │   └── queue.ts           # Request queue
+  └── Dockerfile             # Container definition
 
-proxy.ts                     # Next.js 16 middleware (auth)
-worker.ts                    # Custom Cloudflare Worker with cron
+worker.ts                    # Custom Cloudflare Worker
 wrangler.jsonc               # Cloudflare Workers config
 ```
 
 ## How It Works
 
-1. **User adds class watch** - Student enters section number (e.g., `12431`) on dashboard
-2. **Hourly cron job runs** - Cloudflare Workers cron triggers every hour
-3. **Scraper fetches data** - Puppeteer service scrapes ASU class search for current state
-4. **Change detection** - Compares new state with cached state in Workers KV / PostgreSQL
-5. **Send notifications** - If seats became available or instructor assigned, send emails via Resend
-6. **Update cache** - Store new state in Workers KV + PostgreSQL for next check
-7. **Real-time updates** - Dashboard updates live via Supabase Realtime subscriptions
+1. **User adds class watch** - Student enters section number on dashboard
+2. **Every 30 minutes** - Cloudflare cron triggers enqueue all watched sections
+3. **Queue consumers process** - 100+ Workers scrape sections in parallel
+4. **Circuit breaker protects** - Durable Object coordinates failure handling
+5. **Change detection** - Compare new state with PostgreSQL cached state
+6. **Atomic deduplication** - PostgreSQL `INSERT...ON CONFLICT` prevents race conditions
+7. **Email notification** - Resend batch API sends alerts for available seats
+8. **Real-time update** - Dashboard reflects changes via Supabase Realtime
 
 ## Contributing
 
-This is a private project. Contributions are not currently accepted.
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Quick Start for Contributors
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Make your changes
+4. Run linting: `bun run lint:fix`
+5. Commit with conventional commits: `git commit -m "feat: add new feature"`
+6. Push and open a PR
 
 ## License
 
-**Proprietary** - All rights reserved. This is a private project and may not be copied, modified, or distributed without explicit permission.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [OpenNext](https://opennext.js.org/) - Next.js adapter for Cloudflare Workers
+- [Supabase](https://supabase.com/) - Open source Firebase alternative
+- [Resend](https://resend.com/) - Modern email API
+- [shadcn/ui](https://ui.shadcn.com/) - UI component library
