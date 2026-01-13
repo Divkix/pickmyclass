@@ -150,8 +150,7 @@ describe('usePullToRefresh hook', () => {
     it('should handle threshold prop changes', () => {
       const mockRefresh = createMockRefresh();
       const { result, rerender } = renderHook(
-        (props: { threshold?: number }) =>
-          usePullToRefresh({ onRefresh: mockRefresh, ...props }),
+        (props: { threshold?: number }) => usePullToRefresh({ onRefresh: mockRefresh, ...props }),
         { initialProps: { threshold: 80 } }
       );
 
@@ -163,8 +162,7 @@ describe('usePullToRefresh hook', () => {
     it('should handle resistance prop changes', () => {
       const mockRefresh = createMockRefresh();
       const { result, rerender } = renderHook(
-        (props: { resistance?: number }) =>
-          usePullToRefresh({ onRefresh: mockRefresh, ...props }),
+        (props: { resistance?: number }) => usePullToRefresh({ onRefresh: mockRefresh, ...props }),
         { initialProps: { resistance: 2.5 } }
       );
 

@@ -63,7 +63,13 @@ vi.mock('@/lib/supabase/service', () => ({
 }));
 
 // Import after mocking
-const { MAX_FAILED_ATTEMPTS, checkLockoutStatus, clearFailedAttempts, getRemainingLockoutTime, incrementFailedAttempts } = await import('@/lib/auth/lockout');
+const {
+  MAX_FAILED_ATTEMPTS,
+  checkLockoutStatus,
+  clearFailedAttempts,
+  getRemainingLockoutTime,
+  incrementFailedAttempts,
+} = await import('@/lib/auth/lockout');
 
 describe('Lockout utilities', () => {
   const testEmail = 'test@example.com';

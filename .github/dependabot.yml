@@ -1,7 +1,7 @@
 version: 2
 updates:
   # Root package.json (Next.js app)
-  - package-ecosystem: 'npm'
+  - package-ecosystem: 'bun'
     directory: '/'
     schedule:
       interval: 'weekly'
@@ -52,7 +52,7 @@ updates:
           - 'patch'
 
   # Scraper service
-  - package-ecosystem: 'npm'
+  - package-ecosystem: 'bun'
     directory: '/scraper'
     schedule:
       interval: 'weekly'
