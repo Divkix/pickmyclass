@@ -84,7 +84,7 @@ Focus: Validate the migration works end-to-end with BullMQ and Redis. Skip tests
   - _Requirements: FR-6, AC-3.1, AC-3.2, AC-3.3_
   - _Design: Health Endpoint_
 
-- [ ] 1.9 POC Checkpoint
+- [x] 1.9 POC Checkpoint
   - **Do**: Run full flow: start server, wait for cron trigger, verify sections enqueued, verify worker processes jobs, verify notifications sent (or mock). Test with 1-2 real class watches.
   - **Done when**: End-to-end notification flow works on local machine
   - **Verify**: Check email received or logs show email sent
