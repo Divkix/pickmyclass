@@ -189,7 +189,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
   - _Requirements: NFR-6_
   - _Design: Caddy Reverse Proxy_
 
-- [ ] 4.3 Create deployment script
+- [x] 4.3 Create deployment script
   - **Do**: Create `scripts/deploy.sh` that: pulls latest code, installs deps, builds Next.js, restarts PM2. Create `scripts/setup-vps.sh` for initial VPS setup (install Node, Redis, Caddy, PM2).
   - **Files**: `/Users/divkix/GitHub/pickmyclass/scripts/deploy.sh`, `/Users/divkix/GitHub/pickmyclass/scripts/setup-vps.sh`
   - **Done when**: Scripts are executable and documented
