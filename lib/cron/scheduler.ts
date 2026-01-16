@@ -144,15 +144,6 @@ export function stopScheduler(): void {
 }
 
 /**
- * Check if the scheduler is currently running
- *
- * @returns true if scheduler is active
- */
-export function isSchedulerRunning(): boolean {
-  return isRunning;
-}
-
-/**
  * Get scheduler status information
  *
  * Useful for health checks and monitoring.

@@ -172,9 +172,7 @@ describe('Cron Flow E2E', () => {
   /**
    * Helper to set up database sections to check
    */
-  function setupSectionsToCheck(
-    sections: Array<{ class_nbr: string; term: string }>
-  ) {
+  function setupSectionsToCheck(sections: Array<{ class_nbr: string; term: string }>) {
     mockSupabaseRpc.mockResolvedValue({
       data: sections,
       error: null,

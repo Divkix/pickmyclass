@@ -43,11 +43,10 @@ function getConnectionOptions(): ConnectionOptions {
 }
 
 /**
- * Singleton instances for queues
+ * Singleton instance for the class check queue
  * Using generic Queue type to avoid BullMQ's complex type inference
  */
 let classCheckQueue: Queue<ClassCheckJobData, unknown, string> | null = null;
-let deadLetterQueue: Queue<ClassCheckJobData, unknown, string> | null = null;
 
 /**
  * Get or create the class-check queue singleton
@@ -75,64 +74,6 @@ export function getClassCheckQueue(): Queue<ClassCheckJobData, unknown, string> 
   console.log(`[Queue] Initialized ${QUEUE_NAMES.CLASS_CHECK} queue`);
 
   return classCheckQueue;
-}
-
-/**
- * Get or create the dead letter queue singleton
- *
- * Jobs that fail all retry attempts are moved here for inspection.
- *
- * @returns BullMQ Queue instance for dead letters
- */
-export function getDeadLetterQueue(): Queue<ClassCheckJobData, unknown, string> {
-  if (deadLetterQueue) {
-    return deadLetterQueue;
-  }
-
-  const connection = getConnectionOptions();
-
-  deadLetterQueue = new Queue<ClassCheckJobData, unknown, string>(QUEUE_NAMES.CLASS_CHECK_DLQ, {
-    connection,
-  });
-
-  console.log(`[Queue] Initialized ${QUEUE_NAMES.CLASS_CHECK_DLQ} queue`);
-
-  return deadLetterQueue;
-}
-
-/**
- * Enqueue a single class check job
- *
- * Convenience helper that adds a job with the correct name and data.
- *
- * @param job - Job data for the class check
- * @returns The created job
- *
- * @example
- * await enqueueClassCheck({
- *   classNbr: '12431',
- *   term: '2261',
- *   enqueuedAt: new Date().toISOString(),
- *   staggerGroup: 'odd',
- * });
- */
-export async function enqueueClassCheck(job: ClassCheckJobData) {
-  try {
-    const queue = getClassCheckQueue();
-
-    const createdJob = await queue.add('check-section', job, {
-      // Use classNbr + term as job ID to prevent duplicates
-      jobId: `${job.term}-${job.classNbr}`,
-    });
-
-    console.log(`[Queue] Enqueued job ${createdJob.id} for section ${job.classNbr}`);
-
-    return createdJob;
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[Queue] Error enqueueing job for section ${job.classNbr}: ${errorMsg}`);
-    throw error;
-  }
 }
 
 /**
@@ -244,20 +185,6 @@ export async function closeQueues(): Promise<void> {
       if (error instanceof Error) errors.push(error);
     } finally {
       classCheckQueue = null;
-    }
-  }
-
-  if (deadLetterQueue) {
-    try {
-      console.log('[Queue] Closing dead-letter queue...');
-      await deadLetterQueue.close();
-      console.log('[Queue] Dead-letter queue closed');
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[Queue] Error closing dead-letter queue: ${errorMsg}`);
-      if (error instanceof Error) errors.push(error);
-    } finally {
-      deadLetterQueue = null;
     }
   }
 

@@ -34,11 +34,6 @@ export interface ClassCheckJobData {
 }
 
 /**
- * Job names for the class-check queue
- */
-export type ClassCheckJobName = 'check-section';
-
-/**
  * Result of a class check job
  */
 export interface ClassCheckJobResult {

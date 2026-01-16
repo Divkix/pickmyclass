@@ -198,7 +198,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
   - _Requirements: NFR-10_
   - _Design: Migration Strategy_
 
-- [ ] 4.4 Run local quality checks
+- [x] 4.4 Run local quality checks
   - **Do**: Run `bun run lint`, `bun run format:check`, `bun run knip`, `bun run build`, `bun run test:run`. Fix any issues.
   - **Verify**: All commands pass with no errors
   - **Done when**: Zero lint errors, build succeeds, tests pass

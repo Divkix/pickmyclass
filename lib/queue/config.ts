@@ -93,15 +93,3 @@ export const WORKER_CONFIG: Partial<WorkerOptions> = {
    */
   maxStalledCount: 2,
 };
-
-/**
- * Batch size for enqueueing jobs
- * Matches Cloudflare Queue max_batch_size: 5
- */
-export const ENQUEUE_BATCH_SIZE = 5;
-
-/**
- * Maximum time to wait before processing a partial batch (ms)
- * Matches Cloudflare Queue max_batch_timeout: 30
- */
-export const BATCH_TIMEOUT_MS = 30000;
