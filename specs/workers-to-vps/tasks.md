@@ -180,7 +180,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
   - _Requirements: NFR-5, NFR-10_
   - _Design: Process Manager_
 
-- [ ] 4.2 Create Caddyfile
+- [x] 4.2 Create Caddyfile
   - **Do**: Create `Caddyfile` with domain config, reverse proxy to localhost:3000, gzip encoding, access logging.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/Caddyfile`
   - **Done when**: Caddy config is valid
