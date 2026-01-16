@@ -66,7 +66,7 @@ Focus: Validate the migration works end-to-end with BullMQ and Redis. Skip tests
   - _Requirements: FR-1, FR-2, FR-10, AC-1.1_
   - _Design: Cron Scheduler_
 
-- [ ] 1.7 Create application entry point
+- [x] 1.7 Create application entry point
   - **Do**: Create `server.ts` that starts Next.js server, initializes Redis, starts cron scheduler, starts queue workers. Handle graceful shutdown on SIGTERM/SIGINT.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/server.ts`
   - **Done when**: `bun server.ts` starts all services
