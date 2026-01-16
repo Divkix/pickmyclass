@@ -204,7 +204,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
   - **Done when**: Zero lint errors, build succeeds, tests pass
   - **Commit**: `fix(lint): address lint and type issues` (if needed)
 
-- [ ] 4.5 Update CLAUDE.md documentation
+- [x] 4.5 Update CLAUDE.md documentation
   - **Do**: Update CLAUDE.md to reflect new architecture: remove Cloudflare references, add Redis/BullMQ info, update deployment commands, add PM2 commands.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/CLAUDE.md`
   - **Done when**: Documentation reflects VPS deployment
