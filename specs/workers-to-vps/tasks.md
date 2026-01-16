@@ -145,7 +145,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
   - **Commit**: `test(circuit-breaker): add unit tests for state transitions`
   - _Requirements: AC-4.1, AC-4.2, AC-4.3_
 
-- [ ] 3.2 Unit tests for cron lock
+- [x] 3.2 Unit tests for cron lock
   - **Do**: Create `lib/redis/__tests__/cron-lock.test.ts`. Test lock acquisition, rejection, expiry, release. Mock Redis.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/lib/redis/__tests__/cron-lock.test.ts`
   - **Done when**: Tests cover all lock scenarios
