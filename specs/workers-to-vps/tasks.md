@@ -21,7 +21,7 @@ Focus: Validate the migration works end-to-end with BullMQ and Redis. Skip tests
   - _Requirements: FR-3, FR-5_
   - _Design: Redis State Store_
 
-- [ ] 1.2 Implement circuit breaker with Redis
+- [x] 1.2 Implement circuit breaker with Redis
   - **Do**: Create `lib/redis/circuit-breaker.ts` implementing CircuitBreaker class with checkState(), recordSuccess(), recordFailure(), getStatus(), reset() methods. Store state as JSON in Redis key. Match thresholds from current implementation (10 failures, 2 min timeout, 3 successes).
   - **Files**: `/Users/divkix/GitHub/pickmyclass/lib/redis/circuit-breaker.ts`
   - **Done when**: Circuit breaker transitions between CLOSED, OPEN, HALF_OPEN states correctly
