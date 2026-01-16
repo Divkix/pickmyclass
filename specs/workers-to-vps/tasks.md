@@ -12,7 +12,7 @@ generated: auto
 
 Focus: Validate the migration works end-to-end with BullMQ and Redis. Skip tests, accept hardcoded values.
 
-- [ ] 1.1 Set up Redis client module
+- [x] 1.1 Set up Redis client module
   - **Do**: Create `lib/redis/client.ts` with ioredis connection singleton. Support both Upstash (TLS) and local Redis. Add connection error handling.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/lib/redis/client.ts`
   - **Done when**: Can import redis client and perform GET/SET operations
