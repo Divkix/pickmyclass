@@ -75,7 +75,7 @@ Focus: Validate the migration works end-to-end with BullMQ and Redis. Skip tests
   - _Requirements: NFR-5, NFR-8_
   - _Design: Process Architecture_
 
-- [ ] 1.8 Update health endpoint for Redis
+- [x] 1.8 Update health endpoint for Redis
   - **Do**: Modify `app/api/monitoring/health/route.ts` to check Redis connection, queue metrics (via BullMQ Queue.getJobCounts()), circuit breaker status (via Redis), cron lock status. Remove all Cloudflare-specific code.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/app/api/monitoring/health/route.ts`
   - **Done when**: Health endpoint returns Redis-based status
