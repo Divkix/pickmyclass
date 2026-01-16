@@ -110,7 +110,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
   - **Commit**: `refactor(cron): use shared cron handler in api route`
   - _Design: Data Flow_
 
-- [ ] 2.3 Update package.json dependencies
+- [x] 2.3 Update package.json dependencies
   - **Do**: Remove `@opennextjs/cloudflare`, `cloudflare`, `wrangler`. Add `bullmq`, `ioredis`, `node-cron`. Update scripts: remove preview/deploy/cf-typegen, add `start:prod`.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/package.json`
   - **Done when**: `bun install` succeeds with new deps
