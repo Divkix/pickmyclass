@@ -212,7 +212,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
   - **Commit**: `docs(claude): update for vps deployment`
   - _Design: Documentation_
 
-- [ ] 4.6 Create PR and verify CI
+- [x] 4.6 Create PR and verify CI
   - **Do**: Push branch, create PR with summary of migration. Verify CI passes (lint, types, tests, build).
   - **Verify**: `gh pr checks --watch` shows all green
   - **Done when**: PR ready for review, CI passing
