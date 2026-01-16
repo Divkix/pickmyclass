@@ -54,3 +54,7 @@ supabase/.branches/
 sentry.properties
 specs/.current-spec
 **/.progress.md
+
+# pm2
+/logs
+.pm2

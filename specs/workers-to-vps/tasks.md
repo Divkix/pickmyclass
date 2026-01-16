@@ -171,7 +171,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
 
 ## Phase 4: Quality Gates
 
-- [ ] 4.1 Create PM2 ecosystem config
+- [x] 4.1 Create PM2 ecosystem config
   - **Do**: Create `ecosystem.config.js` with app config: name, script (server.ts), instances (1 due to RAM), env vars, log paths, restart policy.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/ecosystem.config.js`
   - **Done when**: `pm2 start ecosystem.config.js` runs application
