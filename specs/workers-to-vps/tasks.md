@@ -57,7 +57,7 @@ Focus: Validate the migration works end-to-end with BullMQ and Redis. Skip tests
   - _Requirements: FR-1, FR-3, FR-8, AC-4.4_
   - _Design: Queue Worker Flow_
 
-- [ ] 1.6 Implement node-cron scheduler
+- [x] 1.6 Implement node-cron scheduler
   - **Do**: Create `lib/cron/scheduler.ts` with node-cron setup. Create `lib/cron/class-check.ts` with cron handler logic (port from app/api/cron/route.ts): acquire lock, fetch sections, enqueue to BullMQ, release lock. Schedule for "0,30 * * * *".
   - **Files**: `/Users/divkix/GitHub/pickmyclass/lib/cron/scheduler.ts`, `/Users/divkix/GitHub/pickmyclass/lib/cron/class-check.ts`
   - **Done when**: Cron fires at :00 and :30, enqueues sections
