@@ -126,7 +126,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
   - **Commit**: `refactor(error-handling): add structured error handling and logging`
   - _Design: Error Handling_
 
-- [ ] 2.5 Add graceful shutdown
+- [x] 2.5 Add graceful shutdown
   - **Do**: In server.ts, handle SIGTERM/SIGINT: stop cron scheduler, close queue workers (wait for current jobs), close Redis connection, then exit.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/server.ts`
   - **Done when**: Server shuts down cleanly on Ctrl+C

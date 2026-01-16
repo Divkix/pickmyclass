@@ -23,6 +23,9 @@ const dev = process.env.NODE_ENV !== 'production';
 // Track shutdown state to prevent double shutdown
 let isShuttingDown = false;
 
+// Shutdown timeout in milliseconds (30 seconds)
+const SHUTDOWN_TIMEOUT_MS = 30_000;
+
 /**
  * Graceful shutdown handler
  *
@@ -32,6 +35,8 @@ let isShuttingDown = false;
  * 3. Stop worker (wait for current jobs)
  * 4. Close queues
  * 5. Close Redis connection
+ *
+ * Includes a 30-second timeout to force exit if shutdown hangs.
  */
 async function gracefulShutdown(
   signal: string,
@@ -44,12 +49,23 @@ async function gracefulShutdown(
 
   isShuttingDown = true;
   console.log(`\n[Server] Received ${signal}, starting graceful shutdown...`);
+  console.log(`[Server] Shutdown timeout: ${SHUTDOWN_TIMEOUT_MS / 1000} seconds`);
 
   const shutdownStart = Date.now();
 
+  // Set up forced shutdown timeout
+  const forceExitTimer = setTimeout(() => {
+    const elapsed = Date.now() - shutdownStart;
+    console.error(`[Server] Shutdown timeout exceeded (${elapsed}ms), forcing exit...`);
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+
+  // Ensure the timer doesn't prevent the process from exiting naturally
+  forceExitTimer.unref();
+
   try {
     // Step 1: Stop HTTP server (stop accepting new connections)
-    console.log('[Server] Closing HTTP server...');
+    console.log('[Server] Step 1/5: Closing HTTP server...');
     await new Promise<void>((resolve, reject) => {
       server.close((err) => {
         if (err) {
@@ -63,26 +79,37 @@ async function gracefulShutdown(
     });
 
     // Step 2: Stop cron scheduler (prevent new jobs from being enqueued)
-    console.log('[Server] Stopping cron scheduler...');
+    console.log('[Server] Step 2/5: Stopping cron scheduler...');
     stopScheduler();
+    console.log('[Server] Cron scheduler stopped');
 
     // Step 3: Stop worker (waits for current jobs to complete)
-    console.log('[Server] Stopping queue worker...');
+    console.log('[Server] Step 3/5: Stopping queue worker...');
     await stopWorker();
+    console.log('[Server] Queue worker stopped');
 
     // Step 4: Close queue connections
-    console.log('[Server] Closing queue connections...');
+    console.log('[Server] Step 4/5: Closing queue connections...');
     await closeQueues();
+    console.log('[Server] Queue connections closed');
 
     // Step 5: Close Redis connection
-    console.log('[Server] Closing Redis connection...');
+    console.log('[Server] Step 5/5: Closing Redis connection...');
     await closeRedisConnection();
+    console.log('[Server] Redis connection closed');
+
+    // Clear the forced shutdown timer since we completed successfully
+    clearTimeout(forceExitTimer);
 
     const duration = Date.now() - shutdownStart;
+    console.log('[Server] ----------------------------------------');
     console.log(`[Server] Graceful shutdown completed in ${duration}ms`);
+    console.log('[Server] ========================================');
     process.exit(0);
   } catch (error) {
-    console.error('[Server] Error during shutdown:', error);
+    clearTimeout(forceExitTimer);
+    const duration = Date.now() - shutdownStart;
+    console.error(`[Server] Error during shutdown after ${duration}ms:`, error);
     process.exit(1);
   }
 }
