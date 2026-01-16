@@ -206,7 +206,7 @@ The following require manual testing with a running Redis instance:
    Expected: JSON with Redis, queue, circuit breaker status
 
 3. Cron Trigger (manual):
-   ${colors.bold}curl -X POST -H "Authorization: Bearer \$CRON_SECRET" http://localhost:3000/api/cron${colors.reset}${colors.yellow}
+   ${colors.bold}curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron${colors.reset}${colors.yellow}
 
    Expected: Sections enqueued to BullMQ queue
 

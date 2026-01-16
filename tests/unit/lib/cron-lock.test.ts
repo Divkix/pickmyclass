@@ -14,9 +14,7 @@ vi.mock('@/lib/redis/client', () => ({
 }));
 
 // Import after mocking
-const { acquireLock, releaseLock, getStatus, forceRelease } = await import(
-  '@/lib/redis/cron-lock'
-);
+const { acquireLock, releaseLock, getStatus, forceRelease } = await import('@/lib/redis/cron-lock');
 
 describe('CronLock', () => {
   beforeEach(() => {
@@ -208,9 +206,7 @@ describe('CronLock', () => {
         getRedisClient: vi.fn(() => mockRedisClient),
       }));
 
-      const { releaseLock: freshReleaseLock } = await import(
-        '@/lib/redis/cron-lock'
-      );
+      const { releaseLock: freshReleaseLock } = await import('@/lib/redis/cron-lock');
 
       const result = await freshReleaseLock();
 
@@ -267,9 +263,7 @@ describe('CronLock', () => {
       const acquiredAt = Date.now() - 60000;
       mockRedisClient.get
         .mockResolvedValueOnce('lock-holder-123') // lock key
-        .mockResolvedValueOnce(
-          JSON.stringify({ lockAcquiredAt: acquiredAt })
-        ); // metadata
+        .mockResolvedValueOnce(JSON.stringify({ lockAcquiredAt: acquiredAt })); // metadata
       mockRedisClient.pttl.mockResolvedValue(1440000); // 24 minutes remaining
 
       const result = await getStatus();
@@ -329,9 +323,7 @@ describe('CronLock', () => {
 
     it('should calculate correct expiresAt when TTL is positive', async () => {
       const now = Date.now();
-      mockRedisClient.get
-        .mockResolvedValueOnce('holder')
-        .mockResolvedValueOnce(null);
+      mockRedisClient.get.mockResolvedValueOnce('holder').mockResolvedValueOnce(null);
       mockRedisClient.pttl.mockResolvedValue(300000); // 5 minutes
 
       const result = await getStatus();
@@ -340,9 +332,7 @@ describe('CronLock', () => {
     });
 
     it('should return null expiresAt when TTL is negative', async () => {
-      mockRedisClient.get
-        .mockResolvedValueOnce('holder')
-        .mockResolvedValueOnce(null);
+      mockRedisClient.get.mockResolvedValueOnce('holder').mockResolvedValueOnce(null);
       mockRedisClient.pttl.mockResolvedValue(-1); // No TTL set
 
       const result = await getStatus();
@@ -436,9 +426,7 @@ describe('CronLock', () => {
 
     it('should report time remaining when lock denied', async () => {
       mockRedisClient.set.mockResolvedValue(null);
-      mockRedisClient.get
-        .mockResolvedValueOnce('holder')
-        .mockResolvedValueOnce(null);
+      mockRedisClient.get.mockResolvedValueOnce('holder').mockResolvedValueOnce(null);
       mockRedisClient.pttl.mockResolvedValue(600000); // 10 minutes
 
       const result = await acquireLock('new-holder');

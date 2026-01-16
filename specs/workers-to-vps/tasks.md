@@ -153,7 +153,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
   - **Commit**: `test(cron-lock): add unit tests for distributed lock`
   - _Requirements: FR-2_
 
-- [ ] 3.3 Integration tests for queue worker
+- [x] 3.3 Integration tests for queue worker
   - **Do**: Create `lib/queue/__tests__/worker.integration.test.ts`. Test job processing with real Redis (use test container or Upstash). Mock scraper and email.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/lib/queue/__tests__/worker.integration.test.ts`
   - **Done when**: Worker processes test jobs correctly
