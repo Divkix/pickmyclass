@@ -9,7 +9,7 @@
  * connection options.
  */
 
-import { Queue, type ConnectionOptions } from 'bullmq';
+import { type ConnectionOptions, Queue } from 'bullmq';
 import { DEFAULT_JOB_OPTIONS, QUEUE_NAMES } from './config';
 import type { ClassCheckJobData, QueueStats } from './types';
 

@@ -48,7 +48,7 @@ Focus: Validate the migration works end-to-end with BullMQ and Redis. Skip tests
   - _Requirements: FR-1, FR-8, FR-9_
   - _Design: BullMQ Queue System_
 
-- [ ] 1.5 Implement queue worker
+- [x] 1.5 Implement queue worker
   - **Do**: Create `lib/queue/worker.ts` with BullMQ Worker that processes class-check jobs. Port logic from `app/api/queue/process-section/route.ts`: fetch old state, call scraper with circuit breaker, detect changes, send emails, update state. Configure concurrency (4 workers).
   - **Files**: `/Users/divkix/GitHub/pickmyclass/lib/queue/worker.ts`
   - **Done when**: Worker processes jobs from queue and logs results
