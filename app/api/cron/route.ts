@@ -14,7 +14,7 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSectionsToCheck } from '@/lib/db/queries';
-import type { ClassCheckMessage, Env } from '@/lib/types/queue';
+import type { ClassCheckMessage, Env } from '@/lib/queue/types';
 
 /**
  * Main cron handler with staggered checking

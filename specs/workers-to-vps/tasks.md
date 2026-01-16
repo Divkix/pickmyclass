@@ -94,7 +94,7 @@ Focus: Validate the migration works end-to-end with BullMQ and Redis. Skip tests
 
 After POC validated, clean up code and remove Cloudflare dependencies.
 
-- [ ] 2.1 Remove Cloudflare-specific files
+- [x] 2.1 Remove Cloudflare-specific files
   - **Do**: Delete `worker.ts`, `wrangler.jsonc`, `lib/cloudflare-env.d.ts`, `lib/types/queue.ts` (replaced by lib/queue/types.ts). Delete `app/api/queue/process-section/route.ts` (logic moved to worker).
   - **Files**: Delete above files
   - **Done when**: No Cloudflare-specific files remain

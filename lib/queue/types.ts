@@ -79,3 +79,52 @@ export interface QueueStats {
   delayed: number;
   paused: number;
 }
+
+/**
+ * Legacy types for backward compatibility during migration.
+ * These will be removed after task 2.2 refactors the cron route.
+ *
+ * @deprecated Use ClassCheckJobData instead
+ */
+export interface ClassCheckMessage {
+  class_nbr: string;
+  term: string;
+  enqueued_at: string;
+  stagger_group: 'even' | 'odd';
+}
+
+/**
+ * Legacy Cloudflare Durable Object stub for migration
+ * @deprecated This is a migration stub
+ */
+interface DurableObjectStub {
+  fetch(url: string, init?: RequestInit): Promise<Response>;
+}
+
+/**
+ * Legacy Cloudflare Durable Object Namespace stub for migration
+ * @deprecated This is a migration stub
+ */
+interface DurableObjectNamespace {
+  idFromName(name: string): unknown;
+  get(id: unknown): DurableObjectStub;
+}
+
+/**
+ * Legacy Cloudflare Queue stub for migration
+ * @deprecated This is a migration stub
+ */
+interface CloudflareQueue<T> {
+  send(message: T): Promise<void>;
+}
+
+/**
+ * Legacy Cloudflare environment type - stub for migration
+ * This will be removed after task 2.2 refactors the cron route.
+ *
+ * @deprecated This is a migration stub
+ */
+export interface Env extends Record<string, unknown> {
+  CRON_LOCK_DO?: DurableObjectNamespace;
+  CLASS_CHECK_QUEUE?: CloudflareQueue<ClassCheckMessage>;
+}
