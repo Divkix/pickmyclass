@@ -39,7 +39,7 @@ Focus: Validate the migration works end-to-end with BullMQ and Redis. Skip tests
   - _Requirements: FR-2_
   - _Design: Cron Lock Service_
 
-- [ ] 1.4 Set up BullMQ queue infrastructure
+- [x] 1.4 Set up BullMQ queue infrastructure
   - **Do**: Create `lib/queue/config.ts` with queue configuration. Create `lib/queue/queues.ts` defining class-check queue and dead letter queue. Create `lib/queue/types.ts` with job types (migrate from lib/types/queue.ts).
   - **Files**: `/Users/divkix/GitHub/pickmyclass/lib/queue/config.ts`, `/Users/divkix/GitHub/pickmyclass/lib/queue/queues.ts`, `/Users/divkix/GitHub/pickmyclass/lib/queue/types.ts`
   - **Done when**: Can enqueue jobs to class-check queue via helper function

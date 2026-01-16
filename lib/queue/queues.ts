@@ -1,0 +1,229 @@
+/**
+ * BullMQ Queue Instances
+ *
+ * Provides singleton Queue instances and helper functions for job management.
+ * Uses Redis connection configuration from environment.
+ *
+ * NOTE: BullMQ bundles its own ioredis, so we cannot share the ioredis instance
+ * from lib/redis/client.ts directly. Instead, we parse REDIS_URL and pass
+ * connection options.
+ */
+
+import { Queue, type ConnectionOptions } from 'bullmq';
+import { DEFAULT_JOB_OPTIONS, QUEUE_NAMES } from './config';
+import type { ClassCheckJobData, QueueStats } from './types';
+
+/**
+ * Parse REDIS_URL into connection options for BullMQ
+ *
+ * Handles both redis:// and rediss:// (TLS) URLs
+ */
+function getConnectionOptions(): ConnectionOptions {
+  const redisUrl = process.env.REDIS_URL;
+
+  if (!redisUrl) {
+    throw new Error(
+      'REDIS_URL is not set in environment variables. ' +
+        'Expected format: redis://user:pass@host:port or rediss://... for TLS'
+    );
+  }
+
+  const url = new URL(redisUrl);
+  const isTls = url.protocol === 'rediss:';
+
+  return {
+    host: url.hostname,
+    port: Number.parseInt(url.port, 10) || 6379,
+    password: url.password || undefined,
+    username: url.username || undefined,
+    tls: isTls ? {} : undefined,
+    // BullMQ requires this to be null for proper blocking operations
+    maxRetriesPerRequest: null,
+  };
+}
+
+/**
+ * Singleton instances for queues
+ * Using generic Queue type to avoid BullMQ's complex type inference
+ */
+let classCheckQueue: Queue<ClassCheckJobData, unknown, string> | null = null;
+let deadLetterQueue: Queue<ClassCheckJobData, unknown, string> | null = null;
+
+/**
+ * Get or create the class-check queue singleton
+ *
+ * Uses lazy initialization to avoid connection on import.
+ *
+ * @returns BullMQ Queue instance for class checking
+ *
+ * @example
+ * const queue = getClassCheckQueue();
+ * await queue.add('check-section', { classNbr: '12431', ... });
+ */
+export function getClassCheckQueue(): Queue<ClassCheckJobData, unknown, string> {
+  if (classCheckQueue) {
+    return classCheckQueue;
+  }
+
+  const connection = getConnectionOptions();
+
+  classCheckQueue = new Queue<ClassCheckJobData, unknown, string>(QUEUE_NAMES.CLASS_CHECK, {
+    connection,
+    defaultJobOptions: DEFAULT_JOB_OPTIONS,
+  });
+
+  console.log(`[Queue] Initialized ${QUEUE_NAMES.CLASS_CHECK} queue`);
+
+  return classCheckQueue;
+}
+
+/**
+ * Get or create the dead letter queue singleton
+ *
+ * Jobs that fail all retry attempts are moved here for inspection.
+ *
+ * @returns BullMQ Queue instance for dead letters
+ */
+export function getDeadLetterQueue(): Queue<ClassCheckJobData, unknown, string> {
+  if (deadLetterQueue) {
+    return deadLetterQueue;
+  }
+
+  const connection = getConnectionOptions();
+
+  deadLetterQueue = new Queue<ClassCheckJobData, unknown, string>(QUEUE_NAMES.CLASS_CHECK_DLQ, {
+    connection,
+  });
+
+  console.log(`[Queue] Initialized ${QUEUE_NAMES.CLASS_CHECK_DLQ} queue`);
+
+  return deadLetterQueue;
+}
+
+/**
+ * Enqueue a single class check job
+ *
+ * Convenience helper that adds a job with the correct name and data.
+ *
+ * @param job - Job data for the class check
+ * @returns The created job
+ *
+ * @example
+ * await enqueueClassCheck({
+ *   classNbr: '12431',
+ *   term: '2261',
+ *   enqueuedAt: new Date().toISOString(),
+ *   staggerGroup: 'odd',
+ * });
+ */
+export async function enqueueClassCheck(job: ClassCheckJobData) {
+  const queue = getClassCheckQueue();
+
+  const createdJob = await queue.add('check-section', job, {
+    // Use classNbr + term as job ID to prevent duplicates
+    jobId: `${job.term}-${job.classNbr}`,
+  });
+
+  console.log(`[Queue] Enqueued job ${createdJob.id} for section ${job.classNbr}`);
+
+  return createdJob;
+}
+
+/**
+ * Enqueue multiple class check jobs in bulk
+ *
+ * More efficient than adding jobs one by one.
+ *
+ * @param jobs - Array of job data
+ * @returns Array of created jobs
+ *
+ * @example
+ * await enqueueClassCheckBulk([
+ *   { classNbr: '12431', term: '2261', ... },
+ *   { classNbr: '12432', term: '2261', ... },
+ * ]);
+ */
+export async function enqueueClassCheckBulk(jobs: ClassCheckJobData[]) {
+  const queue = getClassCheckQueue();
+
+  const bulkJobs = jobs.map((job) => ({
+    name: 'check-section' as const,
+    data: job,
+    opts: {
+      jobId: `${job.term}-${job.classNbr}`,
+    },
+  }));
+
+  const createdJobs = await queue.addBulk(bulkJobs);
+
+  console.log(`[Queue] Bulk enqueued ${createdJobs.length} jobs`);
+
+  return createdJobs;
+}
+
+/**
+ * Get queue statistics (job counts by status)
+ *
+ * Useful for health checks and monitoring.
+ *
+ * @returns Object with counts for each job status
+ *
+ * @example
+ * const stats = await getQueueStats();
+ * console.log(`Waiting: ${stats.waiting}, Active: ${stats.active}`);
+ */
+export async function getQueueStats(): Promise<QueueStats> {
+  const queue = getClassCheckQueue();
+
+  const counts = await queue.getJobCounts(
+    'waiting',
+    'active',
+    'completed',
+    'failed',
+    'delayed',
+    'paused'
+  );
+
+  return {
+    waiting: counts.waiting ?? 0,
+    active: counts.active ?? 0,
+    completed: counts.completed ?? 0,
+    failed: counts.failed ?? 0,
+    delayed: counts.delayed ?? 0,
+    paused: counts.paused ?? 0,
+  };
+}
+
+/**
+ * Close queue connections gracefully
+ *
+ * Should be called during application shutdown.
+ *
+ * @example
+ * process.on('SIGTERM', async () => {
+ *   await closeQueues();
+ * });
+ */
+export async function closeQueues(): Promise<void> {
+  if (classCheckQueue) {
+    console.log('[Queue] Closing class-check queue...');
+    await classCheckQueue.close();
+    classCheckQueue = null;
+  }
+
+  if (deadLetterQueue) {
+    console.log('[Queue] Closing dead-letter queue...');
+    await deadLetterQueue.close();
+    deadLetterQueue = null;
+  }
+
+  console.log('[Queue] All queues closed');
+}
+
+/**
+ * Get connection options for external use (e.g., by Workers)
+ *
+ * Workers need to create their own connection, this provides
+ * the same connection options.
+ */
+export { getConnectionOptions };

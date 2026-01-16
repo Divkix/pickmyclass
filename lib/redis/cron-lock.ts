@@ -237,7 +237,9 @@ export async function releaseLock(
     };
   }
 
-  console.warn(`[CronLock] Release denied - lock held by ${currentHolder}, requested by ${holderId}`);
+  console.warn(
+    `[CronLock] Release denied - lock held by ${currentHolder}, requested by ${holderId}`
+  );
   return {
     released: false,
     message: `Lock held by different holder (${currentHolder})`,
