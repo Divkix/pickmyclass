@@ -137,7 +137,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
 
 ## Phase 3: Testing
 
-- [ ] 3.1 Unit tests for circuit breaker
+- [x] 3.1 Unit tests for circuit breaker
   - **Do**: Create `lib/redis/__tests__/circuit-breaker.test.ts`. Test state transitions, threshold behavior, auto-recovery timing. Mock Redis.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/lib/redis/__tests__/circuit-breaker.test.ts`
   - **Done when**: Tests cover all state transitions
