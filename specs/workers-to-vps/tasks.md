@@ -102,7 +102,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
   - **Commit**: `refactor(cleanup): remove cloudflare-specific files`
   - _Design: File Structure_
 
-- [ ] 2.2 Update cron API route
+- [x] 2.2 Update cron API route
   - **Do**: Modify `app/api/cron/route.ts` to be a thin wrapper that calls the shared cron handler. Keep authentication check. Remove getCloudflareContext() and Durable Object calls.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/app/api/cron/route.ts`
   - **Done when**: Cron route delegates to lib/cron/class-check.ts
