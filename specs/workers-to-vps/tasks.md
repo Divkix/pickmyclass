@@ -161,7 +161,7 @@ After POC validated, clean up code and remove Cloudflare dependencies.
   - **Commit**: `test(queue): add integration tests for worker`
   - _Requirements: FR-1, FR-8_
 
-- [ ] 3.4 End-to-end cron test
+- [x] 3.4 End-to-end cron test
   - **Do**: Create `e2e/cron-flow.test.ts`. Test full flow: trigger cron, verify queue jobs created, verify worker processes them. Use test database entries.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/e2e/cron-flow.test.ts`
   - **Done when**: E2E test passes
