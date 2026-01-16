@@ -52,3 +52,5 @@ supabase/.branches/
 # sentry
 .sentryclirc
 sentry.properties
+specs/.current-spec
+**/.progress.md

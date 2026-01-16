@@ -30,7 +30,7 @@ Focus: Validate the migration works end-to-end with BullMQ and Redis. Skip tests
   - _Requirements: FR-3, AC-4.1, AC-4.2, AC-4.3_
   - _Design: Circuit Breaker Service_
 
-- [ ] 1.3 Implement cron lock with Redis
+- [x] 1.3 Implement cron lock with Redis
   - **Do**: Create `lib/redis/cron-lock.ts` with acquireLock(), releaseLock(), getStatus(), forceRelease() methods. Use Redis SET NX PX for atomic lock acquisition with 25-minute TTL.
   - **Files**: `/Users/divkix/GitHub/pickmyclass/lib/redis/cron-lock.ts`
   - **Done when**: Lock can be acquired, prevents concurrent acquisition, auto-expires
