@@ -101,68 +101,83 @@ export async function acquireLock(
   lockId?: string,
   name: string = DEFAULT_LOCK_NAME
 ): Promise<AcquireLockResult> {
-  const redis = getRedisClient();
-  const lockKey = getLockKey(name);
-  const metadataKey = getMetadataKey(name);
-  const holderId = lockId || generateLockId();
+  try {
+    const redis = getRedisClient();
+    const lockKey = getLockKey(name);
+    const metadataKey = getMetadataKey(name);
+    const holderId = lockId || generateLockId();
 
-  // Atomic lock acquisition: SET key value NX PX timeout
-  // NX = only set if not exists, PX = timeout in milliseconds
-  const acquired = await redis.set(lockKey, holderId, 'PX', LOCK_TIMEOUT_MS, 'NX');
+    // Atomic lock acquisition: SET key value NX PX timeout
+    // NX = only set if not exists, PX = timeout in milliseconds
+    const acquired = await redis.set(lockKey, holderId, 'PX', LOCK_TIMEOUT_MS, 'NX');
 
-  if (acquired === 'OK') {
-    // Store metadata for status queries
-    const acquiredAt = Date.now();
-    await redis.set(
-      metadataKey,
-      JSON.stringify({
+    if (acquired === 'OK') {
+      // Store metadata for status queries
+      const acquiredAt = Date.now();
+      try {
+        await redis.set(
+          metadataKey,
+          JSON.stringify({
+            lockHolder: holderId,
+            lockAcquiredAt: acquiredAt,
+          }),
+          'PX',
+          LOCK_TIMEOUT_MS
+        );
+      } catch (metaError) {
+        // Log but don't fail - metadata is not critical
+        const errorMsg = metaError instanceof Error ? metaError.message : 'Unknown error';
+        console.warn(`[CronLock] Failed to store metadata: ${errorMsg}`);
+      }
+
+      // Remember our lock ID for release
+      currentLockId = holderId;
+
+      console.log(`[CronLock] Lock acquired by ${holderId}`);
+
+      return {
+        acquired: true,
+        message: 'Lock acquired successfully',
         lockHolder: holderId,
-        lockAcquiredAt: acquiredAt,
-      }),
-      'PX',
-      LOCK_TIMEOUT_MS
+        lockedSince: acquiredAt,
+      };
+    }
+
+    // Lock already held by someone else
+    const existingHolder = await redis.get(lockKey);
+    const metadataRaw = await redis.get(metadataKey);
+
+    let lockedSince: number | undefined;
+    if (metadataRaw) {
+      try {
+        const metadata = JSON.parse(metadataRaw) as { lockAcquiredAt?: number };
+        lockedSince = metadata.lockAcquiredAt;
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    const timeHeld = lockedSince ? Date.now() - lockedSince : 0;
+    const ttl = await redis.pttl(lockKey);
+
+    console.log(
+      `[CronLock] Lock acquisition denied - already held by ${existingHolder} for ${Math.floor(timeHeld / 1000)}s`
     );
 
-    // Remember our lock ID for release
-    currentLockId = holderId;
-
-    console.log(`[CronLock] Lock acquired by ${holderId}`);
-
     return {
-      acquired: true,
-      message: 'Lock acquired successfully',
-      lockHolder: holderId,
-      lockedSince: acquiredAt,
+      acquired: false,
+      message: `Cron lock already held by ${existingHolder}. Time remaining: ${Math.ceil(ttl / 1000)}s`,
+      lockHolder: existingHolder || undefined,
+      lockedSince,
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[CronLock] Error acquiring lock for ${name}: ${errorMsg}`);
+    return {
+      acquired: false,
+      message: `Failed to acquire lock due to Redis error: ${errorMsg}`,
     };
   }
-
-  // Lock already held by someone else
-  const existingHolder = await redis.get(lockKey);
-  const metadataRaw = await redis.get(metadataKey);
-
-  let lockedSince: number | undefined;
-  if (metadataRaw) {
-    try {
-      const metadata = JSON.parse(metadataRaw) as { lockAcquiredAt?: number };
-      lockedSince = metadata.lockAcquiredAt;
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  const timeHeld = lockedSince ? Date.now() - lockedSince : 0;
-  const ttl = await redis.pttl(lockKey);
-
-  console.log(
-    `[CronLock] Lock acquisition denied - already held by ${existingHolder} for ${Math.floor(timeHeld / 1000)}s`
-  );
-
-  return {
-    acquired: false,
-    message: `Cron lock already held by ${existingHolder}. Time remaining: ${Math.ceil(ttl / 1000)}s`,
-    lockHolder: existingHolder || undefined,
-    lockedSince,
-  };
 }
 
 /**
@@ -200,9 +215,6 @@ export async function releaseLock(
   lockId?: string,
   name: string = DEFAULT_LOCK_NAME
 ): Promise<ReleaseLockResult> {
-  const redis = getRedisClient();
-  const lockKey = getLockKey(name);
-  const metadataKey = getMetadataKey(name);
   const holderId = lockId || currentLockId;
 
   if (!holderId) {
@@ -213,37 +225,52 @@ export async function releaseLock(
     };
   }
 
-  // Atomic conditional release using Lua script
-  const result = await redis.eval(RELEASE_SCRIPT, 2, lockKey, metadataKey, holderId);
+  try {
+    const redis = getRedisClient();
+    const lockKey = getLockKey(name);
+    const metadataKey = getMetadataKey(name);
 
-  if (result === 1) {
-    currentLockId = null;
-    console.log(`[CronLock] Lock released by ${holderId}`);
+    // Atomic conditional release using Lua script
+    const result = await redis.eval(RELEASE_SCRIPT, 2, lockKey, metadataKey, holderId);
+
+    if (result === 1) {
+      currentLockId = null;
+      console.log(`[CronLock] Lock released by ${holderId}`);
+      return {
+        released: true,
+        message: 'Lock released successfully',
+      };
+    }
+
+    // Lock not held or held by different holder
+    const currentHolder = await redis.get(lockKey);
+
+    if (!currentHolder) {
+      console.log(`[CronLock] Release attempted by ${holderId}, but lock not held (expired?)`);
+      currentLockId = null;
+      return {
+        released: false,
+        message: 'Lock was not held (may have expired)',
+      };
+    }
+
+    console.warn(
+      `[CronLock] Release denied - lock held by ${currentHolder}, requested by ${holderId}`
+    );
     return {
-      released: true,
-      message: 'Lock released successfully',
+      released: false,
+      message: `Lock held by different holder (${currentHolder})`,
     };
-  }
-
-  // Lock not held or held by different holder
-  const currentHolder = await redis.get(lockKey);
-
-  if (!currentHolder) {
-    console.log(`[CronLock] Release attempted by ${holderId}, but lock not held (expired?)`);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[CronLock] Error releasing lock ${name} for ${holderId}: ${errorMsg}`);
+    // Clear local state regardless - lock will auto-expire
     currentLockId = null;
     return {
       released: false,
-      message: 'Lock was not held (may have expired)',
+      message: `Failed to release lock due to Redis error: ${errorMsg}`,
     };
   }
-
-  console.warn(
-    `[CronLock] Release denied - lock held by ${currentHolder}, requested by ${holderId}`
-  );
-  return {
-    released: false,
-    message: `Lock held by different holder (${currentHolder})`,
-  };
 }
 
 /**
@@ -253,17 +280,51 @@ export async function releaseLock(
  * @returns Lock status information
  */
 export async function getStatus(name: string = DEFAULT_LOCK_NAME): Promise<LockStatus> {
-  const redis = getRedisClient();
-  const lockKey = getLockKey(name);
-  const metadataKey = getMetadataKey(name);
+  try {
+    const redis = getRedisClient();
+    const lockKey = getLockKey(name);
+    const metadataKey = getMetadataKey(name);
 
-  const [lockHolder, metadataRaw, ttl] = await Promise.all([
-    redis.get(lockKey),
-    redis.get(metadataKey),
-    redis.pttl(lockKey),
-  ]);
+    const [lockHolder, metadataRaw, ttl] = await Promise.all([
+      redis.get(lockKey),
+      redis.get(metadataKey),
+      redis.pttl(lockKey),
+    ]);
 
-  if (!lockHolder) {
+    if (!lockHolder) {
+      return {
+        locked: false,
+        lockHolder: null,
+        lockAcquiredAt: null,
+        timeHeldMs: null,
+        expiresAt: null,
+      };
+    }
+
+    let lockAcquiredAt: number | null = null;
+    if (metadataRaw) {
+      try {
+        const metadata = JSON.parse(metadataRaw) as { lockAcquiredAt?: number };
+        lockAcquiredAt = metadata.lockAcquiredAt || null;
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    const timeHeldMs = lockAcquiredAt ? Date.now() - lockAcquiredAt : null;
+    const expiresAt = ttl > 0 ? Date.now() + ttl : null;
+
+    return {
+      locked: true,
+      lockHolder,
+      lockAcquiredAt,
+      timeHeldMs,
+      expiresAt,
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[CronLock] Error getting status for ${name}: ${errorMsg}`);
+    // Return unlocked state on error
     return {
       locked: false,
       lockHolder: null,
@@ -272,27 +333,6 @@ export async function getStatus(name: string = DEFAULT_LOCK_NAME): Promise<LockS
       expiresAt: null,
     };
   }
-
-  let lockAcquiredAt: number | null = null;
-  if (metadataRaw) {
-    try {
-      const metadata = JSON.parse(metadataRaw) as { lockAcquiredAt?: number };
-      lockAcquiredAt = metadata.lockAcquiredAt || null;
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  const timeHeldMs = lockAcquiredAt ? Date.now() - lockAcquiredAt : null;
-  const expiresAt = ttl > 0 ? Date.now() + ttl : null;
-
-  return {
-    locked: true,
-    lockHolder,
-    lockAcquiredAt,
-    timeHeldMs,
-    expiresAt,
-  };
 }
 
 /**
@@ -303,15 +343,23 @@ export async function getStatus(name: string = DEFAULT_LOCK_NAME): Promise<LockS
  * @param name - Lock name (default: 'class-check-cron')
  */
 export async function forceRelease(name: string = DEFAULT_LOCK_NAME): Promise<void> {
-  const redis = getRedisClient();
-  const lockKey = getLockKey(name);
-  const metadataKey = getMetadataKey(name);
+  try {
+    const redis = getRedisClient();
+    const lockKey = getLockKey(name);
+    const metadataKey = getMetadataKey(name);
 
-  console.log(`[CronLock] Force release requested for ${name}`);
+    console.log(`[CronLock] Force release requested for ${name}`);
 
-  await Promise.all([redis.del(lockKey), redis.del(metadataKey)]);
+    await Promise.all([redis.del(lockKey), redis.del(metadataKey)]);
 
-  currentLockId = null;
+    currentLockId = null;
 
-  console.log(`[CronLock] Lock forcefully released`);
+    console.log(`[CronLock] Lock forcefully released`);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[CronLock] Error force releasing lock ${name}: ${errorMsg}`);
+    // Clear local state regardless
+    currentLockId = null;
+    throw error; // Re-throw for admin operations
+  }
 }

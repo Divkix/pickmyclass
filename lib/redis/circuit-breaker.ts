@@ -92,17 +92,24 @@ export class CircuitBreaker {
    * Load current state from Redis
    */
   private async loadState(): Promise<CircuitBreakerState> {
-    const redis = getRedisClient();
-    const data = await redis.get(this.redisKey);
-
-    if (!data) {
-      return this.getDefaultState();
-    }
-
     try {
-      return JSON.parse(data) as CircuitBreakerState;
-    } catch {
-      console.error('[CircuitBreaker] Failed to parse state, resetting');
+      const redis = getRedisClient();
+      const data = await redis.get(this.redisKey);
+
+      if (!data) {
+        return this.getDefaultState();
+      }
+
+      try {
+        return JSON.parse(data) as CircuitBreakerState;
+      } catch {
+        console.error('[CircuitBreaker] Failed to parse state, resetting');
+        return this.getDefaultState();
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[CircuitBreaker] Redis error loading state: ${errorMsg}`);
+      // Return default state on Redis errors to allow operations to continue
       return this.getDefaultState();
     }
   }
@@ -111,8 +118,14 @@ export class CircuitBreaker {
    * Save state to Redis
    */
   private async saveState(state: CircuitBreakerState): Promise<void> {
-    const redis = getRedisClient();
-    await redis.set(this.redisKey, JSON.stringify(state));
+    try {
+      const redis = getRedisClient();
+      await redis.set(this.redisKey, JSON.stringify(state));
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[CircuitBreaker] Redis error saving state: ${errorMsg}`);
+      // Don't throw - circuit breaker should be resilient to Redis failures
+    }
   }
 
   /**
@@ -121,39 +134,50 @@ export class CircuitBreaker {
    * @returns Object with allowed flag, current state, and optional message
    */
   async checkState(): Promise<CheckStateResult> {
-    const state = await this.loadState();
+    try {
+      const state = await this.loadState();
 
-    // Check if circuit should transition from OPEN to HALF_OPEN
-    if (state.state === CircuitState.OPEN) {
-      if (
-        state.lastFailureTime !== null &&
-        Date.now() - state.lastFailureTime >= this.RESET_TIMEOUT_MS
-      ) {
-        console.log('[CircuitBreaker] Transitioning OPEN -> HALF_OPEN (attempting recovery)');
-        state.state = CircuitState.HALF_OPEN;
-        state.successCount = 0;
-        state.lastStateChange = Date.now();
-        await this.saveState(state);
+      // Check if circuit should transition from OPEN to HALF_OPEN
+      if (state.state === CircuitState.OPEN) {
+        if (
+          state.lastFailureTime !== null &&
+          Date.now() - state.lastFailureTime >= this.RESET_TIMEOUT_MS
+        ) {
+          console.log('[CircuitBreaker] Transitioning OPEN -> HALF_OPEN (attempting recovery)');
+          state.state = CircuitState.HALF_OPEN;
+          state.successCount = 0;
+          state.lastStateChange = Date.now();
+          await this.saveState(state);
 
+          return {
+            allowed: true,
+            state: CircuitState.HALF_OPEN,
+            message: 'Circuit breaker attempting recovery',
+          };
+        }
+
+        const timeUntilRetry = this.RESET_TIMEOUT_MS - (Date.now() - state.lastFailureTime!);
         return {
-          allowed: true,
-          state: CircuitState.HALF_OPEN,
-          message: 'Circuit breaker attempting recovery',
+          allowed: false,
+          state: CircuitState.OPEN,
+          message: `Circuit breaker is OPEN. Retry in ${Math.ceil(timeUntilRetry / 1000)}s`,
         };
       }
 
-      const timeUntilRetry = this.RESET_TIMEOUT_MS - (Date.now() - state.lastFailureTime!);
       return {
-        allowed: false,
-        state: CircuitState.OPEN,
-        message: `Circuit breaker is OPEN. Retry in ${Math.ceil(timeUntilRetry / 1000)}s`,
+        allowed: true,
+        state: state.state,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[CircuitBreaker] Error checking state: ${errorMsg}`);
+      // On error, allow the request (fail-open) - better to attempt than block
+      return {
+        allowed: true,
+        state: CircuitState.CLOSED,
+        message: 'Circuit breaker state check failed, allowing request',
       };
     }
-
-    return {
-      allowed: true,
-      state: state.state,
-    };
   }
 
   /**
@@ -164,34 +188,44 @@ export class CircuitBreaker {
    * In CLOSED state, resets failure counter.
    */
   async recordSuccess(): Promise<RecordResult> {
-    const state = await this.loadState();
+    try {
+      const state = await this.loadState();
 
-    state.failureCount = 0;
+      state.failureCount = 0;
 
-    if (state.state === CircuitState.HALF_OPEN) {
-      state.successCount++;
-      console.log(
-        `[CircuitBreaker] Success in HALF_OPEN (${state.successCount}/${this.SUCCESS_THRESHOLD})`
-      );
+      if (state.state === CircuitState.HALF_OPEN) {
+        state.successCount++;
+        console.log(
+          `[CircuitBreaker] Success in HALF_OPEN (${state.successCount}/${this.SUCCESS_THRESHOLD})`
+        );
 
-      if (state.successCount >= this.SUCCESS_THRESHOLD) {
-        console.log('[CircuitBreaker] Transitioning HALF_OPEN -> CLOSED (service recovered)');
-        state.state = CircuitState.CLOSED;
-        state.successCount = 0;
-        state.lastStateChange = Date.now();
-        await this.saveState(state);
+        if (state.successCount >= this.SUCCESS_THRESHOLD) {
+          console.log('[CircuitBreaker] Transitioning HALF_OPEN -> CLOSED (service recovered)');
+          state.state = CircuitState.CLOSED;
+          state.successCount = 0;
+          state.lastStateChange = Date.now();
+          await this.saveState(state);
 
-        return {
-          state: CircuitState.CLOSED,
-          message: 'Circuit breaker closed - service recovered',
-        };
+          return {
+            state: CircuitState.CLOSED,
+            message: 'Circuit breaker closed - service recovered',
+          };
+        }
       }
-    }
 
-    await this.saveState(state);
-    return {
-      state: state.state,
-    };
+      await this.saveState(state);
+      return {
+        state: state.state,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[CircuitBreaker] Error recording success: ${errorMsg}`);
+      // Return CLOSED state on error - don't fail the operation
+      return {
+        state: CircuitState.CLOSED,
+        message: 'Error recording success, state may be stale',
+      };
+    }
   }
 
   /**
@@ -201,44 +235,54 @@ export class CircuitBreaker {
    * In HALF_OPEN state, immediately transitions back to OPEN on any failure.
    */
   async recordFailure(): Promise<RecordResult> {
-    const state = await this.loadState();
+    try {
+      const state = await this.loadState();
 
-    state.failureCount++;
-    state.lastFailureTime = Date.now();
+      state.failureCount++;
+      state.lastFailureTime = Date.now();
 
-    console.error(
-      `[CircuitBreaker] Failure recorded (${state.failureCount}/${this.FAILURE_THRESHOLD})`
-    );
+      console.error(
+        `[CircuitBreaker] Failure recorded (${state.failureCount}/${this.FAILURE_THRESHOLD})`
+      );
 
-    if (state.state === CircuitState.HALF_OPEN) {
-      console.log('[CircuitBreaker] Failed in HALF_OPEN, transitioning back to OPEN');
-      state.state = CircuitState.OPEN;
-      state.successCount = 0;
-      state.lastStateChange = Date.now();
+      if (state.state === CircuitState.HALF_OPEN) {
+        console.log('[CircuitBreaker] Failed in HALF_OPEN, transitioning back to OPEN');
+        state.state = CircuitState.OPEN;
+        state.successCount = 0;
+        state.lastStateChange = Date.now();
+        await this.saveState(state);
+
+        return {
+          state: CircuitState.OPEN,
+          message: 'Circuit breaker opened - recovery attempt failed',
+        };
+      }
+
+      if (state.failureCount >= this.FAILURE_THRESHOLD) {
+        console.log('[CircuitBreaker] Threshold reached, transitioning CLOSED -> OPEN');
+        state.state = CircuitState.OPEN;
+        state.lastStateChange = Date.now();
+        await this.saveState(state);
+
+        return {
+          state: CircuitState.OPEN,
+          message: 'Circuit breaker opened - failure threshold exceeded',
+        };
+      }
+
       await this.saveState(state);
-
       return {
-        state: CircuitState.OPEN,
-        message: 'Circuit breaker opened - recovery attempt failed',
+        state: state.state,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[CircuitBreaker] Error recording failure: ${errorMsg}`);
+      // Return CLOSED state on error - failure might not have been counted
+      return {
+        state: CircuitState.CLOSED,
+        message: 'Error recording failure, state may be stale',
       };
     }
-
-    if (state.failureCount >= this.FAILURE_THRESHOLD) {
-      console.log('[CircuitBreaker] Threshold reached, transitioning CLOSED -> OPEN');
-      state.state = CircuitState.OPEN;
-      state.lastStateChange = Date.now();
-      await this.saveState(state);
-
-      return {
-        state: CircuitState.OPEN,
-        message: 'Circuit breaker opened - failure threshold exceeded',
-      };
-    }
-
-    await this.saveState(state);
-    return {
-      state: state.state,
-    };
   }
 
   /**
@@ -247,7 +291,14 @@ export class CircuitBreaker {
    * Used for monitoring and health checks.
    */
   async getStatus(): Promise<CircuitBreakerState> {
-    return this.loadState();
+    try {
+      return await this.loadState();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[CircuitBreaker] Error getting status: ${errorMsg}`);
+      // Return default state on error
+      return this.getDefaultState();
+    }
   }
 
   /**
@@ -256,9 +307,15 @@ export class CircuitBreaker {
    * For admin/testing purposes only.
    */
   async reset(): Promise<void> {
-    console.log('[CircuitBreaker] Manual reset to CLOSED');
-    const state = this.getDefaultState();
-    await this.saveState(state);
+    try {
+      console.log('[CircuitBreaker] Manual reset to CLOSED');
+      const state = this.getDefaultState();
+      await this.saveState(state);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[CircuitBreaker] Error resetting state: ${errorMsg}`);
+      throw error; // Re-throw for admin operations - they need to know if it failed
+    }
   }
 }
 

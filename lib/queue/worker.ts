@@ -339,46 +339,54 @@ export function startWorker(): Worker<ClassCheckJobData, ClassCheckJobResult, st
     return worker;
   }
 
-  const connection = getConnectionOptions();
+  try {
+    const connection = getConnectionOptions();
 
-  worker = new Worker<ClassCheckJobData, ClassCheckJobResult, string>(
-    QUEUE_NAMES.CLASS_CHECK,
-    processClassCheckJob,
-    {
-      connection,
-      ...WORKER_CONFIG,
-    }
-  );
+    worker = new Worker<ClassCheckJobData, ClassCheckJobResult, string>(
+      QUEUE_NAMES.CLASS_CHECK,
+      processClassCheckJob,
+      {
+        connection,
+        ...WORKER_CONFIG,
+      }
+    );
 
-  // Event handlers for logging
-  worker.on('completed', (job, result) => {
+    // Event handlers for logging
+    worker.on('completed', (job, result) => {
+      console.log(
+        `[Worker] Job ${job.id} completed: section ${result.classNbr}, ` +
+          `seats=${result.seatsAvailable}, notifications=${result.notificationsSent}`
+      );
+    });
+
+    worker.on('failed', (job, error) => {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(
+        `[Worker] Job ${job?.id} failed: ${errorMsg}`,
+        job ? `(attempt ${job.attemptsMade}/${job.opts.attempts})` : ''
+      );
+    });
+
+    worker.on('error', (error) => {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[Worker] Worker error: ${errorMsg}`);
+    });
+
+    worker.on('stalled', (jobId) => {
+      console.warn(`[Worker] Job ${jobId} stalled - will be retried`);
+    });
+
     console.log(
-      `[Worker] Job ${job.id} completed: section ${result.classNbr}, ` +
-        `seats=${result.seatsAvailable}, notifications=${result.notificationsSent}`
+      `[Worker] Started worker for ${QUEUE_NAMES.CLASS_CHECK} ` +
+        `(concurrency: ${WORKER_CONFIG.concurrency})`
     );
-  });
 
-  worker.on('failed', (job, error) => {
-    console.error(
-      `[Worker] Job ${job?.id} failed: ${error.message}`,
-      job ? `(attempt ${job.attemptsMade}/${job.opts.attempts})` : ''
-    );
-  });
-
-  worker.on('error', (error) => {
-    console.error('[Worker] Worker error:', error);
-  });
-
-  worker.on('stalled', (jobId) => {
-    console.warn(`[Worker] Job ${jobId} stalled`);
-  });
-
-  console.log(
-    `[Worker] Started worker for ${QUEUE_NAMES.CLASS_CHECK} ` +
-      `(concurrency: ${WORKER_CONFIG.concurrency})`
-  );
-
-  return worker;
+    return worker;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[Worker] Error starting worker: ${errorMsg}`);
+    throw error;
+  }
 }
 
 /**
@@ -392,13 +400,20 @@ export async function stopWorker(): Promise<void> {
     return;
   }
 
-  console.log('[Worker] Stopping worker...');
+  try {
+    console.log('[Worker] Stopping worker...');
 
-  // Close the worker, waiting for current jobs to finish
-  await worker.close();
-  worker = null;
+    // Close the worker, waiting for current jobs to finish
+    await worker.close();
 
-  console.log('[Worker] Worker stopped');
+    console.log('[Worker] Worker stopped');
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[Worker] Error stopping worker: ${errorMsg}`);
+    // Don't re-throw - shutdown should continue
+  } finally {
+    worker = null;
+  }
 }
 
 /**

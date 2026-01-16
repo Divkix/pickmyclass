@@ -102,10 +102,22 @@ export function getRedisClient(): Redis {
  */
 export async function closeRedisConnection(): Promise<void> {
   if (redisClient) {
-    console.log('[Redis] Closing connection...');
-    await redisClient.quit();
-    redisClient = null;
-    console.log('[Redis] Connection closed gracefully');
+    try {
+      console.log('[Redis] Closing connection...');
+      await redisClient.quit();
+      console.log('[Redis] Connection closed gracefully');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[Redis] Error closing connection: ${errorMsg}`);
+      // Force disconnect if quit fails
+      try {
+        redisClient.disconnect();
+      } catch {
+        // Ignore disconnect errors
+      }
+    } finally {
+      redisClient = null;
+    }
   }
 }
 

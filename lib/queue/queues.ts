@@ -117,16 +117,22 @@ export function getDeadLetterQueue(): Queue<ClassCheckJobData, unknown, string> 
  * });
  */
 export async function enqueueClassCheck(job: ClassCheckJobData) {
-  const queue = getClassCheckQueue();
+  try {
+    const queue = getClassCheckQueue();
 
-  const createdJob = await queue.add('check-section', job, {
-    // Use classNbr + term as job ID to prevent duplicates
-    jobId: `${job.term}-${job.classNbr}`,
-  });
+    const createdJob = await queue.add('check-section', job, {
+      // Use classNbr + term as job ID to prevent duplicates
+      jobId: `${job.term}-${job.classNbr}`,
+    });
 
-  console.log(`[Queue] Enqueued job ${createdJob.id} for section ${job.classNbr}`);
+    console.log(`[Queue] Enqueued job ${createdJob.id} for section ${job.classNbr}`);
 
-  return createdJob;
+    return createdJob;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[Queue] Error enqueueing job for section ${job.classNbr}: ${errorMsg}`);
+    throw error;
+  }
 }
 
 /**
@@ -144,21 +150,27 @@ export async function enqueueClassCheck(job: ClassCheckJobData) {
  * ]);
  */
 export async function enqueueClassCheckBulk(jobs: ClassCheckJobData[]) {
-  const queue = getClassCheckQueue();
+  try {
+    const queue = getClassCheckQueue();
 
-  const bulkJobs = jobs.map((job) => ({
-    name: 'check-section' as const,
-    data: job,
-    opts: {
-      jobId: `${job.term}-${job.classNbr}`,
-    },
-  }));
+    const bulkJobs = jobs.map((job) => ({
+      name: 'check-section' as const,
+      data: job,
+      opts: {
+        jobId: `${job.term}-${job.classNbr}`,
+      },
+    }));
 
-  const createdJobs = await queue.addBulk(bulkJobs);
+    const createdJobs = await queue.addBulk(bulkJobs);
 
-  console.log(`[Queue] Bulk enqueued ${createdJobs.length} jobs`);
+    console.log(`[Queue] Bulk enqueued ${createdJobs.length} jobs`);
 
-  return createdJobs;
+    return createdJobs;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[Queue] Error bulk enqueueing ${jobs.length} jobs: ${errorMsg}`);
+    throw error;
+  }
 }
 
 /**
@@ -173,25 +185,39 @@ export async function enqueueClassCheckBulk(jobs: ClassCheckJobData[]) {
  * console.log(`Waiting: ${stats.waiting}, Active: ${stats.active}`);
  */
 export async function getQueueStats(): Promise<QueueStats> {
-  const queue = getClassCheckQueue();
+  try {
+    const queue = getClassCheckQueue();
 
-  const counts = await queue.getJobCounts(
-    'waiting',
-    'active',
-    'completed',
-    'failed',
-    'delayed',
-    'paused'
-  );
+    const counts = await queue.getJobCounts(
+      'waiting',
+      'active',
+      'completed',
+      'failed',
+      'delayed',
+      'paused'
+    );
 
-  return {
-    waiting: counts.waiting ?? 0,
-    active: counts.active ?? 0,
-    completed: counts.completed ?? 0,
-    failed: counts.failed ?? 0,
-    delayed: counts.delayed ?? 0,
-    paused: counts.paused ?? 0,
-  };
+    return {
+      waiting: counts.waiting ?? 0,
+      active: counts.active ?? 0,
+      completed: counts.completed ?? 0,
+      failed: counts.failed ?? 0,
+      delayed: counts.delayed ?? 0,
+      paused: counts.paused ?? 0,
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[Queue] Error getting queue stats: ${errorMsg}`);
+    // Return zeros on error to not break health checks
+    return {
+      waiting: 0,
+      active: 0,
+      completed: 0,
+      failed: 0,
+      delayed: 0,
+      paused: 0,
+    };
+  }
 }
 
 /**
@@ -205,19 +231,41 @@ export async function getQueueStats(): Promise<QueueStats> {
  * });
  */
 export async function closeQueues(): Promise<void> {
+  const errors: Error[] = [];
+
   if (classCheckQueue) {
-    console.log('[Queue] Closing class-check queue...');
-    await classCheckQueue.close();
-    classCheckQueue = null;
+    try {
+      console.log('[Queue] Closing class-check queue...');
+      await classCheckQueue.close();
+      console.log('[Queue] Class-check queue closed');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[Queue] Error closing class-check queue: ${errorMsg}`);
+      if (error instanceof Error) errors.push(error);
+    } finally {
+      classCheckQueue = null;
+    }
   }
 
   if (deadLetterQueue) {
-    console.log('[Queue] Closing dead-letter queue...');
-    await deadLetterQueue.close();
-    deadLetterQueue = null;
+    try {
+      console.log('[Queue] Closing dead-letter queue...');
+      await deadLetterQueue.close();
+      console.log('[Queue] Dead-letter queue closed');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[Queue] Error closing dead-letter queue: ${errorMsg}`);
+      if (error instanceof Error) errors.push(error);
+    } finally {
+      deadLetterQueue = null;
+    }
   }
 
-  console.log('[Queue] All queues closed');
+  if (errors.length > 0) {
+    console.error(`[Queue] ${errors.length} error(s) during queue shutdown`);
+  } else {
+    console.log('[Queue] All queues closed');
+  }
 }
 
 /**

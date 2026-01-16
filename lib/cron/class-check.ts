@@ -45,15 +45,18 @@ export interface CronRunResult {
  */
 export async function runClassCheckCron(): Promise<CronRunResult> {
   const startTime = Date.now();
+  const timestamp = new Date().toISOString();
   let lockAcquired = false;
   let lockId: string | undefined;
+
+  console.log(`[Cron] Starting cron run at ${timestamp}`);
 
   try {
     // Acquire distributed lock to prevent concurrent cron runs
     const lockResult = await acquireLock();
 
     if (!lockResult.acquired) {
-      console.warn('[Cron] Lock acquisition failed:', lockResult.message);
+      console.warn(`[Cron] Lock acquisition failed at ${timestamp}: ${lockResult.message}`);
       return {
         success: false,
         sectionsEnqueued: 0,
@@ -65,24 +68,31 @@ export async function runClassCheckCron(): Promise<CronRunResult> {
 
     lockAcquired = true;
     lockId = lockResult.lockHolder;
-    console.log('[Cron] Lock acquired successfully');
+    console.log(`[Cron] Lock acquired successfully (holder: ${lockId})`);
 
     // Determine stagger group based on current time
     // :00 -> even, :30 -> odd
     const staggerGroup = determineStaggerGroup();
 
     console.log(
-      `[Cron] Starting 30-minute class check (stagger: ${staggerGroup}, time: ${new Date().toISOString()})`
+      `[Cron] Starting 30-minute class check (stagger: ${staggerGroup}, time: ${timestamp})`
     );
 
     // Fetch sections to check from database
-    const sections = await getSectionsToCheck(staggerGroup);
+    let sections: Awaited<ReturnType<typeof getSectionsToCheck>>;
+    try {
+      sections = await getSectionsToCheck(staggerGroup);
+    } catch (dbError) {
+      const errorMsg = dbError instanceof Error ? dbError.message : 'Unknown error';
+      console.error(`[Cron] Database error fetching sections: ${errorMsg}`);
+      throw dbError;
+    }
 
-    console.log(`[Cron] Found ${sections.length} sections to check`);
+    console.log(`[Cron] Found ${sections.length} sections to check (stagger: ${staggerGroup})`);
 
     // Handle case with no sections
     if (sections.length === 0) {
-      console.log('[Cron] No sections to check');
+      console.log(`[Cron] No sections to check for stagger group: ${staggerGroup}`);
       return {
         success: true,
         sectionsEnqueued: 0,
@@ -100,10 +110,18 @@ export async function runClassCheckCron(): Promise<CronRunResult> {
     }));
 
     // Enqueue all sections to BullMQ for parallel processing
-    await enqueueClassCheckBulk(jobs);
+    try {
+      await enqueueClassCheckBulk(jobs);
+    } catch (queueError) {
+      const errorMsg = queueError instanceof Error ? queueError.message : 'Unknown error';
+      console.error(`[Cron] Queue error enqueueing ${jobs.length} sections: ${errorMsg}`);
+      throw queueError;
+    }
 
     const durationMs = Date.now() - startTime;
-    console.log(`[Cron] Enqueued ${sections.length} sections in ${durationMs}ms`);
+    console.log(
+      `[Cron] Successfully enqueued ${sections.length} sections in ${durationMs}ms (stagger: ${staggerGroup})`
+    );
 
     return {
       success: true,
@@ -113,13 +131,14 @@ export async function runClassCheckCron(): Promise<CronRunResult> {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[Cron] Fatal error:', errorMessage);
+    const durationMs = Date.now() - startTime;
+    console.error(`[Cron] Fatal error after ${durationMs}ms: ${errorMessage}`);
 
     return {
       success: false,
       sectionsEnqueued: 0,
       staggerGroup: determineStaggerGroup(),
-      durationMs: Date.now() - startTime,
+      durationMs,
       error: errorMessage,
     };
   } finally {
@@ -128,12 +147,13 @@ export async function runClassCheckCron(): Promise<CronRunResult> {
       try {
         const releaseResult = await releaseLock(lockId);
         if (releaseResult.released) {
-          console.log('[Cron] Lock released');
+          console.log(`[Cron] Lock released (holder: ${lockId})`);
         } else {
-          console.warn('[Cron] Lock release failed:', releaseResult.message);
+          console.warn(`[Cron] Lock release failed for ${lockId}: ${releaseResult.message}`);
         }
-      } catch (error) {
-        console.error('[Cron] Error releasing lock:', error);
+      } catch (releaseError) {
+        const errorMsg = releaseError instanceof Error ? releaseError.message : 'Unknown error';
+        console.error(`[Cron] Error releasing lock ${lockId}: ${errorMsg}`);
         // Don't throw - lock will auto-expire after 25 minutes
       }
     }

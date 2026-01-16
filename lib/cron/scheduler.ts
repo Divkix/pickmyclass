@@ -54,41 +54,51 @@ export function startScheduler(): void {
     return;
   }
 
-  console.log('[Scheduler] Starting cron scheduler...');
+  try {
+    console.log('[Scheduler] Starting cron scheduler...');
 
-  // Schedule class check job
-  // Note: node-cron 4.x uses TaskContext as callback argument
-  classCheckTask = cron.schedule(
-    CLASS_CHECK_SCHEDULE,
-    async () => {
-      console.log('[Scheduler] Class check cron triggered');
+    // Schedule class check job
+    // Note: node-cron 4.x uses TaskContext as callback argument
+    classCheckTask = cron.schedule(
+      CLASS_CHECK_SCHEDULE,
+      async () => {
+        const triggerTime = new Date().toISOString();
+        console.log(`[Scheduler] Class check cron triggered at ${triggerTime}`);
 
-      try {
-        const result = await runClassCheckCron();
+        try {
+          const result = await runClassCheckCron();
 
-        if (result.success) {
-          console.log(
-            `[Scheduler] Cron completed: ${result.sectionsEnqueued} sections enqueued in ${result.durationMs}ms`
+          if (result.success) {
+            console.log(
+              `[Scheduler] Cron completed at ${triggerTime}: ${result.sectionsEnqueued} sections enqueued in ${result.durationMs}ms`
+            );
+          } else {
+            console.error(`[Scheduler] Cron failed at ${triggerTime}: ${result.error}`);
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          console.error(
+            `[Scheduler] Unexpected error in cron handler at ${triggerTime}: ${errorMsg}`
           );
-        } else {
-          console.error(`[Scheduler] Cron failed: ${result.error}`);
         }
-      } catch (error) {
-        console.error('[Scheduler] Unexpected error in cron handler:', error);
+      },
+      {
+        name: 'class-check',
+        timezone: TIMEZONE,
       }
-    },
-    {
-      name: 'class-check',
-      timezone: TIMEZONE,
-    }
-  );
+    );
 
-  // Start the task (node-cron 4.x tasks don't auto-start)
-  classCheckTask.start();
+    // Start the task (node-cron 4.x tasks don't auto-start)
+    classCheckTask.start();
 
-  isRunning = true;
-  console.log(`[Scheduler] Started with schedule: ${CLASS_CHECK_SCHEDULE}`);
-  console.log(`[Scheduler] Timezone: ${TIMEZONE} (ASU)`);
+    isRunning = true;
+    console.log(`[Scheduler] Started with schedule: ${CLASS_CHECK_SCHEDULE}`);
+    console.log(`[Scheduler] Timezone: ${TIMEZONE} (ASU)`);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[Scheduler] Error starting scheduler: ${errorMsg}`);
+    throw error;
+  }
 }
 
 /**
@@ -114,15 +124,23 @@ export function stopScheduler(): void {
     return;
   }
 
-  console.log('[Scheduler] Stopping cron scheduler...');
+  try {
+    console.log('[Scheduler] Stopping cron scheduler...');
 
-  if (classCheckTask) {
-    classCheckTask.stop();
+    if (classCheckTask) {
+      classCheckTask.stop();
+      console.log('[Scheduler] Class check task stopped');
+    }
+
+    console.log('[Scheduler] Stopped');
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[Scheduler] Error stopping scheduler: ${errorMsg}`);
+    // Don't re-throw - shutdown should continue
+  } finally {
     classCheckTask = null;
+    isRunning = false;
   }
-
-  isRunning = false;
-  console.log('[Scheduler] Stopped');
 }
 
 /**
