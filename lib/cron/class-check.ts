@@ -12,7 +12,49 @@
 import { getSectionsToCheck } from '@/lib/db/queries';
 import { enqueueClassCheckBulk } from '@/lib/queue/queues';
 import type { ClassCheckJobData } from '@/lib/queue/types';
-import { acquireLock, releaseLock } from '@/lib/redis/cron-lock';
+import { type AcquireLockResult, acquireLock, releaseLock } from '@/lib/redis/cron-lock';
+
+const LOCK_RETRY_CONFIG = {
+  maxAttempts: 10,
+  initialDelayMs: 5000,
+  maxDelayMs: 60000,
+  backoffMultiplier: 1.5,
+  maxTotalTimeMs: 5 * 60 * 1000, // 5 minutes
+} as const;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function acquireLockWithRetry(): Promise<AcquireLockResult> {
+  const startTime = Date.now();
+  let lastResult: AcquireLockResult | null = null;
+
+  for (let attempt = 1; attempt <= LOCK_RETRY_CONFIG.maxAttempts; attempt++) {
+    if (Date.now() - startTime >= LOCK_RETRY_CONFIG.maxTotalTimeMs) {
+      return lastResult || { acquired: false, message: 'Lock acquisition timed out' };
+    }
+
+    const result = await acquireLock();
+    lastResult = result;
+
+    if (result.acquired) {
+      if (attempt > 1) console.log(`[Cron] Lock acquired on attempt ${attempt}`);
+      return result;
+    }
+
+    if (attempt < LOCK_RETRY_CONFIG.maxAttempts) {
+      const delay = Math.min(
+        LOCK_RETRY_CONFIG.initialDelayMs * LOCK_RETRY_CONFIG.backoffMultiplier ** (attempt - 1),
+        LOCK_RETRY_CONFIG.maxDelayMs
+      );
+      console.log(`[Cron] Lock held, retrying in ${delay}ms (attempt ${attempt})`);
+      await sleep(delay);
+    }
+  }
+
+  return lastResult || { acquired: false, message: 'Max retry attempts reached' };
+}
 
 /**
  * Result of a cron run
@@ -52,8 +94,8 @@ export async function runClassCheckCron(): Promise<CronRunResult> {
   console.log(`[Cron] Starting cron run at ${timestamp}`);
 
   try {
-    // Acquire distributed lock to prevent concurrent cron runs
-    const lockResult = await acquireLock();
+    // Acquire distributed lock to prevent concurrent cron runs (with retry)
+    const lockResult = await acquireLockWithRetry();
 
     if (!lockResult.acquired) {
       console.warn(`[Cron] Lock acquisition failed at ${timestamp}: ${lockResult.message}`);
@@ -143,9 +185,9 @@ export async function runClassCheckCron(): Promise<CronRunResult> {
     };
   } finally {
     // Release lock if it was acquired
-    if (lockAcquired) {
+    if (lockAcquired && lockId !== undefined) {
       try {
-        const releaseResult = await releaseLock(lockId);
+        const releaseResult = await releaseLock(lockId as string);
         if (releaseResult.released) {
           console.log(`[Cron] Lock released (holder: ${lockId})`);
         } else {

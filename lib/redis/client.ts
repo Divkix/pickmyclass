@@ -12,6 +12,7 @@
 import Redis from 'ioredis';
 
 let redisClient: Redis | null = null;
+let bullmqConnection: Redis | null = null;
 
 /**
  * Get or create the Redis client singleton
@@ -88,10 +89,75 @@ export function getRedisClient(): Redis {
 }
 
 /**
- * Close the Redis connection gracefully
+ * Get or create the BullMQ-specific Redis connection singleton
+ *
+ * BullMQ requires `maxRetriesPerRequest: null` for blocking operations.
+ * This connection is dedicated to BullMQ Queue and Worker instances.
+ *
+ * @returns Redis client instance configured for BullMQ
+ * @throws Error if REDIS_URL is not configured
+ */
+export function getBullMQConnection(): Redis {
+  if (bullmqConnection) {
+    return bullmqConnection;
+  }
+
+  const redisUrl = process.env.REDIS_URL;
+
+  if (!redisUrl) {
+    throw new Error(
+      'REDIS_URL is not set in environment variables. ' +
+        'Expected format: redis://user:pass@host:port or rediss://... for TLS'
+    );
+  }
+
+  const isTls = redisUrl.startsWith('rediss://');
+
+  bullmqConnection = new Redis(redisUrl, {
+    tls: isTls ? {} : undefined,
+    retryStrategy: (times: number) => {
+      if (times > 10) {
+        console.error('[Redis:BullMQ] Max retries reached, giving up');
+        return null;
+      }
+      const delay = Math.min(times * 100, 3000);
+      console.log(`[Redis:BullMQ] Retrying connection in ${delay}ms (attempt ${times})`);
+      return delay;
+    },
+    maxRetriesPerRequest: null, // REQUIRED for BullMQ blocking operations
+    enableReadyCheck: true,
+    lazyConnect: false,
+  });
+
+  bullmqConnection.on('connect', () => {
+    console.log('[Redis:BullMQ] Connected to Redis server');
+  });
+
+  bullmqConnection.on('ready', () => {
+    console.log('[Redis:BullMQ] Client ready, accepting commands');
+  });
+
+  bullmqConnection.on('error', (err: Error) => {
+    console.error('[Redis:BullMQ] Connection error:', err.message);
+  });
+
+  bullmqConnection.on('close', () => {
+    console.log('[Redis:BullMQ] Connection closed');
+  });
+
+  bullmqConnection.on('reconnecting', () => {
+    console.log('[Redis:BullMQ] Reconnecting...');
+  });
+
+  return bullmqConnection;
+}
+
+/**
+ * Close all Redis connections gracefully
  *
  * Should be called during application shutdown to ensure clean disconnection.
- * Resets the singleton so a new connection can be established if needed.
+ * Closes both the general Redis client and BullMQ-specific connection.
+ * Resets the singletons so new connections can be established if needed.
  *
  * @example
  * // In shutdown handler
@@ -101,24 +167,53 @@ export function getRedisClient(): Redis {
  * });
  */
 export async function closeRedisConnection(): Promise<void> {
+  const closePromises: Promise<void>[] = [];
+
   if (redisClient) {
-    try {
-      console.log('[Redis] Closing connection...');
-      await redisClient.quit();
-      console.log('[Redis] Connection closed gracefully');
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[Redis] Error closing connection: ${errorMsg}`);
-      // Force disconnect if quit fails
-      try {
-        redisClient.disconnect();
-      } catch {
-        // Ignore disconnect errors
-      }
-    } finally {
-      redisClient = null;
-    }
+    closePromises.push(
+      (async () => {
+        try {
+          console.log('[Redis] Closing connection...');
+          await redisClient!.quit();
+          console.log('[Redis] Connection closed gracefully');
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`[Redis] Error closing connection: ${errorMsg}`);
+          try {
+            redisClient!.disconnect();
+          } catch {
+            // Ignore disconnect errors
+          }
+        } finally {
+          redisClient = null;
+        }
+      })()
+    );
   }
+
+  if (bullmqConnection) {
+    closePromises.push(
+      (async () => {
+        try {
+          console.log('[Redis:BullMQ] Closing connection...');
+          await bullmqConnection!.quit();
+          console.log('[Redis:BullMQ] Connection closed gracefully');
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`[Redis:BullMQ] Error closing connection: ${errorMsg}`);
+          try {
+            bullmqConnection!.disconnect();
+          } catch {
+            // Ignore disconnect errors
+          }
+        } finally {
+          bullmqConnection = null;
+        }
+      })()
+    );
+  }
+
+  await Promise.all(closePromises);
 }
 
 /**

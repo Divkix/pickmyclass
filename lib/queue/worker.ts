@@ -12,13 +12,13 @@
  * 5. Update state in database
  */
 
-import { type Job, Worker } from 'bullmq';
+import { type ConnectionOptions, type Job, Worker } from 'bullmq';
 import { resetNotificationsForSection, tryRecordNotification } from '@/lib/db/queries';
 import { type ClassInfo, sendBatchEmailsOptimized } from '@/lib/email/resend';
 import { CircuitState, getCircuitBreaker } from '@/lib/redis/circuit-breaker';
+import { getBullMQConnection } from '@/lib/redis/client';
 import { getServiceClient } from '@/lib/supabase/service';
 import { QUEUE_NAMES, WORKER_CONFIG } from './config';
-import { getConnectionOptions } from './queues';
 import type { ClassCheckJobData, ClassCheckJobResult } from './types';
 
 /**
@@ -61,6 +61,12 @@ async function fetchClassDetailsWithCircuitBreaker(
 
   if (!checkResult.allowed) {
     console.warn(`[Worker] Circuit breaker is ${checkResult.state}: ${checkResult.message}`);
+
+    // If UNKNOWN due to Redis error, throw to trigger retry
+    if (checkResult.redisError) {
+      throw new Error(`Circuit breaker unavailable: ${checkResult.message}`);
+    }
+
     return {
       success: false,
       error: checkResult.message || `Circuit breaker is ${checkResult.state}`,
@@ -340,7 +346,9 @@ export function startWorker(): Worker<ClassCheckJobData, ClassCheckJobResult, st
   }
 
   try {
-    const connection = getConnectionOptions();
+    // Use shared BullMQ connection - cast needed due to ioredis version mismatch
+    // between our ioredis and BullMQ's bundled version
+    const connection = getBullMQConnection() as unknown as ConnectionOptions;
 
     worker = new Worker<ClassCheckJobData, ClassCheckJobResult, string>(
       QUEUE_NAMES.CLASS_CHECK,

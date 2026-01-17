@@ -1,0 +1,10 @@
+# Production: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+services:
+  app:
+    depends_on: []
+    environment:
+      - REDIS_URL=${REDIS_URL}  # Use Upstash
+
+  redis:
+    profiles:
+      - dev-only

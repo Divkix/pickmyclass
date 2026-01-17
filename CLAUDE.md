@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PickMyClass is a class seat notification system for university students. Built with Next.js 15.5, Supabase authentication, and deployed on a VPS with PM2 and Caddy.
+PickMyClass is a class seat notification system for university students. Built with Next.js 15.5, Supabase authentication, and deployed via Docker containers.
 
 **Core Flow:**
 1. Students add class sections to monitor by section number
@@ -32,23 +32,22 @@ bun run knip             # Find unused exports/dependencies
 bun run start:prod       # Start production server (Next.js + cron + workers)
 ```
 
-### PM2 Process Management
+### Docker (Production)
 ```bash
-pm2 start ecosystem.config.js     # Start application
-pm2 reload ecosystem.config.js    # Zero-downtime reload
-pm2 stop pickmyclass              # Stop application
-pm2 restart pickmyclass           # Restart application
-pm2 status                        # View process status
-pm2 logs pickmyclass              # Stream logs
-pm2 logs pickmyclass --lines 100  # View last 100 log lines
-pm2 monit                         # Real-time monitoring dashboard
-pm2 save                          # Save process list for reboot
-```
+# Build and run (local dev with Redis)
+docker compose up --build
 
-### Deployment
-```bash
-./scripts/deploy.sh       # Pull code, install deps, build, reload PM2
-./scripts/setup-vps.sh    # Initial VPS setup (bun, PM2, Caddy)
+# Production (Upstash Redis)
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# View logs
+docker compose logs -f app
+
+# Rebuild after changes
+docker compose build app && docker compose up -d app
+
+# Health check
+curl http://localhost:3000/api/monitoring/health
 ```
 
 ### Database (Supabase)
@@ -71,7 +70,7 @@ bun run typecheck  # Type check without building
 
 ### Request Flow
 ```
-User Browser --> Next.js (VPS + PM2) --> Supabase (Auth + PostgreSQL + Realtime)
+User Browser --> Next.js (Docker) --> Supabase (Auth + PostgreSQL + Realtime)
                                               |
 node-cron (every 30 min) --> BullMQ Queue --> Queue Workers (4 concurrent)
                                               |
@@ -83,8 +82,7 @@ node-cron (every 30 min) --> BullMQ Queue --> Queue Workers (4 concurrent)
 ### Infrastructure Stack
 ```
 VPS (Oracle Cloud A1)
-├── PM2 - Process manager (auto-restart, logs, startup)
-├── Caddy - Reverse proxy (auto HTTPS, compression, headers)
+├── Docker - Container runtime
 ├── Next.js - Web application (server.ts entry point)
 ├── BullMQ - Job queue processing
 └── node-cron - Scheduled task runner
@@ -115,8 +113,9 @@ External Services
 | `lib/email/resend.ts` | Resend email integration with batch API |
 | `middleware.ts` | Auth middleware with role-based routing (admin vs user) |
 | `scraper/` | Standalone Puppeteer service on Oracle Cloud |
-| `ecosystem.config.js` | PM2 process configuration |
-| `Caddyfile` | Caddy reverse proxy configuration |
+| `Dockerfile` | Docker container configuration |
+| `docker-compose.yml` | Docker Compose for local development |
+| `docker-compose.prod.yml` | Docker Compose production overrides |
 
 ### Circuit Breaker (Redis-based)
 
@@ -190,8 +189,6 @@ Server handles SIGTERM/SIGINT with ordered shutdown:
 **Optional:**
 - `PORT` - Server port (default: 3000)
 - `NODE_ENV` - Environment (production/development)
-- `DEPLOY_BRANCH` - Git branch for deployment script (default: main)
-- `DOMAIN` - Domain for Caddy (default: localhost)
 
 **Build Handling:** Supabase clients use placeholders when env vars unavailable during build. Scraper/email services gracefully skip operations when not configured.
 
@@ -218,11 +215,12 @@ User must log out and back in for admin status to take effect.
 - For Upstash, use `rediss://` protocol (TLS)
 - For local Redis, use `redis://localhost:6379`
 
-**PM2 not restarting on file changes**
-- Watch is disabled in production; use `./scripts/deploy.sh` for updates
+**Container not starting**
+- Check Docker logs: `docker compose logs -f app`
+- Verify environment variables in `.env` file
 
 **Cron not running**
-- Check PM2 logs: `pm2 logs pickmyclass`
+- Check container logs: `docker compose logs -f app`
 - Verify scheduler started in server logs
 - Manual trigger: `curl -H "Authorization: Bearer $CRON_SECRET" localhost:3000/api/cron`
 
@@ -230,18 +228,18 @@ User must log out and back in for admin status to take effect.
 
 - **Health endpoint:** `GET /api/monitoring/health` - Redis, queue stats, circuit breaker, cron lock status
 - **Scraper status:** `GET <your-scraper-url>/status` - Browser pool metrics
-- **PM2 monitoring:** `pm2 monit` - Real-time CPU/memory/logs
+- **Docker logs:** `docker compose logs -f app` - Real-time application logs
 - **Queue metrics:** Via health endpoint (waiting, active, completed, failed counts)
 
 ## VPS Deployment Checklist
 
 1. [ ] Provision Oracle Cloud A1 instance (1GB RAM, 1 OCPU)
-2. [ ] Run `./scripts/setup-vps.sh` to install dependencies
+2. [ ] Install Docker and Docker Compose
 3. [ ] Clone repository
 4. [ ] Configure `.env` with all required variables
 5. [ ] Set up Upstash Redis (or local Redis)
-6. [ ] Configure Caddy with domain: `DOMAIN=yourdomain.com caddy run --config Caddyfile`
-7. [ ] Run `./scripts/deploy.sh`
-8. [ ] Verify health endpoint: `curl https://yourdomain.com/api/monitoring/health`
+6. [ ] Run `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`
+7. [ ] Verify health endpoint: `curl http://localhost:3000/api/monitoring/health`
+8. [ ] Configure reverse proxy (nginx/traefik) for HTTPS
 9. [ ] Update DNS to point to VPS
 10. [ ] Monitor for 24 hours

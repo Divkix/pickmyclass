@@ -20,6 +20,20 @@ import { closeRedisConnection, getRedisClient } from './lib/redis/client';
 const port = Number.parseInt(process.env.PORT || '3000', 10);
 const dev = process.env.NODE_ENV !== 'production';
 
+/**
+ * Validate required environment variables
+ *
+ * Fails fast if critical configuration is missing.
+ */
+function validateEnvironment(): void {
+  const required = ['REDIS_URL'];
+  const missing = required.filter((key) => !process.env[key]);
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+}
+
 // Track shutdown state to prevent double shutdown
 let isShuttingDown = false;
 
@@ -125,6 +139,9 @@ async function main(): Promise<void> {
   console.log(`[Server] Port: ${port}`);
   console.log(`[Server] Node.js: ${process.version}`);
   console.log('[Server] ----------------------------------------');
+
+  // Validate environment FIRST
+  validateEnvironment();
 
   const startupStart = Date.now();
 

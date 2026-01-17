@@ -2,45 +2,13 @@
  * BullMQ Queue Instances
  *
  * Provides singleton Queue instances and helper functions for job management.
- * Uses Redis connection configuration from environment.
- *
- * NOTE: BullMQ bundles its own ioredis, so we cannot share the ioredis instance
- * from lib/redis/client.ts directly. Instead, we parse REDIS_URL and pass
- * connection options.
+ * Uses shared BullMQ Redis connection from lib/redis/client.ts.
  */
 
 import { type ConnectionOptions, Queue } from 'bullmq';
+import { getBullMQConnection } from '@/lib/redis/client';
 import { DEFAULT_JOB_OPTIONS, QUEUE_NAMES } from './config';
 import type { ClassCheckJobData, QueueStats } from './types';
-
-/**
- * Parse REDIS_URL into connection options for BullMQ
- *
- * Handles both redis:// and rediss:// (TLS) URLs
- */
-function getConnectionOptions(): ConnectionOptions {
-  const redisUrl = process.env.REDIS_URL;
-
-  if (!redisUrl) {
-    throw new Error(
-      'REDIS_URL is not set in environment variables. ' +
-        'Expected format: redis://user:pass@host:port or rediss://... for TLS'
-    );
-  }
-
-  const url = new URL(redisUrl);
-  const isTls = url.protocol === 'rediss:';
-
-  return {
-    host: url.hostname,
-    port: Number.parseInt(url.port, 10) || 6379,
-    password: url.password || undefined,
-    username: url.username || undefined,
-    tls: isTls ? {} : undefined,
-    // BullMQ requires this to be null for proper blocking operations
-    maxRetriesPerRequest: null,
-  };
-}
 
 /**
  * Singleton instance for the class check queue
@@ -64,7 +32,9 @@ export function getClassCheckQueue(): Queue<ClassCheckJobData, unknown, string> 
     return classCheckQueue;
   }
 
-  const connection = getConnectionOptions();
+  // Use shared BullMQ connection - cast needed due to ioredis version mismatch
+  // between our ioredis and BullMQ's bundled version
+  const connection = getBullMQConnection() as unknown as ConnectionOptions;
 
   classCheckQueue = new Queue<ClassCheckJobData, unknown, string>(QUEUE_NAMES.CLASS_CHECK, {
     connection,
@@ -194,11 +164,3 @@ export async function closeQueues(): Promise<void> {
     console.log('[Queue] All queues closed');
   }
 }
-
-/**
- * Get connection options for external use (e.g., by Workers)
- *
- * Workers need to create their own connection, this provides
- * the same connection options.
- */
-export { getConnectionOptions };

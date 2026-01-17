@@ -73,10 +73,6 @@ function getMetadataKey(name: string): string {
   return `cron-lock:${name}:meta`;
 }
 
-// Store current lock holder ID in memory (per process)
-// This is needed to verify we hold the lock before releasing
-let currentLockId: string | null = null;
-
 /**
  * Attempt to acquire the cron lock
  *
@@ -129,9 +125,6 @@ export async function acquireLock(
         const errorMsg = metaError instanceof Error ? metaError.message : 'Unknown error';
         console.warn(`[CronLock] Failed to store metadata: ${errorMsg}`);
       }
-
-      // Remember our lock ID for release
-      currentLockId = holderId;
 
       console.log(`[CronLock] Lock acquired by ${holderId}`);
 
@@ -207,21 +200,20 @@ end
  * Uses Lua script for atomic conditional release.
  * Only releases if we currently hold the lock.
  *
- * @param lockId - Optional lock holder ID (uses remembered ID if not provided)
+ * @param lockId - Lock holder ID (required)
  * @param name - Lock name (default: 'class-check-cron')
  * @returns Object with release result
  */
 export async function releaseLock(
-  lockId?: string,
+  lockId: string,
   name: string = DEFAULT_LOCK_NAME
 ): Promise<ReleaseLockResult> {
-  const holderId = lockId || currentLockId;
+  const holderId = lockId;
 
   if (!holderId) {
-    console.log('[CronLock] Release requested but no lock holder ID available');
     return {
       released: false,
-      message: 'No lock holder ID provided and no lock held by this process',
+      message: 'Lock holder ID is required',
     };
   }
 
@@ -234,7 +226,6 @@ export async function releaseLock(
     const result = await redis.eval(RELEASE_SCRIPT, 2, lockKey, metadataKey, holderId);
 
     if (result === 1) {
-      currentLockId = null;
       console.log(`[CronLock] Lock released by ${holderId}`);
       return {
         released: true,
@@ -247,7 +238,6 @@ export async function releaseLock(
 
     if (!currentHolder) {
       console.log(`[CronLock] Release attempted by ${holderId}, but lock not held (expired?)`);
-      currentLockId = null;
       return {
         released: false,
         message: 'Lock was not held (may have expired)',
@@ -264,8 +254,6 @@ export async function releaseLock(
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[CronLock] Error releasing lock ${name} for ${holderId}: ${errorMsg}`);
-    // Clear local state regardless - lock will auto-expire
-    currentLockId = null;
     return {
       released: false,
       message: `Failed to release lock due to Redis error: ${errorMsg}`,
@@ -352,14 +340,10 @@ export async function forceRelease(name: string = DEFAULT_LOCK_NAME): Promise<vo
 
     await Promise.all([redis.del(lockKey), redis.del(metadataKey)]);
 
-    currentLockId = null;
-
     console.log(`[CronLock] Lock forcefully released`);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[CronLock] Error force releasing lock ${name}: ${errorMsg}`);
-    // Clear local state regardless
-    currentLockId = null;
     throw error; // Re-throw for admin operations
   }
 }

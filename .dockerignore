@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.github
+.vscode
+*.md
+tests
+coverage
+scraper
+specs
+ecosystem.config.js
+Caddyfile
+scripts
+logs
+.pm2
+.env*
+!.env.example

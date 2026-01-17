@@ -25,6 +25,7 @@ export enum CircuitState {
   CLOSED = 'CLOSED',
   OPEN = 'OPEN',
   HALF_OPEN = 'HALF_OPEN',
+  UNKNOWN = 'UNKNOWN',
 }
 
 /**
@@ -45,6 +46,7 @@ export interface CheckStateResult {
   allowed: boolean;
   state: CircuitState;
   message?: string;
+  redisError?: boolean;
 }
 
 /**
@@ -170,12 +172,14 @@ export class CircuitBreaker {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[CircuitBreaker] Error checking state: ${errorMsg}`);
-      // On error, allow the request (fail-open) - better to attempt than block
+      console.error(`[CircuitBreaker] Redis error: ${errorMsg}`);
+
+      // FAIL-CLOSED: Block requests when state unknown
       return {
-        allowed: true,
-        state: CircuitState.CLOSED,
-        message: 'Circuit breaker state check failed, allowing request',
+        allowed: false,
+        state: CircuitState.UNKNOWN,
+        message: `Circuit breaker unavailable: ${errorMsg}`,
+        redisError: true,
       };
     }
   }
@@ -220,9 +224,8 @@ export class CircuitBreaker {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[CircuitBreaker] Error recording success: ${errorMsg}`);
-      // Return CLOSED state on error - don't fail the operation
       return {
-        state: CircuitState.CLOSED,
+        state: CircuitState.UNKNOWN,
         message: 'Error recording success, state may be stale',
       };
     }
@@ -277,9 +280,8 @@ export class CircuitBreaker {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[CircuitBreaker] Error recording failure: ${errorMsg}`);
-      // Return CLOSED state on error - failure might not have been counted
       return {
-        state: CircuitState.CLOSED,
+        state: CircuitState.UNKNOWN,
         message: 'Error recording failure, state may be stale',
       };
     }
