@@ -4,16 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PickMyClass is a class seat notification system for university students. Built with Next.js 15.5, Supabase authentication, and deployed on Cloudflare Workers via OpenNext.
+PickMyClass is a class seat notification system for university students. Built with Next.js 15.5, Supabase authentication, and deployed on a VPS with PM2 and Caddy.
 
 **Core Flow:**
 1. Students add class sections to monitor by section number
-2. Cloudflare Workers Cron Triggers run every 30 minutes (staggered by even/odd section numbers)
-3. Queue consumers (100+ concurrent Workers) scrape ASU class search via Puppeteer service
+2. Node-cron scheduler runs every 30 minutes (staggered by even/odd section numbers)
+3. BullMQ workers (4 concurrent) process sections via Puppeteer scraper service
 4. Detects seat availability changes or instructor assignments
 5. Sends email notifications via Resend batch API
 
-**Scalability:** Designed for 10,000+ users with parallel queue processing, atomic PostgreSQL operations for deduplication, and Durable Objects for distributed coordination.
+**Scalability:** Designed for 10,000+ users with BullMQ queue processing, Redis-based circuit breaker and distributed locks, atomic PostgreSQL operations for deduplication.
 
 ## Key Commands
 
@@ -27,12 +27,28 @@ bun run format           # Format code with Biome
 bun run knip             # Find unused exports/dependencies
 ```
 
-### Cloudflare Workers
+### Production (VPS)
 ```bash
-bun run preview          # Build with OpenNext and preview locally
-bun run deploy           # Build and deploy (includes wrangler triggers deploy)
-bun run cf-typegen       # Generate TypeScript types for Cloudflare env bindings
-rm -rf .next .open-next && bun run preview    # Clean build
+bun run start:prod       # Start production server (Next.js + cron + workers)
+```
+
+### PM2 Process Management
+```bash
+pm2 start ecosystem.config.js     # Start application
+pm2 reload ecosystem.config.js    # Zero-downtime reload
+pm2 stop pickmyclass              # Stop application
+pm2 restart pickmyclass           # Restart application
+pm2 status                        # View process status
+pm2 logs pickmyclass              # Stream logs
+pm2 logs pickmyclass --lines 100  # View last 100 log lines
+pm2 monit                         # Real-time monitoring dashboard
+pm2 save                          # Save process list for reboot
+```
+
+### Deployment
+```bash
+./scripts/deploy.sh       # Pull code, install deps, build, reload PM2
+./scripts/setup-vps.sh    # Initial VPS setup (bun, PM2, Caddy)
 ```
 
 ### Database (Supabase)
@@ -55,44 +71,72 @@ bun run typecheck  # Type check without building
 
 ### Request Flow
 ```
-User Browser → Next.js (Cloudflare Workers) → Supabase (Auth + PostgreSQL + Realtime)
-                                              ↑
-Cron (every 30 min) → Cloudflare Queue → Queue Consumers (100+ Workers)
-                                              ↓
-                      Scraper Service (Oracle Cloud + Puppeteer) → ASU Class Search
-                                              ↓
-                      Change Detection → Resend Email API → User Notifications
+User Browser --> Next.js (VPS + PM2) --> Supabase (Auth + PostgreSQL + Realtime)
+                                              |
+node-cron (every 30 min) --> BullMQ Queue --> Queue Workers (4 concurrent)
+                                              |
+                      Scraper Service (Oracle Cloud + Puppeteer) --> ASU Class Search
+                                              |
+                      Change Detection --> Resend Email API --> User Notifications
+```
+
+### Infrastructure Stack
+```
+VPS (Oracle Cloud A1)
+├── PM2 - Process manager (auto-restart, logs, startup)
+├── Caddy - Reverse proxy (auto HTTPS, compression, headers)
+├── Next.js - Web application (server.ts entry point)
+├── BullMQ - Job queue processing
+└── node-cron - Scheduled task runner
+
+External Services
+├── Upstash Redis - Queue backend, circuit breaker, distributed locks
+├── Supabase - PostgreSQL database, authentication
+├── Resend - Email delivery
+└── Scraper Service - Puppeteer on Oracle Cloud
 ```
 
 ### Key Components
 
 | Location | Purpose |
 |----------|---------|
-| `worker.ts` | Custom Cloudflare Worker with cron, queue handlers, and Durable Objects |
-| `app/api/cron/route.ts` | Cron job entry point - enqueues sections to queue |
-| `app/api/queue/process-section/route.ts` | Queue consumer - processes single section |
+| `server.ts` | Unified entry point - starts Next.js, cron scheduler, queue workers |
+| `lib/redis/client.ts` | Redis client singleton (Upstash/local support) |
+| `lib/redis/circuit-breaker.ts` | Redis-based circuit breaker for scraper fault tolerance |
+| `lib/redis/cron-lock.ts` | Distributed lock for cron job deduplication |
+| `lib/queue/queues.ts` | BullMQ queue definitions and enqueue helpers |
+| `lib/queue/worker.ts` | BullMQ worker - processes class check jobs |
+| `lib/queue/config.ts` | Queue configuration (concurrency, retries) |
+| `lib/cron/scheduler.ts` | node-cron scheduler setup |
+| `lib/cron/class-check.ts` | Cron job logic - fetches sections, enqueues to BullMQ |
+| `app/api/cron/route.ts` | HTTP trigger for cron (manual or external scheduler) |
 | `lib/db/queries.ts` | Database query helpers (bulk operations, atomic deduplication) |
 | `lib/supabase/service.ts` | Service role client (bypasses RLS) |
 | `lib/email/resend.ts` | Resend email integration with batch API |
 | `middleware.ts` | Auth middleware with role-based routing (admin vs user) |
 | `scraper/` | Standalone Puppeteer service on Oracle Cloud |
+| `ecosystem.config.js` | PM2 process configuration |
+| `Caddyfile` | Caddy reverse proxy configuration |
 
-### Durable Objects (in `worker.ts`)
+### Circuit Breaker (Redis-based)
 
-**CircuitBreakerDO** - Distributed fault tolerance for scraper
-- States: CLOSED (healthy) → OPEN (blocking, 10 failures) → HALF_OPEN (testing recovery)
-- Single instance coordinates all 100+ Worker isolates
-- Access: `env.CIRCUIT_BREAKER_DO.get(env.CIRCUIT_BREAKER_DO.idFromName('scraper-circuit-breaker'))`
+Distributed fault tolerance for scraper service:
+- States: CLOSED (healthy) -> OPEN (blocking, 10 failures) -> HALF_OPEN (testing recovery)
+- Stored as JSON in Redis key `circuit-breaker:scraper`
+- Thresholds: 10 failures to open, 2-minute timeout, 3 successes to close
 
-**CronLockDO** - Prevents duplicate cron executions
-- Auto-expires after 25 minutes
-- Ensures only one cron job runs at a time across all isolates
+### Cron Lock (Redis-based)
+
+Prevents duplicate cron executions across multiple processes:
+- Uses Redis `SET NX PX` for atomic lock acquisition with 25-minute TTL
+- Lua script for atomic conditional release
+- Key: `cron-lock:class-check`
 
 ### Database Schema
 
 All tables use Row Level Security (RLS). Key tables:
 
-- `class_watches` - User → Section mappings (unique per user/term/section)
+- `class_watches` - User -> Section mappings (unique per user/term/section)
 - `class_states` - Cached section state for change detection
 - `notifications_sent` - Deduplication tracking (unique per watch/type)
 - `user_profiles` - User metadata including `is_admin` flag
@@ -104,24 +148,29 @@ const shouldSend = await tryRecordNotification(watchId, 'seat_available');
 if (shouldSend) await sendEmail(...);
 
 // NOT this - deprecated, has race condition
-const sent = await hasNotificationBeenSent(watchId, type); // ❌
+const sent = await hasNotificationBeenSent(watchId, type); // X
 ```
 
 ## Critical Implementation Notes
 
-### Cloudflare Workers Memory Model
-- **Global variables are per-isolate**, not shared across Workers
-- For coordinated state (circuit breakers, rate limiters): use Durable Objects
-- For concurrent operations: use PostgreSQL functions with `INSERT...ON CONFLICT`
+### BullMQ Queue Configuration
+- Concurrency: 4 workers process jobs in parallel
+- Retries: 3 attempts with exponential backoff
+- Job deduplication: Uses `${term}-${classNbr}` as job ID
+- Dead letter queue for failed jobs after all retries
 
-### TypeScript Strict Mode Gotchas
-- `Response.json()` returns `unknown` - always use type assertions: `as ScraperResponse`
-- Durable Objects: extend `DurableObject<Cloudflare.Env>`, not local `Env` interface
+### node-cron v4.x Notes
+- Schedule: `"0,30 * * * *"` (every 30 minutes at :00 and :30)
+- Tasks need explicit `.start()` call after creation
+- Callback receives `TaskContext`, not `(Date | "manual" | "init")`
 
-### Queue Configuration (`wrangler.jsonc`)
-- `max_batch_size: 5` - Messages per batch
-- `max_batch_timeout: 30` - Max seconds to wait for batch (Cloudflare API limit)
-- `max_retries: 3` - Retries before dead letter queue
+### Graceful Shutdown
+Server handles SIGTERM/SIGINT with ordered shutdown:
+1. Stop accepting new HTTP requests
+2. Stop cron scheduler
+3. Wait for current queue jobs to complete (30s timeout)
+4. Close queue connections
+5. Close Redis connection
 
 ### Staggered Cron Strategy
 - `:00` and `:30` runs process even class numbers (last digit: 0, 2, 4, 6, 8)
@@ -130,12 +179,19 @@ const sent = await hasNotificationBeenSent(watchId, type); // ❌
 
 ## Environment Variables
 
-**Required (set as Cloudflare secrets):**
+**Required for production:**
+- `REDIS_URL` - Upstash Redis URL (rediss://... for TLS)
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` - Bypasses RLS for service operations
 - `SCRAPER_URL`, `SCRAPER_SECRET_TOKEN` - Scraper service authentication
 - `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` - Email service
 - `CRON_SECRET` - Authenticates internal cron/queue requests
+
+**Optional:**
+- `PORT` - Server port (default: 3000)
+- `NODE_ENV` - Environment (production/development)
+- `DEPLOY_BRANCH` - Git branch for deployment script (default: main)
+- `DOMAIN` - Domain for Caddy (default: localhost)
 
 **Build Handling:** Supabase clients use placeholders when env vars unavailable during build. Scraper/email services gracefully skip operations when not configured.
 
@@ -157,16 +213,35 @@ User must log out and back in for admin status to take effect.
 **Build fails with missing Supabase credentials**
 - Ensure placeholder logic in `lib/supabase/client.ts` and `lib/supabase/server.ts` is intact
 
-**Cloudflare Workers compatibility**
-- Test new dependencies with `bun run preview` before deploying
-- Uses `nodejs_compat` flag for Node.js API support
+**Redis connection fails**
+- Verify `REDIS_URL` is set correctly
+- For Upstash, use `rediss://` protocol (TLS)
+- For local Redis, use `redis://localhost:6379`
 
-**Cron triggers not deploying**
-- `bun run deploy` includes `wrangler triggers deploy` automatically
-- Verify in Cloudflare Dashboard → Workers → Triggers
+**PM2 not restarting on file changes**
+- Watch is disabled in production; use `./scripts/deploy.sh` for updates
+
+**Cron not running**
+- Check PM2 logs: `pm2 logs pickmyclass`
+- Verify scheduler started in server logs
+- Manual trigger: `curl -H "Authorization: Bearer $CRON_SECRET" localhost:3000/api/cron`
 
 ## Monitoring
 
-- **Health endpoint:** `GET /api/monitoring/health` - DB, circuit breaker, email service status
+- **Health endpoint:** `GET /api/monitoring/health` - Redis, queue stats, circuit breaker, cron lock status
 - **Scraper status:** `GET <your-scraper-url>/status` - Browser pool metrics
-- **Queue metrics:** Cloudflare Dashboard → Queues → class-check-queue
+- **PM2 monitoring:** `pm2 monit` - Real-time CPU/memory/logs
+- **Queue metrics:** Via health endpoint (waiting, active, completed, failed counts)
+
+## VPS Deployment Checklist
+
+1. [ ] Provision Oracle Cloud A1 instance (1GB RAM, 1 OCPU)
+2. [ ] Run `./scripts/setup-vps.sh` to install dependencies
+3. [ ] Clone repository
+4. [ ] Configure `.env` with all required variables
+5. [ ] Set up Upstash Redis (or local Redis)
+6. [ ] Configure Caddy with domain: `DOMAIN=yourdomain.com caddy run --config Caddyfile`
+7. [ ] Run `./scripts/deploy.sh`
+8. [ ] Verify health endpoint: `curl https://yourdomain.com/api/monitoring/health`
+9. [ ] Update DNS to point to VPS
+10. [ ] Monitor for 24 hours

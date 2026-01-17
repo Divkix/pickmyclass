@@ -1,11 +1,16 @@
 /**
  * System Health and Monitoring Endpoint
  *
- * Provides real-time system status including circuit breakers, database, and scraper.
+ * Provides real-time system status including Redis, queue, circuit breaker,
+ * cron scheduler, and database status.
  */
 
-import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { NextResponse } from 'next/server';
+import { getSchedulerStatus } from '@/lib/cron/scheduler';
+import { getQueueStats } from '@/lib/queue/queues';
+import { getCircuitBreaker } from '@/lib/redis/circuit-breaker';
+import { isRedisConnected } from '@/lib/redis/client';
+import { getStatus as getCronLockStatus } from '@/lib/redis/cron-lock';
 import { getServiceClient } from '@/lib/supabase/service';
 
 /**
@@ -32,7 +37,26 @@ export async function GET() {
     checks: {},
   };
 
-  // 1. Check Database Connection
+  // 1. Check Redis Connection
+  try {
+    const redisConnected = isRedisConnected();
+    health.checks.redis = {
+      status: redisConnected ? 'healthy' : 'unhealthy',
+      connected: redisConnected,
+    };
+
+    if (!redisConnected) {
+      health.status = 'unhealthy';
+    }
+  } catch (error) {
+    health.checks.redis = {
+      status: 'unhealthy',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+    health.status = 'unhealthy';
+  }
+
+  // 2. Check Database Connection
   try {
     const supabase = getServiceClient();
     const { error } = await supabase.from('class_watches').select('id').limit(1);
@@ -57,97 +81,107 @@ export async function GET() {
     health.status = 'unhealthy';
   }
 
-  // 2. Check Scraper Circuit Breaker (Durable Object)
+  // 3. Check Queue Metrics
   try {
-    const context = await getCloudflareContext();
-    const env = context.env as unknown as {
-      CIRCUIT_BREAKER_DO?: DurableObjectNamespace;
-      CRON_LOCK_DO?: DurableObjectNamespace;
+    const queueStats = await getQueueStats();
+
+    health.checks.queue = {
+      status: 'healthy',
+      type: 'bullmq',
+      waiting: queueStats.waiting,
+      active: queueStats.active,
+      completed: queueStats.completed,
+      failed: queueStats.failed,
+      delayed: queueStats.delayed,
+      paused: queueStats.paused,
     };
-
-    if (env?.CIRCUIT_BREAKER_DO) {
-      const doId = env.CIRCUIT_BREAKER_DO.idFromName('scraper-circuit-breaker');
-      const circuitBreakerStub = env.CIRCUIT_BREAKER_DO.get(doId);
-
-      const statusResponse = await circuitBreakerStub.fetch('http://do/status');
-      const cbStatus = (await statusResponse.json()) as {
-        state: string;
-        failureCount: number;
-        successCount: number;
-        lastFailureTime: number | null;
-        lastStateChange: number;
-      };
-
-      health.checks.circuit_breaker = {
-        status:
-          cbStatus.state === 'CLOSED'
-            ? 'healthy'
-            : cbStatus.state === 'HALF_OPEN'
-              ? 'degraded'
-              : 'unhealthy',
-        type: 'durable_object',
-        state: cbStatus.state,
-        failure_count: cbStatus.failureCount,
-        success_count: cbStatus.successCount,
-        last_failure: cbStatus.lastFailureTime
-          ? new Date(cbStatus.lastFailureTime).toISOString()
-          : null,
-        last_state_change: new Date(cbStatus.lastStateChange).toISOString(),
-      };
-
-      if (cbStatus.state === 'OPEN') {
-        health.status = 'degraded';
-      }
-    } else {
-      health.checks.circuit_breaker = {
-        status: 'not_configured',
-        type: 'durable_object',
-        message: 'CIRCUIT_BREAKER_DO binding not available',
-      };
-    }
-
-    // 2b. Check Cron Lock Status
-    if (env?.CRON_LOCK_DO) {
-      const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock');
-      const lockStub = env.CRON_LOCK_DO.get(lockId);
-
-      const lockStatusResponse = await lockStub.fetch('http://do/status');
-      const lockStatus = (await lockStatusResponse.json()) as {
-        locked: boolean;
-        lockHolder: string | null;
-        lockAcquiredAt: number | null;
-        timeHeldMs: number | null;
-        expiresAt: number | null;
-      };
-
-      health.checks.cron_lock = {
-        status: 'healthy',
-        type: 'durable_object',
-        locked: lockStatus.locked,
-        lock_holder: lockStatus.lockHolder,
-        time_held_ms: lockStatus.timeHeldMs,
-        lock_acquired_at: lockStatus.lockAcquiredAt
-          ? new Date(lockStatus.lockAcquiredAt).toISOString()
-          : null,
-        expires_at: lockStatus.expiresAt ? new Date(lockStatus.expiresAt).toISOString() : null,
-      };
-    } else {
-      health.checks.cron_lock = {
-        status: 'not_configured',
-        type: 'durable_object',
-        message: 'CRON_LOCK_DO binding not available',
-      };
-    }
   } catch (error) {
-    health.checks.circuit_breaker = {
+    health.checks.queue = {
       status: 'unhealthy',
-      type: 'durable_object',
+      type: 'bullmq',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
     health.status = 'degraded';
   }
 
-  // 3. Check Environment Configuration
+  // 4. Check Circuit Breaker Status
+  try {
+    const circuitBreaker = getCircuitBreaker();
+    const cbStatus = await circuitBreaker.getStatus();
+
+    health.checks.circuit_breaker = {
+      status:
+        cbStatus.state === 'CLOSED'
+          ? 'healthy'
+          : cbStatus.state === 'HALF_OPEN'
+            ? 'degraded'
+            : 'unhealthy',
+      type: 'redis',
+      state: cbStatus.state,
+      failure_count: cbStatus.failureCount,
+      success_count: cbStatus.successCount,
+      last_failure: cbStatus.lastFailureTime
+        ? new Date(cbStatus.lastFailureTime).toISOString()
+        : null,
+      last_state_change: new Date(cbStatus.lastStateChange).toISOString(),
+    };
+
+    if (cbStatus.state === 'OPEN') {
+      health.status = 'degraded';
+    }
+  } catch (error) {
+    health.checks.circuit_breaker = {
+      status: 'unhealthy',
+      type: 'redis',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+    health.status = 'degraded';
+  }
+
+  // 5. Check Cron Lock Status
+  try {
+    const lockStatus = await getCronLockStatus();
+
+    health.checks.cron_lock = {
+      status: 'healthy',
+      type: 'redis',
+      locked: lockStatus.locked,
+      lock_holder: lockStatus.lockHolder,
+      time_held_ms: lockStatus.timeHeldMs,
+      lock_acquired_at: lockStatus.lockAcquiredAt
+        ? new Date(lockStatus.lockAcquiredAt).toISOString()
+        : null,
+      expires_at: lockStatus.expiresAt ? new Date(lockStatus.expiresAt).toISOString() : null,
+    };
+  } catch (error) {
+    health.checks.cron_lock = {
+      status: 'unhealthy',
+      type: 'redis',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+    health.status = 'degraded';
+  }
+
+  // 6. Check Scheduler Status
+  try {
+    const schedulerStatus = getSchedulerStatus();
+
+    health.checks.scheduler = {
+      status: schedulerStatus.running ? 'healthy' : 'not_running',
+      type: 'node-cron',
+      running: schedulerStatus.running,
+      schedule: schedulerStatus.schedule,
+      timezone: schedulerStatus.timezone,
+    };
+  } catch (error) {
+    health.checks.scheduler = {
+      status: 'unhealthy',
+      type: 'node-cron',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+
+  // 7. Check Environment Configuration
   const requiredEnvVars = [
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
@@ -155,6 +189,7 @@ export async function GET() {
     'SCRAPER_URL',
     'SCRAPER_SECRET_TOKEN',
     'CRON_SECRET',
+    'REDIS_URL',
   ];
 
   const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key]);
@@ -168,13 +203,13 @@ export async function GET() {
     health.status = 'unhealthy';
   }
 
-  // 4. Check Optional Services
+  // 8. Check Optional Services
   health.checks.email = {
     status: process.env.RESEND_API_KEY ? 'healthy' : 'not_configured',
     configured: !!process.env.RESEND_API_KEY,
   };
 
-  // 5. Overall Response Time
+  // 9. Overall Response Time
   health.response_time_ms = Date.now() - startTime;
 
   // Return appropriate status code

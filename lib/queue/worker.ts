@@ -1,16 +1,25 @@
 /**
- * Queue Message Processor - Process Single Class Section
+ * BullMQ Queue Worker
  *
- * This route is called by the queue consumer Worker for each message.
- * It processes a single section: scrape → detect changes → send emails → update DB
+ * Processes class-check jobs from the queue. Ported from the Cloudflare Worker
+ * implementation at app/api/queue/process-section/route.ts.
+ *
+ * Job Processing Flow:
+ * 1. Fetch old state from database
+ * 2. Call scraper with circuit breaker protection
+ * 3. Detect changes (seat availability, instructor)
+ * 4. Send email notifications via Resend
+ * 5. Update state in database
  */
 
-import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { type NextRequest, NextResponse } from 'next/server';
+import { type Job, Worker } from 'bullmq';
 import { resetNotificationsForSection, tryRecordNotification } from '@/lib/db/queries';
 import { type ClassInfo, sendBatchEmailsOptimized } from '@/lib/email/resend';
+import { CircuitState, getCircuitBreaker } from '@/lib/redis/circuit-breaker';
 import { getServiceClient } from '@/lib/supabase/service';
-import type { ClassCheckMessage } from '@/lib/types/queue';
+import { QUEUE_NAMES, WORKER_CONFIG } from './config';
+import { getConnectionOptions } from './queues';
+import type { ClassCheckJobData, ClassCheckJobResult } from './types';
 
 /**
  * Interface for scraper response
@@ -32,30 +41,29 @@ interface ScraperResponse {
 }
 
 /**
+ * Singleton worker instance
+ */
+let worker: Worker<ClassCheckJobData, ClassCheckJobResult, string> | null = null;
+
+/**
  * Fetch class details from scraper service with circuit breaker protection
  *
- * Uses Durable Object circuit breaker for distributed coordination across
- * all Worker isolates. This prevents cascading failures when the scraper
- * is overloaded or down.
+ * Uses Redis-based circuit breaker for distributed coordination.
  */
 async function fetchClassDetailsWithCircuitBreaker(
   sectionNumber: string,
-  term: string,
-  circuitBreakerStub: DurableObjectStub
+  term: string
 ): Promise<ScraperResponse> {
+  const circuitBreaker = getCircuitBreaker();
+
   // Check circuit breaker state
-  const checkResponse = await circuitBreakerStub.fetch('http://do/check');
-  const checkResult = (await checkResponse.json()) as {
-    allowed: boolean;
-    state: string;
-    message?: string;
-  };
+  const checkResult = await circuitBreaker.checkState();
 
   if (!checkResult.allowed) {
-    console.warn(`[Queue-Processor] Circuit breaker is OPEN: ${checkResult.message}`);
+    console.warn(`[Worker] Circuit breaker is ${checkResult.state}: ${checkResult.message}`);
     return {
       success: false,
-      error: checkResult.message || 'Circuit breaker is OPEN',
+      error: checkResult.message || `Circuit breaker is ${checkResult.state}`,
     };
   }
 
@@ -89,112 +97,71 @@ async function fetchClassDetailsWithCircuitBreaker(
     const result = (await response.json()) as ScraperResponse;
 
     // Record success in circuit breaker
-    await circuitBreakerStub.fetch('http://do/success', {
-      method: 'POST',
-    });
+    await circuitBreaker.recordSuccess();
 
     return result;
   } catch (error) {
     // Record failure in circuit breaker
-    await circuitBreakerStub.fetch('http://do/failure', {
-      method: 'POST',
-    });
+    await circuitBreaker.recordFailure();
 
     throw error;
   }
 }
 
 /**
- * Process a single class section message from the queue
+ * Get open seats, preferring non-reserved seats when available
  */
-export async function POST(request: NextRequest) {
+function getOpenSeats(nonReserved: number | null | undefined, totalAvailable: number): number {
+  return nonReserved ?? totalAvailable;
+}
+
+/**
+ * Process a single class check job
+ *
+ * This is the main job processor that mirrors the logic from
+ * app/api/queue/process-section/route.ts
+ */
+async function processClassCheckJob(
+  job: Job<ClassCheckJobData, ClassCheckJobResult, string>
+): Promise<ClassCheckJobResult> {
   const startTime = Date.now();
+  const { classNbr, term } = job.data;
+
+  console.log(`[Worker] Processing section ${classNbr} (term: ${term}) - Job ${job.id}`);
 
   try {
-    // Authentication: Require CRON_SECRET Bearer token
-    const authHeader = request.headers.get('authorization');
-    const expectedSecret = process.env.CRON_SECRET;
-
-    if (!expectedSecret) {
-      console.error('[Queue-Processor] CRON_SECRET not configured');
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Server configuration error',
-        },
-        { status: 500 }
-      );
-    }
-
-    const isAuthorized = authHeader === `Bearer ${expectedSecret}`;
-
-    if (!isAuthorized) {
-      console.warn('[Queue-Processor] Unauthorized request');
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Unauthorized',
-        },
-        { status: 401 }
-      );
-    }
-
-    // Parse message body
-    const message: ClassCheckMessage = await request.json();
-    const { class_nbr, term } = message;
-
-    console.log(`[Queue-Processor] Processing section ${class_nbr} (term: ${term})`);
-
-    // Get Cloudflare context and circuit breaker DO stub
-    const { env } = await getCloudflareContext<{
-      CIRCUIT_BREAKER_DO: DurableObjectNamespace;
-    }>();
-
-    if (!env?.CIRCUIT_BREAKER_DO) {
-      console.error('[Queue-Processor] CIRCUIT_BREAKER_DO binding not available');
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Circuit breaker not configured',
-        },
-        { status: 500 }
-      );
-    }
-
-    // Get Durable Object stub for scraper circuit breaker
-    const doId = env.CIRCUIT_BREAKER_DO.idFromName('scraper-circuit-breaker');
-    const circuitBreakerStub = env.CIRCUIT_BREAKER_DO.get(doId);
-
     const serviceClient = getServiceClient();
 
     // Step 1: Fetch OLD state from database
     const { data: oldState, error: stateError } = await serviceClient
       .from('class_states')
       .select('*')
-      .eq('class_nbr', class_nbr)
+      .eq('class_nbr', classNbr)
       .single();
 
     if (stateError && stateError.code !== 'PGRST116') {
-      console.error(`[Queue-Processor] Error fetching old state for ${class_nbr}:`, stateError);
+      console.error(`[Worker] Error fetching old state for ${classNbr}:`, stateError);
     }
 
     // Step 2: Fetch latest data from scraper with circuit breaker protection
-    const scraperResponse = await fetchClassDetailsWithCircuitBreaker(
-      class_nbr,
-      term,
-      circuitBreakerStub
-    );
+    const scraperResponse = await fetchClassDetailsWithCircuitBreaker(classNbr, term);
 
     if (!scraperResponse.success || !scraperResponse.data) {
       const error = scraperResponse.error || 'Unknown error';
-      console.error(`[Queue-Processor] Failed to scrape ${class_nbr}: ${error}`);
+      console.error(`[Worker] Failed to scrape ${classNbr}: ${error}`);
 
-      // If circuit breaker is OPEN, return 503 Service Unavailable
-      if (error.includes('Circuit breaker is OPEN')) {
-        return NextResponse.json({ success: false, error }, { status: 503 });
+      // If circuit breaker is OPEN, throw to trigger retry later
+      const circuitBreaker = getCircuitBreaker();
+      const status = await circuitBreaker.getStatus();
+      if (status.state === CircuitState.OPEN) {
+        throw new Error(`Circuit breaker is OPEN: ${error}`);
       }
 
-      return NextResponse.json({ success: false, error }, { status: 500 });
+      return {
+        success: false,
+        classNbr,
+        error,
+      };
     }
 
     const newData = scraperResponse.data;
@@ -203,13 +170,6 @@ export async function POST(request: NextRequest) {
     let seatsFilled = false;
     let seatBecameAvailable = false;
     let instructorAssigned = false;
-
-    const getOpenSeats = (
-      nonReserved: number | null | undefined,
-      totalAvailable: number
-    ): number => {
-      return nonReserved ?? totalAvailable;
-    };
 
     if (oldState) {
       const oldOpenSeats = getOpenSeats(oldState.non_reserved_seats, oldState.seats_available);
@@ -221,7 +181,7 @@ export async function POST(request: NextRequest) {
 
       if (oldOpenSeats === 0 && newOpenSeats > 0) {
         seatBecameAvailable = true;
-        console.log(`[Queue-Processor] 🎉 Seat available in ${class_nbr}: ${newOpenSeats} seats`);
+        console.log(`[Worker] Seat available in ${classNbr}: ${newOpenSeats} seats`);
       }
 
       if (
@@ -230,38 +190,36 @@ export async function POST(request: NextRequest) {
         newData.instructor !== 'Staff'
       ) {
         instructorAssigned = true;
-        console.log(
-          `[Queue-Processor] 👨‍🏫 Instructor assigned in ${class_nbr}: ${newData.instructor}`
-        );
+        console.log(`[Worker] Instructor assigned in ${classNbr}: ${newData.instructor}`);
       }
     }
 
     // Step 3A: Reset notifications if seats filled
     if (seatsFilled) {
-      await resetNotificationsForSection(class_nbr, 'seat_available');
+      await resetNotificationsForSection(classNbr, 'seat_available');
     }
 
     // Step 4: Send notifications if changes detected
     let emailsSent = 0;
     if (seatBecameAvailable || instructorAssigned) {
-      // Get watchers for this section using the NEW get_watchers_for_sections function
+      // Get watchers for this section using the get_watchers_for_sections function
       const { data: watchers, error: watchersError } = await serviceClient.rpc(
         'get_watchers_for_sections',
         {
-          section_numbers: [class_nbr],
+          section_numbers: [classNbr],
         }
       );
 
       if (watchersError) {
-        console.error(`[Queue-Processor] Error fetching watchers:`, watchersError);
+        console.error(`[Worker] Error fetching watchers:`, watchersError);
       } else if (watchers && watchers.length > 0) {
-        console.log(`[Queue-Processor] Found ${watchers.length} watchers for ${class_nbr}`);
+        console.log(`[Worker] Found ${watchers.length} watchers for ${classNbr}`);
 
         const classInfo: ClassInfo = {
           term,
           subject: newData.subject,
           catalog_nbr: newData.catalog_nbr,
-          class_nbr,
+          class_nbr: classNbr,
           title: newData.title,
           instructor_name: newData.instructor,
           seats_available: newData.seats_available ?? 0,
@@ -272,7 +230,6 @@ export async function POST(request: NextRequest) {
         };
 
         // Prepare batch email list using ATOMIC notification check
-        // This eliminates race conditions in parallel processing
         const emailsToSend: Array<{
           to: string;
           userId: string;
@@ -280,12 +237,9 @@ export async function POST(request: NextRequest) {
           type: 'seat_available' | 'instructor_assigned';
         }> = [];
 
-        // CRITICAL FIX: Use atomic check BEFORE building email list
-        // Previously: check-then-send pattern allowed duplicates
-        // Now: tryRecordNotification() atomically claims the notification slot
+        // Use atomic check-and-record to prevent duplicate notifications
         for (const watcher of watchers) {
           if (seatBecameAvailable) {
-            // Atomic check-and-record: only returns true if this worker claimed the slot
             const shouldSend = await tryRecordNotification(watcher.watch_id, 'seat_available');
             if (shouldSend) {
               emailsToSend.push({
@@ -298,7 +252,6 @@ export async function POST(request: NextRequest) {
           }
 
           if (instructorAssigned) {
-            // Atomic check-and-record: only returns true if this worker claimed the slot
             const shouldSend = await tryRecordNotification(watcher.watch_id, 'instructor_assigned');
             if (shouldSend) {
               emailsToSend.push({
@@ -315,16 +268,16 @@ export async function POST(request: NextRequest) {
         if (emailsToSend.length > 0) {
           const results = await sendBatchEmailsOptimized(emailsToSend);
 
-          // Count successful sends (notifications already recorded via tryRecordNotification)
+          // Count successful sends
           emailsSent = results.filter((r) => r.success).length;
 
           const failed = results.filter((r) => !r.success).length;
           if (failed > 0) {
             console.warn(
-              `[Queue-Processor] ⚠️  ${failed} emails failed for ${class_nbr} (${emailsSent} succeeded)`
+              `[Worker] ${failed} emails failed for ${classNbr} (${emailsSent} succeeded)`
             );
           } else {
-            console.log(`[Queue-Processor] ✉️  Sent ${emailsSent} emails for ${class_nbr}`);
+            console.log(`[Worker] Sent ${emailsSent} emails for ${classNbr}`);
           }
         }
       }
@@ -335,7 +288,7 @@ export async function POST(request: NextRequest) {
       term,
       subject: newData.subject,
       catalog_nbr: newData.catalog_nbr,
-      class_nbr,
+      class_nbr: classNbr,
       title: newData.title,
       instructor_name: newData.instructor,
       seats_available: newData.seats_available ?? 0,
@@ -351,35 +304,121 @@ export async function POST(request: NextRequest) {
     });
 
     if (upsertError) {
-      console.error(`[Queue-Processor] Database error for ${class_nbr}:`, upsertError);
-      return NextResponse.json({ success: false, error: upsertError.message }, { status: 500 });
+      console.error(`[Worker] Database error for ${classNbr}:`, upsertError);
+      throw new Error(`Database error: ${upsertError.message}`);
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[Queue-Processor] ✅ Completed ${class_nbr} in ${duration}ms`);
+    console.log(`[Worker] Completed ${classNbr} in ${duration}ms`);
 
-    return NextResponse.json({
+    return {
       success: true,
-      class_nbr,
-      changes_detected: {
-        seat_became_available: seatBecameAvailable,
-        instructor_assigned: instructorAssigned,
-      },
-      emails_sent: emailsSent,
-      processing_time_ms: duration,
-    });
+      classNbr,
+      seatsAvailable: seatBecameAvailable,
+      notificationsSent: emailsSent,
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const duration = Date.now() - startTime;
-    console.error(`[Queue-Processor] Error (${duration}ms):`, errorMessage);
+    console.error(`[Worker] Error processing ${classNbr} (${duration}ms):`, errorMessage);
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: errorMessage,
-        processing_time_ms: duration,
-      },
-      { status: 500 }
-    );
+    // Re-throw to trigger BullMQ retry mechanism
+    throw error;
   }
+}
+
+/**
+ * Start the queue worker
+ *
+ * Creates a BullMQ Worker that processes class-check jobs with
+ * the configured concurrency.
+ */
+export function startWorker(): Worker<ClassCheckJobData, ClassCheckJobResult, string> {
+  if (worker) {
+    console.log('[Worker] Worker already running');
+    return worker;
+  }
+
+  try {
+    const connection = getConnectionOptions();
+
+    worker = new Worker<ClassCheckJobData, ClassCheckJobResult, string>(
+      QUEUE_NAMES.CLASS_CHECK,
+      processClassCheckJob,
+      {
+        connection,
+        ...WORKER_CONFIG,
+      }
+    );
+
+    // Event handlers for logging
+    worker.on('completed', (job, result) => {
+      console.log(
+        `[Worker] Job ${job.id} completed: section ${result.classNbr}, ` +
+          `seats=${result.seatsAvailable}, notifications=${result.notificationsSent}`
+      );
+    });
+
+    worker.on('failed', (job, error) => {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(
+        `[Worker] Job ${job?.id} failed: ${errorMsg}`,
+        job ? `(attempt ${job.attemptsMade}/${job.opts.attempts})` : ''
+      );
+    });
+
+    worker.on('error', (error) => {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[Worker] Worker error: ${errorMsg}`);
+    });
+
+    worker.on('stalled', (jobId) => {
+      console.warn(`[Worker] Job ${jobId} stalled - will be retried`);
+    });
+
+    console.log(
+      `[Worker] Started worker for ${QUEUE_NAMES.CLASS_CHECK} ` +
+        `(concurrency: ${WORKER_CONFIG.concurrency})`
+    );
+
+    return worker;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[Worker] Error starting worker: ${errorMsg}`);
+    throw error;
+  }
+}
+
+/**
+ * Stop the queue worker gracefully
+ *
+ * Waits for currently processing jobs to complete before closing.
+ */
+export async function stopWorker(): Promise<void> {
+  if (!worker) {
+    console.log('[Worker] No worker running');
+    return;
+  }
+
+  try {
+    console.log('[Worker] Stopping worker...');
+
+    // Close the worker, waiting for current jobs to finish
+    await worker.close();
+
+    console.log('[Worker] Worker stopped');
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[Worker] Error stopping worker: ${errorMsg}`);
+    // Don't re-throw - shutdown should continue
+  } finally {
+    worker = null;
+  }
+}
+
+/**
+ * Get the current worker instance (for testing/monitoring)
+ */
+export function getWorker(): Worker<ClassCheckJobData, ClassCheckJobResult, string> | null {
+  return worker;
 }

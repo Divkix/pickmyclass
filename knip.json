@@ -13,7 +13,7 @@
       "middleware.ts"
     ]
   },
-  "entry": ["worker.ts", "open-next.config.ts"],
+  "entry": [],
   "project": ["**/*.{ts,tsx}"],
   "ignore": [
     ".next/**",
