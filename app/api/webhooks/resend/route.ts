@@ -65,13 +65,16 @@ async function getUserIdFromEmail(email: string): Promise<string | null> {
 
   const normalizedEmail = email.trim().toLowerCase();
 
-  // biome-ignore lint/suspicious/noExplicitAny: auth schema accessible via service role but not in generated types
-  const { data: user, error } = await (supabase as any)
+  // Query auth.users table via service role
+  // Uses 'as any' cast because generated types only include public/graphql_public schemas,
+  // but auth schema is accessible via service role client
+  // biome-ignore lint/suspicious/noExplicitAny: Supabase generated types don't expose auth schema
+  const { data: user, error } = (await (supabase as any)
     .schema('auth')
     .from('users')
     .select('id')
     .eq('email', normalizedEmail)
-    .maybeSingle();
+    .maybeSingle()) as { data: { id: string } | null; error: Error | null };
 
   if (error || !user?.id) {
     console.warn(`[Resend Webhook] User not found for email: ${normalizedEmail}`);

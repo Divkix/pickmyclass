@@ -71,10 +71,11 @@ interface NotificationCountByUserRow {
 async function fetchAllAuthUsers(): Promise<User[]> {
   const supabase = getServiceClient();
   const perPage = 1000;
+  const maxPages = 50; // Cap at 50,000 users
   let page = 1;
   const users: User[] = [];
 
-  while (true) {
+  while (page <= maxPages) {
     const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
 
     if (error) {
@@ -90,6 +91,10 @@ async function fetchAllAuthUsers(): Promise<User[]> {
     }
 
     page += 1;
+  }
+
+  if (page > maxPages) {
+    console.warn(`[Admin] User fetch capped at ${maxPages * perPage} users`);
   }
 
   return users;

@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type NextFunction, type Request, type Response } from 'express';
@@ -7,6 +8,7 @@ import { CircuitBreaker } from './circuit-breaker.js';
 import { HealthMonitor } from './health-monitor.js';
 import { RequestQueue } from './queue.js';
 import {
+  browserPool,
   getBrowserStatus,
   isValidSectionNumber,
   isValidTerm,
@@ -33,7 +35,7 @@ const healthMonitor = new HealthMonitor({
   checkInterval: 60000, // Check every 60 seconds
   memoryLeakThreshold: 10, // Alert if growing > 10 MB/min
   onUnhealthy: (reason, metrics) => {
-    console.error(`[HealthMonitor] ⚠️  UNHEALTHY: ${reason}`);
+    console.error(`[HealthMonitor] UNHEALTHY: ${reason}`);
     console.error(`[HealthMonitor] Memory: ${metrics.memoryUsage.rss}MB RSS`);
   },
 });
@@ -48,6 +50,19 @@ const SECRET_TOKEN = process.env.SECRET_TOKEN;
 
 if (!SECRET_TOKEN) {
   console.warn('[Warning] SECRET_TOKEN not set in environment - authentication will fail');
+}
+
+/**
+ * Constant-time token comparison to prevent timing attacks
+ * Uses crypto.timingSafeEqual to ensure comparison time is constant
+ * regardless of where the mismatch occurs in the string
+ */
+function validateToken(token: string): boolean {
+  if (!SECRET_TOKEN) return false;
+  const tokenBuffer = Buffer.from(token);
+  const secretBuffer = Buffer.from(SECRET_TOKEN);
+  if (tokenBuffer.length !== secretBuffer.length) return false;
+  return timingSafeEqual(tokenBuffer, secretBuffer);
 }
 
 // Middleware
@@ -85,6 +100,7 @@ app.use(limiter);
 /**
  * Authentication middleware
  * Checks for Bearer token in Authorization header
+ * Uses constant-time comparison to prevent timing attacks
  */
 const authenticate = (req: Request, res: Response, next: NextFunction): void => {
   const authHeader = req.headers.authorization;
@@ -101,7 +117,7 @@ const authenticate = (req: Request, res: Response, next: NextFunction): void => 
 
   const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
-  if (token !== SECRET_TOKEN) {
+  if (!validateToken(token)) {
     console.warn('[Auth] Unauthorized access attempt with invalid token');
     res.status(401).json({ error: 'Invalid token' });
     return;
@@ -367,21 +383,20 @@ const server = app.listen(PORT, () => {
 // Set server timeout (60 seconds for scrape operations)
 server.timeout = 60000; // 60 seconds
 
-// Graceful shutdown on SIGTERM/SIGINT
-process.on('SIGTERM', () => {
-  console.log('[Server] SIGTERM received, shutting down gracefully...');
+/**
+ * Graceful shutdown handler
+ * Consolidated in index.ts to avoid race conditions from duplicate handlers in scraper.ts
+ * Order: stop health monitor -> close browser pool -> close server
+ */
+const gracefulShutdown = async (signal: string) => {
+  console.log(`[Server] ${signal} received, shutting down gracefully...`);
   healthMonitor.stop();
+  await browserPool.close();
   server.close(() => {
-    console.log('[Server] Server closed');
+    console.log('[Server] Shutdown complete');
     process.exit(0);
   });
-});
+};
 
-process.on('SIGINT', () => {
-  console.log('[Server] SIGINT received, shutting down gracefully...');
-  healthMonitor.stop();
-  server.close(() => {
-    console.log('[Server] Server closed');
-    process.exit(0);
-  });
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

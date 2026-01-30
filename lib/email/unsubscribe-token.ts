@@ -12,7 +12,10 @@ import { createHmac } from 'node:crypto';
  * Uses SUPABASE_SERVICE_ROLE_KEY as the signing secret
  */
 function getSigningSecret(): string {
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev-secret-key';
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set. Required for HMAC token signing.');
+  }
   return secret;
 }
 

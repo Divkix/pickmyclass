@@ -167,6 +167,23 @@ class BrowserPool {
   }
 
   /**
+   * Remove a crashed browser from the pool
+   * Called when browser.isConnected() returns false
+   */
+  removeBrowser(browser: Browser): void {
+    const index = this.browsers.indexOf(browser);
+    if (index > -1) {
+      this.browsers.splice(index, 1);
+    }
+    // Also remove from available browsers if present
+    const availableIndex = this.availableBrowsers.indexOf(browser);
+    if (availableIndex > -1) {
+      this.availableBrowsers.splice(availableIndex, 1);
+    }
+    console.log(`[BrowserPool] Removed crashed browser. Pool size: ${this.browsers.length}`);
+  }
+
+  /**
    * Launch headless Chromium with optimized settings
    * Increased timeout to 60s for reliable initialization on slower servers
    */
@@ -247,23 +264,8 @@ class BrowserPool {
   }
 }
 
-// Global browser pool instance
-const browserPool = new BrowserPool();
-
-/**
- * Cleanup browser on process termination
- */
-process.on('SIGINT', async () => {
-  console.log('\n[Process] SIGINT received, cleaning up...');
-  await browserPool.close();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  console.log('\n[Process] SIGTERM received, cleaning up...');
-  await browserPool.close();
-  process.exit(0);
-});
+// Global browser pool instance - exported for consolidated shutdown handling in index.ts
+export const browserPool = new BrowserPool();
 
 /**
  * Configure page for optimized scraping
@@ -364,9 +366,9 @@ export async function scrapeClassSection(
     // Check if the results container exists
     const hasResults = await page.evaluate(() => {
       const resultsContainer = document.querySelector('.class-results-rows');
-      console.log(`Results container found: ${!!resultsContainer}`);
       return !!resultsContainer;
     });
+    console.log(`[Scraper] Results container found: ${hasResults}`);
 
     if (!hasResults) {
       // No results container found - check for "no results" message
@@ -594,9 +596,15 @@ export async function scrapeClassSection(
       console.error('[Scraper] Error closing page (non-fatal):', closeError);
     }
 
-    // ALWAYS release browser back to pool (even if page.close failed or timed out)
-    browserPool.releaseBrowser(browser);
-    console.log('[Scraper] Browser released to pool');
+    // Check if browser is still connected before releasing
+    // If browser crashed, remove it from pool instead of releasing
+    if (browser.connected) {
+      browserPool.releaseBrowser(browser);
+      console.log('[Scraper] Browser released to pool');
+    } else {
+      console.error('[BrowserPool] Browser crashed - removing from pool');
+      browserPool.removeBrowser(browser);
+    }
   }
 }
 

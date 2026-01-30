@@ -465,7 +465,7 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
     this.lockHolder = holder;
     await this.persist();
 
-    console.log(`[CronLockDO] ✅ Lock acquired by ${holder}`);
+    console.log(`[CronLockDO] Lock acquired by ${holder}`);
 
     return {
       acquired: true,
@@ -509,7 +509,7 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
     this.lockHolder = null;
     await this.persist();
 
-    console.log(`[CronLockDO] ✅ Lock released by ${holder} after ${Math.floor(timeHeld / 1000)}s`);
+    console.log(`[CronLockDO] Lock released by ${holder} after ${Math.floor(timeHeld / 1000)}s`);
 
     return {
       released: true,
@@ -555,7 +555,7 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
    * Force release lock (admin/testing only)
    */
   async forceRelease(): Promise<void> {
-    console.log(`[CronLockDO] ⚠️  Force release requested`);
+    console.log(`[CronLockDO] Force release requested`);
     this.locked = false;
     this.lockAcquiredAt = null;
     this.lockHolder = null;
@@ -651,7 +651,7 @@ export default {
   /**
    * Queue consumer handler - processes class section check messages
    *
-   * Receives batches of up to 10 messages (configured in wrangler.jsonc)
+   * Receives batches of up to 5 messages (configured in wrangler.jsonc)
    * Each message represents a single section to check for changes.
    */
   async queue(
@@ -690,10 +690,10 @@ export default {
           const duration = Date.now() - msgStartTime;
 
           if (response.ok) {
-            console.log(`[Queue] ✅ Processed ${message.body.class_nbr} in ${duration}ms:`, result);
+            console.log(`[Queue] Processed ${message.body.class_nbr} in ${duration}ms:`, result);
             message.ack(); // Acknowledge successful processing
           } else {
-            console.error(`[Queue] ❌ Failed ${message.body.class_nbr} in ${duration}ms:`, result);
+            console.error(`[Queue] Failed ${message.body.class_nbr} in ${duration}ms:`, result);
             message.retry(); // Retry on failure
           }
 
@@ -701,7 +701,7 @@ export default {
         } catch (error) {
           const duration = Date.now() - msgStartTime;
           console.error(
-            `[Queue] ❌ Error processing ${message.body.class_nbr} in ${duration}ms:`,
+            `[Queue] Error processing ${message.body.class_nbr} in ${duration}ms:`,
             error
           );
           message.retry(); // Retry on error
