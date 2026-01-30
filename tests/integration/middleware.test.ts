@@ -29,11 +29,21 @@ const setupMockChain = () => {
 // Import middleware after mocks are set up
 import middleware from '@/middleware';
 
-// Helper to create NextRequest
+// Helper to create NextRequest (unauthenticated)
 const createRequest = (pathname: string): NextRequest => {
   return new NextRequest(new URL(pathname, 'http://localhost:3000'), {
     headers: new Headers({
       cookie: '',
+    }),
+  });
+};
+
+// Helper to create NextRequest with auth cookies (authenticated)
+// This bypasses the early-exit optimization in middleware for public routes
+const createAuthenticatedRequest = (pathname: string): NextRequest => {
+  return new NextRequest(new URL(pathname, 'http://localhost:3000'), {
+    headers: new Headers({
+      cookie: 'sb-test-auth-token=fake-token',
     }),
   });
 };
@@ -240,7 +250,7 @@ describe('middleware', () => {
       });
       mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
 
-      const request = createRequest('/login');
+      const request = createAuthenticatedRequest('/login');
       const response = await middleware(request);
 
       expect(response.status).toBe(307);
@@ -254,7 +264,7 @@ describe('middleware', () => {
       });
       mockSingle.mockResolvedValue({ data: mockAdminProfile, error: null });
 
-      const request = createRequest('/login');
+      const request = createAuthenticatedRequest('/login');
       const response = await middleware(request);
 
       expect(response.status).toBe(307);
@@ -268,40 +278,15 @@ describe('middleware', () => {
       });
       mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
 
-      const request = createRequest('/register');
+      const request = createAuthenticatedRequest('/register');
       const response = await middleware(request);
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');
     });
 
-    it('should redirect verified user from / to /dashboard', async () => {
-      mockGetUser.mockResolvedValue({
-        data: { user: mockAuthenticatedUser },
-        error: null,
-      });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
-
-      const request = createRequest('/');
-      const response = await middleware(request);
-
-      expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');
-    });
-
-    it('should redirect admin user from / to /admin', async () => {
-      mockGetUser.mockResolvedValue({
-        data: { user: mockAuthenticatedUser },
-        error: null,
-      });
-      mockSingle.mockResolvedValue({ data: mockAdminProfile, error: null });
-
-      const request = createRequest('/');
-      const response = await middleware(request);
-
-      expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/admin');
-    });
+    // NOTE: Homepage redirect tests removed - behavior intentionally moved to client-side
+    // for better performance (see middleware.ts:245-246 comment)
 
     it('should redirect admin user from /dashboard to /admin', async () => {
       mockGetUser.mockResolvedValue({
@@ -485,7 +470,7 @@ describe('middleware', () => {
       });
       mockSingle.mockResolvedValue({ data: null, error: null });
 
-      const request = createRequest('/login');
+      const request = createAuthenticatedRequest('/login');
       const response = await middleware(request);
 
       // getRedirectPath returns '/dashboard' when profile is null
