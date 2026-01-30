@@ -3,12 +3,39 @@
 import { motion } from 'framer-motion';
 import { Bell, Clock, Eye, Mail, Sparkles, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { scaleInSpring, staggerContainer, staggerItem } from '@/lib/animations';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 export default function Home() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  // Redirect authenticated users to dashboard (client-side for faster homepage loads)
+  // Admin redirect is handled by middleware when they hit /dashboard → /admin
+  useEffect(() => {
+    if (!loading && user?.email_confirmed_at) {
+      router.replace('/dashboard');
+    }
+  }, [user, loading, router]);
+
+  // Show minimal loading state while checking auth to prevent FOUC
+  // Only show if we might redirect (loading or authenticated)
+  if (loading || user?.email_confirmed_at) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <Header />
+        <div className="flex flex-1 items-center justify-center">
+          <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />

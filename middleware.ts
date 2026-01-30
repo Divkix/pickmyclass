@@ -11,6 +11,100 @@ interface UserProfile {
 }
 
 /**
+ * Pre-computed CSP headers (computed once at module load, not per-request)
+ */
+const PRODUCTION_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://analytics.divkix.me",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://analytics.divkix.me",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
+
+const DEV_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://analytics.divkix.me",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
+
+/**
+ * Public routes that don't require authentication
+ */
+const PUBLIC_ROUTES = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/legal',
+  '/auth/callback',
+  '/go',
+];
+
+/**
+ * Auth pages that authenticated users should be redirected away from
+ * NOTE: /reset-password is NOT included because users authenticate via recovery token
+ * and need to access this page while authenticated to set their new password
+ */
+const AUTH_PAGES = ['/login', '/register', '/forgot-password'];
+
+/**
+ * Add security headers to a response
+ */
+function addSecurityHeaders(response: NextResponse, isDevelopment: boolean): void {
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set(
+    'Permissions-Policy',
+    'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()'
+  );
+  response.headers.set('Content-Security-Policy', isDevelopment ? DEV_CSP : PRODUCTION_CSP);
+}
+
+/**
+ * Check if a pathname matches public routes
+ */
+function isPublicRoute(pathname: string): boolean {
+  return (
+    pathname === '/' ||
+    PUBLIC_ROUTES.some((route) => pathname.startsWith(route)) ||
+    pathname === '/sitemap.xml' ||
+    pathname === '/robots.txt' ||
+    pathname.startsWith('/api/auth/') ||
+    pathname.startsWith('/api/cron') ||
+    pathname.startsWith('/api/queue/') ||
+    pathname.startsWith('/api/webhooks/') ||
+    pathname.startsWith('/api/monitoring/') ||
+    pathname.startsWith('/api/unsubscribe')
+  );
+}
+
+/**
+ * Check if request has any Supabase auth cookies
+ */
+function hasAuthCookies(request: NextRequest): boolean {
+  // Check for Supabase auth cookies (both old and new cookie formats)
+  return (
+    request.cookies.has('sb-access-token') ||
+    request.cookies.has('sb-refresh-token') ||
+    // Check for new Supabase cookie format: sb-<project-ref>-auth-token
+    Array.from(request.cookies.getAll()).some(
+      (cookie) => cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')
+    )
+  );
+}
+
+/**
  * Get user profile data from database (cached per request)
  * Returns null if user not found or error occurs
  */
@@ -41,6 +135,26 @@ function getRedirectPath(profile: UserProfile | null): string {
 }
 
 export default async function middleware(request: NextRequest) {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const pathname = request.nextUrl.pathname;
+
+  // Fix 1: HEAD requests don't need auth - return immediately with security headers
+  if (request.method === 'HEAD') {
+    const response = NextResponse.next({ request });
+    addSecurityHeaders(response, isDevelopment);
+    return response;
+  }
+
+  // Fix 2: Early exit for public routes WITHOUT auth cookies
+  // This skips the expensive getUser() call for unauthenticated visitors
+  const routeIsPublic = isPublicRoute(pathname);
+  if (routeIsPublic && !hasAuthCookies(request)) {
+    const response = NextResponse.next({ request });
+    addSecurityHeaders(response, isDevelopment);
+    return response;
+  }
+
+  // For routes that need auth checking, create Supabase client
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -66,31 +180,10 @@ export default async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh session if expired
+  // Refresh session if expired - only called when auth cookies exist
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  // Define public routes that don't require authentication
-  const publicRoutes = [
-    '/login',
-    '/register',
-    '/forgot-password',
-    '/reset-password',
-    '/legal',
-    '/auth/callback',
-    '/go',
-  ];
-  const isPublicRoute =
-    publicRoutes.some((route) => request.nextUrl.pathname.startsWith(route)) ||
-    request.nextUrl.pathname === '/sitemap.xml' || // SEO sitemap
-    request.nextUrl.pathname === '/robots.txt' || // SEO robots file
-    request.nextUrl.pathname.startsWith('/api/auth/') || // Auth API routes must be public for login flow
-    request.nextUrl.pathname.startsWith('/api/cron') || // Cron routes use Bearer token auth
-    request.nextUrl.pathname.startsWith('/api/queue/') || // Queue routes use Bearer token auth
-    request.nextUrl.pathname.startsWith('/api/webhooks/') || // Webhook routes use their own auth
-    request.nextUrl.pathname.startsWith('/api/monitoring/') || // Monitoring routes are public
-    request.nextUrl.pathname.startsWith('/api/unsubscribe'); // Unsubscribe routes are public
 
   // Check if accessing admin routes
   // Note: This is just a basic auth check for redirects. Real admin role verification
@@ -115,11 +208,12 @@ export default async function middleware(request: NextRequest) {
 
   // Check email verification status
   if (user && !user.email_confirmed_at) {
-    // Allow access to verification page and auth callback only
-    const allowedPaths = ['/verify-email', '/auth/callback'];
-    const isAllowedPath = allowedPaths.some((path) => request.nextUrl.pathname.startsWith(path));
+    // Allow access to verification page, auth callback, and password reset
+    // Password reset is allowed because the recovery flow itself verifies email access
+    const allowedPaths = ['/verify-email', '/auth/callback', '/reset-password'];
+    const isAllowedPath = allowedPaths.some((path) => pathname.startsWith(path));
 
-    if (!isAllowedPath && request.nextUrl.pathname !== '/') {
+    if (!isAllowedPath && pathname !== '/') {
       const url = request.nextUrl.clone();
       url.pathname = '/verify-email';
       return NextResponse.redirect(url);
@@ -128,7 +222,7 @@ export default async function middleware(request: NextRequest) {
 
   // Redirect to login if accessing protected route while not authenticated
   // This includes admin routes - unauthenticated users cannot access admin pages
-  if (!user && !isPublicRoute && request.nextUrl.pathname !== '/') {
+  if (!user && !routeIsPublic && pathname !== '/') {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
@@ -136,30 +230,24 @@ export default async function middleware(request: NextRequest) {
 
   // Redirect authenticated users from auth pages to their dashboard
   // Only redirect from specific auth pages to avoid loops with next-themes
-  const authPages = ['/login', '/register', '/forgot-password', '/reset-password'];
-  const isAuthPage = authPages.some((route) => request.nextUrl.pathname.startsWith(route));
+  const isAuthPage = AUTH_PAGES.some((route) => pathname.startsWith(route));
 
   if (user?.email_confirmed_at && isAuthPage) {
     const redirectPath = getRedirectPath(userProfile);
     // Only redirect if not already on the target path to prevent loops
-    if (request.nextUrl.pathname !== redirectPath) {
+    if (pathname !== redirectPath) {
       const url = request.nextUrl.clone();
       url.pathname = redirectPath;
       return NextResponse.redirect(url);
     }
   }
 
-  // Redirect authenticated users from home page to admin or dashboard based on role
-  if (user?.email_confirmed_at && request.nextUrl.pathname === '/') {
-    const redirectPath = getRedirectPath(userProfile);
-    const url = request.nextUrl.clone();
-    url.pathname = redirectPath;
-    return NextResponse.redirect(url);
-  }
+  // Fix 5: Homepage redirect moved to client-side for better performance
+  // Authenticated users will be redirected by the homepage component itself
 
   // Redirect admin users from /dashboard to /admin
   // Regular users can access /dashboard, but admins should use /admin exclusively
-  if (user?.email_confirmed_at && request.nextUrl.pathname.startsWith('/dashboard')) {
+  if (user?.email_confirmed_at && pathname.startsWith('/dashboard')) {
     if (userProfile?.is_admin) {
       const url = request.nextUrl.clone();
       url.pathname = '/admin';
@@ -168,35 +256,7 @@ export default async function middleware(request: NextRequest) {
   }
 
   // Add security headers to all responses
-  supabaseResponse.headers.set('X-Frame-Options', 'DENY');
-  supabaseResponse.headers.set('X-Content-Type-Options', 'nosniff');
-  supabaseResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  supabaseResponse.headers.set(
-    'Permissions-Policy',
-    'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()'
-  );
-
-  // Content Security Policy
-  // Allow self, Supabase domains, and inline styles for shadcn/ui
-  // Remove 'unsafe-eval' in production for security hardening
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const scriptSrc = isDevelopment
-    ? "'self' 'unsafe-eval' 'unsafe-inline'" // Dev: unsafe-eval needed for HMR
-    : "'self' 'unsafe-inline' https://static.cloudflareinsights.com https://analytics.divkix.me"; // Production: allow Cloudflare Insights + analytics
-
-  const cspDirectives = [
-    "default-src 'self'",
-    `script-src ${scriptSrc}`,
-    "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for Tailwind/shadcn
-    "img-src 'self' data: https:", // data: for base64 images, https: for external images
-    "font-src 'self' data:", // data: for inline fonts
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://analytics.divkix.me", // Supabase API calls and Realtime WebSockets + analytics
-    "frame-ancestors 'none'", // Equivalent to X-Frame-Options: DENY
-    "base-uri 'self'",
-    "form-action 'self'",
-  ].join('; ');
-
-  supabaseResponse.headers.set('Content-Security-Policy', cspDirectives);
+  addSecurityHeaders(supabaseResponse, isDevelopment);
 
   return supabaseResponse;
 }
