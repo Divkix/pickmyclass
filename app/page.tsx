@@ -17,7 +17,7 @@ export default function Home() {
         {/* Hero Section - Modernized */}
         <section className="relative overflow-hidden border-b border-border px-6 py-24 sm:py-32">
           {/* Gradient Background */}
-          <div className="absolute inset-0 -z-10 bg-grid-pattern [mask-image:linear-gradient(to_bottom,white,transparent)]" />
+          <div className="absolute inset-0 -z-10 bg-grid-pattern mask-[linear-gradient(to_bottom,white,transparent)]" />
           <div className="absolute inset-0 bg-linear-to-br from-primary/10 via-background to-accent/10 opacity-80" />
 
           <motion.div
