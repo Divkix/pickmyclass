@@ -7,13 +7,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/lib/contexts/AuthContext';
 
 export default function AuthButton() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
 
   const handleSignOut = async () => {
     try {
       setSigningOut(true);
-      await signOut();
+      await fetch('/api/auth/signout', { method: 'POST' });
       window.location.href = '/login';
     } catch (error) {
       console.error('Error signing out:', error);
