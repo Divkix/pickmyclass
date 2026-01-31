@@ -190,9 +190,9 @@ export default function DashboardPage() {
       <main className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
         {/* Page Header */}
         <motion.div className="mb-8" initial="hidden" animate="visible" variants={fadeInUp}>
-          <h1 className="text-3xl font-bold mb-2 sm:text-4xl">Class Watch Dashboard</h1>
+          <h1 className="text-3xl font-bold mb-2 sm:text-4xl">Your Class Watchlist</h1>
           <p className="text-muted-foreground">
-            Monitor University classes for seat availability and instructor assignments.
+            We're keeping an eye on your ASU classes so you don't have to.
           </p>
         </motion.div>
 
@@ -241,7 +241,9 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-success">{stats.availableSeats}</div>
-                  <p className="text-xs text-muted-foreground">Classes with open seats</p>
+                  <p className="text-xs text-muted-foreground">
+                    {stats.availableSeats > 0 ? 'Go register now!' : 'Classes with open seats'}
+                  </p>
                 </CardContent>
               </Card>
             </motion.div>
@@ -258,7 +260,11 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-destructive">{stats.fullClasses}</div>
-                  <p className="text-xs text-muted-foreground">Classes at capacity</p>
+                  <p className="text-xs text-muted-foreground">
+                    {stats.fullClasses > 0
+                      ? "We'll alert you when seats open"
+                      : 'Classes at capacity'}
+                  </p>
                 </CardContent>
               </Card>
             </motion.div>
@@ -280,10 +286,16 @@ export default function DashboardPage() {
                         Syncing...
                       </span>
                     ) : (
-                      <span className="text-sm font-medium text-success">Live</span>
+                      <>
+                        <span className="relative flex size-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+                          <span className="relative inline-flex size-2 rounded-full bg-success" />
+                        </span>
+                        <span className="text-sm font-medium text-success">Watching 24/7</span>
+                      </>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">Real-time updates active</p>
+                  <p className="text-xs text-muted-foreground">We check every 30 minutes</p>
                 </CardContent>
               </Card>
             </motion.div>
@@ -338,10 +350,13 @@ export default function DashboardPage() {
             <div className="flex size-12 sm:size-16 items-center justify-center rounded-full bg-primary/10 mx-auto mb-4">
               <Calendar className="size-6 sm:size-8 text-primary" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No class watches yet</h3>
-            <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-              Add your first class to start monitoring for seat availability and instructor
-              assignments.
+            <h3 className="text-lg font-semibold mb-2">Your watchlist is empty</h3>
+            <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
+              Add your first class and we'll start refreshing MyASU for you. No more F5 spam.
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Join <span className="font-semibold text-asu-maroon">2,400+</span> Sun Devils already
+              using PickMyClass
             </p>
             <Link href="/dashboard/add">
               <Button variant="gradient">
