@@ -22,6 +22,7 @@ export interface HealthMetrics {
 export interface HealthMonitorOptions {
   checkInterval: number; // How often to run health checks (ms)
   memoryLeakThreshold: number; // Memory growth rate threshold (MB/min)
+  startupGracePeriod?: number; // Skip leak detection during startup (ms) - defaults to 5 min
   onUnhealthy?: (reason: string, metrics: HealthMetrics) => void; // Callback for unhealthy state
 }
 
@@ -29,6 +30,7 @@ export class HealthMonitor {
   private intervalId: NodeJS.Timeout | null = null;
   private lastMemoryCheck: { time: number; rss: number } | null = null;
   private lastMetrics: HealthMetrics | null = null;
+  private readonly startTime: number = Date.now();
 
   constructor(private options: HealthMonitorOptions) {}
 
@@ -100,8 +102,15 @@ export class HealthMonitor {
    * Check for memory leaks
    */
   private checkMemoryLeak(metrics: HealthMetrics): void {
+    // Skip leak detection during startup grace period
+    // Browser pool initialization can cause 400+ MB jump in first few minutes
+    const gracePeriod = this.options.startupGracePeriod ?? 300000; // 5 min default
+    if (Date.now() - this.startTime < gracePeriod) {
+      return;
+    }
+
     if (!this.lastMemoryCheck) {
-      // First check - establish baseline
+      // First check after grace period - establish baseline
       this.lastMemoryCheck = {
         time: metrics.timestamp,
         rss: metrics.memoryUsage.rss,

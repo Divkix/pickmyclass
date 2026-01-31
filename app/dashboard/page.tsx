@@ -37,7 +37,10 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Get class numbers from watches for Realtime subscription
-  const classNumbers = watches.map((w) => w.class_nbr);
+  // CRITICAL: Must memoize to prevent infinite re-render loop
+  // Without useMemo, every render creates a new array reference which triggers
+  // useRealtimeClassStates hook → setLoading → re-render → new array → loop
+  const classNumbers = useMemo(() => watches.map((w) => w.class_nbr), [watches]);
 
   // Subscribe to real-time updates
   const {

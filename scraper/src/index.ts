@@ -34,6 +34,7 @@ const requestQueue = new RequestQueue(
 const healthMonitor = new HealthMonitor({
   checkInterval: 60000, // Check every 60 seconds
   memoryLeakThreshold: 10, // Alert if growing > 10 MB/min
+  startupGracePeriod: 300000, // 5 min grace for browser pool initialization
   onUnhealthy: (reason, metrics) => {
     console.error(`[HealthMonitor] UNHEALTHY: ${reason}`);
     console.error(`[HealthMonitor] Memory: ${metrics.memoryUsage.rss}MB RSS`);
