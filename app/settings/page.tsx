@@ -92,7 +92,7 @@ export default function SettingsPage() {
         <div className="mx-auto w-full max-w-4xl space-y-6">
           <div>
             <h1 className="text-3xl font-bold">Settings</h1>
-            <p className="text-muted-foreground mt-1">Manage your account, privacy, and data</p>
+            <p className="text-muted-foreground mt-1">Your account settings and privacy controls</p>
           </div>
 
           {message && (

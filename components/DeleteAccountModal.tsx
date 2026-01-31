@@ -73,6 +73,8 @@ export function DeleteAccountModal({ open, onClose }: DeleteAccountModalProps) {
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <p className="text-sm text-muted-foreground">We'll miss you! But we understand.</p>
+
           <Alert variant="destructive">
             <AlertDescription>
               <strong>Warning:</strong> This action cannot be undone.

@@ -99,8 +99,8 @@ export function ClassDetailsDialog({
               )}
               {!hasInstructor && (
                 <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
-                  Instructor has not been assigned yet. You&apos;ll be notified when one is
-                  assigned.
+                  Instructor hasn&apos;t been assigned yet. We&apos;ll email you the moment ASU
+                  updates it.
                 </p>
               )}
             </div>
