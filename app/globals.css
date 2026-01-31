@@ -41,6 +41,9 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* ASU Brand Colors */
+  --color-asu-maroon: var(--brand-asu-maroon);
+  --color-asu-gold: var(--brand-asu-gold);
 }
 
 :root {
@@ -51,6 +54,10 @@
   --brand-primary-foreground: oklch(0.985 0 0);
   --brand-accent: oklch(0.7 0.18 166);
   --brand-accent-foreground: oklch(0.145 0 0);
+
+  /* ASU Brand Colors */
+  --brand-asu-maroon: oklch(0.4 0.16 15); /* #8C1D40 */
+  --brand-asu-gold: oklch(0.85 0.17 85); /* #FFC627 */
 
   /* Base Colors */
   --background: oklch(1 0 0);
@@ -111,6 +118,10 @@
   --brand-primary-foreground: oklch(0.985 0 0);
   --brand-accent: oklch(0.75 0.18 166);
   --brand-accent-foreground: oklch(0.145 0 0);
+
+  /* ASU Brand Colors - slightly brighter for dark mode */
+  --brand-asu-maroon: oklch(0.45 0.18 15); /* Slightly lighter for dark */
+  --brand-asu-gold: oklch(0.88 0.17 85); /* Slightly brighter */
 
   /* Base Colors */
   --background: oklch(0.12 0 0); /* Slightly darker background for more contrast */
