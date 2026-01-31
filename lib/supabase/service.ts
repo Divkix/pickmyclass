@@ -22,18 +22,15 @@ import type { Database } from './database.types';
  * @param serviceRoleKey - The service_role key from Supabase (required in production)
  * @returns Supabase client with service role privileges
  */
+// Hardcoded public URL - not a secret
+const SUPABASE_URL = 'https://osopxwuebsefhoxgeojh.supabase.co';
+
 export function createServiceClient(serviceRoleKey: string): SupabaseClient<Database> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  if (!supabaseUrl) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set');
-  }
-
   if (!serviceRoleKey) {
     throw new Error('Service role key is required');
   }
 
-  return createClient<Database>(supabaseUrl, serviceRoleKey, {
+  return createClient<Database>(SUPABASE_URL, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
