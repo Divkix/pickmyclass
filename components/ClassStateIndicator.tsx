@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle, ExternalLink, HelpCircle, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, ExternalLink, HelpCircle, XCircle } from 'lucide-react';
 import type { Database } from '@/lib/supabase/database.types';
 import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor';
 
@@ -11,9 +11,9 @@ interface ClassStateIndicatorProps {
 export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
   if (!classState) {
     return (
-      <div className="inline-flex items-center gap-2 rounded-md bg-zinc-200 dark:bg-zinc-800 px-3 py-1 text-sm">
-        <span className="h-2 w-2 rounded-full bg-zinc-500" />
-        <span className="text-zinc-700 dark:text-zinc-300">Not yet checked</span>
+      <div className="inline-flex items-center gap-2 rounded-md bg-asu-gold/20 dark:bg-asu-gold/10 px-3 py-1 text-sm">
+        <Clock className="h-4 w-4 text-asu-gold" aria-hidden="true" />
+        <span className="text-foreground">Checking soon...</span>
       </div>
     );
   }

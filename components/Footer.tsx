@@ -27,9 +27,14 @@ export function Footer() {
           </div>
 
           <div className="flex items-center gap-4">
-            <p className="text-xs text-muted-foreground text-center md:text-right">
-              Not affiliated with Arizona State University
-            </p>
+            <div className="text-center md:text-right">
+              <p className="text-xs font-medium text-asu-gold">
+                Built for Sun Devils. Checking MyASU so you don't have to.
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Not affiliated with Arizona State University
+              </p>
+            </div>
             <a
               href="https://github.com/Divkix/pickmyclass"
               target="_blank"

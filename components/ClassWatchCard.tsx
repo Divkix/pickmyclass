@@ -175,6 +175,14 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                     Section {watch.class_nbr} • Term {watch.term}
                   </p>
+                  {/* Watching indicator with pulse animation */}
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-asu-gold opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-asu-gold" />
+                    </span>
+                    <span className="text-xs text-muted-foreground">Watching for changes</span>
+                  </div>
                   {classState?.location && (
                     <p className="text-sm text-zinc-600 dark:text-zinc-400">
                       {classState.location}
@@ -231,7 +239,7 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
         onOpenChange={setShowDeleteConfirm}
         onConfirm={handleDelete}
         title="Stop watching this class?"
-        description={`You will no longer receive notifications for ${classTitle}. You can always add it back later.`}
+        description="We'll stop monitoring this section. You can always add it back."
         confirmText="Stop Watching"
         isDeleting={isDeleting}
       />

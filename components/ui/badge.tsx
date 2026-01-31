@@ -15,6 +15,8 @@ const badgeVariants = cva(
         warning: 'border-transparent bg-warning text-foreground shadow',
         accent: 'border-transparent bg-accent text-accent-foreground shadow',
         outline: 'text-foreground border-border',
+        asu: 'border-transparent bg-asu-maroon text-white shadow',
+        asuGold: 'border-transparent bg-asu-gold text-foreground shadow',
       },
       size: {
         sm: 'px-2 py-0.5 text-[10px]',
