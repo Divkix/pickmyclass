@@ -599,6 +599,23 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
 }
 
 /**
+ * Force Durable Object exports to prevent tree-shaking
+ *
+ * esbuild removes exports that aren't directly used in the code path.
+ * These classes are only referenced via wrangler.jsonc bindings, not in code,
+ * so we create a runtime reference to keep them in the bundle.
+ */
+export const __durableObjectExports = {
+  CircuitBreakerDO,
+  CronLockDO,
+} as const;
+
+// Runtime registration (executes on worker init)
+if (typeof __durableObjectExports === 'undefined') {
+  throw new Error('Durable Object exports missing');
+}
+
+/**
  * Export the worker with fetch, scheduled, queue handlers, and Durable Object classes
  */
 export default {
