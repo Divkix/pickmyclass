@@ -424,7 +424,7 @@ export async function scrapeClassSection(
 
       // Extract all fields using CSS class selectors
       return {
-        number: getCellText('number'),
+        number: getCellText('number').match(/^\d+/)?.[0] || '',
         subjectCourse: courseText,
         title: getCellText('title'),
         instructor: getLinkText('instructor'),
