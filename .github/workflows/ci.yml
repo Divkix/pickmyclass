@@ -87,10 +87,6 @@ jobs:
 
       - name: Build
         run: bun run build
-        env:
-          # Placeholders for build (actual secrets set in Cloudflare)
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
 
   ci-success:
     name: CI Success
