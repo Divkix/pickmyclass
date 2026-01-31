@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,13 +9,12 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 export default function AuthButton() {
   const { user, loading, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
-  const router = useRouter();
 
   const handleSignOut = async () => {
     try {
       setSigningOut(true);
       await signOut();
-      router.push('/login');
+      window.location.href = '/login';
     } catch (error) {
       console.error('Error signing out:', error);
     } finally {
