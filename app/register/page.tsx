@@ -271,16 +271,16 @@ export default function RegisterPage() {
                     <div className="space-y-2">
                       {/* Strength bar */}
                       <div className="flex items-center gap-1.5 sm:gap-2">
-                        <div className="flex-1 h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                           <div
                             className={`h-full transition-all duration-300 ${
                               passwordStrength.score <= 1
-                                ? 'bg-red-500'
+                                ? 'bg-destructive'
                                 : passwordStrength.score === 2
-                                  ? 'bg-yellow-500'
+                                  ? 'bg-warning'
                                   : passwordStrength.score === 3
-                                    ? 'bg-blue-500'
-                                    : 'bg-green-500'
+                                    ? 'bg-primary'
+                                    : 'bg-success'
                             }`}
                             style={{ width: `${(passwordStrength.score / 4) * 100}%` }}
                           />
@@ -288,12 +288,12 @@ export default function RegisterPage() {
                         <span
                           className={`text-sm font-medium whitespace-nowrap ${
                             passwordStrength.score <= 1
-                              ? 'text-red-600 dark:text-red-400'
+                              ? 'text-destructive'
                               : passwordStrength.score === 2
-                                ? 'text-yellow-600 dark:text-yellow-400'
+                                ? 'text-warning'
                                 : passwordStrength.score === 3
-                                  ? 'text-blue-600 dark:text-blue-400'
-                                  : 'text-green-600 dark:text-green-400'
+                                  ? 'text-primary'
+                                  : 'text-success'
                           }`}
                         >
                           {passwordStrength.score <= 1
@@ -309,7 +309,7 @@ export default function RegisterPage() {
                       {/* Feedback messages */}
                       {passwordStrength.feedback.suggestions &&
                         passwordStrength.feedback.suggestions.length > 0 && (
-                          <ul className="text-xs text-zinc-600 dark:text-zinc-400 list-disc list-inside space-y-0.5">
+                          <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5">
                             {passwordStrength.feedback.suggestions.map((suggestion) => (
                               <li key={suggestion}>{suggestion}</li>
                             ))}
@@ -318,7 +318,7 @@ export default function RegisterPage() {
                     </div>
                   )}
                   {password && (!passwordStrength || passwordStrength.score < 3) && (
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                    <p className="text-xs text-muted-foreground">
                       Minimum password strength: Good (score 3/4)
                     </p>
                   )}
@@ -366,7 +366,7 @@ export default function RegisterPage() {
                       I agree to the{' '}
                       <Link
                         href="/legal/terms"
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                        className="text-primary hover:underline"
                         target="_blank"
                       >
                         Terms of Service
@@ -374,7 +374,7 @@ export default function RegisterPage() {
                       and{' '}
                       <Link
                         href="/legal/privacy"
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                        className="text-primary hover:underline"
                         target="_blank"
                       >
                         Privacy Policy

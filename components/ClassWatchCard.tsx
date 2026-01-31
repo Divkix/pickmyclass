@@ -127,7 +127,7 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
     if (swipeOffset < -10) {
       const opacity = Math.min(Math.abs(swipeOffset) / 120, 1);
       return {
-        backgroundColor: `rgba(239, 68, 68, ${opacity * 0.1})`, // red-500 with opacity
+        backgroundColor: `hsl(var(--destructive) / ${opacity * 0.1})`,
       };
     }
     return {};
@@ -172,7 +172,7 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
                     {watch.subject} {watch.catalog_nbr}
                     {classState?.title && ` - ${classState.title}`}
                   </CardTitle>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Section {watch.class_nbr} • Term {watch.term}
                   </p>
                   {/* Watching indicator with pulse animation */}
@@ -184,7 +184,7 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
                     <span className="text-xs text-muted-foreground">Watching for changes</span>
                   </div>
                   {classState?.location && (
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <p className="text-sm text-muted-foreground">
                       {classState.location}
                       {classState.meeting_times && ` • ${classState.meeting_times}`}
                     </p>
@@ -195,7 +195,7 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowDetails(true)}
-                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950 h-11 w-11"
+                    className="text-primary hover:text-primary/80 hover:bg-primary/10 h-11 w-11"
                     aria-label={`View class details for ${classTitle}`}
                     title="View class details"
                   >
@@ -206,7 +206,7 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
                     size="icon"
                     onClick={() => setShowDeleteConfirm(true)}
                     disabled={isDeleting}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 h-11 w-11"
+                    className="text-destructive hover:text-destructive/80 hover:bg-destructive/10 h-11 w-11"
                     aria-label={`Stop watching ${classTitle}`}
                     title="Stop watching this class"
                   >
@@ -218,7 +218,7 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
             <CardContent>
               <ClassStateIndicator classState={classState} />
               {classState?.last_checked_at && (
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-3">
+                <p className="text-xs text-muted-foreground mt-3">
                   Last checked: {new Date(classState.last_checked_at).toLocaleString()}
                 </p>
               )}

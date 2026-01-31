@@ -63,7 +63,7 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <Alert className="bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800">
+            <Alert className="bg-destructive/10 text-destructive border-destructive/30">
               {error}
             </Alert>
           )}
@@ -82,9 +82,7 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
               </Select>
               <Lock className="absolute right-9 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             </div>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-              More universities coming soon
-            </p>
+            <p className="text-xs text-muted-foreground">More universities coming soon</p>
           </div>
 
           {/* Term Dropdown */}
@@ -99,7 +97,7 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
                 <SelectItem value="2264">Summer 2026 (2264)</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">Select the term to monitor</p>
+            <p className="text-xs text-muted-foreground">Select the term to monitor</p>
           </div>
 
           {/* Section Number */}
@@ -115,14 +113,14 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
               pattern="\d{5}"
               title="Must be a 5-digit section number"
             />
-            <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 p-3 text-sm">
-              <p className="text-blue-800 dark:text-blue-200">
+            <div className="rounded-md bg-info/10 border border-info/30 p-3 text-sm">
+              <p className="text-primary">
                 💡 <strong>How to find this:</strong> Go to the{' '}
                 <a
                   href="https://catalog.apps.asu.edu/catalog/classes/classlist"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline hover:text-blue-600 dark:hover:text-blue-300"
+                  className="underline hover:text-primary/80"
                 >
                   ASU Class Search page
                 </a>

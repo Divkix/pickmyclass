@@ -359,7 +359,7 @@ export function UsersTable({ users }: UsersTableProps) {
                             user.engagement_status === 'disabled'
                               ? 'text-destructive'
                               : user.engagement_status === 'low'
-                                ? 'text-yellow-600 dark:text-yellow-500'
+                                ? 'text-warning'
                                 : 'text-foreground'
                           }`}
                         >

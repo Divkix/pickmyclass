@@ -42,29 +42,29 @@ export function ClassDetailsDialog({
           {/* Seat Information */}
           {classState && (
             <div className="space-y-2">
-              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Seat Availability</h3>
-              <div className="bg-zinc-50 dark:bg-zinc-900 rounded-md p-4">
+              <h3 className="font-semibold text-foreground">Seat Availability</h3>
+              <div className="bg-muted rounded-md p-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">Seats Available</p>
-                    <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                    <p className="text-sm text-muted-foreground">Seats Available</p>
+                    <p className="text-2xl font-bold text-foreground">
                       {classState.seats_available}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">Total Capacity</p>
-                    <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                    <p className="text-sm text-muted-foreground">Total Capacity</p>
+                    <p className="text-2xl font-bold text-foreground">
                       {classState.seats_capacity}
                     </p>
                   </div>
                   {classState.non_reserved_seats !== null && (
                     <div className="col-span-2">
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400">Non-Reserved Seats</p>
-                      <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                      <p className="text-sm text-muted-foreground">Non-Reserved Seats</p>
+                      <p className="text-lg font-semibold text-foreground">
                         {classState.non_reserved_seats}
                       </p>
                       {classState.seats_available - classState.non_reserved_seats > 0 && (
-                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                        <p className="text-xs text-warning mt-1">
                           {classState.seats_available - classState.non_reserved_seats} reserved
                           seat(s) available
                         </p>
@@ -78,11 +78,9 @@ export function ClassDetailsDialog({
 
           {/* Instructor Information */}
           <div className="space-y-2">
-            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Instructor</h3>
-            <div className="bg-zinc-50 dark:bg-zinc-900 rounded-md p-4">
-              <p className="text-lg text-zinc-900 dark:text-zinc-100">
-                {classState?.instructor_name || 'TBA'}
-              </p>
+            <h3 className="font-semibold text-foreground">Instructor</h3>
+            <div className="bg-muted rounded-md p-4">
+              <p className="text-lg text-foreground">{classState?.instructor_name || 'TBA'}</p>
               {isValidProfessorName(classState?.instructor_name) && rmpUrl && (
                 <Button variant="outline" className="mt-3" asChild>
                   <a
@@ -98,7 +96,7 @@ export function ClassDetailsDialog({
                 </Button>
               )}
               {!hasInstructor && (
-                <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
+                <p className="text-sm text-muted-foreground mt-2">
                   Instructor hasn&apos;t been assigned yet. We&apos;ll email you the moment ASU
                   updates it.
                 </p>
@@ -109,20 +107,18 @@ export function ClassDetailsDialog({
           {/* Location & Times */}
           {(classState?.location || classState?.meeting_times) && (
             <div className="space-y-2">
-              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-                Location & Schedule
-              </h3>
-              <div className="bg-zinc-50 dark:bg-zinc-900 rounded-md p-4">
+              <h3 className="font-semibold text-foreground">Location & Schedule</h3>
+              <div className="bg-muted rounded-md p-4">
                 {classState.location && (
                   <div className="mb-2">
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">Location</p>
-                    <p className="text-zinc-900 dark:text-zinc-100">{classState.location}</p>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    <p className="text-foreground">{classState.location}</p>
                   </div>
                 )}
                 {classState.meeting_times && (
                   <div>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">Meeting Times</p>
-                    <p className="text-zinc-900 dark:text-zinc-100">{classState.meeting_times}</p>
+                    <p className="text-sm text-muted-foreground">Meeting Times</p>
+                    <p className="text-foreground">{classState.meeting_times}</p>
                   </div>
                 )}
               </div>
@@ -131,7 +127,7 @@ export function ClassDetailsDialog({
 
           {/* Last Checked */}
           {classState?.last_checked_at && (
-            <div className="text-xs text-zinc-500 dark:text-zinc-500 text-center pt-2 border-t border-zinc-200 dark:border-zinc-800">
+            <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border">
               Last checked: {new Date(classState.last_checked_at).toLocaleString()}
             </div>
           )}

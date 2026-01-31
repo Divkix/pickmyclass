@@ -30,9 +30,7 @@ export default function LegalPage() {
                     Learn about your rights and responsibilities, service limitations, eligibility
                     requirements (18+, US-only), and our liability disclaimers.
                   </p>
-                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-3 font-medium">
-                    Read Terms →
-                  </p>
+                  <p className="text-sm text-primary mt-3 font-medium">Read Terms →</p>
                 </CardContent>
               </Card>
             </Link>
@@ -48,9 +46,7 @@ export default function LegalPage() {
                     Understand what data we collect, how we use it, your CCPA rights (California
                     residents), cookie usage, and data retention policies.
                   </p>
-                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-3 font-medium">
-                    Read Privacy Policy →
-                  </p>
+                  <p className="text-sm text-primary mt-3 font-medium">Read Privacy Policy →</p>
                 </CardContent>
               </Card>
             </Link>
@@ -69,7 +65,7 @@ export default function LegalPage() {
                 <li>
                   <strong>Right to Know:</strong> Request what personal data we have collected about
                   you (available via{' '}
-                  <Link href="/settings" className="text-blue-600 dark:text-blue-400 underline">
+                  <Link href="/settings" className="text-primary underline">
                     Settings
                   </Link>
                   )
@@ -77,7 +73,7 @@ export default function LegalPage() {
                 <li>
                   <strong>Right to Delete:</strong> Request deletion of your personal information
                   (available via{' '}
-                  <Link href="/settings" className="text-blue-600 dark:text-blue-400 underline">
+                  <Link href="/settings" className="text-primary underline">
                     Settings
                   </Link>
                   )
@@ -92,10 +88,7 @@ export default function LegalPage() {
           <div className="text-center text-sm text-muted-foreground border-t pt-6">
             <p>
               Questions about our legal policies?{' '}
-              <a
-                href="mailto:support@pickmyclass.app"
-                className="text-blue-600 dark:text-blue-400 underline"
-              >
+              <a href="mailto:support@pickmyclass.app" className="text-primary underline">
                 Contact us
               </a>
             </p>

@@ -118,7 +118,7 @@ export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?
   <title>Seat Available - ${safe.subject} ${safe.catalogNbr}</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+  <div style="background: linear-gradient(135deg, #6366F1 0%, #10B981 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
     <h1 style="color: white; margin: 0; font-size: 24px;">🎉 Seat Available!</h1>
   </div>
 
@@ -127,7 +127,7 @@ export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?
       Great news! A seat just became available in a class you're watching:
     </p>
 
-    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
+    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6366F1;">
       <h2 style="margin: 0 0 10px 0; color: #1f2937; font-size: 20px;">
         ${safe.subject} ${safe.catalogNbr}: ${safe.title}
       </h2>
@@ -147,7 +147,7 @@ export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?
           ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Meeting Times:</strong> ${safe.meetingTimes}</p>`
           : ''
       }
-      <p style="margin: 15px 0 5px 0; font-size: 18px; color: #059669; font-weight: bold;">
+      <p style="margin: 15px 0 5px 0; font-size: 18px; color: #10B981; font-weight: bold;">
         ${classInfo.non_reserved_seats ?? classInfo.seats_available} open seat${(classInfo.non_reserved_seats ?? classInfo.seats_available) !== 1 ? 's' : ''} available
       </p>
       ${
@@ -175,7 +175,7 @@ export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?
     </p>
 
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${safe.catalogUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+      <a href="${safe.catalogUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366F1 0%, #10B981 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
         View Class on ASU Catalog
       </a>
     </div>
@@ -239,7 +239,7 @@ export function InstructorAssignedEmailTemplate(
           ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Meeting Times:</strong> ${safe.meetingTimes}</p>`
           : ''
       }
-      <p style="margin: 15px 0 5px 0; color: ${classInfo.seats_available > 0 ? '#059669' : '#dc2626'}; font-size: 14px;">
+      <p style="margin: 15px 0 5px 0; color: ${classInfo.seats_available > 0 ? '#10B981' : '#dc2626'}; font-size: 14px;">
         ${classInfo.seats_available} of ${classInfo.seats_capacity} seats available
       </p>
     </div>

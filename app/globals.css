@@ -44,6 +44,14 @@
   /* ASU Brand Colors */
   --color-asu-maroon: var(--brand-asu-maroon);
   --color-asu-gold: var(--brand-asu-gold);
+  /* Semantic Colors */
+  --color-success: var(--success);
+  --color-success-foreground: var(--primary-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--foreground);
+  --color-info: var(--primary);
+  --color-info-foreground: var(--primary-foreground);
+  --color-destructive-foreground: var(--primary-foreground);
 }
 
 :root {

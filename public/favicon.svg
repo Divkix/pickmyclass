@@ -11,7 +11,7 @@
 
   <path d="M32 12L8 24L32 36L56 24L32 12Z" fill="url(#capGradient)" filter="url(#shadow)"/>
   
-  <path d="M52 26V34C52 38 46 44 32 44C18 44 12 38 12 34V26L32 36L52 26Z" fill="#4338ca"/> <path d="M32 24L26 27" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+  <path d="M52 26V34C52 38 46 44 32 44C18 44 12 38 12 34V26L32 36L52 26Z" fill="#4F46E5"/> <path d="M32 24L26 27" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
   <circle cx="26" cy="27" r="2.5" fill="#10b981" /> <path d="M26 27V36" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
 
   <g filter="url(#shadow)">

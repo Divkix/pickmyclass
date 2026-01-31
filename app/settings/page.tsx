@@ -150,14 +150,14 @@ export default function SettingsPage() {
                     <div className="flex flex-col space-y-2">
                       <Link
                         href="/legal/terms"
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                        className="text-primary hover:underline"
                         target="_blank"
                       >
                         Terms of Service →
                       </Link>
                       <Link
                         href="/legal/privacy"
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                        className="text-primary hover:underline"
                         target="_blank"
                       >
                         Privacy Policy →
@@ -188,7 +188,7 @@ export default function SettingsPage() {
                       cookies. See our{' '}
                       <Link
                         href="/legal/privacy#5-cookie-policy"
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                        className="text-primary hover:underline"
                       >
                         Cookie Policy
                       </Link>

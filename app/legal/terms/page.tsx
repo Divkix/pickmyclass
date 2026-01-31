@@ -35,7 +35,7 @@ export default function TermsOfServicePage() {
                   <li>You must be a resident of the United States</li>
                   <li>You must have the legal capacity to enter into this agreement</li>
                 </ul>
-                <p className="font-semibold text-amber-600 dark:text-amber-400">
+                <p className="font-semibold text-warning">
                   This Service is available only to users located in the United States. By using
                   this Service, you represent that you are a US resident.
                 </p>

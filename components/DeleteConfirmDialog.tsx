@@ -42,8 +42,8 @@ export function DeleteConfirmDialog({
       <DialogContent className="sm:max-w-md" aria-describedby="delete-confirm-description">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
-              <AlertTriangle className="size-5 text-red-600 dark:text-red-400" aria-hidden="true" />
+            <div className="flex size-10 items-center justify-center rounded-full bg-destructive/10">
+              <AlertTriangle className="size-5 text-destructive" aria-hidden="true" />
             </div>
             <DialogTitle className="text-left">{title}</DialogTitle>
           </div>

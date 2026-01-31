@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import Script from 'next/script';
 import { Toaster } from 'sonner';
@@ -24,6 +24,13 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.svg',
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#6366F1' },
+    { media: '(prefers-color-scheme: dark)', color: '#6366F1' },
+  ],
 };
 
 export default function RootLayout({

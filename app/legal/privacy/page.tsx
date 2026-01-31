@@ -26,7 +26,7 @@ export default function PrivacyPolicyPage() {
                   protecting your privacy. This Privacy Policy explains how we collect, use,
                   disclose, and safeguard your personal information when you use our Service.
                 </p>
-                <p className="font-semibold text-blue-600 dark:text-blue-400">
+                <p className="font-semibold text-primary">
                   This Service is available only to users in the United States. This policy complies
                   with US federal laws and the California Consumer Privacy Act (CCPA).
                 </p>
@@ -124,7 +124,7 @@ export default function PrivacyPolicyPage() {
                         Supabase (database and authentication) - see{' '}
                         <a
                           href="https://supabase.com/privacy"
-                          className="text-blue-600 dark:text-blue-400 underline"
+                          className="text-primary underline"
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -135,7 +135,7 @@ export default function PrivacyPolicyPage() {
                         Resend (email delivery) - see{' '}
                         <a
                           href="https://resend.com/legal/privacy-policy"
-                          className="text-blue-600 dark:text-blue-400 underline"
+                          className="text-primary underline"
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -146,7 +146,7 @@ export default function PrivacyPolicyPage() {
                         Cloudflare Workers (hosting) - see{' '}
                         <a
                           href="https://www.cloudflare.com/privacypolicy/"
-                          className="text-blue-600 dark:text-blue-400 underline"
+                          className="text-primary underline"
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -268,7 +268,7 @@ export default function PrivacyPolicyPage() {
                 <p>
                   You have the right to request what personal information we have collected about
                   you in the past 12 months. Use the &quot;Export Data&quot; button in your{' '}
-                  <Link href="/settings" className="text-blue-600 dark:text-blue-400 underline">
+                  <Link href="/settings" className="text-primary underline">
                     Settings
                   </Link>{' '}
                   page.
@@ -278,7 +278,7 @@ export default function PrivacyPolicyPage() {
                 <p>
                   You have the right to request deletion of your personal information. Use the
                   &quot;Delete Account&quot; button in your{' '}
-                  <Link href="/settings" className="text-blue-600 dark:text-blue-400 underline">
+                  <Link href="/settings" className="text-primary underline">
                     Settings
                   </Link>{' '}
                   page.
@@ -289,7 +289,7 @@ export default function PrivacyPolicyPage() {
                 </p>
 
                 <h3 className="text-lg font-semibold mt-4">7.3 Right to Opt-Out of Sale</h3>
-                <p className="font-semibold text-green-600 dark:text-green-400">
+                <p className="font-semibold text-success">
                   We do NOT sell your personal information, so there is nothing to opt out of.
                 </p>
 
@@ -301,7 +301,7 @@ export default function PrivacyPolicyPage() {
                 <ul className="list-disc pl-6 space-y-2">
                   <li>
                     Using the self-service tools in your{' '}
-                    <Link href="/settings" className="text-blue-600 dark:text-blue-400 underline">
+                    <Link href="/settings" className="text-primary underline">
                       Settings
                     </Link>{' '}
                     page (fastest)
@@ -338,7 +338,7 @@ export default function PrivacyPolicyPage() {
                     least-privilege principle
                   </li>
                 </ul>
-                <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                <p className="text-sm text-warning mt-2">
                   However, no method of transmission or storage is 100% secure. We cannot guarantee
                   absolute security.
                 </p>
