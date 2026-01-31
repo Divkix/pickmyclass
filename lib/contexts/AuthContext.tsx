@@ -20,14 +20,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
 
   useEffect(() => {
-    // Get initial session
+    // Get initial session - use getUser() to sync with server-set HTTP-only cookies
     const initializeAuth = async () => {
       try {
+        // getUser() makes an authenticated request that includes HTTP-only cookies,
+        // allowing the server to validate the session even when login was server-side
         const {
-          data: { session: initialSession },
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error || !user) {
+          setUser(null);
+          setSession(null);
+          return;
+        }
+
+        // After getUser() validates, getSession() returns the synced session
+        const {
+          data: { session },
         } = await supabase.auth.getSession();
-        setSession(initialSession);
-        setUser(initialSession?.user ?? null);
+        setSession(session);
+        setUser(user);
       } catch (error) {
         console.error('Error getting session:', error);
       } finally {
