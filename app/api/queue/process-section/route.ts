@@ -316,7 +316,27 @@ export async function POST(request: NextRequest) {
           const results = await sendBatchEmailsOptimized(emailsToSend);
 
           // Count successful sends (notifications already recorded via tryRecordNotification)
-          emailsSent = results.filter((r) => r.success).length;
+          const successfulEmails = results
+            .map((r, i) => ({ ...r, email: emailsToSend[i] }))
+            .filter((r) => r.success);
+          emailsSent = successfulEmails.length;
+
+          // Record engagement sends for successful emails
+          // Uses atomic RPC to track engagement per user
+          const uniqueUserIds = [...new Set(successfulEmails.map((e) => e.email.userId))];
+          for (const userId of uniqueUserIds) {
+            try {
+              await serviceClient.rpc('record_engagement_send', {
+                p_user_id: userId,
+              });
+            } catch (engagementError) {
+              // Non-fatal: log but don't fail the batch
+              console.warn(
+                `[Queue-Processor] Failed to record engagement for user ${userId}:`,
+                engagementError
+              );
+            }
+          }
 
           const failed = results.filter((r) => !r.success).length;
           if (failed > 0) {

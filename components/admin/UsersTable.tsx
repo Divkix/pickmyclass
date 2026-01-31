@@ -26,7 +26,8 @@ type SortField =
   | 'last_sign_in_at'
   | 'watch_count'
   | 'seat_emails'
-  | 'instructor_emails';
+  | 'instructor_emails'
+  | 'engagement_rate';
 type SortDirection = 'asc' | 'desc' | null;
 
 /**
@@ -176,6 +177,9 @@ export function UsersTable({ users }: UsersTableProps) {
         } else if (sortField === 'instructor_emails') {
           aVal = a.instructor_emails;
           bVal = b.instructor_emails;
+        } else if (sortField === 'engagement_rate') {
+          aVal = a.engagement_rate;
+          bVal = b.engagement_rate;
         } else {
           return 0;
         }
@@ -275,13 +279,22 @@ export function UsersTable({ users }: UsersTableProps) {
                   {renderSortIcon('instructor_emails')}
                 </div>
               </TableHead>
+              <TableHead
+                className="text-center cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => toggleSort('engagement_rate')}
+              >
+                <div className="flex items-center justify-center">
+                  Engagement
+                  {renderSortIcon('engagement_rate')}
+                </div>
+              </TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAndSortedUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   No users found
                 </TableCell>
               </TableRow>
@@ -337,10 +350,37 @@ export function UsersTable({ users }: UsersTableProps) {
                         {user.instructor_emails}
                       </span>
                     </TableCell>
+                    <TableCell className="text-center">
+                      {user.engagement_status === 'new' ? (
+                        <span className="text-muted-foreground text-sm">New</span>
+                      ) : (
+                        <span
+                          className={`font-semibold ${
+                            user.engagement_status === 'disabled'
+                              ? 'text-destructive'
+                              : user.engagement_status === 'low'
+                                ? 'text-yellow-600 dark:text-yellow-500'
+                                : 'text-foreground'
+                          }`}
+                        >
+                          {user.engagement_rate !== null ? `${user.engagement_rate}%` : '-'}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell>
-                      <Badge variant="default" size="sm">
-                        Active
-                      </Badge>
+                      {user.engagement_status === 'disabled' ? (
+                        <Badge variant="destructive" size="sm">
+                          Disabled
+                        </Badge>
+                      ) : user.engagement_status === 'low' ? (
+                        <Badge variant="warning" size="sm">
+                          Low Engagement
+                        </Badge>
+                      ) : (
+                        <Badge variant="default" size="sm">
+                          Active
+                        </Badge>
+                      )}
                     </TableCell>
                   </TableRow>
                 );

@@ -167,6 +167,36 @@ async function handleSpamComplaint(event: ResendWebhookEvent): Promise<void> {
 }
 
 /**
+ * Handle email opened event
+ * Records engagement and re-enables notifications if user was disabled due to low engagement
+ */
+async function handleEmailOpened(event: ResendWebhookEvent): Promise<void> {
+  const recipientEmail = event.data.to[0];
+
+  console.log(`[Resend Webhook] Email opened by ${recipientEmail}`);
+
+  // Get user ID from email
+  const userId = await getUserIdFromEmail(recipientEmail);
+  if (!userId) {
+    console.warn('[Resend Webhook] Cannot record email open - user not found');
+    return;
+  }
+
+  // Record engagement open via atomic RPC function
+  const supabase = getServiceClient();
+  const { error } = await supabase.rpc('record_engagement_open', {
+    p_user_id: userId,
+  });
+
+  if (error) {
+    console.error('[Resend Webhook] Error recording email open:', error);
+    throw error;
+  }
+
+  console.log(`[Resend Webhook] Recorded email open for user ${userId}`);
+}
+
+/**
  * POST handler for Resend webhooks
  */
 export async function POST(request: NextRequest) {
@@ -225,6 +255,13 @@ export async function POST(request: NextRequest) {
         console.log(`[Resend Webhook] ✓ Email delivered: ${event.data.email_id}`);
         break;
 
+      case 'email.opened':
+      case 'email.clicked':
+        // Both events indicate user engagement with email
+        await handleEmailOpened(event);
+        console.log(`[Resend Webhook] ✓ Email engagement recorded for ${event.data.to[0]}`);
+        break;
+
       default:
         console.log(`[Resend Webhook] ⚠ Unhandled event type: ${event.type}`);
     }
@@ -253,7 +290,13 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     name: 'PickMyClass Resend Webhook',
-    events: ['email.bounced', 'email.complained', 'email.delivered'],
+    events: [
+      'email.bounced',
+      'email.complained',
+      'email.delivered',
+      'email.opened',
+      'email.clicked',
+    ],
     status: process.env.RESEND_WEBHOOK_SECRET ? 'configured' : 'not configured',
   });
 }

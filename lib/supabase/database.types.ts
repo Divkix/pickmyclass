@@ -181,6 +181,11 @@ export type Database = {
           disabled_at: string | null
           email_bounced: boolean
           email_bounced_at: string | null
+          engagement_disabled_at: string | null
+          engagement_emails_opened: number
+          engagement_emails_sent: number
+          engagement_last_opened_at: string | null
+          engagement_window_start: string | null
           id: string
           is_admin: boolean
           is_disabled: boolean
@@ -198,6 +203,11 @@ export type Database = {
           disabled_at?: string | null
           email_bounced?: boolean
           email_bounced_at?: string | null
+          engagement_disabled_at?: string | null
+          engagement_emails_opened?: number
+          engagement_emails_sent?: number
+          engagement_last_opened_at?: string | null
+          engagement_window_start?: string | null
           id?: string
           is_admin?: boolean
           is_disabled?: boolean
@@ -215,6 +225,11 @@ export type Database = {
           disabled_at?: string | null
           email_bounced?: boolean
           email_bounced_at?: string | null
+          engagement_disabled_at?: string | null
+          engagement_emails_opened?: number
+          engagement_emails_sent?: number
+          engagement_last_opened_at?: string | null
+          engagement_window_start?: string | null
           id?: string
           is_admin?: boolean
           is_disabled?: boolean
@@ -263,6 +278,16 @@ export type Database = {
           term: string
         }[]
       }
+      get_user_engagement_stats: {
+        Args: never
+        Returns: {
+          engagement_emails_opened: number
+          engagement_emails_sent: number
+          engagement_rate: number
+          engagement_status: string
+          user_id: string
+        }[]
+      }
       get_watchers_for_sections: {
         Args: { section_numbers: string[] }
         Returns: {
@@ -272,6 +297,11 @@ export type Database = {
           watch_id: string
         }[]
       }
+      record_engagement_open: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      record_engagement_send: { Args: { p_user_id: string }; Returns: boolean }
       try_record_notification: {
         Args: {
           p_class_watch_id: string

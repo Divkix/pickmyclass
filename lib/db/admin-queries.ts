@@ -29,6 +29,11 @@ export interface ClassWithWatchers extends Tables<'class_states'> {
 }
 
 /**
+ * Engagement status for a user
+ */
+export type EngagementStatus = 'healthy' | 'low' | 'disabled' | 'new';
+
+/**
  * User information with watch count
  */
 export interface UserWithWatchCount {
@@ -41,6 +46,11 @@ export interface UserWithWatchCount {
   is_admin: boolean;
   seat_emails: number;
   instructor_emails: number;
+  // Engagement tracking
+  engagement_emails_sent: number;
+  engagement_emails_opened: number;
+  engagement_rate: number | null;
+  engagement_status: EngagementStatus;
 }
 
 /**
@@ -66,6 +76,17 @@ interface NotificationCountByUserRow {
   user_id: string;
   seat_emails: number;
   instructor_emails: number;
+}
+
+/**
+ * RPC response type for engagement stats
+ */
+interface EngagementStatsRow {
+  user_id: string;
+  engagement_emails_sent: number;
+  engagement_emails_opened: number;
+  engagement_rate: number | null;
+  engagement_status: EngagementStatus;
 }
 
 async function fetchAllAuthUsers(): Promise<User[]> {
@@ -162,6 +183,35 @@ export async function getNotificationCountsByUser(): Promise<Map<string, EmailCo
   }
 
   return countsMap;
+}
+
+/**
+ * Get engagement statistics for all users
+ *
+ * Calls the get_user_engagement_stats RPC function to retrieve
+ * engagement tracking data for admin dashboard.
+ *
+ * @returns Map of user_id to engagement stats
+ */
+export async function getEngagementStats(): Promise<Map<string, EngagementStatsRow>> {
+  const supabase = getServiceClient();
+
+  const { data, error } = await supabase.rpc('get_user_engagement_stats');
+
+  if (error) {
+    console.error('[Admin] Error fetching engagement stats:', error);
+    throw new Error(`Failed to fetch engagement stats: ${error.message}`);
+  }
+
+  const statsMap = new Map<string, EngagementStatsRow>();
+  for (const row of data || []) {
+    statsMap.set(row.user_id, {
+      ...row,
+      engagement_status: row.engagement_status as EngagementStatus,
+    });
+  }
+
+  return statsMap;
 }
 
 /**
@@ -348,12 +398,14 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
       return [];
     }
 
-    // Get watch counts, profiles, and notification counts in parallel
-    const [watchCountsResult, profilesResult, notificationCounts] = await Promise.all([
-      supabase.from('class_watches').select('user_id'),
-      supabase.from('user_profiles').select('user_id, is_admin'),
-      getNotificationCountsByUser(),
-    ]);
+    // Get watch counts, profiles, notification counts, and engagement stats in parallel
+    const [watchCountsResult, profilesResult, notificationCounts, engagementStats] =
+      await Promise.all([
+        supabase.from('class_watches').select('user_id'),
+        supabase.from('user_profiles').select('user_id, is_admin'),
+        getNotificationCountsByUser(),
+        getEngagementStats(),
+      ]);
 
     const { data: watchCounts, error: watchError } = watchCountsResult;
     const { data: profiles, error: profileError } = profilesResult;
@@ -380,10 +432,11 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
       adminStatusMap.set(profile.user_id, profile.is_admin);
     }
 
-    // Combine user data with watch counts, admin status, and notification counts
+    // Combine user data with watch counts, admin status, notification counts, and engagement
     const usersWithWatchCount: UserWithWatchCount[] = users
       .map((user) => {
         const emailCounts = notificationCounts.get(user.id);
+        const engagement = engagementStats.get(user.id);
         return {
           id: user.id,
           email: user.email || '',
@@ -394,6 +447,11 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
           is_admin: adminStatusMap.get(user.id) || false,
           seat_emails: emailCounts?.seat_emails || 0,
           instructor_emails: emailCounts?.instructor_emails || 0,
+          // Engagement tracking
+          engagement_emails_sent: engagement?.engagement_emails_sent || 0,
+          engagement_emails_opened: engagement?.engagement_emails_opened || 0,
+          engagement_rate: engagement?.engagement_rate ?? null,
+          engagement_status: engagement?.engagement_status || 'new',
         };
       })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
