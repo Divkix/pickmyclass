@@ -86,8 +86,10 @@ export default function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl">Set new password</CardTitle>
-          <CardDescription>Enter your new password below</CardDescription>
+          <CardTitle className="text-3xl">Create New Password</CardTitle>
+          <CardDescription>
+            Pick a strong password and get back to watching your classes.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleResetPassword} className="space-y-6">

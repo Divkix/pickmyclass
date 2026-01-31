@@ -76,7 +76,9 @@ export default function VerifyEmailPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="text-3xl">Verify Your Email</CardTitle>
-            <CardDescription>Please check your email to verify your account</CardDescription>
+            <CardDescription>
+              Almost there! Check your inbox to start watching classes.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4 text-sm text-blue-800 dark:text-blue-300">

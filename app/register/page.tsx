@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Header } from '@/components/Header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -233,8 +234,9 @@ export default function RegisterPage() {
       <div className="flex flex-1 items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-3xl">Create Account</CardTitle>
-            <CardDescription>Sign up to get started</CardDescription>
+            <Badge className="bg-asu-maroon text-white mb-2">Join 2,400+ Sun Devils</Badge>
+            <CardTitle className="text-3xl">Get Started</CardTitle>
+            <CardDescription>Stop refreshing MyASU. We'll do it for you.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleRegister} className="space-y-6">
