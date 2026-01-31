@@ -55,10 +55,9 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Add New Class Watch</CardTitle>
+        <CardTitle>Start Watching a Class</CardTitle>
         <CardDescription>
-          Enter the section number and term to start monitoring for seat availability and instructor
-          assignments.
+          Once you add a class, we'll check it every 30 minutes and email you when seats open.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -134,15 +133,14 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
           </div>
 
           {/* Submit Button */}
-          <Button type="submit" disabled={isSubmitting || !term || !classNbr} className="w-full">
-            {isSubmitting ? 'Adding class watch...' : 'Add Watch'}
+          <Button
+            type="submit"
+            variant="gradient"
+            disabled={isSubmitting || !term || !classNbr}
+            className="w-full"
+          >
+            {isSubmitting ? "Checking ASU's class search... hang tight" : 'Start Watching'}
           </Button>
-
-          {isSubmitting && (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 text-center">
-              Fetching class details and creating watch... This may take 5-10 seconds.
-            </p>
-          )}
         </form>
       </CardContent>
     </Card>

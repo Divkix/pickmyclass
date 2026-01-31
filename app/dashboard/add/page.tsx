@@ -74,9 +74,9 @@ export default function AddClassPage() {
         </div>
 
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Add Class Watch</h1>
+          <h1 className="text-3xl font-bold mb-2">Add a Class to Watch</h1>
           <p className="text-zinc-600 dark:text-zinc-400">
-            Add a new class to monitor for seat availability and instructor assignments.
+            Enter your section number and we'll start watching it. Simple as that.
           </p>
         </div>
 
