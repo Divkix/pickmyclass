@@ -1,13 +1,13 @@
 import type { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app';
+  const baseUrl = 'https://pickmyclass.app';
 
   return {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/legal', '/legal/terms', '/legal/privacy'],
+        allow: ['/', '/legal', '/legal/terms', '/legal/privacy', '/login', '/register'],
         disallow: [
           '/dashboard',
           '/dashboard/*',
@@ -17,14 +17,24 @@ export default function robots(): MetadataRoute.Robots {
           '/api/*',
           '/auth',
           '/auth/*',
-          '/login',
-          '/register',
           '/forgot-password',
           '/reset-password',
           '/verify-email',
           '/settings',
           '/go/*',
         ],
+      },
+      {
+        userAgent: 'GPTBot',
+        allow: ['/', '/legal', '/legal/terms', '/legal/privacy'],
+      },
+      {
+        userAgent: 'ChatGPT-User',
+        allow: ['/'],
+      },
+      {
+        userAgent: 'Google-Extended',
+        allow: ['/'],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

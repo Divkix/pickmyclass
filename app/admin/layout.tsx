@@ -1,4 +1,5 @@
 import { BookOpen, LayoutDashboard, Shield, Users } from 'lucide-react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SignOutButton } from '@/components/admin/SignOutButton';
 import { Logo } from '@/components/Logo';
@@ -7,6 +8,10 @@ import { Button } from '@/components/ui/button';
 import { verifyAdmin } from '@/lib/auth/admin';
 import { createClient } from '@/lib/supabase/server';
 import { AdminNavigation } from './AdminNavigation';
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 interface AdminLayoutProps {
   children: React.ReactNode;

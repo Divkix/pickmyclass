@@ -1,10 +1,15 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export const metadata = {
-  title: 'Privacy Policy - PickMyClass',
-  description: 'Privacy Policy for PickMyClass',
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description:
+    'Privacy Policy for PickMyClass. Learn how we protect your data, your CCPA rights, and our cookie and data retention policies.',
+  alternates: {
+    canonical: '/legal/privacy',
+  },
 };
 
 export default function PrivacyPolicyPage() {

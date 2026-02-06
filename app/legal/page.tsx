@@ -1,10 +1,15 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-export const metadata = {
-  title: 'Legal - PickMyClass',
-  description: 'Legal documents and policies for PickMyClass',
+export const metadata: Metadata = {
+  title: 'Legal Documents',
+  description:
+    'Legal documents, Terms of Service, and Privacy Policy for PickMyClass — the free ASU class seat notification service.',
+  alternates: {
+    canonical: '/legal',
+  },
 };
 
 export default function LegalPage() {

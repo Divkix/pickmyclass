@@ -1,9 +1,14 @@
+import type { Metadata } from 'next';
 import { Header } from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export const metadata = {
-  title: 'Terms of Service - PickMyClass',
-  description: 'Terms of Service for PickMyClass',
+export const metadata: Metadata = {
+  title: 'Terms of Service',
+  description:
+    'Terms of Service for PickMyClass — the free ASU class seat notification service. Eligibility requirements, service limitations, and user responsibilities.',
+  alternates: {
+    canonical: '/legal/terms',
+  },
 };
 
 export default function TermsOfServicePage() {
