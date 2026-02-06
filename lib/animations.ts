@@ -1,75 +1,96 @@
 import type { Variants } from 'framer-motion';
 
 /**
+ * Utility to respect user's motion preferences
+ */
+export const reduceMotion = (variants: Variants): Variants => {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    // Return instant transitions for reduced motion
+    return Object.keys(variants).reduce((acc, key) => {
+      acc[key] = {
+        ...variants[key],
+        transition: { duration: 0.01 },
+      };
+      return acc;
+    }, {} as Variants);
+  }
+  return variants;
+};
+
+/**
  * Reusable Framer Motion animation variants for consistent animations across the app
  */
 
 // Fade animations
-export const fadeIn: Variants = {
+export const fadeIn: Variants = reduceMotion({
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: { duration: 0.5, ease: 'easeOut' },
   },
-};
+});
 
-export const fadeInUp: Variants = {
+export const fadeInUp: Variants = reduceMotion({
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: { duration: 0.5, ease: 'easeOut' },
   },
-};
+});
 
-export const fadeInDown: Variants = {
+export const fadeInDown: Variants = reduceMotion({
   hidden: { opacity: 0, y: -20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: { duration: 0.5, ease: 'easeOut' },
   },
-};
+});
 
-export const fadeInLeft: Variants = {
+export const fadeInLeft: Variants = reduceMotion({
   hidden: { opacity: 0, x: -20 },
   visible: {
     opacity: 1,
     x: 0,
     transition: { duration: 0.5, ease: 'easeOut' },
   },
-};
+});
 
-export const fadeInRight: Variants = {
+export const fadeInRight: Variants = reduceMotion({
   hidden: { opacity: 0, x: 20 },
   visible: {
     opacity: 1,
     x: 0,
     transition: { duration: 0.5, ease: 'easeOut' },
   },
-};
+});
 
 // Scale animations
-export const scaleIn: Variants = {
+export const scaleIn: Variants = reduceMotion({
   hidden: { opacity: 0, scale: 0.8 },
   visible: {
     opacity: 1,
     scale: 1,
     transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
   },
-};
+});
 
-export const scaleInSpring: Variants = {
+export const scaleInSpring: Variants = reduceMotion({
   hidden: { opacity: 0, scale: 0.8 },
   visible: {
     opacity: 1,
     scale: 1,
     transition: { type: 'spring', stiffness: 300, damping: 20 },
   },
-};
+});
 
 // Stagger container for list animations
-export const staggerContainer: Variants = {
+export const staggerContainer: Variants = reduceMotion({
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -78,26 +99,26 @@ export const staggerContainer: Variants = {
       delayChildren: 0.1,
     },
   },
-};
+});
 
-export const staggerItem: Variants = {
+export const staggerItem: Variants = reduceMotion({
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: { duration: 0.5, ease: 'easeOut' },
   },
-};
+});
 
 // Card hover animations
-export const cardHover: Variants = {
+export const cardHover: Variants = reduceMotion({
   rest: { scale: 1, y: 0 },
   hover: {
     scale: 1.02,
     y: -4,
     transition: { duration: 0.3, ease: 'easeOut' },
   },
-};
+});
 
 // Button press animation
 export const buttonTap = {
@@ -106,7 +127,7 @@ export const buttonTap = {
 };
 
 // Slide animations for page transitions
-export const slideInRight: Variants = {
+export const slideInRight: Variants = reduceMotion({
   hidden: { x: '100%', opacity: 0 },
   visible: {
     x: 0,
@@ -118,9 +139,9 @@ export const slideInRight: Variants = {
     opacity: 0,
     transition: { duration: 0.3 },
   },
-};
+});
 
-export const slideInLeft: Variants = {
+export const slideInLeft: Variants = reduceMotion({
   hidden: { x: '-100%', opacity: 0 },
   visible: {
     x: 0,
@@ -132,10 +153,10 @@ export const slideInLeft: Variants = {
     opacity: 0,
     transition: { duration: 0.3 },
   },
-};
+});
 
 // Notification/Toast animations
-export const toastSlideIn: Variants = {
+export const toastSlideIn: Variants = reduceMotion({
   hidden: { x: '100%', opacity: 0 },
   visible: {
     x: 0,
@@ -147,10 +168,10 @@ export const toastSlideIn: Variants = {
     opacity: 0,
     transition: { duration: 0.2 },
   },
-};
+});
 
 // Modal/Dialog animations
-export const modalBackdrop: Variants = {
+export const modalBackdrop: Variants = reduceMotion({
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -160,9 +181,9 @@ export const modalBackdrop: Variants = {
     opacity: 0,
     transition: { duration: 0.2, delay: 0.1 },
   },
-};
+});
 
-export const modalContent: Variants = {
+export const modalContent: Variants = reduceMotion({
   hidden: { opacity: 0, scale: 0.95, y: 20 },
   visible: {
     opacity: 1,
@@ -176,7 +197,7 @@ export const modalContent: Variants = {
     y: 20,
     transition: { duration: 0.2 },
   },
-};
+});
 
 // Loading spinner
 export const spinnerRotate = {
@@ -189,7 +210,7 @@ export const spinnerRotate = {
 };
 
 // Success checkmark draw animation
-export const checkmarkDraw: Variants = {
+export const checkmarkDraw: Variants = reduceMotion({
   hidden: {
     pathLength: 0,
     opacity: 0,
@@ -202,10 +223,10 @@ export const checkmarkDraw: Variants = {
       opacity: { duration: 0.1 },
     },
   },
-};
+});
 
 // Pulse animation for attention
-export const pulse: Variants = {
+export const pulse: Variants = reduceMotion({
   initial: { scale: 1 },
   pulse: {
     scale: [1, 1.05, 1],
@@ -215,7 +236,7 @@ export const pulse: Variants = {
       ease: 'easeInOut',
     },
   },
-};
+});
 
 // Skeleton loader shimmer
 export const shimmer = {
@@ -230,7 +251,7 @@ export const shimmer = {
 /**
  * Page transition variants for use with AnimatePresence
  */
-export const pageTransition: Variants = {
+export const pageTransition: Variants = reduceMotion({
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
@@ -248,38 +269,19 @@ export const pageTransition: Variants = {
       ease: 'easeIn',
     },
   },
-};
+});
 
 /**
  * Utility function to create custom stagger animations
  */
-export const createStagger = (staggerDelay = 0.1, delayChildren = 0) => ({
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: staggerDelay,
-      delayChildren,
+export const createStagger = (staggerDelay = 0.1, delayChildren = 0) =>
+  reduceMotion({
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: staggerDelay,
+        delayChildren,
+      },
     },
-  },
-});
-
-/**
- * Utility to respect user's motion preferences
- */
-export const reduceMotion = (variants: Variants): Variants => {
-  if (
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  ) {
-    // Return instant transitions for reduced motion
-    return Object.keys(variants).reduce((acc, key) => {
-      acc[key] = {
-        ...variants[key],
-        transition: { duration: 0.01 },
-      };
-      return acc;
-    }, {} as Variants);
-  }
-  return variants;
-};
+  });

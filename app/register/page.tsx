@@ -159,13 +159,7 @@ export default function RegisterPage() {
           setError('This email is already registered. Please sign in.');
         } else {
           // Update user profile with age verification and terms agreement
-          const { error: profileError } = await supabase
-            .from('user_profiles')
-            .update({
-              age_verified_at: new Date().toISOString(),
-              agreed_to_terms_at: new Date().toISOString(),
-            })
-            .eq('user_id', data.user.id);
+          const { error: profileError } = await supabase.rpc('accept_terms_and_verify_age');
 
           if (profileError) {
             console.error('Error updating profile:', profileError);

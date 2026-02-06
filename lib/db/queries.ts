@@ -67,63 +67,6 @@ export async function getSectionsToCheck(
 }
 
 /**
- * Atomically check and record notification in one operation
- * Eliminates race condition in parallel queue processing
- *
- * @param watchId - Class watch ID
- * @param notificationType - Type of notification ('seat_available' | 'instructor_assigned')
- * @param expiresHours - Hours until notification expires (default: 24, max: 168)
- * @returns True if notification was recorded (safe to send email), false if already exists (skip)
- *
- * @example
- * // CORRECT: Check atomically BEFORE sending email
- * const shouldSend = await tryRecordNotification(watchId, 'seat_available')
- * if (shouldSend) {
- *   await sendEmail(...)
- * }
- *
- * @example
- * // WRONG: Check-then-send pattern (race condition!)
- * const alreadySent = await hasNotificationBeenSent(watchId, 'seat_available')
- * if (!alreadySent) {
- *   await sendEmail(...)
- *   await recordNotificationSent(watchId, 'seat_available')
- * }
- */
-export async function tryRecordNotification(
-  watchId: string,
-  notificationType: 'seat_available' | 'instructor_assigned',
-  expiresHours: number = 24
-): Promise<boolean> {
-  const supabase = getServiceClient();
-
-  const { data, error } = await supabase.rpc('try_record_notification', {
-    p_class_watch_id: watchId,
-    p_notification_type: notificationType,
-    p_expires_hours: expiresHours,
-  });
-
-  if (error) {
-    console.error('[DB] Error in atomic notification check:', error);
-    throw new Error(`Failed to record notification: ${error.message}`);
-  }
-
-  const wasRecorded = data === true;
-
-  if (wasRecorded) {
-    console.log(
-      `[DB] ✅ Recorded ${notificationType} notification for watch ${watchId} (expires in ${expiresHours}h)`
-    );
-  } else {
-    console.log(
-      `[DB] ⏭️  Skipped ${notificationType} notification for watch ${watchId} (already sent)`
-    );
-  }
-
-  return wasRecorded;
-}
-
-/**
  * Reset seat_available notifications for a specific class section
  * Called when seats fill back to zero, allowing users to be re-notified
  * when seats open again.
@@ -170,4 +113,66 @@ export async function resetNotificationsForSection(
   console.log(
     `[DB] Reset ${notificationType} notifications for ${watchIds.length} watchers of section ${classNbr}`
   );
+}
+
+/**
+ * Delete notification records for specific watch IDs and type.
+ * Used to rollback notification records when email sending fails.
+ *
+ * @param watchIds - Array of class watch UUIDs
+ * @param notificationType - Type of notification to delete
+ * @returns Number of records deleted
+ */
+export async function deleteNotificationRecords(
+  watchIds: string[],
+  notificationType: 'seat_available' | 'instructor_assigned'
+): Promise<number> {
+  if (watchIds.length === 0) return 0;
+  const supabase = getServiceClient();
+
+  const { data, error } = await supabase.rpc('delete_notification_records', {
+    p_class_watch_ids: watchIds,
+    p_notification_type: notificationType,
+  });
+
+  if (error) {
+    console.error('[DB] Error deleting notification records:', error);
+    throw new Error(`Failed to delete notification records: ${error.message}`);
+  }
+
+  console.log(`[DB] Deleted ${data} notification records for ${watchIds.length} watches`);
+  return data;
+}
+
+/**
+ * Batch check-and-record notifications atomically.
+ * Returns the set of watch IDs that were successfully recorded (safe to send email).
+ *
+ * @param watchIds - Array of class watch UUIDs to check
+ * @param notificationType - Type of notification
+ * @param expiresHours - Hours until notification expires (default: 24)
+ * @returns Set of watch IDs that were recorded (not previously sent)
+ */
+export async function tryRecordNotificationsBatch(
+  watchIds: string[],
+  notificationType: 'seat_available' | 'instructor_assigned',
+  expiresHours: number = 24
+): Promise<Set<string>> {
+  if (watchIds.length === 0) return new Set();
+  const supabase = getServiceClient();
+
+  const { data, error } = await supabase.rpc('try_record_notifications_batch', {
+    p_class_watch_ids: watchIds,
+    p_notification_type: notificationType,
+    p_expires_hours: expiresHours,
+  });
+
+  if (error) {
+    console.error('[DB] Error in batch notification check:', error);
+    throw new Error(`Failed to batch record notifications: ${error.message}`);
+  }
+
+  const recordedIds = new Set<string>(data as string[]);
+  console.log(`[DB] Batch ${notificationType}: ${recordedIds.size}/${watchIds.length} recorded`);
+  return recordedIds;
 }

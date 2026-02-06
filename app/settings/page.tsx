@@ -8,38 +8,22 @@ import { Header } from '@/components/Header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { createClient } from '@/lib/supabase/client';
-
-export const dynamic = 'force-dynamic';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 export default function SettingsPage() {
-  const [user, setUser] = useState<{ email?: string; created_at?: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading: authLoading } = useAuth();
   const [exportLoading, setExportLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const checkUser = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-
-      if (error || !user) {
-        router.push('/login');
-        return;
-      }
-
-      setUser(user);
-      setLoading(false);
-    };
-
-    checkUser();
-  }, [router]);
+    if (!authLoading && !user) {
+      router.replace('/login');
+    }
+  }, [user, authLoading, router]);
 
   const handleExportData = async () => {
     setExportLoading(true);
@@ -74,12 +58,17 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <Header />
-        <div className="flex flex-1 items-center justify-center">
-          <p>Loading...</p>
+        <div className="flex flex-1 flex-col p-4 md:p-8">
+          <div className="mx-auto w-full max-w-4xl space-y-6">
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-5 w-64" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-64 w-full rounded-xl" />
+          </div>
         </div>
       </div>
     );
@@ -96,7 +85,10 @@ export default function SettingsPage() {
           </div>
 
           {message && (
-            <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
+            <Alert
+              variant={message.type === 'error' ? 'destructive' : 'default'}
+              role={message.type === 'error' ? 'alert' : 'status'}
+            >
               <AlertDescription>{message.text}</AlertDescription>
             </Alert>
           )}

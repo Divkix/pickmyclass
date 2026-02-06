@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import { Calendar, CheckCircle2, Eye, Plus, Search, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ClassWatchCard } from '@/components/ClassWatchCard';
@@ -30,6 +30,7 @@ interface GetClassWatchesResponse {
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [watches, setWatches] = useState<ClassWatch[]>([]);
   const [maxWatches, setMaxWatches] = useState<number>(10);
   const [isLoadingWatches, setIsLoadingWatches] = useState(true);
@@ -55,9 +56,9 @@ export default function DashboardPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      redirect('/login');
+      router.replace('/login');
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, router]);
 
   // Fetch user's class watches
   const fetchWatches = useCallback(async () => {
@@ -320,6 +321,7 @@ export default function DashboardPage() {
                 placeholder="Search classes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search watched classes"
                 className="w-full rounded-md border border-input bg-background px-3 py-3 pl-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
@@ -387,6 +389,7 @@ export default function DashboardPage() {
                     watch={watch}
                     classState={liveState}
                     onDelete={handleDeleteWatch}
+                    onRestore={fetchWatches}
                   />
                 </motion.div>
               );

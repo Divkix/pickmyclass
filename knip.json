@@ -28,7 +28,7 @@
     "components/ui/**",
     "lib/animations.ts"
   ],
-  "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css", "postcss"],
+  "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css", "postcss", "cloudflare"],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false
 }

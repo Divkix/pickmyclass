@@ -19,9 +19,10 @@ interface ClassWatchCardProps {
   watch: ClassWatch;
   classState: ClassState | null;
   onDelete: (watchId: string) => Promise<void>;
+  onRestore?: () => void;
 }
 
-export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardProps) {
+export function ClassWatchCard({ watch, classState, onDelete, onRestore }: ClassWatchCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -102,8 +103,7 @@ export function ClassWatchCard({ watch, classState, onDelete }: ClassWatchCardPr
       toast.success('Class watch restored');
       deletedWatchRef.current = null;
 
-      // Force page refresh to show restored watch
-      window.location.reload();
+      onRestore?.();
     } catch (error) {
       console.error('Failed to restore watch:', error);
       toast.error('Failed to restore watch. Please add it again manually.');

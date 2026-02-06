@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "worker.ts",
+    "lib/types/queue.ts",
+    "lib/cloudflare-env.d.ts",
+    "lib/cloudflare-env.supplemental.d.ts"
+  ],
+  "exclude": ["node_modules"]
+}

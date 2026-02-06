@@ -48,7 +48,12 @@ export function AdminNavigation() {
       {navItems.map((item) => {
         const active = isActive(item.href, item.exact);
         return (
-          <Link key={item.href} href={item.href} className="block">
+          <Link
+            key={item.href}
+            href={item.href}
+            className="block"
+            aria-current={active ? 'page' : undefined}
+          >
             <Button
               variant={active ? 'secondary' : 'ghost'}
               size="sm"

@@ -138,14 +138,7 @@ export default async function middleware(request: NextRequest) {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const pathname = request.nextUrl.pathname;
 
-  // Fix 1: HEAD requests don't need auth - return immediately with security headers
-  if (request.method === 'HEAD') {
-    const response = NextResponse.next({ request });
-    addSecurityHeaders(response, isDevelopment);
-    return response;
-  }
-
-  // Fix 2: Early exit for public routes WITHOUT auth cookies
+  // Early exit for public routes WITHOUT auth cookies
   // This skips the expensive getUser() call for unauthenticated visitors
   const routeIsPublic = isPublicRoute(pathname);
   if (routeIsPublic && !hasAuthCookies(request)) {

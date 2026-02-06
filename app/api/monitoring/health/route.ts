@@ -7,6 +7,7 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase/service';
+import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
  * Health status response
@@ -24,7 +25,18 @@ interface HealthStatus {
  * Returns system health status for monitoring and alerting
  * Public endpoint - no authentication required
  */
-export async function GET() {
+export async function GET(request: Request) {
+  // Auth check first - unauthenticated requests get a simple liveness probe
+  // without running expensive DB/DO queries (prevents DoS via health endpoint)
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+  const isAuthenticated =
+    !!cronSecret && !!authHeader && timingSafeCompare(authHeader, `Bearer ${cronSecret}`);
+
+  if (!isAuthenticated) {
+    return NextResponse.json({ status: 'ok' }, { status: 200 });
+  }
+
   const startTime = Date.now();
   const health: HealthStatus = {
     timestamp: new Date().toISOString(),

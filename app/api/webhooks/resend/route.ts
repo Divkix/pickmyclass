@@ -12,6 +12,7 @@
 import { createHmac } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase/service';
+import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
  * Resend webhook event types
@@ -40,21 +41,8 @@ function verifyWebhookSignature(body: string, signature: string | null, secret: 
     console.warn('[Resend Webhook] Missing signature header');
     return false;
   }
-
-  // Calculate expected signature
   const expectedSignature = createHmac('sha256', secret).update(body).digest('hex');
-
-  // Constant-time comparison to prevent timing attacks
-  if (signature.length !== expectedSignature.length) {
-    return false;
-  }
-
-  let mismatch = 0;
-  for (let i = 0; i < signature.length; i++) {
-    mismatch |= signature.charCodeAt(i) ^ expectedSignature.charCodeAt(i);
-  }
-
-  return mismatch === 0;
+  return timingSafeCompare(signature, expectedSignature);
 }
 
 /**

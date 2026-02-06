@@ -377,12 +377,12 @@ const server = app.listen(PORT, () => {
   console.log(`[Server] Rate limit: 1000 req/min (16.6 req/sec)`);
   console.log(`[Server] Max concurrent: ${process.env.MAX_CONCURRENT_REQUESTS || 10} scrapes`);
   console.log(`[Server] Circuit breaker: ${process.env.CIRCUIT_BREAKER_THRESHOLD || 10} failures`);
-  console.log(`[Server] Server timeout: 60s`);
+  console.log(`[Server] Server timeout: 95s`);
   console.log('='.repeat(50));
 });
 
-// Set server timeout (60 seconds for scrape operations)
-server.timeout = 60000; // 60 seconds
+// Set server timeout (above 90s client timeout in process-section)
+server.timeout = 95000; // 95s (above 90s client timeout in process-section)
 
 /**
  * Graceful shutdown handler

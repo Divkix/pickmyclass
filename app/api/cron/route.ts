@@ -15,6 +15,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSectionsToCheck } from '@/lib/db/queries';
 import type { ClassCheckMessage, Env } from '@/lib/types/queue';
+import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
  * Main cron handler with staggered checking
@@ -40,7 +41,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const isAuthorized = authHeader === `Bearer ${expectedSecret}`;
+    const isAuthorized =
+      authHeader !== null && timingSafeCompare(authHeader, `Bearer ${expectedSecret}`);
 
     if (!isAuthorized) {
       console.warn('[Cron] Unauthorized request - invalid or missing authentication');
@@ -134,24 +136,50 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Enqueue all sections to Cloudflare Queue for parallel processing
-    const enqueuePromises = sections.map((section) =>
-      queue.send({
-        class_nbr: section.class_nbr,
-        term: section.term,
-        enqueued_at: new Date().toISOString(),
-        stagger_group: staggerGroup,
-      } satisfies ClassCheckMessage)
+    // Enqueue using sendBatch API (100 messages per batch, CF limit)
+    const BATCH_SIZE = 100;
+    const batches: ClassCheckMessage[][] = [];
+
+    for (let i = 0; i < sections.length; i += BATCH_SIZE) {
+      batches.push(
+        sections.slice(i, i + BATCH_SIZE).map(
+          (section) =>
+            ({
+              class_nbr: section.class_nbr,
+              term: section.term,
+              enqueued_at: new Date().toISOString(),
+              stagger_group: staggerGroup,
+            }) satisfies ClassCheckMessage
+        )
+      );
+    }
+
+    const batchResults = await Promise.allSettled(
+      batches.map((batch) => queue.sendBatch(batch.map((msg) => ({ body: msg }))))
     );
 
-    await Promise.all(enqueuePromises);
+    const failedBatches = batchResults.filter((r) => r.status === 'rejected');
+    if (failedBatches.length > 0) {
+      console.error(`[Cron] ${failedBatches.length}/${batches.length} batches failed to enqueue`);
+      for (const failed of failedBatches) {
+        if (failed.status === 'rejected') {
+          console.error('[Cron] Batch error:', failed.reason);
+        }
+      }
+    }
+
+    const successfulBatches = batchResults.filter((r) => r.status === 'fulfilled').length;
 
     const duration = Date.now() - startTime;
-    console.log(`[Cron] Enqueued ${sections.length} sections in ${duration}ms`);
+    console.log(
+      `[Cron] Enqueued ${sections.length} sections in ${duration}ms (${successfulBatches}/${batches.length} batches succeeded)`
+    );
 
     return NextResponse.json({
       success: true,
       sections_enqueued: sections.length,
+      batches_total: batches.length,
+      batches_failed: failedBatches.length,
       stagger_group: staggerGroup,
       duration,
     });

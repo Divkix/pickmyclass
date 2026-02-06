@@ -95,8 +95,6 @@ export function useRealtimeClassStates({
             filter: `class_nbr=in.(${classNumbersKey})`,
           },
           (payload) => {
-            console.log('Real-time update received:', payload);
-
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
               const newState = payload.new as ClassState;
               setClassStates((prev) => ({

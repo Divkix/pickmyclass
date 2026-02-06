@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PickMyClass is a class seat notification system for university students. Built with Next.js 15.5, Supabase authentication, and deployed on Cloudflare Workers via OpenNext.
+PickMyClass is a class seat notification system for university students. Built with Next.js 16, Supabase authentication, and deployed on Cloudflare Workers via OpenNext.
 
 **Core Flow:**
 1. Students add class sections to monitor by section number

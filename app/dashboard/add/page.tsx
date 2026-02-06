@@ -2,7 +2,7 @@
 
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { redirect, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { AddClassWatch } from '@/components/AddClassWatch';
 import { Header } from '@/components/Header';
@@ -21,9 +21,9 @@ export default function AddClassPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      redirect('/login');
+      router.replace('/login');
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, router]);
 
   // Handle adding a new watch
   const handleAddWatch = async (watchData: { term: string; class_nbr: string }) => {

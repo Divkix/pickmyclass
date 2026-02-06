@@ -51,6 +51,9 @@ export function createServiceClient(serviceRoleKey: string): SupabaseClient<Data
  * const supabase = getServiceClient()
  * await supabase.from('class_states').update({ ... })
  */
+let cachedClient: SupabaseClient<Database> | null = null;
+let cachedKey: string | null = null;
+
 export function getServiceClient(): SupabaseClient<Database> {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -61,5 +64,11 @@ export function getServiceClient(): SupabaseClient<Database> {
     );
   }
 
-  return createServiceClient(serviceRoleKey);
+  if (cachedClient && cachedKey === serviceRoleKey) {
+    return cachedClient;
+  }
+
+  cachedClient = createServiceClient(serviceRoleKey);
+  cachedKey = serviceRoleKey;
+  return cachedClient;
 }

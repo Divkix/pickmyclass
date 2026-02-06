@@ -28,7 +28,7 @@
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.3",
     "class-variance-authority": "^0.7.1",
-    "cloudflare": "^5.2.0",
+
     "clsx": "^2.1.1",
     "framer-motion": "^12.29.2",
     "lucide-react": "^0.563.0",
@@ -52,7 +52,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.0.18",
-    "happy-dom": "^20.4.0",
+
     "jsdom": "^27.4.0",
     "knip": "^5.82.1",
     "supabase": "^2.74.4",

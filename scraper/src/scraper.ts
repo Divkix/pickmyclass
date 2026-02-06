@@ -41,6 +41,10 @@ class BrowserPool {
   private browsers: Browser[] = [];
   private availableBrowsers: Browser[] = [];
   private isShuttingDown = false;
+  private initPromise: Promise<void> | null = null;
+  private replacementCount = 0;
+  private lastReplacementHourStart = 0;
+  private static readonly MAX_REPLACEMENTS_PER_HOUR = 15;
   private queue: Array<{
     resolve: (browser: Browser) => void;
     reject: (error: Error) => void;
@@ -53,8 +57,6 @@ class BrowserPool {
    * Launches browsers in small batches to prevent timeout on resource-constrained servers
    */
   private async initializePool(): Promise<void> {
-    if (this.browsers.length > 0) return; // Already initialized
-
     console.log(
       `[BrowserPool] Initializing pool with ${MAX_CONCURRENT_BROWSERS} browsers (batches of ${BROWSER_LAUNCH_BATCH_SIZE})...`
     );
@@ -98,7 +100,13 @@ class BrowserPool {
   async acquireBrowser(): Promise<Browser> {
     // Initialize pool on first request
     if (this.browsers.length === 0) {
-      await this.initializePool();
+      if (!this.initPromise) {
+        this.initPromise = this.initializePool().catch((err) => {
+          this.initPromise = null;
+          throw err;
+        });
+      }
+      await this.initPromise;
     }
 
     if (this.isShuttingDown) {
@@ -181,6 +189,48 @@ class BrowserPool {
       this.availableBrowsers.splice(availableIndex, 1);
     }
     console.log(`[BrowserPool] Removed crashed browser. Pool size: ${this.browsers.length}`);
+
+    // Spawn replacement if not shutting down and below max pool size
+    if (!this.isShuttingDown && this.browsers.length < MAX_CONCURRENT_BROWSERS) {
+      this.spawnReplacement();
+    }
+  }
+
+  private async spawnReplacement(): Promise<void> {
+    const now = Date.now();
+    const oneHourMs = 3600000;
+    if (now - this.lastReplacementHourStart > oneHourMs) {
+      this.replacementCount = 0;
+      this.lastReplacementHourStart = now;
+    }
+
+    this.replacementCount++;
+    if (this.replacementCount > BrowserPool.MAX_REPLACEMENTS_PER_HOUR) {
+      console.error(
+        `[BrowserPool] ESCALATION: ${this.replacementCount} browser replacements in the last hour. Possible systemic issue.`
+      );
+      return;
+    }
+
+    try {
+      const id = this.browsers.length + 1;
+      console.log(`[BrowserPool] Spawning replacement browser #${id}...`);
+      const browser = await this.launchBrowser(id);
+      this.browsers.push(browser);
+
+      const next = this.queue.shift();
+      if (next) {
+        console.log(`[BrowserPool] Replacement browser assigned to queued job`);
+        next.resolve(browser);
+      } else {
+        this.availableBrowsers.push(browser);
+        console.log(
+          `[BrowserPool] Replacement browser ready. Pool: ${this.availableBrowsers.length}/${this.browsers.length}`
+        );
+      }
+    } catch (error) {
+      console.error('[BrowserPool] Failed to spawn replacement browser:', error);
+    }
   }
 
   /**
@@ -243,6 +293,7 @@ class BrowserPool {
 
     this.browsers = [];
     this.availableBrowsers = [];
+    this.initPromise = null;
     console.log('[BrowserPool] All browsers closed');
   }
 

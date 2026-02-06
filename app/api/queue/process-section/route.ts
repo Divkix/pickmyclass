@@ -7,10 +7,15 @@
 
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { type NextRequest, NextResponse } from 'next/server';
-import { resetNotificationsForSection, tryRecordNotification } from '@/lib/db/queries';
+import {
+  deleteNotificationRecords,
+  resetNotificationsForSection,
+  tryRecordNotificationsBatch,
+} from '@/lib/db/queries';
 import { type ClassInfo, sendBatchEmailsOptimized } from '@/lib/email/resend';
 import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassCheckMessage } from '@/lib/types/queue';
+import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
  * Interface for scraper response
@@ -126,7 +131,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isAuthorized = authHeader === `Bearer ${expectedSecret}`;
+    const isAuthorized =
+      authHeader !== null && timingSafeCompare(authHeader, `Bearer ${expectedSecret}`);
 
     if (!isAuthorized) {
       console.warn('[Queue-Processor] Unauthorized request');
@@ -253,7 +259,15 @@ export async function POST(request: NextRequest) {
       );
 
       if (watchersError) {
-        console.error(`[Queue-Processor] Error fetching watchers:`, watchersError);
+        console.error(`[Queue-Processor] Error fetching watchers for ${class_nbr}:`, watchersError);
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Failed to fetch watchers: ${watchersError.message}`,
+            class_nbr,
+          },
+          { status: 500 }
+        );
       } else if (watchers && watchers.length > 0) {
         console.log(`[Queue-Processor] Found ${watchers.length} watchers for ${class_nbr}`);
 
@@ -271,41 +285,45 @@ export async function POST(request: NextRequest) {
           meeting_times: newData.meeting_times,
         };
 
-        // Prepare batch email list using ATOMIC notification check
-        // This eliminates race conditions in parallel processing
+        // Batch notification dedup: atomically claim slots for all watchers at once
         const emailsToSend: Array<{
           to: string;
           userId: string;
+          watchId: string;
           classInfo: ClassInfo;
           type: 'seat_available' | 'instructor_assigned';
         }> = [];
 
-        // CRITICAL FIX: Use atomic check BEFORE building email list
-        // Previously: check-then-send pattern allowed duplicates
-        // Now: tryRecordNotification() atomically claims the notification slot
-        for (const watcher of watchers) {
-          if (seatBecameAvailable) {
-            // Atomic check-and-record: only returns true if this worker claimed the slot
-            const shouldSend = await tryRecordNotification(watcher.watch_id, 'seat_available');
-            if (shouldSend) {
+        const allWatchIds = watchers.map((w: { watch_id: string }) => w.watch_id);
+
+        if (seatBecameAvailable) {
+          const recordedSeatIds = await tryRecordNotificationsBatch(allWatchIds, 'seat_available');
+          for (const watcher of watchers) {
+            if (recordedSeatIds.has(watcher.watch_id)) {
               emailsToSend.push({
                 to: watcher.email,
                 userId: watcher.user_id,
+                watchId: watcher.watch_id,
                 classInfo,
-                type: 'seat_available',
+                type: 'seat_available' as const,
               });
             }
           }
+        }
 
-          if (instructorAssigned) {
-            // Atomic check-and-record: only returns true if this worker claimed the slot
-            const shouldSend = await tryRecordNotification(watcher.watch_id, 'instructor_assigned');
-            if (shouldSend) {
+        if (instructorAssigned) {
+          const recordedInstructorIds = await tryRecordNotificationsBatch(
+            allWatchIds,
+            'instructor_assigned'
+          );
+          for (const watcher of watchers) {
+            if (recordedInstructorIds.has(watcher.watch_id)) {
               emailsToSend.push({
                 to: watcher.email,
                 userId: watcher.user_id,
+                watchId: watcher.watch_id,
                 classInfo,
-                type: 'instructor_assigned',
+                type: 'instructor_assigned' as const,
               });
             }
           }
@@ -315,11 +333,39 @@ export async function POST(request: NextRequest) {
         if (emailsToSend.length > 0) {
           const results = await sendBatchEmailsOptimized(emailsToSend);
 
-          // Count successful sends (notifications already recorded via tryRecordNotification)
+          // Count successful sends (notifications already recorded via batch dedup)
           const successfulEmails = results
             .map((r, i) => ({ ...r, email: emailsToSend[i] }))
             .filter((r) => r.success);
           emailsSent = successfulEmails.length;
+
+          // Rollback notification records for failed emails so they can be retried
+          const failedEmails = results
+            .map((r, i) => ({ ...r, email: emailsToSend[i] }))
+            .filter((r) => !r.success);
+
+          if (failedEmails.length > 0) {
+            const failedSeatWatchIds = failedEmails
+              .filter((e) => e.email.type === 'seat_available')
+              .map((e) => e.email.watchId);
+            const failedInstructorWatchIds = failedEmails
+              .filter((e) => e.email.type === 'instructor_assigned')
+              .map((e) => e.email.watchId);
+
+            try {
+              if (failedSeatWatchIds.length > 0) {
+                await deleteNotificationRecords(failedSeatWatchIds, 'seat_available');
+              }
+              if (failedInstructorWatchIds.length > 0) {
+                await deleteNotificationRecords(failedInstructorWatchIds, 'instructor_assigned');
+              }
+            } catch (rollbackError) {
+              console.error(
+                `[Queue-Processor] Failed to rollback notification records for ${class_nbr}:`,
+                rollbackError
+              );
+            }
+          }
 
           // Record engagement sends for successful emails
           // Uses atomic RPC to track engagement per user

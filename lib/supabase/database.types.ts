@@ -247,6 +247,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_terms_and_verify_age: { Args: never; Returns: undefined }
+      delete_notification_records: {
+        Args: { p_class_watch_ids: string[]; p_notification_type: string }
+        Returns: number
+      }
       get_class_watchers: {
         Args: { section_number: string }
         Returns: {
@@ -309,6 +314,14 @@ export type Database = {
           p_notification_type: string
         }
         Returns: boolean
+      }
+      try_record_notifications_batch: {
+        Args: {
+          p_class_watch_ids: string[]
+          p_expires_hours?: number
+          p_notification_type: string
+        }
+        Returns: string[]
       }
       user_owns_class_watch: { Args: { watch_id: string }; Returns: boolean }
     }

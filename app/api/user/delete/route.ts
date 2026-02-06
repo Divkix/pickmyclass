@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getServiceClient } from '@/lib/supabase/service';
 
 /**
  * Account Deletion API - CCPA Compliance
@@ -26,8 +27,9 @@ export async function DELETE() {
 
     const deletionTimestamp = new Date().toISOString();
 
-    // Soft delete: Set is_disabled flag and disable notifications
-    const { error: updateError } = await supabase
+    // Soft delete: Use service client since is_disabled/disabled_at are restricted columns
+    const serviceClient = getServiceClient();
+    const { error: updateError } = await serviceClient
       .from('user_profiles')
       .update({
         is_disabled: true,

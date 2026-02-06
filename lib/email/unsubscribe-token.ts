@@ -6,15 +6,19 @@
  */
 
 import { createHmac } from 'node:crypto';
+import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
  * Generate a secret key for HMAC signing
  * Uses SUPABASE_SERVICE_ROLE_KEY as the signing secret
  */
 function getSigningSecret(): string {
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const secret = process.env.UNSUBSCRIBE_SIGNING_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!secret) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set. Required for HMAC token signing.');
+    throw new Error(
+      'UNSUBSCRIBE_SIGNING_SECRET (or SUPABASE_SERVICE_ROLE_KEY as fallback) is not set. ' +
+        'Required for HMAC token signing.'
+    );
   }
   return secret;
 }
@@ -70,7 +74,7 @@ export function verifyUnsubscribeToken(token: string): string | null {
     const secret = getSigningSecret();
     const expectedSignature = createHmac('sha256', secret).update(payload).digest('hex');
 
-    if (providedSignature !== expectedSignature) {
+    if (!timingSafeCompare(providedSignature, expectedSignature)) {
       console.warn('[UnsubscribeToken] Invalid signature');
       return null;
     }

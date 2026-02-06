@@ -50,8 +50,6 @@ function LoginForm() {
     e.preventDefault();
     e.stopPropagation();
 
-    console.log('[Login] Form submit handled, natural submission prevented');
-
     setError(null);
     setSuccess(null);
     setLoading(true);
@@ -183,7 +181,7 @@ function LoginForm() {
               </div>
 
               {success && (
-                <Alert className="bg-success/10 text-success border-success/30">
+                <Alert className="bg-success/10 text-success border-success/30" role="status">
                   <AlertDescription>{success}</AlertDescription>
                 </Alert>
               )}
