@@ -88,6 +88,8 @@ interface AsuApiResponse {
 
 // --- Helpers ---
 
+const CLASS_SEARCH_ENDPOINT_PATH = '/search/classes';
+
 function formatTime(time: string): string {
   const [hourStr, minuteStr] = time.split(':');
   let hour = Number.parseInt(hourStr, 10);
@@ -130,6 +132,27 @@ function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
   };
 }
 
+function buildClassSearchUrl(baseUrl: string, classNbr: string, term: string): string {
+  const url = new URL(baseUrl);
+  const trimmedPath = url.pathname.replace(/\/+$/, '');
+  const endpointPath = trimmedPath.endsWith(CLASS_SEARCH_ENDPOINT_PATH)
+    ? trimmedPath
+    : `${trimmedPath}${CLASS_SEARCH_ENDPOINT_PATH}`;
+
+  url.pathname = endpointPath;
+  url.searchParams.set('classNbr', classNbr);
+  url.searchParams.set('term', term);
+
+  return url.toString();
+}
+
+function normalizeAuthHeader(token: string): string {
+  const trimmed = token.trim();
+  if (trimmed.length === 0) return trimmed;
+  if (/^Bearer\s+/i.test(trimmed)) return trimmed;
+  return `Bearer ${trimmed}`;
+}
+
 // --- Main Function ---
 
 export async function fetchClassFromASU(
@@ -141,10 +164,11 @@ export async function fetchClassFromASU(
     throw new ApiError('ASU API environment variables not configured');
   }
 
-  const url = `${env.ASU_API_BASE_URL}?classNbr=${classNbr}&term=${term}`;
+  const url = buildClassSearchUrl(env.ASU_API_BASE_URL, classNbr, term);
+  const authHeader = normalizeAuthHeader(env.ASU_API_TOKEN);
 
   const response = await fetch(url, {
-    headers: { Authorization: env.ASU_API_TOKEN },
+    headers: { Authorization: authHeader },
     signal: AbortSignal.timeout(10_000),
   });
 
