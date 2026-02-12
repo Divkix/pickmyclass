@@ -24,7 +24,6 @@
     "cloudflare-env.d.ts",
     "next-env.d.ts",
     "lib/supabase/database.types.ts",
-    "scraper/**",
     "components/ui/**",
     "lib/animations.ts"
   ],

@@ -175,7 +175,7 @@ export default async function AdminDashboardPage() {
                 <li>Latest email notifications sent</li>
                 <li>New class watches added</li>
                 <li>System health metrics</li>
-                <li>Scraper service status</li>
+                <li>ASU API status</li>
               </ul>
             </div>
           </CardContent>

@@ -1,11 +1,12 @@
 /**
  * System Health and Monitoring Endpoint
  *
- * Provides real-time system status including circuit breakers, database, and scraper.
+ * Provides real-time system status including ASU API, database, and cron lock.
  */
 
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { NextResponse } from 'next/server';
+import { fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
 import { getServiceClient } from '@/lib/supabase/service';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
@@ -69,56 +70,41 @@ export async function GET(request: Request) {
     health.status = 'unhealthy';
   }
 
-  // 2. Check Scraper Circuit Breaker (Durable Object)
+  // 2. Check ASU API
+  try {
+    const asuEnv = {
+      ASU_API_BASE_URL: process.env.ASU_API_BASE_URL ?? '',
+      ASU_API_TOKEN: process.env.ASU_API_TOKEN ?? '',
+    };
+    await fetchClassFromASU('10001', '2251', asuEnv);
+    health.checks.asu_api = {
+      name: 'ASU API',
+      status: 'healthy',
+    };
+  } catch (error) {
+    // NotFoundError means the API is reachable but section doesn't exist - that's healthy
+    if (error instanceof NotFoundError) {
+      health.checks.asu_api = {
+        name: 'ASU API',
+        status: 'healthy',
+      };
+    } else {
+      health.checks.asu_api = {
+        name: 'ASU API',
+        status: 'unhealthy',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+      health.status = 'degraded';
+    }
+  }
+
+  // 2b. Check Cron Lock Status (Durable Object)
   try {
     const context = await getCloudflareContext();
     const env = context.env as unknown as {
-      CIRCUIT_BREAKER_DO?: DurableObjectNamespace;
       CRON_LOCK_DO?: DurableObjectNamespace;
     };
 
-    if (env?.CIRCUIT_BREAKER_DO) {
-      const doId = env.CIRCUIT_BREAKER_DO.idFromName('scraper-circuit-breaker');
-      const circuitBreakerStub = env.CIRCUIT_BREAKER_DO.get(doId);
-
-      const statusResponse = await circuitBreakerStub.fetch('http://do/status');
-      const cbStatus = (await statusResponse.json()) as {
-        state: string;
-        failureCount: number;
-        successCount: number;
-        lastFailureTime: number | null;
-        lastStateChange: number;
-      };
-
-      health.checks.circuit_breaker = {
-        status:
-          cbStatus.state === 'CLOSED'
-            ? 'healthy'
-            : cbStatus.state === 'HALF_OPEN'
-              ? 'degraded'
-              : 'unhealthy',
-        type: 'durable_object',
-        state: cbStatus.state,
-        failure_count: cbStatus.failureCount,
-        success_count: cbStatus.successCount,
-        last_failure: cbStatus.lastFailureTime
-          ? new Date(cbStatus.lastFailureTime).toISOString()
-          : null,
-        last_state_change: new Date(cbStatus.lastStateChange).toISOString(),
-      };
-
-      if (cbStatus.state === 'OPEN') {
-        health.status = 'degraded';
-      }
-    } else {
-      health.checks.circuit_breaker = {
-        status: 'not_configured',
-        type: 'durable_object',
-        message: 'CIRCUIT_BREAKER_DO binding not available',
-      };
-    }
-
-    // 2b. Check Cron Lock Status
     if (env?.CRON_LOCK_DO) {
       const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock');
       const lockStub = env.CRON_LOCK_DO.get(lockId);
@@ -151,7 +137,7 @@ export async function GET(request: Request) {
       };
     }
   } catch (error) {
-    health.checks.circuit_breaker = {
+    health.checks.cron_lock = {
       status: 'unhealthy',
       type: 'durable_object',
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -164,8 +150,8 @@ export async function GET(request: Request) {
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
     'SUPABASE_SERVICE_ROLE_KEY',
-    'SCRAPER_URL',
-    'SCRAPER_SECRET_TOKEN',
+    'ASU_API_BASE_URL',
+    'ASU_API_TOKEN',
     'CRON_SECRET',
   ];
 

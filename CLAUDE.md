@@ -9,7 +9,7 @@ PickMyClass is a class seat notification system for university students. Built w
 **Core Flow:**
 1. Students add class sections to monitor by section number
 2. Cloudflare Workers Cron Triggers run every 30 minutes (staggered by even/odd section numbers)
-3. Queue consumers (100+ concurrent Workers) scrape ASU class search via Puppeteer service
+3. Queue consumers (100+ concurrent Workers) query ASU Class Search API directly
 4. Detects seat availability changes or instructor assignments
 5. Sends email notifications via Resend batch API
 
@@ -43,14 +43,6 @@ bunx supabase migration new <name>           # Create new migration
 bunx supabase gen types typescript --linked > lib/supabase/database.types.ts  # Generate types
 ```
 
-### Scraper Service (in `scraper/` directory)
-```bash
-bun run dev        # Start scraper in watch mode
-bun run build      # Compile TypeScript
-bun run start      # Run production build
-bun run typecheck  # Type check without building
-```
-
 ## Architecture
 
 ### Request Flow
@@ -59,7 +51,7 @@ User Browser → Next.js (Cloudflare Workers) → Supabase (Auth + PostgreSQL + 
                                               ↑
 Cron (every 30 min) → Cloudflare Queue → Queue Consumers (100+ Workers)
                                               ↓
-                      Scraper Service (Oracle Cloud + Puppeteer) → ASU Class Search
+                      ASU Class Search API (direct HTTP calls)
                                               ↓
                       Change Detection → Resend Email API → User Notifications
 ```
@@ -75,14 +67,13 @@ Cron (every 30 min) → Cloudflare Queue → Queue Consumers (100+ Workers)
 | `lib/supabase/service.ts` | Service role client (bypasses RLS) |
 | `lib/email/resend.ts` | Resend email integration with batch API |
 | `middleware.ts` | Auth middleware with role-based routing (admin vs user) |
-| `scraper/` | Standalone Puppeteer service on Oracle Cloud |
+| `lib/asu/api.ts` | ASU Class Search API client (direct HTTP) |
 
 ### Durable Objects (in `worker.ts`)
 
-**CircuitBreakerDO** - Distributed fault tolerance for scraper
-- States: CLOSED (healthy) → OPEN (blocking, 10 failures) → HALF_OPEN (testing recovery)
-- Single instance coordinates all 100+ Worker isolates
-- Access: `env.CIRCUIT_BREAKER_DO.get(env.CIRCUIT_BREAKER_DO.idFromName('scraper-circuit-breaker'))`
+**CircuitBreakerDO** - Stub class retained for Cloudflare Durable Object binding compatibility
+- Kept for rollback safety; no longer implements circuit breaker logic
+- Can be removed once the Durable Object binding is deleted from wrangler.jsonc
 
 **CronLockDO** - Prevents duplicate cron executions
 - Auto-expires after 25 minutes
@@ -115,7 +106,7 @@ const sent = await hasNotificationBeenSent(watchId, type); // ❌
 - For concurrent operations: use PostgreSQL functions with `INSERT...ON CONFLICT`
 
 ### TypeScript Strict Mode Gotchas
-- `Response.json()` returns `unknown` - always use type assertions: `as ScraperResponse`
+- `Response.json()` returns `unknown` - always use type assertions
 - Durable Objects: extend `DurableObject<Cloudflare.Env>`, not local `Env` interface
 
 ### Queue Configuration (`wrangler.jsonc`)
@@ -133,11 +124,11 @@ const sent = await hasNotificationBeenSent(watchId, type); // ❌
 **Required (set as Cloudflare secrets):**
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` - Bypasses RLS for service operations
-- `SCRAPER_URL`, `SCRAPER_SECRET_TOKEN` - Scraper service authentication
+- `ASU_API_BASE_URL`, `ASU_API_TOKEN` - ASU Class Search API authentication
 - `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` - Email service
 - `CRON_SECRET` - Authenticates internal cron/queue requests
 
-**Build Handling:** Supabase clients use placeholders when env vars unavailable during build. Scraper/email services gracefully skip operations when not configured.
+**Build Handling:** Supabase clients use placeholders when env vars unavailable during build. ASU API/email services gracefully skip operations when not configured.
 
 ## Admin System
 
@@ -168,5 +159,5 @@ User must log out and back in for admin status to take effect.
 ## Monitoring
 
 - **Health endpoint:** `GET /api/monitoring/health` - DB, circuit breaker, email service status
-- **Scraper status:** `GET <your-scraper-url>/status` - Browser pool metrics
+- **ASU API:** Health checked via `/api/monitoring/health` endpoint
 - **Queue metrics:** Cloudflare Dashboard → Queues → class-check-queue
