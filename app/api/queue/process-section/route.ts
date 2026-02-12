@@ -2,11 +2,19 @@
  * Queue Message Processor - Process Single Class Section
  *
  * This route is called by the queue consumer Worker for each message.
- * It processes a single section: scrape → detect changes → send emails → update DB
+ * It processes a single section: fetch → detect changes → send emails → update DB
  */
 
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  ApiError,
+  AuthError,
+  type ClassDetails,
+  fetchClassFromASU,
+  NotFoundError,
+  RateLimitError,
+} from '@/lib/asu/api';
 import {
   deleteNotificationRecords,
   resetNotificationsForSection,
@@ -16,98 +24,6 @@ import { type ClassInfo, sendBatchEmailsOptimized } from '@/lib/email/resend';
 import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassCheckMessage } from '@/lib/types/queue';
 import { timingSafeCompare } from '@/lib/utils/crypto';
-
-/**
- * Interface for scraper response
- */
-interface ScraperResponse {
-  success: boolean;
-  data?: {
-    subject: string;
-    catalog_nbr: string;
-    title: string;
-    instructor: string;
-    seats_available?: number;
-    seats_capacity?: number;
-    non_reserved_seats?: number | null;
-    location?: string;
-    meeting_times?: string;
-  };
-  error?: string;
-}
-
-/**
- * Fetch class details from scraper service with circuit breaker protection
- *
- * Uses Durable Object circuit breaker for distributed coordination across
- * all Worker isolates. This prevents cascading failures when the scraper
- * is overloaded or down.
- */
-async function fetchClassDetailsWithCircuitBreaker(
-  sectionNumber: string,
-  term: string,
-  circuitBreakerStub: DurableObjectStub
-): Promise<ScraperResponse> {
-  // Check circuit breaker state
-  const checkResponse = await circuitBreakerStub.fetch('http://do/check');
-  const checkResult = (await checkResponse.json()) as {
-    allowed: boolean;
-    state: string;
-    message?: string;
-  };
-
-  if (!checkResult.allowed) {
-    console.warn(`[Queue-Processor] Circuit breaker is OPEN: ${checkResult.message}`);
-    return {
-      success: false,
-      error: checkResult.message || 'Circuit breaker is OPEN',
-    };
-  }
-
-  // Attempt to scrape
-  try {
-    const scraperUrl = process.env.SCRAPER_URL;
-    const scraperToken = process.env.SCRAPER_SECRET_TOKEN;
-
-    if (!scraperUrl || !scraperToken) {
-      throw new Error('SCRAPER_URL and SCRAPER_SECRET_TOKEN must be set');
-    }
-
-    const response = await fetch(`${scraperUrl}/scrape`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${scraperToken}`,
-      },
-      body: JSON.stringify({
-        sectionNumber,
-        term,
-      }),
-      // Timeout: 90 seconds (matches circuit breaker config)
-      signal: AbortSignal.timeout(90000),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Scraper returned ${response.status}: ${response.statusText}`);
-    }
-
-    const result = (await response.json()) as ScraperResponse;
-
-    // Record success in circuit breaker
-    await circuitBreakerStub.fetch('http://do/success', {
-      method: 'POST',
-    });
-
-    return result;
-  } catch (error) {
-    // Record failure in circuit breaker
-    await circuitBreakerStub.fetch('http://do/failure', {
-      method: 'POST',
-    });
-
-    throw error;
-  }
-}
 
 /**
  * Process a single class section message from the queue
@@ -151,25 +67,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Queue-Processor] Processing section ${class_nbr} (term: ${term})`);
 
-    // Get Cloudflare context and circuit breaker DO stub
-    const { env } = await getCloudflareContext<{
-      CIRCUIT_BREAKER_DO: DurableObjectNamespace;
-    }>();
-
-    if (!env?.CIRCUIT_BREAKER_DO) {
-      console.error('[Queue-Processor] CIRCUIT_BREAKER_DO binding not available');
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Circuit breaker not configured',
-        },
-        { status: 500 }
-      );
-    }
-
-    // Get Durable Object stub for scraper circuit breaker
-    const doId = env.CIRCUIT_BREAKER_DO.idFromName('scraper-circuit-breaker');
-    const circuitBreakerStub = env.CIRCUIT_BREAKER_DO.get(doId);
+    // Get Cloudflare context for ASU API env vars
+    const { env } = await getCloudflareContext();
 
     const serviceClient = getServiceClient();
 
@@ -184,26 +83,40 @@ export async function POST(request: NextRequest) {
       console.error(`[Queue-Processor] Error fetching old state for ${class_nbr}:`, stateError);
     }
 
-    // Step 2: Fetch latest data from scraper with circuit breaker protection
-    const scraperResponse = await fetchClassDetailsWithCircuitBreaker(
-      class_nbr,
-      term,
-      circuitBreakerStub
-    );
-
-    if (!scraperResponse.success || !scraperResponse.data) {
-      const error = scraperResponse.error || 'Unknown error';
-      console.error(`[Queue-Processor] Failed to scrape ${class_nbr}: ${error}`);
-
-      // If circuit breaker is OPEN, return 503 Service Unavailable
-      if (error.includes('Circuit breaker is OPEN')) {
-        return NextResponse.json({ success: false, error }, { status: 503 });
+    // Step 2: Fetch latest data from ASU API
+    let newData: ClassDetails;
+    try {
+      newData = await fetchClassFromASU(class_nbr, term, env);
+    } catch (error) {
+      if (error instanceof AuthError || error instanceof NotFoundError) {
+        console.error(
+          `[Queue-Processor] Non-retryable error for section ${class_nbr}:`,
+          error.message
+        );
+        return NextResponse.json(
+          { success: false, error: error.message, retryable: false },
+          { status: error instanceof AuthError ? 502 : 404 }
+        );
       }
-
-      return NextResponse.json({ success: false, error }, { status: 500 });
+      if (error instanceof RateLimitError) {
+        console.warn(
+          `[Queue-Processor] Rate limited for section ${class_nbr}, retrying with delay`
+        );
+        return NextResponse.json(
+          { success: false, error: error.message, retryable: true, delaySeconds: 120 },
+          { status: 429 }
+        );
+      }
+      if (error instanceof ApiError) {
+        console.error(`[Queue-Processor] API error for section ${class_nbr}:`, error.message);
+        return NextResponse.json(
+          { success: false, error: error.message, retryable: true },
+          { status: 502 }
+        );
+      }
+      // Re-throw unknown errors for the outer catch
+      throw error;
     }
-
-    const newData = scraperResponse.data;
 
     // Step 3: Detect changes using NON-RESERVED seats
     let seatsFilled = false;

@@ -36,5 +36,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "scraper", "worker.ts"]
+  "exclude": ["node_modules", "worker.ts"]
 }

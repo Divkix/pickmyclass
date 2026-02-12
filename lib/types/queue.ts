@@ -48,13 +48,12 @@ export interface Env extends Record<string, unknown> {
   NEXT_PUBLIC_SUPABASE_URL: string;
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
-  SCRAPER_URL: string;
-  SCRAPER_SECRET_TOKEN: string;
+  ASU_API_BASE_URL: string;
+  ASU_API_TOKEN: string;
   RESEND_API_KEY?: string;
   NOTIFICATION_FROM_EMAIL?: string;
   CRON_SECRET: string;
   MAX_WATCHES_PER_USER?: string;
-  SCRAPER_BATCH_SIZE?: string;
 }
 
 /**

@@ -1,14 +1,10 @@
 # Cloudflare Workers Deployment Ignore File
 # Files and directories that should NOT be uploaded to Cloudflare Workers
 
-# Scraper service (deployed separately to Oracle Cloud via Coolify)
-scraper/
-
 # Supabase local development files (migrations handled separately)
 supabase/
 
 # Test and debug scripts
-test-scraper.js
 debug-page.js
 
 # Documentation (except main README)

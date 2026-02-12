@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle, Clock, ExternalLink, HelpCircle, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, ExternalLink, XCircle } from 'lucide-react';
 import type { Database } from '@/lib/supabase/database.types';
 import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor';
 
@@ -18,52 +18,23 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
     );
   }
 
-  const { seats_available, seats_capacity, non_reserved_seats, instructor_name } = classState;
+  const { seats_available, seats_capacity, instructor_name } = classState;
   const hasInstructor = instructor_name && instructor_name !== 'Staff';
 
-  // Determine seat availability state with 4 cases
-  let seatState: 'open' | 'reserved-only' | 'full' | 'unknown';
+  // Determine seat availability state: open or full
   let seatColor: string;
   let seatMessage: string;
   let SeatIcon: typeof CheckCircle;
   let ariaLabel: string;
 
-  if (non_reserved_seats === null) {
-    // Case 1: Reserved seat data unavailable (scraper failure or no data)
-    seatState = 'unknown';
-    SeatIcon = HelpCircle;
-    if (seats_available > 0) {
-      seatColor = 'bg-warning/20 text-warning-foreground';
-      seatMessage = `${seats_available} of ${seats_capacity} seats available`;
-      ariaLabel = `Unknown seat status: ${seats_available} of ${seats_capacity} seats available, reserved seat data unavailable`;
-    } else {
-      seatColor = 'bg-destructive/20 text-destructive';
-      seatMessage = `0 of ${seats_capacity} seats available`;
-      ariaLabel = `Class is full: 0 of ${seats_capacity} seats available`;
-    }
-  } else if (non_reserved_seats > 0) {
-    // Case 2: Truly open (non-reserved) seats available - GREEN
-    seatState = 'open';
+  if (seats_available > 0) {
+    // Seats available - GREEN
     seatColor = 'bg-success/20 text-success';
     SeatIcon = CheckCircle;
-    const reservedCount = seats_available - non_reserved_seats;
-    if (reservedCount > 0) {
-      seatMessage = `${non_reserved_seats} open seat${non_reserved_seats > 1 ? 's' : ''} (${reservedCount} reserved)`;
-      ariaLabel = `Seats available: ${non_reserved_seats} open seat${non_reserved_seats > 1 ? 's' : ''}, ${reservedCount} reserved seat${reservedCount > 1 ? 's' : ''}`;
-    } else {
-      seatMessage = `${non_reserved_seats} of ${seats_capacity} seats available`;
-      ariaLabel = `Seats available: ${non_reserved_seats} of ${seats_capacity} seats available`;
-    }
-  } else if (seats_available > 0) {
-    // Case 3: Only reserved seats available - ORANGE
-    seatState = 'reserved-only';
-    seatColor = 'bg-warning/20 text-warning-foreground';
-    SeatIcon = AlertCircle;
-    seatMessage = `${seats_available} seat${seats_available > 1 ? 's' : ''} available (all reserved)`;
-    ariaLabel = `Reserved seats only: ${seats_available} seat${seats_available > 1 ? 's' : ''} available, all are reserved`;
+    seatMessage = `${seats_available} of ${seats_capacity} seats available`;
+    ariaLabel = `Seats available: ${seats_available} of ${seats_capacity} seats available`;
   } else {
-    // Case 4: Completely full - RED
-    seatState = 'full';
+    // Completely full - RED
     seatColor = 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
     SeatIcon = XCircle;
     seatMessage = `0 of ${seats_capacity} seats available`;
@@ -72,7 +43,7 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Seats indicator with 4-state color system */}
+      {/* Seats indicator */}
       <output
         className={`inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm ${seatColor}`}
         aria-label={ariaLabel}
@@ -80,14 +51,6 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
         <SeatIcon className="h-4 w-4" aria-hidden="true" />
         <span className="font-medium">{seatMessage}</span>
       </output>
-
-      {/* Warning badge for unknown reserved status */}
-      {seatState === 'unknown' && seats_available > 0 && (
-        <div className="inline-flex items-center gap-1 text-xs text-warning-foreground">
-          <span>⚠️</span>
-          <span>Reserved seat status unknown - verify before enrolling</span>
-        </div>
-      )}
 
       {/* Instructor indicator */}
       <div

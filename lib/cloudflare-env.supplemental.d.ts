@@ -7,6 +7,8 @@ declare namespace Cloudflare {
     CRON_SECRET: string;
     RESEND_WEBHOOK_SECRET: string;
     UNSUBSCRIBE_SIGNING_SECRET?: string;
+    ASU_API_BASE_URL: string;
+    ASU_API_TOKEN: string;
   }
 }
 
@@ -15,5 +17,7 @@ declare namespace NodeJS {
     CRON_SECRET: string;
     RESEND_WEBHOOK_SECRET: string;
     UNSUBSCRIBE_SIGNING_SECRET?: string;
+    ASU_API_BASE_URL: string;
+    ASU_API_TOKEN: string;
   }
 }

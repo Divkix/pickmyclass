@@ -9,7 +9,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.{test,spec}.{ts,tsx}'],
-    exclude: ['node_modules', '.next', 'scraper'],
+    exclude: ['node_modules', '.next'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -17,7 +17,6 @@ export default defineConfig({
       exclude: [
         'node_modules',
         '.next',
-        'scraper',
         '**/*.d.ts',
         '**/types.ts',
         'vitest.config.ts',

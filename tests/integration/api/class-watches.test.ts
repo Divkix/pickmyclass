@@ -64,6 +64,17 @@ const mockClassState: ClassState = {
   seats_available: 10,
   seats_capacity: 50,
 };
+const mockClassDetails = {
+  subject: 'CSE',
+  catalog_nbr: '240',
+  title: 'Intro to Programming',
+  instructor: 'John Doe',
+  seats_available: 10,
+  seats_capacity: 50,
+  non_reserved_seats: null,
+  location: 'COOR 120',
+  meeting_times: 'MWF 9:00 AM-9:50 AM',
+};
 
 // Mock Supabase methods
 const mockGetUser = vi.fn();
@@ -131,8 +142,23 @@ vi.mock('@/lib/supabase/service', () => ({
   })),
 }));
 
-// Mock fetch for scraper calls
-global.fetch = vi.fn();
+// Mock ASU API client
+const mockFetchClassFromASU = vi.fn();
+vi.mock('@/lib/asu/api', () => ({
+  fetchClassFromASU: (...args: unknown[]) => mockFetchClassFromASU(...args),
+  NotFoundError: class NotFoundError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'NotFoundError';
+    }
+  },
+  AuthError: class AuthError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'AuthError';
+    }
+  },
+}));
 
 // Response parsers
 async function parseGetResponse(response: Response): Promise<GetResponse> {
@@ -276,6 +302,7 @@ describe('/api/class-watches', () => {
       mockSelect.mockReturnValueOnce({
         eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
       });
+      mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
 
       // Mock the insert chain to return unique constraint violation
       const mockInsertChain = {
@@ -296,38 +323,64 @@ describe('/api/class-watches', () => {
       expect(data.error).toBe('You are already watching this class');
     });
 
-    it('should return 500 when scraper fails', async () => {
+    it('should return 500 when ASU API fetch fails', async () => {
       mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
       mockSelect.mockReturnValueOnce({
         eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
       });
 
-      // Set env vars to trigger scraper call
-      vi.stubEnv('SCRAPER_URL', 'https://scraper.test.com');
-      vi.stubEnv('SCRAPER_SECRET_TOKEN', 'test-token');
-
-      // Mock fetch to fail
-      (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network error'));
+      mockFetchClassFromASU.mockRejectedValue(new Error('Network error'));
 
       const request = createRequest({ term: '2261', class_nbr: '12345' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
 
       expect(response.status).toBe(500);
-      expect(data.error).toContain('Failed to fetch class details');
-
-      vi.unstubAllEnvs();
+      expect(data.error).toBe('Failed to fetch class details');
     });
 
-    it('should create watch successfully with development fallback', async () => {
+    it('should return 404 when class section not found', async () => {
       mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
       mockSelect.mockReturnValueOnce({
         eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
       });
 
-      // Make sure SCRAPER_URL is not set for dev fallback
-      vi.stubEnv('SCRAPER_URL', '');
-      vi.stubEnv('SCRAPER_SECRET_TOKEN', '');
+      // Import the mock class to throw the right error type
+      const { NotFoundError } = await import('@/lib/asu/api');
+      mockFetchClassFromASU.mockRejectedValue(new NotFoundError('Section 99999 not found'));
+
+      const request = createRequest({ term: '2261', class_nbr: '99999' });
+      const response = await POST(request);
+      const data = await parsePostResponse(response);
+
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('Class section not found');
+    });
+
+    it('should return 503 when ASU API auth fails', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
+      mockSelect.mockReturnValueOnce({
+        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
+      });
+
+      const { AuthError } = await import('@/lib/asu/api');
+      mockFetchClassFromASU.mockRejectedValue(new AuthError('Token expired'));
+
+      const request = createRequest({ term: '2261', class_nbr: '12345' });
+      const response = await POST(request);
+      const data = await parsePostResponse(response);
+
+      expect(response.status).toBe(503);
+      expect(data.error).toBe('Service temporarily unavailable');
+    });
+
+    it('should create watch successfully with ASU API data', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
+      mockSelect.mockReturnValueOnce({
+        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
+      });
+
+      mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
 
       // Mock the insert chain
       const mockInsertChain = {
@@ -346,8 +399,10 @@ describe('/api/class-watches', () => {
 
       expect(response.status).toBe(201);
       expect(data.watch).toBeDefined();
-
-      vi.unstubAllEnvs();
+      expect(mockFetchClassFromASU).toHaveBeenCalledWith('12345', '2261', {
+        ASU_API_BASE_URL: expect.any(String),
+        ASU_API_TOKEN: expect.any(String),
+      });
     });
   });
 
