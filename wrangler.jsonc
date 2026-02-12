@@ -96,9 +96,10 @@
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
     "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app"
   }
-  // IMPORTANT: Set these secrets via Cloudflare Dashboard (Workers & Pages → Settings → Variables → Encrypt):
+  // IMPORTANT: Set these secrets via 'wrangler secret put <NAME>' or Cloudflare Dashboard:
   // - SUPABASE_SERVICE_ROLE_KEY
-  // - SCRAPER_SECRET_TOKEN
+  // - ASU_API_BASE_URL (https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes)
+  // - ASU_API_TOKEN (Bearer <token>)
   // - RESEND_API_KEY
   // - RESEND_WEBHOOK_SECRET
   // - CRON_SECRET (generate with: openssl rand -hex 32)

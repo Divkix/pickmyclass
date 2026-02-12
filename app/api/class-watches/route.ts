@@ -1,3 +1,4 @@
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
@@ -164,12 +165,14 @@ export async function POST(request: NextRequest) {
     // Step 1: Fetch class details from ASU API
     console.log(`[API] Fetching class details for section ${class_nbr}, term ${term}`);
 
+    // Get Cloudflare context for ASU API env vars
+    // ASU_API_BASE_URL and ASU_API_TOKEN are set as Cloudflare secrets
+    const { env } = await getCloudflareContext();
+    const asuEnv = env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
+
     let classDetails: ClassDetails;
     try {
-      classDetails = await fetchClassFromASU(class_nbr, term, {
-        ASU_API_BASE_URL: process.env.ASU_API_BASE_URL || '',
-        ASU_API_TOKEN: process.env.ASU_API_TOKEN || '',
-      });
+      classDetails = await fetchClassFromASU(class_nbr, term, asuEnv);
     } catch (error) {
       if (error instanceof NotFoundError) {
         return NextResponse.json({ error: 'Class section not found' }, { status: 404 });

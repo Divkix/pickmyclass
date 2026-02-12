@@ -80,10 +80,8 @@ export async function GET(request: Request) {
 
   // 2. Check ASU API
   try {
-    const asuEnv = {
-      ASU_API_BASE_URL: process.env.ASU_API_BASE_URL ?? '',
-      ASU_API_TOKEN: process.env.ASU_API_TOKEN ?? '',
-    };
+    const context = await getCloudflareContext();
+    const asuEnv = context.env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
     await fetchClassFromASU('10001', '2251', asuEnv);
     health.checks.asu_api = {
       name: 'ASU API',
@@ -163,7 +161,10 @@ export async function GET(request: Request) {
     'CRON_SECRET',
   ];
 
-  const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key]);
+  // Check vars from both process.env and Cloudflare context
+  const cfContext = await getCloudflareContext();
+  const cfEnv = cfContext.env as unknown as Record<string, string | undefined>;
+  const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key] && !cfEnv[key]);
 
   health.checks.configuration = {
     status: missingEnvVars.length === 0 ? 'healthy' : 'unhealthy',
