@@ -63,19 +63,27 @@ interface AsuApiClassItem {
   CATALOGNBR: string;
   TITLE?: string;
   COURSETITLELONG?: string;
-  INSTRUCTORS?: Array<{ NAME?: string }>;
-  ENRLCAP?: number;
-  ENRLTOT?: number;
+  INSTRUCTORSLIST?: string[];
+  ENRLCAP?: string;
+  ENRLTOT?: string;
   FACILITYID?: string;
   MON?: string;
   TUES?: string;
   WED?: string;
   THURS?: string;
   FRI?: string;
-  STARTTIME?: string;
-  ENDTIME?: string;
-  WAITTOT?: number;
-  WAITCAP?: number;
+  STARTTIME?: string | null;
+  ENDTIME?: string | null;
+  WAITTOT?: string;
+  WAITCAP?: string;
+}
+
+/** Elasticsearch response envelope from ASU API */
+interface AsuApiResponse {
+  hits: {
+    total: { value: number };
+    hits: Array<{ _source: AsuApiClassItem }>;
+  };
 }
 
 // --- Helpers ---
@@ -106,13 +114,16 @@ function composeMeetingTimes(item: AsuApiClassItem): string {
 }
 
 function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
+  const enrlCap = Number.parseInt(item.ENRLCAP ?? '0', 10);
+  const enrlTot = Number.parseInt(item.ENRLTOT ?? '0', 10);
+
   return {
     subject: item.SUBJECT,
     catalog_nbr: item.CATALOGNBR,
     title: item.COURSETITLELONG || item.TITLE || 'Unknown',
-    instructor: item.INSTRUCTORS?.[0]?.NAME || 'Staff',
-    seats_available: Math.max(0, (item.ENRLCAP ?? 0) - (item.ENRLTOT ?? 0)),
-    seats_capacity: item.ENRLCAP ?? 0,
+    instructor: item.INSTRUCTORSLIST?.[0] || 'Staff',
+    seats_available: Math.max(0, enrlCap - enrlTot),
+    seats_capacity: enrlCap,
     non_reserved_seats: null,
     location: item.FACILITYID || 'TBD',
     meeting_times: composeMeetingTimes(item),
@@ -126,6 +137,10 @@ export async function fetchClassFromASU(
   term: string,
   env: AsuApiEnv
 ): Promise<ClassDetails> {
+  if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN) {
+    throw new ApiError('ASU API environment variables not configured');
+  }
+
   const url = `${env.ASU_API_BASE_URL}?classNbr=${classNbr}&term=${term}`;
 
   const response = await fetch(url, {
@@ -143,12 +158,12 @@ export async function fetchClassFromASU(
     throw new ApiError(`ASU API returned ${response.status}`, response.status);
   }
 
-  const data = await response.json();
-  const results = data as AsuApiClassItem[];
+  const data = (await response.json()) as AsuApiResponse;
+  const hits = data?.hits?.hits;
 
-  if (!results || results.length === 0) {
+  if (!hits || hits.length === 0) {
     throw new NotFoundError(`Section ${classNbr} not found`);
   }
 
-  return mapToClassDetails(results[0]);
+  return mapToClassDetails(hits[0]._source);
 }
