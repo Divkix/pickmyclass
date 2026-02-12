@@ -93,17 +93,19 @@ export async function POST(request: NextRequest) {
           `[Queue-Processor] Non-retryable error for section ${class_nbr}:`,
           error.message
         );
+        // Return 200 so the queue consumer acks the message (non-retryable)
         return NextResponse.json(
           { success: false, error: error.message, retryable: false },
-          { status: error instanceof AuthError ? 502 : 404 }
+          { status: 200 }
         );
       }
       if (error instanceof RateLimitError) {
         console.warn(
           `[Queue-Processor] Rate limited for section ${class_nbr}, retrying with delay`
         );
+        // Return non-2xx so the queue consumer retries (uses wrangler retry_delay: 60s)
         return NextResponse.json(
-          { success: false, error: error.message, retryable: true, delaySeconds: 120 },
+          { success: false, error: error.message, retryable: true },
           { status: 429 }
         );
       }
