@@ -45,6 +45,14 @@ export async function GET(request: Request) {
     checks: {},
   };
 
+  // Helper: only escalate health status, never downgrade
+  const escalateStatus = (newStatus: 'degraded' | 'unhealthy') => {
+    const precedence = { healthy: 0, degraded: 1, unhealthy: 2 } as const;
+    if (precedence[newStatus] > precedence[health.status]) {
+      health.status = newStatus;
+    }
+  };
+
   // 1. Check Database Connection
   try {
     const supabase = getServiceClient();
@@ -55,7 +63,7 @@ export async function GET(request: Request) {
         status: 'unhealthy',
         error: error.message,
       };
-      health.status = 'degraded';
+      escalateStatus('degraded');
     } else {
       health.checks.database = {
         status: 'healthy',
@@ -67,7 +75,7 @@ export async function GET(request: Request) {
       status: 'unhealthy',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
-    health.status = 'unhealthy';
+    escalateStatus('unhealthy');
   }
 
   // 2. Check ASU API
@@ -94,7 +102,7 @@ export async function GET(request: Request) {
         status: 'unhealthy',
         error: error instanceof Error ? error.message : 'Unknown error',
       };
-      health.status = 'degraded';
+      escalateStatus('degraded');
     }
   }
 
@@ -142,7 +150,7 @@ export async function GET(request: Request) {
       type: 'durable_object',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
-    health.status = 'degraded';
+    escalateStatus('degraded');
   }
 
   // 3. Check Environment Configuration
@@ -163,7 +171,7 @@ export async function GET(request: Request) {
   };
 
   if (missingEnvVars.length > 0) {
-    health.status = 'unhealthy';
+    escalateStatus('unhealthy');
   }
 
   // 4. Check Optional Services

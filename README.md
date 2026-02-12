@@ -149,10 +149,12 @@ Edit `wrangler.jsonc` and update the placeholder values:
   "vars": {
     "NOTIFICATION_FROM_EMAIL": "notifications@your-domain.com",
     "NEXT_PUBLIC_SITE_URL": "https://your-domain.com",
-    "NEXT_PUBLIC_SUPABASE_URL": "https://your-project-id.supabase.co",
-    "ASU_API_BASE_URL": "https://your-asu-api-url.example.com"
+    "NEXT_PUBLIC_SUPABASE_URL": "https://your-project-id.supabase.co"
   }
 }
+```
+
+> **Note:** `ASU_API_BASE_URL` and `ASU_API_TOKEN` are configured as Cloudflare encrypted secrets (not vars) to avoid exposing the API endpoint in source code. Set them via `wrangler secret put` (see step 5 below).
 ```
 
 Optionally configure a custom domain:
@@ -177,6 +179,7 @@ wrangler login
 # Set secrets (you'll be prompted for values)
 wrangler secret put NEXT_PUBLIC_SUPABASE_ANON_KEY
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+wrangler secret put ASU_API_BASE_URL
 wrangler secret put ASU_API_TOKEN
 wrangler secret put RESEND_API_KEY
 wrangler secret put RESEND_WEBHOOK_SECRET
