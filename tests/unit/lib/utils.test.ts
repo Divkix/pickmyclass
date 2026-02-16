@@ -108,7 +108,7 @@ describe('cn - Tailwind class merging utility', () => {
 
     it('should handle complex real-world usage', () => {
       const isDisabled = false;
-      const variant: 'primary' | 'secondary' = 'primary';
+      const variant = 'primary' as 'primary' | 'secondary';
       const result = cn(
         'inline-flex items-center justify-center',
         'rounded-md text-sm font-medium',
