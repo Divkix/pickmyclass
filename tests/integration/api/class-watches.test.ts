@@ -160,6 +160,18 @@ vi.mock('@/lib/asu/api', () => ({
   },
 }));
 
+// Mock @opennextjs/cloudflare for getCloudflareContext
+vi.mock('@opennextjs/cloudflare', () => ({
+  getCloudflareContext: vi.fn(() =>
+    Promise.resolve({
+      env: {
+        ASU_API_BASE_URL: 'https://mock-asu-api.example.com',
+        ASU_API_TOKEN: 'mock-token',
+      },
+    })
+  ),
+}));
+
 // Response parsers
 async function parseGetResponse(response: Response): Promise<GetResponse> {
   return (await response.json()) as GetResponse;
