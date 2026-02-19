@@ -15,18 +15,7 @@
   },
   "entry": ["worker.ts", "open-next.config.ts"],
   "project": ["**/*.{ts,tsx}"],
-  "ignore": [
-    ".next/**",
-    ".open-next/**",
-    ".wrangler/**",
-    "dist/**",
-    "out/**",
-    "cloudflare-env.d.ts",
-    "next-env.d.ts",
-    "lib/supabase/database.types.ts",
-    "components/ui/**",
-    "lib/animations.ts"
-  ],
+  "ignore": ["lib/supabase/database.types.ts", "components/ui/**"],
   "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css", "postcss", "cloudflare"],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false
