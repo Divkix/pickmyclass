@@ -21,6 +21,12 @@
   "placement": {
     "mode": "smart"
   },
+  "kv_namespaces": [
+    {
+      "binding": "DISPOSABLE_DOMAINS_KV",
+      "id": "5b1c731cca674372be70d72be05acb7b"
+    }
+  ],
   // Custom domain configuration - uncomment and update for your deployment
   // "routes": [
   //   {
@@ -31,8 +37,9 @@
   // IMPORTANT: Cron triggers require explicit deployment via 'wrangler triggers deploy'
   // This is automatically included in 'bun run deploy' script
   // Schedule: Every 30 minutes at :00 (even class numbers) and :30 (odd class numbers)
+  // Daily at 4 AM UTC: Update disposable email domain list
   "triggers": {
-    "crons": ["0,30 * * * *"]
+    "crons": ["0,30 * * * *", "0 4 * * *"]
   },
   "queues": {
     "producers": [

@@ -141,36 +141,37 @@ export default function RegisterPage() {
     }
 
     try {
-      const supabase = createClient();
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
+      const data = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+        duplicate?: boolean;
+      };
 
-      if (signUpError) {
-        setError(signUpError.message);
+      if (!response.ok) {
+        setError(data.error || 'Registration failed');
         setLoading(false);
         return;
       }
 
-      if (data.user) {
-        // Check if email confirmation is required
-        if (data.user.identities?.length === 0) {
-          setError('This email is already registered. Please sign in.');
-        } else {
-          // Update user profile with age verification and terms agreement
-          const { error: profileError } = await supabase.rpc('accept_terms_and_verify_age');
-
-          if (profileError) {
-            console.error('Error updating profile:', profileError);
-            // Don't fail registration if profile update fails
-          }
-
-          // Redirect to verification page
-          // The middleware will handle the redirect if email is not confirmed
-          router.push('/verify-email');
-        }
+      if (data.duplicate) {
+        setError('This email is already registered. Please sign in.');
+        setLoading(false);
+        return;
       }
+
+      // Success - call RPC for terms/age verification (needs client-side supabase)
+      const supabase = createClient();
+      const { error: profileError } = await supabase.rpc('accept_terms_and_verify_age');
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+      }
+
+      router.push('/verify-email');
     } catch (err) {
       setError('An unexpected error occurred');
       console.error(err);

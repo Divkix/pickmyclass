@@ -1,0 +1,69 @@
+import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { isDisposableEmail } from '@/lib/auth/disposable-email';
+import { createClient } from '@/lib/supabase/server';
+
+const registerSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const validation = registerSchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: validation.error.issues.map((issue) => ({
+            field: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+        { status: 400 }
+      );
+    }
+
+    const email = validation.data.email.toLowerCase();
+    const password = validation.data.password;
+
+    // Check for disposable email domains
+    try {
+      const { env } = await getCloudflareContext();
+      const kv = (env as { DISPOSABLE_DOMAINS_KV?: KVNamespace }).DISPOSABLE_DOMAINS_KV ?? null;
+      const result = await isDisposableEmail(email, kv);
+      if (result.disposable) {
+        return NextResponse.json(
+          { error: 'This email domain is not accepted. Please use a different email address.' },
+          { status: 422 }
+        );
+      }
+    } catch (error) {
+      // Fail open - if KV is unavailable, allow signup
+      console.warn('[Register] Failed to check disposable domain, failing open:', error);
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.signUp({ email, password });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    // Check for duplicate email (Supabase returns user with empty identities)
+    if (data.user?.identities?.length === 0) {
+      return NextResponse.json(
+        { error: 'This email is already registered. Please sign in.', duplicate: true },
+        { status: 200 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('[Auth Register] Unexpected error:', err);
+    return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
+  }
+}

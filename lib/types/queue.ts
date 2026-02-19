@@ -44,6 +44,9 @@ export interface Env extends Record<string, unknown> {
   CIRCUIT_BREAKER_DO: DurableObjectNamespace;
   CRON_LOCK_DO: DurableObjectNamespace;
 
+  // KV namespace bindings
+  DISPOSABLE_DOMAINS_KV: KVNamespace;
+
   // Environment variables
   NEXT_PUBLIC_SUPABASE_URL: string;
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string;

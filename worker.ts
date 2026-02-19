@@ -27,6 +27,7 @@ interface Env {
   CLASS_CHECK_QUEUE: Queue<ClassCheckMessage>;
   CIRCUIT_BREAKER_DO: DurableObjectNamespace;
   CRON_LOCK_DO: DurableObjectNamespace;
+  DISPOSABLE_DOMAINS_KV: KVNamespace;
   NEXT_PUBLIC_SUPABASE_URL: string;
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
@@ -362,17 +363,22 @@ export default {
    * Scheduled handler - triggered by Cloudflare Cron
    *
    * Configured in wrangler.jsonc:
-   * "triggers": { "crons": ["0,30 * * * *"] } // Every 30 minutes
+   * "triggers": { "crons": ["0,30 * * * *", "0 4 * * *"] }
+   * - Every 30 minutes: class check cron
+   * - Daily at 4 AM UTC: disposable domain list update
    */
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     const startTime = Date.now();
     console.log('[Scheduled] Cron triggered at:', new Date(event.scheduledTime).toISOString());
     console.log('[Scheduled] Cron pattern:', event.cron);
 
+    const cronRoute =
+      event.cron === '0 4 * * *' ? '/api/cron/update-disposable-domains' : '/api/cron';
+
     try {
       // Make internal HTTP request to the Next.js API route
       // This allows us to reuse the same logic whether triggered by cron or manually
-      const request = new Request('http://localhost/api/cron', {
+      const request = new Request(`http://localhost${cronRoute}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${env.CRON_SECRET}`,

@@ -9,6 +9,7 @@ declare namespace Cloudflare {
     UNSUBSCRIBE_SIGNING_SECRET?: string;
     ASU_API_BASE_URL: string;
     ASU_API_TOKEN: string;
+    DISPOSABLE_DOMAINS_KV: KVNamespace;
   }
 }
 
