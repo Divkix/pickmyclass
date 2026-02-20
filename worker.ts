@@ -25,7 +25,6 @@ interface Env {
   ASSETS: Fetcher;
   CRON_SECRET: string;
   CLASS_CHECK_QUEUE: Queue<ClassCheckMessage>;
-  CIRCUIT_BREAKER_DO: DurableObjectNamespace;
   CRON_LOCK_DO: DurableObjectNamespace;
   DISPOSABLE_DOMAINS_KV: KVNamespace;
   NEXT_PUBLIC_SUPABASE_URL: string;
@@ -42,19 +41,6 @@ interface Env {
  */
 interface Fetcher {
   fetch(request: Request): Promise<Response>;
-}
-
-/**
- * CircuitBreakerDO - Stub class for Stage 1 rollback compatibility.
- * Will be removed in Stage 3 deploy with deleted_classes migration.
- */
-export class CircuitBreakerDO extends DurableObject<Env> {
-  async fetch(_request: Request): Promise<Response> {
-    return new Response(JSON.stringify({ status: 'deprecated' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
 }
 
 /**
@@ -341,7 +327,6 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
  * so we create a runtime reference to keep them in the bundle.
  */
 export const __durableObjectExports = {
-  CircuitBreakerDO,
   CronLockDO,
 } as const;
 
@@ -481,7 +466,6 @@ export default {
    * Durable Object classes exported for Cloudflare Workers
    * These must be included in the default export AND exported as named exports (see class definitions above)
    */
-  CircuitBreakerDO,
   CronLockDO,
 } satisfies ExportedHandler<Env>;
 
@@ -503,6 +487,5 @@ interface ExportedHandler<Env = unknown> {
   scheduled?: (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => void | Promise<void>;
   queue?: (batch: QueueMessageBatch, env: Env, ctx: ExecutionContext) => void | Promise<void>;
   // Durable Object class exports (for OpenNext bundling compatibility)
-  CircuitBreakerDO?: typeof CircuitBreakerDO;
   CronLockDO?: typeof CronLockDO;
 }

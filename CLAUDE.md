@@ -83,7 +83,7 @@ Cron (every 30 min) -> Cloudflare Queue -> Queue Consumers (max_concurrency: 20)
 - **`fetch`** - Delegates to OpenNext (Next.js app)
 - **`scheduled`** - Cron handler makes internal HTTP request to `/api/cron` with `CRON_SECRET` auth
 - **`queue`** - Queue consumer processes batches, each message makes internal HTTP POST to `/api/queue/process-section`
-- **Durable Objects** - `CronLockDO` (active) and `CircuitBreakerDO` (deprecated stub)
+- **Durable Objects** - `CronLockDO` for distributed cron locking
 
 The cron and queue handlers route through the Next.js app via internal HTTP calls so environment bindings (Supabase, ASU API, etc.) are available via `getCloudflareContext()`.
 
@@ -136,8 +136,6 @@ const sent = await hasNotificationBeenSent(watchId, type); // bad
 ```
 
 ### Durable Objects (in `worker.ts`)
-
-**CircuitBreakerDO** - Stub class retained for Cloudflare Durable Object binding compatibility. Can be removed once the binding is deleted from wrangler.jsonc via `deleted_classes` migration.
 
 **CronLockDO** - Prevents duplicate cron executions. Auto-expires after 25 minutes. Ensures only one cron job runs at a time across all isolates.
 

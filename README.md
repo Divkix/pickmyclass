@@ -80,8 +80,6 @@ Change Detection --> Resend Email API --> User Notifications
 
 ### Durable Objects
 
-**CircuitBreakerDO** - Stub class retained for Cloudflare Durable Object binding compatibility (kept for rollback safety)
-
 **CronLockDO** - Prevents duplicate cron executions
 - Auto-expires after 25 minutes
 - Ensures only one cron job runs at a time across all isolates
