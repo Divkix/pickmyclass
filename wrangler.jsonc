@@ -21,6 +21,10 @@
     {
       "binding": "DISPOSABLE_DOMAINS_KV",
       "id": "5b1c731cca674372be70d72be05acb7b"
+    },
+    {
+      "binding": "VINEXT_CACHE",
+      "id": "7723b73644a5489ca54636ef7ef133fa"
     }
   ],
   // Custom domain configuration - uncomment and update for your deployment

@@ -6,7 +6,9 @@
  */
 
 import { DurableObject } from 'cloudflare:workers';
+import { KVCacheHandler } from 'vinext/cloudflare';
 import handler from 'vinext/server/app-router-entry';
+import { setCacheHandler } from 'vinext/shims/cache';
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';
 
 /**
@@ -18,6 +20,7 @@ interface Env {
   CLASS_CHECK_QUEUE: Queue<ClassCheckMessage>;
   CRON_LOCK_DO: DurableObjectNamespace;
   DISPOSABLE_DOMAINS_KV: KVNamespace;
+  VINEXT_CACHE: KVNamespace;
   NEXT_PUBLIC_SUPABASE_URL: string;
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
@@ -333,7 +336,10 @@ export default {
   /**
    * HTTP request handler - routes to vinext app
    */
-  fetch: handler.fetch,
+  fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+    setCacheHandler(new KVCacheHandler(env.VINEXT_CACHE));
+    return handler.fetch(request);
+  },
 
   /**
    * Scheduled handler - triggered by Cloudflare Cron

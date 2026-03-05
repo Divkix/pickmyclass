@@ -8,6 +8,8 @@ import { JsonLd } from '@/components/landing/JsonLd';
 import { MobileStickyCTA } from '@/components/landing/MobileStickyCTA';
 import { SocialProofBanner } from '@/components/landing/SocialProofBanner';
 
+export const revalidate = 3600;
+
 const webApplicationSchema = {
   '@context': 'https://schema.org',
   '@type': 'WebApplication',
