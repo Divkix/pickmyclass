@@ -18,7 +18,11 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "generate:og": "bun run scripts/generate-og-image.ts"
+    "generate:og": "bun run scripts/generate-og-image.ts",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,css,md}": ["biome check --write", "biome format --write"]
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -54,8 +58,10 @@
     "@vitejs/plugin-react": "^5.1.4",
     "@vitejs/plugin-rsc": "^0.5.21",
     "@vitest/coverage-v8": "^4.0.18",
+    "husky": "^9.1.7",
     "jsdom": "^28.1.0",
     "knip": "^5.85.0",
+    "lint-staged": "^16.3.2",
     "react-server-dom-webpack": "^19.2.4",
     "satori": "^0.24.1",
     "supabase": "^2.76.16",
