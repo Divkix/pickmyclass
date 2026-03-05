@@ -23,8 +23,11 @@
     "postcss",
     "cloudflare",
     "@vitejs/plugin-rsc",
-    "react-server-dom-webpack"
+    "react-server-dom-webpack",
+    "husky",
+    "lint-staged"
   ],
+  "ignoreBinaries": ["husky"],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false
 }
