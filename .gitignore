@@ -13,7 +13,7 @@
 # testing
 /coverage
 
-# next.js
+# framework build output
 /.next/
 /out/
 
@@ -40,9 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# opennext and wrangler files
+# wrangler files
 .wrangler
-.open-next
 worker-configuration.d.ts
 
 # supabase local files

@@ -24,7 +24,7 @@
 ## Frameworks
 
 **Core:**
-- Next.js 16.1.6 - Full-stack React framework with API routes and App Router
+- vinext - Vite-based Next.js reimplementation with API routes and App Router
 - React 19.2.4 - UI components and state management
 - Tailwind CSS 4.2.0 - Utility-first CSS framework with PostCSS 4 support
 
@@ -43,7 +43,7 @@
 - jsdom 28.1.0 - DOM implementation for server-side testing
 
 **Build/Dev:**
-- @opennextjs/cloudflare 1.16.5 - Next.js adapter for Cloudflare Workers
+- vinext - Vite-based Next.js reimplementation for Cloudflare Workers
 - Wrangler 4.66.0 - Cloudflare Workers CLI and dev server
 - Biome 2.4.2 - Linting, formatting, and organizing imports
 - Knip 5.84.1 - Dead code and unused dependency detection
@@ -72,7 +72,7 @@
 
 **Critical:**
 - @supabase/supabase-js - PostgreSQL database and authentication
-- @opennextjs/cloudflare - Bridges Next.js to Cloudflare Workers runtime
+- vinext - Bridges app to Cloudflare Workers runtime via Vite
 - Wrangler - Builds and deploys to Cloudflare infrastructure
 - Zod - Runtime type validation for API request/response contracts
 
@@ -89,13 +89,13 @@
 - **Location:** Set via `wrangler secret put` or Cloudflare Dashboard; also in `wrangler.jsonc` `vars` section
 
 **Build:**
-- `next.config.ts` - Next.js build configuration (standalone output for Workers)
+- `next.config.ts` - Build configuration (standalone output for Workers)
 - `tsconfig.json` - Main TypeScript configuration (excludes `worker.ts`)
 - `tsconfig.worker.json` - Worker-only TypeScript configuration for `worker.ts`
 - `postcss.config.mjs` - PostCSS plugins (@tailwindcss/postcss)
 - `biome.json` - Linting, formatting, and import organization rules (80-char line width for code, 120 for CSS)
 - `vitest.config.ts` - Unit test configuration with jsdom environment and v8 coverage
-- `open-next.config.ts` - OpenNext configuration for Cloudflare deployment
+- `vite.config.ts` - vinext/Vite configuration for Cloudflare deployment
 - `wrangler.jsonc` - Cloudflare Workers configuration: cron triggers (0,30 * * * *), queues, Durable Objects, KV, observability
 
 **Compatibility:**
@@ -115,7 +115,7 @@
 - ASU Class Search API access
 
 **Deployment Pipeline:**
-- Cloudflare Workers with OpenNext
+- Cloudflare Workers with vinext
 - Durable Objects for distributed state (cron locking)
 - Cloudflare Queues (class-check-queue, dead letter queue class-check-dlq)
 - Cloudflare KV (DISPOSABLE_DOMAINS_KV for email validation)

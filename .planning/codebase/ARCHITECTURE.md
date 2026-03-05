@@ -6,10 +6,10 @@
 
 **Overall:** Hybrid serverless with distributed background processing
 
-PickMyClass follows a **Next.js 16 frontend with Cloudflare Workers backend** pattern. The core innovation is the separation of HTTP request handling (Next.js/OpenNext) from background job processing (Cloudflare Queue + Cron), with coordinated state management via PostgreSQL + RLS + Realtime.
+PickMyClass follows a **vinext frontend with Cloudflare Workers backend** pattern. The core innovation is the separation of HTTP request handling (vinext) from background job processing (Cloudflare Queue + Cron), with coordinated state management via PostgreSQL + RLS + Realtime.
 
 **Key Characteristics:**
-- **Frontend-backend decoupling** - Next.js app runs in Workers, Supabase is source of truth
+- **Frontend-backend decoupling** - vinext app runs in Workers, Supabase is source of truth
 - **Event-driven processing** - Cron enqueues work, distributed queue consumers process in parallel
 - **Atomic deduplication** - Race-condition-safe notification tracking via PostgreSQL functions
 - **RLS-enforced security** - All tables use row-level security; service role client only for admin operations
@@ -24,7 +24,7 @@ PickMyClass follows a **Next.js 16 frontend with Cloudflare Workers backend** pa
 - Depends on: Supabase client, auth context, real-time hooks
 - Used by: Users accessing `/dashboard`, `/admin`, `/login`, etc.
 
-**Next.js App Server Layer (Worker Runtime):**
+**vinext App Server Layer (Worker Runtime):**
 - Purpose: Request routing, API handlers, middleware, authentication
 - Location: `app/api/`, `middleware.ts`
 - Contains: Route handlers for auth, class watches, cron, queue processing
@@ -34,8 +34,8 @@ PickMyClass follows a **Next.js 16 frontend with Cloudflare Workers backend** pa
 **Cloudflare Workers Runtime Layer:**
 - Purpose: Custom Worker entrypoint, cron triggers, queue consumer batching
 - Location: `worker.ts`
-- Contains: OpenNext fetch handler wrapper, scheduled cron handler, queue batch processor, CronLockDO
-- Depends on: Next.js app (via internal HTTP calls), Durable Objects
+- Contains: vinext fetch handler wrapper, scheduled cron handler, queue batch processor, CronLockDO
+- Depends on: vinext app (via internal HTTP calls), Durable Objects
 - Used by: Cloudflare Cron (every 30 min), Cloudflare Queue (on message arrival)
 
 **Database & Persistence Layer:**

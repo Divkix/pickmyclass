@@ -14,7 +14,7 @@ import { type NextRequest, NextResponse } from 'next/server';
  *
  * Redirects to the university's class catalog page for the specified section.
  *
- * @param request - Next.js request object
+ * @param request - Request object
  * @param params - Dynamic route parameters (uni)
  * @returns 302 redirect to university catalog or error response
  */

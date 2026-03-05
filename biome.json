@@ -28,7 +28,7 @@
     "includes": [
       "**",
       "!**/.next/",
-      "!**/.open-next/",
+
       "!**/.wrangler/",
       "!**/out/",
       "!**/build/",

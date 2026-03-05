@@ -2,7 +2,7 @@
 
 A high-performance, scalable class seat notification system for university students. Monitor class availability, get notified when seats open up, and track instructor assignments.
 
-Built with Next.js 15, Supabase, and deployed on Cloudflare Workers for edge performance.
+Built with vinext (Vite-based Next.js), Supabase, and deployed on Cloudflare Workers for edge performance.
 
 ## Features
 
@@ -40,7 +40,7 @@ We chose Cloudflare Workers as our deployment platform for several compelling re
 - **99.99% Uptime SLA**: Production-grade reliability
 
 ### Developer Experience
-- **OpenNext Compatibility**: Deploy standard Next.js apps without modification
+- **vinext Compatibility**: Deploy apps on Cloudflare Workers via Vite-based build
 - **Instant Deployments**: Sub-second deployments via Wrangler CLI
 - **Integrated Monitoring**: Real-time logs and analytics
 
@@ -50,7 +50,7 @@ We chose Cloudflare Workers as our deployment platform for several compelling re
 User Browser
      |
      v
-Next.js App (Cloudflare Workers) <---> Supabase (Auth + PostgreSQL + Realtime)
+vinext App (Cloudflare Workers) <---> Supabase (Auth + PostgreSQL + Realtime)
      |
      v
 Cloudflare Cron (every 30 min)
@@ -222,19 +222,19 @@ The `app/legal/` directory contains Terms of Service and Privacy Policy pages wi
 ### Local Development
 
 ```bash
-bun run dev              # Start Next.js dev server (localhost:3000)
+bun run dev              # Start dev server (localhost:3000)
 ```
 
 ### Preview with Cloudflare
 
 ```bash
-bun run preview          # Build with OpenNext and preview locally
+bun run preview          # Build with vinext and preview locally
 ```
 
 ### Other Commands
 
 ```bash
-bun run build            # Build Next.js application
+bun run build            # Build application
 bun run lint             # Run Biome linter
 bun run lint:fix         # Fix lint issues
 bun run format           # Format code with Biome
@@ -252,8 +252,8 @@ bunx supabase migration new <name>   # Create new migration
 
 ## Tech Stack
 
-- **Frontend**: Next.js 15.5 (App Router), React 19, TypeScript, Tailwind CSS 4
-- **Backend**: Cloudflare Workers (via OpenNext), Supabase (PostgreSQL + Auth + Realtime)
+- **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4
+- **Backend**: Cloudflare Workers (via vinext), Supabase (PostgreSQL + Auth + Realtime)
 - **Data Source**: ASU Class Search API (direct HTTP)
 - **Email**: Resend (transactional emails)
 - **Deployment**: Cloudflare Workers + Pages
@@ -261,7 +261,7 @@ bunx supabase migration new <name>   # Create new migration
 ## Project Structure
 
 ```
-app/                         # Next.js App Router
+app/                         # App Router
   ├── api/
   │   ├── class-watches/     # CRUD API for user watches
   │   ├── cron/              # Cloudflare Workers cron handler
@@ -317,7 +317,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [OpenNext](https://opennext.js.org/) - Next.js adapter for Cloudflare Workers
+- [vinext](https://vinext.pages.dev/) - Vite-based Next.js reimplementation for Cloudflare Workers
 - [Supabase](https://supabase.com/) - Open source Firebase alternative
 - [Resend](https://resend.com/) - Modern email API
 - [shadcn/ui](https://ui.shadcn.com/) - UI component library

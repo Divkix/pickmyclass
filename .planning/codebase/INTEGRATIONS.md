@@ -90,22 +90,22 @@
 
 **Hosting:**
 - Cloudflare Workers (serverless platform)
-- Edge deployment via OpenNext adapter
+- Edge deployment via vinext
 - Custom domains support (commented config in `wrangler.jsonc`)
 
 **Build Pipeline:**
-- OpenNext (@opennextjs/cloudflare) - Converts Next.js to Cloudflare Workers format
+- vinext - Vite-based Next.js reimplementation for Cloudflare Workers
 - Wrangler - Official Cloudflare Workers CLI
-- Build output: `.open-next/` directory with generated worker handler
+- Build output: `dist/` directory with generated worker handler
 
 **CI Workflow** (`.github/workflows/ci.yml`):
 - **Quality job:** Biome standalone linter (no dependencies needed)
 - **Test job:** Bun install + vitest with v8 coverage (80% thresholds)
-- **Check job:** TypeScript typecheck (both tsconfig.json and tsconfig.worker.json), knip unused detection, Next.js build
+- **Check job:** TypeScript typecheck (both tsconfig.json and tsconfig.worker.json), knip unused detection, build
 
 **Deployment Commands:**
 ```bash
-bun run preview                    # Build with OpenNext and test locally
+bun run preview                    # Build with vinext and test locally
 bun run deploy                     # Build + deploy + trigger deployment
 wrangler triggers deploy           # Deploy cron/queue triggers (included in deploy script)
 ```

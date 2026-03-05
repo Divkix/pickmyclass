@@ -331,7 +331,7 @@ if (typeof __durableObjectExports === 'undefined') {
  */
 export default {
   /**
-   * HTTP request handler - routes to Next.js app via vinext
+   * HTTP request handler - routes to vinext app
    */
   fetch: handler.fetch,
 
@@ -352,7 +352,7 @@ export default {
       event.cron === '0 4 * * *' ? '/api/cron/update-disposable-domains' : '/api/cron';
 
     try {
-      // Make internal HTTP request to the Next.js API route
+      // Make internal HTTP request to the API route
       // This allows us to reuse the same logic whether triggered by cron or manually
       const request = new Request(`http://localhost${cronRoute}`, {
         method: 'GET',

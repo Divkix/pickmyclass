@@ -6,7 +6,7 @@
 
 **Files:**
 - Kebab-case for files and directories: `class-watches.test.ts`, `asu-api.ts`, `failed-login-attempts`
-- React components and Next.js route files use standard conventions:
+- React components and route files use standard conventions:
   - Components: PascalCase: `SeatAvailableEmailTemplate.tsx`
   - Route handlers: `route.ts` in directory (e.g., `app/api/class-watches/route.ts`)
   - Test files: `*.test.ts` or `*.spec.ts` suffix
@@ -30,7 +30,7 @@
 
 **Exception: Naming Convention Bypass**
 Biome's naming convention rule is disabled for specific files with non-standard requirements:
-- `**/route.ts` - Next.js route handlers use exported function names like `GET`, `POST`, `DELETE`
+- `**/route.ts` - Route handlers use exported function names like `GET`, `POST`, `DELETE`
 - `worker.ts` - Cloudflare Worker entrypoint has function names like `fetch`, `scheduled`, `queue`
 - `lib/asu/api.ts` - External API response types use UPPERCASE_SNAKE_CASE (from ASU's API schema)
 - `lib/supabase/**/*.ts` - Generated types and Supabase-specific patterns
@@ -218,7 +218,7 @@ Biome's naming convention rule is disabled for specific files with non-standard 
 ## TypeScript Configuration
 
 **Two tsconfigs:**
-- `tsconfig.json` - Next.js app with full library support
+- `tsconfig.json` - vinext app with full library support
 - `tsconfig.worker.json` - Cloudflare Workers compatibility (restricted globals)
 - Both must pass `tsc --noEmit` in CI
 

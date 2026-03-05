@@ -159,10 +159,10 @@
 - Impact: If Resend changes batch API response format, email tracking breaks silently
 - Migration plan: Implement fallback to sequential send if batch fails. Add Resend response schema validation with Zod
 
-**OpenNext Cloudflare Plugin Compatibility**
-- Risk: `@opennextjs/cloudflare` version 1.16.5 is pinned (package.json line 46). Not latest version. May have known security issues or incompatibilities
-- Impact: Build failures with new Next.js versions, missing performance fixes
-- Migration plan: Monitor OpenNext releases. Test upgrade to latest in staging. Document any breaking changes
+**vinext Compatibility**
+- Risk: vinext is a newer Vite-based Next.js reimplementation. API surface may change between versions
+- Impact: Build failures or runtime incompatibilities with newer vinext releases
+- Migration plan: Monitor vinext releases. Test upgrades in staging. Document any breaking changes
 
 **Node.js Compatibility Flag Dependency**
 - Risk: `wrangler.jsonc` line 12 enables `nodejs_compat` flag. Some built-in Node modules may not work reliably in Workers

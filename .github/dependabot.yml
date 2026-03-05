@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Root package.json (Next.js app)
+  # Root package.json
   - package-ecosystem: 'bun'
     directory: '/'
     schedule:
@@ -32,7 +32,7 @@ updates:
           - 'supabase'
       cloudflare:
         patterns:
-          - '@opennextjs/*'
+          - 'vinext*'
           - 'wrangler'
       tailwind:
         patterns:

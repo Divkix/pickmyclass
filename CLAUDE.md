@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PickMyClass is a class seat notification system for university students. Built with Next.js 16, React 19, Tailwind CSS 4, and deployed on Cloudflare Workers via vinext (Vite-based). Auth and database via Supabase (PostgreSQL with RLS). UI components from shadcn/ui.
+PickMyClass is a class seat notification system for university students. Built with vinext (Vite-based Next.js reimplementation), React 19, Tailwind CSS 4, and deployed on Cloudflare Workers. Auth and database via Supabase (PostgreSQL with RLS). UI components from shadcn/ui.
 
 **Core Flow:**
 1. Students add class sections to monitor by section number
@@ -18,8 +18,8 @@ PickMyClass is a class seat notification system for university students. Built w
 
 ### Development
 ```bash
-bun run dev              # Start Next.js dev server (localhost:3000)
-bun run build            # Build Next.js application
+bun run dev              # Start dev server (localhost:3000)
+bun run build            # Build application
 bun run lint             # Run Biome linter (biome check .)
 bun run lint:fix         # Fix lint issues
 bun run format           # Format code with Biome
@@ -80,12 +80,12 @@ Cron (every 30 min) -> Cloudflare Queue -> Queue Consumers (max_concurrency: 20)
 ### How worker.ts Connects Everything
 
 `worker.ts` is the Cloudflare Worker entrypoint. It wraps vinext's app-router-entry handler and adds:
-- **`fetch`** - Delegates to vinext (Next.js app)
+- **`fetch`** - Delegates to vinext app
 - **`scheduled`** - Cron handler makes internal HTTP request to `/api/cron` with `CRON_SECRET` auth
 - **`queue`** - Queue consumer processes batches, each message makes internal HTTP POST to `/api/queue/process-section`
 - **Durable Objects** - `CronLockDO` for distributed cron locking
 
-The cron and queue handlers route through the Next.js app via internal HTTP calls so environment bindings (Supabase, ASU API, etc.) are available via `import { env } from 'cloudflare:workers'`.
+The cron and queue handlers route through the vinext app via internal HTTP calls so environment bindings (Supabase, ASU API, etc.) are available via `import { env } from 'cloudflare:workers'`.
 
 ### Key Components
 

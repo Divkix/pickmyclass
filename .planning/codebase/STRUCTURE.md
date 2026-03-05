@@ -6,7 +6,7 @@
 
 ```
 project-root/
-├── app/                          # Next.js app directory (App Router)
+├── app/                          # App Router directory
 │   ├── (public)/                 # Landing page and legal
 │   │   ├── page.tsx              # Homepage
 │   │   ├── layout.tsx            # Root layout with providers
@@ -29,7 +29,7 @@ project-root/
 │   │   └── layout.tsx            # Dashboard layout with nav
 │   ├── settings/                 # /settings - user preferences
 │   ├── go/[uni]/                 # Redirect page for mobile shortcuts
-│   ├── api/                      # API routes (Next.js route handlers)
+│   ├── api/                      # API routes (route handlers)
 │   │   ├── auth/                 # Authentication endpoints
 │   │   │   ├── login/            # POST /api/auth/login
 │   │   │   ├── register/         # POST /api/auth/register
@@ -129,11 +129,11 @@ project-root/
 │   ├── cloudflare-env.supplemental.d.ts  # Manual env augmentations
 │   └── animations.ts             # Framer Motion animation presets
 ├── worker.ts                     # Custom Cloudflare Worker entrypoint
-│   │                             # - Wraps OpenNext handler
+│   │                             # - Wraps vinext handler
 │   │                             # - Implements scheduled (cron) handler
 │   │                             # - Implements queue consumer handler
 │   │                             # - Exports CronLockDO Durable Object
-├── middleware.ts                 # Next.js middleware (request interception)
+├── middleware.ts                 # Middleware (request interception)
 │   │                             # - Auth enforcement
 │   │                             # - Security headers
 │   │                             # - Admin routing
@@ -188,7 +188,7 @@ project-root/
 ├── vitest.config.ts              # Vitest test runner config
 ├── biome.json                    # Biome linter/formatter config
 ├── tailwind.config.ts            # Tailwind CSS config
-├── next.config.ts                # Next.js config
+├── next.config.ts                # vinext config
 ├── package.json                  # Dependencies and scripts
 ├── bun.lock                      # Bun lockfile
 ├── CLAUDE.md                     # Project-specific Claude instructions
@@ -198,7 +198,7 @@ project-root/
 ## Directory Purposes
 
 **app/:**
-- Purpose: Next.js App Router - pages, layouts, API routes
+- Purpose: App Router - pages, layouts, API routes
 - Contains: React components, route handlers, middleware-related exports
 - Key files: `layout.tsx` (root), `page.tsx` per route, `route.ts` for APIs
 
@@ -372,11 +372,11 @@ project-root/
 - Committed: Yes
 - Run: `bun run test` (watch), `bun run test:run` (once), `bun run test:coverage` (with V8)
 
-**.next/ and .open-next/:**
-- Purpose: Build artifacts (Next.js and OpenNext for Workers)
+**.next/ and dist/:**
+- Purpose: Build artifacts (vinext for Workers)
 - Generated: Yes (during `bun run build` and `bun run preview`)
 - Committed: No (.gitignore)
-- Regenerate: `rm -rf .next .open-next && bun run preview`
+- Regenerate: `rm -rf .next dist && bun run preview`
 
 **coverage/:**
 - Purpose: Test coverage reports (V8)

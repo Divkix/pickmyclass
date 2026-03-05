@@ -37,7 +37,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
   // Verify admin authentication (redirects if unauthorized)
   await verifyAdmin();
 
-  // Await params in Next.js 15
+  // Await params
   const { userId } = await params;
 
   // Create service client for auth.users access
