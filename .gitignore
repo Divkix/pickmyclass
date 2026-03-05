@@ -53,3 +53,4 @@ supabase/.branches/
 .sentryclirc
 sentry.properties
 /dist/
+/worker/
