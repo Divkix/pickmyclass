@@ -52,3 +52,4 @@ supabase/.branches/
 # sentry
 .sentryclirc
 sentry.properties
+/dist/
