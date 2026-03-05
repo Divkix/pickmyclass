@@ -1,5 +1,6 @@
+import { GeistMono } from 'geist/font/mono';
+import { GeistSans } from 'geist/font/sans';
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import Script from 'next/script';
 import { Toaster } from 'sonner';
 import { BottomNavWrapper } from '@/components/BottomNavWrapper';
@@ -7,16 +8,6 @@ import { Footer } from '@/components/Footer';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 import { ThemeProvider } from '@/lib/contexts/ThemeContext';
 import './globals.css';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://pickmyclass.app'),
@@ -98,7 +89,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
+        className={`${GeistSans.variable} ${GeistMono.variable} antialiased flex flex-col min-h-screen`}
       >
         <ThemeProvider>
           <AuthProvider>
