@@ -6,7 +6,7 @@
  * as a single JSON blob in KV. No diffing — just overwrite.
  */
 
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
@@ -68,8 +68,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Store as single JSON blob in KV
-    const context = await getCloudflareContext();
-    const kv = (context.env as { DISPOSABLE_DOMAINS_KV: KVNamespace }).DISPOSABLE_DOMAINS_KV;
+    const kv = (env as unknown as { DISPOSABLE_DOMAINS_KV: KVNamespace }).DISPOSABLE_DOMAINS_KV;
 
     await kv.put('disposable-domains', JSON.stringify(domains));
 

@@ -1,21 +1,12 @@
 /**
  * Custom Cloudflare Worker
  *
- * This wraps the OpenNext-generated worker to add a scheduled handler for cron triggers.
- * The fetch handler routes HTTP requests to the Next.js app, while the scheduled handler
- * executes cron jobs on a defined schedule.
+ * This wraps the vinext app-router-entry handler and adds scheduled (cron)
+ * and queue consumer handlers for class seat checking.
  */
 
-// biome-ignore lint/suspicious/noTsIgnore: .open-next/worker.js is generated at build time, @ts-expect-error fails tsc when file exists
-// @ts-ignore
-import { default as handler } from './.open-next/worker.js';
-
-// Re-export OpenNext's internal Durable Objects (required for caching)
-// biome-ignore lint/suspicious/noTsIgnore: .open-next/worker.js is generated at build time
-// @ts-ignore
-export { BucketCachePurge, DOQueueHandler, DOShardedTagCache } from './.open-next/worker.js';
-
 import { DurableObject } from 'cloudflare:workers';
+import handler from 'vinext/server/app-router-entry';
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';
 
 /**
@@ -340,7 +331,7 @@ if (typeof __durableObjectExports === 'undefined') {
  */
 export default {
   /**
-   * HTTP request handler - routes to Next.js app via OpenNext
+   * HTTP request handler - routes to Next.js app via vinext
    */
   fetch: handler.fetch,
 
@@ -352,7 +343,7 @@ export default {
    * - Every 30 minutes: class check cron
    * - Daily at 4 AM UTC: disposable domain list update
    */
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
     const startTime = Date.now();
     console.log('[Scheduled] Cron triggered at:', new Date(event.scheduledTime).toISOString());
     console.log('[Scheduled] Cron pattern:', event.cron);
@@ -372,9 +363,8 @@ export default {
       });
 
       // Execute the cron job and await completion
-      // Environment bindings are passed via handler.fetch(request, env, ctx)
-      // and accessed in API routes via getCloudflareContext()
-      const response = await handler.fetch(request, env, ctx);
+      // Environment bindings are accessed in API routes via import { env } from 'cloudflare:workers'
+      const response = await handler.fetch(request);
       const body = await response.text();
       const duration = Date.now() - startTime;
 
@@ -399,7 +389,7 @@ export default {
   async queue(
     batch: QueueMessageBatch<ClassCheckMessage>,
     env: Env,
-    ctx: ExecutionContext
+    _ctx: ExecutionContext
   ): Promise<void> {
     const startTime = Date.now();
     console.log(
@@ -422,11 +412,7 @@ export default {
             body: JSON.stringify(message.body),
           });
 
-          // Pass environment bindings
-          // @ts-expect-error - NextRequest doesn't have env property, but we add it
-          request.env = env;
-
-          const response = await handler.fetch(request, env, ctx);
+          const response = await handler.fetch(request);
           const result = await response.json();
 
           const duration = Date.now() - msgStartTime;
@@ -464,7 +450,7 @@ export default {
 
   /**
    * Durable Object classes exported for Cloudflare Workers
-   * These must be included in the default export AND exported as named exports (see class definitions above)
+   * Must be included in the default export AND exported as named exports (see class definitions above)
    */
   CronLockDO,
 } satisfies ExportedHandler<Env>;
@@ -486,6 +472,5 @@ interface ExportedHandler<Env = unknown> {
   fetch?: (request: Request, env: Env, ctx: ExecutionContext) => Response | Promise<Response>;
   scheduled?: (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => void | Promise<void>;
   queue?: (batch: QueueMessageBatch, env: Env, ctx: ExecutionContext) => void | Promise<void>;
-  // Durable Object class exports (for OpenNext bundling compatibility)
   CronLockDO?: typeof CronLockDO;
 }

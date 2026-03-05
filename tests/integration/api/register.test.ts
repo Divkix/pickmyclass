@@ -11,22 +11,19 @@ interface RegisterResponse {
   duplicate?: boolean;
 }
 
-// Mock @opennextjs/cloudflare for getCloudflareContext
-const mockKVGet = vi.fn();
-vi.mock('@opennextjs/cloudflare', () => ({
-  getCloudflareContext: vi.fn(() =>
-    Promise.resolve({
-      env: {
-        DISPOSABLE_DOMAINS_KV: {
-          get: mockKVGet,
-          put: vi.fn(),
-          delete: vi.fn(),
-          list: vi.fn(),
-          getWithMetadata: vi.fn(),
-        },
-      },
-    })
-  ),
+// Mock cloudflare:workers for env import
+// vi.hoisted ensures mockKVGet is initialized before the hoisted vi.mock factory runs
+const mockKVGet = vi.hoisted(() => vi.fn());
+vi.mock('cloudflare:workers', () => ({
+  env: {
+    DISPOSABLE_DOMAINS_KV: {
+      get: mockKVGet,
+      put: vi.fn(),
+      delete: vi.fn(),
+      list: vi.fn(),
+      getWithMetadata: vi.fn(),
+    },
+  },
 }));
 
 // Mock the Supabase server client
@@ -158,8 +155,7 @@ describe('POST /api/auth/register', () => {
     });
 
     it('should fail open when KV is unavailable', async () => {
-      const { getCloudflareContext } = await import('@opennextjs/cloudflare');
-      vi.mocked(getCloudflareContext).mockRejectedValueOnce(new Error('KV unavailable'));
+      mockKVGet.mockRejectedValueOnce(new Error('KV unavailable'));
 
       const request = createRequest({ email: 'test@unknown-domain.com', password: 'StrongP@ss1' });
       const response = await POST(request);

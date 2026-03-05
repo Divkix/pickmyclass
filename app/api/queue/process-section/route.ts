@@ -5,7 +5,7 @@
  * It processes a single section: fetch → detect changes → send emails → update DB
  */
 
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   ApiError,
@@ -66,9 +66,6 @@ export async function POST(request: NextRequest) {
     const { class_nbr, term } = message;
 
     console.log(`[Queue-Processor] Processing section ${class_nbr} (term: ${term})`);
-
-    // Get Cloudflare context for ASU API env vars
-    const { env } = await getCloudflareContext();
 
     const serviceClient = getServiceClient();
 

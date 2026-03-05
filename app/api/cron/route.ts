@@ -11,7 +11,7 @@
  * Configured in: wrangler.jsonc
  */
 
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSectionsToCheck } from '@/lib/db/queries';
 import type { ClassCheckMessage, Env } from '@/lib/types/queue';
@@ -57,12 +57,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Get distributed lock to prevent concurrent cron runs
-    const context = await getCloudflareContext();
-    const env = context.env as unknown as Env;
+    const cfEnv = env as unknown as Env;
 
-    if (env.CRON_LOCK_DO) {
-      const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock');
-      const lockStub = env.CRON_LOCK_DO.get(lockId);
+    if (cfEnv.CRON_LOCK_DO) {
+      const lockId = cfEnv.CRON_LOCK_DO.idFromName('class-check-cron-lock');
+      const lockStub = cfEnv.CRON_LOCK_DO.get(lockId);
 
       const lockResponse = await lockStub.fetch(`http://do/acquire?holder=${lockHolder}`, {
         method: 'POST',
@@ -105,8 +104,8 @@ export async function GET(request: NextRequest) {
       `[Cron] Starting 30-minute class check (stagger: ${staggerGroup}, time: ${now.toISOString()})`
     );
 
-    // Get queue binding (reuse context from lock acquisition)
-    const queue = env.CLASS_CHECK_QUEUE;
+    // Get queue binding
+    const queue = cfEnv.CLASS_CHECK_QUEUE;
 
     if (!queue) {
       console.error('[Cron] CLASS_CHECK_QUEUE binding not found');
@@ -199,12 +198,11 @@ export async function GET(request: NextRequest) {
     // Release lock if it was acquired
     if (lockAcquired) {
       try {
-        const context = await getCloudflareContext();
-        const env = context.env as unknown as Env;
+        const cfEnv = env as unknown as Env;
 
-        if (env.CRON_LOCK_DO) {
-          const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock');
-          const lockStub = env.CRON_LOCK_DO.get(lockId);
+        if (cfEnv.CRON_LOCK_DO) {
+          const lockId = cfEnv.CRON_LOCK_DO.idFromName('class-check-cron-lock');
+          const lockStub = cfEnv.CRON_LOCK_DO.get(lockId);
 
           await lockStub.fetch(`http://do/release?holder=${lockHolder}`, {
             method: 'POST',
