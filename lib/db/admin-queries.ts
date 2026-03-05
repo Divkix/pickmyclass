@@ -8,8 +8,11 @@
  */
 
 import type { User } from '@supabase/supabase-js';
+import { TtlCache } from '@/lib/cache/ttl-cache';
 import type { Tables } from '@/lib/supabase/database.types';
 import { getServiceClient } from '@/lib/supabase/service';
+
+const adminCache = new TtlCache<unknown>(600_000);
 
 /**
  * Email notification counts (seat and instructor)
@@ -226,6 +229,9 @@ export async function getEngagementStats(): Promise<Map<string, EngagementStatsR
  * console.log(`Total emails sent: ${total}`)
  */
 export async function getTotalEmailsSent(): Promise<number> {
+  const cached = adminCache.get('total-emails-sent') as number | undefined;
+  if (cached !== undefined) return cached;
+
   const supabase = getServiceClient();
 
   const { count, error } = await supabase
@@ -237,7 +243,9 @@ export async function getTotalEmailsSent(): Promise<number> {
     throw new Error(`Failed to fetch email count: ${error.message}`);
   }
 
-  return count || 0;
+  const result = count || 0;
+  adminCache.set('total-emails-sent', result);
+  return result;
 }
 
 /**
@@ -252,8 +260,13 @@ export async function getTotalEmailsSent(): Promise<number> {
  * console.log(`Total users: ${total}`)
  */
 export async function getTotalUsers(): Promise<number> {
+  const cached = adminCache.get('total-users') as number | undefined;
+  if (cached !== undefined) return cached;
+
   const users = await fetchAllAuthUsers();
-  return users.length;
+  const result = users.length;
+  adminCache.set('total-users', result);
+  return result;
 }
 
 /**
@@ -268,6 +281,9 @@ export async function getTotalUsers(): Promise<number> {
  * console.log(`Total admins: ${total}`)
  */
 export async function getAdminCount(): Promise<number> {
+  const cached = adminCache.get('admin-count') as number | undefined;
+  if (cached !== undefined) return cached;
+
   const supabase = getServiceClient();
 
   const { count, error } = await supabase
@@ -280,7 +296,9 @@ export async function getAdminCount(): Promise<number> {
     throw new Error(`Failed to fetch admin count: ${error.message}`);
   }
 
-  return count || 0;
+  const result = count || 0;
+  adminCache.set('admin-count', result);
+  return result;
 }
 
 /**
@@ -295,6 +313,9 @@ export async function getAdminCount(): Promise<number> {
  * console.log(`Total classes watched: ${total}`)
  */
 export async function getTotalClassesWatched(): Promise<number> {
+  const cached = adminCache.get('total-classes-watched') as number | undefined;
+  if (cached !== undefined) return cached;
+
   const supabase = getServiceClient();
 
   // Fetch all class_nbr values and count unique ones
@@ -307,11 +328,12 @@ export async function getTotalClassesWatched(): Promise<number> {
 
   // Count unique class numbers
   const uniqueClasses = new Set(watches?.map((w) => w.class_nbr) || []);
-  const count = uniqueClasses.size;
+  const result = uniqueClasses.size;
 
-  console.log(`[Admin] Counted ${count} unique classes being watched`);
+  console.log(`[Admin] Counted ${result} unique classes being watched`);
 
-  return count;
+  adminCache.set('total-classes-watched', result);
+  return result;
 }
 
 /**
@@ -327,6 +349,9 @@ export async function getTotalClassesWatched(): Promise<number> {
  * console.log(`Most watched: ${classes[0].title} (${classes[0].watcher_count} watchers)`)
  */
 export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> {
+  const cached = adminCache.get('classes-with-watchers') as ClassWithWatchers[] | undefined;
+  if (cached !== undefined) return cached;
+
   const supabase = getServiceClient();
 
   // Fetch all class states, watches, and notification counts in parallel
@@ -372,6 +397,7 @@ export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> 
     `[Admin] Fetched ${classesWithWatchers.length} classes with watcher counts (total watchers: ${watches?.length || 0})`
   );
 
+  adminCache.set('classes-with-watchers', classesWithWatchers);
   return classesWithWatchers;
 }
 
@@ -389,6 +415,9 @@ export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> 
  * console.log(`Newest user: ${users[0].email} (${users[0].watch_count} watches, admin: ${users[0].is_admin})`)
  */
 export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]> {
+  const cached = adminCache.get('users-with-watch-count') as UserWithWatchCount[] | undefined;
+  if (cached !== undefined) return cached;
+
   const supabase = getServiceClient();
 
   try {
@@ -458,6 +487,7 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
 
     console.log(`[Admin] Fetched ${usersWithWatchCount.length} users with watch counts`);
 
+    adminCache.set('users-with-watch-count', usersWithWatchCount);
     return usersWithWatchCount;
   } catch (err) {
     console.error('[Admin] Exception fetching users with watch counts:', err);

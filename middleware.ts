@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
+import { TtlCache } from '@/lib/cache/ttl-cache';
 import type { Database } from './lib/supabase/database.types';
 
 /**
@@ -8,6 +9,17 @@ import type { Database } from './lib/supabase/database.types';
 interface UserProfile {
   is_admin: boolean;
   is_disabled: boolean;
+}
+
+/**
+ * Per-isolate profile cache with 5-minute TTL.
+ * Reduces redundant DB lookups within a single Worker isolate.
+ */
+const profileCache = new TtlCache<UserProfile>(5 * 60 * 1000);
+
+/** Clear the profile cache. Exposed for test isolation. */
+export function clearProfileCache(): void {
+  profileCache.clear();
 }
 
 /**
@@ -105,19 +117,26 @@ function hasAuthCookies(request: NextRequest): boolean {
 }
 
 /**
- * Get user profile data from database (cached per request)
- * Returns null if user not found or error occurs
+ * Get user profile data from database with per-isolate TTL cache.
+ * Returns null if user not found or error occurs.
  */
 async function getUserProfile(
   supabase: ReturnType<typeof createServerClient<Database>>,
   userId: string
 ): Promise<UserProfile | null> {
+  const cached = profileCache.get(userId);
+  if (cached) return cached;
+
   try {
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('is_admin, is_disabled')
       .eq('user_id', userId)
       .single();
+
+    if (profile) {
+      profileCache.set(userId, profile);
+    }
 
     return profile;
   } catch (error) {
@@ -250,6 +269,11 @@ export default async function middleware(request: NextRequest) {
 
   // Add security headers to all responses
   addSecurityHeaders(supabaseResponse, isDevelopment);
+
+  // Cache legal pages for 24 hours — content is static
+  if (pathname.startsWith('/legal')) {
+    supabaseResponse.headers.set('Cache-Control', 'public, max-age=86400');
+  }
 
   return supabaseResponse;
 }

@@ -27,7 +27,7 @@ const setupMockChain = () => {
 };
 
 // Import middleware after mocks are set up
-import middleware from '@/middleware';
+import middleware, { clearProfileCache } from '@/middleware';
 
 // Helper to create NextRequest (unauthenticated)
 const createRequest = (pathname: string): NextRequest => {
@@ -79,6 +79,7 @@ const mockDisabledProfile = {
 describe('middleware', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearProfileCache();
     setupMockChain();
   });
 

@@ -5,6 +5,8 @@
  * Fetches class details from ASU's class search API.
  */
 
+import { TtlCache } from '@/lib/cache/ttl-cache';
+
 // --- Error Classes ---
 
 export class ApiError extends Error {
@@ -90,6 +92,13 @@ interface AsuApiResponse {
 
 const CLASS_SEARCH_ENDPOINT_PATH = '/search/classes';
 
+const asuApiCache = new TtlCache<ClassDetails>(2 * 60 * 1000);
+
+/** Clear the in-memory ASU API cache. Exposed for test isolation. */
+export function clearAsuApiCache(): void {
+  asuApiCache.clear();
+}
+
 function formatTime(time: string): string {
   const [hourStr, minuteStr] = time.split(':');
   let hour = Number.parseInt(hourStr, 10);
@@ -164,6 +173,10 @@ export async function fetchClassFromASU(
     throw new ApiError('ASU API environment variables not configured');
   }
 
+  const cacheKey = `${classNbr}:${term}`;
+  const cached = asuApiCache.get(cacheKey);
+  if (cached) return cached;
+
   const url = buildClassSearchUrl(env.ASU_API_BASE_URL, classNbr, term);
   const authHeader = normalizeAuthHeader(env.ASU_API_TOKEN);
 
@@ -189,5 +202,7 @@ export async function fetchClassFromASU(
     throw new NotFoundError(`Section ${classNbr} not found`);
   }
 
-  return mapToClassDetails(hits[0]._source);
+  const result = mapToClassDetails(hits[0]._source);
+  asuApiCache.set(cacheKey, result);
+  return result;
 }

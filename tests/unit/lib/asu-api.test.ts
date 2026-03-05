@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchClassFromASU } from '@/lib/asu/api';
+import { clearAsuApiCache, fetchClassFromASU } from '@/lib/asu/api';
 
 function buildAsuSuccessResponse() {
   return {
@@ -33,6 +33,7 @@ function buildAsuSuccessResponse() {
 describe('fetchClassFromASU', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    clearAsuApiCache();
   });
 
   it('should append /search/classes when base URL is api/v1 and normalize bearer token', async () => {

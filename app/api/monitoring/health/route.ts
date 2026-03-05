@@ -7,6 +7,7 @@
 import { env } from 'cloudflare:workers';
 import { NextResponse } from 'next/server';
 import { fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
+import { TtlCache } from '@/lib/cache/ttl-cache';
 import { getServiceClient } from '@/lib/supabase/service';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
@@ -19,6 +20,8 @@ interface HealthStatus {
   checks: Record<string, unknown>;
   response_time_ms?: number;
 }
+
+const healthCache = new TtlCache<{ body: HealthStatus; statusCode: number }>(30_000);
 
 /**
  * GET /api/monitoring/health
@@ -36,6 +39,11 @@ export async function GET(request: Request) {
 
   if (!isAuthenticated) {
     return NextResponse.json({ status: 'ok' }, { status: 200 });
+  }
+
+  const cached = healthCache.get('health');
+  if (cached) {
+    return NextResponse.json(cached.body, { status: cached.statusCode });
   }
 
   const startTime = Date.now();
@@ -183,6 +191,8 @@ export async function GET(request: Request) {
 
   // Return appropriate status code
   const statusCode = health.status === 'healthy' ? 200 : health.status === 'degraded' ? 503 : 500;
+
+  healthCache.set('health', { body: health, statusCode });
 
   return NextResponse.json(health, { status: statusCode });
 }
