@@ -1,4 +1,4 @@
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
@@ -57,9 +57,7 @@ export async function POST(request: NextRequest) {
 
     const { term, class_nbr } = validation.data;
 
-    // Get Cloudflare context for ASU API env vars
-    // ASU_API_BASE_URL and ASU_API_TOKEN are set as Cloudflare secrets
-    const { env } = await getCloudflareContext();
+    // Get ASU API env vars (Cloudflare secrets)
     const asuEnv = env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
 
     let classDetails: ClassDetails;

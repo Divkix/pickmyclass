@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PickMyClass is a class seat notification system for university students. Built with Next.js 16, React 19, Tailwind CSS 4, and deployed on Cloudflare Workers via OpenNext. Auth and database via Supabase (PostgreSQL with RLS). UI components from shadcn/ui.
+PickMyClass is a class seat notification system for university students. Built with Next.js 16, React 19, Tailwind CSS 4, and deployed on Cloudflare Workers via vinext (Vite-based). Auth and database via Supabase (PostgreSQL with RLS). UI components from shadcn/ui.
 
 **Core Flow:**
 1. Students add class sections to monitor by section number
@@ -41,10 +41,10 @@ bunx vitest run tests/unit/lib/utils.test.ts
 
 ### Cloudflare Workers
 ```bash
-bun run preview          # Build with OpenNext and preview locally
+bun run preview          # Build with vinext and preview locally
 bun run deploy           # Build and deploy (includes wrangler triggers deploy)
 bun run cf-typegen       # Generate TypeScript types for Cloudflare env bindings
-rm -rf .next .open-next && bun run preview    # Clean build
+rm -rf .next dist && bun run preview    # Clean build
 ```
 
 ### Database (Supabase)
@@ -68,7 +68,7 @@ Both main `tsconfig.json` and `tsconfig.worker.json` must pass `tsc --noEmit`.
 
 ### Request Flow
 ```
-User Browser -> Next.js (Cloudflare Workers) -> Supabase (Auth + PostgreSQL + Realtime)
+User Browser -> vinext (Cloudflare Workers) -> Supabase (Auth + PostgreSQL + Realtime)
                                                  |
 Cron (every 30 min) -> Cloudflare Queue -> Queue Consumers (max_concurrency: 20)
                                                  |
@@ -79,13 +79,13 @@ Cron (every 30 min) -> Cloudflare Queue -> Queue Consumers (max_concurrency: 20)
 
 ### How worker.ts Connects Everything
 
-`worker.ts` is the Cloudflare Worker entrypoint. It wraps OpenNext's generated worker and adds:
-- **`fetch`** - Delegates to OpenNext (Next.js app)
+`worker.ts` is the Cloudflare Worker entrypoint. It wraps vinext's app-router-entry handler and adds:
+- **`fetch`** - Delegates to vinext (Next.js app)
 - **`scheduled`** - Cron handler makes internal HTTP request to `/api/cron` with `CRON_SECRET` auth
 - **`queue`** - Queue consumer processes batches, each message makes internal HTTP POST to `/api/queue/process-section`
 - **Durable Objects** - `CronLockDO` for distributed cron locking
 
-The cron and queue handlers route through the Next.js app via internal HTTP calls so environment bindings (Supabase, ASU API, etc.) are available via `getCloudflareContext()`.
+The cron and queue handlers route through the Next.js app via internal HTTP calls so environment bindings (Supabase, ASU API, etc.) are available via `import { env } from 'cloudflare:workers'`.
 
 ### Key Components
 

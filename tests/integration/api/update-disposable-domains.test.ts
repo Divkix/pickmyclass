@@ -9,23 +9,20 @@ interface SyncResponse {
   duration_ms?: number;
 }
 
-// Mock getCloudflareContext
-const mockKvPut = vi.fn();
+// Mock cloudflare:workers for env import
+// vi.hoisted ensures mockKvPut is initialized before the hoisted vi.mock factory runs
+const mockKvPut = vi.hoisted(() => vi.fn());
 
-vi.mock('@opennextjs/cloudflare', () => ({
-  getCloudflareContext: vi.fn(() =>
-    Promise.resolve({
-      env: {
-        DISPOSABLE_DOMAINS_KV: {
-          put: mockKvPut,
-          get: vi.fn(),
-          delete: vi.fn(),
-          list: vi.fn(),
-          getWithMetadata: vi.fn(),
-        },
-      },
-    })
-  ),
+vi.mock('cloudflare:workers', () => ({
+  env: {
+    DISPOSABLE_DOMAINS_KV: {
+      put: mockKvPut,
+      get: vi.fn(),
+      delete: vi.fn(),
+      list: vi.fn(),
+      getWithMetadata: vi.fn(),
+    },
+  },
 }));
 
 // Save original fetch

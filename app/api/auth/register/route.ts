@@ -1,4 +1,4 @@
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isDisposableEmail } from '@/lib/auth/disposable-email';
@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
 
     // Check for disposable email domains
     try {
-      const { env } = await getCloudflareContext();
-      const kv = (env as { DISPOSABLE_DOMAINS_KV?: KVNamespace }).DISPOSABLE_DOMAINS_KV ?? null;
+      const kv =
+        (env as unknown as { DISPOSABLE_DOMAINS_KV?: KVNamespace }).DISPOSABLE_DOMAINS_KV ?? null;
       const result = await isDisposableEmail(email, kv);
       if (result.disposable) {
         return NextResponse.json(

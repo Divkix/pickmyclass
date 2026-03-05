@@ -4,7 +4,7 @@
  * Provides real-time system status including ASU API, database, and cron lock.
  */
 
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { env } from 'cloudflare:workers';
 import { NextResponse } from 'next/server';
 import { fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
 import { getServiceClient } from '@/lib/supabase/service';
@@ -80,8 +80,7 @@ export async function GET(request: Request) {
 
   // 2. Check ASU API
   try {
-    const context = await getCloudflareContext();
-    const asuEnv = context.env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
+    const asuEnv = env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
     await fetchClassFromASU('10001', '2251', asuEnv);
     health.checks.asu_api = {
       name: 'ASU API',
@@ -106,14 +105,13 @@ export async function GET(request: Request) {
 
   // 2b. Check Cron Lock Status (Durable Object)
   try {
-    const context = await getCloudflareContext();
-    const env = context.env as unknown as {
+    const cfEnv = env as unknown as {
       CRON_LOCK_DO?: DurableObjectNamespace;
     };
 
-    if (env?.CRON_LOCK_DO) {
-      const lockId = env.CRON_LOCK_DO.idFromName('class-check-cron-lock');
-      const lockStub = env.CRON_LOCK_DO.get(lockId);
+    if (cfEnv?.CRON_LOCK_DO) {
+      const lockId = cfEnv.CRON_LOCK_DO.idFromName('class-check-cron-lock');
+      const lockStub = cfEnv.CRON_LOCK_DO.get(lockId);
 
       const lockStatusResponse = await lockStub.fetch('http://do/status');
       const lockStatus = (await lockStatusResponse.json()) as {
@@ -162,9 +160,8 @@ export async function GET(request: Request) {
   ];
 
   // Check vars from both process.env and Cloudflare context
-  const cfContext = await getCloudflareContext();
-  const cfEnv = cfContext.env as unknown as Record<string, string | undefined>;
-  const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key] && !cfEnv[key]);
+  const cfRecord = env as unknown as Record<string, string | undefined>;
+  const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key] && !cfRecord[key]);
 
   health.checks.configuration = {
     status: missingEnvVars.length === 0 ? 'healthy' : 'unhealthy',

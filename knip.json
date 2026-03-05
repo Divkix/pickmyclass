@@ -13,10 +13,18 @@
       "middleware.ts"
     ]
   },
-  "entry": ["worker.ts", "open-next.config.ts"],
+  "entry": ["worker.ts"],
   "project": ["**/*.{ts,tsx}"],
-  "ignore": ["lib/supabase/database.types.ts", "components/ui/**"],
-  "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css", "postcss", "cloudflare"],
+  "ignore": ["lib/supabase/database.types.ts", "components/ui/**", "tests/mocks/**"],
+  "ignoreDependencies": [
+    "supabase",
+    "tailwindcss",
+    "tw-animate-css",
+    "postcss",
+    "cloudflare",
+    "@vitejs/plugin-rsc",
+    "react-server-dom-webpack"
+  ],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false
 }
