@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { ClassesTable } from '@/components/admin/ClassesTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { verifyAdmin } from '@/lib/auth/admin';

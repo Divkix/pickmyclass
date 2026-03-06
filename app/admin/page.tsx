@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { Activity, Clock, Eye, Mail, TrendingUp, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { verifyAdmin } from '@/lib/auth/admin';

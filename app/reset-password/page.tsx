@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { createClient } from '@/lib/supabase/client';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 86400;
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('');

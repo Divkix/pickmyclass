@@ -1,5 +1,7 @@
 'use client';
 
+export const revalidate = 86400;
+
 import { motion } from 'framer-motion';
 import { Calendar, CheckCircle2, Eye, Plus, Search, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';

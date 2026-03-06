@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { ArrowLeft, BookOpen, Calendar, Clock, MapPin, Users } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';

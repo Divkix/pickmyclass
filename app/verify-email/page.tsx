@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { createClient } from '@/lib/supabase/client';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 86400;
 
 export default function VerifyEmailPage() {
   const [loading, setLoading] = useState(false);

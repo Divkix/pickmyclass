@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { ArrowLeft, Calendar, Clock, Eye, Mail, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';

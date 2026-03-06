@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { UsersTable } from '@/components/admin/UsersTable';
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getAllUsersWithWatchCount } from '@/lib/db/admin-queries';
