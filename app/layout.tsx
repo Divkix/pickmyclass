@@ -1,5 +1,3 @@
-import { GeistMono } from 'geist/font/mono';
-import { GeistSans } from 'geist/font/sans';
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Toaster } from 'sonner';
@@ -88,9 +86,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${GeistSans.variable} ${GeistMono.variable} antialiased flex flex-col min-h-screen`}
-      >
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+      </head>
+      <body className="font-sans antialiased flex flex-col min-h-screen">
         <ThemeProvider>
           <AuthProvider>
             <div className="flex-1 pb-20 md:pb-0">{children}</div>
