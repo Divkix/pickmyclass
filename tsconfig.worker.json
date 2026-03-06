@@ -16,6 +16,7 @@
   },
   "include": [
     "worker.ts",
+    "global.d.ts",
     "lib/types/queue.ts",
     "lib/cloudflare-env.d.ts",
     "lib/cloudflare-env.supplemental.d.ts"

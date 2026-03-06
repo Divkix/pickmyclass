@@ -21,10 +21,12 @@ function resolveCacheVersion(): string {
 
 const cacheVersion = resolveCacheVersion();
 const buildTimestamp = process.env.BUILD_TIMESTAMP ?? new Date().toISOString();
-const defineValues: Record<string, string> = {};
-
-defineValues['__cacheVersion__'] = JSON.stringify(cacheVersion);
-defineValues['__buildTimestamp__'] = JSON.stringify(buildTimestamp);
+const defineValues: Record<string, string> = {
+  // biome-ignore lint/style/useNamingConvention: Vite define requires dunder global identifiers
+  __cacheVersion__: JSON.stringify(cacheVersion),
+  // biome-ignore lint/style/useNamingConvention: Vite define requires dunder global identifiers
+  __buildTimestamp__: JSON.stringify(buildTimestamp),
+};
 
 export default defineConfig({
   define: defineValues,
