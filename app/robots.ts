@@ -1,6 +1,11 @@
 import type { MetadataRoute } from 'next';
+import { applyPublicPageCache } from '@/lib/cache/public-page-cache';
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  'use cache';
+
+  applyPublicPageCache('page:metadata:robots');
+
   const baseUrl = 'https://pickmyclass.app';
 
   return {

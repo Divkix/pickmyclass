@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { applyPublicPageCache } from '@/lib/cache/public-page-cache';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -14,7 +15,11 @@ export const metadata: Metadata = {
 
 export const dynamic = 'error';
 
-export default function PrivacyPolicyPage() {
+export default async function PrivacyPolicyPage() {
+  'use cache';
+
+  applyPublicPageCache('page:legal:privacy');
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />

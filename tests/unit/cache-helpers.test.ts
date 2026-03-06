@@ -49,6 +49,6 @@ describe('public edge cache helpers', () => {
 
   it('exports the intended cache policies', () => {
     expect(publicEdgeCacheControl).toBe('public, max-age=0, must-revalidate');
-    expect(publicEdgeCdnCacheControl).toBe('public, s-maxage=3600, stale-while-revalidate=86400');
+    expect(publicEdgeCdnCacheControl).toBe('public, s-maxage=60, stale-while-revalidate=300');
   });
 });

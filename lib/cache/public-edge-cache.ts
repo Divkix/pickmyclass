@@ -9,7 +9,7 @@ const publicEdgeCacheablePaths = new Set([
 ]);
 
 export const publicEdgeCacheControl = 'public, max-age=0, must-revalidate';
-export const publicEdgeCdnCacheControl = 'public, s-maxage=3600, stale-while-revalidate=86400';
+export const publicEdgeCdnCacheControl = 'public, s-maxage=60, stale-while-revalidate=300';
 
 export function isPublicEdgeCacheablePath(pathname: string): boolean {
   return publicEdgeCacheablePaths.has(pathname);

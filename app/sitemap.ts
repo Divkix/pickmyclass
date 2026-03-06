@@ -1,42 +1,49 @@
 import type { MetadataRoute } from 'next';
+import { buildTimestamp } from '@/lib/cache/cache-version';
+import { applyPublicPageCache } from '@/lib/cache/public-page-cache';
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  'use cache';
+
+  applyPublicPageCache('page:metadata:sitemap');
+
   const baseUrl = 'https://pickmyclass.app';
+  const lastModified = buildTimestamp;
 
   return [
     {
       url: baseUrl,
-      lastModified: '2026-02-06',
+      lastModified,
       changeFrequency: 'weekly',
       priority: 1.0,
     },
     {
       url: `${baseUrl}/login`,
-      lastModified: '2026-02-06',
+      lastModified,
       changeFrequency: 'monthly',
       priority: 0.7,
     },
     {
       url: `${baseUrl}/register`,
-      lastModified: '2026-02-06',
+      lastModified,
       changeFrequency: 'monthly',
       priority: 0.7,
     },
     {
       url: `${baseUrl}/legal`,
-      lastModified: '2026-02-06',
+      lastModified,
       changeFrequency: 'yearly',
       priority: 0.3,
     },
     {
       url: `${baseUrl}/legal/terms`,
-      lastModified: '2026-02-06',
+      lastModified,
       changeFrequency: 'yearly',
       priority: 0.3,
     },
     {
       url: `${baseUrl}/legal/privacy`,
-      lastModified: '2026-02-06',
+      lastModified,
       changeFrequency: 'yearly',
       priority: 0.3,
     },

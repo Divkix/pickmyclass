@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Header } from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { applyPublicPageCache } from '@/lib/cache/public-page-cache';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -13,7 +14,11 @@ export const metadata: Metadata = {
 
 export const dynamic = 'error';
 
-export default function TermsOfServicePage() {
+export default async function TermsOfServicePage() {
+  'use cache';
+
+  applyPublicPageCache('page:legal:terms');
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />

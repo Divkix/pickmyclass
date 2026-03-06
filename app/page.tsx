@@ -7,6 +7,7 @@ import { HowItWorks } from '@/components/landing/HowItWorks';
 import { JsonLd } from '@/components/landing/JsonLd';
 import { MobileStickyCTA } from '@/components/landing/MobileStickyCTA';
 import { SocialProofBanner } from '@/components/landing/SocialProofBanner';
+import { applyPublicPageCache } from '@/lib/cache/public-page-cache';
 
 export const dynamic = 'error';
 
@@ -98,7 +99,11 @@ const howToSchema = {
   ],
 };
 
-export default function Home() {
+export default async function Home() {
+  'use cache';
+
+  applyPublicPageCache('page:home');
+
   return (
     <AuthRedirect>
       <div className="flex min-h-screen flex-col bg-background">

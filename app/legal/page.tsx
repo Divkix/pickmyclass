@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { applyPublicPageCache } from '@/lib/cache/public-page-cache';
 
 export const metadata: Metadata = {
   title: 'Legal Documents',
@@ -14,7 +15,11 @@ export const metadata: Metadata = {
 
 export const dynamic = 'error';
 
-export default function LegalPage() {
+export default async function LegalPage() {
+  'use cache';
+
+  applyPublicPageCache('page:legal:index');
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />

@@ -10,6 +10,7 @@ import { KVCacheHandler } from 'vinext/cloudflare';
 import handler from 'vinext/server/app-router-entry';
 import { setCacheHandler } from 'vinext/shims/cache';
 import { hasSupabaseAuthCookiesInHeader } from './lib/auth/supabase-auth-cookies';
+import { cacheVersion } from './lib/cache/cache-version';
 import {
   buildPublicEdgeCacheKey,
   isPublicEdgeCacheablePath,
@@ -374,7 +375,11 @@ export default {
    * HTTP request handler - routes to vinext app
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    setCacheHandler(new KVCacheHandler(env.PICKMYCLASS_CACHE));
+    setCacheHandler(
+      new KVCacheHandler(env.PICKMYCLASS_CACHE, {
+        appPrefix: cacheVersion,
+      })
+    );
 
     const url = new URL(request.url);
     if (!isPublicEdgeCacheablePath(url.pathname)) {
