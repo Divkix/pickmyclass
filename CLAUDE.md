@@ -98,6 +98,7 @@ The cron and queue handlers route through the vinext app via internal HTTP calls
 | `lib/db/admin-queries.ts` | Admin-specific database queries |
 | `lib/supabase/service.ts` | Service role client (bypasses RLS) |
 | `lib/email/resend.ts` | Resend email integration with batch API |
+| `lib/queue/dlq-consumer.ts` | Dead letter queue handler - logging + admin alerts |
 | `lib/email/unsubscribe-token.ts` | Signed token generation for email unsubscribe links |
 | `middleware.ts` | Auth middleware with CSP headers and role-based routing |
 | `lib/asu/api.ts` | ASU Class Search API client (direct HTTP) |
@@ -157,6 +158,7 @@ const sent = await hasNotificationBeenSent(watchId, type); // bad
 - `max_concurrency: 20` - Concurrent consumer invocations
 - `max_retries: 3` - Retries before dead letter queue (`pickmyclass-dlq`)
 - `retry_delay: 60` - Seconds between retries
+- DLQ consumer (`pickmyclass-dlq`): `max_batch_size: 1`, `max_retries: 0` — logs errors and sends admin alert emails, always acks
 
 ### Supabase Client Pattern
 Three clients for different contexts:

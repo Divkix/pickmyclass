@@ -57,6 +57,11 @@
         "max_retries": 3,
         "retry_delay": 60,
         "dead_letter_queue": "pickmyclass-dlq"
+      },
+      {
+        "queue": "pickmyclass-dlq",
+        "max_batch_size": 1,
+        "max_retries": 0
       }
     ]
   },

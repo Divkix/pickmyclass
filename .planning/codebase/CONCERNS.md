@@ -132,10 +132,10 @@
 
 ## Scaling Limits
 
-**Queue Dead Letter Queue Has No Monitoring**
-- Current capacity: Up to 3 retries per message (wrangler.jsonc line 57), then moves to DLQ
-- Limit: DLQ (`pickmyclass-dlq`) has no consumer. Messages accumulate indefinitely with no alerting
-- Scaling path: Implement `/api/queue/monitor-dlq` endpoint to check DLQ size. Add alert if DLQ > 100 messages. Implement manual replay endpoint for specific DLQ messages
+**Queue Dead Letter Queue — RESOLVED**
+- DLQ consumer added in `lib/queue/dlq-consumer.ts` and wired via `worker.ts`
+- Logs structured errors, looks up affected watchers, sends admin alert emails via Resend
+- `max_retries: 0` on DLQ consumer prevents infinite retry loops
 
 **Cron Lock Timeout Fixed at 25 Minutes**
 - Current capacity: Cron runs every 30 minutes. Lock timeout 25 minutes (worker.ts line 76)

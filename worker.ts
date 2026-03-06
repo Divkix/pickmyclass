@@ -9,6 +9,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { KVCacheHandler } from 'vinext/cloudflare';
 import handler from 'vinext/server/app-router-entry';
 import { setCacheHandler } from 'vinext/shims/cache';
+import { handleDLQMessage } from './lib/queue/dlq-consumer';
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';
 
 /**
@@ -398,9 +399,29 @@ export default {
     _ctx: ExecutionContext
   ): Promise<void> {
     const startTime = Date.now();
+    const isDLQ = batch.queue === 'pickmyclass-dlq';
     console.log(
       `[Queue] Processing batch of ${batch.messages.length} messages from queue: ${batch.queue}`
     );
+
+    // Route DLQ messages to dedicated handler — always ack, never retry
+    if (isDLQ) {
+      for (const message of batch.messages) {
+        try {
+          await handleDLQMessage(message.body);
+        } catch (error) {
+          console.error(
+            `[Queue/DLQ] Unexpected error processing ${message.body.class_nbr}:`,
+            error
+          );
+        }
+        message.ack();
+      }
+      console.log(
+        `[Queue/DLQ] Processed ${batch.messages.length} DLQ messages in ${Date.now() - startTime}ms`
+      );
+      return;
+    }
 
     // Process all messages in the batch concurrently
     const results = await Promise.allSettled(
