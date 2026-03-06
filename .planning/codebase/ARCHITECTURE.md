@@ -79,7 +79,7 @@ PickMyClass follows a **vinext frontend with Cloudflare Workers backend** patter
    - Acquires distributed lock via `CronLockDO` (prevents concurrent runs)
    - Queries `getSectionsToCheck(staggerType)` → RPC to PostgreSQL
    - Stagger type based on current minute: even (0,2,4,6,8) at :00, odd (1,3,5,7,9) at :30
-   - Enqueues messages to `CLASS_CHECK_QUEUE` (Cloudflare Queue)
+   - Enqueues messages to `PICKMYCLASS_QUEUE` (Cloudflare Queue)
    - Returns lock release response
 
 3. **Queue Consumer** (`worker.ts::queue()` handler)
@@ -165,7 +165,7 @@ PickMyClass follows a **vinext frontend with Cloudflare Workers backend** patter
 
 **Queue Processor (Parallel):**
 - Location: `app/api/queue/process-section/route.ts`
-- Triggers: Each message from CLASS_CHECK_QUEUE (batch of up to 5)
+- Triggers: Each message from PICKMYCLASS_QUEUE (batch of up to 5)
 - Responsibilities: Fetch ASU data, detect changes, atomically record notifications, send emails
 
 **Health Check (Monitoring):**

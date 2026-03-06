@@ -5,7 +5,7 @@
  */
 
 /**
- * Message sent to CLASS_CHECK_QUEUE for processing a single section
+ * Message sent to PICKMYCLASS_QUEUE for processing a single section
  */
 export interface ClassCheckMessage {
   /**
@@ -38,14 +38,14 @@ export interface Env extends Record<string, unknown> {
   ASSETS: Fetcher;
 
   // Queue bindings
-  CLASS_CHECK_QUEUE: Queue<ClassCheckMessage>;
+  PICKMYCLASS_QUEUE: Queue<ClassCheckMessage>;
 
   // Durable Object bindings
   CIRCUIT_BREAKER_DO: DurableObjectNamespace;
   CRON_LOCK_DO: DurableObjectNamespace;
 
   // KV namespace bindings
-  DISPOSABLE_DOMAINS_KV: KVNamespace;
+  PICKMYCLASS_DISPOSABLE_KV: KVNamespace;
 
   // Environment variables
   NEXT_PUBLIC_SUPABASE_URL: string;

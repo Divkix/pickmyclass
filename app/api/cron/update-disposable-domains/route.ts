@@ -68,7 +68,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Store as single JSON blob in KV
-    const kv = (env as unknown as { DISPOSABLE_DOMAINS_KV: KVNamespace }).DISPOSABLE_DOMAINS_KV;
+    const kv = (env as unknown as { PICKMYCLASS_DISPOSABLE_KV: KVNamespace })
+      .PICKMYCLASS_DISPOSABLE_KV;
 
     await kv.put('disposable-domains', JSON.stringify(domains));
 

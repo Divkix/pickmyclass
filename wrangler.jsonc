@@ -19,7 +19,7 @@
   },
   "kv_namespaces": [
     {
-      "binding": "DISPOSABLE_DOMAINS_KV",
+      "binding": "PICKMYCLASS_DISPOSABLE_KV",
       "id": "5b1c731cca674372be70d72be05acb7b"
     },
     {
@@ -44,7 +44,7 @@
   "queues": {
     "producers": [
       {
-        "binding": "CLASS_CHECK_QUEUE",
+        "binding": "PICKMYCLASS_QUEUE",
         "queue": "pickmyclass-queue"
       }
     ],

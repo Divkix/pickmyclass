@@ -105,10 +105,10 @@ export async function GET(request: NextRequest) {
     );
 
     // Get queue binding
-    const queue = cfEnv.CLASS_CHECK_QUEUE;
+    const queue = cfEnv.PICKMYCLASS_QUEUE;
 
     if (!queue) {
-      console.error('[Cron] CLASS_CHECK_QUEUE binding not found');
+      console.error('[Cron] PICKMYCLASS_QUEUE binding not found');
       return NextResponse.json(
         {
           success: false,

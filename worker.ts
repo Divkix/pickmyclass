@@ -18,9 +18,9 @@ import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';
 interface Env {
   ASSETS: Fetcher;
   CRON_SECRET: string;
-  CLASS_CHECK_QUEUE: Queue<ClassCheckMessage>;
+  PICKMYCLASS_QUEUE: Queue<ClassCheckMessage>;
   CRON_LOCK_DO: DurableObjectNamespace;
-  DISPOSABLE_DOMAINS_KV: KVNamespace;
+  PICKMYCLASS_DISPOSABLE_KV: KVNamespace;
   VINEXT_CACHE: KVNamespace;
   NEXT_PUBLIC_SUPABASE_URL: string;
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
