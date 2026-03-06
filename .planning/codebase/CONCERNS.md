@@ -134,7 +134,7 @@
 
 **Queue Dead Letter Queue Has No Monitoring**
 - Current capacity: Up to 3 retries per message (wrangler.jsonc line 57), then moves to DLQ
-- Limit: DLQ (`class-check-dlq`) has no consumer. Messages accumulate indefinitely with no alerting
+- Limit: DLQ (`pickmyclass-dlq`) has no consumer. Messages accumulate indefinitely with no alerting
 - Scaling path: Implement `/api/queue/monitor-dlq` endpoint to check DLQ size. Add alert if DLQ > 100 messages. Implement manual replay endpoint for specific DLQ messages
 
 **Cron Lock Timeout Fixed at 25 Minutes**

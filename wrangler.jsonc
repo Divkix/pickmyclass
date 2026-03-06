@@ -45,18 +45,18 @@
     "producers": [
       {
         "binding": "CLASS_CHECK_QUEUE",
-        "queue": "class-check-queue"
+        "queue": "pickmyclass-queue"
       }
     ],
     "consumers": [
       {
-        "queue": "class-check-queue",
+        "queue": "pickmyclass-queue",
         "max_batch_size": 5,
         "max_batch_timeout": 10,
         "max_concurrency": 20,
         "max_retries": 3,
         "retry_delay": 60,
-        "dead_letter_queue": "class-check-dlq"
+        "dead_letter_queue": "pickmyclass-dlq"
       }
     ]
   },

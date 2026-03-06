@@ -155,7 +155,7 @@ wrangler triggers deploy           # Deploy cron/queue triggers (included in dep
 - Locking: Durable Object (CronLockDO) prevents concurrent executions (25-minute timeout)
 - Authentication: Bearer token (CRON_SECRET) required
 
-**Cloudflare Queues (class-check-queue):**
+**Cloudflare Queues (pickmyclass-queue):**
 - Enqueued by: `/api/cron` route handler after locking
 - Message type: `ClassCheckMessage` (see `lib/types/queue.ts`)
 - Consumer config:
@@ -164,7 +164,7 @@ wrangler triggers deploy           # Deploy cron/queue triggers (included in dep
   - `max_concurrency`: 20 concurrent worker invocations
   - `max_retries`: 3 before dead letter queue
   - `retry_delay`: 60 seconds between retries
-- Dead Letter Queue: `class-check-dlq` (captures failed messages after 3 retries)
+- Dead Letter Queue: `pickmyclass-dlq` (captures failed messages after 3 retries)
 - Processor: Queue consumer Worker calls `/api/queue/process-section` (requires CRON_SECRET)
 - Processing: Fetch class → detect seat/instructor changes → record notifications → send emails
 

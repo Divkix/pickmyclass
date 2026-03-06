@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     const cfEnv = env as unknown as Env;
 
     if (cfEnv.CRON_LOCK_DO) {
-      const lockId = cfEnv.CRON_LOCK_DO.idFromName('class-check-cron-lock');
+      const lockId = cfEnv.CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
       const lockStub = cfEnv.CRON_LOCK_DO.get(lockId);
 
       const lockResponse = await lockStub.fetch(`http://do/acquire?holder=${lockHolder}`, {
@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
         const cfEnv = env as unknown as Env;
 
         if (cfEnv.CRON_LOCK_DO) {
-          const lockId = cfEnv.CRON_LOCK_DO.idFromName('class-check-cron-lock');
+          const lockId = cfEnv.CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
           const lockStub = cfEnv.CRON_LOCK_DO.get(lockId);
 
           await lockStub.fetch(`http://do/release?holder=${lockHolder}`, {

@@ -118,7 +118,7 @@ export async function GET(request: Request) {
     };
 
     if (cfEnv?.CRON_LOCK_DO) {
-      const lockId = cfEnv.CRON_LOCK_DO.idFromName('class-check-cron-lock');
+      const lockId = cfEnv.CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
       const lockStub = cfEnv.CRON_LOCK_DO.get(lockId);
 
       const lockStatusResponse = await lockStub.fetch('http://do/status');

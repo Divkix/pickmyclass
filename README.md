@@ -56,7 +56,7 @@ vinext App (Cloudflare Workers) <---> Supabase (Auth + PostgreSQL + Realtime)
 Cloudflare Cron (every 30 min)
      |
      v
-Cloudflare Queue (class-check-queue)
+Cloudflare Queue (pickmyclass-queue)
      |
      v
 Queue Consumers (100+ concurrent Workers)
@@ -197,8 +197,8 @@ Your app will be live at `https://your-worker.workers.dev` or your custom domain
 Create the required queues in Cloudflare Dashboard:
 
 1. Go to Workers & Pages -> Queues
-2. Create `class-check-queue`
-3. Create `class-check-dlq` (dead letter queue)
+2. Create `pickmyclass-queue`
+3. Create `pickmyclass-dlq` (dead letter queue)
 
 ### 8. Customize Legal Pages (Optional)
 

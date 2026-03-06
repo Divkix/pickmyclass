@@ -188,7 +188,7 @@ PickMyClass follows a **vinext frontend with Cloudflare Workers backend** patter
 
 - **Rate Limit (429):** Retryable (exponential backoff). ASU API throttling
   - Queue retries up to 3x with 60s delay between attempts
-  - If all retries exhausted → move to `class-check-dlq` dead-letter queue
+  - If all retries exhausted → move to `pickmyclass-dlq` dead-letter queue
 
 - **Database Errors:** Retryable. Connection timeouts, constraint violations
   - Notification dedup: If atomic insert fails (duplicate), skip email send

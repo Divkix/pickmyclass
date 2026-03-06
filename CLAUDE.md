@@ -155,7 +155,7 @@ const sent = await hasNotificationBeenSent(watchId, type); // bad
 - `max_batch_size: 5` - Messages per batch
 - `max_batch_timeout: 10` - Seconds to wait for batch fill
 - `max_concurrency: 20` - Concurrent consumer invocations
-- `max_retries: 3` - Retries before dead letter queue (`class-check-dlq`)
+- `max_retries: 3` - Retries before dead letter queue (`pickmyclass-dlq`)
 - `retry_delay: 60` - Seconds between retries
 
 ### Supabase Client Pattern
@@ -207,5 +207,5 @@ User must log out and back in for admin status to take effect.
 ## Monitoring
 
 - **Health endpoint:** `GET /api/monitoring/health` - DB, circuit breaker, email service status
-- **Queue metrics:** Cloudflare Dashboard -> Queues -> class-check-queue
+- **Queue metrics:** Cloudflare Dashboard -> Queues -> pickmyclass-queue
 - **Observability:** Enabled in wrangler.jsonc with full log persistence

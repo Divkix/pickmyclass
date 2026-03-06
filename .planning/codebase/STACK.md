@@ -117,7 +117,7 @@
 **Deployment Pipeline:**
 - Cloudflare Workers with vinext
 - Durable Objects for distributed state (cron locking)
-- Cloudflare Queues (class-check-queue, dead letter queue class-check-dlq)
+- Cloudflare Queues (pickmyclass-queue, dead letter queue pickmyclass-dlq)
 - Cloudflare KV (DISPOSABLE_DOMAINS_KV for email validation)
 - Cron triggers every 30 minutes
 - Observability enabled with full log persistence

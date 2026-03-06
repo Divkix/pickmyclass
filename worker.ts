@@ -45,7 +45,7 @@ interface Fetcher {
  * section check messages.
  *
  * **Architecture:**
- * - Single instance per cron job (identified by name "class-check-cron-lock")
+ * - Single instance per cron job (identified by name "pickmyclass-cron-lock")
  * - Persistent state via Durable Object storage
  * - Auto-expires after 25 minutes (safety margin before next cron)
  * - Handles Worker crashes via timeout mechanism
