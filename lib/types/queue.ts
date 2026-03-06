@@ -45,7 +45,7 @@ export interface Env extends Record<string, unknown> {
   PICKMYCLASS_CRON_LOCK_DO: DurableObjectNamespace;
 
   // KV namespace bindings
-  PICKMYCLASS_DISPOSABLE_KV: KVNamespace;
+  PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
 
   // Environment variables
   NEXT_PUBLIC_SUPABASE_URL: string;

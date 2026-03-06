@@ -15,7 +15,7 @@ const mockKvPut = vi.hoisted(() => vi.fn());
 
 vi.mock('cloudflare:workers', () => ({
   env: {
-    PICKMYCLASS_DISPOSABLE_KV: {
+    PICKMYCLASS_DISPOSABLE_DOMAINS: {
       put: mockKvPut,
       get: vi.fn(),
       delete: vi.fn(),

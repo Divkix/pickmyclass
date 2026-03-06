@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
     // Check for disposable email domains
     try {
       const kv =
-        (env as unknown as { PICKMYCLASS_DISPOSABLE_KV?: KVNamespace }).PICKMYCLASS_DISPOSABLE_KV ??
-        null;
+        (env as unknown as { PICKMYCLASS_DISPOSABLE_DOMAINS?: KVNamespace })
+          .PICKMYCLASS_DISPOSABLE_DOMAINS ?? null;
       const result = await isDisposableEmail(email, kv);
       if (result.disposable) {
         return NextResponse.json(

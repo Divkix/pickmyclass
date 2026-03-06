@@ -16,7 +16,7 @@ interface RegisterResponse {
 const mockKVGet = vi.hoisted(() => vi.fn());
 vi.mock('cloudflare:workers', () => ({
   env: {
-    PICKMYCLASS_DISPOSABLE_KV: {
+    PICKMYCLASS_DISPOSABLE_DOMAINS: {
       get: mockKVGet,
       put: vi.fn(),
       delete: vi.fn(),

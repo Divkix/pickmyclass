@@ -46,10 +46,10 @@
 - Assets served from Cloudflare Workers static file serving
 
 **Caching:**
-- Cloudflare KV Namespace (PICKMYCLASS_DISPOSABLE_KV)
-  - Binding: `PICKMYCLASS_DISPOSABLE_KV`
+- Cloudflare KV Namespace (PICKMYCLASS_DISPOSABLE_DOMAINS)
+  - Binding: `PICKMYCLASS_DISPOSABLE_DOMAINS`
   - Purpose: Cache disposable email domain list (updated daily at 4 AM UTC)
-  - ID: `5b1c731cca674372be70d72be05acb7b` (Cloudflare namespace ID)
+  - ID: `3ff3f3f2b93b4de98f12ad7886d1f857` (Cloudflare namespace ID)
 
 ## Authentication & Identity
 

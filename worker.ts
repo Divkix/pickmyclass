@@ -20,8 +20,8 @@ interface Env {
   CRON_SECRET: string;
   PICKMYCLASS_QUEUE: Queue<ClassCheckMessage>;
   PICKMYCLASS_CRON_LOCK_DO: DurableObjectNamespace;
-  PICKMYCLASS_DISPOSABLE_KV: KVNamespace;
-  VINEXT_CACHE: KVNamespace;
+  PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
+  PICKMYCLASS_CACHE: KVNamespace;
   NEXT_PUBLIC_SUPABASE_URL: string;
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
@@ -338,7 +338,7 @@ export default {
    * HTTP request handler - routes to vinext app
    */
   fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-    setCacheHandler(new KVCacheHandler(env.VINEXT_CACHE));
+    setCacheHandler(new KVCacheHandler(env.PICKMYCLASS_CACHE));
     return handler.fetch(request);
   },
 

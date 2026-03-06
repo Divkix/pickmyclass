@@ -118,7 +118,7 @@
 - Cloudflare Workers with vinext
 - Durable Objects for distributed state (cron locking)
 - Cloudflare Queues (pickmyclass-queue, dead letter queue pickmyclass-dlq)
-- Cloudflare KV (PICKMYCLASS_DISPOSABLE_KV for email validation)
+- Cloudflare KV (PICKMYCLASS_DISPOSABLE_DOMAINS for email validation)
 - Cron triggers every 30 minutes
 - Observability enabled with full log persistence
 
