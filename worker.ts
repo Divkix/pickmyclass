@@ -19,7 +19,7 @@ interface Env {
   ASSETS: Fetcher;
   CRON_SECRET: string;
   PICKMYCLASS_QUEUE: Queue<ClassCheckMessage>;
-  CRON_LOCK_DO: DurableObjectNamespace;
+  PICKMYCLASS_CRON_LOCK_DO: DurableObjectNamespace;
   PICKMYCLASS_DISPOSABLE_KV: KVNamespace;
   VINEXT_CACHE: KVNamespace;
   NEXT_PUBLIC_SUPABASE_URL: string;

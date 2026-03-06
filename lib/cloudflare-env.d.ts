@@ -22,7 +22,7 @@ declare namespace Cloudflare {
 		NOTIFICATION_FROM_EMAIL: string;
 		WRANGLER_BUILD_CONDITIONS: string;
 		WRANGLER_BUILD_PLATFORM: string;
-		CRON_LOCK_DO: DurableObjectNamespace /* CronLockDO from pickmyclass */;
+		PICKMYCLASS_CRON_LOCK_DO: DurableObjectNamespace /* CronLockDO from pickmyclass */;
 	}
 }
 interface CloudflareEnv extends Cloudflare.Env {}

@@ -59,9 +59,9 @@ export async function GET(request: NextRequest) {
     // Get distributed lock to prevent concurrent cron runs
     const cfEnv = env as unknown as Env;
 
-    if (cfEnv.CRON_LOCK_DO) {
-      const lockId = cfEnv.CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
-      const lockStub = cfEnv.CRON_LOCK_DO.get(lockId);
+    if (cfEnv.PICKMYCLASS_CRON_LOCK_DO) {
+      const lockId = cfEnv.PICKMYCLASS_CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
+      const lockStub = cfEnv.PICKMYCLASS_CRON_LOCK_DO.get(lockId);
 
       const lockResponse = await lockStub.fetch(`http://do/acquire?holder=${lockHolder}`, {
         method: 'POST',
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       lockAcquired = true;
       console.log('[Cron] Lock acquired successfully');
     } else {
-      console.warn('[Cron] CRON_LOCK_DO not available - proceeding without lock');
+      console.warn('[Cron] PICKMYCLASS_CRON_LOCK_DO not available - proceeding without lock');
     }
 
     // Determine stagger group based on current time
@@ -200,9 +200,9 @@ export async function GET(request: NextRequest) {
       try {
         const cfEnv = env as unknown as Env;
 
-        if (cfEnv.CRON_LOCK_DO) {
-          const lockId = cfEnv.CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
-          const lockStub = cfEnv.CRON_LOCK_DO.get(lockId);
+        if (cfEnv.PICKMYCLASS_CRON_LOCK_DO) {
+          const lockId = cfEnv.PICKMYCLASS_CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
+          const lockStub = cfEnv.PICKMYCLASS_CRON_LOCK_DO.get(lockId);
 
           await lockStub.fetch(`http://do/release?holder=${lockHolder}`, {
             method: 'POST',

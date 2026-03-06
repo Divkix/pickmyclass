@@ -114,12 +114,12 @@ export async function GET(request: Request) {
   // 2b. Check Cron Lock Status (Durable Object)
   try {
     const cfEnv = env as unknown as {
-      CRON_LOCK_DO?: DurableObjectNamespace;
+      PICKMYCLASS_CRON_LOCK_DO?: DurableObjectNamespace;
     };
 
-    if (cfEnv?.CRON_LOCK_DO) {
-      const lockId = cfEnv.CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
-      const lockStub = cfEnv.CRON_LOCK_DO.get(lockId);
+    if (cfEnv?.PICKMYCLASS_CRON_LOCK_DO) {
+      const lockId = cfEnv.PICKMYCLASS_CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
+      const lockStub = cfEnv.PICKMYCLASS_CRON_LOCK_DO.get(lockId);
 
       const lockStatusResponse = await lockStub.fetch('http://do/status');
       const lockStatus = (await lockStatusResponse.json()) as {
@@ -145,7 +145,7 @@ export async function GET(request: Request) {
       health.checks.cron_lock = {
         status: 'not_configured',
         type: 'durable_object',
-        message: 'CRON_LOCK_DO binding not available',
+        message: 'PICKMYCLASS_CRON_LOCK_DO binding not available',
       };
     }
   } catch (error) {

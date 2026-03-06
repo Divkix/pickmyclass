@@ -68,7 +68,7 @@
   "durable_objects": {
     "bindings": [
       {
-        "name": "CRON_LOCK_DO",
+        "name": "PICKMYCLASS_CRON_LOCK_DO",
         "class_name": "CronLockDO",
         "script_name": "pickmyclass"
       }

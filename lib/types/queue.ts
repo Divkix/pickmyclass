@@ -42,7 +42,7 @@ export interface Env extends Record<string, unknown> {
 
   // Durable Object bindings
   CIRCUIT_BREAKER_DO: DurableObjectNamespace;
-  CRON_LOCK_DO: DurableObjectNamespace;
+  PICKMYCLASS_CRON_LOCK_DO: DurableObjectNamespace;
 
   // KV namespace bindings
   PICKMYCLASS_DISPOSABLE_KV: KVNamespace;
