@@ -10,7 +10,7 @@
       "app/**/not-found.tsx",
       "app/sitemap.ts",
       "app/robots.ts",
-      "middleware.ts"
+      "proxy.ts"
     ]
   },
   "entry": ["worker.ts"],

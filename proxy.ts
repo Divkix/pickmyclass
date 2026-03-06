@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasSupabaseAuthCookies } from '@/lib/auth/supabase-auth-cookies';
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import type { Database } from './lib/supabase/database.types';
 
@@ -102,21 +103,6 @@ function isPublicRoute(pathname: string): boolean {
 }
 
 /**
- * Check if request has any Supabase auth cookies
- */
-function hasAuthCookies(request: NextRequest): boolean {
-  // Check for Supabase auth cookies (both old and new cookie formats)
-  return (
-    request.cookies.has('sb-access-token') ||
-    request.cookies.has('sb-refresh-token') ||
-    // Check for new Supabase cookie format: sb-<project-ref>-auth-token
-    Array.from(request.cookies.getAll()).some(
-      (cookie) => cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')
-    )
-  );
-}
-
-/**
  * Get user profile data from database with per-isolate TTL cache.
  * Returns null if user not found or error occurs.
  */
@@ -153,14 +139,17 @@ function getRedirectPath(profile: UserProfile | null): string {
   return profile?.is_admin ? '/admin' : '/dashboard';
 }
 
-export default async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const pathname = request.nextUrl.pathname;
 
   // Early exit for public routes WITHOUT auth cookies
   // This skips the expensive getUser() call for unauthenticated visitors
   const routeIsPublic = isPublicRoute(pathname);
-  if (routeIsPublic && !hasAuthCookies(request)) {
+  if (
+    routeIsPublic &&
+    !hasSupabaseAuthCookies(request.cookies.getAll().map((cookie) => cookie.name))
+  ) {
     const response = NextResponse.next({ request });
     addSecurityHeaders(response, isDevelopment);
     return response;
@@ -269,14 +258,11 @@ export default async function middleware(request: NextRequest) {
 
   // Add security headers to all responses
   addSecurityHeaders(supabaseResponse, isDevelopment);
-
-  // Cache legal pages for 24 hours — content is static
-  if (pathname.startsWith('/legal')) {
-    supabaseResponse.headers.set('Cache-Control', 'public, max-age=86400');
-  }
-
   return supabaseResponse;
 }
+
+export const middleware = proxy;
+export default proxy;
 
 export const config = {
   matcher: [

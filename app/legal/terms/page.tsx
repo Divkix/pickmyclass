@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = 86400;
+export const dynamic = 'error';
 
 export default function TermsOfServicePage() {
   return (

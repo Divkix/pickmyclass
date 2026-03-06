@@ -26,8 +26,8 @@ const setupMockChain = () => {
   mockEq.mockReturnValue({ single: mockSingle });
 };
 
-// Import middleware after mocks are set up
-import middleware, { clearProfileCache } from '@/middleware';
+// Import proxy after mocks are set up
+import proxy, { clearProfileCache } from '@/proxy';
 
 // Helper to create NextRequest (unauthenticated)
 const createRequest = (pathname: string): NextRequest => {
@@ -76,7 +76,7 @@ const mockDisabledProfile = {
   is_disabled: true,
 };
 
-describe('middleware', () => {
+describe('proxy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearProfileCache();
@@ -88,7 +88,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/login');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -97,7 +97,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/register');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -106,7 +106,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/forgot-password');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -115,7 +115,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/reset-password');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -124,7 +124,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/legal/privacy');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -133,7 +133,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/auth/callback');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -142,7 +142,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/go/somewhere');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -151,7 +151,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/api/auth/login');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -160,7 +160,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/api/cron/check-classes');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -169,7 +169,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/api/queue/process-section');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -178,7 +178,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/api/webhooks/resend');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -187,7 +187,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/api/monitoring/health');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -196,7 +196,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/api/unsubscribe');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -207,7 +207,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/dashboard');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/login');
@@ -217,7 +217,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/admin');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/login');
@@ -227,7 +227,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/api/class-watches');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/login');
@@ -237,7 +237,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -252,7 +252,7 @@ describe('middleware', () => {
       mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
 
       const request = createAuthenticatedRequest('/login');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');
@@ -266,7 +266,7 @@ describe('middleware', () => {
       mockSingle.mockResolvedValue({ data: mockAdminProfile, error: null });
 
       const request = createAuthenticatedRequest('/login');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/admin');
@@ -280,14 +280,14 @@ describe('middleware', () => {
       mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
 
       const request = createAuthenticatedRequest('/register');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');
     });
 
     // NOTE: Homepage redirect tests removed - behavior intentionally moved to client-side
-    // for better performance (see middleware.ts:245-246 comment)
+    // for better performance (see proxy.ts comment near the homepage redirect)
 
     it('should redirect admin user from /dashboard to /admin', async () => {
       mockGetUser.mockResolvedValue({
@@ -297,7 +297,7 @@ describe('middleware', () => {
       mockSingle.mockResolvedValue({ data: mockAdminProfile, error: null });
 
       const request = createRequest('/dashboard');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/admin');
@@ -311,7 +311,7 @@ describe('middleware', () => {
       mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
 
       const request = createRequest('/dashboard');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -326,7 +326,7 @@ describe('middleware', () => {
       mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
 
       const request = createRequest('/dashboard');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/verify-email');
@@ -340,7 +340,7 @@ describe('middleware', () => {
       mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
 
       const request = createRequest('/verify-email');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -353,7 +353,7 @@ describe('middleware', () => {
       mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
 
       const request = createRequest('/auth/callback');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -366,7 +366,7 @@ describe('middleware', () => {
       mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
 
       const request = createRequest('/');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
@@ -382,7 +382,7 @@ describe('middleware', () => {
       mockSignOut.mockResolvedValue({ error: null });
 
       const request = createRequest('/dashboard');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(mockSignOut).toHaveBeenCalled();
       expect(response.status).toBe(307);
@@ -397,7 +397,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/login');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.headers.get('X-Frame-Options')).toBe('DENY');
     });
@@ -406,7 +406,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/login');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
     });
@@ -415,7 +415,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/login');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       expect(response.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
     });
@@ -424,7 +424,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/login');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       const permissionsPolicy = response.headers.get('Permissions-Policy');
       expect(permissionsPolicy).toContain('geolocation=()');
@@ -436,7 +436,7 @@ describe('middleware', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/login');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       const csp = response.headers.get('Content-Security-Policy');
       expect(csp).toContain("default-src 'self'");
@@ -456,7 +456,7 @@ describe('middleware', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const request = createRequest('/dashboard');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       // Should still allow access (profile is null, not admin)
       expect(response.status).toBe(200);
@@ -472,7 +472,7 @@ describe('middleware', () => {
       mockSingle.mockResolvedValue({ data: null, error: null });
 
       const request = createAuthenticatedRequest('/login');
-      const response = await middleware(request);
+      const response = await proxy(request);
 
       // getRedirectPath returns '/dashboard' when profile is null
       expect(response.status).toBe(307);
