@@ -14,26 +14,15 @@ export const metadata: Metadata = {
     template: '%s | PickMyClass',
   },
   description:
-    'Get instant email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils with checks every 30 minutes. Free forever.',
-  keywords: [
-    'ASU class notifications',
-    'Arizona State University',
-    'seat availability',
-    'class watch',
-    'ASU registration',
-    'Sun Devils',
-    'MyASU',
-    'ASU class search',
-    'open seats ASU',
-    'course alerts',
-  ],
+    'Get timely email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils with checks every 30 minutes. Free forever.',
   openGraph: {
     type: 'website',
     locale: 'en_US',
     siteName: 'PickMyClass',
+    url: 'https://pickmyclass.app/',
     title: 'PickMyClass — ASU Class Seat Notifications',
     description:
-      'Get instant email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.',
+      'Get timely email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.',
     images: [
       {
         url: '/og-image.png',
@@ -47,7 +36,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'PickMyClass — ASU Class Seat Notifications',
     description:
-      'Get instant email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.',
+      'Get timely email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.',
     images: ['/og-image.png'],
   },
   alternates: {
@@ -73,6 +62,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#6366F1' },
     { media: '(prefers-color-scheme: dark)', color: '#6366F1' },
@@ -87,7 +79,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+        <link
+          rel="preload"
+          href="/fonts/Geist-Variable.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="font-sans antialiased flex flex-col min-h-screen">
         <ThemeProvider>
@@ -112,12 +110,25 @@ export default function RootLayout({
               '@type': 'Organization',
               name: 'PickMyClass',
               url: 'https://pickmyclass.app',
-              logo: 'https://pickmyclass.app/favicon.svg',
+              logo: 'https://pickmyclass.app/apple-touch-icon.png',
+              description: 'Free ASU class seat notification service',
               contactPoint: {
                 '@type': 'ContactPoint',
                 email: 'support@pickmyclass.app',
                 contactType: 'customer service',
               },
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: static JSON-LD structured data, no user input
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'PickMyClass',
+              url: 'https://pickmyclass.app',
             }),
           }}
         />
