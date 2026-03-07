@@ -1,14 +1,8 @@
 import type { MetadataRoute } from 'next';
-import { buildTimestamp } from '@/lib/cache/cache-version';
-import { applyPublicPageCache } from '@/lib/cache/public-page-cache';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  'use cache';
-
-  applyPublicPageCache('page:metadata:sitemap');
-
   const baseUrl = 'https://pickmyclass.app';
-  const lastModified = buildTimestamp;
+  const lastModified = new Date().toISOString();
 
   return [
     {

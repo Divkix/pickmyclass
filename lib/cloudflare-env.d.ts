@@ -8,7 +8,6 @@ declare namespace Cloudflare {
 	}
 	interface Env {
 		PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
-		PICKMYCLASS_CACHE: KVNamespace;
 		PICKMYCLASS_QUEUE: Queue;
 		ASSETS: Fetcher;
 		MAX_WATCHES_PER_USER: "10";
