@@ -33,8 +33,8 @@ export function HeroSection() {
           </h1>
 
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            Get instant email alerts when seats open up in full classes. We check every 30 minutes
-            so you don&apos;t have to.
+            Get timely email alerts when seats open up in full classes. We check every 30 minutes so
+            you don&apos;t have to.
           </p>
         </motion.div>
 

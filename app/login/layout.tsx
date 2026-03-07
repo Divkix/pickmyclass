@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/login',
   },
+  openGraph: {
+    title: 'Sign In',
+    description:
+      'Sign in to PickMyClass to manage your ASU class watchlist and get seat availability alerts.',
+  },
 };
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {

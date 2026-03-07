@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
+import { JsonLd } from '@/components/landing/JsonLd';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -413,6 +414,22 @@ export default async function PrivacyPolicyPage() {
           </Card>
         </div>
       </div>
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Legal',
+              item: 'https://pickmyclass.app/legal',
+            },
+            { '@type': 'ListItem', position: 3, name: 'Privacy Policy' },
+          ],
+        }}
+      />
     </div>
   );
 }

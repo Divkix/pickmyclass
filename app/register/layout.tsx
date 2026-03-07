@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/register',
   },
+  openGraph: {
+    title: 'Create Account',
+    description:
+      'Create a free PickMyClass account to get email alerts when seats open in full ASU classes. Join 2,400+ Sun Devils.',
+  },
 };
 
 export default function RegisterLayout({ children }: { children: React.ReactNode }) {

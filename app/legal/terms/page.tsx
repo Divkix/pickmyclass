@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Header } from '@/components/Header';
+import { JsonLd } from '@/components/landing/JsonLd';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -90,8 +91,8 @@ export default async function TermsOfServicePage() {
                     Notifications may be delayed and seats may fill before you receive notification
                   </li>
                   <li>
-                    We check class availability periodically (approximately every hour) and cannot
-                    guarantee immediate notifications
+                    We check class availability periodically (approximately every 30 minutes) and
+                    cannot guarantee immediate notifications
                   </li>
                   <li>The Service may be unavailable due to maintenance or technical issues</li>
                   <li>We may limit the number of classes you can monitor</li>
@@ -211,6 +212,22 @@ export default async function TermsOfServicePage() {
           </Card>
         </div>
       </div>
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Legal',
+              item: 'https://pickmyclass.app/legal',
+            },
+            { '@type': 'ListItem', position: 3, name: 'Terms of Service' },
+          ],
+        }}
+      />
     </div>
   );
 }
