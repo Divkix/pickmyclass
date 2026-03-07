@@ -6,17 +6,7 @@
  */
 
 import { DurableObject } from 'cloudflare:workers';
-import { KVCacheHandler } from 'vinext/cloudflare';
 import handler from 'vinext/server/app-router-entry';
-import { setCacheHandler } from 'vinext/shims/cache';
-import { hasSupabaseAuthCookiesInHeader } from './lib/auth/supabase-auth-cookies';
-import { cacheVersion } from './lib/cache/cache-version';
-import {
-  buildPublicEdgeCacheKey,
-  isPublicEdgeCacheablePath,
-  publicEdgeCacheControl,
-  publicEdgeCdnCacheControl,
-} from './lib/cache/public-edge-cache';
 import { handleDLQMessage } from './lib/queue/dlq-consumer';
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';
 
@@ -29,7 +19,6 @@ interface Env {
   PICKMYCLASS_QUEUE: Queue<ClassCheckMessage>;
   PICKMYCLASS_CRON_LOCK_DO: DurableObjectNamespace;
   PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
-  PICKMYCLASS_CACHE: KVNamespace;
   NEXT_PUBLIC_SUPABASE_URL: string;
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
@@ -338,35 +327,6 @@ if (typeof __durableObjectExports === 'undefined') {
   throw new Error('Durable Object exports missing');
 }
 
-function getDefaultCache(): Cache {
-  return (caches as CacheStorage & { default: Cache }).default;
-}
-
-function toHeadResponse(response: Response): Response {
-  return new Response(null, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: new Headers(response.headers),
-  });
-}
-
-function withEdgeCacheStatus(response: Response, cacheStatus: 'HIT' | 'MISS' | 'BYPASS'): Response {
-  const nextResponse = new Response(response.body, response);
-  nextResponse.headers.set('X-PMC-Edge-Cache', cacheStatus);
-  return nextResponse;
-}
-
-function withPublicCacheHeaders(response: Response): Response {
-  const cacheableResponse = new Response(response.body, response);
-  cacheableResponse.headers.set('Cache-Control', publicEdgeCacheControl);
-  cacheableResponse.headers.set('CDN-Cache-Control', publicEdgeCdnCacheControl);
-  return cacheableResponse;
-}
-
-function canStorePublicEdgeResponse(response: Response): boolean {
-  return response.status === 200 && !response.headers.has('Set-Cookie');
-}
-
 /**
  * Export the worker with fetch, scheduled, queue handlers, and Durable Object classes
  */
@@ -374,42 +334,8 @@ export default {
   /**
    * HTTP request handler - routes to vinext app
    */
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    setCacheHandler(
-      new KVCacheHandler(env.PICKMYCLASS_CACHE, {
-        appPrefix: cacheVersion,
-      })
-    );
-
-    const url = new URL(request.url);
-    if (!isPublicEdgeCacheablePath(url.pathname)) {
-      return handler.fetch(request);
-    }
-
-    const requestHasAuthCookies = hasSupabaseAuthCookiesInHeader(request.headers.get('cookie'));
-    if (requestHasAuthCookies || (request.method !== 'GET' && request.method !== 'HEAD')) {
-      return withEdgeCacheStatus(await handler.fetch(request), 'BYPASS');
-    }
-
-    const cacheKey = buildPublicEdgeCacheKey(request);
-    const cache = getDefaultCache();
-    const cachedResponse = await cache.match(cacheKey);
-    if (cachedResponse) {
-      return withEdgeCacheStatus(
-        request.method === 'HEAD' ? toHeadResponse(cachedResponse) : cachedResponse,
-        'HIT'
-      );
-    }
-
-    const response = await handler.fetch(request);
-    if (request.method !== 'GET' || !canStorePublicEdgeResponse(response)) {
-      return withEdgeCacheStatus(response, 'BYPASS');
-    }
-
-    const cacheableResponse = withPublicCacheHeaders(response);
-    ctx.waitUntil(cache.put(cacheKey, cacheableResponse.clone()));
-
-    return withEdgeCacheStatus(cacheableResponse, 'MISS');
+  async fetch(request: Request): Promise<Response> {
+    return handler.fetch(request);
   },
 
   /**

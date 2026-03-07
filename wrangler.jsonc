@@ -21,10 +21,6 @@
     {
       "binding": "PICKMYCLASS_DISPOSABLE_DOMAINS",
       "id": "3ff3f3f2b93b4de98f12ad7886d1f857"
-    },
-    {
-      "binding": "PICKMYCLASS_CACHE",
-      "id": "476fd6409f7343d1a02760dbae93c33f"
     }
   ],
   // Custom domain configuration - uncomment and update for your deployment

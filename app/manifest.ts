@@ -1,11 +1,6 @@
 import type { MetadataRoute } from 'next';
-import { applyPublicPageCache } from '@/lib/cache/public-page-cache';
 
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  'use cache';
-
-  applyPublicPageCache('page:metadata:manifest');
-
   return {
     name: 'PickMyClass — ASU Class Seat Notifications',
     short_name: 'PickMyClass',
