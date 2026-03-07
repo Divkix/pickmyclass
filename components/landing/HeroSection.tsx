@@ -19,7 +19,7 @@ export function HeroSection() {
         animate="visible"
         variants={staggerContainer}
       >
-        <motion.div className="space-y-6" variants={staggerItem}>
+        <motion.div className="space-y-6" variants={staggerItem} initial={{ opacity: 1, y: 0 }}>
           <motion.div
             className="inline-flex items-center gap-2 rounded-full bg-asu-maroon px-4 py-1.5 text-sm font-medium text-white"
             variants={scaleInSpring}
@@ -33,8 +33,8 @@ export function HeroSection() {
           </h1>
 
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            Get instant email alerts when seats open up in full classes. We check every 30 minutes
-            so you don&apos;t have to.
+            Get timely email alerts when seats open up in full classes. We check every 30 minutes so
+            you don&apos;t have to.
           </p>
         </motion.div>
 
