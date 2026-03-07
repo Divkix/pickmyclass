@@ -223,10 +223,39 @@ describe('proxy', () => {
       expect(response.headers.get('location')).toBe('http://localhost:3000/login');
     });
 
-    it('should redirect unauthenticated users from /api/class-watches to /login', async () => {
+    it('should pass through unauthenticated requests to non-protected API routes', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/api/class-watches');
+      const response = await proxy(request);
+
+      // Non-protected routes pass through to the app (API handles its own auth)
+      expect(response.status).toBe(200);
+    });
+
+    it('should pass through unknown paths (allows app to return 404)', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+      const request = createRequest('/nonexistent-page');
+      const response = await proxy(request);
+
+      expect(response.status).toBe(200);
+    });
+
+    it('should redirect unauthenticated users from /dashboard/settings to /login', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+      const request = createRequest('/dashboard/settings');
+      const response = await proxy(request);
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe('http://localhost:3000/login');
+    });
+
+    it('should redirect unauthenticated users from /settings to /login', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+      const request = createRequest('/settings');
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
@@ -430,6 +459,17 @@ describe('proxy', () => {
       expect(permissionsPolicy).toContain('geolocation=()');
       expect(permissionsPolicy).toContain('microphone=()');
       expect(permissionsPolicy).toContain('camera=()');
+    });
+
+    it('should add Strict-Transport-Security header in production', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+      const request = createRequest('/login');
+      const response = await proxy(request);
+
+      expect(response.headers.get('Strict-Transport-Security')).toBe(
+        'max-age=31536000; includeSubDomains'
+      );
     });
 
     it('should add Content-Security-Policy header', async () => {

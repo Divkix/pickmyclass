@@ -71,6 +71,12 @@ const PUBLIC_ROUTES = [
 const AUTH_PAGES = ['/login', '/register', '/forgot-password'];
 
 /**
+ * Protected route prefixes that require authentication.
+ * Unknown routes outside these prefixes pass through to the app (which returns 404).
+ */
+const PROTECTED_ROUTE_PREFIXES = ['/dashboard', '/admin', '/settings', '/verify-email'];
+
+/**
  * Add security headers to a response
  */
 function addSecurityHeaders(response: NextResponse, isDevelopment: boolean): void {
@@ -81,6 +87,9 @@ function addSecurityHeaders(response: NextResponse, isDevelopment: boolean): voi
     'Permissions-Policy',
     'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()'
   );
+  if (!isDevelopment) {
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
   response.headers.set('Content-Security-Policy', isDevelopment ? DEV_CSP : PRODUCTION_CSP);
 }
 
@@ -223,7 +232,10 @@ export async function proxy(request: NextRequest) {
 
   // Redirect to login if accessing protected route while not authenticated
   // This includes admin routes - unauthenticated users cannot access admin pages
-  if (!user && !routeIsPublic && pathname !== '/') {
+  const isProtectedRoute = PROTECTED_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+  if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

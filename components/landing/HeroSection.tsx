@@ -19,7 +19,7 @@ export function HeroSection() {
         animate="visible"
         variants={staggerContainer}
       >
-        <motion.div className="space-y-6" variants={staggerItem}>
+        <motion.div className="space-y-6" variants={staggerItem} initial={{ opacity: 1, y: 0 }}>
           <motion.div
             className="inline-flex items-center gap-2 rounded-full bg-asu-maroon px-4 py-1.5 text-sm font-medium text-white"
             variants={scaleInSpring}
