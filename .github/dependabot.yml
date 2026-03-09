@@ -4,8 +4,7 @@ updates:
   - package-ecosystem: 'bun'
     directory: '/'
     schedule:
-      interval: 'weekly'
-      day: 'monday'
+      interval: 'daily'
       time: '09:00'
       timezone: 'America/Phoenix'
     open-pull-requests-limit: 10
@@ -20,9 +19,6 @@ updates:
         patterns:
           - 'react*'
           - '@types/react*'
-      next-ecosystem:
-        patterns:
-          - 'next*'
       radix-ui:
         patterns:
           - '@radix-ui/*'
@@ -49,8 +45,7 @@ updates:
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
-      interval: 'weekly'
-      day: 'monday'
+      interval: 'daily'
     commit-message:
       prefix: 'ci'
     labels:
