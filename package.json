@@ -18,6 +18,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
+    "type-check": "tsc --noEmit",
     "generate:og": "bun run scripts/generate-og-image.ts",
     "prepare": "husky"
   },
