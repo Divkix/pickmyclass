@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/register',
   },
+  robots: {
+    index: false,
+    follow: true,
+  },
   openGraph: {
     title: 'Create Account',
     description:
