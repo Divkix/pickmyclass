@@ -11,17 +11,31 @@ export function Footer() {
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 text-sm sm:gap-4">
               <Link
+                href="/faq"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                FAQ
+              </Link>
+              <span className="text-muted-foreground/50">•</span>
+              <Link
+                href="/blog"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Blog
+              </Link>
+              <span className="text-muted-foreground/50">•</span>
+              <Link
                 href="/legal/terms"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
-                Terms of Service
+                Terms
               </Link>
               <span className="text-muted-foreground/50">•</span>
               <Link
                 href="/legal/privacy"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
-                Privacy Policy
+                Privacy
               </Link>
             </div>
           </div>
