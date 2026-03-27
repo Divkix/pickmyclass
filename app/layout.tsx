@@ -78,15 +78,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link
-          rel="preload"
-          href="/fonts/Geist-Variable.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-      </head>
+      <head />
       <body className="font-sans antialiased flex flex-col min-h-screen">
         <ThemeProvider>
           <AuthProvider>
