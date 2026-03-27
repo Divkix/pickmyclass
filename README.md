@@ -317,7 +317,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [vinext](https://vinext.pages.dev/) - Vite-based Next.js reimplementation for Cloudflare Workers
+- [vinext](https://github.com/cloudflare/vinext) - Vite-based Next.js reimplementation for Cloudflare Workers
 - [Supabase](https://supabase.com/) - Open source Firebase alternative
 - [Resend](https://resend.com/) - Modern email API
 - [shadcn/ui](https://ui.shadcn.com/) - UI component library
