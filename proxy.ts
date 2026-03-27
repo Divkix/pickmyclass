@@ -61,6 +61,8 @@ const PUBLIC_ROUTES = [
   '/legal',
   '/auth/callback',
   '/go',
+  '/faq',
+  '/blog',
 ];
 
 /**

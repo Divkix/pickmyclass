@@ -10,33 +10,33 @@ import './globals.css';
 export const metadata: Metadata = {
   metadataBase: new URL('https://pickmyclass.app'),
   title: {
-    default: 'PickMyClass — ASU Class Seat Notifications | Free for Sun Devils',
+    default: 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts',
     template: '%s | PickMyClass',
   },
   description:
-    'Get timely email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils with checks every 30 minutes. Free forever.',
+    'Free ASU class seat tracker and notification service. Get email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils — checks every 30 minutes.',
   openGraph: {
     type: 'website',
     locale: 'en_US',
     siteName: 'PickMyClass',
     url: 'https://pickmyclass.app/',
-    title: 'PickMyClass — ASU Class Seat Notifications',
+    title: 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts',
     description:
-      'Get timely email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.',
+      'Free ASU class seat tracker. Get email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'PickMyClass — ASU Class Seat Notifications',
+        alt: 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'PickMyClass — ASU Class Seat Notifications',
+    title: 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts',
     description:
-      'Get timely email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.',
+      'Free ASU class seat tracker. Get email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.',
     images: ['/og-image.png'],
   },
   alternates: {

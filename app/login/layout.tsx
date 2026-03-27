@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/login',
   },
+  robots: {
+    index: false,
+    follow: true,
+  },
   openGraph: {
     title: 'Sign In',
     description:
