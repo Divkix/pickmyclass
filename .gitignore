@@ -53,3 +53,6 @@ supabase/.branches/
 sentry.properties
 /dist/
 /worker/
+
+# graph output
+graphify-out/
