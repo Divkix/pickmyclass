@@ -50,6 +50,7 @@ export function DeleteAccountModal({ open, onClose }: DeleteAccountModalProps) {
     } catch (err) {
       console.error('Delete error:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete account');
+    } finally {
       setLoading(false);
     }
   };

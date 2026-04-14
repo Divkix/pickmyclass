@@ -7,6 +7,7 @@
 
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   ApiError,
   AuthError,
@@ -22,8 +23,12 @@ import {
 } from '@/lib/db/queries';
 import { type ClassInfo, sendBatchEmailsOptimized } from '@/lib/email/resend';
 import { getServiceClient } from '@/lib/supabase/service';
-import type { ClassCheckMessage } from '@/lib/types/queue';
 import { timingSafeCompare } from '@/lib/utils/crypto';
+
+const classCheckMessageSchema = z.object({
+  class_nbr: z.string().regex(/^\d{5}$/, 'Class number must be a 5-digit code (e.g., "12431")'),
+  term: z.string().regex(/^\d{4}$/, 'Term must be a 4-digit code (e.g., "2261")'),
+});
 
 /**
  * Process a single class section message from the queue
@@ -61,9 +66,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse message body
-    const message: ClassCheckMessage = await request.json();
-    const { class_nbr, term } = message;
+    // Parse and validate message body.
+    let rawMessage: unknown;
+    try {
+      rawMessage = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid message payload',
+          retryable: false,
+        },
+        { status: 200 }
+      );
+    }
+
+    const messageValidation = classCheckMessageSchema.safeParse(rawMessage);
+    if (!messageValidation.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid message payload',
+          details: messageValidation.error.issues.map((issue) => ({
+            field: issue.path.join('.'),
+            message: issue.message,
+          })),
+          retryable: false,
+        },
+        { status: 200 }
+      );
+    }
+
+    const { class_nbr, term } = messageValidation.data;
 
     console.log(`[Queue-Processor] Processing section ${class_nbr} (term: ${term})`);
 

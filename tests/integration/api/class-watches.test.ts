@@ -79,14 +79,15 @@ const mockClassDetails = {
 // Mock Supabase methods
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 const mockSelect = vi.fn();
-const mockInsert = vi.fn();
 const mockDelete = vi.fn();
 const mockEq = vi.fn();
 const mockIn = vi.fn();
 const mockOrder = vi.fn();
-const mockSingle = vi.fn();
 const mockUpsert = vi.fn();
+const mockServiceFrom = vi.fn();
+const mockServiceUpsert = vi.fn();
 
 // Mock for delete with double eq chain
 const mockDeleteEqChain = vi.fn();
@@ -95,7 +96,6 @@ const mockDeleteEqChain = vi.fn();
 const setupMockChain = () => {
   mockFrom.mockReturnValue({
     select: mockSelect,
-    insert: mockInsert,
     delete: mockDelete,
     upsert: mockUpsert,
   });
@@ -107,13 +107,9 @@ const setupMockChain = () => {
   mockEq.mockReturnValue({
     eq: mockEq,
     order: mockOrder,
-    single: mockSingle,
   });
   mockOrder.mockReturnValue(Promise.resolve({ data: [], error: null }));
   mockIn.mockReturnValue(Promise.resolve({ data: [], error: null }));
-  mockInsert.mockReturnValue({
-    select: mockSelect,
-  });
   // Delete chain: .delete().eq(id).eq(user_id)
   mockDeleteEqChain.mockResolvedValue({ error: null });
   mockDelete.mockReturnValue({
@@ -121,6 +117,10 @@ const setupMockChain = () => {
       eq: mockDeleteEqChain,
     }),
   });
+  mockServiceFrom.mockReturnValue({
+    upsert: mockServiceUpsert,
+  });
+  mockServiceUpsert.mockResolvedValue({ error: null });
 };
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -130,15 +130,15 @@ vi.mock('@/lib/supabase/server', () => ({
         getUser: mockGetUser,
       },
       from: mockFrom,
+      rpc: mockRpc,
     })
   ),
 }));
 
 vi.mock('@/lib/supabase/service', () => ({
   getServiceClient: vi.fn(() => ({
-    from: vi.fn().mockReturnValue({
-      upsert: vi.fn().mockResolvedValue({ error: null }),
-    }),
+    from: mockServiceFrom,
+    rpc: mockRpc,
   })),
 }));
 
@@ -185,6 +185,7 @@ describe('/api/class-watches', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupMockChain();
+    mockRpc.mockResolvedValue({ data: mockWatch, error: null });
   });
 
   describe('GET /api/class-watches', () => {
@@ -311,17 +312,10 @@ describe('/api/class-watches', () => {
         eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
       });
       mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
-
-      // Mock the insert chain to return unique constraint violation
-      const mockInsertChain = {
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: null,
-            error: { code: '23505', message: 'Unique constraint violation' },
-          }),
-        }),
-      };
-      mockInsert.mockReturnValue(mockInsertChain);
+      mockRpc.mockResolvedValue({
+        data: null,
+        error: { code: '23505', message: 'Unique constraint violation' },
+      });
 
       const request = createRequest({ term: '2261', class_nbr: '12345' });
       const response = await POST(request);
@@ -329,6 +323,25 @@ describe('/api/class-watches', () => {
 
       expect(response.status).toBe(409);
       expect(data.error).toBe('You are already watching this class');
+    });
+
+    it('should return 429 when atomic insert reports limit exceeded', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
+      mockSelect.mockReturnValueOnce({
+        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
+      });
+      mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
+      mockRpc.mockResolvedValue({
+        data: null,
+        error: { code: 'P0001', message: 'MAX_WATCHES_EXCEEDED' },
+      });
+
+      const request = createRequest({ term: '2261', class_nbr: '12345' });
+      const response = await POST(request);
+      const data = await parsePostResponse(response);
+
+      expect(response.status).toBe(429);
+      expect(data.error).toContain('Maximum watches limit reached');
     });
 
     it('should return 500 when ASU API fetch fails', async () => {
@@ -389,17 +402,7 @@ describe('/api/class-watches', () => {
       });
 
       mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
-
-      // Mock the insert chain
-      const mockInsertChain = {
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: mockWatch,
-            error: null,
-          }),
-        }),
-      };
-      mockInsert.mockReturnValue(mockInsertChain);
+      mockRpc.mockResolvedValue({ data: mockWatch, error: null });
 
       const request = createRequest({ term: '2261', class_nbr: '12345' });
       const response = await POST(request);
@@ -411,6 +414,14 @@ describe('/api/class-watches', () => {
         ASU_API_BASE_URL: expect.any(String),
         ASU_API_TOKEN: expect.any(String),
       });
+      expect(mockRpc).toHaveBeenCalledWith(
+        'create_class_watch_with_limit',
+        expect.objectContaining({
+          p_user_id: mockUser.id,
+          p_term: '2261',
+          p_class_nbr: '12345',
+        })
+      );
     });
   });
 

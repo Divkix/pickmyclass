@@ -22,7 +22,7 @@ import { timingSafeCompare } from '@/lib/utils/crypto';
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
-  const lockHolder = `cron-${Date.now()}`;
+  const lockHolder = `cron-${Date.now()}-${crypto.randomUUID()}`;
   let lockAcquired = false;
 
   try {

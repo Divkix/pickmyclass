@@ -18,6 +18,7 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -110,6 +111,7 @@ function LoginForm() {
     try {
       setError(null);
       setSuccess(null);
+      setGoogleLoading(true);
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -124,6 +126,8 @@ function LoginForm() {
     } catch (err) {
       setError('Failed to initiate Google sign-in');
       console.error(err);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -192,7 +196,7 @@ function LoginForm() {
                 </Alert>
               )}
 
-              <Button type="submit" disabled={loading} className="w-full">
+              <Button type="submit" disabled={loading || googleLoading} className="w-full">
                 {loading ? 'Signing in...' : 'Sign in'}
               </Button>
 
@@ -209,6 +213,7 @@ function LoginForm() {
                 type="button"
                 variant="outline"
                 onClick={handleGoogleSignIn}
+                disabled={googleLoading || loading}
                 className="w-full"
               >
                 <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
@@ -229,7 +234,7 @@ function LoginForm() {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
-                Sign in with Google
+                {googleLoading ? 'Redirecting to Google...' : 'Sign in with Google'}
               </Button>
 
               <div className="text-center text-sm">

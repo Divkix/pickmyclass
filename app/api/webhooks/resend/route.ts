@@ -1,52 +1,133 @@
-/**
- * Resend Webhook Handler
- *
- * Handles email delivery events from Resend:
- * - email.bounced: Hard bounces indicate invalid email addresses
- * - email.complained: Spam complaints trigger auto-unsubscribe
- * - email.delivered: Success confirmation (optional logging)
- *
- * Security: Verifies webhook signature from Resend
- */
-
 import { createHmac } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
+import { Resend } from 'resend';
+import { z } from 'zod';
 import { getServiceClient } from '@/lib/supabase/service';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
- * Resend webhook event types
+ * Resend webhook event payload (subset used by PickMyClass).
+ * Supports both current and legacy bounce payload formats.
  */
-interface ResendWebhookEvent {
-  type: 'email.bounced' | 'email.complained' | 'email.delivered' | 'email.opened' | 'email.clicked';
-  created_at: string;
-  data: {
-    email_id: string;
-    from: string;
-    to: string[];
-    subject: string;
-    created_at: string;
-    // Bounce-specific fields
-    bounce_type?: 'hard' | 'soft';
-    bounce_message?: string;
-  };
-}
+const resendWebhookEventSchema = z.object({
+  type: z.enum([
+    'email.bounced',
+    'email.complained',
+    'email.delivered',
+    'email.opened',
+    'email.clicked',
+  ]),
+  created_at: z.string().optional(),
+  data: z
+    .object({
+      email_id: z.string().optional(),
+      from: z.string().optional(),
+      to: z.array(z.string()).default([]),
+      subject: z.string().optional(),
+      created_at: z.string().optional(),
+      // Legacy Resend payload shape (old handler expected this)
+      bounce_type: z.string().optional(),
+      // Current Resend payload shape
+      bounce: z
+        .object({
+          message: z.string().optional(),
+          subType: z.string().optional(),
+          type: z.string().optional(),
+        })
+        .optional(),
+    })
+    .passthrough(),
+});
+
+type ResendWebhookEvent = z.infer<typeof resendWebhookEventSchema>;
 
 /**
- * Verify Resend webhook signature
- * Signature is HMAC-SHA256 of request body using webhook secret
+ * Verify legacy Resend webhook signature.
+ * Kept for backward compatibility with existing deployments.
  */
-function verifyWebhookSignature(body: string, signature: string | null, secret: string): boolean {
+function verifyLegacyWebhookSignature(
+  body: string,
+  signature: string | null,
+  secret: string
+): boolean {
   if (!signature) {
-    console.warn('[Resend Webhook] Missing signature header');
     return false;
   }
+
   const expectedSignature = createHmac('sha256', secret).update(body).digest('hex');
   return timingSafeCompare(signature, expectedSignature);
 }
 
 /**
- * Get user ID from email address using Supabase Auth API
+ * Verify webhook signature and return parsed payload if valid.
+ * Supports current Svix headers and legacy `resend-signature`.
+ */
+function verifyAndParseWebhookPayload(
+  request: NextRequest,
+  body: string,
+  webhookSecret: string
+): unknown | null {
+  const svixId = request.headers.get('svix-id');
+  const svixTimestamp = request.headers.get('svix-timestamp');
+  const svixSignature = request.headers.get('svix-signature');
+
+  if (svixId && svixTimestamp && svixSignature) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY || 'placeholder-for-webhook-verify');
+      return resend.webhooks.verify({
+        payload: body,
+        headers: {
+          id: svixId,
+          timestamp: svixTimestamp,
+          signature: svixSignature,
+        },
+        webhookSecret,
+      });
+    } catch (error) {
+      console.warn('[Resend Webhook] Svix signature verification failed:', error);
+      return null;
+    }
+  }
+
+  const legacySignature = request.headers.get('resend-signature');
+  if (!verifyLegacyWebhookSignature(body, legacySignature, webhookSecret)) {
+    console.warn('[Resend Webhook] Missing or invalid signature headers');
+    return null;
+  }
+
+  try {
+    return JSON.parse(body);
+  } catch (error) {
+    console.warn('[Resend Webhook] Failed to parse legacy webhook payload:', error);
+    return null;
+  }
+}
+
+/**
+ * Extract the primary recipient email from a webhook event.
+ */
+function getPrimaryRecipient(event: ResendWebhookEvent): string | null {
+  const recipient = event.data.to.find((email) => email.trim().length > 0);
+  return recipient ? recipient.trim().toLowerCase() : null;
+}
+
+/**
+ * Determine whether a bounce event represents a hard/permanent bounce.
+ */
+function isHardBounce(event: ResendWebhookEvent): boolean {
+  const legacyType = event.data.bounce_type?.toLowerCase();
+  if (legacyType === 'hard') return true;
+  if (legacyType === 'soft') return false;
+
+  const modernType = event.data.bounce?.type?.toLowerCase();
+  if (!modernType) return false;
+
+  // Resend currently uses "Permanent"/"Transient" in bounce.type
+  return modernType === 'permanent' || modernType === 'hard';
+}
+
+/**
+ * Get user ID from email address using Supabase Auth API.
  */
 async function getUserIdFromEmail(email: string): Promise<string | null> {
   const supabase = getServiceClient();
@@ -80,14 +161,18 @@ async function getUserIdFromEmail(email: string): Promise<string | null> {
  * Mark email as bounced and disable notifications
  */
 async function handleBounce(event: ResendWebhookEvent): Promise<void> {
-  const recipientEmail = event.data.to[0];
+  const recipientEmail = getPrimaryRecipient(event);
+  if (!recipientEmail) {
+    console.warn('[Resend Webhook] Bounce event missing recipient');
+    return;
+  }
 
   console.log(
-    `[Resend Webhook] Bounce detected for ${recipientEmail} (type: ${event.data.bounce_type})`
+    `[Resend Webhook] Bounce detected for ${recipientEmail} (type: ${event.data.bounce_type ?? event.data.bounce?.type ?? 'unknown'})`
   );
 
-  // Only handle hard bounces (invalid email addresses)
-  if (event.data.bounce_type !== 'hard') {
+  // Only handle hard/permanent bounces (invalid email addresses).
+  if (!isHardBounce(event)) {
     console.log('[Resend Webhook] Ignoring soft bounce');
     return;
   }
@@ -123,7 +208,11 @@ async function handleBounce(event: ResendWebhookEvent): Promise<void> {
  * Auto-unsubscribe user per CAN-SPAM requirements
  */
 async function handleSpamComplaint(event: ResendWebhookEvent): Promise<void> {
-  const recipientEmail = event.data.to[0];
+  const recipientEmail = getPrimaryRecipient(event);
+  if (!recipientEmail) {
+    console.warn('[Resend Webhook] Spam complaint event missing recipient');
+    return;
+  }
 
   console.log(`[Resend Webhook] Spam complaint from ${recipientEmail}`);
 
@@ -159,7 +248,11 @@ async function handleSpamComplaint(event: ResendWebhookEvent): Promise<void> {
  * Records engagement and re-enables notifications if user was disabled due to low engagement
  */
 async function handleEmailOpened(event: ResendWebhookEvent): Promise<void> {
-  const recipientEmail = event.data.to[0];
+  const recipientEmail = getPrimaryRecipient(event);
+  if (!recipientEmail) {
+    console.warn('[Resend Webhook] Engagement event missing recipient');
+    return;
+  }
 
   console.log(`[Resend Webhook] Email opened by ${recipientEmail}`);
 
@@ -205,37 +298,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get request body as text for signature verification
+    // Get request body as text for signature verification/parsing
     const body = await request.text();
-    const signature = request.headers.get('resend-signature');
+    const rawPayload = verifyAndParseWebhookPayload(request, body, webhookSecret);
 
-    console.log(`[Resend Webhook] Incoming request - Signature present: ${!!signature}`);
-
-    // Verify webhook signature
-    if (!verifyWebhookSignature(body, signature, webhookSecret)) {
-      console.warn('[Resend Webhook] FAILED: Invalid signature');
-      console.warn(`[Resend Webhook] Signature received: ${signature?.substring(0, 20)}...`);
-      console.warn(`[Resend Webhook] Body length: ${body.length} bytes`);
+    if (!rawPayload) {
+      console.warn('[Resend Webhook] FAILED: Invalid signature or payload');
       return NextResponse.json({ success: false, error: 'Invalid signature' }, { status: 401 });
     }
 
-    console.log('[Resend Webhook] SUCCESS: Signature verified');
+    const parsedEvent = resendWebhookEventSchema.safeParse(rawPayload);
+    if (!parsedEvent.success) {
+      console.warn('[Resend Webhook] Ignoring payload with unexpected shape', parsedEvent.error);
+      return NextResponse.json({ success: true, ignored: true });
+    }
 
-    // Parse event
-    const event: ResendWebhookEvent = JSON.parse(body);
+    const event = parsedEvent.data;
+    const recipientEmail = getPrimaryRecipient(event);
 
-    console.log(`[Resend Webhook] Processing event: ${event.type} for ${event.data.to[0]}`);
+    console.log(
+      `[Resend Webhook] Processing event: ${event.type}${recipientEmail ? ` for ${recipientEmail}` : ''}`
+    );
 
     // Handle different event types
     switch (event.type) {
       case 'email.bounced':
         await handleBounce(event);
-        console.log(`[Resend Webhook] ✓ Bounce event processed for ${event.data.to[0]}`);
+        console.log(`[Resend Webhook] ✓ Bounce event processed`);
         break;
 
       case 'email.complained':
         await handleSpamComplaint(event);
-        console.log(`[Resend Webhook] ✓ Spam complaint processed for ${event.data.to[0]}`);
+        console.log('[Resend Webhook] ✓ Spam complaint processed');
         break;
 
       case 'email.delivered':
@@ -247,7 +341,7 @@ export async function POST(request: NextRequest) {
       case 'email.clicked':
         // Both events indicate user engagement with email
         await handleEmailOpened(event);
-        console.log(`[Resend Webhook] ✓ Email engagement recorded for ${event.data.to[0]}`);
+        console.log('[Resend Webhook] ✓ Email engagement recorded');
         break;
 
       default:

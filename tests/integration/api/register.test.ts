@@ -177,7 +177,7 @@ describe('POST /api/auth/register', () => {
       const response = await POST(request);
       const data = await parseResponse(response);
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(409);
       expect(data.duplicate).toBe(true);
       expect(data.error).toContain('already registered');
     });

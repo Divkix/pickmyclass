@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Info, Trash2 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useSwipe } from '@/lib/hooks/useSwipe';
 import type { Database } from '@/lib/supabase/database.types';
@@ -29,6 +29,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwipeDeleting, setIsSwipeDeleting] = useState(false);
   const deletedWatchRef = useRef<ClassWatch | null>(null);
+  const swipeDeleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const classTitle = `${watch.subject} ${watch.catalog_nbr}${classState?.title ? ` - ${classState.title}` : ''}`;
 
@@ -58,7 +59,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
     deletedWatchRef.current = watch;
 
     // Wait for slide animation
-    setTimeout(async () => {
+    swipeDeleteTimeoutRef.current = setTimeout(async () => {
       try {
         await onDelete(watch.id);
 
@@ -72,6 +73,8 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
           },
           duration: 5000,
         });
+        setIsSwipeDeleting(false);
+        setSwipeOffset(0);
       } catch (error) {
         console.error('Failed to delete watch:', error);
         toast.error('Failed to delete watch. Please try again.');
@@ -121,6 +124,14 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
       setIsDeleting(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (swipeDeleteTimeoutRef.current) {
+        clearTimeout(swipeDeleteTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Calculate background color based on swipe
   const getBackgroundStyle = () => {

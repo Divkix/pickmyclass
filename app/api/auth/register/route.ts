@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     if (data.user?.identities?.length === 0) {
       return NextResponse.json(
         { error: 'This email is already registered. Please sign in.', duplicate: true },
-        { status: 200 }
+        { status: 409 }
       );
     }
 

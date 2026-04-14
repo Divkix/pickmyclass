@@ -436,7 +436,25 @@ export default {
           });
 
           const response = await handler.fetch(request);
-          const result = await response.json();
+          const rawResult = await response.text();
+          let result: unknown;
+
+          try {
+            result = rawResult.length > 0 ? JSON.parse(rawResult) : null;
+          } catch (parseError) {
+            const duration = Date.now() - msgStartTime;
+            console.error(
+              `[Queue] Non-JSON response for ${message.body.class_nbr} in ${duration}ms (status: ${response.status})`,
+              parseError
+            );
+            message.retry();
+            return {
+              success: false,
+              class_nbr: message.body.class_nbr,
+              duration,
+              parse_error: true,
+            };
+          }
 
           const duration = Date.now() - msgStartTime;
 

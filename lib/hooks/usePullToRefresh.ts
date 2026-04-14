@@ -29,6 +29,7 @@ export function usePullToRefresh({
   const touchStartY = useRef<number>(0);
   const currentPullDistance = useRef<number>(0);
   const isAtTop = useRef<boolean>(false);
+  const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleTouchStart = useCallback(
     (e: TouchEvent) => {
@@ -98,7 +99,10 @@ export function usePullToRefresh({
       } finally {
         // Animate back to 0
         setIsRefreshing(false);
-        setTimeout(() => {
+        if (resetTimeoutRef.current) {
+          clearTimeout(resetTimeoutRef.current);
+        }
+        resetTimeoutRef.current = setTimeout(() => {
           setPullDistance(0);
           currentPullDistance.current = 0;
         }, 100);
@@ -124,6 +128,9 @@ export function usePullToRefresh({
     container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
 
     return () => {
+      if (resetTimeoutRef.current) {
+        clearTimeout(resetTimeoutRef.current);
+      }
       container.removeEventListener('touchstart', handleTouchStart);
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);

@@ -185,18 +185,36 @@ export async function POST(request: NextRequest) {
 
     console.log('[API] Successfully fetched class details from ASU API');
 
-    // Step 2: Create class watch
-    const { data: watchData, error: insertError } = await supabase
-      .from('class_watches')
-      .insert({
-        user_id: user.id,
-        term,
-        subject: classDetails.subject.toUpperCase(),
-        catalog_nbr: classDetails.catalog_nbr,
-        class_nbr,
-      })
-      .select()
-      .single();
+    // Use service role for atomic insert RPC so clients cannot bypass limit checks by calling it directly.
+    const supabaseServiceRole = getServiceClient();
+
+    // Step 2: Create class watch atomically (prevents concurrent limit bypass).
+    const createClassWatchWithLimit = supabaseServiceRole.rpc as unknown as (
+      fn: string,
+      args: {
+        p_user_id: string;
+        p_term: string;
+        p_subject: string;
+        p_catalog_nbr: string;
+        p_class_nbr: string;
+        p_max_watches: number;
+      }
+    ) => Promise<{
+      data: Database['public']['Tables']['class_watches']['Row'] | null;
+      error: { code?: string; message?: string } | null;
+    }>;
+
+    const { data: watchDataRaw, error: insertError } = await createClassWatchWithLimit(
+      'create_class_watch_with_limit',
+      {
+        p_user_id: user.id,
+        p_term: term,
+        p_subject: classDetails.subject.toUpperCase(),
+        p_catalog_nbr: classDetails.catalog_nbr,
+        p_class_nbr: class_nbr,
+        p_max_watches: MAX_WATCHES_PER_USER,
+      }
+    );
 
     if (insertError) {
       // Handle unique constraint violation
@@ -204,15 +222,31 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'You are already watching this class' }, { status: 409 });
       }
 
+      // Handle atomic limit-enforcement function error.
+      if (
+        insertError.code === 'P0001' &&
+        typeof insertError.message === 'string' &&
+        insertError.message.includes('MAX_WATCHES_EXCEEDED')
+      ) {
+        return NextResponse.json(
+          {
+            error: `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
+          },
+          { status: 429 }
+        );
+      }
+
       throw insertError;
+    }
+
+    if (!watchDataRaw) {
+      throw new Error('Failed to create class watch');
     }
 
     console.log('[API] Successfully created class watch');
 
     // Step 3: Persist class state
     try {
-      const supabaseServiceRole = getServiceClient();
-
       const { error: upsertError } = await supabaseServiceRole.from('class_states').upsert(
         {
           term,
@@ -245,7 +279,7 @@ export async function POST(request: NextRequest) {
       // Continue anyway - watch was created successfully
     }
 
-    return NextResponse.json({ watch: watchData }, { status: 201 });
+    return NextResponse.json({ watch: watchDataRaw }, { status: 201 });
   } catch (error) {
     console.error('Error creating class watch:', error);
 
