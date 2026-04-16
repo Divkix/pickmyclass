@@ -23,6 +23,7 @@ import {
 } from '@/lib/db/queries';
 import { type ClassInfo, sendBatchEmailsOptimized } from '@/lib/email/resend';
 import { getServiceClient } from '@/lib/supabase/service';
+import type { Env } from '@/lib/types/env';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
 // Reuse the class watch schema for queue message validation (same fields)
@@ -37,7 +38,8 @@ export async function POST(request: NextRequest) {
   try {
     // Authentication: Require CRON_SECRET Bearer token
     const authHeader = request.headers.get('authorization');
-    const expectedSecret = process.env.CRON_SECRET;
+    const cfEnv = env as unknown as Env;
+    const expectedSecret = cfEnv.CRON_SECRET;
 
     if (!expectedSecret) {
       console.error('[Queue-Processor] CRON_SECRET not configured');
@@ -64,7 +66,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse and validate message body.
     let rawMessage: unknown;
     try {
       rawMessage = await request.json();
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     const serviceClient = getServiceClient();
 
-    // Step 1: Fetch OLD state from database
+    // Step 1: Fetch current state from database
     const { data: oldState, error: stateError } = await serviceClient
       .from('class_states')
       .select('*')
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest) {
     // Step 4: Send notifications if changes detected
     let emailsSent = 0;
     if (seatBecameAvailable || instructorAssigned) {
-      // Get watchers for this section using the NEW get_watchers_for_sections function
+      // Get watchers for this section using get_watchers_for_sections function
       const { data: watchers, error: watchersError } = await serviceClient.rpc(
         'get_watchers_for_sections',
         {

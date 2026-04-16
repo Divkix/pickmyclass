@@ -23,7 +23,6 @@ export async function POST(request: NextRequest) {
     const email = validation.data.email.toLowerCase();
     const password = validation.data.password;
 
-    // Check for disposable email domains
     try {
       const kv =
         (env as unknown as { PICKMYCLASS_DISPOSABLE_DOMAINS?: KVNamespace })

@@ -314,7 +314,6 @@ export async function getTotalClassesWatched(): Promise<number> {
 
   const supabase = getServiceClient();
 
-  // Fetch all class_nbr values and count unique ones
   const { data: watches, error } = await supabase.from('class_watches').select('class_nbr');
 
   if (error) {
@@ -322,7 +321,6 @@ export async function getTotalClassesWatched(): Promise<number> {
     throw new Error(`Failed to fetch class count: ${error.message}`);
   }
 
-  // Count unique class numbers
   const uniqueClasses = new Set(watches?.map((w) => w.class_nbr) || []);
   const result = uniqueClasses.size;
 
@@ -349,7 +347,6 @@ export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> 
 
   const supabase = getServiceClient();
 
-  // Fetch all class states, watches, and notification counts in parallel
   const [classStatesResult, watchesResult, notificationCounts] = await Promise.all([
     supabase.from('class_states').select('*').order('class_nbr', { ascending: true }),
     supabase.from('class_watches').select('class_nbr'),
@@ -369,13 +366,11 @@ export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> 
     throw new Error(`Failed to fetch watches: ${watchError.message}`);
   }
 
-  // Count watchers per class
   const watcherCountMap = new Map<string, number>();
   for (const watch of watches || []) {
     watcherCountMap.set(watch.class_nbr, (watcherCountMap.get(watch.class_nbr) || 0) + 1);
   }
 
-  // Combine class states with watcher counts and notification counts
   const classesWithWatchers: ClassWithWatchers[] = (classStates || [])
     .map((classState) => {
       const emailCounts = notificationCounts.get(classState.class_nbr);
@@ -421,7 +416,6 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
       return [];
     }
 
-    // Get watch counts, profiles, notification counts, and engagement stats in parallel
     const [watchCountsResult, profilesResult, notificationCounts, engagementStats] =
       await Promise.all([
         supabase.from('class_watches').select('user_id'),
@@ -443,19 +437,15 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
       throw new Error(`Failed to fetch user profiles: ${profileError.message}`);
     }
 
-    // Count watches per user
     const watchCountMap = new Map<string, number>();
     for (const watch of watchCounts || []) {
       watchCountMap.set(watch.user_id, (watchCountMap.get(watch.user_id) || 0) + 1);
     }
 
-    // Create map of admin status by user_id
     const adminStatusMap = new Map<string, boolean>();
     for (const profile of profiles || []) {
       adminStatusMap.set(profile.user_id, profile.is_admin);
     }
-
-    // Combine user data with watch counts, admin status, notification counts, and engagement
     const usersWithWatchCount: UserWithWatchCount[] = users
       .map((user) => {
         const emailCounts = notificationCounts.get(user.id);
@@ -521,7 +511,6 @@ export async function getUserWatches(userId: string): Promise<WatchWithClass[]> 
     return [];
   }
 
-  // Fetch corresponding class states
   const classNumbers = watches.map((w) => w.class_nbr);
   const { data: classStates, error: classError } = await supabase
     .from('class_states')
@@ -533,13 +522,11 @@ export async function getUserWatches(userId: string): Promise<WatchWithClass[]> 
     throw new Error(`Failed to fetch class states: ${classError.message}`);
   }
 
-  // Create map of class states by class_nbr
   const classStateMap = new Map<string, Tables<'class_states'>>();
   for (const classState of classStates || []) {
     classStateMap.set(classState.class_nbr, classState);
   }
 
-  // Combine watches with class states
   const watchesWithClass: WatchWithClass[] = watches.map((watch) => ({
     ...watch,
     class_state: classStateMap.get(watch.class_nbr) || null,

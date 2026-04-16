@@ -15,7 +15,6 @@ export async function DELETE() {
   try {
     const supabase = await createClient();
 
-    // Check if user is authenticated
     const {
       data: { user },
       error: authError,

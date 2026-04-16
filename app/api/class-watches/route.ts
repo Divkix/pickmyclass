@@ -28,7 +28,6 @@ export async function GET() {
   }
 
   try {
-    // Fetch user's class watches
     const { data: watches, error: watchesError } = await supabase
       .from('class_watches')
       .select('*')
@@ -37,10 +36,8 @@ export async function GET() {
 
     if (watchesError) throw watchesError;
 
-    // Extract class numbers to fetch states
     const classNumbers = watches?.map((w) => w.class_nbr) || [];
 
-    // Fetch corresponding class states
     let classStates: ClassStateRow[] = [];
     if (classNumbers.length > 0) {
       const { data: states, error: statesError } = await supabase
@@ -52,7 +49,6 @@ export async function GET() {
       classStates = states || [];
     }
 
-    // Create a map of class_nbr -> class_state
     const statesMap = classStates.reduce(
       (acc, state) => {
         acc[state.class_nbr] = state;
@@ -61,7 +57,6 @@ export async function GET() {
       {} as Record<string, ClassStateRow>
     );
 
-    // Join watches with their states
     const watchesWithStates = watches?.map((watch) => ({
       ...watch,
       class_state: statesMap[watch.class_nbr] || null,
@@ -103,7 +98,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Check max watches per user limit
     const { count: watchCount, error: countError } = await supabase
       .from('class_watches')
       .select('*', { count: 'exact', head: true })
@@ -124,7 +118,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse and validate request body
     const body = await request.json();
     const validation = createClassWatchSchema.safeParse(body);
 
@@ -272,7 +265,6 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const supabase = await createClient();
 
-  // Check authentication
   const {
     data: { user },
     error: authError,

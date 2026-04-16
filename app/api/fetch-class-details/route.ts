@@ -15,7 +15,6 @@ import type { FetchClassDetailsResponse } from '@/lib/types/class';
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse and validate request body
     const body = await request.json();
     const validation = fetchClassDetailsSchema.safeParse(body);
 

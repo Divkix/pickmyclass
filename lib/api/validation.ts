@@ -1,6 +1,6 @@
 import type { ZodError } from 'zod';
 
-interface ValidationIssueDetail {
+export interface ValidationIssueDetail {
   field: string;
   message: string;
 }

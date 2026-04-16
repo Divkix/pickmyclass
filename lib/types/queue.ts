@@ -30,10 +30,6 @@ export interface ClassCheckMessage {
   stagger_group: 'even' | 'odd';
 }
 
-import type { Env } from './env';
-
-export type { Env };
-
 /**
  * Queue message batch received by consumer
  */

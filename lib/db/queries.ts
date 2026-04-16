@@ -80,7 +80,6 @@ export async function resetNotificationsForSection(
 ): Promise<void> {
   const supabase = getServiceClient();
 
-  // Get all watch IDs for this section
   const { data: watches, error: watchError } = await supabase
     .from('class_watches')
     .select('id')
@@ -98,7 +97,6 @@ export async function resetNotificationsForSection(
 
   const watchIds = watches.map((w) => w.id);
 
-  // Delete notification records for all watchers of this section
   const { error: deleteError } = await supabase
     .from('notifications_sent')
     .delete()

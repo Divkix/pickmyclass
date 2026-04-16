@@ -1,5 +1,11 @@
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// Mock Cloudflare Workers env - must use factory function for hoisting
+vi.mock('cloudflare:workers', () => ({
+  env: { CRON_SECRET: 'test-cron-secret' },
+}));
+
 import { POST } from '@/app/api/queue/process-section/route';
 
 function createRequest(body: string, authHeader?: string): NextRequest {
@@ -14,14 +20,8 @@ function createRequest(body: string, authHeader?: string): NextRequest {
 }
 
 describe('POST /api/queue/process-section', () => {
-  const originalEnv = { ...process.env };
-
-  beforeEach(() => {
-    process.env.CRON_SECRET = 'test-cron-secret';
-  });
-
   afterEach(() => {
-    process.env = { ...originalEnv };
+    vi.clearAllMocks();
   });
 
   it('returns 401 for unauthorized requests', async () => {

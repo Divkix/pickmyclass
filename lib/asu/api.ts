@@ -41,13 +41,11 @@ export class NotFoundError extends ApiError {
 }
 
 import type { ClassDetails } from '@/lib/types/class';
+import type { Env } from '@/lib/types/env';
 
 export type { ClassDetails };
 
-interface AsuApiEnv {
-  ASU_API_BASE_URL: string;
-  ASU_API_TOKEN: string;
-}
+type AsuApiEnv = Pick<Env, 'ASU_API_BASE_URL' | 'ASU_API_TOKEN'>;
 
 interface AsuApiClassItem {
   CLASSNBR: string;

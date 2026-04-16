@@ -71,11 +71,9 @@ export function UsersTable({ users }: UsersTableProps) {
 
   const { sortField, sortDirection, toggleSort, renderSortIcon } = useTableSorting<SortField>();
 
-  // Filtered and sorted users (memoized for performance)
   const filteredAndSortedUsers = useMemo(() => {
     let result = [...users];
 
-    // Apply filters
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       result = result.filter((user) => user.email.toLowerCase().includes(searchLower));
@@ -109,7 +107,6 @@ export function UsersTable({ users }: UsersTableProps) {
       });
     }
 
-    // Apply sorting
     if (sortField && sortDirection) {
       result.sort((a, b) => {
         let aVal: string | number | null;

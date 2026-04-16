@@ -68,9 +68,6 @@ function redirectToASU(classNbr: string, term: string): NextResponse {
   // Build ASU catalog URL
   const asuUrl = `https://catalog.apps.asu.edu/catalog/classes/classlist?keywords=${safeClassNbr}&term=${safeTerm}`;
 
-  // Optional: Track click analytics here in the future
-  // Example: logRedirectClick({ uni: 'asu', classNbr, term, timestamp: Date.now() })
-
   // Return 302 temporary redirect
   return NextResponse.redirect(asuUrl, 302);
 }

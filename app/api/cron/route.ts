@@ -14,7 +14,8 @@
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSectionsToCheck } from '@/lib/db/queries';
-import type { ClassCheckMessage, Env } from '@/lib/types/queue';
+import type { Env } from '@/lib/types/env';
+import type { ClassCheckMessage } from '@/lib/types/queue';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
@@ -26,9 +27,10 @@ export async function GET(request: NextRequest) {
   let lockAcquired = false;
 
   try {
-    // Authentication: Require CRON_SECRET Bearer token
+    const cfEnv = env as unknown as Env;
+
     const authHeader = request.headers.get('authorization');
-    const expectedSecret = process.env.CRON_SECRET;
+    const expectedSecret = cfEnv.CRON_SECRET;
 
     if (!expectedSecret) {
       console.error('[Cron] CRON_SECRET not configured');
@@ -55,9 +57,6 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-
-    // Get distributed lock to prevent concurrent cron runs
-    const cfEnv = env as unknown as Env;
 
     if (cfEnv.PICKMYCLASS_CRON_LOCK_DO) {
       const lockId = cfEnv.PICKMYCLASS_CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
@@ -91,7 +90,6 @@ export async function GET(request: NextRequest) {
       console.warn('[Cron] PICKMYCLASS_CRON_LOCK_DO not available - proceeding without lock');
     }
 
-    // Determine stagger group based on current time
     // Use modulo calculation to properly handle both :00 and :30 minute triggers
     // Math.floor(currentMinute / 30) gives us: 0 for :00-:29, 1 for :30-:59
     // Modulo 2 alternates between 0 and 1 for each 30-minute window
@@ -104,7 +102,6 @@ export async function GET(request: NextRequest) {
       `[Cron] Starting 30-minute class check (stagger: ${staggerGroup}, time: ${now.toISOString()})`
     );
 
-    // Get queue binding
     const queue = cfEnv.PICKMYCLASS_QUEUE;
 
     if (!queue) {
@@ -123,7 +120,6 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Cron] Enqueueing ${sections.length} sections to queue`);
 
-    // ALERT: Check if we have 0 sections to process
     if (sections.length === 0) {
       console.log('[Cron] No sections to check');
       return NextResponse.json({

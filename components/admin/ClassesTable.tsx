@@ -58,13 +58,10 @@ function getSeatBadgeVariant(
 export function ClassesTable({ classes }: ClassesTableProps) {
   const router = useRouter();
 
-  // Extract unique subjects for filter dropdown (memoized)
   const uniqueSubjects = useMemo(() => {
     const subjects = new Set(classes.map((c) => c.subject));
     return Array.from(subjects).sort();
   }, [classes]);
-
-  // Filter state
   const [filters, setFilters] = useState<ClassesTableFilters>({
     search: '',
     subject: 'all',
@@ -75,11 +72,9 @@ export function ClassesTable({ classes }: ClassesTableProps) {
 
   const { sortField, sortDirection, toggleSort, renderSortIcon } = useTableSorting<SortField>();
 
-  // Filtered and sorted classes (memoized for performance)
   const filteredAndSortedClasses = useMemo(() => {
     let result = [...classes];
 
-    // Apply filters
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       result = result.filter((classItem) => {
@@ -125,7 +120,6 @@ export function ClassesTable({ classes }: ClassesTableProps) {
       });
     }
 
-    // Apply sorting
     if (sortField && sortDirection) {
       result.sort((a, b) => {
         let aVal: string | number;

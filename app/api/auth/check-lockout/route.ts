@@ -5,7 +5,6 @@ import { checkLockoutStatus, getRemainingLockoutTime } from '@/lib/auth/lockout'
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse and validate request body
     const body = await request.json();
     const validation = checkLockoutSchema.safeParse(body);
 

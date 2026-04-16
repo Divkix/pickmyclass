@@ -21,14 +21,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch user profile
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('user_id', user.id)
       .single();
 
-    // Fetch all class watches with their current states
     const { data: watches } = await supabase
       .from('class_watches')
       .select(
@@ -48,7 +46,6 @@ export async function GET() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
-    // Fetch notification history
     const { data: notifications } = await supabase
       .from('notifications_sent')
       .select(
@@ -64,8 +61,6 @@ export async function GET() {
       )
       .eq('class_watches.user_id', user.id)
       .order('sent_at', { ascending: false });
-
-    // Build export data
     const exportData = {
       export_info: {
         exported_at: new Date().toISOString(),
@@ -93,11 +88,9 @@ export async function GET() {
       },
     };
 
-    // Generate filename with timestamp
     const timestamp = new Date().toISOString().split('T')[0];
     const filename = `pickmyclass-data-${timestamp}.json`;
 
-    // Return JSON file for download
     return new NextResponse(JSON.stringify(exportData, null, 2), {
       status: 200,
       headers: {
