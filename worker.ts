@@ -311,6 +311,18 @@ export default {
    * HTTP request handler - routes to vinext app
    */
   async fetch(request: Request): Promise<Response> {
+    // Sanitize GET/HEAD requests with bodies - bots sometimes send these
+    // Web API spec forbids Request objects with GET/HEAD + body
+    const isGetOrHead = request.method === 'GET' || request.method === 'HEAD';
+    const hasBody = request.body !== null;
+
+    if (isGetOrHead && hasBody) {
+      console.log(
+        `[Worker] Sanitizing ${request.method} request with body from ${request.headers.get('cf-connecting-ip') || 'unknown'} to ${request.url}`
+      );
+      request = new Request(request, { body: null });
+    }
+
     return handler.fetch(request);
   },
 
