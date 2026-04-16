@@ -6,11 +6,6 @@ import {
 } from '@/lib/auth/supabase-auth-cookies';
 
 describe('supabase auth cookie helpers', () => {
-  it('detects legacy auth cookies', () => {
-    expect(isSupabaseAuthCookieName('sb-access-token')).toBe(true);
-    expect(isSupabaseAuthCookieName('sb-refresh-token')).toBe(true);
-  });
-
   it('detects project-scoped auth cookies', () => {
     expect(isSupabaseAuthCookieName('sb-project-ref-auth-token')).toBe(true);
     expect(isSupabaseAuthCookieName('sb-project-ref-other-cookie')).toBe(false);

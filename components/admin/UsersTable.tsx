@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { UserWithWatchCount } from '@/lib/db/admin-queries';
+import { formatRelativeDate } from '@/lib/utils/time-format';
 import { type UsersTableFilters, UsersTableFiltersComponent } from './UsersTableFilters';
 import { useTableSorting } from './useTableSorting';
 
@@ -35,26 +36,11 @@ type SortField =
 function formatDate(dateString: string | null): string {
   if (!dateString) return 'Never';
 
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  // If less than 7 days ago, show relative time
-  if (diffDays === 0) {
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    if (diffHours === 0) {
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      return diffMinutes <= 1 ? 'Just now' : `${diffMinutes} minutes ago`;
-    }
-    return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
-  }
-
-  if (diffDays < 7) {
-    return diffDays === 1 ? 'Yesterday' : `${diffDays} days ago`;
-  }
+  const relative = formatRelativeDate(dateString);
+  if (relative) return relative;
 
   // Otherwise show formatted date
+  const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',

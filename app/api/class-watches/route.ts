@@ -1,29 +1,11 @@
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { createClassWatchSchema, deleteClassWatchSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
-
-/**
- * Validation schemas
- */
-const createClassWatchSchema = z.object({
-  term: z
-    .string()
-    .regex(/^\d{4}$/, 'Term must be a 4-digit code (e.g., "2261")')
-    .min(1, 'Term is required'),
-  class_nbr: z
-    .string()
-    .regex(/^\d{5}$/, 'Class number must be a 5-digit code (e.g., "12431")')
-    .min(1, 'Class number is required'),
-});
-
-const deleteClassWatchSchema = z.object({
-  id: z.string().uuid('Watch ID must be a valid UUID'),
-});
 
 // Get max watches per user from env (default: 10)
 const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10);

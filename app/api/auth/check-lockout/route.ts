@@ -1,14 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { checkLockoutSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { checkLockoutStatus, getRemainingLockoutTime } from '@/lib/auth/lockout';
-
-/**
- * Validation schema
- */
-const checkLockoutSchema = z.object({
-  email: z.string().email('Invalid email address').min(1, 'Email is required'),
-});
 
 export async function POST(request: NextRequest) {
   try {

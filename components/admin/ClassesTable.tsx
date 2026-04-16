@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { ClassWithWatchers } from '@/lib/db/admin-queries';
+import { formatRelativeTime } from '@/lib/utils/time-format';
 import { type ClassesTableFilters, ClassesTableFiltersComponent } from './ClassesTableFilters';
 import { useTableSorting } from './useTableSorting';
 
@@ -29,23 +30,6 @@ type SortField =
   | 'seat_emails'
   | 'instructor_emails'
   | 'last_checked_at';
-
-/**
- * Format timestamp to relative time string
- */
-function formatRelativeTime(timestamp: string): string {
-  const now = new Date();
-  const then = new Date(timestamp);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
-}
 
 /**
  * Get seat status badge variant based on availability

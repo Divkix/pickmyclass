@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { loginSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
 import {
   checkLockoutStatus,
@@ -9,11 +9,6 @@ import {
   MAX_FAILED_ATTEMPTS,
 } from '@/lib/auth/lockout';
 import { createClient } from '@/lib/supabase/server';
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address').min(1, 'Email is required'),
-  password: z.string().min(1, 'Password is required'),
-});
 
 export async function POST(request: NextRequest) {
   try {

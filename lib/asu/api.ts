@@ -40,19 +40,9 @@ export class NotFoundError extends ApiError {
   }
 }
 
-// --- Types ---
+import type { ClassDetails } from '@/lib/types/class';
 
-export interface ClassDetails {
-  subject: string;
-  catalog_nbr: string;
-  title: string;
-  instructor: string;
-  seats_available: number;
-  seats_capacity: number;
-  non_reserved_seats: null;
-  location: string;
-  meeting_times: string;
-}
+export type { ClassDetails };
 
 interface AsuApiEnv {
   ASU_API_BASE_URL: string;

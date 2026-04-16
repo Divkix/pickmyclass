@@ -1,9 +1,10 @@
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { fetchClassDetailsSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
 import { getServiceClient } from '@/lib/supabase/service';
+import type { FetchClassDetailsResponse } from '@/lib/types/class';
 
 /**
  * API endpoint for fetching class details from section number and term.
@@ -11,31 +12,6 @@ import { getServiceClient } from '@/lib/supabase/service';
  * Integrates with the ASU Class Search API to fetch real-time class data.
  * Persists fetched data to class_states table for immediate dashboard display.
  */
-
-/**
- * Validation schema
- */
-const fetchClassDetailsSchema = z.object({
-  term: z
-    .string()
-    .regex(/^\d{4}$/, 'Term must be a 4-digit code (e.g., "2261")')
-    .min(1, 'Term is required'),
-  class_nbr: z
-    .string()
-    .regex(/^\d{5}$/, 'Section number must be a 5-digit code (e.g., "12431")')
-    .min(1, 'Section number is required'),
-});
-
-interface FetchClassDetailsResponse {
-  subject: string;
-  catalog_nbr: string;
-  title: string;
-  instructor_name?: string | null;
-  seats_available?: number;
-  seats_capacity?: number;
-  location?: string | null;
-  meeting_times?: string | null;
-}
 
 export async function POST(request: NextRequest) {
   try {

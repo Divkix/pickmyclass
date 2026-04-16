@@ -1,14 +1,9 @@
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { registerSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { isDisposableEmail } from '@/lib/auth/disposable-email';
 import { createClient } from '@/lib/supabase/server';
-
-const registerSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-});
 
 export async function POST(request: NextRequest) {
   try {

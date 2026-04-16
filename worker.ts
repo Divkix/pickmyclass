@@ -8,32 +8,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import handler from 'vinext/server/app-router-entry';
 import { handleDLQMessage } from './lib/queue/dlq-consumer';
+import type { Env } from './lib/types/env';
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';
-
-/**
- * Cloudflare Workers environment bindings
- */
-interface Env {
-  ASSETS: Fetcher;
-  CRON_SECRET: string;
-  PICKMYCLASS_QUEUE: Queue<ClassCheckMessage>;
-  PICKMYCLASS_CRON_LOCK_DO: DurableObjectNamespace;
-  PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
-  NEXT_PUBLIC_SUPABASE_URL: string;
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
-  ASU_API_BASE_URL: string;
-  ASU_API_TOKEN: string;
-  RESEND_API_KEY?: string;
-  NOTIFICATION_FROM_EMAIL?: string;
-}
-
-/**
- * Cloudflare Workers Fetcher type (for asset serving)
- */
-interface Fetcher {
-  fetch(request: Request): Promise<Response>;
-}
 
 /**
  * Durable Object for distributed cron job locking

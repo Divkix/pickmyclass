@@ -7,7 +7,7 @@
 
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { createClassWatchSchema } from '@/lib/api/schemas';
 import {
   ApiError,
   AuthError,
@@ -25,10 +25,8 @@ import { type ClassInfo, sendBatchEmailsOptimized } from '@/lib/email/resend';
 import { getServiceClient } from '@/lib/supabase/service';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
-const classCheckMessageSchema = z.object({
-  class_nbr: z.string().regex(/^\d{5}$/, 'Class number must be a 5-digit code (e.g., "12431")'),
-  term: z.string().regex(/^\d{4}$/, 'Term must be a 4-digit code (e.g., "2261")'),
-});
+// Reuse the class watch schema for queue message validation (same fields)
+const classCheckMessageSchema = createClassWatchSchema;
 
 /**
  * Process a single class section message from the queue

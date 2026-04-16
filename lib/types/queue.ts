@@ -30,34 +30,9 @@ export interface ClassCheckMessage {
   stagger_group: 'even' | 'odd';
 }
 
-/**
- * Extended Cloudflare environment with queue bindings
- */
-export interface Env extends Record<string, unknown> {
-  // Existing bindings
-  ASSETS: Fetcher;
+import type { Env } from './env';
 
-  // Queue bindings
-  PICKMYCLASS_QUEUE: Queue<ClassCheckMessage>;
-
-  // Durable Object bindings
-  CIRCUIT_BREAKER_DO: DurableObjectNamespace;
-  PICKMYCLASS_CRON_LOCK_DO: DurableObjectNamespace;
-
-  // KV namespace bindings
-  PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
-
-  // Environment variables
-  NEXT_PUBLIC_SUPABASE_URL: string;
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
-  ASU_API_BASE_URL: string;
-  ASU_API_TOKEN: string;
-  RESEND_API_KEY?: string;
-  NOTIFICATION_FROM_EMAIL?: string;
-  CRON_SECRET: string;
-  MAX_WATCHES_PER_USER?: string;
-}
+export type { Env };
 
 /**
  * Queue message batch received by consumer

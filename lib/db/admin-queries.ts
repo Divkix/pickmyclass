@@ -226,7 +226,6 @@ export async function getEngagementStats(): Promise<Map<string, EngagementStatsR
  *
  * @example
  * const total = await getTotalEmailsSent()
- * console.log(`Total emails sent: ${total}`)
  */
 export async function getTotalEmailsSent(): Promise<number> {
   const cached = adminCache.get('total-emails-sent') as number | undefined;
@@ -257,7 +256,6 @@ export async function getTotalEmailsSent(): Promise<number> {
  *
  * @example
  * const total = await getTotalUsers()
- * console.log(`Total users: ${total}`)
  */
 export async function getTotalUsers(): Promise<number> {
   const cached = adminCache.get('total-users') as number | undefined;
@@ -278,7 +276,6 @@ export async function getTotalUsers(): Promise<number> {
  *
  * @example
  * const total = await getAdminCount()
- * console.log(`Total admins: ${total}`)
  */
 export async function getAdminCount(): Promise<number> {
   const cached = adminCache.get('admin-count') as number | undefined;
@@ -310,7 +307,6 @@ export async function getAdminCount(): Promise<number> {
  *
  * @example
  * const total = await getTotalClassesWatched()
- * console.log(`Total classes watched: ${total}`)
  */
 export async function getTotalClassesWatched(): Promise<number> {
   const cached = adminCache.get('total-classes-watched') as number | undefined;
@@ -346,7 +342,6 @@ export async function getTotalClassesWatched(): Promise<number> {
  *
  * @example
  * const classes = await getAllClassesWithWatchers()
- * console.log(`Most watched: ${classes[0].title} (${classes[0].watcher_count} watchers)`)
  */
 export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> {
   const cached = adminCache.get('classes-with-watchers') as ClassWithWatchers[] | undefined;
@@ -412,7 +407,6 @@ export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> 
  *
  * @example
  * const users = await getAllUsersWithWatchCount()
- * console.log(`Newest user: ${users[0].email} (${users[0].watch_count} watches, admin: ${users[0].is_admin})`)
  */
 export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]> {
   const cached = adminCache.get('users-with-watch-count') as UserWithWatchCount[] | undefined;
@@ -506,7 +500,6 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
  *
  * @example
  * const watches = await getUserWatches('user-uuid-here')
- * console.log(`User is watching ${watches.length} classes`)
  */
 export async function getUserWatches(userId: string): Promise<WatchWithClass[]> {
   const supabase = getServiceClient();
