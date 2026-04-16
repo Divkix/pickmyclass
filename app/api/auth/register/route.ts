@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { mapValidationIssues } from '@/lib/api/validation';
 import { isDisposableEmail } from '@/lib/auth/disposable-email';
 import { createClient } from '@/lib/supabase/server';
 
@@ -18,10 +19,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid input',
-          details: validation.error.issues.map((issue) => ({
-            field: issue.path.join('.'),
-            message: issue.message,
-          })),
+          details: mapValidationIssues(validation.error),
         },
         { status: 400 }
       );

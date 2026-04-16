@@ -1,11 +1,9 @@
 import { CheckCircle, Clock, ExternalLink, XCircle } from 'lucide-react';
-import type { Database } from '@/lib/supabase/database.types';
+import type { ClassStateRow } from '@/lib/types/class-watch';
 import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor';
 
-type ClassState = Database['public']['Tables']['class_states']['Row'];
-
 interface ClassStateIndicatorProps {
-  classState: ClassState | null;
+  classState: ClassStateRow | null;
 }
 
 export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {

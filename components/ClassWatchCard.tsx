@@ -5,19 +5,16 @@ import { Info, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useSwipe } from '@/lib/hooks/useSwipe';
-import type { Database } from '@/lib/supabase/database.types';
+import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 import { ClassDetailsDialog } from './ClassDetailsDialog';
 import { ClassStateIndicator } from './ClassStateIndicator';
 import { DeleteConfirmDialog } from './DeleteConfirmDialog';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
-type ClassWatch = Database['public']['Tables']['class_watches']['Row'];
-type ClassState = Database['public']['Tables']['class_states']['Row'];
-
 interface ClassWatchCardProps {
-  watch: ClassWatch;
-  classState: ClassState | null;
+  watch: ClassWatchRow;
+  classState: ClassStateRow | null;
   onDelete: (watchId: string) => Promise<void>;
   onRestore?: () => void;
 }
@@ -28,7 +25,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwipeDeleting, setIsSwipeDeleting] = useState(false);
-  const deletedWatchRef = useRef<ClassWatch | null>(null);
+  const deletedWatchRef = useRef<ClassWatchRow | null>(null);
   const swipeDeleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const classTitle = `${watch.subject} ${watch.catalog_nbr}${classState?.title ? ` - ${classState.title}` : ''}`;

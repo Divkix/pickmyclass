@@ -17,10 +17,10 @@ import { fadeInUp, staggerContainer, staggerItem } from '@/lib/animations';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh';
 import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates';
-import type { Database } from '@/lib/supabase/database.types';
+import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 
-type ClassWatch = Database['public']['Tables']['class_watches']['Row'] & {
-  class_state?: Database['public']['Tables']['class_states']['Row'] | null;
+type ClassWatch = ClassWatchRow & {
+  class_state?: ClassStateRow | null;
 };
 
 interface GetClassWatchesResponse {

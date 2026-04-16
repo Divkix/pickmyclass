@@ -5,7 +5,7 @@
  * User-provided data is escaped to prevent XSS attacks.
  */
 
-import type { ClassInfo } from '../resend';
+import type { ClassInfo } from '../types';
 
 /**
  * Escape HTML entities to prevent XSS attacks

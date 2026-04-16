@@ -1,6 +1,5 @@
 'use client';
 
-import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -15,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import type { UserWithWatchCount } from '@/lib/db/admin-queries';
 import { type UsersTableFilters, UsersTableFiltersComponent } from './UsersTableFilters';
+import { useTableSorting } from './useTableSorting';
 
 interface UsersTableProps {
   users: UserWithWatchCount[];
@@ -28,7 +28,6 @@ type SortField =
   | 'seat_emails'
   | 'instructor_emails'
   | 'engagement_rate';
-type SortDirection = 'asc' | 'desc' | null;
 
 /**
  * Format date to readable format with relative time
@@ -84,36 +83,7 @@ export function UsersTable({ users }: UsersTableProps) {
     watchCount: 'all',
   });
 
-  // Sort state
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-
-  // Toggle sort for a column
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      // Cycle through: asc -> desc -> null
-      if (sortDirection === 'asc') {
-        setSortDirection('desc');
-      } else if (sortDirection === 'desc') {
-        setSortField(null);
-        setSortDirection(null);
-      }
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
-  // Render sort icon for column header
-  const renderSortIcon = (field: SortField) => {
-    if (sortField !== field) {
-      return <ChevronsUpDown className="size-4 ml-1 text-muted-foreground" />;
-    }
-    if (sortDirection === 'asc') {
-      return <ChevronUp className="size-4 ml-1" />;
-    }
-    return <ChevronDown className="size-4 ml-1" />;
-  };
+  const { sortField, sortDirection, toggleSort, renderSortIcon } = useTableSorting<SortField>();
 
   // Filtered and sorted users (memoized for performance)
   const filteredAndSortedUsers = useMemo(() => {

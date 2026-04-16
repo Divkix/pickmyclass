@@ -7,7 +7,10 @@
 
 import { Resend } from 'resend';
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from './templates';
+import type { ClassInfo } from './types';
 import { generateUnsubscribeUrl } from './unsubscribe-token';
+
+export type { ClassInfo } from './types';
 
 /**
  * Initialize Resend client
@@ -17,23 +20,6 @@ const getResendClient = () => {
   const apiKey = process.env.RESEND_API_KEY || 'placeholder-for-build';
   return new Resend(apiKey);
 };
-
-/**
- * Class information for email templates
- */
-export interface ClassInfo {
-  term: string;
-  subject: string;
-  catalog_nbr: string;
-  class_nbr: string;
-  title: string;
-  instructor_name: string;
-  seats_available: number;
-  seats_capacity: number;
-  non_reserved_seats?: number | null;
-  location?: string;
-  meeting_times?: string;
-}
 
 /**
  * Email sending result

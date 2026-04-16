@@ -3,9 +3,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Database } from '@/lib/supabase/database.types';
-
-type ClassState = Database['public']['Tables']['class_states']['Row'];
+import type { ClassStateRow } from '@/lib/types/class-watch';
 
 interface UseRealtimeClassStatesOptions {
   classNumbers: string[]; // Array of class_nbr values to monitor
@@ -13,7 +11,7 @@ interface UseRealtimeClassStatesOptions {
 }
 
 interface UseRealtimeClassStatesReturn {
-  classStates: Record<string, ClassState>; // Keyed by class_nbr for easy lookup
+  classStates: Record<string, ClassStateRow>; // Keyed by class_nbr for easy lookup
   loading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
@@ -29,7 +27,7 @@ export function useRealtimeClassStates({
   classNumbers,
   enabled = true,
 }: UseRealtimeClassStatesOptions): UseRealtimeClassStatesReturn {
-  const [classStates, setClassStates] = useState<Record<string, ClassState>>({});
+  const [classStates, setClassStates] = useState<Record<string, ClassStateRow>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -62,7 +60,7 @@ export function useRealtimeClassStates({
           acc[state.class_nbr] = state;
           return acc;
         },
-        {} as Record<string, ClassState>
+        {} as Record<string, ClassStateRow>
       );
 
       setClassStates(statesMap);
@@ -96,13 +94,13 @@ export function useRealtimeClassStates({
           },
           (payload) => {
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const newState = payload.new as ClassState;
+              const newState = payload.new as ClassStateRow;
               setClassStates((prev) => ({
                 ...prev,
                 [newState.class_nbr]: newState,
               }));
             } else if (payload.eventType === 'DELETE') {
-              const oldState = payload.old as ClassState;
+              const oldState = payload.old as ClassStateRow;
               setClassStates((prev) => {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { [oldState.class_nbr]: _deleted, ...rest } = prev;

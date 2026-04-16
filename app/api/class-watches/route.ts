@@ -1,12 +1,11 @@
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { mapValidationIssues } from '@/lib/api/validation';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
-import type { Database } from '@/lib/supabase/database.types';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
-
-type ClassState = Database['public']['Tables']['class_states']['Row'];
+import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 
 /**
  * Validation schemas
@@ -60,7 +59,7 @@ export async function GET() {
     const classNumbers = watches?.map((w) => w.class_nbr) || [];
 
     // Fetch corresponding class states
-    let classStates: ClassState[] = [];
+    let classStates: ClassStateRow[] = [];
     if (classNumbers.length > 0) {
       const { data: states, error: statesError } = await supabase
         .from('class_states')
@@ -77,7 +76,7 @@ export async function GET() {
         acc[state.class_nbr] = state;
         return acc;
       },
-      {} as Record<string, ClassState>
+      {} as Record<string, ClassStateRow>
     );
 
     // Join watches with their states
@@ -151,10 +150,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid input',
-          details: validation.error.issues.map((issue) => ({
-            field: issue.path.join('.'),
-            message: issue.message,
-          })),
+          details: mapValidationIssues(validation.error),
         },
         { status: 400 }
       );
@@ -200,7 +196,7 @@ export async function POST(request: NextRequest) {
         p_max_watches: number;
       }
     ) => Promise<{
-      data: Database['public']['Tables']['class_watches']['Row'] | null;
+      data: ClassWatchRow | null;
       error: { code?: string; message?: string } | null;
     }>;
 
@@ -315,10 +311,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid input',
-          details: validation.error.issues.map((issue) => ({
-            field: issue.path.join('.'),
-            message: issue.message,
-          })),
+          details: mapValidationIssues(validation.error),
         },
         { status: 400 }
       );
