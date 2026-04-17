@@ -24,7 +24,7 @@ const getResendClient = () => {
 /**
  * Email sending result
  */
-export interface EmailResult {
+interface EmailResult {
   success: boolean;
   messageId?: string;
   error?: string;

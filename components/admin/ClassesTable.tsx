@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { ClassWithWatchers } from '@/lib/db/admin-queries';
+import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 import { formatRelativeTime } from '@/lib/utils/time-format';
 import { type ClassesTableFilters, ClassesTableFiltersComponent } from './ClassesTableFilters';
 import { useTableSorting } from './useTableSorting';
@@ -30,18 +31,6 @@ type SortField =
   | 'seat_emails'
   | 'instructor_emails'
   | 'last_checked_at';
-
-/**
- * Get seat status badge variant based on availability
- */
-function getSeatBadgeVariant(
-  available: number,
-  capacity: number
-): 'success' | 'destructive' | 'warning' {
-  if (available === 0) return 'destructive';
-  if (available / capacity < 0.2) return 'warning';
-  return 'success';
-}
 
 /**
  * Admin Classes Table Component

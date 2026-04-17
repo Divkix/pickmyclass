@@ -257,7 +257,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Fix 5: Homepage redirect moved to client-side for better performance
+  // Homepage redirect moved to client-side for better performance
   // Authenticated users will be redirected by the homepage component itself
 
   // Redirect admin users from /dashboard to /admin

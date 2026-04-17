@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ValidationIssueDetail } from '@/lib/api/validation';
 
 // Mock Cloudflare Workers env - must use factory function for hoisting
 vi.mock('cloudflare:workers', () => ({
@@ -57,7 +58,7 @@ describe('POST /api/queue/process-section', () => {
       success: boolean;
       error: string;
       retryable: boolean;
-      details: Array<{ field: string; message: string }>;
+      details: ValidationIssueDetail[];
     };
 
     expect(response.status).toBe(200);

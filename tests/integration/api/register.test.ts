@@ -1,13 +1,14 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/auth/register/route';
+import type { ValidationIssueDetail } from '@/lib/api/validation';
 import { _resetCache } from '@/lib/auth/disposable-email';
 
 // Response type for register API
 interface RegisterResponse {
   success?: boolean;
   error?: string;
-  details?: Array<{ field: string; message: string }>;
+  details?: ValidationIssueDetail[];
   duplicate?: boolean;
 }
 

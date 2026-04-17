@@ -17,6 +17,8 @@ import {
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getClassWatchers } from '@/lib/db/queries';
 import { getServiceClient } from '@/lib/supabase/service';
+import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
+import { formatRelativeTime } from '@/lib/utils/time-format';
 
 interface AdminClassDetailPageProps {
   params: Promise<{
@@ -69,35 +71,6 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
-
-  /**
-   * Format timestamp to relative time string
-   */
-  const formatRelativeTime = (timestamp: string): string => {
-    const now = new Date();
-    const then = new Date(timestamp);
-    const diffMs = now.getTime() - then.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
-  };
-
-  /**
-   * Get seat status badge variant based on availability
-   */
-  const getSeatBadgeVariant = (
-    available: number,
-    capacity: number
-  ): 'success' | 'destructive' | 'warning' => {
-    if (available === 0) return 'destructive';
-    if (available / capacity < 0.2) return 'warning';
-    return 'success';
   };
 
   return (

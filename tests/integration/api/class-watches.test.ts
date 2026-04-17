@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DELETE, GET, POST } from '@/app/api/class-watches/route';
+import type { ValidationIssueDetail } from '@/lib/api/validation';
 
 // Response types
 interface ClassWatch {
@@ -34,13 +35,13 @@ interface GetResponse {
 interface PostResponse {
   watch?: ClassWatch;
   error?: string;
-  details?: Array<{ field: string; message: string }>;
+  details?: ValidationIssueDetail[];
 }
 
 interface DeleteResponse {
   success?: boolean;
   error?: string;
-  details?: Array<{ field: string; message: string }>;
+  details?: ValidationIssueDetail[];
 }
 
 // Mock data

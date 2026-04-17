@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/auth/login/route';
+import type { ValidationIssueDetail } from '@/lib/api/validation';
 
 // Response type for login API
 interface LoginResponse {
   success?: boolean;
   error?: string;
-  details?: Array<{ field: string; message: string }>;
+  details?: ValidationIssueDetail[];
   isLocked?: boolean;
   remainingMinutes?: number;
   remainingAttempts?: number;

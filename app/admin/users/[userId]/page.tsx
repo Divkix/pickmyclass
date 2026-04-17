@@ -17,6 +17,7 @@ import {
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getUserWatches } from '@/lib/db/admin-queries';
 import { getServiceClient } from '@/lib/supabase/service';
+import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 
 interface AdminUserDetailPageProps {
   params: Promise<{
@@ -70,18 +71,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
-
-  /**
-   * Get seat status badge variant based on availability
-   */
-  const getSeatBadgeVariant = (
-    available: number,
-    capacity: number
-  ): 'success' | 'destructive' | 'warning' => {
-    if (available === 0) return 'destructive';
-    if (available / capacity < 0.2) return 'warning';
-    return 'success';
   };
 
   return (
