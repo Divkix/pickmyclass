@@ -158,117 +158,15 @@
   },
   "overrides": [
     {
-      "includes": ["**/route.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["worker.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["lib/cloudflare-env.supplemental.d.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["lib/asu/api.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["lib/supabase/**/*.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["lib/types/queue.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["lib/auth/**/*.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["proxy.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["lib/utils/ratemyprofessor.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["tests/**/*.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["app/layout.tsx"],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["components/landing/JsonLd.tsx"],
+      "includes": [
+        "**/route.ts",
+        "worker.ts",
+        "proxy.ts",
+        "app/layout.tsx",
+        "components/landing/JsonLd.tsx",
+        "lib/**/*.ts",
+        "tests/**/*.ts"
+      ],
       "linter": {
         "rules": {
           "style": {
