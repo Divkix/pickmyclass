@@ -1,9 +1,26 @@
 import { Calendar, Clock } from 'lucide-react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { blogPosts } from '@/lib/blog/posts';
+
+export const metadata: Metadata = {
+  title: 'ASU Class Registration Tips & Guides — PickMyClass Blog',
+  description:
+    'Expert tips and strategies for ASU class registration. Learn how to get into full classes, track seat availability, and build the perfect schedule.',
+  alternates: {
+    canonical: '/blog',
+  },
+  openGraph: {
+    title: 'ASU Class Registration Tips & Guides — PickMyClass Blog',
+    description:
+      'Expert tips and strategies for ASU class registration. Learn how to get into full classes and track seat availability.',
+    type: 'website',
+    url: 'https://pickmyclass.app/blog',
+  },
+};
 
 export const dynamic = 'error';
 

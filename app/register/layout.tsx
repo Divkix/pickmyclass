@@ -1,20 +1,12 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Create Account',
+  title: 'Get Started — PickMyClass',
   description:
-    'Create a free PickMyClass account to get email alerts when seats open in full ASU classes. Join 2,400+ Sun Devils.',
-  alternates: {
-    canonical: '/register',
-  },
+    'Create a free PickMyClass account and get email alerts when ASU class seats open up.',
   robots: {
     index: false,
-    follow: true,
-  },
-  openGraph: {
-    title: 'Create Account',
-    description:
-      'Create a free PickMyClass account to get email alerts when seats open in full ASU classes. Join 2,400+ Sun Devils.',
+    follow: false,
   },
 };
 

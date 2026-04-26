@@ -1,20 +1,12 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Sign In',
+  title: 'Sign In — PickMyClass',
   description:
-    'Sign in to PickMyClass to manage your ASU class watchlist and get seat availability alerts.',
-  alternates: {
-    canonical: '/login',
-  },
+    'Sign in to your PickMyClass account to manage your ASU class watchlist and notifications.',
   robots: {
     index: false,
-    follow: true,
-  },
-  openGraph: {
-    title: 'Sign In',
-    description:
-      'Sign in to PickMyClass to manage your ASU class watchlist and get seat availability alerts.',
+    follow: false,
   },
 };
 
