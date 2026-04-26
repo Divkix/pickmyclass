@@ -97,6 +97,18 @@ bun run format
 - Single quotes for strings
 - TypeScript strict mode enabled
 
+### Adding/Updating Dependencies
+
+When modifying dependencies in `package.json`:
+
+1. **Always run `bun install`** to update `bun.lock`
+2. **Commit both files together** - `package.json` and `bun.lock` must be in the same commit
+3. **Verify locally** before pushing:
+   ```bash
+   bun install --frozen-lockfile
+   ```
+   If this fails, your lockfile is out of sync. Run `bun install` again and commit the updated `bun.lock`.
+
 ### Testing Changes
 
 Before submitting a PR:
