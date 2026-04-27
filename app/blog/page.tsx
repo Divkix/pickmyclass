@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { blogPosts } from '@/lib/blog/posts';
 
 export const metadata: Metadata = {
@@ -59,32 +58,32 @@ export default async function BlogIndexPage() {
 
           <div className="space-y-6">
             {blogPosts.map((post) => (
-              <Link key={post.slug} href={`/blog/${post.slug}`} className="block">
-                <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                  <CardHeader>
-                    <CardTitle className="text-xl sm:text-2xl">{post.title}</CardTitle>
-                    <CardDescription className="text-base">{post.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="size-3.5" />
-                        <time dateTime={post.publishedAt}>
-                          {new Date(post.publishedAt).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            timeZone: 'UTC',
-                          })}
-                        </time>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="size-3.5" />
-                        <span>{post.readingTime}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+              <Link
+                key={post.slug}
+                href={`/blog/${post.slug}`}
+                className="block rounded-lg border border-border bg-card p-6 hover:bg-muted/50 transition-colors"
+              >
+                <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-2">
+                  {post.title}
+                </h2>
+                <p className="text-base text-muted-foreground mb-4">{post.description}</p>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="size-3.5" />
+                    <time dateTime={post.publishedAt}>
+                      {new Date(post.publishedAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        timeZone: 'UTC',
+                      })}
+                    </time>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="size-3.5" />
+                    <span>{post.readingTime}</span>
+                  </div>
+                </div>
               </Link>
             ))}
           </div>
