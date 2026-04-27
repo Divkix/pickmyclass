@@ -59,7 +59,7 @@ export default async function BlogIndexPage() {
 
           <div className="space-y-6">
             {blogPosts.map((post) => (
-              <Link key={post.slug} href={`/blog/${post.slug}`}>
+              <Link key={post.slug} href={`/blog/${post.slug}`} className="block">
                 <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
                   <CardHeader>
                     <CardTitle className="text-xl sm:text-2xl">{post.title}</CardTitle>
