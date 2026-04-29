@@ -17,6 +17,7 @@ export const metadata: Metadata = {
       'Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips.',
     type: 'article',
     publishedTime: '2026-04-26T00:00:00Z',
+    images: ['/og-image.png'],
   },
 };
 

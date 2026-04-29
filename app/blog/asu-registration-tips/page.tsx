@@ -23,6 +23,7 @@ export const metadata: Metadata = {
       'Everything you need to know about ASU class registration. Enrollment tips and strategies.',
     type: 'article',
     publishedTime: '2026-03-27T00:00:00Z',
+    images: ['/og-image.png'],
   },
 };
 

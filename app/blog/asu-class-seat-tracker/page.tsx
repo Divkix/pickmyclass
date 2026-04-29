@@ -17,6 +17,7 @@ export const metadata: Metadata = {
       'Stop refreshing MyASU. Automatically track ASU class seat availability and get email alerts when seats open.',
     type: 'article',
     publishedTime: '2026-03-27T00:00:00Z',
+    images: ['/og-image.png'],
   },
 };
 

@@ -17,6 +17,7 @@ export const metadata: Metadata = {
       'How transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.',
     type: 'article',
     publishedTime: '2026-04-26T00:00:00Z',
+    images: ['/og-image.png'],
   },
 };
 

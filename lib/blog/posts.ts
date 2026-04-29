@@ -3,6 +3,7 @@ export interface BlogPost {
   title: string;
   description: string;
   publishedAt: string;
+  dateModified?: string;
   readingTime: string;
 }
 
@@ -13,6 +14,7 @@ export const blogPosts: BlogPost[] = [
     description:
       'Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.',
     publishedAt: '2026-03-27',
+    dateModified: '2026-04-26',
     readingTime: '8 min read',
   },
   {
@@ -21,6 +23,7 @@ export const blogPosts: BlogPost[] = [
     description:
       'Practical strategies to get into full ASU classes during registration and add/drop period. From waitlist tips to automated seat tracking tools.',
     publishedAt: '2026-03-27',
+    dateModified: '2026-04-26',
     readingTime: '10 min read',
   },
   {
@@ -29,6 +32,7 @@ export const blogPosts: BlogPost[] = [
     description:
       'Everything you need to know about ASU class registration. Enrollment appointment tips, class search strategies, and tools to help you get the schedule you want.',
     publishedAt: '2026-03-27',
+    dateModified: '2026-04-26',
     readingTime: '9 min read',
   },
   {

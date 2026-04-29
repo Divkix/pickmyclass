@@ -9,6 +9,9 @@ export const metadata: Metadata = {
     'Tips, guides, and strategies for ASU class registration. Learn how to build the perfect schedule and never miss an open seat.',
   alternates: {
     canonical: '/blog',
+    types: {
+      'application/rss+xml': '/blog/feed.xml',
+    },
   },
 };
 

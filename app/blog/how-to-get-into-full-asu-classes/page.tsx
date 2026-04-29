@@ -23,6 +23,7 @@ export const metadata: Metadata = {
       'Practical strategies to get into full ASU classes during registration and add/drop period.',
     type: 'article',
     publishedTime: '2026-03-27T00:00:00Z',
+    images: ['/og-image.png'],
   },
 };
 

@@ -17,6 +17,7 @@ export const metadata: Metadata = {
       "Learn how ASU's waitlist system actually works, which classes have them, and what to do when there's no waitlist.",
     type: 'article',
     publishedTime: '2026-04-26T00:00:00Z',
+    images: ['/og-image.png'],
   },
 };
 

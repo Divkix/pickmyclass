@@ -57,6 +57,7 @@ export const metadata: Metadata = {
     icon: '/favicon.svg',
     apple: '/apple-touch-icon.png',
   },
+  manifest: '/manifest.json',
   authors: [{ name: 'PickMyClass' }],
   creator: 'PickMyClass',
 };

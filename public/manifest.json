@@ -1,0 +1,21 @@
+{
+  "name": "PickMyClass",
+  "short_name": "PickMyClass",
+  "description": "Free ASU class seat tracker. Get email alerts when seats open in full classes.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6366F1",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
