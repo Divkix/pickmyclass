@@ -109,7 +109,9 @@ export function useRealtimeClassStates({
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') fetchClassStates();
+        });
     }
 
     // Cleanup subscription on unmount or when dependencies change
