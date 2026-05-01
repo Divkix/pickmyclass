@@ -48,6 +48,9 @@ worker-configuration.d.ts
 supabase/.temp/
 supabase/.branches/
 
+# git worktrees
+.worktrees/
+
 # sentry
 .sentryclirc
 sentry.properties
