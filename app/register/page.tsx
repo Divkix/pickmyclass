@@ -204,11 +204,12 @@ export default function RegisterPage() {
 
       if (error) {
         setError(error.message);
+        setGoogleLoading(false);
       }
+      // Note: we don't reset loading on success because browser will navigate away
     } catch (err) {
       setError('Failed to initiate Google sign-up');
       console.error(err);
-    } finally {
       setGoogleLoading(false);
     }
   };
