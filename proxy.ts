@@ -214,7 +214,9 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = '/login';
       url.searchParams.set('error', 'account_disabled');
-      return NextResponse.redirect(url);
+      const redirectResponse = NextResponse.redirect(url);
+      addSecurityHeaders(redirectResponse, isDevelopment);
+      return redirectResponse;
     }
   }
 
@@ -228,7 +230,9 @@ export async function proxy(request: NextRequest) {
     if (!isAllowedPath && pathname !== '/') {
       const url = request.nextUrl.clone();
       url.pathname = '/verify-email';
-      return NextResponse.redirect(url);
+      const redirectResponse = NextResponse.redirect(url);
+      addSecurityHeaders(redirectResponse, isDevelopment);
+      return redirectResponse;
     }
   }
 
@@ -240,7 +244,9 @@ export async function proxy(request: NextRequest) {
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    addSecurityHeaders(redirectResponse, isDevelopment);
+    return redirectResponse;
   }
 
   // Redirect authenticated users from auth pages to their dashboard
@@ -253,7 +259,9 @@ export async function proxy(request: NextRequest) {
     if (pathname !== redirectPath) {
       const url = request.nextUrl.clone();
       url.pathname = redirectPath;
-      return NextResponse.redirect(url);
+      const redirectResponse = NextResponse.redirect(url);
+      addSecurityHeaders(redirectResponse, isDevelopment);
+      return redirectResponse;
     }
   }
 
@@ -266,7 +274,9 @@ export async function proxy(request: NextRequest) {
     if (userProfile?.is_admin) {
       const url = request.nextUrl.clone();
       url.pathname = '/admin';
-      return NextResponse.redirect(url);
+      const redirectResponse = NextResponse.redirect(url);
+      addSecurityHeaders(redirectResponse, isDevelopment);
+      return redirectResponse;
     }
   }
 

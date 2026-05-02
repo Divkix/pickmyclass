@@ -482,6 +482,92 @@ describe('proxy', () => {
       expect(csp).toContain("default-src 'self'");
       expect(csp).toContain("frame-ancestors 'none'");
     });
+
+    it('should add security headers on redirect responses (unauthenticated to protected route)', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+      const request = createRequest('/dashboard');
+      const response = await proxy(request);
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe('http://localhost:3000/login');
+      // Security headers should be present on redirects
+      expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(response.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(response.headers.get('Strict-Transport-Security')).toBe(
+        'max-age=31536000; includeSubDomains'
+      );
+    });
+
+    it('should add security headers on redirect responses (disabled account)', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockDisabledProfile, error: null });
+      mockSignOut.mockResolvedValue({ error: null });
+
+      const request = createRequest('/dashboard');
+      const response = await proxy(request);
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toContain('/login');
+      // Security headers should be present on redirects
+      expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    });
+
+    it('should add security headers on redirect responses (unverified user)', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockUnverifiedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+
+      const request = createRequest('/dashboard');
+      const response = await proxy(request);
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe('http://localhost:3000/verify-email');
+      // Security headers should be present on redirects
+      expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    });
+
+    it('should add security headers on redirect responses (auth page to dashboard)', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+
+      const request = createAuthenticatedRequest('/login');
+      const response = await proxy(request);
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');
+      // Security headers should be present on redirects
+      expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    });
+
+    it('should add security headers on redirect responses (dashboard to admin)', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockAdminProfile, error: null });
+
+      const request = createRequest('/dashboard');
+      const response = await proxy(request);
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe('http://localhost:3000/admin');
+      // Security headers should be present on redirects
+      expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    });
   });
 
   describe('profile fetch errors', () => {
