@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const {
     classStates,
     loading: realtimeLoading,
+    error: realtimeError,
     refetch: refetchClassStates,
   } = useRealtimeClassStates({
     classNumbers,
@@ -203,6 +204,12 @@ export default function DashboardPage() {
         {error && (
           <Alert className="mb-6 bg-destructive/10 text-destructive border-destructive/20">
             {error}
+          </Alert>
+        )}
+
+        {realtimeError && (
+          <Alert className="mb-6 bg-warning/10 text-warning border-warning/20">
+            Live updates unavailable: {realtimeError.message}
           </Alert>
         )}
 
