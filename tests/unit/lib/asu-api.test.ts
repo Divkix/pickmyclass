@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clearAsuApiCache, fetchClassFromASU } from '@/lib/asu/api';
+import { ApiError, clearAsuApiCache, fetchClassFromASU } from '@/lib/asu/api';
 
 function buildAsuSuccessResponse() {
   return {
@@ -85,5 +85,33 @@ describe('fetchClassFromASU', () => {
     expect(init).toMatchObject({
       headers: { Authorization: 'Bearer null' },
     });
+  });
+
+  it('should throw ApiError with status 408 when fetch times out', async () => {
+    const timeoutError = new DOMException('The operation was aborted.', 'TimeoutError');
+    vi.spyOn(global, 'fetch').mockRejectedValue(timeoutError);
+
+    await expect(
+      fetchClassFromASU('42737', '2264', {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      })
+    ).rejects.toSatisfy((error: unknown) => {
+      return error instanceof ApiError && error.status === 408;
+    });
+  });
+
+  it('should throw ApiError with timeout message when fetch times out', async () => {
+    const timeoutError = new DOMException('The operation was aborted.', 'TimeoutError');
+    vi.spyOn(global, 'fetch').mockRejectedValue(timeoutError);
+
+    await expect(
+      fetchClassFromASU('42737', '2264', {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      })
+    ).rejects.toThrow('ASU API request timed out');
   });
 });

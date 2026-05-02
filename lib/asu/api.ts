@@ -168,10 +168,18 @@ export async function fetchClassFromASU(
   const url = buildClassSearchUrl(env.ASU_API_BASE_URL, classNbr, term);
   const authHeader = normalizeAuthHeader(env.ASU_API_TOKEN);
 
-  const response = await fetch(url, {
-    headers: { Authorization: authHeader },
-    signal: AbortSignal.timeout(10_000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: { Authorization: authHeader },
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      throw new ApiError('ASU API request timed out', 408);
+    }
+    throw error;
+  }
 
   if (response.status === 401 || response.status === 403) {
     throw new AuthError('ASU API token expired or invalid');
