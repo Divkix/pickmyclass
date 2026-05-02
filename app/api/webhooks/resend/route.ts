@@ -1,9 +1,7 @@
-import { createHmac } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { z } from 'zod';
 import { getServiceClient } from '@/lib/supabase/service';
-import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
  * Resend webhook event payload (subset used by PickMyClass).
@@ -42,25 +40,8 @@ const resendWebhookEventSchema = z.object({
 type ResendWebhookEvent = z.infer<typeof resendWebhookEventSchema>;
 
 /**
- * Verify legacy Resend webhook signature.
- * Kept for backward compatibility with existing deployments.
- */
-function verifyLegacyWebhookSignature(
-  body: string,
-  signature: string | null,
-  secret: string
-): boolean {
-  if (!signature) {
-    return false;
-  }
-
-  const expectedSignature = createHmac('sha256', secret).update(body).digest('hex');
-  return timingSafeCompare(signature, expectedSignature);
-}
-
-/**
  * Verify webhook signature and return parsed payload if valid.
- * Supports current Svix headers and legacy `resend-signature`.
+ * Uses Svix headers (svix-id, svix-timestamp, svix-signature) for verification.
  */
 function verifyAndParseWebhookPayload(
   request: NextRequest,
@@ -89,18 +70,8 @@ function verifyAndParseWebhookPayload(
     }
   }
 
-  const legacySignature = request.headers.get('resend-signature');
-  if (!verifyLegacyWebhookSignature(body, legacySignature, webhookSecret)) {
-    console.warn('[Resend Webhook] Missing or invalid signature headers');
-    return null;
-  }
-
-  try {
-    return JSON.parse(body);
-  } catch (error) {
-    console.warn('[Resend Webhook] Failed to parse legacy webhook payload:', error);
-    return null;
-  }
+  console.warn('[Resend Webhook] Missing Svix signature headers');
+  return null;
 }
 
 /**
