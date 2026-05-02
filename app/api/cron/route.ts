@@ -170,14 +170,20 @@ export async function GET(request: NextRequest) {
       `[Cron] Enqueued ${sections.length} sections in ${duration}ms (${successfulBatches}/${batches.length} batches succeeded)`
     );
 
-    return NextResponse.json({
-      success: true,
-      sections_enqueued: sections.length,
-      batches_total: batches.length,
-      batches_failed: failedBatches.length,
-      stagger_group: staggerGroup,
-      duration,
-    });
+    // Return success:false if any batches failed
+    const hasFailedBatches = failedBatches.length > 0;
+
+    return NextResponse.json(
+      {
+        success: !hasFailedBatches,
+        sections_enqueued: sections.length,
+        batches_total: batches.length,
+        batches_failed: failedBatches.length,
+        stagger_group: staggerGroup,
+        duration,
+      },
+      { status: hasFailedBatches ? 207 : 200 } // 207 Multi-Status for partial failures
+    );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Cron] Fatal error:', errorMessage);
