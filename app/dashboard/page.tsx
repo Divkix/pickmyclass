@@ -62,7 +62,7 @@ export default function DashboardPage() {
   }, [user, authLoading, router]);
 
   // Fetch user's class watches
-  const fetchWatches = useCallback(async () => {
+  const fetchWatches = useCallback(async (): Promise<GetClassWatchesResponse> => {
     try {
       setIsLoadingWatches(true);
       setError(null);
@@ -75,8 +75,11 @@ export default function DashboardPage() {
       const data = (await response.json()) as GetClassWatchesResponse;
       setWatches(data.watches || []);
       setMaxWatches(data.maxWatches || 10);
+      return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load class watches');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load class watches';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setIsLoadingWatches(false);
     }
@@ -92,10 +95,14 @@ export default function DashboardPage() {
   const handleRefresh = async () => {
     try {
       // Re-fetch class watches and class states in parallel
-      await Promise.all([
+      const [watchData] = await Promise.all([
         fetchWatches(),
         classNumbers.length > 0 ? refetchClassStates() : Promise.resolve(),
       ]);
+
+      // Use the returned data directly to avoid stale closure capture
+      // Fixes issue #173: toast was showing stale watch count from closure
+      const watchCount = watchData?.watches?.length ?? watches.length;
 
       // Show success toast with count and timestamp
       const timeString = new Date().toLocaleTimeString('en-US', {
@@ -103,7 +110,7 @@ export default function DashboardPage() {
         minute: '2-digit',
       });
       toast.success(`Dashboard refreshed at ${timeString}`, {
-        description: `Updated ${watches.length} class watch${watches.length !== 1 ? 'es' : ''}`,
+        description: `Updated ${watchCount} class watch${watchCount !== 1 ? 'es' : ''}`,
       });
     } catch (err) {
       toast.error('Failed to refresh dashboard', {
