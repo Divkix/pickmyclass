@@ -121,11 +121,11 @@ export async function POST(request: NextRequest) {
       if (error instanceof AuthError || error instanceof NotFoundError) {
         console.error(
           `[Queue-Processor] Non-retryable error for section ${class_nbr}:`,
-          error.message
+          (error as Error).message
         );
         // Return 200 so the queue consumer acks the message (non-retryable)
         return NextResponse.json(
-          { success: false, error: error.message, retryable: false },
+          { success: false, error: (error as Error).message, retryable: false },
           { status: 200 }
         );
       }
@@ -135,14 +135,17 @@ export async function POST(request: NextRequest) {
         );
         // Return non-2xx so the queue consumer retries (uses wrangler retry_delay: 60s)
         return NextResponse.json(
-          { success: false, error: error.message, retryable: true },
+          { success: false, error: (error as Error).message, retryable: true },
           { status: 429 }
         );
       }
       if (error instanceof ApiError) {
-        console.error(`[Queue-Processor] API error for section ${class_nbr}:`, error.message);
+        console.error(
+          `[Queue-Processor] API error for section ${class_nbr}:`,
+          (error as Error).message
+        );
         return NextResponse.json(
-          { success: false, error: error.message, retryable: true },
+          { success: false, error: (error as Error).message, retryable: true },
           { status: 502 }
         );
       }
@@ -162,29 +165,31 @@ export async function POST(request: NextRequest) {
       return nonReserved ?? totalAvailable;
     };
 
-    if (oldState) {
-      const oldOpenSeats = getOpenSeats(oldState.non_reserved_seats, oldState.seats_available);
-      const newOpenSeats = getOpenSeats(newData.non_reserved_seats, newData.seats_available ?? 0);
+    // When oldState is null (first observation), treat baseline as:
+    // - seats_available = 0 (full)
+    // - instructor_name = 'Staff'
+    // This ensures notifications trigger on first observed open state
+    const oldOpenSeats = oldState
+      ? getOpenSeats(oldState.non_reserved_seats, oldState.seats_available)
+      : 0;
+    const oldInstructor = oldState?.instructor_name ?? 'Staff';
 
-      if (oldOpenSeats > 0 && newOpenSeats === 0) {
-        seatsFilled = true;
-      }
+    const newOpenSeats = getOpenSeats(newData.non_reserved_seats, newData.seats_available ?? 0);
 
-      if (oldOpenSeats === 0 && newOpenSeats > 0) {
-        seatBecameAvailable = true;
-        console.log(`[Queue-Processor] 🎉 Seat available in ${class_nbr}: ${newOpenSeats} seats`);
-      }
+    if (oldOpenSeats > 0 && newOpenSeats === 0) {
+      seatsFilled = true;
+    }
 
-      if (
-        oldState.instructor_name === 'Staff' &&
-        newData.instructor &&
-        newData.instructor !== 'Staff'
-      ) {
-        instructorAssigned = true;
-        console.log(
-          `[Queue-Processor] 👨‍🏫 Instructor assigned in ${class_nbr}: ${newData.instructor}`
-        );
-      }
+    if (oldOpenSeats === 0 && newOpenSeats > 0) {
+      seatBecameAvailable = true;
+      console.log(`[Queue-Processor] 🎉 Seat available in ${class_nbr}: ${newOpenSeats} seats`);
+    }
+
+    if (oldInstructor === 'Staff' && newData.instructor && newData.instructor !== 'Staff') {
+      instructorAssigned = true;
+      console.log(
+        `[Queue-Processor] 👨‍🏫 Instructor assigned in ${class_nbr}: ${newData.instructor}`
+      );
     }
 
     // Step 3A: Reset notifications if seats filled
