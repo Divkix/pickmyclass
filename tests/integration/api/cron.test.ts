@@ -125,4 +125,34 @@ describe('GET /api/cron', () => {
     expect(responseData.batches_failed).toBe(1);
     expect(responseData.batches_total).toBe(2);
   });
+
+  it('uses X-Cron-Scheduled-Time header for stagger group computation', async () => {
+    // Arrange: Mock sections to check
+    const mockSections = Array.from({ length: 50 }, (_, i) => ({
+      class_nbr: String(10000 + i),
+      term: '2261',
+    }));
+    vi.mocked(getSectionsToCheck).mockResolvedValue(mockSections);
+
+    // Arrange: Mock queue to succeed
+    const { env } = await import('cloudflare:workers');
+    vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue(undefined);
+
+    // Set current time to :30 (odd stagger group)
+    vi.setSystemTime(new Date('2024-01-15T12:30:00Z'));
+
+    // Act: Send request with scheduled time header pointing to :00 (even stagger group)
+    const scheduledTime = new Date('2024-01-15T12:00:00Z').getTime();
+    const request = new NextRequest('http://localhost:3000/api/cron', {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer test-cron-secret',
+        'X-Cron-Scheduled-Time': String(scheduledTime),
+      },
+    });
+    await GET(request);
+
+    // Assert: Should use 'even' stagger group based on header, not 'odd' from current time
+    expect(getSectionsToCheck).toHaveBeenCalledWith('even');
+  });
 });

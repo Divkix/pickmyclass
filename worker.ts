@@ -345,11 +345,14 @@ export default {
     try {
       // Make internal HTTP request to the API route
       // This allows us to reuse the same logic whether triggered by cron or manually
+      // Pass scheduled time as header so API route computes correct stagger group
+      // even if cron execution is delayed
       const request = new Request(`http://localhost${cronRoute}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${env.CRON_SECRET}`,
           'User-Agent': 'Cloudflare-Workers-Cron',
+          'X-Cron-Scheduled-Time': String(event.scheduledTime),
         },
       });
 
