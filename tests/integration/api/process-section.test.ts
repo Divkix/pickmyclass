@@ -438,4 +438,201 @@ describe('POST /api/queue/process-section', () => {
       expect(data.error).toContain('Rollback failed');
     });
   });
+
+  describe('notification cleanup optimization (issue #193)', () => {
+    it('should NOT run cleanup when tryRecordNotificationsBatch succeeds on first attempt', async () => {
+      // Mock ASU API to return class with open seats and assigned instructor
+      mockFetchClassFromASU.mockResolvedValue({
+        subject: 'CSE',
+        catalog_nbr: '110',
+        title: 'Intro to Programming',
+        instructor: 'Dr. Smith',
+        seats_available: 5,
+        seats_capacity: 30,
+        non_reserved_seats: null,
+        location: 'Online',
+        meeting_times: 'MWF 9:00-9:50',
+      });
+
+      // Mock watcher exists
+      mockRpc.mockResolvedValue({
+        data: [{ user_id: 'user-1', email: 'test@example.com', watch_id: 'watch-1' }],
+        error: null,
+      });
+
+      // Mock notification recording to succeed (returns non-empty set)
+      mockTryRecordNotificationsBatch
+        .mockResolvedValueOnce(new Set(['watch-1'])) // seat_available succeeds
+        .mockResolvedValueOnce(new Set(['watch-1'])); // instructor_assigned succeeds
+
+      // Mock email sending
+      mockSendBatchEmailsOptimized.mockResolvedValue([
+        { success: true, id: 'email-1' },
+        { success: true, id: 'email-2' },
+      ]);
+
+      await POST(
+        createRequest(
+          JSON.stringify({ class_nbr: '12345', term: '2261' }),
+          'Bearer test-cron-secret'
+        )
+      );
+
+      // Cleanup should NOT be called when tryRecordNotificationsBatch succeeds
+      expect(mockDeleteNotificationRecords).not.toHaveBeenCalled();
+    });
+
+    it('should run cleanup and retry when tryRecordNotificationsBatch returns empty set (stale records)', async () => {
+      // Mock ASU API to return class with open seats
+      mockFetchClassFromASU.mockResolvedValue({
+        subject: 'CSE',
+        catalog_nbr: '110',
+        title: 'Intro to Programming',
+        instructor: 'Dr. Smith',
+        seats_available: 5,
+        seats_capacity: 30,
+        non_reserved_seats: null,
+        location: 'Online',
+        meeting_times: 'MWF 9:00-9:50',
+      });
+
+      // Mock watcher exists
+      mockRpc.mockResolvedValue({
+        data: [{ user_id: 'user-1', email: 'test@example.com', watch_id: 'watch-1' }],
+        error: null,
+      });
+
+      // Mock notification recording: seat_available has stale records, instructor_assigned succeeds first try
+      mockTryRecordNotificationsBatch
+        .mockResolvedValueOnce(new Set()) // seat_available: first attempt returns empty (stale)
+        .mockResolvedValueOnce(new Set(['watch-1'])) // seat_available: retry succeeds after cleanup
+        .mockResolvedValueOnce(new Set(['watch-1'])); // instructor_assigned: succeeds first try
+
+      mockDeleteNotificationRecords.mockResolvedValue(undefined);
+
+      // Mock email sending
+      mockSendBatchEmailsOptimized.mockResolvedValue([{ success: true, id: 'email-1' }]);
+
+      await POST(
+        createRequest(
+          JSON.stringify({ class_nbr: '12345', term: '2261' }),
+          'Bearer test-cron-secret'
+        )
+      );
+
+      // Cleanup should be called for seat_available type only (selective cleanup)
+      expect(mockDeleteNotificationRecords).toHaveBeenCalledWith(['watch-1'], 'seat_available');
+      // Should NOT cleanup instructor_assigned since no instructor change detected
+      expect(mockDeleteNotificationRecords).not.toHaveBeenCalledWith(
+        expect.anything(),
+        'instructor_assigned'
+      );
+
+      // Verify cleanup-then-record ordering: retry happens after cleanup
+      const calls = mockTryRecordNotificationsBatch.mock.calls;
+      expect(calls.length).toBeGreaterThanOrEqual(2);
+      // First call should be before cleanup
+      expect(calls[0]).toEqual([['watch-1'], 'seat_available']);
+      // Second call (retry) should be after cleanup
+      expect(calls[1]).toEqual([['watch-1'], 'seat_available']);
+    });
+
+    it('should only cleanup notification types with detected changes', async () => {
+      // Mock ASU API to return class with ONLY seat change (instructor is Staff)
+      mockFetchClassFromASU.mockResolvedValue({
+        subject: 'CSE',
+        catalog_nbr: '110',
+        title: 'Intro to Programming',
+        instructor: 'Staff', // No instructor change
+        seats_available: 5,
+        seats_capacity: 30,
+        non_reserved_seats: null,
+        location: 'Online',
+        meeting_times: 'MWF 9:00-9:50',
+      });
+
+      // Mock watcher exists
+      mockRpc.mockResolvedValue({
+        data: [{ user_id: 'user-1', email: 'test@example.com', watch_id: 'watch-1' }],
+        error: null,
+      });
+
+      // Mock notification recording to succeed (no stale records scenario)
+      mockTryRecordNotificationsBatch.mockResolvedValue(new Set(['watch-1']));
+
+      // Mock email sending
+      mockSendBatchEmailsOptimized.mockResolvedValue([{ success: true, id: 'email-1' }]);
+
+      await POST(
+        createRequest(
+          JSON.stringify({ class_nbr: '12345', term: '2261' }),
+          'Bearer test-cron-secret'
+        )
+      );
+
+      // Should only call tryRecordNotificationsBatch for seat_available, not instructor_assigned
+      const calls = mockTryRecordNotificationsBatch.mock.calls;
+      const seatCalls = calls.filter((call) => call[1] === 'seat_available');
+      const instructorCalls = calls.filter((call) => call[1] === 'instructor_assigned');
+
+      expect(seatCalls.length).toBeGreaterThanOrEqual(1);
+      expect(instructorCalls.length).toBe(0); // No instructor change, so no recording
+
+      // No cleanup should occur since first attempt succeeded
+      expect(mockDeleteNotificationRecords).not.toHaveBeenCalled();
+    });
+
+    it('should handle partial stale records (one type succeeds, other needs cleanup)', async () => {
+      // Mock ASU API to return class with both changes
+      mockFetchClassFromASU.mockResolvedValue({
+        subject: 'CSE',
+        catalog_nbr: '110',
+        title: 'Intro to Programming',
+        instructor: 'Dr. Smith',
+        seats_available: 5,
+        seats_capacity: 30,
+        non_reserved_seats: null,
+        location: 'Online',
+        meeting_times: 'MWF 9:00-9:50',
+      });
+
+      // Mock watcher exists
+      mockRpc.mockResolvedValue({
+        data: [{ user_id: 'user-1', email: 'test@example.com', watch_id: 'watch-1' }],
+        error: null,
+      });
+
+      // Mock: seat_available succeeds, instructor_assigned has stale records
+      mockTryRecordNotificationsBatch
+        .mockResolvedValueOnce(new Set(['watch-1'])) // seat_available succeeds
+        .mockResolvedValueOnce(new Set()) // instructor_assigned returns empty (stale)
+        .mockResolvedValueOnce(new Set(['watch-1'])); // retry instructor succeeds
+
+      mockDeleteNotificationRecords.mockResolvedValue(undefined);
+
+      // Mock email sending
+      mockSendBatchEmailsOptimized.mockResolvedValue([
+        { success: true, id: 'email-1' },
+        { success: true, id: 'email-2' },
+      ]);
+
+      await POST(
+        createRequest(
+          JSON.stringify({ class_nbr: '12345', term: '2261' }),
+          'Bearer test-cron-secret'
+        )
+      );
+
+      // Should only cleanup instructor_assigned (the one that returned empty)
+      expect(mockDeleteNotificationRecords).toHaveBeenCalledWith(
+        ['watch-1'],
+        'instructor_assigned'
+      );
+      // Should NOT cleanup seat_available (it succeeded on first try)
+      expect(mockDeleteNotificationRecords).not.toHaveBeenCalledWith(
+        expect.anything(),
+        'seat_available'
+      );
+    });
+  });
 });
