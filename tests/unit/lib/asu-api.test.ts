@@ -197,4 +197,150 @@ describe('fetchClassFromASU', () => {
 
     expect(result.non_reserved_seats).toBe(21);
   });
+
+  it('should return the class matching the requested CLASSNBR, not just the first hit', async () => {
+    // Simulate Elasticsearch returning fuzzy matches with different CLASSNBR values
+    const responseWithMultipleHits = {
+      hits: {
+        total: { value: 3 },
+        hits: [
+          {
+            _source: {
+              CLASSNBR: '99999',
+              SUBJECT: 'WRONG',
+              CATALOGNBR: '999',
+              COURSETITLELONG: 'Wrong Class Data',
+              INSTRUCTORSLIST: ['Wrong Instructor'],
+              ENRLCAP: '100',
+              ENRLTOT: '99',
+              FACILITYID: 'WRONG',
+              MON: 'N',
+              TUES: 'N',
+              WED: 'N',
+              THURS: 'N',
+              FRI: 'N',
+              STARTTIME: null,
+              ENDTIME: null,
+            },
+          },
+          {
+            _source: {
+              CLASSNBR: '42737',
+              SUBJECT: 'ABS',
+              CATALOGNBR: '302',
+              COURSETITLELONG: 'Ethical and Policy Issues in Biology',
+              INSTRUCTORSLIST: ['Ms Julie Murphree'],
+              ENRLCAP: '25',
+              ENRLTOT: '4',
+              FACILITYID: 'INTRT',
+              MON: 'N',
+              TUES: 'N',
+              WED: 'N',
+              THURS: 'N',
+              FRI: 'N',
+              STARTTIME: null,
+              ENDTIME: null,
+            },
+          },
+          {
+            _source: {
+              CLASSNBR: '88888',
+              SUBJECT: 'OTHER',
+              CATALOGNBR: '888',
+              COURSETITLELONG: 'Another Wrong Class',
+              INSTRUCTORSLIST: ['Other Instructor'],
+              ENRLCAP: '50',
+              ENRLTOT: '49',
+              FACILITYID: 'OTHER',
+              MON: 'N',
+              TUES: 'N',
+              WED: 'N',
+              THURS: 'N',
+              FRI: 'N',
+              STARTTIME: null,
+              ENDTIME: null,
+            },
+          },
+        ],
+      },
+    };
+
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(responseWithMultipleHits), { status: 200 })
+    );
+
+    const result = await fetchClassFromASU('42737', '2264', {
+      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+      ASU_API_TOKEN: 'test-token',
+    });
+
+    // Should return the class with CLASSNBR='42737', not the first hit (CLASSNBR='99999')
+    expect(result.subject).toBe('ABS');
+    expect(result.catalog_nbr).toBe('302');
+    expect(result.title).toBe('Ethical and Policy Issues in Biology');
+    expect(result.instructor).toBe('Ms Julie Murphree');
+    expect(result.seats_capacity).toBe(25);
+  });
+
+  it('should throw NotFoundError when response contains hits but none match requested CLASSNBR', async () => {
+    const responseWithWrongHits = {
+      hits: {
+        total: { value: 2 },
+        hits: [
+          {
+            _source: {
+              CLASSNBR: '11111',
+              SUBJECT: 'MATH',
+              CATALOGNBR: '101',
+              COURSETITLELONG: 'Math Class',
+              INSTRUCTORSLIST: ['Dr. Math'],
+              ENRLCAP: '30',
+              ENRLTOT: '20',
+              FACILITYID: 'MATH',
+              MON: 'Y',
+              TUES: 'N',
+              WED: 'Y',
+              THURS: 'N',
+              FRI: 'Y',
+              STARTTIME: '09:00:00',
+              ENDTIME: '10:15:00',
+            },
+          },
+          {
+            _source: {
+              CLASSNBR: '22222',
+              SUBJECT: 'ENG',
+              CATALOGNBR: '102',
+              COURSETITLELONG: 'English Class',
+              INSTRUCTORSLIST: ['Dr. English'],
+              ENRLCAP: '25',
+              ENRLTOT: '15',
+              FACILITYID: 'ENG',
+              MON: 'N',
+              TUES: 'Y',
+              WED: 'N',
+              THURS: 'Y',
+              FRI: 'N',
+              STARTTIME: '10:30:00',
+              ENDTIME: '11:45:00',
+            },
+          },
+        ],
+      },
+    };
+
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(responseWithWrongHits), { status: 200 })
+    );
+
+    await expect(
+      fetchClassFromASU('99999', '2264', {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      })
+    ).rejects.toSatisfy((error: unknown) => {
+      return error instanceof Error && error.message.includes('Section 99999 not found');
+    });
+  });
 });
