@@ -199,7 +199,13 @@ export async function fetchClassFromASU(
     throw new NotFoundError(`Section ${classNbr} not found`);
   }
 
-  const result = mapToClassDetails(hits[0]._source);
+  // Find the hit that matches the requested classNbr (handles fuzzy matches)
+  const matchingHit = hits.find((h) => h._source.CLASSNBR === classNbr);
+  if (!matchingHit) {
+    throw new NotFoundError(`Section ${classNbr} not found in response`);
+  }
+
+  const result = mapToClassDetails(matchingHit._source);
   asuApiCache.set(cacheKey, result);
   return result;
 }
