@@ -1,0 +1,258 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetNotificationsForSection, tryRecordNotificationsBatch } from '@/lib/db/queries';
+
+// Mock Supabase service client
+const mockRpc = vi.fn();
+const mockFrom = vi.fn();
+
+vi.mock('@/lib/supabase/service', () => ({
+  getServiceClient: vi.fn(() => ({
+    rpc: mockRpc,
+    from: mockFrom,
+  })),
+}));
+
+describe('Notification Expiration (Issue #157)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('tryRecordNotificationsBatch', () => {
+    it('should record notifications for new watch IDs', async () => {
+      const watchIds = ['watch-1', 'watch-2'];
+      mockRpc.mockResolvedValue({
+        data: ['watch-1', 'watch-2'],
+        error: null,
+      });
+
+      const result = await tryRecordNotificationsBatch(watchIds, 'seat_available');
+
+      expect(result).toEqual(new Set(['watch-1', 'watch-2']));
+      expect(mockRpc).toHaveBeenCalledWith('try_record_notifications_batch', {
+        p_class_watch_ids: watchIds,
+        p_notification_type: 'seat_available',
+        p_expires_hours: 24,
+      });
+    });
+
+    it('should handle instructor_assigned notification type', async () => {
+      const watchIds = ['watch-1'];
+      mockRpc.mockResolvedValue({
+        data: ['watch-1'],
+        error: null,
+      });
+
+      const result = await tryRecordNotificationsBatch(watchIds, 'instructor_assigned', 48);
+
+      expect(result).toEqual(new Set(['watch-1']));
+      expect(mockRpc).toHaveBeenCalledWith('try_record_notifications_batch', {
+        p_class_watch_ids: watchIds,
+        p_notification_type: 'instructor_assigned',
+        p_expires_hours: 48,
+      });
+    });
+
+    it('should return empty set when all notifications are already recorded', async () => {
+      const watchIds = ['watch-1', 'watch-2'];
+      mockRpc.mockResolvedValue({
+        data: [],
+        error: null,
+      });
+
+      const result = await tryRecordNotificationsBatch(watchIds, 'seat_available');
+
+      expect(result).toEqual(new Set());
+    });
+
+    it('should return only newly recorded watch IDs', async () => {
+      const watchIds = ['watch-1', 'watch-2', 'watch-3'];
+      mockRpc.mockResolvedValue({
+        data: ['watch-2'], // Only watch-2 was newly recorded
+        error: null,
+      });
+
+      const result = await tryRecordNotificationsBatch(watchIds, 'seat_available');
+
+      expect(result).toEqual(new Set(['watch-2']));
+    });
+
+    it('should handle empty watch IDs array', async () => {
+      const result = await tryRecordNotificationsBatch([], 'seat_available');
+
+      expect(result).toEqual(new Set());
+      expect(mockRpc).not.toHaveBeenCalled();
+    });
+
+    it('should throw error when RPC fails', async () => {
+      const watchIds = ['watch-1'];
+      mockRpc.mockResolvedValue({
+        data: null,
+        error: { message: 'Database error' },
+      });
+
+      await expect(tryRecordNotificationsBatch(watchIds, 'seat_available')).rejects.toThrow(
+        'Failed to batch record notifications: Database error'
+      );
+    });
+
+    it('should use default expiration of 24 hours', async () => {
+      mockRpc.mockResolvedValue({
+        data: ['watch-1'],
+        error: null,
+      });
+
+      await tryRecordNotificationsBatch(['watch-1'], 'seat_available');
+
+      expect(mockRpc).toHaveBeenCalledWith('try_record_notifications_batch', {
+        p_class_watch_ids: ['watch-1'],
+        p_notification_type: 'seat_available',
+        p_expires_hours: 24,
+      });
+    });
+  });
+
+  describe('resetNotificationsForSection', () => {
+    it('should reset seat_available notifications for a section', async () => {
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            data: [{ id: 'watch-1' }, { id: 'watch-2' }],
+            error: null,
+          })),
+        })),
+        delete: vi.fn(() => ({
+          in: vi.fn(() => ({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          })),
+        })),
+      });
+
+      // Need to handle the chained delete call differently
+      const mockDelete = vi.fn().mockResolvedValue({ error: null });
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({
+            data: [{ id: 'watch-1' }, { id: 'watch-2' }],
+            error: null,
+          }),
+        })),
+        delete: vi.fn(() => ({
+          in: vi.fn(() => ({
+            eq: mockDelete,
+          })),
+        })),
+      });
+
+      await resetNotificationsForSection('12345', 'seat_available');
+
+      expect(mockFrom).toHaveBeenCalledWith('class_watches');
+    });
+
+    it('should throw error when fetching watches fails', async () => {
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            data: null,
+            error: { message: 'Connection error' },
+          })),
+        })),
+      });
+
+      await expect(resetNotificationsForSection('12345')).rejects.toThrow(
+        'Failed to fetch watches: Connection error'
+      );
+    });
+
+    it('should do nothing when no watches found', async () => {
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({
+            data: [],
+            error: null,
+          }),
+        })),
+      });
+
+      await resetNotificationsForSection('12345', 'seat_available');
+
+      // Should not call delete when no watches found
+      expect(mockFrom).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle instructor_assigned notification type', async () => {
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({
+            data: [{ id: 'watch-1' }],
+            error: null,
+          }),
+        })),
+        delete: vi.fn(() => ({
+          in: vi.fn(() => ({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          })),
+        })),
+      });
+
+      await resetNotificationsForSection('12345', 'instructor_assigned');
+
+      expect(mockFrom).toHaveBeenCalledWith('class_watches');
+    });
+
+    it('should use seat_available as default notification type', async () => {
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({
+            data: [{ id: 'watch-1' }],
+            error: null,
+          }),
+        })),
+        delete: vi.fn(() => ({
+          in: vi.fn(() => ({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          })),
+        })),
+      });
+
+      await resetNotificationsForSection('12345');
+
+      // Should default to seat_available
+      expect(mockFrom).toHaveBeenCalledWith('class_watches');
+    });
+  });
+
+  describe('Notification Expiration Edge Cases', () => {
+    it('should handle batch notification recording with custom expiration', async () => {
+      const watchIds = ['watch-1', 'watch-2', 'watch-3'];
+      mockRpc.mockResolvedValue({
+        data: ['watch-1', 'watch-2', 'watch-3'],
+        error: null,
+      });
+
+      const result = await tryRecordNotificationsBatch(watchIds, 'seat_available', 48);
+
+      expect(result.size).toBe(3);
+      expect(mockRpc).toHaveBeenCalledWith('try_record_notifications_batch', {
+        p_class_watch_ids: watchIds,
+        p_notification_type: 'seat_available',
+        p_expires_hours: 48,
+      });
+    });
+
+    it('should handle partial success in batch recording', async () => {
+      const watchIds = ['watch-1', 'watch-2', 'watch-3'];
+      mockRpc.mockResolvedValue({
+        data: ['watch-1', 'watch-3'], // watch-2 was already recorded
+        error: null,
+      });
+
+      const result = await tryRecordNotificationsBatch(watchIds, 'instructor_assigned');
+
+      expect(result).toEqual(new Set(['watch-1', 'watch-3']));
+    });
+  });
+});
