@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Create mock chain with proper structure
+// Create mock chain with proper structure including RPC
 const createMockChain = () => {
   const mockData = { current: null as unknown };
   const mockError = { current: null as { message: string; code: string } | null };
+  const mockRpcResult = {
+    current: { data: null, error: null } as { data: unknown; error: unknown },
+  };
 
   const chain = {
     from: vi.fn(),
@@ -11,13 +14,12 @@ const createMockChain = () => {
     eq: vi.fn(),
     single: vi.fn(),
     delete: vi.fn(),
-    upsert: vi.fn(),
+    rpc: vi.fn(),
   };
 
   chain.from.mockReturnValue({
     select: chain.select,
     delete: chain.delete,
-    upsert: chain.upsert,
   });
 
   chain.select.mockReturnValue({
@@ -36,7 +38,7 @@ const createMockChain = () => {
     Promise.resolve({ data: mockData.current, error: mockError.current })
   );
 
-  chain.upsert.mockResolvedValue({ data: null, error: null });
+  chain.rpc.mockImplementation(() => Promise.resolve(mockRpcResult.current));
 
   return {
     ...chain,
@@ -46,9 +48,13 @@ const createMockChain = () => {
     setMockError: (error: { message: string; code: string } | null) => {
       mockError.current = error;
     },
+    setMockRpcResult: (result: { data: unknown; error: unknown }) => {
+      mockRpcResult.current = result;
+    },
     reset: () => {
       mockData.current = null;
       mockError.current = null;
+      mockRpcResult.current = { data: null, error: null };
       vi.clearAllMocks();
     },
   };
@@ -59,6 +65,7 @@ const mockChain = createMockChain();
 vi.mock('@/lib/supabase/service', () => ({
   getServiceClient: vi.fn(() => ({
     from: mockChain.from,
+    rpc: mockChain.rpc,
   })),
 }));
 
@@ -82,7 +89,6 @@ describe('Lockout utilities', () => {
     mockChain.from.mockReturnValue({
       select: mockChain.select,
       delete: mockChain.delete,
-      upsert: mockChain.upsert,
     });
     mockChain.select.mockReturnValue({
       eq: mockChain.eq,
@@ -202,78 +208,48 @@ describe('Lockout utilities', () => {
   });
 
   describe('incrementFailedAttempts', () => {
-    it('should create new record for first failed attempt', async () => {
-      mockChain.setMockData(null);
-      mockChain.setMockError({ message: 'Not found', code: 'PGRST116' });
+    it('should call RPC with normalized email and max attempts', async () => {
+      mockChain.setMockRpcResult({ data: { attempts: 1, locked: false }, error: null });
 
       await incrementFailedAttempts(testEmail);
 
-      expect(mockChain.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          email: testEmail.toLowerCase(),
-          attempts: 1,
-        }),
-        { onConflict: 'email' }
-      );
-    });
-
-    it('should increment existing attempts', async () => {
-      mockChain.setMockData({ email: testEmail, attempts: 2 });
-      mockChain.setMockError(null);
-
-      await incrementFailedAttempts(testEmail);
-
-      expect(mockChain.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          email: testEmail.toLowerCase(),
-          attempts: 3,
-        }),
-        { onConflict: 'email' }
-      );
-    });
-
-    it('should lock account when MAX_FAILED_ATTEMPTS reached', async () => {
-      mockChain.setMockData({ email: testEmail, attempts: 4 });
-      mockChain.setMockError(null);
-
-      await incrementFailedAttempts(testEmail);
-
-      expect(mockChain.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          email: testEmail.toLowerCase(),
-          attempts: 5,
-          locked_until: expect.any(String),
-        }),
-        { onConflict: 'email' }
-      );
-    });
-
-    it('should set last_attempt_at to current time', async () => {
-      mockChain.setMockData(null);
-      mockChain.setMockError({ message: 'Not found', code: 'PGRST116' });
-
-      await incrementFailedAttempts(testEmail);
-
-      expect(mockChain.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          last_attempt_at: new Date().toISOString(),
-        }),
-        { onConflict: 'email' }
-      );
+      expect(mockChain.rpc).toHaveBeenCalledWith('increment_failed_attempts', {
+        p_email: testEmail.toLowerCase(),
+        p_max_attempts: 5,
+        p_lockout_minutes: 15,
+      });
     });
 
     it('should normalize email to lowercase', async () => {
-      mockChain.setMockData(null);
-      mockChain.setMockError({ message: 'Not found', code: 'PGRST116' });
+      mockChain.setMockRpcResult({ data: { attempts: 1, locked: false }, error: null });
 
       await incrementFailedAttempts('TEST@EXAMPLE.COM');
 
-      expect(mockChain.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          email: 'test@example.com',
-        }),
-        { onConflict: 'email' }
+      expect(mockChain.rpc).toHaveBeenCalledWith('increment_failed_attempts', {
+        p_email: 'test@example.com',
+        p_max_attempts: 5,
+        p_lockout_minutes: 15,
+      });
+    });
+
+    it('should throw error when RPC fails', async () => {
+      mockChain.setMockRpcResult({ data: null, error: { message: 'Database error' } });
+
+      await expect(incrementFailedAttempts(testEmail)).rejects.toThrow(
+        'Failed to record login attempt'
       );
+    });
+
+    it('should handle lockout response from RPC', async () => {
+      mockChain.setMockRpcResult({ data: { attempts: 5, locked: true }, error: null });
+
+      await incrementFailedAttempts(testEmail);
+
+      expect(mockChain.rpc).toHaveBeenCalledWith('increment_failed_attempts', {
+        p_email: testEmail.toLowerCase(),
+        p_max_attempts: 5,
+        p_lockout_minutes: 15,
+      });
     });
   });
 

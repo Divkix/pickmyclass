@@ -302,6 +302,10 @@ export type Database = {
           watch_id: string
         }[]
       }
+      increment_failed_attempts: {
+        Args: { p_email: string; p_max_attempts?: number; p_lockout_minutes?: number }
+        Returns: { attempts: number; locked: boolean }
+      }
       record_engagement_open: {
         Args: { p_user_id: string }
         Returns: undefined
