@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSectionsToCheck } from '@/lib/db/queries';
 
 // Mock Supabase service client
@@ -81,9 +81,7 @@ describe('getSectionsToCheck', () => {
     //
     // This prevents wasting ASU API calls on sections where all
     // watchers are disabled/bounced/spam-complained/engagement-disabled.
-    const mockData = [
-      { class_nbr: '12345', term: '2261' },
-    ];
+    const mockData = [{ class_nbr: '12345', term: '2261' }];
     mockRpc.mockResolvedValue({ data: mockData, error: null });
 
     const result = await getSectionsToCheck('odd');
