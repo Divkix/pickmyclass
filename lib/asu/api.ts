@@ -113,9 +113,9 @@ function composeMeetingTimes(item: AsuApiClassItem): string {
 }
 
 function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
-  const enrlCap = Number.parseInt(item.ENRLCAP ?? '0', 10);
-  const enrlTot = Number.parseInt(item.ENRLTOT ?? '0', 10);
-  const waitTot = Number.parseInt(item.WAITTOT ?? '0', 10);
+  const enrlCap = Number.parseInt(item.ENRLCAP || '0', 10);
+  const enrlTot = Number.parseInt(item.ENRLTOT || '0', 10);
+  const waitTot = Number.parseInt(item.WAITTOT || '0', 10);
 
   return {
     subject: item.SUBJECT,

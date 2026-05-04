@@ -343,4 +343,53 @@ describe('fetchClassFromASU', () => {
       return error instanceof Error && error.message.includes('Section 99999 not found');
     });
   });
+
+  it('should handle empty string enrollment fields without returning NaN', async () => {
+    // Regression test for issue #169: Number.parseInt('', 10) returns NaN
+    // which causes Math.max(0, NaN) to return NaN, serializing as null in JSON
+    const responseWithEmptyStrings = {
+      hits: {
+        total: { value: 1 },
+        hits: [
+          {
+            _source: {
+              CLASSNBR: '12345',
+              SUBJECT: 'CSE',
+              CATALOGNBR: '101',
+              COURSETITLELONG: 'Introduction to Programming',
+              INSTRUCTORSLIST: ['Dr. Smith'],
+              ENRLCAP: '', // Empty string should be treated as 0
+              ENRLTOT: '', // Empty string should be treated as 0
+              WAITTOT: '', // Empty string should be treated as 0
+              FACILITYID: 'MAIN',
+              MON: 'Y',
+              TUES: 'N',
+              WED: 'Y',
+              THURS: 'N',
+              FRI: 'Y',
+              STARTTIME: '09:00:00',
+              ENDTIME: '10:15:00',
+            },
+          },
+        ],
+      },
+    };
+
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(responseWithEmptyStrings), { status: 200 })
+    );
+
+    const result = await fetchClassFromASU('12345', '2264', {
+      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+      ASU_API_TOKEN: 'test-token',
+    });
+
+    // All seat counts should be valid numbers, not NaN
+    expect(result.seats_capacity).toBe(0);
+    expect(result.seats_available).toBe(0);
+    expect(result.non_reserved_seats).toBe(0);
+    expect(Number.isNaN(result.seats_capacity)).toBe(false);
+    expect(Number.isNaN(result.seats_available)).toBe(false);
+    expect(Number.isNaN(result.non_reserved_seats)).toBe(false);
+  });
 });
