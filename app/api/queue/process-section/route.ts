@@ -246,6 +246,17 @@ export async function POST(request: NextRequest) {
 
         const allWatchIds = watchers.map((w: { watch_id: string }) => w.watch_id);
 
+        // Best-effort cleanup of stale notification records from previous failed attempts
+        // This handles the case where a previous rollback failed and records were left behind
+        for (const type of ['seat_available', 'instructor_assigned'] as const) {
+          try {
+            await deleteNotificationRecords(allWatchIds, type);
+          } catch {
+            // Best effort: if cleanup fails, tryRecordNotificationsBatch will skip these
+            // watchers and we'll handle rollback failure at the end if needed
+          }
+        }
+
         if (seatBecameAvailable) {
           const recordedSeatIds = await tryRecordNotificationsBatch(allWatchIds, 'seat_available');
           for (const watcher of watchers) {
@@ -313,6 +324,10 @@ export async function POST(request: NextRequest) {
               console.error(
                 `[Queue-Processor] Failed to rollback notification records for ${class_nbr}:`,
                 rollbackError
+              );
+              return NextResponse.json(
+                { success: false, error: 'Rollback failed' },
+                { status: 500 }
               );
             }
           }

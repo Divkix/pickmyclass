@@ -338,4 +338,104 @@ describe('POST /api/queue/process-section', () => {
       expect(data.emails_sent).toBe(0);
     });
   });
+
+  describe('rollback failure handling (issue #158)', () => {
+    it('should return 500 when deleteNotificationRecords fails for seat_available emails', async () => {
+      // Mock ASU API to return class with open seats
+      mockFetchClassFromASU.mockResolvedValue({
+        subject: 'CSE',
+        catalog_nbr: '110',
+        title: 'Intro to Programming',
+        instructor: 'Dr. Smith',
+        seats_available: 5,
+        seats_capacity: 30,
+        non_reserved_seats: null,
+        location: 'Online',
+        meeting_times: 'MWF 9:00-9:50',
+      });
+
+      // Mock watcher exists
+      mockRpc.mockResolvedValue({
+        data: [{ user_id: 'user-1', email: 'test@example.com', watch_id: 'watch-1' }],
+        error: null,
+      });
+
+      // Mock notification recording to succeed
+      mockTryRecordNotificationsBatch.mockResolvedValue(new Set(['watch-1']));
+
+      // Mock email sending with partial failure (email fails)
+      mockSendBatchEmailsOptimized.mockResolvedValue([
+        { success: false, error: new Error('SMTP error') },
+      ]);
+
+      // Mock rollback to fail - this is the bug scenario
+      mockDeleteNotificationRecords.mockRejectedValue(new Error('Database unavailable'));
+
+      const response = await POST(
+        createRequest(
+          JSON.stringify({ class_nbr: '12345', term: '2261' }),
+          'Bearer test-cron-secret'
+        )
+      );
+
+      const data = (await response.json()) as {
+        success: boolean;
+        error: string;
+      };
+
+      // Should return 500 to allow queue retry, not 200
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toContain('Rollback failed');
+    });
+
+    it('should return 500 when deleteNotificationRecords fails for instructor_assigned emails', async () => {
+      // Mock ASU API to return class with assigned instructor
+      mockFetchClassFromASU.mockResolvedValue({
+        subject: 'CSE',
+        catalog_nbr: '110',
+        title: 'Intro to Programming',
+        instructor: 'Dr. Smith', // Not 'Staff'
+        seats_available: 0, // No seats available
+        seats_capacity: 30,
+        non_reserved_seats: null,
+        location: 'Online',
+        meeting_times: 'MWF 9:00-9:50',
+      });
+
+      // Mock watcher exists
+      mockRpc.mockResolvedValue({
+        data: [{ user_id: 'user-1', email: 'test@example.com', watch_id: 'watch-1' }],
+        error: null,
+      });
+
+      // Mock notification recording to succeed
+      mockTryRecordNotificationsBatch.mockResolvedValue(new Set(['watch-1']));
+
+      // Mock email sending with partial failure
+      mockSendBatchEmailsOptimized.mockResolvedValue([
+        { success: false, error: new Error('SMTP error') },
+      ]);
+
+      // Mock rollback to fail
+      mockDeleteNotificationRecords.mockRejectedValue(new Error('Database unavailable'));
+
+      const response = await POST(
+        createRequest(
+          JSON.stringify({ class_nbr: '12345', term: '2261' }),
+          'Bearer test-cron-secret'
+        )
+      );
+
+      const data = (await response.json()) as {
+        success: boolean;
+        error: string;
+      };
+
+      // Should return 500 to allow queue retry, not 200
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toContain('Rollback failed');
+    });
+  });
 });
