@@ -13,14 +13,19 @@ interface UserProfile {
 }
 
 /**
- * Per-isolate profile cache with 5-minute TTL.
- * Reduces redundant DB lookups within a single Worker isolate.
+ * Per-isolate profile cache with 30-second TTL for authorization decisions.
+ * Reduces redundant DB lookups while ensuring stale data doesn't persist long.
  */
-const profileCache = new TtlCache<UserProfile>(5 * 60 * 1000);
+const profileCache = new TtlCache<UserProfile>(30 * 1000);
 
-/** Clear the profile cache. Exposed for test isolation. */
+/** Clear the entire profile cache. Exposed for test isolation. */
 export function clearProfileCache(): void {
   profileCache.clear();
+}
+
+/** Invalidate cached profile for a specific user. Call when profile is updated. */
+export function invalidateProfileCache(userId: string): boolean {
+  return profileCache.delete(userId);
 }
 
 /**
