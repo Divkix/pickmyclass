@@ -115,9 +115,11 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
     try {
       await onDelete(watch.id);
       toast.success('Class watch removed');
+      setShowDeleteConfirm(false);
     } catch (error) {
       console.error('Failed to delete watch:', error);
       toast.error('Failed to delete watch. Please try again.');
+    } finally {
       setIsDeleting(false);
     }
   };

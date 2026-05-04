@@ -14,7 +14,7 @@ import {
 interface DeleteConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
   title: string;
   description: string;
   confirmText?: string;
@@ -32,9 +32,14 @@ export function DeleteConfirmDialog({
   cancelText = 'Cancel',
   isDeleting = false,
 }: DeleteConfirmDialogProps) {
-  const handleConfirm = () => {
-    onConfirm();
-    onOpenChange(false);
+  const handleConfirm = async () => {
+    try {
+      await onConfirm();
+      onOpenChange(false);
+    } catch {
+      // Error handling is done by the parent (toast, etc.)
+      // Keep dialog open on error
+    }
   };
 
   return (
