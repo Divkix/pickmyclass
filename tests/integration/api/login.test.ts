@@ -32,13 +32,25 @@ vi.mock('@/lib/auth/lockout', () => ({
 
 // Mock the Supabase server client
 const mockSignInWithPassword = vi.fn();
+const mockSignOut = vi.fn();
+
+// Default mock for user_profiles query (non-disabled user)
+const mockSingle = vi.fn().mockResolvedValue({
+  data: { is_disabled: false },
+  error: null,
+});
+const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
+const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
+const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() =>
     Promise.resolve({
       auth: {
         signInWithPassword: mockSignInWithPassword,
+        signOut: mockSignOut,
       },
+      from: mockFrom,
     })
   ),
 }));
@@ -70,6 +82,12 @@ describe('POST /api/auth/login', () => {
       isLocked: false,
       attempts: 0,
       lockedUntil: null,
+    });
+
+    // Reset profile query mock to return non-disabled user by default
+    mockSingle.mockResolvedValue({
+      data: { is_disabled: false },
+      error: null,
     });
   });
 
@@ -295,6 +313,80 @@ describe('POST /api/auth/login', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to sign in');
+    });
+  });
+
+  describe('disabled account', () => {
+    it('should return 403 when user is disabled', async () => {
+      // Mock signInWithPassword to succeed (user has valid credentials)
+      mockSignInWithPassword.mockResolvedValue({
+        data: { user: { id: 'user-123' } },
+        error: null,
+      });
+
+      // Mock the from/single chain for checking user profile
+      const mockSingle = vi.fn().mockResolvedValue({
+        data: { is_disabled: true },
+        error: null,
+      });
+      const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
+      const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
+      const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
+
+      // Mock the signOut function
+      const mockSignOut = vi.fn().mockResolvedValue({ error: null });
+
+      // Override the createClient mock for this test to include from() and signOut()
+      const { createClient } = await import('@/lib/supabase/server');
+      vi.mocked(createClient).mockResolvedValue({
+        auth: {
+          signInWithPassword: mockSignInWithPassword,
+          signOut: mockSignOut,
+        },
+        from: mockFrom,
+      } as never);
+
+      const request = createRequest({ email: 'disabled@example.com', password: 'validpassword' });
+      const response = await POST(request);
+      const data = await parseResponse(response);
+
+      expect(response.status).toBe(403);
+      expect(data.error).toBe('Account has been disabled');
+      expect(mockFrom).toHaveBeenCalledWith('user_profiles');
+      expect(mockSignOut).toHaveBeenCalled();
+    });
+
+    it('should allow login for non-disabled users', async () => {
+      // Mock signInWithPassword to succeed
+      mockSignInWithPassword.mockResolvedValue({
+        data: { user: { id: 'user-456' } },
+        error: null,
+      });
+
+      // Mock the from/single chain to return non-disabled user
+      const mockSingle = vi.fn().mockResolvedValue({
+        data: { is_disabled: false },
+        error: null,
+      });
+      const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
+      const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
+      const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
+
+      const { createClient } = await import('@/lib/supabase/server');
+      vi.mocked(createClient).mockResolvedValue({
+        auth: {
+          signInWithPassword: mockSignInWithPassword,
+        },
+        from: mockFrom,
+      } as never);
+
+      const request = createRequest({ email: 'active@example.com', password: 'validpassword' });
+      const response = await POST(request);
+      const data = await parseResponse(response);
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(mockFrom).toHaveBeenCalledWith('user_profiles');
     });
   });
 });
