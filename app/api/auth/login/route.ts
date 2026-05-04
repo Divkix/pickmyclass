@@ -47,6 +47,20 @@ export async function POST(request: NextRequest) {
       password,
     });
 
+    // Check if user account is disabled before proceeding
+    if (data?.user) {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('is_disabled')
+        .eq('user_id', data.user.id)
+        .single();
+
+      if (profile?.is_disabled) {
+        await supabase.auth.signOut();
+        return NextResponse.json({ error: 'Account has been disabled' }, { status: 403 });
+      }
+    }
+
     if (error || !data?.user) {
       await incrementFailedAttempts(email);
       const updatedStatus = await checkLockoutStatus(email);
