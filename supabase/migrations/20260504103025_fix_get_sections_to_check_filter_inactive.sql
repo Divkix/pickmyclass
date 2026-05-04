@@ -21,10 +21,12 @@ AS $$
   LEFT JOIN public.user_profiles up ON up.user_id = cw.user_id
   WHERE
     -- Only include watches with active user profiles
+    -- All filters must match get_watchers_for_sections and get_class_watchers
     COALESCE(up.notifications_enabled, true) = true
     AND COALESCE(up.email_bounced, false) = false
     AND COALESCE(up.spam_complained, false) = false
     AND COALESCE(up.is_disabled, false) = false
+    AND up.engagement_disabled_at IS NULL
     AND
     CASE
       WHEN stagger_type = 'even' THEN
@@ -40,4 +42,4 @@ AS $$
   ORDER BY cw.class_nbr;
 $$;
 
-COMMENT ON FUNCTION public.get_sections_to_check(TEXT) IS 'Returns distinct class sections to check filtered by even/odd last digit and active watchers only. Excludes sections where all watchers are disabled, bounced, or spam-complained.';
+COMMENT ON FUNCTION public.get_sections_to_check(TEXT) IS 'Returns distinct class sections to check filtered by even/odd last digit and active watchers only. Excludes sections where all watchers are disabled, bounced, spam-complained, or engagement-disabled (low email engagement).';

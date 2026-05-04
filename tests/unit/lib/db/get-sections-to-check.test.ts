@@ -37,6 +37,7 @@ describe('getSectionsToCheck', () => {
     // - email_bounced = false
     // - spam_complained = false
     // - is_disabled = false
+    // - engagement_disabled_at IS NULL (not auto-disabled due to low engagement)
     const mockData = [
       { class_nbr: '12345', term: '2261' }, // Has active watcher
       { class_nbr: '12347', term: '2261' }, // Has active watcher
@@ -76,9 +77,10 @@ describe('getSectionsToCheck', () => {
     // - COALESCE(up.email_bounced, false) = false
     // - COALESCE(up.spam_complained, false) = false
     // - COALESCE(up.is_disabled, false) = false
+    // - up.engagement_disabled_at IS NULL
     //
     // This prevents wasting ASU API calls on sections where all
-    // watchers are disabled/bounced/spam-complained.
+    // watchers are disabled/bounced/spam-complained/engagement-disabled.
     const mockData = [
       { class_nbr: '12345', term: '2261' },
     ];
