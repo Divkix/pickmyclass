@@ -246,19 +246,34 @@ export async function POST(request: NextRequest) {
 
         const allWatchIds = watchers.map((w: { watch_id: string }) => w.watch_id);
 
-        // Best-effort cleanup of stale notification records from previous failed attempts
-        // This handles the case where a previous rollback failed and records were left behind
-        for (const type of ['seat_available', 'instructor_assigned'] as const) {
-          try {
-            await deleteNotificationRecords(allWatchIds, type);
-          } catch {
-            // Best effort: if cleanup fails, tryRecordNotificationsBatch will skip these
-            // watchers and we'll handle rollback failure at the end if needed
+        // Helper function to record notifications with conditional cleanup
+        // Only runs cleanup when tryRecordNotificationsBatch returns empty (stale records exist)
+        async function recordWithCleanup(
+          watchIds: string[],
+          type: 'seat_available' | 'instructor_assigned'
+        ): Promise<Set<string>> {
+          // First attempt to record notifications
+          let recordedIds = await tryRecordNotificationsBatch(watchIds, type);
+
+          // If no records were claimed (empty set) and we have watchers,
+          // there might be stale records from a previous failed rollback
+          if (recordedIds.size === 0 && watchIds.length > 0) {
+            // Best-effort cleanup of stale notification records
+            try {
+              await deleteNotificationRecords(watchIds, type);
+            } catch {
+              // Best effort: if cleanup fails, we'll return the empty set
+              // and the caller will skip these watchers
+            }
+            // Retry recording after cleanup
+            recordedIds = await tryRecordNotificationsBatch(watchIds, type);
           }
+
+          return recordedIds;
         }
 
         if (seatBecameAvailable) {
-          const recordedSeatIds = await tryRecordNotificationsBatch(allWatchIds, 'seat_available');
+          const recordedSeatIds = await recordWithCleanup(allWatchIds, 'seat_available');
           for (const watcher of watchers) {
             if (recordedSeatIds.has(watcher.watch_id)) {
               emailsToSend.push({
@@ -273,10 +288,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (instructorAssigned) {
-          const recordedInstructorIds = await tryRecordNotificationsBatch(
-            allWatchIds,
-            'instructor_assigned'
-          );
+          const recordedInstructorIds = await recordWithCleanup(allWatchIds, 'instructor_assigned');
           for (const watcher of watchers) {
             if (recordedInstructorIds.has(watcher.watch_id)) {
               emailsToSend.push({
