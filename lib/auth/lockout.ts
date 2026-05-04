@@ -61,39 +61,25 @@ export async function checkLockoutStatus(email: string): Promise<LockoutStatus> 
 
 /**
  * Increment failed login attempts for an email address
- * Locks account after MAX_FAILED_ATTEMPTS
+ * Uses atomic database operation to prevent race conditions
  */
 export async function incrementFailedAttempts(email: string): Promise<void> {
   const supabase = getServiceClient();
   const normalizedEmail = email.toLowerCase();
 
-  const { data: existing } = await supabase
-    .from('failed_login_attempts')
-    .select('*')
-    .eq('email', normalizedEmail)
-    .single();
+  const { error } = await supabase.rpc('increment_failed_attempts', {
+    p_email: normalizedEmail,
+    p_max_attempts: MAX_FAILED_ATTEMPTS,
+    p_lockout_minutes: LOCKOUT_DURATION_MINUTES,
+  });
 
-  const newAttempts = (existing?.attempts ?? 0) + 1;
-  const shouldLock = newAttempts >= MAX_FAILED_ATTEMPTS;
-
-  const updateData: {
-    email: string;
-    attempts: number;
-    last_attempt_at: string;
-    locked_until?: string;
-  } = {
-    email: normalizedEmail,
-    attempts: newAttempts,
-    last_attempt_at: new Date().toISOString(),
-  };
-
-  if (shouldLock) {
-    const lockoutEnd = new Date();
-    lockoutEnd.setMinutes(lockoutEnd.getMinutes() + LOCKOUT_DURATION_MINUTES);
-    updateData.locked_until = lockoutEnd.toISOString();
+  if (error) {
+    throw new Error('Failed to record login attempt');
   }
 
-  await supabase.from('failed_login_attempts').upsert(updateData, { onConflict: 'email' });
+  // RPC returns { attempts: number, locked: boolean }
+  // The database function handles atomic increment and lockout logic
+  return;
 }
 
 /**
