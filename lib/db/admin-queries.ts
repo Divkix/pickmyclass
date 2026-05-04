@@ -17,7 +17,7 @@ const adminCache = new TtlCache<unknown>(600_000);
 /**
  * Email notification counts (seat and instructor)
  */
-export interface EmailCounts {
+interface EmailCounts {
   seat_emails: number;
   instructor_emails: number;
 }
@@ -59,7 +59,7 @@ export interface UserWithWatchCount {
 /**
  * Class watch with joined class state information
  */
-export interface WatchWithClass extends Tables<'class_watches'> {
+interface WatchWithClass extends Tables<'class_watches'> {
   class_state: Tables<'class_states'> | null;
 }
 
@@ -132,7 +132,7 @@ async function fetchAllAuthUsers(): Promise<User[]> {
  *
  * @returns Map of class_nbr to EmailCounts
  */
-export async function getNotificationCountsByClass(): Promise<Map<string, EmailCounts>> {
+async function getNotificationCountsByClass(): Promise<Map<string, EmailCounts>> {
   const supabase = getServiceClient();
 
   // Cast to unknown first to bypass strict type checking until types are regenerated
@@ -164,7 +164,7 @@ export async function getNotificationCountsByClass(): Promise<Map<string, EmailC
  *
  * @returns Map of user_id to EmailCounts
  */
-export async function getNotificationCountsByUser(): Promise<Map<string, EmailCounts>> {
+async function getNotificationCountsByUser(): Promise<Map<string, EmailCounts>> {
   const supabase = getServiceClient();
 
   // Cast to unknown first to bypass strict type checking until types are regenerated
@@ -196,7 +196,7 @@ export async function getNotificationCountsByUser(): Promise<Map<string, EmailCo
  *
  * @returns Map of user_id to engagement stats
  */
-export async function getEngagementStats(): Promise<Map<string, EngagementStatsRow>> {
+async function getEngagementStats(): Promise<Map<string, EngagementStatsRow>> {
   const supabase = getServiceClient();
 
   const { data, error } = await supabase.rpc('get_user_engagement_stats');
