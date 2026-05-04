@@ -314,6 +314,10 @@ export async function POST(request: NextRequest) {
                 `[Queue-Processor] Failed to rollback notification records for ${class_nbr}:`,
                 rollbackError
               );
+              return NextResponse.json(
+                { success: false, error: 'Rollback failed' },
+                { status: 500 }
+              );
             }
           }
 
