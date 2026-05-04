@@ -34,7 +34,7 @@ export interface ClassDetails {
   instructor: string;
   seats_available: number;
   seats_capacity: number;
-  non_reserved_seats: null;
+  non_reserved_seats: number | null;
   location: string;
   meeting_times: string;
 }

@@ -30,6 +30,42 @@ function buildAsuSuccessResponse() {
   };
 }
 
+function buildAsuResponseWithWaitlist(
+  enrlCap: string,
+  enrlTot: string,
+  waitTot: string,
+  waitCap: string
+) {
+  return {
+    hits: {
+      total: { value: 1 },
+      hits: [
+        {
+          _source: {
+            CLASSNBR: '12345',
+            SUBJECT: 'CSE',
+            CATALOGNBR: '101',
+            COURSETITLELONG: 'Introduction to Programming',
+            INSTRUCTORSLIST: ['Dr. Smith'],
+            ENRLCAP: enrlCap,
+            ENRLTOT: enrlTot,
+            WAITTOT: waitTot,
+            WAITCAP: waitCap,
+            FACILITYID: 'MAIN',
+            MON: 'Y',
+            TUES: 'N',
+            WED: 'Y',
+            THURS: 'N',
+            FRI: 'Y',
+            STARTTIME: '09:00:00',
+            ENDTIME: '10:15:00',
+          },
+        },
+      ],
+    },
+  };
+}
+
 describe('fetchClassFromASU', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -113,5 +149,52 @@ describe('fetchClassFromASU', () => {
         ASU_API_TOKEN: 'test-token',
       })
     ).rejects.toThrow('ASU API request timed out');
+  });
+
+  it('should compute non_reserved_seats correctly with waitlist data', async () => {
+    // enrlCap=30, enrlTot=10, waitTot=5 → non_reserved_seats = max(0, 30-10-5) = 15
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(buildAsuResponseWithWaitlist('30', '10', '5', '10')), {
+        status: 200,
+      })
+    );
+
+    const result = await fetchClassFromASU('12345', '2264', {
+      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+      ASU_API_TOKEN: 'test-token',
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(result.non_reserved_seats).toBe(15);
+  });
+
+  it('should return 0 for non_reserved_seats when all seats are filled including waitlist', async () => {
+    // enrlCap=30, enrlTot=25, waitTot=10 → non_reserved_seats = max(0, 30-25-10) = 0
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(buildAsuResponseWithWaitlist('30', '25', '10', '10')), {
+        status: 200,
+      })
+    );
+
+    const result = await fetchClassFromASU('12345', '2264', {
+      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+      ASU_API_TOKEN: 'test-token',
+    });
+
+    expect(result.non_reserved_seats).toBe(0);
+  });
+
+  it('should compute non_reserved_seats correctly when no waitlist data is provided', async () => {
+    // enrlCap=25, enrlTot=4, no WAITTOT/WAITCAP → non_reserved_seats = max(0, 25-4-0) = 21
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(buildAsuSuccessResponse()), { status: 200 })
+    );
+
+    const result = await fetchClassFromASU('42737', '2264', {
+      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+      ASU_API_TOKEN: 'null',
+    });
+
+    expect(result.non_reserved_seats).toBe(21);
   });
 });

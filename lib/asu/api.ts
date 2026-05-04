@@ -115,6 +115,7 @@ function composeMeetingTimes(item: AsuApiClassItem): string {
 function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
   const enrlCap = Number.parseInt(item.ENRLCAP ?? '0', 10);
   const enrlTot = Number.parseInt(item.ENRLTOT ?? '0', 10);
+  const waitTot = Number.parseInt(item.WAITTOT ?? '0', 10);
 
   return {
     subject: item.SUBJECT,
@@ -123,7 +124,7 @@ function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
     instructor: item.INSTRUCTORSLIST?.[0] || 'Staff',
     seats_available: Math.max(0, enrlCap - enrlTot),
     seats_capacity: enrlCap,
-    non_reserved_seats: null,
+    non_reserved_seats: Math.max(0, enrlCap - enrlTot - waitTot),
     location: item.FACILITYID || 'TBD',
     meeting_times: composeMeetingTimes(item),
   };
