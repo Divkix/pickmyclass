@@ -27,7 +27,7 @@ const setupMockChain = () => {
 };
 
 // Import proxy after mocks are set up
-import proxy, { clearProfileCache } from '@/proxy';
+import proxy, { clearProfileCache, invalidateProfileCache } from '@/proxy';
 
 // Helper to create NextRequest (unauthenticated)
 const createRequest = (pathname: string): NextRequest => {
@@ -603,6 +603,102 @@ describe('proxy', () => {
       // getRedirectPath returns '/dashboard' when profile is null
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');
+    });
+  });
+
+  describe('profile cache invalidation', () => {
+    it('should use cached profile on subsequent requests', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+
+      // First request - should cache
+      const request1 = createRequest('/dashboard');
+      await proxy(request1);
+
+      // Second request - should use cache (single() not called again)
+      const request2 = createRequest('/dashboard');
+      await proxy(request2);
+
+      // Database should only be queried once due to cache
+      expect(mockSingle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should fetch fresh profile after cache invalidation', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      // First call returns admin, second call returns regular user (after demotion)
+      mockSingle
+        .mockResolvedValueOnce({ data: mockAdminProfile, error: null })
+        .mockResolvedValue({ data: mockRegularProfile, error: null });
+
+      // First request - admin user
+      const request1 = createRequest('/dashboard');
+      const response1 = await proxy(request1);
+      expect(response1.headers.get('location')).toBe('http://localhost:3000/admin');
+
+      // Invalidate cache (simulating admin demotion)
+      invalidateProfileCache(mockAuthenticatedUser.id);
+
+      // Second request - should fetch fresh profile (regular user)
+      const request2 = createRequest('/dashboard');
+      const response2 = await proxy(request2);
+      expect(response2.status).toBe(200); // Not redirected, regular user can access dashboard
+
+      // Database should be queried twice (before and after invalidation)
+      expect(mockSingle).toHaveBeenCalledTimes(2);
+    });
+
+    it('should redirect to login after disabled account cache invalidation', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSignOut.mockResolvedValue({ error: null });
+      // First call returns active user, second call returns disabled
+      mockSingle
+        .mockResolvedValueOnce({ data: mockRegularProfile, error: null })
+        .mockResolvedValue({ data: mockDisabledProfile, error: null });
+
+      // First request - active user
+      const request1 = createRequest('/dashboard');
+      const response1 = await proxy(request1);
+      expect(response1.status).toBe(200);
+
+      // Invalidate cache (simulating account disable)
+      invalidateProfileCache(mockAuthenticatedUser.id);
+
+      // Second request - should detect disabled account
+      const request2 = createRequest('/dashboard');
+      const response2 = await proxy(request2);
+      expect(response2.headers.get('location')).toContain('/login?error=account_disabled');
+      expect(mockSignOut).toHaveBeenCalled();
+    });
+
+    it('invalidateProfileCache returns true when key existed', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+
+      // Populate cache
+      const request = createRequest('/dashboard');
+      await proxy(request);
+
+      // Invalidate should return true since key existed
+      const result = invalidateProfileCache(mockAuthenticatedUser.id);
+      expect(result).toBe(true);
+    });
+
+    it('invalidateProfileCache returns false when key did not exist', () => {
+      // Try to invalidate cache for user that was never cached
+      const result = invalidateProfileCache('non-cached-user-id');
+      expect(result).toBe(false);
     });
   });
 });

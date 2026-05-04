@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
+import { invalidateProfileCache } from '@/proxy';
 
 /**
  * Account Deletion API - CCPA Compliance
@@ -42,6 +43,9 @@ export async function DELETE() {
       console.error('Error disabling account:', updateError);
       return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 });
     }
+
+    // Invalidate the profile cache to ensure immediate effect
+    invalidateProfileCache(user.id);
 
     // Sign out the user (invalidate session)
     const { error: signOutError } = await supabase.auth.signOut();

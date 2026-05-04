@@ -108,4 +108,33 @@ describe('TtlCache', () => {
     cache.set('key', 'new');
     expect(cache.get('key')).toBe('new');
   });
+
+  it('deletes specific key and returns true when key existed', () => {
+    const cache = new TtlCache<string>(1000);
+    cache.set('key', 'value');
+
+    const result = cache.delete('key');
+
+    expect(result).toBe(true);
+    expect(cache.get('key')).toBeUndefined();
+  });
+
+  it('returns false when deleting non-existent key', () => {
+    const cache = new TtlCache<string>(1000);
+
+    const result = cache.delete('non-existent');
+
+    expect(result).toBe(false);
+  });
+
+  it('only deletes specified key without affecting others', () => {
+    const cache = new TtlCache<string>(1000);
+    cache.set('key1', 'value1');
+    cache.set('key2', 'value2');
+
+    cache.delete('key1');
+
+    expect(cache.get('key1')).toBeUndefined();
+    expect(cache.get('key2')).toBe('value2');
+  });
 });
