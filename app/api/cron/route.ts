@@ -94,7 +94,10 @@ export async function GET(request: NextRequest) {
     // Math.floor(currentMinute / 30) gives us: 0 for :00-:29, 1 for :30-:59
     // Modulo 2 alternates between 0 and 1 for each 30-minute window
     // Result: :00 → even (0 % 2 = 0), :30 → odd (1 % 2 = 1)
-    const now = new Date();
+    // Use scheduled time from header if available (from worker.ts cron handler)
+    // Falls back to current time for manual API calls or if header is missing
+    const scheduledTimeHeader = request.headers.get('X-Cron-Scheduled-Time');
+    const now = scheduledTimeHeader ? new Date(Number(scheduledTimeHeader)) : new Date();
     const currentMinute = now.getMinutes();
     const staggerGroup = Math.floor(currentMinute / 30) % 2 === 0 ? 'even' : 'odd';
 
