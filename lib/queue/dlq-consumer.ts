@@ -68,6 +68,18 @@ export async function handleDLQMessage(
         <p>This section exhausted all 3 retries and was moved to the dead letter queue.
         It will be retried on the next cron cycle.</p>
       `,
+      text: [
+        'Dead Letter Queue Alert',
+        '',
+        `Section: ${class_nbr}`,
+        `Term: ${term}`,
+        `Enqueued At: ${enqueued_at}`,
+        `Failed At: ${timestamp}`,
+        `Watchers Affected: ${watcherCount}`,
+        '',
+        'This section exhausted all 3 retries and was moved to the dead letter queue.',
+        'It will be retried on the next cron cycle.',
+      ].join('\n'),
     });
 
     console.log('[DLQ]', `Alert email sent for section ${class_nbr}`);

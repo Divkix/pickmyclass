@@ -11,6 +11,13 @@ import { generateUnsubscribeUrl } from './unsubscribe-token';
 
 export type { ClassInfo } from './types';
 
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /**
  * Email sending result
  */
@@ -51,15 +58,18 @@ export async function sendBatchEmailsOptimized(
     const isSeatAvailable = email.type === 'seat_available';
 
     try {
+      const html = isSeatAvailable
+        ? SeatAvailableEmailTemplate(email.classInfo, unsubscribeUrl)
+        : InstructorAssignedEmailTemplate(email.classInfo, unsubscribeUrl);
+
       const response = await emailBinding.send({
         to: email.to,
         from: fromEmail,
         subject: isSeatAvailable
           ? `🎉 Seat Available: ${email.classInfo.subject} ${email.classInfo.catalog_nbr} (${email.classInfo.class_nbr})`
           : `👨‍🏫 Instructor Assigned: ${email.classInfo.subject} ${email.classInfo.catalog_nbr} (${email.classInfo.class_nbr})`,
-        html: isSeatAvailable
-          ? SeatAvailableEmailTemplate(email.classInfo, unsubscribeUrl)
-          : InstructorAssignedEmailTemplate(email.classInfo, unsubscribeUrl),
+        html,
+        text: stripHtml(html),
         headers: {
           'List-Unsubscribe': `<${unsubscribeUrl}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',

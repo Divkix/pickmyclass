@@ -1,7 +1,7 @@
 {
   "main": "./worker.ts",
   "name": "pickmyclass",
-  "compatibility_date": "2025-10-21",
+  "compatibility_date": "2026-05-07",
   "compatibility_flags": [
     // Enable Node.js API
     // see https://developers.cloudflare.com/workers/configuration/compatibility-flags/#nodejs-compatibility-flag
@@ -93,10 +93,11 @@
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
     "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app"
   },
-  // NEW: Email sending binding
+  // Email sending via Cloudflare Email Service
   "send_email": [
     {
-      "name": "EMAIL"
+      "name": "EMAIL",
+      "remote": true
     }
   ]
   // IMPORTANT: Set these secrets via 'wrangler secret put <NAME>' or Cloudflare Dashboard:

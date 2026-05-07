@@ -158,4 +158,29 @@ describe('sendBatchEmailsOptimized', () => {
       })
     );
   });
+
+  it('includes plain-text fallback alongside HTML', async () => {
+    const sendEmail = createMockSendEmail();
+    const emails = [
+      {
+        to: 'user@test.com',
+        userId: 'u1',
+        classInfo: buildClassInfo(),
+        type: 'seat_available' as const,
+      },
+    ];
+
+    await sendBatchEmailsOptimized(emails, sendEmail as unknown as SendEmail);
+
+    expect(sendEmail.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        html: expect.stringContaining('html'),
+        text: expect.any(String),
+      })
+    );
+    // text should be the HTML stripped of tags — mock returns '<html>seat</html>'
+    const callArgs = sendEmail.send.mock.calls[0][0];
+    expect(callArgs.text).toBeTruthy();
+    expect(callArgs.text).not.toContain('<');
+  });
 });
