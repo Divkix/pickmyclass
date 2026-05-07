@@ -60,7 +60,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "@vitejs/plugin-rsc": "^0.5.25",
+    "@vitejs/plugin-rsc": "^0.5.26",
     "@vitest/coverage-v8": "^4.1.5",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
