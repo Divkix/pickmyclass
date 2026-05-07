@@ -9,7 +9,7 @@ Built with vinext (Vite-based Next.js), Supabase, and deployed on Cloudflare Wor
 - **Seat Monitoring** - Track when seats become available in full classes
 - **Instructor Tracking** - Get notified when "Staff" instructors are assigned to specific professors
 - **Real-time Updates** - Dashboard updates live via Supabase Realtime subscriptions
-- **Email Notifications** - Instant email alerts via Resend when changes are detected
+- **Email Notifications** - Instant email alerts via Cloudflare Email Service when changes are detected
 - **Smart Deduplication** - Prevents duplicate notifications using atomic PostgreSQL operations
 - **Scalable Queue Processing** - Handles 10,000+ users with parallel Cloudflare Queues
 - **30-Minute Checks** - Automated checks via Cloudflare Workers Cron Triggers
@@ -65,7 +65,7 @@ Queue Consumers (100+ concurrent Workers)
 ASU Class Search API (direct HTTP calls)
      |
      v
-Change Detection --> Resend Email API --> User Notifications
+Change Detection --> Cloudflare Email Service --> User Notifications
 ```
 
 ### Key Components
@@ -91,7 +91,6 @@ Change Detection --> Resend Email API --> User Notifications
 - [Bun](https://bun.sh/) (package manager)
 - [Supabase Account](https://supabase.com/) (free tier available)
 - [Cloudflare Account](https://cloudflare.com/) (free tier available)
-- [Resend Account](https://resend.com/) (free tier: 100 emails/day)
 - ASU API access (configured via `ASU_API_BASE_URL` and `ASU_API_TOKEN`)
 
 ### 1. Clone and Install
@@ -135,7 +134,6 @@ Required variables:
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (bypasses RLS) | Supabase Dashboard -> Settings -> API |
 | `ASU_API_BASE_URL` | Base URL for ASU Class Search API | ASU API endpoint |
 | `ASU_API_TOKEN` | Auth token for ASU API | Generate: `openssl rand -hex 32` |
-| `RESEND_API_KEY` | Resend API key | [resend.com/api-keys](https://resend.com/api-keys) |
 | `CRON_SECRET` | Auth for cron endpoint | Generate: `openssl rand -hex 32` |
 
 ### 4. Update Cloudflare Configuration
@@ -179,8 +177,6 @@ wrangler secret put NEXT_PUBLIC_SUPABASE_ANON_KEY
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 wrangler secret put ASU_API_BASE_URL
 wrangler secret put ASU_API_TOKEN
-wrangler secret put RESEND_API_KEY
-wrangler secret put RESEND_WEBHOOK_SECRET
 wrangler secret put CRON_SECRET
 ```
 
@@ -255,7 +251,7 @@ bunx supabase migration new <name>   # Create new migration
 - **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4
 - **Backend**: Cloudflare Workers (via vinext), Supabase (PostgreSQL + Auth + Realtime)
 - **Data Source**: ASU Class Search API (direct HTTP)
-- **Email**: Resend (transactional emails)
+- **Email**: Cloudflare Email Service (transactional emails)
 - **Deployment**: Cloudflare Workers + Pages
 
 ## Project Structure
@@ -266,7 +262,6 @@ app/                         # App Router
   │   ├── class-watches/     # CRUD API for user watches
   │   ├── cron/              # Cloudflare Workers cron handler
   │   ├── queue/             # Queue consumer handlers
-  │   └── webhooks/          # Resend webhook handlers
   ├── dashboard/             # Main dashboard with Realtime updates
   ├── login/                 # Authentication pages
   └── layout.tsx             # Root layout
@@ -274,7 +269,7 @@ app/                         # App Router
 lib/
   ├── supabase/              # Supabase clients (browser, server, service)
   ├── db/                    # Database query helpers
-  ├── email/                 # Resend integration + templates
+  ├── email/                 # Email templates + Cloudflare Email Service integration
   └── hooks/                 # React hooks (Realtime subscriptions)
 
 components/
@@ -295,7 +290,7 @@ wrangler.jsonc               # Cloudflare Workers config
 3. **Queue consumers process** - 100+ Workers query ASU API in parallel
 4. **Change detection** - Compare new state with PostgreSQL cached state
 5. **Atomic deduplication** - PostgreSQL `INSERT...ON CONFLICT` prevents race conditions
-6. **Email notification** - Resend batch API sends alerts for available seats
+6. **Email notification** - Cloudflare Email Service sends alerts for available seats
 7. **Real-time update** - Dashboard reflects changes via Supabase Realtime
 
 ## Contributing
@@ -319,5 +314,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [vinext](https://github.com/cloudflare/vinext) - Vite-based Next.js reimplementation for Cloudflare Workers
 - [Supabase](https://supabase.com/) - Open source Firebase alternative
-- [Resend](https://resend.com/) - Modern email API
+- [Cloudflare Email Service](https://developers.cloudflare.com/email/) - Email sending from Workers
 - [shadcn/ui](https://ui.shadcn.com/) - UI component library

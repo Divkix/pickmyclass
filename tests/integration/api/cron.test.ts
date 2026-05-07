@@ -75,7 +75,9 @@ describe('GET /api/cron', () => {
 
     // Arrange: Mock queue to succeed
     const { env } = await import('cloudflare:workers');
-    vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue(undefined);
+    vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue({
+      metadata: {},
+    } as QueueSendBatchResponse);
 
     // Act
     const response = await GET(createRequest('Bearer test-cron-secret'));
@@ -108,7 +110,7 @@ describe('GET /api/cron', () => {
       if (callCount === 2) {
         return Promise.reject(new Error('Transient error'));
       }
-      return Promise.resolve(undefined);
+      return Promise.resolve({ metadata: {} } as QueueSendBatchResponse);
     });
 
     // Act
@@ -136,7 +138,9 @@ describe('GET /api/cron', () => {
 
     // Arrange: Mock queue to succeed
     const { env } = await import('cloudflare:workers');
-    vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue(undefined);
+    vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue({
+      metadata: {},
+    } as QueueSendBatchResponse);
 
     // Set current time to :30 (odd stagger group)
     vi.setSystemTime(new Date('2024-01-15T12:30:00Z'));
