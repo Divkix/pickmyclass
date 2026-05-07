@@ -423,6 +423,12 @@ describe('/api/class-watches', () => {
           p_class_nbr: '12345',
         })
       );
+      expect(mockServiceUpsert).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          last_changed_at: expect.any(String),
+        }),
+        { onConflict: 'class_nbr' }
+      );
     });
   });
 

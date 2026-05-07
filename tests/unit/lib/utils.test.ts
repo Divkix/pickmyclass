@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cn, timingSafeCompare } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { timingSafeCompare } from '@/lib/utils/crypto';
 
 describe('timingSafeCompare', () => {
   describe('constant-time comparison security', () => {

@@ -10,7 +10,7 @@ const ASU_SCHOOL_ID = '15723'; // Arizona State University (Tempe) school ID on 
  * @returns RMP search URL or null if professor name is invalid
  */
 export function getRateMyProfessorUrl(professorName: string | null | undefined): string | null {
-  if (!professorName || professorName.trim() === '' || professorName.toLowerCase() === 'staff') {
+  if (!professorName || !isValidProfessorName(professorName)) {
     return null;
   }
 

@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
           location: classDetails.location || null,
           meeting_times: classDetails.meeting_times || null,
           last_checked_at: new Date().toISOString(),
-          last_changed_at: new Date().toISOString(),
         },
         {
           onConflict: 'class_nbr',

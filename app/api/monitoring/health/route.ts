@@ -33,7 +33,8 @@ export async function GET(request: Request) {
   // Auth check first - unauthenticated requests get a simple liveness probe
   // without running expensive DB/DO queries (prevents DoS via health endpoint)
   const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
+  const cfRecord = env as unknown as Record<string, string | undefined>;
+  const cronSecret = process.env.CRON_SECRET || cfRecord.CRON_SECRET;
   const isAuthenticated =
     !!cronSecret && !!authHeader && timingSafeCompare(authHeader, `Bearer ${cronSecret}`);
 
@@ -167,8 +168,6 @@ export async function GET(request: Request) {
     'CRON_SECRET',
   ];
 
-  // Check vars from both process.env and Cloudflare context
-  const cfRecord = env as unknown as Record<string, string | undefined>;
   const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key] && !cfRecord[key]);
 
   health.checks.configuration = {

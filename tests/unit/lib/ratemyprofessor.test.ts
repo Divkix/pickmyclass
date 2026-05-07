@@ -144,6 +144,13 @@ describe('RateMyProfessor utilities', () => {
         expect(getRateMyProfessorUrl('STAFF')).toBeNull();
         expect(getRateMyProfessorUrl('staff')).toBeNull();
       });
+
+      it('should return null for placeholder instructor names', () => {
+        expect(getRateMyProfessorUrl('TBA')).toBeNull();
+        expect(getRateMyProfessorUrl('TBD')).toBeNull();
+        expect(getRateMyProfessorUrl('To Be Announced')).toBeNull();
+        expect(getRateMyProfessorUrl('To Be Determined')).toBeNull();
+      });
     });
 
     describe('URL structure validation', () => {
