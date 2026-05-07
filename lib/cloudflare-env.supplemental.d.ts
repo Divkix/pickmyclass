@@ -5,7 +5,6 @@
 declare namespace Cloudflare {
   interface Env {
     CRON_SECRET: string;
-    RESEND_WEBHOOK_SECRET: string;
     UNSUBSCRIBE_SIGNING_SECRET?: string;
     ASU_API_BASE_URL: string;
     ASU_API_TOKEN: string;
@@ -16,7 +15,6 @@ declare namespace Cloudflare {
 declare namespace NodeJS {
   interface ProcessEnv {
     CRON_SECRET: string;
-    RESEND_WEBHOOK_SECRET: string;
     UNSUBSCRIBE_SIGNING_SECRET?: string;
     ASU_API_BASE_URL: string;
     ASU_API_TOKEN: string;

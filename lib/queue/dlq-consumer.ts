@@ -5,7 +5,6 @@
  * Provides visibility via structured logging and admin alert emails.
  */
 
-import { Resend } from 'resend';
 import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassCheckMessage } from '@/lib/types/queue';
 
@@ -14,11 +13,14 @@ import type { ClassCheckMessage } from '@/lib/types/queue';
  *
  * 1. Logs structured error for observability
  * 2. Looks up affected watchers
- * 3. Sends admin alert email via Resend
+ * 3. Sends admin alert email via Cloudflare Email Service
  *
  * This function must never throw — DLQ messages should always be acked.
  */
-export async function handleDLQMessage(message: ClassCheckMessage): Promise<void> {
+export async function handleDLQMessage(
+  message: ClassCheckMessage,
+  emailBinding: SendEmail
+): Promise<void> {
   const { class_nbr, term, enqueued_at } = message;
   const timestamp = new Date().toISOString();
 
@@ -49,17 +51,10 @@ export async function handleDLQMessage(message: ClassCheckMessage): Promise<void
   console.log('[DLQ]', `Section ${class_nbr}: ${watcherCount} watchers affected`);
 
   // 3. Send admin alert email
-  const alertEmail = process.env.DLQ_ALERT_EMAIL || process.env.NOTIFICATION_FROM_EMAIL;
-  if (!alertEmail || !process.env.RESEND_API_KEY) {
-    console.warn('[DLQ]', 'Alert email not configured — skipping email notification');
-    return;
-  }
-
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
-      from: process.env.NOTIFICATION_FROM_EMAIL || alertEmail,
-      to: alertEmail,
+    await emailBinding.send({
+      to: 'alerts@pickmyclass.app',
+      from: 'notifications@pickmyclass.app',
       subject: `[DLQ Alert] Section ${class_nbr} permanently failed`,
       html: `
         <h2>Dead Letter Queue Alert</h2>

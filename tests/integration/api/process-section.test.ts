@@ -63,7 +63,7 @@ vi.mock('@/lib/asu/api', () => ({
 
 // Mock email sending
 const mockSendBatchEmailsOptimized = vi.fn();
-vi.mock('@/lib/email/resend', () => ({
+vi.mock('@/lib/email/send', () => ({
   sendBatchEmailsOptimized: (...args: unknown[]) => mockSendBatchEmailsOptimized(...args),
 }));
 

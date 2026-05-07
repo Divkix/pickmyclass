@@ -21,7 +21,7 @@ import {
   resetNotificationsForSection,
   tryRecordNotificationsBatch,
 } from '@/lib/db/queries';
-import { type ClassInfo, sendBatchEmailsOptimized } from '@/lib/email/resend';
+import { type ClassInfo, sendBatchEmailsOptimized } from '@/lib/email/send';
 import { getServiceClient } from '@/lib/supabase/service';
 import type { Env } from '@/lib/types/env';
 import { timingSafeCompare } from '@/lib/utils/crypto';
@@ -304,7 +304,7 @@ export async function POST(request: NextRequest) {
 
         // Send batch emails using optimized batch API
         if (emailsToSend.length > 0) {
-          const results = await sendBatchEmailsOptimized(emailsToSend);
+          const results = await sendBatchEmailsOptimized(emailsToSend, cfEnv.EMAIL);
 
           // Count successful sends (notifications already recorded via batch dedup)
           const successfulEmails = results

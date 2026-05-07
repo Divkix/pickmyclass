@@ -92,12 +92,16 @@
     // UPDATE THESE VALUES for your deployment:
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
     "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app"
-  }
+  },
+  // NEW: Email sending binding
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ]
   // IMPORTANT: Set these secrets via 'wrangler secret put <NAME>' or Cloudflare Dashboard:
   // - SUPABASE_SERVICE_ROLE_KEY
   // - ASU_API_BASE_URL (https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes)
   // - ASU_API_TOKEN (Bearer <token>)
-  // - RESEND_API_KEY
-  // - RESEND_WEBHOOK_SECRET
   // - CRON_SECRET (generate with: openssl rand -hex 32)
 }

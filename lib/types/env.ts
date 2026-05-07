@@ -46,7 +46,7 @@ export interface Env extends Record<string, unknown> {
   ASU_API_TOKEN: string;
 
   // Email/notification settings (optional)
-  RESEND_API_KEY?: string;
+  EMAIL: SendEmail;
   NOTIFICATION_FROM_EMAIL?: string;
 
   // App configuration (optional)

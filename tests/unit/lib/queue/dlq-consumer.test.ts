@@ -5,18 +5,10 @@ vi.mock('@/lib/supabase/service', () => ({
   getServiceClient: vi.fn(),
 }));
 
-vi.mock('@/lib/email/resend', () => ({
-  sendBatchEmailsOptimized: vi.fn(),
-}));
-
 const mockSend = vi.fn();
-vi.mock('resend', () => {
-  return {
-    Resend: class {
-      emails = { send: mockSend };
-    },
-  };
-});
+const mockEmailBinding: SendEmail = {
+  send: mockSend,
+} as unknown as SendEmail;
 
 import { handleDLQMessage } from '@/lib/queue/dlq-consumer';
 import { getServiceClient } from '@/lib/supabase/service';
@@ -39,28 +31,22 @@ function mockSupabaseRpc(data: unknown[] | null, error: { message: string } | nu
 }
 
 describe('handleDLQMessage', () => {
-  const originalEnv = { ...process.env };
-
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});
-    mockSend.mockResolvedValue({ data: { id: 'msg_1' }, error: null });
-    process.env.RESEND_API_KEY = 'test-key';
-    process.env.NOTIFICATION_FROM_EMAIL = 'alerts@pickmyclass.app';
+    mockSend.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     mockSend.mockReset();
-    process.env = { ...originalEnv };
   });
 
   it('logs structured error with correct fields', async () => {
     const msg = buildMessage();
     mockSupabaseRpc([]);
 
-    await handleDLQMessage(msg);
+    await handleDLQMessage(msg, mockEmailBinding);
 
     expect(console.error).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('42737'));
     expect(console.error).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('2261'));
@@ -73,20 +59,20 @@ describe('handleDLQMessage', () => {
   it('calls Supabase to look up watchers', async () => {
     const rpcMock = mockSupabaseRpc([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
 
-    await handleDLQMessage(buildMessage());
+    await handleDLQMessage(buildMessage(), mockEmailBinding);
 
     expect(rpcMock).toHaveBeenCalledWith('get_class_watchers', {
       section_number: '42737',
     });
   });
 
-  it('sends alert email via Resend when watchers exist', async () => {
+  it('sends alert email via Cloudflare Email Service when watchers exist', async () => {
     mockSupabaseRpc([
       { user_id: 'u1', email: 'a@test.com', watch_id: 'w1' },
       { user_id: 'u2', email: 'b@test.com', watch_id: 'w2' },
     ]);
 
-    await handleDLQMessage(buildMessage());
+    await handleDLQMessage(buildMessage(), mockEmailBinding);
 
     expect(mockSend).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -100,7 +86,7 @@ describe('handleDLQMessage', () => {
   it('handles case where no watchers found', async () => {
     mockSupabaseRpc([]);
 
-    await handleDLQMessage(buildMessage());
+    await handleDLQMessage(buildMessage(), mockEmailBinding);
 
     expect(console.error).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('42737'));
     expect(console.log).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('0 watchers'));
@@ -109,7 +95,7 @@ describe('handleDLQMessage', () => {
   it('handles Supabase errors gracefully without throwing', async () => {
     mockSupabaseRpc(null, { message: 'Connection refused' });
 
-    await expect(handleDLQMessage(buildMessage())).resolves.not.toThrow();
+    await expect(handleDLQMessage(buildMessage(), mockEmailBinding)).resolves.not.toThrow();
 
     expect(console.error).toHaveBeenCalledWith(
       '[DLQ]',
@@ -117,25 +103,15 @@ describe('handleDLQMessage', () => {
     );
   });
 
-  it('handles Resend errors gracefully without throwing', async () => {
+  it('handles Cloudflare Email errors gracefully without throwing', async () => {
     mockSupabaseRpc([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
     mockSend.mockRejectedValue(new Error('API key invalid'));
 
-    await expect(handleDLQMessage(buildMessage())).resolves.not.toThrow();
+    await expect(handleDLQMessage(buildMessage(), mockEmailBinding)).resolves.not.toThrow();
 
     expect(console.error).toHaveBeenCalledWith(
       '[DLQ]',
       expect.stringContaining('alert email failed')
     );
-  });
-
-  it('skips email when RESEND_API_KEY is not configured', async () => {
-    process.env.RESEND_API_KEY = undefined as unknown as string;
-    mockSupabaseRpc([]);
-
-    await handleDLQMessage(buildMessage());
-
-    expect(mockSend).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('not configured'));
   });
 });

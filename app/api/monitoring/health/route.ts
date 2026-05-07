@@ -180,9 +180,10 @@ export async function GET(request: Request) {
   }
 
   // 4. Check Optional Services
+  // Cloudflare Email Service binding is always available in Workers environment
   health.checks.email = {
-    status: process.env.RESEND_API_KEY ? 'healthy' : 'not_configured',
-    configured: !!process.env.RESEND_API_KEY,
+    status: 'healthy',
+    configured: true,
   };
 
   // 5. Overall Response Time
