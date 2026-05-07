@@ -19,7 +19,7 @@ CREATE INDEX IF NOT EXISTS idx_user_profiles_engagement
 COMMENT ON COLUMN public.user_profiles.engagement_emails_sent IS 'Rolling count of emails sent in current 30-day window';
 COMMENT ON COLUMN public.user_profiles.engagement_emails_opened IS 'Rolling count of emails opened in current 30-day window';
 COMMENT ON COLUMN public.user_profiles.engagement_window_start IS 'Start of current 30-day tracking window';
-COMMENT ON COLUMN public.user_profiles.engagement_last_opened_at IS 'Timestamp of last email open (from Resend webhook)';
+COMMENT ON COLUMN public.user_profiles.engagement_last_opened_at IS 'Timestamp of last email open (from email provider webhook)';
 COMMENT ON COLUMN public.user_profiles.engagement_disabled_at IS 'Timestamp when auto-disabled due to low engagement';
 
 -- Function: Record email send and check engagement threshold
@@ -104,7 +104,7 @@ $$;
 
 COMMENT ON FUNCTION public.record_engagement_send(UUID) IS 'Record email send, increment counter, disable if 7+ sends with 0 opens in 30-day window';
 
--- Function: Record email open event (from Resend webhook)
+-- Function: Record email open event (from email provider webhook)
 -- Re-enables notifications if user was disabled due to low engagement
 CREATE OR REPLACE FUNCTION public.record_engagement_open(p_user_id UUID)
 RETURNS VOID

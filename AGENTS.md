@@ -10,7 +10,7 @@ app/              # vinext app routes (pages, API routes, layouts)
 lib/              # Core business logic and utilities
   db/             # Database query helpers
   supabase/       # Supabase client configurations
-  email/          # Email templates and Resend integration
+  email/          # Email templates and Cloudflare Email Service integration
   asu/            # ASU Class Search API client
   auth/           # Authentication utilities
   queue/          # Queue processing and DLQ consumer

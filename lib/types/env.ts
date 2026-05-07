@@ -48,6 +48,7 @@ export interface Env extends Record<string, unknown> {
   // Email/notification settings (optional)
   EMAIL: SendEmail;
   NOTIFICATION_FROM_EMAIL?: string;
+  SUPABASE_SEND_EMAIL_HOOK_SECRET: string;
 
   // App configuration (optional)
   MAX_WATCHES_PER_USER?: string;

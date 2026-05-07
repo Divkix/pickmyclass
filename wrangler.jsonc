@@ -105,4 +105,5 @@
   // - ASU_API_BASE_URL (https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes)
   // - ASU_API_TOKEN (Bearer <token>)
   // - CRON_SECRET (generate with: openssl rand -hex 32)
+  // - SUPABASE_SEND_EMAIL_HOOK_SECRET (from Supabase Auth Send Email Hook)
 }

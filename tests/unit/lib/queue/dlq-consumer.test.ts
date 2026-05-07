@@ -83,6 +83,20 @@ describe('handleDLQMessage', () => {
     expect(console.log).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('Alert email sent'));
   });
 
+  it('uses configured sender for alert emails', async () => {
+    mockSupabaseRpc([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
+
+    await handleDLQMessage(buildMessage(), mockEmailBinding, {
+      fromEmail: 'alerts@pickmyclass.app',
+    });
+
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: 'alerts@pickmyclass.app',
+      })
+    );
+  });
+
   it('handles case where no watchers found', async () => {
     mockSupabaseRpc([]);
 

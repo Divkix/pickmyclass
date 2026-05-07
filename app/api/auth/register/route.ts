@@ -39,8 +39,15 @@ export async function POST(request: NextRequest) {
       console.warn('[Register] Failed to check disposable domain, failing open:', error);
     }
 
+    const siteUrl = env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin || 'https://pickmyclass.app';
     const supabase = await createClient();
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${siteUrl}/auth/callback?next=/dashboard`,
+      },
+    });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });

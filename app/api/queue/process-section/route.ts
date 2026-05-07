@@ -304,7 +304,9 @@ export async function POST(request: NextRequest) {
 
         // Send batch emails using optimized batch API
         if (emailsToSend.length > 0) {
-          const results = await sendBatchEmailsOptimized(emailsToSend, cfEnv.EMAIL);
+          const results = await sendBatchEmailsOptimized(emailsToSend, cfEnv.EMAIL, {
+            fromEmail: cfEnv.NOTIFICATION_FROM_EMAIL,
+          });
 
           // Count successful sends (notifications already recorded via batch dedup)
           const successfulEmails = results

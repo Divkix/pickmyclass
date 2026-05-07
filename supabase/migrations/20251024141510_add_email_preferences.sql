@@ -18,7 +18,7 @@ CREATE INDEX IF NOT EXISTS idx_user_profiles_notifications_enabled
 -- Add comments for documentation
 COMMENT ON COLUMN public.user_profiles.notifications_enabled IS 'Whether user wants to receive email notifications (CAN-SPAM compliance)';
 COMMENT ON COLUMN public.user_profiles.unsubscribed_at IS 'Timestamp when user unsubscribed from all emails';
-COMMENT ON COLUMN public.user_profiles.email_bounced IS 'Email address is invalid (hard bounce from Resend)';
+COMMENT ON COLUMN public.user_profiles.email_bounced IS 'Email address is invalid (hard bounce from email provider)';
 COMMENT ON COLUMN public.user_profiles.email_bounced_at IS 'Timestamp when email bounce was detected';
 COMMENT ON COLUMN public.user_profiles.spam_complained IS 'User marked email as spam (auto-unsubscribe)';
 COMMENT ON COLUMN public.user_profiles.spam_complained_at IS 'Timestamp when spam complaint was received';

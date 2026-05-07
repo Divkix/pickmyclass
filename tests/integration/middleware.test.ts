@@ -174,10 +174,10 @@ describe('proxy', () => {
       expect(response.status).toBe(200);
     });
 
-    it('should allow access to /api/webhooks routes without authentication', async () => {
+    it('should allow access to auth email hook without authentication', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/api/webhooks/resend');
+      const request = createRequest('/api/auth/send-email-hook');
       const response = await proxy(request);
 
       expect(response.status).toBe(200);

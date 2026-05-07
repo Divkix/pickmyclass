@@ -17,6 +17,7 @@ interface RegisterResponse {
 const mockKVGet = vi.hoisted(() => vi.fn());
 vi.mock('cloudflare:workers', () => ({
   env: {
+    NEXT_PUBLIC_SITE_URL: 'https://pickmyclass.app',
     PICKMYCLASS_DISPOSABLE_DOMAINS: {
       get: mockKVGet,
       put: vi.fn(),
@@ -168,6 +169,21 @@ describe('POST /api/auth/register', () => {
   });
 
   describe('signup behavior', () => {
+    it('passes the Cloudflare auth callback URL to Supabase signup emails', async () => {
+      const request = createRequest({ email: 'TEST@EXAMPLE.COM', password: 'StrongP@ss1' });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockSignUp).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'StrongP@ss1',
+        options: {
+          emailRedirectTo: 'https://pickmyclass.app/auth/callback?next=/dashboard',
+        },
+      });
+    });
+
     it('should indicate duplicate for already registered email', async () => {
       mockSignUp.mockResolvedValue({
         data: { user: { identities: [] } },

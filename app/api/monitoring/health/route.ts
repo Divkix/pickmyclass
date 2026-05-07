@@ -160,12 +160,11 @@ export async function GET(request: Request) {
 
   // 3. Check Environment Configuration
   const requiredEnvVars = [
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
     'SUPABASE_SERVICE_ROLE_KEY',
     'ASU_API_BASE_URL',
     'ASU_API_TOKEN',
     'CRON_SECRET',
+    'SUPABASE_SEND_EMAIL_HOOK_SECRET',
   ];
 
   const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key] && !cfRecord[key]);
@@ -179,12 +178,22 @@ export async function GET(request: Request) {
     escalateStatus('unhealthy');
   }
 
-  // 4. Check Optional Services
-  // Cloudflare Email Service binding is always available in Workers environment
+  // 4. Check Email Service
+  const emailConfigured = !!(env as unknown as { EMAIL?: SendEmail }).EMAIL;
+  const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || cfRecord.NOTIFICATION_FROM_EMAIL;
+  const missingEmailConfig = [
+    ...(!emailConfigured ? ['EMAIL binding'] : []),
+    ...(!fromEmail ? ['NOTIFICATION_FROM_EMAIL'] : []),
+  ];
   health.checks.email = {
-    status: 'healthy',
-    configured: true,
+    status: emailConfigured && fromEmail ? 'healthy' : 'unhealthy',
+    configured: emailConfigured && !!fromEmail,
+    missing: missingEmailConfig.length > 0 ? missingEmailConfig : undefined,
   };
+
+  if (!emailConfigured || !fromEmail) {
+    escalateStatus('unhealthy');
+  }
 
   // 5. Overall Response Time
   health.response_time_ms = Date.now() - startTime;

@@ -9,6 +9,9 @@ vi.mock('cloudflare:workers', () => ({
     NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
     SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+    SUPABASE_SEND_EMAIL_HOOK_SECRET: 'whsec_test',
+    EMAIL: { send: vi.fn() },
+    NOTIFICATION_FROM_EMAIL: 'notifications@pickmyclass.app',
   },
 }));
 
@@ -65,6 +68,7 @@ describe('GET /api/monitoring/health', () => {
         database?: unknown;
         asu_api?: unknown;
         configuration?: unknown;
+        email?: { status: string; configured: boolean };
       };
     };
 
@@ -73,5 +77,6 @@ describe('GET /api/monitoring/health', () => {
     expect(data.checks?.database).toBeDefined();
     expect(data.checks?.asu_api).toBeDefined();
     expect(data.checks?.configuration).toBeDefined();
+    expect(data.checks?.email).toEqual({ status: 'healthy', configured: true });
   });
 });

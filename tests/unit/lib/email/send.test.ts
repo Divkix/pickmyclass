@@ -73,6 +73,29 @@ describe('sendBatchEmailsOptimized', () => {
     expect(sendEmail.send).toHaveBeenCalledTimes(2);
   });
 
+  it('uses the configured sender address when provided', async () => {
+    const sendEmail = createMockSendEmail();
+
+    await sendBatchEmailsOptimized(
+      [
+        {
+          to: 'user@test.com',
+          userId: 'u1',
+          classInfo: buildClassInfo(),
+          type: 'seat_available',
+        },
+      ],
+      sendEmail as unknown as SendEmail,
+      { fromEmail: 'alerts@pickmyclass.app' }
+    );
+
+    expect(sendEmail.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: 'alerts@pickmyclass.app',
+      })
+    );
+  });
+
   it('captures per-email errors without stopping the batch', async () => {
     const sendEmail = {
       send: vi

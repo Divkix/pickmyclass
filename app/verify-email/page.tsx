@@ -28,7 +28,7 @@ export default function VerifyEmailPage() {
     getUserEmail();
   }, [supabase]);
 
-  const handleResendVerification = async () => {
+  const handleSendVerificationAgain = async () => {
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -44,18 +44,21 @@ export default function VerifyEmailPage() {
         return;
       }
 
-      const { error: resendError } = await supabase.auth.resend({
+      const { error: sendError } = await supabase.auth.resend({
         type: 'signup',
         email: user.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        },
       });
 
-      if (resendError) {
-        setError(resendError.message);
+      if (sendError) {
+        setError(sendError.message);
       } else {
         setSuccess('Verification email sent! Please check your inbox.');
       }
     } catch (err) {
-      setError('Failed to resend verification email');
+      setError('Failed to send verification email again');
       console.error(err);
     } finally {
       setLoading(false);
@@ -101,12 +104,12 @@ export default function VerifyEmailPage() {
 
             <div className="space-y-3">
               <Button
-                onClick={handleResendVerification}
+                onClick={handleSendVerificationAgain}
                 disabled={loading}
                 variant="outline"
                 className="w-full"
               >
-                {loading ? 'Sending...' : 'Resend Verification Email'}
+                {loading ? 'Sending...' : 'Send Verification Email Again'}
               </Button>
 
               <Button onClick={handleSignOut} variant="ghost" className="w-full">
@@ -117,7 +120,7 @@ export default function VerifyEmailPage() {
             <div className="text-center text-sm text-muted-foreground">
               <p>
                 Didn&apos;t receive the email? Check your spam folder or click the button above to
-                resend.
+                send it again.
               </p>
             </div>
           </CardContent>

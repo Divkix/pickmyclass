@@ -395,7 +395,9 @@ export default {
     if (isDLQ) {
       for (const message of batch.messages) {
         try {
-          await handleDLQMessage(message.body, env.EMAIL);
+          await handleDLQMessage(message.body, env.EMAIL, {
+            fromEmail: env.NOTIFICATION_FROM_EMAIL,
+          });
         } catch (error) {
           console.error(
             `[Queue/DLQ] Unexpected error processing ${message.body.class_nbr}:`,

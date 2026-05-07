@@ -27,6 +27,10 @@ interface EmailResult {
   error?: string;
 }
 
+interface SendBatchEmailOptions {
+  fromEmail?: string;
+}
+
 /**
  * Send batch emails sequentially using Cloudflare Email Service.
  * Cloudflare has no batch API — each email is a separate send() call.
@@ -42,13 +46,14 @@ export async function sendBatchEmailsOptimized(
     classInfo: ClassInfo;
     type: 'seat_available' | 'instructor_assigned';
   }>,
-  emailBinding: SendEmail
+  emailBinding: SendEmail,
+  options: SendBatchEmailOptions = {}
 ): Promise<EmailResult[]> {
   if (emails.length === 0) {
     return [];
   }
 
-  const fromEmail = 'notifications@pickmyclass.app';
+  const fromEmail = options.fromEmail || 'notifications@pickmyclass.app';
 
   const results: EmailResult[] = [];
 

@@ -8,6 +8,10 @@
 import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassCheckMessage } from '@/lib/types/queue';
 
+interface HandleDLQMessageOptions {
+  fromEmail?: string;
+}
+
 /**
  * Handle a dead letter queue message
  *
@@ -19,10 +23,12 @@ import type { ClassCheckMessage } from '@/lib/types/queue';
  */
 export async function handleDLQMessage(
   message: ClassCheckMessage,
-  emailBinding: SendEmail
+  emailBinding: SendEmail,
+  options: HandleDLQMessageOptions = {}
 ): Promise<void> {
   const { class_nbr, term, enqueued_at } = message;
   const timestamp = new Date().toISOString();
+  const fromEmail = options.fromEmail || 'notifications@pickmyclass.app';
 
   // 1. Structured error log
   console.error(
@@ -54,7 +60,7 @@ export async function handleDLQMessage(
   try {
     await emailBinding.send({
       to: 'alerts@pickmyclass.app',
-      from: 'notifications@pickmyclass.app',
+      from: fromEmail,
       subject: `[DLQ Alert] Section ${class_nbr} permanently failed`,
       html: `
         <h2>Dead Letter Queue Alert</h2>

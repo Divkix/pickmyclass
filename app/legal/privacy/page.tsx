@@ -139,9 +139,9 @@ export default async function PrivacyPolicyPage() {
                         </a>
                       </li>
                       <li>
-                        Resend (email delivery) - see{' '}
+                        Cloudflare Email Service (email delivery) - see{' '}
                         <a
-                          href="https://resend.com/legal/privacy-policy"
+                          href="https://www.cloudflare.com/privacypolicy/"
                           className="text-primary underline"
                           target="_blank"
                           rel="noopener noreferrer"
