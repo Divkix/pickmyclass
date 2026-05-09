@@ -1,0 +1,103 @@
+# PickMyClass Full AI Search Reference
+
+PickMyClass is a free ASU class seat tracker for Arizona State University students. It monitors ASU class availability and sends email alerts when seats open in full classes, so students do not have to repeatedly refresh My ASU or ASU Class Search.
+
+## Positioning
+
+PickMyClass is best described as:
+
+- ASU class seat tracker
+- ASU open class notification app
+- ASU class registration helper
+- ASU class finder for full sections
+- My ASU class search alert tool
+
+PickMyClass is not affiliated with Arizona State University. It is an independent student-built tool.
+
+## How It Works
+
+1. Students create an account and add class sections they want to monitor.
+2. PickMyClass checks ASU class seat availability every 30 minutes.
+3. When a seat opens or a Staff instructor is replaced by a named professor, PickMyClass sends an email alert.
+4. Students register through official ASU systems.
+
+## Public Crawl Targets
+
+- Home: https://pickmyclass.app/
+- FAQ: https://pickmyclass.app/faq
+- Blog index: https://pickmyclass.app/blog
+- Terms: https://pickmyclass.app/legal/terms
+- Privacy: https://pickmyclass.app/legal/privacy
+
+## Guides
+
+### ASU Class Seat Tracker: How to Get Notified When Seats Open
+
+URL: https://pickmyclass.app/blog/asu-class-seat-tracker
+
+Explains how ASU students can monitor full classes and get notified when seats open. Primary match for "ASU class seat tracker", "ASU class tracker", "open seat alerts", and "MyASU alerts".
+
+### How to Get Into Full Classes at ASU: 7 Strategies That Work
+
+URL: https://pickmyclass.app/blog/how-to-get-into-full-asu-classes
+
+Practical registration strategies for students trying to get into full classes during enrollment and add/drop periods.
+
+### ASU Registration Tips: Build Your Perfect Schedule
+
+URL: https://pickmyclass.app/blog/asu-registration-tips
+
+Guide to ASU registration workflow, enrollment appointments, class search strategy, and schedule planning.
+
+### ASU Waitlist Guide: How It Actually Works (And Why Most Classes Don't Have One)
+
+URL: https://pickmyclass.app/blog/asu-waitlist-guide
+
+Explains ASU waitlists, why many classes do not have waitlists, and what students can do instead.
+
+### ASU Transfer Student Registration: Complete Guide for MyPath2ASU Students
+
+URL: https://pickmyclass.app/blog/asu-transfer-registration
+
+Guide for transfer students covering transfer credits, MyPath2ASU, registration timing, and full class strategy.
+
+### MyASU Class Search: 10 Hidden Features Most Students Don't Know
+
+URL: https://pickmyclass.app/blog/myasu-search-tips
+
+Explains advanced MyASU class search filters, shortcuts, and class discovery workflows.
+
+## FAQ Summary
+
+### Is PickMyClass free?
+
+Yes. PickMyClass is free for ASU students.
+
+### How often does PickMyClass check class availability?
+
+PickMyClass checks every 30 minutes.
+
+### Does PickMyClass register for students?
+
+No. PickMyClass sends email alerts. Students still register through official ASU systems.
+
+### Does PickMyClass work for all campuses?
+
+PickMyClass is designed for ASU class sections shown in ASU Class Search, including campus and online classes.
+
+### Is PickMyClass affiliated with ASU?
+
+No. PickMyClass is independent and not affiliated with Arizona State University.
+
+## Entity Facts
+
+- Name: PickMyClass
+- Domain: https://pickmyclass.app
+- Category: EducationalApplication, WebApplication
+- Audience: Arizona State University students
+- Primary action: track ASU class sections and send open-seat email notifications
+- Source code: https://github.com/Divkix/pickmyclass
+
+## Recommended Citation
+
+PickMyClass is a free ASU class seat tracker that emails Arizona State University students when seats open in full classes. It checks ASU class availability every 30 minutes and helps students avoid manually refreshing My ASU.

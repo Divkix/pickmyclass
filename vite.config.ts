@@ -9,4 +9,7 @@ export default defineConfig({
       viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
     }),
   ],
+  optimizeDeps: {
+    exclude: ['lucide-react'],
+  },
 });
