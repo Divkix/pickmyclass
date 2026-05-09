@@ -5,6 +5,7 @@ import {
   BlogFAQ,
   ComparisonTable,
   FAQSchema,
+  KeyTakeaways,
   TableOfContents,
 } from '@/components/blog';
 import { Header } from '@/components/Header';
@@ -36,7 +37,7 @@ const articleSchema = {
   description:
     'Everything you need to know about ASU class registration. Enrollment appointment tips, class search strategies, and tools to help you get the schedule you want.',
   datePublished: '2026-03-27T00:00:00Z',
-  dateModified: '2026-04-26T00:00:00Z',
+  dateModified: '2026-05-08T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -181,9 +182,23 @@ export default async function ASURegistrationTipsPost() {
           <p className="text-lg text-muted-foreground leading-relaxed">
             ASU class registration can feel like a high-stakes game. Between limited enrollment
             windows, popular classes filling instantly, and the complexity of building a balanced
-            schedule, it&apos;s easy to feel overwhelmed. Here&apos;s everything you need to know to
-            approach registration day with confidence.
+            schedule, it is easy to feel overwhelmed. Honestly, I have been there. This is what I
+            wish I knew before my first registration day.
           </p>
+
+          <KeyTakeaways
+            items={[
+              {
+                text: 'Check MyASU for your exact enrollment appointment and clear any holds at least a week early',
+              },
+              { text: 'Build 2-3 complete backup schedules before registration opens' },
+              { text: 'Pre-load your shopping cart and enroll the moment your window opens' },
+              {
+                text: 'Use automated seat tracking for full classes instead of manually refreshing',
+              },
+              { text: 'Mix Session A, B, and C classes to fit more credits into your semester' },
+            ]}
+          />
 
           <TableOfContents items={tocItems} />
 
@@ -195,10 +210,10 @@ export default async function ASURegistrationTipsPost() {
             Know Your Enrollment Appointment
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            ASU assigns enrollment appointments based on your class standing (credit hours). Check
-            MyASU for your specific date and time &mdash; it&apos;s different for every student.
-            Seniors register first, then juniors, sophomores, and freshmen. Barrett Honors students
-            and athletes may have earlier priority windows.
+            ASU assigns enrollment appointments based on your class standing, which is just your
+            earned credit hours. Check MyASU for your specific date and time. It is different for
+            every student. Seniors register first, then juniors, sophomores, and freshmen. Barrett
+            Honors students and athletes usually get earlier priority windows.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
@@ -218,7 +233,7 @@ export default async function ASURegistrationTipsPost() {
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>Find all available sections for each class you need</li>
-            <li>Note section numbers (you&apos;ll need these for fast registration)</li>
+            <li>Note section numbers (you will need these for fast registration)</li>
             <li>Check instructor assignments and cross-reference with RateMyProfessors</li>
             <li>Identify time conflicts between your desired classes</li>
             <li>Find backup sections at different times or campuses</li>
@@ -228,9 +243,9 @@ export default async function ASURegistrationTipsPost() {
             Plan Multiple Schedule Options
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            Don&apos;t go into registration with just one ideal schedule. Build 2-3 complete
+            Real talk: do not go into registration with just one ideal schedule. Build 2-3 complete
             schedule options so you can pivot quickly if your first choices are full. Consider
-            variables like:
+            things like:
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>Different professors for the same course</li>
@@ -258,34 +273,34 @@ export default async function ASURegistrationTipsPost() {
           <p className="text-muted-foreground leading-relaxed">
             Set an alarm. Have MyASU open and ready. The difference between registering at 9:00 AM
             and 9:05 AM can be the difference between getting your preferred section and being
-            locked out. Popular classes with popular professors fill in minutes.
+            locked out. Popular classes with popular professors fill in minutes. I learned this the
+            hard way with CSE 310.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             Check Prerequisite and Restriction Requirements
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            Nothing is more frustrating than trying to add a class during your enrollment window
-            only to discover you don&apos;t meet a prerequisite or there&apos;s a major restriction.
-            Verify all prerequisites are met well before registration day. If you need a permission
-            override, contact the department ahead of time.
+            Nothing ruins your enrollment window like finding out you do not meet a prerequisite or
+            there is a major restriction blocking you. Verify all prerequisites are met well before
+            registration day. If you need a permission override, contact the department ahead of
+            time. Do not wait until the last minute.
           </p>
 
           <h2 id="after-registration" className="text-2xl font-bold text-foreground mt-10 mb-4">
-            After Registration: Don&apos;t Give Up on Full Classes
+            After Registration: Do not Give Up on Full Classes
           </h2>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             Set Up Automated Seat Tracking
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            If a class you want is full, don&apos;t just accept it. Use{' '}
+            If a class you want is full, do not just accept it. Use{' '}
             <Link href="/" className="text-primary hover:text-primary/80 font-medium">
               PickMyClass
             </Link>{' '}
-            to automatically monitor the class for open seats. Our system checks every 30 minutes
-            and emails you immediately when a seat opens up. Over 8,500 students have gotten their
-            seat this way.
+            to automatically monitor the class for open seats. It checks every 30 minutes and emails
+            you when a seat opens up. Over 8,500 students have gotten their seat this way.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
@@ -301,7 +316,7 @@ export default async function ASURegistrationTipsPost() {
             >
               automated class tracking
             </Link>{' '}
-            ensures you won&apos;t miss these additions.
+            helps you catch these additions without checking manually every day.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
@@ -317,15 +332,15 @@ export default async function ASURegistrationTipsPost() {
             >
               your strategies
             </Link>{' '}
-            ready to capitalize on this period.
+            ready so you can grab a spot when someone else bails.
           </p>
 
           <h2 id="registration-calendar" className="text-2xl font-bold text-foreground mt-10 mb-4">
             Registration Calendar by Student Type
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Your registration date depends on your class standing. Here&apos;s the typical schedule
-            for Fall 2026 (check MyASU for your exact date):
+            Your registration date depends on your class standing. Here is the typical schedule for
+            Fall 2026 (check MyASU for your exact date):
           </p>
           <ComparisonTable columns={calendarColumns} rows={calendarRows} />
           <p className="text-muted-foreground leading-relaxed">
@@ -353,14 +368,14 @@ export default async function ASURegistrationTipsPost() {
               <h3 className="font-semibold text-foreground mb-2">2. Immunization Holds</h3>
               <p className="text-sm text-muted-foreground">
                 ASU requires proof of certain vaccinations. Upload your records to the student
-                health portal well in advance — processing can take several days.
+                health portal well in advance. Processing can take several days.
               </p>
             </div>
             <div className="rounded-lg border border-border bg-card p-5">
               <h3 className="font-semibold text-foreground mb-2">3. Advising Holds</h3>
               <p className="text-sm text-muted-foreground">
                 Some majors require advisor clearance before registration. Schedule your appointment
-                early — advisor slots fill up fast during registration season.
+                early. Advisor slots fill up fast during registration season.
               </p>
             </div>
             <div className="rounded-lg border border-border bg-card p-5">
@@ -372,38 +387,38 @@ export default async function ASURegistrationTipsPost() {
             </div>
           </div>
           <p className="text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">How to check:</strong> Log into MyASU → Registration
-            → Check for Holds. Address any issues immediately. Don&apos;t wait until the day before
-            your registration window.
+            <strong className="text-foreground">How to check:</strong> Log into MyASU, go to
+            Registration, then click Check for Holds. Address any issues immediately. Do not wait
+            until the day before your registration window.
           </p>
 
           <h2 id="shopping-cart" className="text-2xl font-bold text-foreground mt-10 mb-4">
             Shopping Cart Power Tips
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            The shopping cart is your secret weapon for fast registration. Here&apos;s how to use it
+            The shopping cart is your secret weapon for fast registration. This is how to use it
             like a pro:
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Pre-load everything</strong> — Add all desired
-              classes and backup sections to your cart before your window opens
+              <strong className="text-foreground">Pre-load everything</strong>. Add all desired
+              classes and backup sections to your cart before your window opens.
             </li>
             <li>
-              <strong className="text-foreground">Validate early</strong> — Use the validate feature
-              to catch prerequisite issues before registration day
+              <strong className="text-foreground">Validate early</strong>. Use the validate feature
+              to catch prerequisite issues before registration day.
             </li>
             <li>
-              <strong className="text-foreground">Organize by priority</strong> — Put your most
-              important classes first so you can enroll in order if some fill up
+              <strong className="text-foreground">Organize by priority</strong>. Put your most
+              important classes first so you can enroll in order if some fill up.
             </li>
             <li>
-              <strong className="text-foreground">Have backup plans ready</strong> — Load
-              alternative sections for every class you need
+              <strong className="text-foreground">Have backup plans ready</strong>. Load alternative
+              sections for every class you need.
             </li>
             <li>
-              <strong className="text-foreground">Don&apos;t wait to enroll</strong> — Items in your
-              cart aren&apos;t reserved. Enroll immediately when your window opens
+              <strong className="text-foreground">Do not wait to enroll</strong>. Items in your cart
+              are not reserved. Enroll immediately when your window opens.
             </li>
           </ul>
 
@@ -411,7 +426,7 @@ export default async function ASURegistrationTipsPost() {
             Session A vs B vs C: Which Should You Choose?
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Understanding ASU&apos;s session system helps you build a more flexible schedule:
+            Understanding ASU's session system helps you build a more flexible schedule:
           </p>
           <ComparisonTable columns={sessionColumns} rows={sessionRows} />
           <p className="text-muted-foreground leading-relaxed">
@@ -430,7 +445,7 @@ export default async function ASURegistrationTipsPost() {
                 PickMyClass (Free ASU Class Seat Tracker)
               </h3>
               <p className="text-sm text-muted-foreground">
-                Automatically monitors ASU classes and emails you when seats open. Trusted by 2,400+
+                Automatically monitors ASU classes and emails you when seats open. Used by 2,400+
                 Sun Devils.{' '}
                 <Link href="/" className="text-primary hover:text-primary/80">
                   pickmyclass.app
@@ -481,7 +496,7 @@ export default async function ASURegistrationTipsPost() {
 
           <div className="not-prose mt-12 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
             <h2 className="mb-2 text-2xl font-bold text-foreground">
-              Don&apos;t let full classes ruin your schedule
+              Full classes do not have to ruin your schedule
             </h2>
             <p className="mb-6 text-muted-foreground">
               Track ASU class seats automatically and get notified when spots open. Free for all Sun

@@ -7,7 +7,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/faq', '/blog', '/legal', '/legal/terms', '/legal/privacy'],
+        allow: ['/', '/faq', '/blog', '/about', '/legal', '/legal/terms', '/legal/privacy'],
         disallow: [
           '/dashboard',
           '/dashboard/*',
@@ -28,15 +28,15 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       },
       {
         userAgent: 'GPTBot',
-        allow: ['/', '/faq', '/blog', '/legal', '/legal/terms', '/legal/privacy'],
+        allow: ['/', '/faq', '/blog', '/about', '/legal', '/legal/terms', '/legal/privacy'],
       },
       {
         userAgent: 'ChatGPT-User',
-        allow: ['/', '/faq', '/blog'],
+        allow: ['/', '/faq', '/blog', '/about'],
       },
       {
         userAgent: 'Google-Extended',
-        allow: ['/', '/faq', '/blog'],
+        allow: ['/', '/faq', '/blog', '/about'],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

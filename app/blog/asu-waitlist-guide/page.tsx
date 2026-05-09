@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BlogAuthor, BlogFAQ, FAQSchema, TableOfContents } from '@/components/blog';
+import { BlogAuthor, BlogFAQ, FAQSchema, KeyTakeaways, TableOfContents } from '@/components/blog';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
@@ -30,7 +30,7 @@ const articleSchema = {
   description:
     "Confused about ASU waitlists? Learn how ASU's waitlist system actually works, which classes have them, and what to do when there's no waitlist available.",
   datePublished: '2026-04-26T00:00:00Z',
-  dateModified: '2026-04-26T00:00:00Z',
+  dateModified: '2026-05-08T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -61,7 +61,7 @@ const faqItems = [
   {
     question: 'What does waitlist position 1 mean?',
     answer:
-      "If you're in position 1 on a waitlist, you're first in line to get a seat when one opens up. However, most ASU classes don't have waitlists at all — this only applies to the specific departments that use them (like some W. P. Carey courses).",
+      "If you're in position 1 on a waitlist, you're first in line to get a seat when one opens up. However, most ASU classes don't have waitlists at all. This only applies to the specific departments that use them, like some W. P. Carey courses.",
   },
   {
     question: "How long do I have to register if I'm waitlisted?",
@@ -71,7 +71,7 @@ const faqItems = [
   {
     question: 'Can I be on multiple waitlists?',
     answer:
-      "For classes that offer waitlists, yes — you can typically join multiple waitlists. However, remember that most ASU classes don't have waitlists at all, so you'll need alternative strategies for those.",
+      "For classes that offer waitlists, yes. You can typically join multiple waitlists. However, remember that most ASU classes don't have waitlists at all, so you'll need alternative strategies for those.",
   },
   {
     question: 'Do waitlists carry over to next semester?',
@@ -81,7 +81,7 @@ const faqItems = [
   {
     question: "Why doesn't ASU have waitlists for all classes?",
     answer:
-      'ASU is a large university with complex registration needs. Implementing a universal waitlist system across all colleges and departments would require significant technical and administrative coordination. Some departments have chosen to implement their own solutions, while others rely on manual monitoring.',
+      'ASU is a huge university with complex registration needs. Setting up a universal waitlist across all colleges and departments would take a lot of technical and administrative work. Some departments have built their own solutions, while others just rely on manual monitoring.',
   },
   {
     question: "Does being on a waitlist guarantee I'll get in?",
@@ -91,7 +91,7 @@ const faqItems = [
   {
     question: 'Can I see my waitlist position in MyASU?',
     answer:
-      "For classes that have waitlists, yes — MyASU will show your position number. If you don't see a waitlist option or position, that class likely doesn't offer waitlist functionality.",
+      "For classes that have waitlists, yes. MyASU will show your position number. If you don't see a waitlist option or position, that class likely doesn't offer waitlist functionality.",
   },
   {
     question: "What's the 24-hour waitlist rule?",
@@ -132,9 +132,27 @@ export default async function ASUWaitlistGuidePost() {
 
           <p className="text-lg text-muted-foreground leading-relaxed">
             You keep hearing other students talk about their &ldquo;waitlist position&rdquo; and
-            wondering why your full class doesn&apos;t have one. You&apos;re not alone — this is one
-            of the most confusing aspects of ASU registration. Let&apos;s clear it up.
+            wondering why your full class does not have one. You are not alone. This is one of the
+            most confusing parts of ASU registration. Here is the deal.
           </p>
+
+          <KeyTakeaways
+            items={[
+              {
+                text: 'ASU does not have a university-wide waitlist. Only specific departments use them',
+              },
+              {
+                text: 'Most engineering, science, and general education classes have no waitlist at all',
+              },
+              {
+                text: 'If a class does have a waitlist, you get 24 hours to register once a seat opens',
+              },
+              { text: 'For classes without waitlists, automated seat tracking is your best bet' },
+              {
+                text: 'Attending the first class and talking to the professor can still get you in',
+              },
+            ]}
+          />
 
           <TableOfContents items={tocItems} />
 
@@ -142,12 +160,12 @@ export default async function ASUWaitlistGuidePost() {
             How ASU &ldquo;Waitlists&rdquo; Actually Work
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Here&apos;s the truth that confuses most students:{' '}
+            Most students are surprised to learn this:{' '}
             <strong className="text-foreground">
               ASU does not have a traditional, university-wide waitlist system
             </strong>{' '}
-            like many other colleges. Instead, individual departments can choose to implement their
-            own waitlist functionality on a case-by-case basis.
+            like many other colleges. Individual departments can choose to implement their own
+            waitlist functionality on a case-by-case basis.
           </p>
           <p className="text-muted-foreground leading-relaxed">This means:</p>
           <ul className="space-y-2 text-muted-foreground">
@@ -157,15 +175,15 @@ export default async function ASUWaitlistGuidePost() {
             <li>Most general education classes do NOT have waitlists</li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            For the classes that do have waitlists, here&apos;s how they work: When a class is full,
-            you can join the waitlist. If someone drops, the first person on the waitlist gets an
-            email notification and has 24 hours to register for the open seat. If they don&apos;t
-            act, the offer moves to the next person.
+            For the classes that do have waitlists, here is how they work. When a class is full, you
+            can join the waitlist. If someone drops, the first person on the waitlist gets an email
+            notification and has 24 hours to register for the open seat. If they do not act, the
+            offer moves to the next person.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">The catch:</strong> Most classes simply don&apos;t
-            offer this option. When a class fills, you&apos;re on your own to manually check for
-            openings or use an automated tracking tool.
+            <strong className="text-foreground">The catch:</strong> Most classes simply do not offer
+            this option. When a class fills, you are on your own to manually check for openings or
+            use an automated tracking tool.
           </p>
 
           <h2 id="check-waitlist" className="text-2xl font-bold text-foreground mt-10 mb-4">
@@ -191,22 +209,22 @@ export default async function ASUWaitlistGuidePost() {
             <li>Look for a &ldquo;Waitlist&rdquo; option or indicator</li>
           </ol>
           <p className="text-muted-foreground leading-relaxed mt-4">
-            If you see a waitlist option, you can join it. If not, that class doesn&apos;t offer
-            waitlist functionality, and you&apos;ll need to use alternative strategies.
+            If you see a waitlist option, you can join it. If not, that class does not offer
+            waitlist functionality, and you will need to use alternative strategies.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Pro tip:</strong> In MyASU during registration, if a
-            class shows as full but has a waitlist available, you&apos;ll typically see a
+            <strong className="text-foreground">Quick tip:</strong> In MyASU during registration, if
+            a class shows as full but has a waitlist available, you will typically see a
             &ldquo;Waitlist&rdquo; button or option next to the class. If you only see
-            &ldquo;Closed&rdquo; with no waitlist option, you&apos;re out of luck for that feature.
+            &ldquo;Closed&rdquo; with no waitlist option, you are out of luck for that feature.
           </p>
 
           <h2 id="no-waitlist" className="text-2xl font-bold text-foreground mt-10 mb-4">
             What to Do If There&apos;s No Waitlist
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Since most ASU classes don&apos;t have waitlists, you need a backup plan. Here are your
-            best options:
+            Since most ASU classes do not have waitlists, you need a backup plan. These are the
+            strategies that actually work:
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
@@ -217,14 +235,13 @@ export default async function ASUWaitlistGuidePost() {
             <Link href="/" className="text-primary hover:text-primary/80 font-medium">
               PickMyClass
             </Link>{' '}
-            to automatically monitor the class for open seats. Our system checks every 30 minutes
-            and emails you immediately when a seat opens. It&apos;s like having a personal waitlist
-            that actually works for every class.
+            to automatically monitor the class for open seats. It checks every 30 minutes and emails
+            you when a seat opens. It is basically a personal waitlist that works for every class,
+            not just the few that have official ones.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            This is the single most effective strategy for classes without waitlists. While other
-            students are manually refreshing MyASU, you&apos;ll get instant notifications and can
-            register before anyone else notices the opening.
+            While other students are manually refreshing MyASU, you get instant notifications and
+            can register before anyone else notices the opening. It saves a lot of stress.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
@@ -239,7 +256,7 @@ export default async function ASUWaitlistGuidePost() {
             <li>Sunday evenings (when students finalize their schedules)</li>
             <li>Monday and Tuesday of the first week</li>
             <li>
-              Any day after the first class meeting (students drop if they don&apos;t like the
+              Any day after the first class meeting (students drop if they do not like the
               professor)
             </li>
           </ul>
@@ -248,25 +265,26 @@ export default async function ASUWaitlistGuidePost() {
             Option 3: Contact the Professor
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            Attend the first class meeting even if you&apos;re not enrolled. Introduce yourself to
-            the professor after class and explain your situation professionally. Some professors can
+            Attend the first class meeting even if you are not enrolled. Introduce yourself to the
+            professor after class and explain your situation professionally. Some professors can
             issue capacity overrides, especially if:
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>You need the class to graduate this semester</li>
-            <li>It&apos;s a required course for your major with no other sections</li>
+            <li>It is a required course for your major with no other sections</li>
             <li>You have a compelling academic reason</li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            Be respectful and bring an add form. Professors are more likely to help students who
-            come prepared and show genuine need.
+            Honestly, bring an add form and be respectful. Professors are more likely to help
+            students who come prepared and show genuine need. It works more often than you would
+            think.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             Option 4: Use the Other Strategies
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            We cover seven proven strategies in our guide to{' '}
+            We cover seven strategies in our guide to{' '}
             <Link
               href="/blog/how-to-get-into-full-asu-classes"
               className="text-primary hover:text-primary/80 font-medium"
@@ -274,11 +292,13 @@ export default async function ASUWaitlistGuidePost() {
               getting into full ASU classes
             </Link>
             . From backup schedules to advisor help, there are multiple approaches that work when
-            waitlists aren&apos;t available.
+            waitlists are not available.
           </p>
 
           <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">No waitlist? No problem.</h2>
+            <h2 className="mb-2 text-2xl font-bold text-foreground">
+              Most classes do not have waitlists
+            </h2>
             <p className="mb-6 text-muted-foreground">
               PickMyClass monitors ASU classes 24/7 and emails you when seats open. The waitlist
               alternative that actually works.

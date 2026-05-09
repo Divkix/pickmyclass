@@ -35,24 +35,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
       lastModified: new Date(latestBlogDate),
     },
+    {
+      url: `${baseUrl}/about`,
+      changeFrequency: 'monthly',
+      priority: 0.5,
+      lastModified: new Date(latestBlogDate),
+    },
     ...blogEntries,
     {
       url: `${baseUrl}/legal`,
       changeFrequency: 'yearly',
       priority: 0.3,
-      lastModified: new Date('2025-10-24'),
+      lastModified: new Date(latestBlogDate),
     },
     {
       url: `${baseUrl}/legal/terms`,
       changeFrequency: 'yearly',
       priority: 0.3,
-      lastModified: new Date('2025-10-24'),
+      lastModified: new Date(latestBlogDate),
     },
     {
       url: `${baseUrl}/legal/privacy`,
       changeFrequency: 'yearly',
       priority: 0.3,
-      lastModified: new Date('2025-10-24'),
+      lastModified: new Date(latestBlogDate),
     },
   ];
 }

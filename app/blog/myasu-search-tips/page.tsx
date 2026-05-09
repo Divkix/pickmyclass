@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BlogAuthor, BlogFAQ, FAQSchema, TableOfContents } from '@/components/blog';
+import { BlogAuthor, BlogFAQ, FAQSchema, KeyTakeaways, TableOfContents } from '@/components/blog';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
@@ -30,7 +30,7 @@ const articleSchema = {
   description:
     'Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips to find the perfect classes faster.',
   datePublished: '2026-04-26T00:00:00Z',
-  dateModified: '2026-04-26T00:00:00Z',
+  dateModified: '2026-05-08T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -62,42 +62,42 @@ const faqItems = [
   {
     question: 'How do I search for classes with no prerequisites?',
     answer:
-      "Unfortunately, MyASU class search doesn't have a direct filter for prerequisite requirements. You'll need to click into each class detail to see prerequisites. However, most 100-level general education courses have few or no prerequisites, making them safer bets if you're looking for flexible options.",
+      "Yeah, there's no filter for that. You have to click into each class and read the details. Most 100-level gen ed classes are pretty safe though. If you want easy options, stick to those.",
   },
   {
     question: 'Can I save my search filters?',
     answer:
-      "MyASU class search doesn't have a built-in save feature for filters. However, you can bookmark the search URL after applying filters, or note down your preferred filter combinations for quick re-entry. Some students keep a document with their go-to search parameters.",
+      'Nope, no save button. But you can bookmark the URL after you set your filters. I know students who keep a spreadsheet of their go-to search combos. Low tech, but it works.',
   },
   {
     question: 'What does "Staff" mean for instructor?',
     answer:
-      '"Staff" means the instructor hasn\'t been assigned yet. This is common early in the registration period. The actual professor is usually announced 2-4 weeks before the semester starts. This is where PickMyClass\'s instructor change alerts become valuable — we notify you when "Staff" gets replaced with an actual name.',
+      '"Staff" just means they haven\'t picked a professor yet. Usually gets updated 2-4 weeks before the semester starts. PickMyClass will actually notify you when "Staff" gets replaced with a real name, which is nice because sometimes the professor makes or breaks the class.',
   },
   {
     question: 'How do I find 1-credit or 3-credit classes?',
     answer:
-      'Use the advanced filters in the class search. Look for a "Units" or "Credit Hours" filter option. You can typically specify a range (e.g., 3-3 for exactly 3 credits) to narrow results to your needs.',
+      "Use the advanced filters and look for a 'Units' or 'Credit Hours' option. You can set it to exactly what you need, like 3-3 for three-credit classes only.",
   },
   {
     question: 'Can I search for classes that fulfill specific general education requirements?',
     answer:
-      'Yes! In the advanced search, look for "General Studies" or "Requirement Designation" filters. You can select specific areas like Humanities (HU), Social-Behavioral Sciences (SB), or Natural Sciences (SQ/SG) to find classes that fulfill those requirements.',
+      "Yep. In advanced search, look for 'General Studies' or 'Requirement Designation.' You can filter by HU, SB, SQ, whatever you need. Way faster than scrolling through everything.",
   },
   {
     question: 'What\'s the difference between "Open" and "All" in the status filter?',
     answer:
-      '"Open" shows only classes with available seats. "All" shows every section including full classes. If you\'re planning to use PickMyClass to track full classes, use "All" so you can find the sections you want to monitor.',
+      '"Open" means seats are available right now. "All" shows everything, including full sections. If you\'re tracking seats with PickMyClass, use "All" so you can find the exact sections you want to monitor.',
   },
   {
     question: 'How do I find ASU Sync vs fully online classes?',
     answer:
-      'Use the "Mode of Instruction" filter. Select "ASU Sync" for live remote classes or "Online" for fully asynchronous online courses. Note that some classes may have multiple modes available in different sections.',
+      'In advanced search, look for "Mode of Instruction." ASU Sync is live remote, Online is do-it-on-your-own-time. Some classes have both options in different sections, so check all of them.',
   },
   {
     question: 'Why do some classes show "Reserved" seating?',
     answer:
-      "Reserved seats are held for specific student groups — often students in that major, honors students, or certain cohorts. These seats may open to all students after a specific date, or they may remain restricted. If a class shows reserved seats but appears full to you, it's worth checking back later to see if unreserved seats become available.",
+      "Reserved seats are usually held for majors, honors students, or specific cohorts. Sometimes they open up later, sometimes they don't. Worth checking back, especially after the first week when people drop.",
   },
 ];
 
@@ -123,7 +123,7 @@ export default async function MyASUSearchTipsPost() {
 
           <div className="not-prose mb-8">
             <h1 className="text-4xl font-bold text-foreground sm:text-5xl leading-tight">
-              MyASU Class Search: 10 Hidden Features Most Students Don&apos;t Know
+              MyASU Class Search: 10 Hidden Features Most Students Don't Know
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
               <time dateTime="2026-04-26">April 26, 2026</time>
@@ -132,11 +132,32 @@ export default async function MyASUSearchTipsPost() {
           </div>
 
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Most ASU students use only a fraction of the class search tool&apos;s power. They type
-            in a class name, hit search, and hope for the best. But MyASU&apos;s class search has
-            hidden features that can help you find better classes, avoid time conflicts, and
-            discover options you never knew existed.
+            I'll be honest: most students use MyASU class search like a basic Google search. Type in
+            a class name, hit enter, scroll until something looks okay. But the tool has way more
+            capability than that, and most people never touch the advanced filters. If you learn a
+            few tricks, you can avoid 8 AMs you don't want, find sections at less crowded campuses,
+            and actually build a schedule that works with your life instead of against it.
           </p>
+
+          <KeyTakeaways
+            items={[
+              {
+                text: 'Searching by subject code (like "CSE") shows every course in that department, which is how you stumble on interesting electives',
+              },
+              {
+                text: 'Advanced filters for campus, session, and instruction mode are the difference between a schedule you tolerate and one you actually like',
+              },
+              {
+                text: 'Use the "All" status filter when you\'re tracking full classes, not just the "Open" one',
+              },
+              {
+                text: 'Click into any class to see hidden sections and requirements like labs or special software',
+              },
+              {
+                text: "Bookmark your filtered searches because MyASU won't remember them for you",
+              },
+            ]}
+          />
 
           <TableOfContents items={tocItems} />
 
@@ -144,54 +165,59 @@ export default async function MyASUSearchTipsPost() {
             Basic Search Tips (That Most Students Miss)
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Even the basic search has nuances that can save you time:
+            Even the default search has quirks that can save you time if you know them.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             1. Subject Code vs. Course Number
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            When searching, you can enter either the subject code (like &ldquo;CSE&rdquo; or
-            &ldquo;ENG&rdquo;) or the full course number (like &ldquo;CSE 110&rdquo;). But
-            here&apos;s the trick: searching just the subject code shows you{' '}
-            <strong className="text-foreground">all</strong> available courses in that department,
-            which is great for discovery.
+            You can search by subject code (like &ldquo;CSE&rdquo; or &ldquo;ENG&rdquo;) or the full
+            course number (like &ldquo;CSE 110&rdquo;). The useful part? Searching just the subject
+            code pulls up <strong className="text-foreground">every</strong> available course in
+            that department. It's a great way to discover electives you'd never think to search for.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Pro tip:</strong> Try searching a subject code with
-            no specific course number to browse interesting electives you might not have considered.
+            <strong className="text-foreground">Try this:</strong> Search a subject code with no
+            course number and just browse. You might find something weird and interesting.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             2. Catalog vs. Class Search
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            There are two different search tools:
+            There are two different tools and they do different things:
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Class Search:</strong> Shows only classes offered
-              in the current/upcoming semester with actual seats and times
+              <strong className="text-foreground">Class Search:</strong> Shows only what's actually
+              offered this semester, with real seat counts and times. Use this when you're ready to
+              register.
             </li>
             <li>
               <strong className="text-foreground">Course Catalog:</strong> Shows every course ASU
-              offers, even if not available this semester — useful for planning
+              technically offers, even if it's not running this semester. Good for long-term
+              planning.
             </li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            Use the Class Search when you&apos;re ready to register. Use the Catalog when
-            you&apos;re planning future semesters.
+            Mix them up. Use the Catalog to plan your next three semesters, then switch to Class
+            Search when it's time to actually click the enroll button.
           </p>
 
           <h2 id="advanced-filters" className="text-2xl font-bold text-foreground mt-10 mb-4">
-            Advanced Filters (The Power User Section)
+            Advanced Filters (The Stuff Power Users Actually Use)
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Click &ldquo;Advanced Search&rdquo; to unlock these powerful filters:
+            Click &ldquo;Advanced Search&rdquo; and suddenly you have actual control. Here's what
+            each filter does and why it matters.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">3. Campus Filter</h3>
-          <p className="text-muted-foreground leading-relaxed">Filter by specific ASU campuses:</p>
+          <p className="text-muted-foreground leading-relaxed">
+            Filter by specific ASU campuses. Obviously useful if you live near one, but also handy
+            if your main campus is full:
+          </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
               <strong className="text-foreground">Tempe:</strong> Main campus, most options
@@ -202,160 +228,161 @@ export default async function MyASUSearchTipsPost() {
             </li>
             <li>
               <strong className="text-foreground">Polytechnic:</strong> Engineering, tech, aviation
-              focus
             </li>
             <li>
               <strong className="text-foreground">West:</strong> Smaller campus, diverse programs
             </li>
             <li>
-              <strong className="text-foreground">Online:</strong> ASU Online sections, fully remote
+              <strong className="text-foreground">Online:</strong> Fully remote sections
             </li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Strategy:</strong> If your preferred campus sections
-            are full, check other campuses. Downtown and Polytechnic often have seats when Tempe is
-            full.
+            <strong className="text-foreground">Real talk:</strong> If Tempe is packed, check
+            Downtown or Polytechnic. They often have seats for the same classes, and the commute
+            might be worth it.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             4. Session Filter (A, B, C)
           </h3>
-          <p className="text-muted-foreground leading-relaxed">ASU offers three session types:</p>
+          <p className="text-muted-foreground leading-relaxed">ASU runs three session types:</p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Session A:</strong> 15 weeks (traditional full
-              semester)
+              <strong className="text-foreground">Session A:</strong> 15 weeks, the traditional full
+              semester
             </li>
             <li>
-              <strong className="text-foreground">Session B:</strong> 7.5 weeks (first half)
+              <strong className="text-foreground">Session B:</strong> 7.5 weeks, first half
             </li>
             <li>
-              <strong className="text-foreground">Session C:</strong> 7.5 weeks (second half)
+              <strong className="text-foreground">Session C:</strong> 7.5 weeks, second half
             </li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            Many students don&apos;t realize they can mix sessions. Taking two Session B classes
-            back-to-back equals the same credit load as one Session A class, but with more
-            flexibility. If Session A is full, check B and C options.
+            Most people don't realize you can mix them. Two Session B classes back-to-back equals
+            the same credit load as one Session A, but with more flexibility. If your Session A pick
+            is full, B and C are worth a look.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             5. Mode of Instruction Filter
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            Filter by how the class is delivered:
+            Filter by how the class is actually delivered:
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">In-Person:</strong> Traditional classroom
-              attendance required
+              <strong className="text-foreground">In-Person:</strong> You show up to a classroom.
+              Simple.
             </li>
             <li>
-              <strong className="text-foreground">ASU Sync:</strong> Live remote — attend virtually
-              at scheduled times
+              <strong className="text-foreground">ASU Sync:</strong> Live remote. You're on Zoom at
+              scheduled class times.
             </li>
             <li>
-              <strong className="text-foreground">Online:</strong> Asynchronous — complete on your
-              own schedule
+              <strong className="text-foreground">Online:</strong> Asynchronous. Do the work on your
+              own schedule.
             </li>
             <li>
-              <strong className="text-foreground">Hybrid:</strong> Mix of in-person and online
+              <strong className="text-foreground">Hybrid:</strong> Some in-person, some online.
             </li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Life hack:</strong> If you need a specific class but
-            can&apos;t make the in-person time, check if there&apos;s an ASU Sync or Online section
-            with the same content.
+            <strong className="text-foreground">Worth trying:</strong> If a class you need only
+            meets at a time that conflicts with your job, check if there's an ASU Sync or Online
+            section with the same content.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">6. Instructor Search</h3>
           <p className="text-muted-foreground leading-relaxed">
-            You can search by specific professor name. This is useful when:
+            You can search by professor name. Useful when:
           </p>
           <ul className="space-y-2 text-muted-foreground">
-            <li>You want to take another class with a professor you liked</li>
-            <li>You&apos;re avoiding a professor with poor reviews</li>
-            <li>You&apos;re looking for a specific expert in a subject area</li>
+            <li>You want another class with a professor you actually liked</li>
+            <li>You're avoiding someone with terrible reviews</li>
+            <li>You're looking for a specific researcher in your field</li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            Combine this with RateMyProfessors research to build a schedule with professors who
-            match your learning style.
+            Pair this with RateMyProfessors. Building a schedule around good professors makes a huge
+            difference in how much you learn and how miserable you are.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             7. Time and Day Filters
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            These filters are more powerful than they appear:
+            These are way more useful than they look:
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Start Time Range:</strong> Avoid 8 AMs or find
-              evening classes to fit your work schedule
+              <strong className="text-foreground">Start Time Range:</strong> Block out 8 AMs if
+              you're not a morning person, or find evening classes that fit your work schedule
             </li>
             <li>
               <strong className="text-foreground">Days of Week:</strong> Prefer M/W/F or T/Th?
-              Filter for your preferred schedule pattern
+              Filter for it instead of manually scrolling
             </li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Pro combo:</strong> Set a time range that works for
-            you + specific days + campus to find the perfect schedule slot.
+            <strong className="text-foreground">Best combo:</strong> Time range + days + campus.
+            Stack the filters and you'll get a schedule that actually fits your life.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             8. Open/Closed Filter Tricks
           </h3>
-          <p className="text-muted-foreground leading-relaxed">The status filter has two modes:</p>
+          <p className="text-muted-foreground leading-relaxed">
+            The status filter does two things, and you need to know when to use each:
+          </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Open:</strong> Only shows classes with available
-              seats. Use this when you need to register immediately.
+              <strong className="text-foreground">Open:</strong> Only classes with seats available
+              right now. Use this when you're about to hit the enroll button.
             </li>
             <li>
-              <strong className="text-foreground">All:</strong> Shows every section including full
-              classes. Use this when you&apos;re planning to set up seat tracking for classes you
-              want.
+              <strong className="text-foreground">All:</strong> Everything, including full classes.
+              Use this when you're building your tracking list and want to find specific sections to
+              monitor.
             </li>
           </ul>
 
           <h2 id="reading-results" className="text-2xl font-bold text-foreground mt-10 mb-4">
-            Reading the Results (Decoding the Data)
+            Reading the Results (What the Numbers Actually Mean)
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Once you get search results, here&apos;s how to interpret what you&apos;re seeing:
+            Once you get results, there's more going on than just the class name and time.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             9. Understanding Seat Information
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            The results show multiple seat numbers:
+            The seat numbers aren't just one column. You get three:
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Capacity:</strong> Total seats in the class (e.g.,
-              150)
+              <strong className="text-foreground">Capacity:</strong> Total seats (e.g., 150)
             </li>
             <li>
-              <strong className="text-foreground">Enrolled:</strong> Current students registered
+              <strong className="text-foreground">Enrolled:</strong> People currently signed up
               (e.g., 147)
             </li>
             <li>
-              <strong className="text-foreground">Available:</strong> Open seats you can grab (e.g.,
-              3)
+              <strong className="text-foreground">Available:</strong> Seats you can actually grab
+              (e.g., 3)
             </li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Watch for:</strong> Classes showing &ldquo;0&rdquo;
-            available but not &ldquo;Closed&rdquo; may have reserved seats that could open later.
+            <strong className="text-foreground">Watch for this:</strong> If it says &ldquo;0&rdquo;
+            available but the class isn't marked &ldquo;Closed,&rdquo; there might be reserved seats
+            opening up later. Don't give up immediately.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             10. Location Codes Explained
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            The location column uses codes like:
+            The location column uses short codes you'll see constantly:
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
@@ -386,39 +413,42 @@ export default async function MyASUSearchTipsPost() {
             Save Your Favorite Searches
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            While MyASU doesn&apos;t have a built-in save feature, you can bookmark search results
-            pages after applying filters. Create bookmarks like &ldquo;Evening Online CSE
-            Classes&rdquo; or &ldquo;Morning Tempe Humanities&rdquo; for quick access.
+            MyASU doesn't save filters, but your browser does. Bookmark the search results page
+            after you apply filters. Name them something useful like &ldquo;Evening Online
+            CSE&rdquo; or &ldquo;Morning Tempe Humanities.&rdquo; It saves a surprising amount of
+            time during registration week.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             Check for Hidden Sections
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            Some classes have multiple sections that don&apos;t appear in the default view. If you
-            see a class you want but it&apos;s full, click on it to see all available sections.
-            Sometimes a less popular time slot still has seats.
+            Some classes have multiple sections that don't show up in the default list view. If you
+            see a class you want but it's full, click into it. A less popular time slot might still
+            have seats, or there might be a section at a different campus you didn't see.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             Use the Course Description
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            Click on any class to see its full description, prerequisites, and any special notes.
-            This is where you&apos;ll find important details like:
+            Click any class to see the full description, prerequisites, and special notes. This is
+            where you'll find stuff like:
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>Required lab or recitation sections</li>
-            <li>Special equipment or software needs</li>
-            <li>Honors section requirements</li>
-            <li>Department consent requirements</li>
+            <li>Software or equipment you need to buy</li>
+            <li>Honors requirements</li>
+            <li>Department consent needed</li>
           </ul>
 
           <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">Found the perfect class?</h2>
+            <h2 className="mb-2 text-2xl font-bold text-foreground">
+              Full class? Don't just wait and hope
+            </h2>
             <p className="mb-6 text-muted-foreground">
-              Set up automatic seat tracking so you never lose your spot. PickMyClass monitors 24/7
-              and alerts you when seats open.
+              PickMyClass checks every 30 minutes and sends you a text when a seat opens. A lot of
+              students get into their must-have classes during add/drop week this way.
             </p>
             <Link
               href="/register"

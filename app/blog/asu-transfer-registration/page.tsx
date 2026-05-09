@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BlogAuthor, BlogFAQ, FAQSchema, TableOfContents } from '@/components/blog';
+import { BlogAuthor, BlogFAQ, FAQSchema, KeyTakeaways, TableOfContents } from '@/components/blog';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
@@ -30,7 +30,7 @@ const articleSchema = {
   description:
     'Everything transfer students need to know about ASU registration. How transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.',
   datePublished: '2026-04-26T00:00:00Z',
-  dateModified: '2026-04-26T00:00:00Z',
+  dateModified: '2026-05-08T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -62,42 +62,42 @@ const faqItems = [
   {
     question: 'When will I know my registration date?',
     answer:
-      "Your registration date is typically available in MyASU 2-3 weeks before registration opens. As a new transfer student, you may register later than continuing students with the same credit hours. Check MyASU regularly and contact your advisor if you don't see your appointment.",
+      "Your registration date usually shows up in MyASU about 2-3 weeks before registration opens. As a new transfer, though, don't be shocked if you register later than someone who's been at ASU for two semesters with the same credit count. Just keep checking MyASU, and if your appointment isn't showing, ping your advisor.",
   },
   {
     question: 'Do my community college credits count toward senior standing?',
     answer:
-      "Yes, but only after they're officially evaluated. ASU uses 'earned credit hours' (completed and evaluated) to determine class standing. Your projected credits may get you an earlier registration date initially, but your standing will be adjusted after official evaluation.",
+      "Technically yes, but only once ASU officially evaluates them. They use 'earned credit hours' to figure out your class standing. You might get an earlier date initially based on projected credits from your application, but once the official eval comes through, your standing can shift. Check your DARS after your first semester to make sure everything's right.",
   },
   {
     question: 'Can I register before my transcript is evaluated?',
     answer:
-      'Typically, yes. ASU often assigns initial registration dates based on projected credits from your transfer application. However, your official evaluation may affect your standing, and you might need to adjust your schedule after the official transfer credit evaluation is complete.',
+      'Usually, yeah. ASU often gives you a registration date based on projected credits while they wait for the official transcript eval. But once that eval finishes, your standing might change, and you could end up needing to shuffle your schedule. Plan for that possibility.',
   },
   {
     question: 'How do I use the MyPath2ASU Transfer Guide?',
     answer:
-      'Visit mypath2asu.asu.edu, select your current institution, choose your major at ASU, and view the course-by-course equivalencies. This shows exactly which of your completed courses will transfer and count toward your ASU degree requirements.',
+      "Go to mypath2asu.asu.edu, pick your current school, choose your ASU major, and you'll see exactly which of your classes map over. It's honestly one of the more useful tools ASU has. Use it before you register so you don't waste time on classes that won't count.",
   },
   {
     question: "What if a course doesn't transfer?",
     answer:
-      "You have options: 1) Request a course evaluation if you believe it's equivalent to an ASU course, 2) Take the ASU course you need, 3) Check if the course can count as elective credit instead of major credit. Contact your academic advisor for guidance.",
+      "It happens. You can ask your advisor to re-evaluate it if you think it's equivalent to an ASU course. If that doesn't work, it might still count as elective credit. Worst case, you retake it at ASU. Talk to your advisor before you panic.",
   },
   {
     question: 'Do international transfer students have different registration dates?',
     answer:
-      'International transfer students typically follow the same registration timeline based on earned credits. However, there may be additional requirements (like orientation) that must be completed before you can register. Check with the International Student and Scholar Center.',
+      "Same timeline generally, based on earned credits. But international students sometimes have extra orientation or paperwork requirements before they can register. Check with the International Student and Scholar Center so you don't get held up by some random form.",
   },
   {
     question: 'Can I appeal my registration date?',
     answer:
-      "Generally, no. ASU assigns registration dates based on class standing (earned credit hours) with limited exceptions. However, if you believe there's an error in your credit calculation, contact your academic advisor or the registrar's office.",
+      "Basically no. ASU goes by earned credit hours and doesn't budge much. But if your credits look wrong, definitely reach out to your advisor or the registrar. A math error could be costing you an earlier date.",
   },
   {
     question: 'Should I attend orientation before registering?',
     answer:
-      'Yes, if required. Some programs and colleges require transfer students to attend orientation before they can register. Check your admit materials or contact your advisor to confirm. Orientation often provides valuable registration guidance specific to your major.',
+      "If your program requires it, yes, and some do. Plus orientation usually includes actual useful info about registering for your specific major. Check your admit packet or ask your advisor so you don't get blocked from enrolling.",
   },
 ];
 
@@ -132,11 +132,34 @@ export default async function ASUTransferRegistrationPost() {
           </div>
 
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Transferring to ASU comes with unique challenges. With 4,000+ transfer students joining
-            each year, you&apos;re navigating different registration timelines, credit evaluations,
-            and the reality that many classes are already full by the time you can register.
-            Here&apos;s everything you need to know to succeed as a transfer student.
+            Transferring to ASU feels like showing up to a party where everyone already knows the
+            layout. You're dealing with credit evaluations that take forever, registration dates
+            that land way later than continuing students, and the fun fact that most decent class
+            sections are basically full by the time you get access. With 4,000+ transfer students
+            coming in every year, the system somehow still acts like you're the first person to ever
+            do this. I built PickMyClass after missing registration for a required class myself, so
+            trust me when I say: the transfer process is doable, but you have to play it smart.
           </p>
+
+          <KeyTakeaways
+            items={[
+              {
+                text: 'Your registration date depends on officially evaluated credits, not just what you took elsewhere',
+              },
+              {
+                text: 'MyPath2ASU shows exactly how your community college classes map to ASU requirements',
+              },
+              {
+                text: 'Transfer students register later than continuing students, so preparation is everything',
+              },
+              {
+                text: 'Seat tracking and advisor outreach are your best tools for getting into full classes',
+              },
+              {
+                text: 'Consider shorter Session B/C classes if full-semester sections are packed',
+              },
+            ]}
+          />
 
           <TableOfContents items={tocItems} />
 
@@ -144,26 +167,28 @@ export default async function ASUTransferRegistrationPost() {
             How Transfer Credits Affect Your Registration Date
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            ASU assigns registration dates based on{' '}
-            <strong className="text-foreground">earned credit hours</strong>, which creates unique
-            challenges for transfer students. Here&apos;s what you need to understand:
+            ASU sorts registration dates by{' '}
+            <strong className="text-foreground">earned credit hours</strong>, which is where
+            transfers get complicated. Your credits aren't just credits here. Some count, some
+            don't, and the timing of when they post can cost you an earlier registration slot.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             Earned vs. Projected Credits
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            When you first transfer, ASU may use <em>projected credits</em> from your transcript
-            evaluation to assign your initial registration date. However, only{' '}
-            <strong className="text-foreground">earned credits</strong> (officially evaluated and
-            posted to your ASU record) count toward your class standing long-term.
+            When you first apply, ASU might assign you a registration date based on{' '}
+            <em>projected credits</em> from your transcript. Sounds good, except only{' '}
+            <strong className="text-foreground">earned credits</strong>, the ones officially
+            evaluated and posted to your record, actually stick for future semesters. That initial
+            boost can disappear once the real eval comes through.
           </p>
           <div className="rounded-lg border border-border bg-card p-5 my-6">
             <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground">Example:</strong> You completed 45 credits at
-              community college. ASU might initially give you sophomore standing (30-59 credits) for
-              registration purposes. But if only 30 credits officially transfer, your standing
-              adjusts, which could affect future registration dates.
+              <strong className="text-foreground">Real example:</strong> Say you finished 45 credits
+              at community college. ASU might give you sophomore standing at first. But if the
+              official eval says only 30 transfer over, your standing drops. That affects your next
+              registration date. I've seen people caught off guard by this.
             </p>
           </div>
 
@@ -172,23 +197,23 @@ export default async function ASUTransferRegistrationPost() {
           </h3>
           <ol className="space-y-2 text-muted-foreground list-decimal list-inside">
             <li>Log into MyASU</li>
-            <li>Navigate to your Degree Audit (DARS) report</li>
-            <li>Look for &ldquo;Transfer Credit&rdquo; or &ldquo;External Credit&rdquo; section</li>
-            <li>Verify which courses were accepted and how they count toward your degree</li>
+            <li>Open your Degree Audit (DARS) report</li>
+            <li>Find the &ldquo;Transfer Credit&rdquo; or &ldquo;External Credit&rdquo; section</li>
+            <li>See which courses actually counted and how they apply to your degree</li>
           </ol>
           <p className="text-muted-foreground leading-relaxed mt-4">
-            <strong className="text-foreground">Action item:</strong> Check your DARS report
-            immediately after your first semester. If credits are missing or incorrectly evaluated,
-            contact your advisor right away. Corrections can affect your registration priority for
-            the next semester.
+            <strong className="text-foreground">Do this:</strong> Check your DARS right after your
+            first semester. If credits are missing or mapped wrong, email your advisor immediately.
+            Fixing it now changes your registration priority next term.
           </p>
 
           <h2 id="mypath2asu" className="text-2xl font-bold text-foreground mt-10 mb-4">
             MyPath2ASU Articulation Guide
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            MyPath2ASU is ASU&apos;s transfer articulation tool that shows exactly how your credits
-            will transfer. Understanding this system helps you plan your degree and avoid surprises.
+            MyPath2ASU is basically a credit translation dictionary. It shows how your old school's
+            courses map to ASU requirements. Using it before you register saves you from the
+            nightmare of realizing a class you thought counted actually doesn't.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
@@ -208,46 +233,48 @@ export default async function ASUTransferRegistrationPost() {
             </li>
             <li>Select your current or previous institution</li>
             <li>Choose your intended ASU major</li>
-            <li>View the course-by-course equivalency chart</li>
+            <li>Look at the course-by-course equivalency chart</li>
           </ol>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             Common Course Equivalencies
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            Most Arizona community colleges have established equivalency agreements with ASU. Common
-            transfer courses include:
+            Most Arizona community colleges already have agreements with ASU. The usual transfers
+            are:
           </p>
           <ul className="space-y-2 text-muted-foreground">
-            <li>General education requirements (English, Math, Sciences)</li>
-            <li>Lower-division major prerequisites</li>
-            <li>Arizona General Education Curriculum (AGEC) blocks</li>
+            <li>General education classes (English, math, sciences)</li>
+            <li>Lower-division prerequisites for your major</li>
+            <li>The full Arizona General Education Curriculum (AGEC) block</li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Pro tip:</strong> Complete your AGEC before
-            transferring. It guarantees that 35 credits of general education requirements are
-            satisfied, giving you a head start on your ASU degree.
+            <strong className="text-foreground">Honestly:</strong> Finish your AGEC before
+            transferring if you can. It locks in 35 credits of gen ed requirements and you won't
+            have to retake anything.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
-            What to Do If a Course Doesn&apos;t Transfer
+            What to Do If a Course Doesn't Transfer
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            Sometimes a course you expected to count doesn&apos;t transfer as planned. Your options:
+            It sucks, but it happens. A class you assumed would count gets rejected. Here's what you
+            can actually do:
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Request re-evaluation:</strong> If you believe a
-              course is equivalent to an ASU course, work with your advisor to request a
-              re-evaluation
+              <strong className="text-foreground">Request a re-evaluation:</strong> If you think
+              your class covers the same material as an ASU course, your advisor can request a
+              review. It doesn't always work, but it's worth trying.
             </li>
             <li>
-              <strong className="text-foreground">Use as elective credit:</strong> Even if it
-              doesn&apos;t count toward your major, it may still count as general elective credit
+              <strong className="text-foreground">Use it as an elective:</strong> Even if it doesn't
+              hit your major requirements, it might still count toward your total credit hours.
             </li>
             <li>
-              <strong className="text-foreground">Take the ASU equivalent:</strong> Plan to take the
-              ASU course you need, potentially adjusting your graduation timeline
+              <strong className="text-foreground">Plan to retake it:</strong> Sometimes you just
+              have to take the ASU version. Build it into your timeline so it doesn't throw off
+              graduation.
             </li>
           </ul>
 
@@ -255,55 +282,58 @@ export default async function ASUTransferRegistrationPost() {
             Transfer Student Registration Timeline
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Transfer students often face a disadvantage: you may register later than continuing
-            students with the same credit hours. Here&apos;s the typical timeline and how to
-            navigate it:
+            The hard truth: you will probably register later than continuing students who have the
+            same credit hours. It's frustrating but it's how the system works. Knowing the order
+            helps you plan around it.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             When Transfer Students Typically Register
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            Registration priority generally follows this order:
+            Registration priority usually goes like this:
           </p>
           <ol className="space-y-2 text-muted-foreground list-decimal list-inside">
-            <li>Continuing graduate/professional students</li>
-            <li>Continuing undergraduate students (by class standing)</li>
+            <li>Continuing graduate and professional students</li>
+            <li>Continuing undergrads, sorted by class standing</li>
             <li>New graduate students</li>
-            <li>New transfer students (may be grouped with or after new freshmen)</li>
+            <li>New transfer students (sometimes grouped with or after freshmen)</li>
             <li>New freshmen</li>
           </ol>
           <p className="text-muted-foreground leading-relaxed mt-4">
-            <strong className="text-foreground">The challenge:</strong> By the time new transfer
-            students register, many popular classes and sections are already full.
+            By the time you get your slot, a lot of the good sections, especially the convenient
+            times and popular professors, are already taken. That's not pessimism, that's just what
+            happens.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             How to Prepare Despite Late Registration
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            Even with a later registration date, you can set yourself up for success:
+            Late registration isn't a death sentence if you prepare. A few things that actually
+            help:
           </p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Research thoroughly before your date:</strong>{' '}
-              Have backup schedules ready, including online sections and different campuses
+              <strong className="text-foreground">Have backup plans ready:</strong> Don't just have
+              one ideal schedule. Have three. Include online sections and different campuses.
             </li>
             <li>
-              <strong className="text-foreground">Set up seat tracking immediately:</strong> Add all
-              desired classes to{' '}
+              <strong className="text-foreground">Start tracking seats early:</strong> Add your
+              target classes to{' '}
               <Link href="/" className="text-primary hover:text-primary/80 font-medium">
                 PickMyClass
               </Link>{' '}
-              as soon as you know your registration date, even before you can register
+              the moment you know your registration date. Don't wait until after you register.
             </li>
             <li>
-              <strong className="text-foreground">Be flexible with timing:</strong> Be willing to
-              take 8 AM or evening sections that might still have seats
+              <strong className="text-foreground">Be open to weird times:</strong> 8 AMs and evening
+              sections are less popular for a reason, but they often have seats.
             </li>
             <li>
-              <strong className="text-foreground">Consider ASU Online:</strong> Online sections
-              often have different capacity and may have seats when in-person sections are full
+              <strong className="text-foreground">Check ASU Online:</strong> Online sections
+              sometimes have totally different capacity numbers. A class that's full in-person might
+              have online spots left.
             </li>
           </ul>
 
@@ -311,62 +341,62 @@ export default async function ASUTransferRegistrationPost() {
             Getting Into Full Classes as a Transfer Student
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Late registration means you&apos;ll likely encounter full classes. Here&apos;s your
-            action plan:
+            You're going to hit full classes. Everyone does. The difference is whether you have a
+            plan for it.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             Strategy 1: Aggressive Seat Tracking
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            This is your most important tool. Since you&apos;re registering late, you need to be
-            first to know when seats open.{' '}
+            This is the one that saved me. Since you're registering late, you need to know the
+            instant a seat opens.{' '}
             <Link href="/" className="text-primary hover:text-primary/80 font-medium">
               PickMyClass
             </Link>{' '}
-            checks every 30 minutes and notifies you immediately — much more reliable than manual
-            checking, especially when you&apos;re busy with orientation and settling in.
+            checks every 30 minutes and texts you immediately. Manual checking is a pain, and during
+            orientation week you're too busy to babysit the registration page anyway.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             Strategy 2: Contact Your Advisor Immediately
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            Academic advisors can sometimes help transfer students who need specific classes for
-            degree progress. If a required class for your major is full:
+            Advisors can sometimes pull strings for transfers who need specific major courses. If a
+            required class is full:
           </p>
           <ul className="space-y-2 text-muted-foreground">
-            <li>Schedule an advising appointment as soon as possible</li>
-            <li>Explain that you&apos;re a new transfer student with late registration</li>
-            <li>Ask about department waitlists or capacity overrides</li>
-            <li>Inquire about alternative sections that might open</li>
+            <li>Book an advising appointment as soon as you can</li>
+            <li>Tell them you're a new transfer with a late registration date</li>
+            <li>Ask about department waitlists or override codes</li>
+            <li>See if they're opening new sections</li>
           </ul>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             Strategy 3: Embrace Add/Drop Week
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            The first week of classes is when transfer students can catch up. Students are
-            constantly dropping and swapping classes. With seat tracking set up, you&apos;ll be
-            among the first to know when openings occur.
+            The first week of the semester is chaotic in a good way. People are dropping and
+            swapping constantly. If you have seat tracking running, you'll catch openings before
+            most people even notice them.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
             Strategy 4: Consider Session B and C
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            If you can&apos;t get into Session A classes (full semester), look at Session B or C
-            options. These 7.5-week sessions start later and often have more availability. They can
-            be a great way to catch up on credits while you wait for full-semester openings.
+            Can't get into a full-semester Session A class? Look at Session B or C. They're 7.5-week
+            intensive sessions that start later. A lot of students don't even look at them, so
+            there's often more room. You can stack them to catch up on credits.
           </p>
 
           <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
             <h2 className="mb-2 text-2xl font-bold text-foreground">
-              Late registration doesn&apos;t mean no classes
+              Late registration is rough, but it's not the end
             </h2>
             <p className="mb-6 text-muted-foreground">
-              PickMyClass helps transfer students get into full classes by monitoring seats 24/7.
-              Join 2,400+ Sun Devils who never miss an opening.
+              PickMyClass checks seats every 30 minutes and texts you the second something opens. A
+              lot of transfer students use it to catch up during add/drop week.
             </p>
             <Link
               href="/register"

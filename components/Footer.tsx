@@ -25,6 +25,13 @@ export function Footer() {
               </Link>
               <span className="text-muted-foreground/50">•</span>
               <Link
+                href="/about"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                About
+              </Link>
+              <span className="text-muted-foreground/50">•</span>
+              <Link
                 href="/legal/terms"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >

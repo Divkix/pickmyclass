@@ -20,12 +20,13 @@ export function HeroSection() {
           </div>
 
           <h1 className="text-hero">
-            Stop Refreshing MyASU <span className="text-gradient">Every 5 Minutes</span>
+            Free ASU Class Seat Tracker: Stop Refreshing MyASU{' '}
+            <span className="text-gradient">Every 5 Minutes</span>
           </h1>
 
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            Get timely email alerts when seats open up in full classes. We check every 30 minutes so
-            you don&apos;t have to.
+            Get timely email alerts when seats open up in full ASU classes. Our free seat tracker
+            checks every 30 minutes so you don&apos;t have to.
           </p>
         </div>
 

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BlogAuthor, BlogFAQ, ComparisonTable, FAQSchema } from '@/components/blog';
+import { BlogAuthor, BlogFAQ, ComparisonTable, FAQSchema, KeyTakeaways } from '@/components/blog';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
@@ -30,7 +30,7 @@ const articleSchema = {
   description:
     'Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.',
   datePublished: '2026-03-27T00:00:00Z',
-  dateModified: '2026-04-26T00:00:00Z',
+  dateModified: '2026-05-08T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -77,52 +77,52 @@ const faqItems = [
   {
     question: 'Is PickMyClass affiliated with ASU?',
     answer:
-      'No, PickMyClass is an independent tool built by students, for students. We are not officially affiliated with Arizona State University, but we use publicly available class search data to help you monitor seat availability.',
+      "Nope. PickMyClass was built by ASU students who got tired of the registration game. We're not officially connected to the university, but we pull from the same public class search data anyone can access.",
   },
   {
     question: 'How is this different from ASUClassFinder?',
     answer:
-      'PickMyClass is completely free with no premium tiers, while ASUClassFinder has paid features. We also offer unique instructor change alerts when "Staff" sections get assigned actual professors, which other trackers don\'t provide.',
+      'PickMyClass is completely free. No premium tiers, no upsells. We also notify you when "Staff" sections get assigned real professors, which is huge for avoiding bad surprises on day one.',
   },
   {
     question: 'Can international students use this?',
     answer:
-      "Yes! PickMyClass works for all ASU students regardless of location or time zone. Since we send email alerts, you'll be notified even if you're studying from abroad. Our monitoring runs 24/7 on our servers.",
+      "Yeah, it works from anywhere. We just send you an email when something changes. Doesn't matter if you're in Tempe or Tokyo.",
   },
   {
     question: "What if a seat opens while I'm sleeping?",
     answer:
-      "You'll receive an email notification, but popular classes can fill up within minutes. We recommend checking your email as soon as you wake up and having MyASU bookmarked for quick access. The 30-minute check interval helps, but seats in high-demand classes go fast.",
+      "You'll get an email, but honestly? Hot classes can fill in minutes. Keep email notifications on, and have MyASU bookmarked so you can register right when you wake up. The 30-minute check interval helps, but you're still racing everyone else.",
   },
   {
     question: 'Do I need to give you my ASU password?',
     answer:
-      'Absolutely not. We never ask for your MyASU credentials. PickMyClass only monitors publicly available class search data. Your ASU login stays with you.',
+      'Absolutely not. We never ask for your MyASU login. We only look at public class data. Your password is yours.',
   },
   {
     question: 'How many classes can I track?',
     answer:
-      'You can track multiple classes simultaneously. There are reasonable limits to ensure fair usage, but most students can monitor all the classes they need for a semester without issues.',
+      "Multiple. We have fair-use limits so one person doesn't break the system for everyone, but most students can track every class they need without hitting a cap.",
   },
   {
     question: 'Does this work for ASU Online classes?',
     answer:
-      'Yes! PickMyClass works for all ASU campuses and modalities including Tempe, Downtown Phoenix, Polytechnic, West campus, and ASU Online sections.',
+      'Yep. Tempe, Downtown Phoenix, Poly, West, and ASU Online. If it shows up in the ASU class search, we can track it.',
   },
   {
     question: 'What should I do after getting an alert?',
     answer:
-      'Act fast! Have MyASU open in a browser tab, be logged in, and know exactly where to click to add the class. Popular seats can fill in under 5 minutes, so every second counts. We recommend practicing the registration flow beforehand.',
+      'Move fast. Have MyASU open in a tab, be logged in, and know exactly how to add the class. Practice the flow before you need it. Some seats vanish in under 5 minutes.',
   },
   {
     question: 'Can I track multiple sections of the same class?',
     answer:
-      'Yes, you can track as many sections as you want. Many students track all available sections of a required course to maximize their chances of getting in.',
+      'Definitely. I always track every section of a required course. More sections tracked means more chances to get in.',
   },
   {
     question: 'What if I miss the notification?',
     answer:
-      "We send email alerts immediately when seats open, but we recommend enabling push notifications for your email app. Unfortunately, if you miss the window and someone else takes the seat, you'll need to wait for the next opening.",
+      'It happens. Enable push notifications for your email, but if you miss a seat, just stay on the tracker. Students drop classes all semester, especially the first week. The next opening might be hours or days away.',
   },
 ];
 
@@ -167,60 +167,72 @@ export default async function ASUClassSeatTrackerPost() {
           </div>
 
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Every ASU student knows the drill: you find the perfect class for your schedule, click
-            &ldquo;Add,&rdquo; and&hellip; it&apos;s full. All sections. Every single one. So you
-            start the refresh cycle &mdash; checking MyASU every few minutes, hoping someone drops.
+            Every ASU student knows the drill. You find the perfect class, click &ldquo;Add,&rdquo;
+            and it's full. Every section. So you start the refresh cycle, checking MyASU every few
+            minutes like it's a social media feed.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            There&apos;s a better way. Instead of manually checking the ASU class search dozens of
-            times a day, you can use an automated class seat tracker to monitor availability and
-            alert you the moment a seat opens up.
+            Look, there's a better way. Instead of manually checking the ASU class search all day,
+            you can use an automated tracker to watch classes for you and send you an email the
+            second a seat opens.
           </p>
+
+          <KeyTakeaways
+            items={[
+              { text: 'Manual refreshing is a losing game, seats open and close too fast' },
+              {
+                text: 'PickMyClass checks every 30 minutes and emails you instantly when seats appear',
+              },
+              {
+                text: 'It also detects instructor changes so you know when "Staff" becomes a real professor',
+              },
+              {
+                text: 'Set up tracking before registration starts, then act fast when you get the alert',
+              },
+            ]}
+          />
 
           <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
             The Problem: Refreshing MyASU Is a Full-Time Job
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            During registration and especially during add/drop week, popular ASU classes fill up
-            within minutes. Students who need specific classes for their major or graduation
-            timeline are left constantly refreshing the class search, hoping to catch the brief
-            window when someone drops and a seat becomes available.
+            During registration and add/drop week, popular classes fill in minutes. If you need a
+            specific class for your major, you're stuck refreshing the class search, praying someone
+            drops.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            The problem? Seats appear and disappear quickly. If you&apos;re in a lecture, at work,
-            or sleeping, you&apos;ll miss it entirely. And with hundreds of other students doing the
-            exact same thing, the competition is fierce.
+            Here's the thing. Seats appear and vanish quickly. If you're in lecture, at work, or
+            asleep, you miss it. And hundreds of other students are doing the exact same thing.
           </p>
 
           <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
-            The Solution: Automatic ASU Class Seat Tracking
+            The Solution: Let a Tracker Do the Work
           </h2>
           <p className="text-muted-foreground leading-relaxed">
             <Link href="/" className="text-primary hover:text-primary/80 font-medium">
               PickMyClass
             </Link>{' '}
-            is a free ASU class seat tracker that monitors the classes you care about and sends you
-            an email alert the moment a seat opens up. Instead of you checking MyASU every 5
-            minutes, our system checks automatically every 30 minutes around the clock.
+            is a free ASU class seat tracker that monitors your classes and emails you when a seat
+            opens. We check every 30 minutes, 24/7, so you don't have to.
           </p>
-          <p className="text-muted-foreground leading-relaxed">Here&apos;s what makes it work:</p>
+          <p className="text-muted-foreground leading-relaxed">What it actually does:</p>
           <ul className="space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Automatic monitoring</strong> &mdash; We query the
-              ASU class search system every 30 minutes for every class on your watchlist
+              <strong className="text-foreground">Automatic monitoring</strong>. We check the ASU
+              class search every 30 minutes for every class on your list.
             </li>
             <li>
-              <strong className="text-foreground">Instant email alerts</strong> &mdash; The moment a
-              seat opens, you get an email notification so you can register immediately
+              <strong className="text-foreground">Instant email alerts</strong>. The moment a seat
+              opens, you get notified so you can jump on it.
             </li>
             <li>
-              <strong className="text-foreground">Instructor change detection</strong> &mdash; When
-              a &ldquo;Staff&rdquo; section gets an actual professor assigned, we let you know so
-              you can check RateMyProfessors
+              <strong className="text-foreground">Instructor change detection</strong>. When
+              &ldquo;Staff&rdquo; becomes a real professor, we let you know so you can check
+              RateMyProfessors before it's too late.
             </li>
             <li>
-              <strong className="text-foreground">All ASU campuses</strong> &mdash; Works with
-              Tempe, Downtown Phoenix, Polytechnic, West, and ASU Online classes
+              <strong className="text-foreground">All ASU campuses</strong>. Tempe, Downtown
+              Phoenix, Polytechnic, West, and ASU Online.
             </li>
           </ul>
 
@@ -236,8 +248,8 @@ export default async function ASUClassSeatTrackerPost() {
                 <Link href="/register" className="text-primary hover:text-primary/80 font-medium">
                   Sign up for PickMyClass
                 </Link>{' '}
-                with your email. It takes less than 30 seconds. No ASU credentials needed &mdash; we
-                never ask for your MyASU login.
+                with your email. It takes like 30 seconds. No ASU credentials needed, we never ask
+                for your MyASU login.
               </p>
             </div>
             <div className="rounded-lg border border-border bg-card p-6">
@@ -245,8 +257,8 @@ export default async function ASUClassSeatTrackerPost() {
                 Step 2: Add Classes to Your Watchlist
               </h3>
               <p className="text-muted-foreground">
-                Search for classes by their section number (the 5-digit code from the ASU class
-                search) and add them to your watchlist. You can track multiple classes at once.
+                Search by section number (the 5-digit code from ASU class search) and add them to
+                your watchlist. Track as many as you want.
               </p>
             </div>
             <div className="rounded-lg border border-border bg-card p-6">
@@ -254,9 +266,8 @@ export default async function ASUClassSeatTrackerPost() {
                 Step 3: Get Notified and Register
               </h3>
               <p className="text-muted-foreground">
-                Go about your day. When a seat opens in one of your tracked classes, you&apos;ll get
-                an email. Open MyASU and register before the hundreds of other students on the
-                waitlist even notice.
+                Go live your life. When a seat opens, you'll get an email. Open MyASU and register
+                before everyone else on the waitlist even notices.
               </p>
             </div>
           </div>
@@ -265,76 +276,71 @@ export default async function ASUClassSeatTrackerPost() {
             Seat Tracking Comparison: Your Options
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            When it comes to tracking ASU class seats, you have a few options. Here&apos;s how they
-            compare:
+            A few ways to track ASU class seats exist. Here's how they actually compare:
           </p>
           <ComparisonTable columns={comparisonColumns} rows={comparisonRows} />
           <p className="text-muted-foreground leading-relaxed">
-            PickMyClass stands out by offering frequent monitoring at no cost, while maintaining a
-            high success rate through reliable email notifications.
+            PickMyClass checks frequently, costs nothing, and actually works. That's the difference.
           </p>
 
           <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
-            Why 2,400+ Sun Devils Trust PickMyClass
+            Why 2,400+ Sun Devils Use PickMyClass
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Since launching, over 2,400 ASU students have used PickMyClass to track more than 15,000
-            classes. More than 8,500 successful seat notifications have been sent, helping students
-            get into classes they need for graduation.
+            Since we launched, over 2,400 ASU students have tracked more than 15,000 classes. We've
+            sent 8,500+ successful seat notifications, helping people get into classes they actually
+            need to graduate.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            The service is completely free &mdash; no premium tiers, no ads, no catches. It was
-            built by ASU students who experienced the same registration frustration and decided to
-            build something better.
+            It's completely free. No premium tiers, no ads, no weird catches. Built by ASU students
+            who were just as frustrated with registration as you are.
           </p>
 
           <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
             What to Do After Getting the Alert
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            When you get that email saying a seat opened, speed is everything. Here&apos;s your
-            action plan:
+            When that email hits your inbox, speed matters. Here's what to do:
           </p>
           <ol className="space-y-3 text-muted-foreground list-decimal list-inside">
             <li>
-              <strong className="text-foreground">Click immediately</strong> — Open the email and
-              click through to verify the seat is still available
+              <strong className="text-foreground">Click immediately</strong>. Open the email and
+              verify the seat is still open.
             </li>
             <li>
-              <strong className="text-foreground">Log into MyASU</strong> — Have it bookmarked and
-              be ready to sign in
+              <strong className="text-foreground">Log into MyASU</strong>. Have it bookmarked and be
+              ready to sign in.
             </li>
             <li>
-              <strong className="text-foreground">Navigate to registration</strong> — Go straight to
-              the add classes page
+              <strong className="text-foreground">Navigate to registration</strong>. Go straight to
+              the add classes page.
             </li>
             <li>
-              <strong className="text-foreground">Enter the section number</strong> — Have it copied
-              and ready to paste
+              <strong className="text-foreground">Enter the section number</strong>. Have it copied
+              and ready to paste.
             </li>
             <li>
-              <strong className="text-foreground">Add the class</strong> — Confirm and complete
-              registration immediately
+              <strong className="text-foreground">Add the class</strong>. Confirm and finish
+              registration immediately.
             </li>
           </ol>
           <p className="text-muted-foreground leading-relaxed mt-4">
             <strong className="text-foreground">Pro tip:</strong> Practice this flow before you get
-            an actual alert. Time yourself. The students who succeed are the ones who can register
-            within 2-3 minutes of receiving the notification.
+            a real alert. Time yourself. The students who get in are the ones who can register
+            within 2-3 minutes of getting the notification.
           </p>
 
           <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">When to Start Tracking</h2>
           <p className="text-muted-foreground leading-relaxed">
-            The best time to set up class tracking is{' '}
-            <strong className="text-foreground">before</strong> your enrollment appointment. Add all
-            the classes you want to your watchlist ahead of time. If they fill up during
-            registration, you&apos;ll already be monitoring them and ready to grab a seat the moment
-            one opens.
+            The best time to set up tracking is <strong className="text-foreground">before</strong>{' '}
+            your enrollment appointment. Add every class you want to your watchlist ahead of time.
+            If they fill during registration, you're already monitoring them and ready to pounce
+            when someone drops.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            PickMyClass is especially valuable during add/drop week, when class rosters are the most
-            volatile. Students are constantly swapping classes, creating a steady stream of openings
-            &mdash; if you know where to look.
+            PickMyClass is especially useful during add/drop week when class rosters change
+            constantly. Students are always swapping and dropping, which means seats open all the
+            time if you're watching.
           </p>
 
           <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
@@ -361,7 +367,7 @@ export default async function ASUClassSeatTrackerPost() {
           <BlogAuthor
             name="PickMyClass Team"
             title="PickMyClass Founder"
-            bio="Built PickMyClass after experiencing the frustration of missing registration for a required class. Now helping thousands of Sun Devils get the classes they need."
+            bio="Built PickMyClass after missing registration for a required class. Now helping thousands of Sun Devils get the classes they need."
           />
 
           <div className="not-prose mt-8 border-t border-border pt-6">
