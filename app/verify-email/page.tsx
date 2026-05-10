@@ -13,7 +13,7 @@ export default function VerifyEmailPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('');
-  const router = useRouter();
+  const { push } = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function VerifyEmailPage() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push('/login');
+    push('/login');
   };
 
   return (

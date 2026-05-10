@@ -124,7 +124,10 @@ export function ClassDetailsDialog({
 
           {/* Last Checked */}
           {classState?.last_checked_at && (
-            <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border">
+            <div
+              className="text-xs text-muted-foreground text-center pt-2 border-t border-border"
+              suppressHydrationWarning
+            >
               Last checked: {new Date(classState.last_checked_at).toLocaleString()}
             </div>
           )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { type HTMLMotionProps, motion } from 'framer-motion';
+import { type HTMLMotionProps, m } from 'framer-motion';
 import type * as React from 'react';
 import { cardHover } from '@/lib/animations';
 import { cn } from '@/lib/utils';
@@ -26,7 +26,7 @@ function Card({ className, interactive = false, ...props }: CardProps) {
   }
 
   return (
-    <motion.div
+    <m.div
       data-slot="card"
       className={cn(
         'bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-smooth transition-shadow cursor-pointer hover:shadow-smooth-lg',

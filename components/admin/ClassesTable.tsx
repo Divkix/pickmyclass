@@ -17,6 +17,7 @@ import type { ClassWithWatchers } from '@/lib/db/admin-queries';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 import { formatRelativeTime } from '@/lib/utils/time-format';
 import { type ClassesTableFilters, ClassesTableFiltersComponent } from './ClassesTableFilters';
+import { SortIcon } from './SortIcon';
 import { useTableSorting } from './useTableSorting';
 
 interface ClassesTableProps {
@@ -45,7 +46,7 @@ type SortField =
  * @param classes - Array of classes with watcher counts
  */
 export function ClassesTable({ classes }: ClassesTableProps) {
-  const router = useRouter();
+  const { push } = useRouter();
 
   const uniqueSubjects = useMemo(() => {
     const subjects = new Set(classes.map((c) => c.subject));
@@ -59,7 +60,7 @@ export function ClassesTable({ classes }: ClassesTableProps) {
     watcherCount: 'all',
   });
 
-  const { sortField, sortDirection, toggleSort, renderSortIcon } = useTableSorting<SortField>();
+  const { sortField, sortDirection, toggleSort } = useTableSorting<SortField>();
 
   const filteredAndSortedClasses = useMemo(() => {
     let result = [...classes];
@@ -182,7 +183,10 @@ export function ClassesTable({ classes }: ClassesTableProps) {
                 className="w-[100px] cursor-pointer select-none hover:bg-muted/50"
                 onClick={() => toggleSort('class_nbr')}
               >
-                <div className="flex items-center">Class #{renderSortIcon('class_nbr')}</div>
+                <div className="flex items-center">
+                  Class #
+                  <SortIcon field="class_nbr" sortField={sortField} sortDirection={sortDirection} />
+                </div>
               </TableHead>
               <TableHead
                 className="w-[120px] cursor-pointer select-none hover:bg-muted/50"
@@ -190,7 +194,7 @@ export function ClassesTable({ classes }: ClassesTableProps) {
               >
                 <div className="flex items-center">
                   Subject
-                  {renderSortIcon('subject')}
+                  <SortIcon field="subject" sortField={sortField} sortDirection={sortDirection} />
                 </div>
               </TableHead>
               <TableHead>Title</TableHead>
@@ -201,7 +205,11 @@ export function ClassesTable({ classes }: ClassesTableProps) {
               >
                 <div className="flex items-center justify-center">
                   Seats
-                  {renderSortIcon('seats_available')}
+                  <SortIcon
+                    field="seats_available"
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                  />
                 </div>
               </TableHead>
               <TableHead
@@ -211,7 +219,11 @@ export function ClassesTable({ classes }: ClassesTableProps) {
                 <div className="flex items-center justify-center gap-1">
                   <Users className="size-4" />
                   <span>Watchers</span>
-                  {renderSortIcon('watcher_count')}
+                  <SortIcon
+                    field="watcher_count"
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                  />
                 </div>
               </TableHead>
               <TableHead
@@ -221,7 +233,11 @@ export function ClassesTable({ classes }: ClassesTableProps) {
                 <div className="flex items-center justify-center gap-1">
                   <Mail className="size-4" />
                   <span>Seat Emails</span>
-                  {renderSortIcon('seat_emails')}
+                  <SortIcon
+                    field="seat_emails"
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                  />
                 </div>
               </TableHead>
               <TableHead
@@ -231,7 +247,11 @@ export function ClassesTable({ classes }: ClassesTableProps) {
                 <div className="flex items-center justify-center gap-1">
                   <Users className="size-4" />
                   <span>Instructor Emails</span>
-                  {renderSortIcon('instructor_emails')}
+                  <SortIcon
+                    field="instructor_emails"
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                  />
                 </div>
               </TableHead>
               <TableHead
@@ -241,7 +261,11 @@ export function ClassesTable({ classes }: ClassesTableProps) {
                 <div className="flex items-center justify-end gap-1">
                   <Clock className="size-4" />
                   <span>Last Check</span>
-                  {renderSortIcon('last_checked_at')}
+                  <SortIcon
+                    field="last_checked_at"
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                  />
                 </div>
               </TableHead>
             </TableRow>
@@ -259,7 +283,7 @@ export function ClassesTable({ classes }: ClassesTableProps) {
                   key={classItem.id}
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => {
-                    router.push(`/admin/classes/${classItem.class_nbr}`);
+                    push(`/admin/classes/${classItem.class_nbr}`);
                   }}
                 >
                   <TableCell className="font-mono font-semibold">

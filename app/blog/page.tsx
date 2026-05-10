@@ -70,7 +70,7 @@ export default async function BlogIndexPage() {
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="size-3.5" />
-                    <time dateTime={post.publishedAt}>
+                    <time dateTime={post.publishedAt} suppressHydrationWarning>
                       {new Date(post.publishedAt).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',

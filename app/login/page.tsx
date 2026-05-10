@@ -19,32 +19,32 @@ function LoginForm() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const searchParams = useSearchParams();
+  const { get: getSearchParam } = useSearchParams();
 
   useEffect(() => {
     // Check if user just registered
-    if (searchParams.get('registered') === 'true') {
+    if (getSearchParam('registered') === 'true') {
       setSuccess('Account created successfully! Please check your email to verify your account.');
     }
     // Check if password was reset
-    if (searchParams.get('password_reset') === 'true') {
+    if (getSearchParam('password_reset') === 'true') {
       setSuccess('Password reset successfully! Please sign in with your new password.');
     }
     // Check if account was deleted
-    if (searchParams.get('message')) {
-      setSuccess(searchParams.get('message')!);
+    if (getSearchParam('message')) {
+      setSuccess(getSearchParam('message')!);
     }
     // Check if account was disabled
-    if (searchParams.get('error') === 'account_disabled') {
+    if (getSearchParam('error') === 'account_disabled') {
       setError(
         'Your account has been disabled. If you believe this is an error, please contact support.'
       );
     }
     // Check if OAuth failed
-    if (searchParams.get('error') === 'oauth_failed') {
+    if (getSearchParam('error') === 'oauth_failed') {
       setError('Failed to sign in with Google. Please try again.');
     }
-  }, [searchParams]);
+  }, [getSearchParam]);
 
   const handleLogin = async (e: React.FormEvent) => {
     // CRITICAL: Prevent form submission FIRST, before any other code
@@ -264,7 +264,7 @@ export default function LoginPage() {
           <div className="flex flex-1 items-center justify-center p-4">
             <Card className="w-full max-w-md">
               <CardHeader className="text-center">
-                <CardTitle className="text-3xl">Loading...</CardTitle>
+                <CardTitle className="text-3xl">Loading…</CardTitle>
               </CardHeader>
             </Card>
           </div>

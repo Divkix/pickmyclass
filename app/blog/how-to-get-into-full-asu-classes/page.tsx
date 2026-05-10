@@ -403,7 +403,7 @@ export default async function HowToGetIntoFullClassesPost() {
                 Add/Drop Week (First week of classes)
               </h3>
               <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                <li>Monitor tracked classes aggressively — most drops happen here</li>
+                <li>Monitor tracked classes aggressively (most drops happen here)</li>
                 <li>Attend full classes in person and talk to professors</li>
                 <li>Watch for late-added sections</li>
                 <li>Be ready to act on notifications within minutes</li>

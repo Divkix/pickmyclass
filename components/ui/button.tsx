@@ -2,7 +2,7 @@
 
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { type HTMLMotionProps, motion } from 'framer-motion';
+import { type HTMLMotionProps, m } from 'framer-motion';
 import type * as React from 'react';
 import { buttonTap } from '@/lib/animations';
 import { cn } from '@/lib/utils';
@@ -65,7 +65,7 @@ function Button({
   }
 
   return (
-    <motion.button
+    <m.button
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       whileTap={!props.disabled ? buttonTap : undefined}

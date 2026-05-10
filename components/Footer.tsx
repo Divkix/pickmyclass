@@ -6,7 +6,7 @@ export function Footer() {
       <div className="container mx-auto px-4 py-6">
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex flex-col items-center gap-4 md:flex-row md:gap-6">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground" suppressHydrationWarning>
               © {new Date().getFullYear()} PickMyClass
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 text-sm sm:gap-4">

@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { CheckCircle2, Clock, Mail, Sparkles, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -30,13 +30,13 @@ export function HeroSection() {
           </p>
         </div>
 
-        <motion.div
+        <m.div
           className="space-y-10"
           initial="hidden"
           animate="visible"
           variants={staggerContainer}
         >
-          <motion.div
+          <m.div
             className="flex flex-col items-center justify-center gap-4 sm:flex-row"
             variants={staggerItem}
           >
@@ -51,9 +51,9 @@ export function HeroSection() {
                 Sign In
               </Button>
             </Link>
-          </motion.div>
+          </m.div>
 
-          <motion.div
+          <m.div
             className="flex flex-wrap items-center justify-center gap-4 pt-4 text-sm text-muted-foreground sm:gap-8"
             variants={staggerItem}
           >
@@ -69,8 +69,8 @@ export function HeroSection() {
               <Clock className="size-4 text-primary" />
               <span>Checks every 30 min</span>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       </div>
     </section>
   );

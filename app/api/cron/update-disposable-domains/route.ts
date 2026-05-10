@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch blocklist from GitHub
-    const response = await fetch(BLOCKLIST_URL);
+    const response = await fetch(BLOCKLIST_URL, { cache: 'no-store' });
     if (!response.ok) {
       return NextResponse.json(
         {
@@ -51,10 +51,13 @@ export async function GET(request: NextRequest) {
     }
 
     const text = await response.text();
-    const domains = text
-      .split('\n')
-      .map((line) => line.trim().toLowerCase())
-      .filter((line) => line !== '' && !line.startsWith('#'));
+    const domains: string[] = [];
+    for (const rawLine of text.split('\n')) {
+      const line = rawLine.trim().toLowerCase();
+      if (line !== '' && !line.startsWith('#')) {
+        domains.push(line);
+      }
+    }
 
     // Sanity check: prevent wiping KV on fetch errors that return empty/garbage
     if (domains.length < MINIMUM_DOMAIN_COUNT) {

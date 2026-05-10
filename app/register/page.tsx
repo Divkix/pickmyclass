@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Header } from '@/components/Header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -58,31 +58,11 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState<{
     score: number;
     feedback: { warning?: string; suggestions?: string[] };
   } | null>(null);
-  const router = useRouter();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="flex min-h-screen flex-col bg-background">
-        <Header />
-        <div className="flex flex-1 items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <CardTitle className="text-3xl">Loading...</CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+  const { push } = useRouter();
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const pwd = e.target.value;
@@ -170,7 +150,7 @@ export default function RegisterPage() {
         console.error('Error updating profile:', profileError);
       }
 
-      router.push('/verify-email');
+      push('/verify-email');
     } catch (err) {
       setError('An unexpected error occurred');
       console.error(err);
@@ -337,7 +317,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="space-y-4 pt-2">
-                  <div className="flex items-start space-x-2">
+                  <div className="flex items-start gap-x-2">
                     <input
                       id="ageVerified"
                       type="checkbox"
@@ -351,7 +331,7 @@ export default function RegisterPage() {
                     </Label>
                   </div>
 
-                  <div className="flex items-start space-x-2">
+                  <div className="flex items-start gap-x-2">
                     <input
                       id="agreedToTerms"
                       type="checkbox"
