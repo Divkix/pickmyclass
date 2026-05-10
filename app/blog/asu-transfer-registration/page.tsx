@@ -122,7 +122,7 @@ export default async function ASUTransferRegistrationPost() {
           </div>
 
           <div className="not-prose mb-8">
-            <h1 className="text-4xl font-bold text-foreground sm:text-5xl leading-tight">
+            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">
               ASU Transfer Student Registration: Complete Guide for MyPath2ASU Students
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
@@ -163,7 +163,7 @@ export default async function ASUTransferRegistrationPost() {
 
           <TableOfContents items={tocItems} />
 
-          <h2 id="credits" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="credits" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             How Transfer Credits Affect Your Registration Date
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -207,7 +207,7 @@ export default async function ASUTransferRegistrationPost() {
             Fixing it now changes your registration priority next term.
           </p>
 
-          <h2 id="mypath2asu" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="mypath2asu" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             MyPath2ASU Articulation Guide
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -278,7 +278,7 @@ export default async function ASUTransferRegistrationPost() {
             </li>
           </ul>
 
-          <h2 id="timeline" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="timeline" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Transfer Student Registration Timeline
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -337,7 +337,7 @@ export default async function ASUTransferRegistrationPost() {
             </li>
           </ul>
 
-          <h2 id="full-classes" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="full-classes" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Getting Into Full Classes as a Transfer Student
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -391,7 +391,7 @@ export default async function ASUTransferRegistrationPost() {
           </p>
 
           <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">
+            <h2 className="mb-2 text-2xl font-semibold text-foreground">
               Late registration is rough, but it's not the end
             </h2>
             <p className="mb-6 text-muted-foreground">
@@ -406,7 +406,7 @@ export default async function ASUTransferRegistrationPost() {
             </Link>
           </div>
 
-          <h2 id="faq" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Frequently Asked Questions
           </h2>
           <BlogFAQ items={faqItems} />

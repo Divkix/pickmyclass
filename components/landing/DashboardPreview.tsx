@@ -43,7 +43,7 @@ export function DashboardPreview() {
         variants={staggerContainer}
       >
         <motion.div className="mb-12 text-center" variants={staggerItem}>
-          <h2 className="mb-4 text-3xl font-bold text-foreground sm:text-4xl">
+          <h2 className="mb-4 text-3xl font-semibold text-foreground sm:text-4xl">
             Your Dashboard, <span className="text-gradient">Ready to Go</span>
           </h2>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">

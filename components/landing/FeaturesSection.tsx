@@ -16,7 +16,7 @@ export function FeaturesSection() {
         variants={staggerContainer}
       >
         <motion.div className="mb-16 text-center" variants={staggerItem}>
-          <h2 className="mb-4 text-3xl font-bold text-foreground sm:text-4xl">
+          <h2 className="mb-4 text-3xl font-semibold text-foreground sm:text-4xl">
             We Get It. <span className="text-gradient">Registration Sucks.</span>
           </h2>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">

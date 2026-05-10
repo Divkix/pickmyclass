@@ -22,6 +22,8 @@ const tokenSchema = z.object({
  * GET handler for web-based unsubscribe
  * Renders an HTML page with unsubscribe confirmation
  */
+// One-click unsubscribe requires GET per RFC 8058 / CAN-SPAM standards
+// eslint-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const token = searchParams.get('token');

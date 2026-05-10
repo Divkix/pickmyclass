@@ -168,7 +168,7 @@ export default async function FAQPage() {
           </div>
 
           <div className="mb-12">
-            <h1 className="text-4xl font-bold text-foreground sm:text-5xl">
+            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl">
               Frequently Asked Questions
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
@@ -186,7 +186,7 @@ export default async function FAQPage() {
 
           {faqCategories.map((category) => (
             <section key={category.title} className="mb-12">
-              <h2 className="mb-6 text-2xl font-bold text-foreground">{category.title}</h2>
+              <h2 className="mb-6 text-2xl font-semibold text-foreground">{category.title}</h2>
               <div className="space-y-4">
                 {category.faqs.map((faq) => (
                   <div key={faq.question} className="rounded-lg border border-border bg-card p-6">
@@ -199,7 +199,9 @@ export default async function FAQPage() {
           ))}
 
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">Ready to stop refreshing?</h2>
+            <h2 className="mb-2 text-2xl font-semibold text-foreground">
+              Ready to stop refreshing?
+            </h2>
             <p className="mb-6 text-muted-foreground">
               Join 2,400+ Sun Devils who get notified when seats open in full ASU classes.
             </p>

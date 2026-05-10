@@ -157,7 +157,7 @@ export default async function ASUClassSeatTrackerPost() {
           </div>
 
           <div className="not-prose mb-8">
-            <h1 className="text-4xl font-bold text-foreground sm:text-5xl leading-tight">
+            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">
               ASU Class Seat Tracker: How to Get Notified When Seats Open
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
@@ -192,7 +192,7 @@ export default async function ASUClassSeatTrackerPost() {
             ]}
           />
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
             The Problem: Refreshing MyASU Is a Full-Time Job
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -205,7 +205,7 @@ export default async function ASUClassSeatTrackerPost() {
             asleep, you miss it. And hundreds of other students are doing the exact same thing.
           </p>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
             The Solution: Let a Tracker Do the Work
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -236,7 +236,7 @@ export default async function ASUClassSeatTrackerPost() {
             </li>
           </ul>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
             How to Track ASU Class Seats in 3 Steps
           </h2>
           <div className="space-y-6 my-6">
@@ -272,7 +272,7 @@ export default async function ASUClassSeatTrackerPost() {
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Seat Tracking Comparison: Your Options
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -283,7 +283,7 @@ export default async function ASUClassSeatTrackerPost() {
             PickMyClass checks frequently, costs nothing, and actually works. That's the difference.
           </p>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Why 2,400+ Sun Devils Use PickMyClass
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -296,7 +296,7 @@ export default async function ASUClassSeatTrackerPost() {
             who were just as frustrated with registration as you are.
           </p>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
             What to Do After Getting the Alert
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -330,7 +330,9 @@ export default async function ASUClassSeatTrackerPost() {
             within 2-3 minutes of getting the notification.
           </p>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">When to Start Tracking</h2>
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
+            When to Start Tracking
+          </h2>
           <p className="text-muted-foreground leading-relaxed">
             The best time to set up tracking is <strong className="text-foreground">before</strong>{' '}
             your enrollment appointment. Add every class you want to your watchlist ahead of time.
@@ -343,14 +345,14 @@ export default async function ASUClassSeatTrackerPost() {
             time if you're watching.
           </p>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Frequently Asked Questions
           </h2>
           <BlogFAQ items={faqItems} />
           <FAQSchema items={faqItems} />
 
           <div className="not-prose mt-12 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">
+            <h2 className="mb-2 text-2xl font-semibold text-foreground">
               Stop refreshing. Start tracking.
             </h2>
             <p className="mb-6 text-muted-foreground">

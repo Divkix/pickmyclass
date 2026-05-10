@@ -87,7 +87,7 @@ export function ClassDetailsDialog({
                     className="inline-flex items-center gap-2"
                     aria-label={`View ${classState?.instructor_name} on RateMyProfessor`}
                   >
-                    <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                    <ExternalLink className="size-4" aria-hidden="true" />
                     View on RateMyProfessor
                   </a>
                 </Button>

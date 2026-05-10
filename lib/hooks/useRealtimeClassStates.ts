@@ -117,6 +117,7 @@ export function useRealtimeClassStates({
     // Cleanup subscription on unmount or when dependencies change
     return () => {
       if (channel) {
+        channel.unsubscribe();
         supabase.removeChannel(channel);
       }
     };

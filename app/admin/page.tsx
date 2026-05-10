@@ -42,7 +42,7 @@ export default async function AdminDashboardPage() {
     <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2 sm:text-4xl">Admin Dashboard</h1>
+        <h1 className="text-3xl font-semibold mb-2 sm:text-4xl">Admin Dashboard</h1>
         <p className="text-muted-foreground">
           Platform statistics and monitoring for {adminUser.email}
         </p>

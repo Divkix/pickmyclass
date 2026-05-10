@@ -67,14 +67,14 @@ export default function AddClassPage() {
         <div className="mb-6">
           <Link href="/dashboard">
             <Button variant="ghost" className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="size-4" />
               Back to Dashboard
             </Button>
           </Link>
         </div>
 
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Add a Class to Watch</h1>
+          <h1 className="text-3xl font-semibold mb-2">Add a Class to Watch</h1>
           <p className="text-zinc-600 dark:text-zinc-400">
             Enter your section number and we'll start watching it. Simple as that.
           </p>

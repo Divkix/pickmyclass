@@ -80,7 +80,7 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
                   <SelectItem value="asu">Arizona State University (ASU)</SelectItem>
                 </SelectContent>
               </Select>
-              <Lock className="absolute right-9 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Lock className="absolute right-9 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
             </div>
             <p className="text-xs text-muted-foreground">More universities coming soon</p>
           </div>

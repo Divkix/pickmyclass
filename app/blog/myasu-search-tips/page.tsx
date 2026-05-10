@@ -122,7 +122,7 @@ export default async function MyASUSearchTipsPost() {
           </div>
 
           <div className="not-prose mb-8">
-            <h1 className="text-4xl font-bold text-foreground sm:text-5xl leading-tight">
+            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">
               MyASU Class Search: 10 Hidden Features Most Students Don't Know
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
@@ -161,7 +161,7 @@ export default async function MyASUSearchTipsPost() {
 
           <TableOfContents items={tocItems} />
 
-          <h2 id="basic" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="basic" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Basic Search Tips (That Most Students Miss)
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -205,7 +205,7 @@ export default async function MyASUSearchTipsPost() {
             Search when it's time to actually click the enroll button.
           </p>
 
-          <h2 id="advanced-filters" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="advanced-filters" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Advanced Filters (The Stuff Power Users Actually Use)
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -346,7 +346,7 @@ export default async function MyASUSearchTipsPost() {
             </li>
           </ul>
 
-          <h2 id="reading-results" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="reading-results" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Reading the Results (What the Numbers Actually Mean)
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -405,7 +405,7 @@ export default async function MyASUSearchTipsPost() {
             </li>
           </ul>
 
-          <h2 id="pro-tips" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="pro-tips" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Pro Tips for Power Users
           </h2>
 
@@ -443,7 +443,7 @@ export default async function MyASUSearchTipsPost() {
           </ul>
 
           <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">
+            <h2 className="mb-2 text-2xl font-semibold text-foreground">
               Full class? Don't just wait and hope
             </h2>
             <p className="mb-6 text-muted-foreground">
@@ -458,7 +458,7 @@ export default async function MyASUSearchTipsPost() {
             </Link>
           </div>
 
-          <h2 id="faq" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Frequently Asked Questions
           </h2>
           <BlogFAQ items={faqItems} />

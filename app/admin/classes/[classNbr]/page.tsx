@@ -89,7 +89,7 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
       <div className="mb-8">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h1 className="text-3xl font-bold mb-2">
+            <h1 className="text-3xl font-semibold mb-2">
               {classState.subject} {classState.catalog_nbr}
             </h1>
             <p className="text-muted-foreground text-lg">{classState.title || 'No title'}</p>

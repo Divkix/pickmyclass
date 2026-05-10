@@ -48,7 +48,7 @@ export function FAQSection() {
     <section className="border-b border-border px-6 py-20">
       <div className="mx-auto max-w-4xl">
         <div className="mb-12 text-center">
-          <h2 className="mb-4 text-3xl font-bold text-foreground sm:text-4xl">
+          <h2 className="mb-4 text-3xl font-semibold text-foreground sm:text-4xl">
             Frequently Asked Questions
           </h2>
           <p className="text-lg text-muted-foreground">

@@ -91,7 +91,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
       {/* Page Header */}
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">User Details</h1>
+          <h1 className="text-3xl font-semibold mb-2">User Details</h1>
           <p className="text-muted-foreground">
             View detailed information and class watches for this user
           </p>

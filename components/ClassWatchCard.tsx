@@ -150,7 +150,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
         {swipeOffset < -10 && (
           <div className="absolute inset-0 flex items-center justify-end pr-6 bg-red-500 rounded-xl">
             <div className="flex items-center gap-2 text-white">
-              <Trash2 className="h-5 w-5" />
+              <Trash2 className="size-5" />
               <span className="font-semibold">Delete</span>
             </div>
           </div>
@@ -187,9 +187,9 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
                   </p>
                   {/* Watching indicator with pulse animation */}
                   <div className="flex items-center gap-1.5 mt-2">
-                    <span className="relative flex h-2 w-2">
+                    <span className="relative flex size-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-asu-gold opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-asu-gold" />
+                      <span className="relative inline-flex rounded-full size-2 bg-asu-gold" />
                     </span>
                     <span className="text-xs text-muted-foreground">Watching for changes</span>
                   </div>
@@ -205,22 +205,22 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowDetails(true)}
-                    className="text-primary hover:text-primary/80 hover:bg-primary/10 h-11 w-11"
+                    className="text-primary hover:text-primary/80 hover:bg-primary/10 size-11"
                     aria-label={`View class details for ${classTitle}`}
                     title="View class details"
                   >
-                    <Info className="h-4 w-4" aria-hidden="true" />
+                    <Info className="size-4" aria-hidden="true" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowDeleteConfirm(true)}
                     disabled={isDeleting}
-                    className="text-destructive hover:text-destructive/80 hover:bg-destructive/10 h-11 w-11"
+                    className="text-destructive hover:text-destructive/80 hover:bg-destructive/10 size-11"
                     aria-label={`Stop watching ${classTitle}`}
                     title="Stop watching this class"
                   >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    <Trash2 className="size-4" aria-hidden="true" />
                   </Button>
                 </div>
               </div>

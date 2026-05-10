@@ -88,7 +88,7 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Desktop Header */}
         <header className="hidden lg:flex sticky top-0 z-50 items-center justify-between border-b border-border/40 bg-background/80 px-6 py-4 backdrop-blur-lg">
-          <h1 className="text-2xl font-bold">Admin Panel</h1>
+          <h1 className="text-2xl font-semibold">Admin Panel</h1>
           <ThemeToggle />
         </header>
 

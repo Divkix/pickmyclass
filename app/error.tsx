@@ -19,7 +19,7 @@ export default function ErrorPage({
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
       <div className="flex flex-1 flex-col items-center justify-center p-4 text-center">
-        <h1 className="text-4xl font-bold text-foreground sm:text-5xl">Something went wrong</h1>
+        <h1 className="text-4xl font-semibold text-foreground sm:text-5xl">Something went wrong</h1>
         <p className="mt-4 max-w-md text-muted-foreground">
           An unexpected error occurred. Please try again or return to the homepage.
         </p>

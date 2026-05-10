@@ -121,7 +121,7 @@ export default async function ASUWaitlistGuidePost() {
           </div>
 
           <div className="not-prose mb-8">
-            <h1 className="text-4xl font-bold text-foreground sm:text-5xl leading-tight">
+            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">
               ASU Waitlist Guide: How It Actually Works (And Why Most Classes Don&apos;t Have One)
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
@@ -156,7 +156,7 @@ export default async function ASUWaitlistGuidePost() {
 
           <TableOfContents items={tocItems} />
 
-          <h2 id="how-waitlists-work" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="how-waitlists-work" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             How ASU &ldquo;Waitlists&rdquo; Actually Work
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -186,7 +186,7 @@ export default async function ASUWaitlistGuidePost() {
             use an automated tracking tool.
           </p>
 
-          <h2 id="check-waitlist" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="check-waitlist" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             How to Check if Your Class Has a Waitlist
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -219,7 +219,7 @@ export default async function ASUWaitlistGuidePost() {
             &ldquo;Closed&rdquo; with no waitlist option, you are out of luck for that feature.
           </p>
 
-          <h2 id="no-waitlist" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="no-waitlist" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             What to Do If There&apos;s No Waitlist
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -296,7 +296,7 @@ export default async function ASUWaitlistGuidePost() {
           </p>
 
           <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">
+            <h2 className="mb-2 text-2xl font-semibold text-foreground">
               Most classes do not have waitlists
             </h2>
             <p className="mb-6 text-muted-foreground">
@@ -311,7 +311,7 @@ export default async function ASUWaitlistGuidePost() {
             </Link>
           </div>
 
-          <h2 id="faq" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Frequently Asked Questions
           </h2>
           <BlogFAQ items={faqItems} />

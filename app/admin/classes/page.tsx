@@ -28,7 +28,7 @@ export default async function AdminClassesPage() {
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">All Classes</h1>
+        <h1 className="text-3xl font-semibold mb-2">All Classes</h1>
         <p className="text-muted-foreground">
           View all classes being monitored across the platform
         </p>

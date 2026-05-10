@@ -10,7 +10,7 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
   if (!classState) {
     return (
       <div className="inline-flex items-center gap-2 rounded-md bg-asu-gold/20 dark:bg-asu-gold/10 px-3 py-1 text-sm">
-        <Clock className="h-4 w-4 text-asu-gold" aria-hidden="true" />
+        <Clock className="size-4 text-asu-gold" aria-hidden="true" />
         <span className="text-foreground">Checking soon...</span>
       </div>
     );
@@ -46,7 +46,7 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
         className={`inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm ${seatColor}`}
         aria-label={ariaLabel}
       >
-        <SeatIcon className="h-4 w-4" aria-hidden="true" />
+        <SeatIcon className="size-4" aria-hidden="true" />
         <span className="font-medium">{seatMessage}</span>
       </output>
 
@@ -57,7 +57,7 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
         }`}
       >
         <span
-          className={`h-2 w-2 rounded-full ${hasInstructor ? 'bg-primary' : 'bg-muted-foreground'}`}
+          className={`size-2 rounded-full ${hasInstructor ? 'bg-primary' : 'bg-muted-foreground'}`}
         />
         <span>Instructor: {instructor_name || 'TBA'}</span>
         {isValidProfessorName(instructor_name) && (
@@ -70,7 +70,7 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
             title="View on RateMyProfessor"
             onClick={(e) => e.stopPropagation()}
           >
-            <ExternalLink className="h-3 w-3" aria-hidden="true" />
+            <ExternalLink className="size-3" aria-hidden="true" />
             <span className="hover:underline">RMP</span>
           </a>
         )}

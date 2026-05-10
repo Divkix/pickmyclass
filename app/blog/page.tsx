@@ -49,7 +49,7 @@ export default async function BlogIndexPage() {
           </div>
 
           <div className="mb-12">
-            <h1 className="text-4xl font-bold text-foreground sm:text-5xl">Blog</h1>
+            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl">Blog</h1>
             <p className="mt-4 text-lg text-muted-foreground">
               Tips, guides, and strategies for ASU class registration. Learn how to build the
               perfect schedule and never miss an open seat.

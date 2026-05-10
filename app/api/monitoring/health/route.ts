@@ -29,6 +29,8 @@ const healthCache = new TtlCache<{ body: HealthStatus; statusCode: number }>(30_
  * Returns system health status for monitoring and alerting
  * Public endpoint - no authentication required
  */
+// Read-only TTL cache for health monitoring — not a mutation
+// eslint-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler
 export async function GET(request: Request) {
   // Auth check first - unauthenticated requests get a simple liveness probe
   // without running expensive DB/DO queries (prevents DoS via health endpoint)

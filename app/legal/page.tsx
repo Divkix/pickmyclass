@@ -21,7 +21,7 @@ export default async function LegalPage() {
       <div className="flex flex-1 flex-col p-4 md:p-8">
         <div className="mx-auto w-full max-w-4xl space-y-6">
           <div>
-            <h1 className="text-3xl font-bold">Legal Documents</h1>
+            <h1 className="text-3xl font-semibold">Legal Documents</h1>
             <p className="text-muted-foreground mt-1">Our policies and legal information</p>
           </div>
 

@@ -170,7 +170,7 @@ export default async function ASURegistrationTipsPost() {
           </div>
 
           <div className="not-prose mb-8">
-            <h1 className="text-4xl font-bold text-foreground sm:text-5xl leading-tight">
+            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">
               ASU Registration Tips: Build Your Perfect Schedule
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
@@ -202,7 +202,7 @@ export default async function ASURegistrationTipsPost() {
 
           <TableOfContents items={tocItems} />
 
-          <h2 id="preparation" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="preparation" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Before Registration: Preparation Is Everything
           </h2>
 
@@ -254,7 +254,10 @@ export default async function ASURegistrationTipsPost() {
             <li>Different campus locations (Tempe, Downtown, Polytechnic, West)</li>
           </ul>
 
-          <h2 id="during-registration" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2
+            id="during-registration"
+            className="text-2xl font-semibold text-foreground mt-10 mb-4"
+          >
             During Registration: Speed Matters
           </h2>
 
@@ -287,7 +290,7 @@ export default async function ASURegistrationTipsPost() {
             time. Do not wait until the last minute.
           </p>
 
-          <h2 id="after-registration" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="after-registration" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             After Registration: Do not Give Up on Full Classes
           </h2>
 
@@ -335,7 +338,10 @@ export default async function ASURegistrationTipsPost() {
             ready so you can grab a spot when someone else bails.
           </p>
 
-          <h2 id="registration-calendar" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2
+            id="registration-calendar"
+            className="text-2xl font-semibold text-foreground mt-10 mb-4"
+          >
             Registration Calendar by Student Type
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -349,7 +355,7 @@ export default async function ASURegistrationTipsPost() {
             Priority groups (Barrett Honors, athletes) may have earlier access.
           </p>
 
-          <h2 id="prerequisites" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="prerequisites" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Prerequisites and Holds: The Pre-Registration Checklist
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -392,7 +398,7 @@ export default async function ASURegistrationTipsPost() {
             until the day before your registration window.
           </p>
 
-          <h2 id="shopping-cart" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="shopping-cart" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Shopping Cart Power Tips
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -422,7 +428,7 @@ export default async function ASURegistrationTipsPost() {
             </li>
           </ul>
 
-          <h2 id="session-comparison" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="session-comparison" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Session A vs B vs C: Which Should You Choose?
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -436,7 +442,7 @@ export default async function ASURegistrationTipsPost() {
             4 classes while managing workload.
           </p>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Tools That Give You an Edge
           </h2>
           <div className="space-y-4 my-6">
@@ -468,13 +474,13 @@ export default async function ASURegistrationTipsPost() {
             </div>
           </div>
 
-          <h2 id="faq" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Frequently Asked Questions
           </h2>
           <BlogFAQ items={faqItems} />
           <FAQSchema items={faqItems} />
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Quick Registration Checklist
           </h2>
           <ul className="space-y-2 text-muted-foreground">
@@ -495,7 +501,7 @@ export default async function ASURegistrationTipsPost() {
           </ul>
 
           <div className="not-prose mt-12 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">
+            <h2 className="mb-2 text-2xl font-semibold text-foreground">
               Full classes do not have to ruin your schedule
             </h2>
             <p className="mb-6 text-muted-foreground">

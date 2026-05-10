@@ -177,7 +177,7 @@ export default async function HowToGetIntoFullClassesPost() {
           </div>
 
           <div className="not-prose mb-8">
-            <h1 className="text-4xl font-bold text-foreground sm:text-5xl leading-tight">
+            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">
               How to Get Into Full Classes at ASU: 7 Strategies That Work
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
@@ -210,7 +210,10 @@ export default async function HowToGetIntoFullClassesPost() {
 
           <TableOfContents items={tocItems} />
 
-          <h2 id="register-exact-minute" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2
+            id="register-exact-minute"
+            className="text-2xl font-semibold text-foreground mt-10 mb-4"
+          >
             1. Register at the Exact Minute Your Enrollment Window Opens
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -224,7 +227,7 @@ export default async function HowToGetIntoFullClassesPost() {
             in the minutes before your appointment.
           </p>
 
-          <h2 id="backup-schedule" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="backup-schedule" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             2. Build a Complete Backup Schedule
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -237,7 +240,7 @@ export default async function HowToGetIntoFullClassesPost() {
             and can save you when in-person sections fill up.
           </p>
 
-          <h2 id="auto-tracker" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="auto-tracker" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             3. Monitor Seats Automatically with a Class Tracker
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -256,7 +259,7 @@ export default async function HowToGetIntoFullClassesPost() {
             notification.
           </p>
 
-          <h2 id="add-drop-week" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="add-drop-week" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             4. Check During Add/Drop Week
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -276,7 +279,7 @@ export default async function HowToGetIntoFullClassesPost() {
             classes during this time.
           </p>
 
-          <h2 id="talk-professor" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="talk-professor" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             5. Talk to the Professor Directly
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -291,7 +294,7 @@ export default async function HowToGetIntoFullClassesPost() {
             this.
           </p>
 
-          <h2 id="advisor" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="advisor" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             6. Contact Your Academic Advisor
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -304,7 +307,7 @@ export default async function HowToGetIntoFullClassesPost() {
             section additions or capacity bumps before anyone else.
           </p>
 
-          <h2 id="late-sections" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="late-sections" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             7. Look for Late-Added Sections
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -320,7 +323,10 @@ export default async function HowToGetIntoFullClassesPost() {
             so you don't miss new sections as they appear.
           </p>
 
-          <h2 id="strategy-comparison" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2
+            id="strategy-comparison"
+            className="text-2xl font-semibold text-foreground mt-10 mb-4"
+          >
             Strategy Comparison: At a Glance
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -332,7 +338,7 @@ export default async function HowToGetIntoFullClassesPost() {
             plus having backup schedules ready gives you the best odds with the least stress.
           </p>
 
-          <h2 id="common-mistakes" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="common-mistakes" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Common Mistakes to Avoid
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -366,7 +372,7 @@ export default async function HowToGetIntoFullClassesPost() {
             </li>
           </ul>
 
-          <h2 id="timeline" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="timeline" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             When Each Strategy Works Best
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -415,7 +421,7 @@ export default async function HowToGetIntoFullClassesPost() {
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">Real Talk</h2>
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">Real Talk</h2>
           <p className="text-muted-foreground leading-relaxed">
             Getting into full ASU classes takes preparation and persistence. Register early, have
             backup plans, and use tools that actually give you an edge. Automated seat tracking
@@ -424,7 +430,7 @@ export default async function HowToGetIntoFullClassesPost() {
           </p>
 
           <div className="not-prose mt-12 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">
+            <h2 className="mb-2 text-2xl font-semibold text-foreground">
               Never miss an open seat again
             </h2>
             <p className="mb-6 text-muted-foreground">
@@ -438,7 +444,7 @@ export default async function HowToGetIntoFullClassesPost() {
             </Link>
           </div>
 
-          <h2 id="faq" className="text-2xl font-bold text-foreground mt-10 mb-4">
+          <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Frequently Asked Questions
           </h2>
           <BlogFAQ items={faqItems} />

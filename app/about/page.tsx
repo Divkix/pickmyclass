@@ -44,7 +44,7 @@ export default async function AboutPage() {
       <main className="flex-1 px-4 py-12 md:px-8">
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
           <div className="not-prose mb-8">
-            <h1 className="text-4xl font-bold text-foreground sm:text-5xl leading-tight">
+            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">
               About PickMyClass
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
@@ -52,7 +52,9 @@ export default async function AboutPage() {
             </p>
           </div>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">The Problem We Faced</h2>
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
+            The Problem We Faced
+          </h2>
           <p className="text-muted-foreground leading-relaxed">
             It was add/drop week. I needed CSE 240 to stay on track for graduation, but every single
             section was full. So I did what every ASU student does: I opened MyASU in one tab, set a
@@ -64,7 +66,7 @@ export default async function AboutPage() {
             &ldquo;There has to be a better way.&rdquo;
           </p>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">What We Built</h2>
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">What We Built</h2>
           <p className="text-muted-foreground leading-relaxed">
             PickMyClass is a free class seat tracker for ASU students. You add the classes you want,
             and we check the ASU class search every 30 minutes. When a seat opens up, you get an
@@ -75,7 +77,7 @@ export default async function AboutPage() {
             does one thing well: making sure you never miss an open seat again.
           </p>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">Who We Are</h2>
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">Who We Are</h2>
           <p className="text-muted-foreground leading-relaxed">
             PickMyClass was built by current and former ASU students who understand the registration
             struggle firsthand. We are not a company. We are not affiliated with Arizona State
@@ -96,7 +98,7 @@ export default async function AboutPage() {
             We believe transparency builds trust.
           </p>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">The Numbers So Far</h2>
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">The Numbers So Far</h2>
           <div className="not-prose grid grid-cols-1 sm:grid-cols-3 gap-4 my-6">
             <div className="rounded-lg border border-border bg-card p-5 text-center">
               <div className="text-3xl font-bold text-foreground">2,400+</div>
@@ -112,7 +114,7 @@ export default async function AboutPage() {
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">Our Philosophy</h2>
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">Our Philosophy</h2>
           <p className="text-muted-foreground leading-relaxed">We have three rules:</p>
           <ol className="space-y-3 text-muted-foreground list-decimal list-inside">
             <li>
@@ -130,7 +132,9 @@ export default async function AboutPage() {
             </li>
           </ol>
 
-          <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">Not Affiliated With ASU</h2>
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
+            Not Affiliated With ASU
+          </h2>
           <p className="text-muted-foreground leading-relaxed">
             PickMyClass is an independent project. We are not endorsed by, sponsored by, or
             affiliated with Arizona State University. We use publicly available class search data to
@@ -139,7 +143,7 @@ export default async function AboutPage() {
           </p>
 
           <div className="not-prose mt-12 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">
+            <h2 className="mb-2 text-2xl font-semibold text-foreground">
               Stop refreshing. Start tracking.
             </h2>
             <p className="mb-6 text-muted-foreground">

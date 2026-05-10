@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+// OAuth callback: cookie setup is required after code exchange
+// eslint-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');

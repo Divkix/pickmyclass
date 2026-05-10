@@ -202,7 +202,7 @@ export default function DashboardPage() {
       <main className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
         {/* Page Header */}
         <motion.div className="mb-8" initial="hidden" animate="visible" variants={fadeInUp}>
-          <h1 className="text-3xl font-bold mb-2 sm:text-4xl">Your Class Watchlist</h1>
+          <h1 className="text-3xl font-semibold mb-2 sm:text-4xl">Your Class Watchlist</h1>
           <p className="text-muted-foreground">
             We're keeping an eye on your ASU classes so you don't have to.
           </p>

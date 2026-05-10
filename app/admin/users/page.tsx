@@ -20,7 +20,7 @@ export default async function AdminUsersPage() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Users</h1>
+        <h1 className="text-3xl font-semibold text-foreground mb-2">Users</h1>
         <p className="text-muted-foreground">
           Total registered users: <span className="font-semibold">{users.length}</span>
         </p>

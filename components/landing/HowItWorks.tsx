@@ -17,7 +17,7 @@ export function HowItWorks() {
         variants={staggerContainer}
       >
         <motion.div className="mb-16 text-center" variants={staggerItem}>
-          <h2 className="mb-4 text-3xl font-bold text-foreground sm:text-4xl">How It Works</h2>
+          <h2 className="mb-4 text-3xl font-semibold text-foreground sm:text-4xl">How It Works</h2>
           <p className="text-lg text-muted-foreground">
             Three simple steps to never miss a class again
           </p>
