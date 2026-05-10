@@ -14,6 +14,14 @@ vi.mock('sonner', () => ({
 
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
+  m: {
+    div: ({ children, ...props }: { children: React.ReactNode }) => (
+      <div {...props}>{children}</div>
+    ),
+    button: ({ children, ...props }: { children: React.ReactNode }) => (
+      <button {...props}>{children}</button>
+    ),
+  },
   motion: {
     div: ({ children, ...props }: { children: React.ReactNode }) => (
       <div {...props}>{children}</div>

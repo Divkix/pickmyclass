@@ -37,6 +37,7 @@ describe('useRealtimeClassStates hook', () => {
           }
           return mockChannel;
         }),
+        unsubscribe: vi.fn(),
       };
 
       mockSupabase.channel.mockReturnValue(mockChannel);
@@ -82,6 +83,7 @@ describe('useRealtimeClassStates hook', () => {
           capturedSubscribeCallback = callback;
           return mockChannel;
         }),
+        unsubscribe: vi.fn(),
       };
 
       mockSupabase.channel.mockReturnValue(mockChannel);

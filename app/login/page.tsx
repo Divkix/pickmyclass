@@ -19,32 +19,32 @@ function LoginForm() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const { get: getSearchParam } = useSearchParams();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     // Check if user just registered
-    if (getSearchParam('registered') === 'true') {
+    if (searchParams.get('registered') === 'true') {
       setSuccess('Account created successfully! Please check your email to verify your account.');
     }
     // Check if password was reset
-    if (getSearchParam('password_reset') === 'true') {
+    if (searchParams.get('password_reset') === 'true') {
       setSuccess('Password reset successfully! Please sign in with your new password.');
     }
     // Check if account was deleted
-    if (getSearchParam('message')) {
-      setSuccess(getSearchParam('message')!);
+    if (searchParams.get('message')) {
+      setSuccess(searchParams.get('message')!);
     }
     // Check if account was disabled
-    if (getSearchParam('error') === 'account_disabled') {
+    if (searchParams.get('error') === 'account_disabled') {
       setError(
         'Your account has been disabled. If you believe this is an error, please contact support.'
       );
     }
     // Check if OAuth failed
-    if (getSearchParam('error') === 'oauth_failed') {
+    if (searchParams.get('error') === 'oauth_failed') {
       setError('Failed to sign in with Google. Please try again.');
     }
-  }, [getSearchParam]);
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     // CRITICAL: Prevent form submission FIRST, before any other code
