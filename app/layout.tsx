@@ -3,7 +3,6 @@ import Script from 'next/script';
 import { Toaster } from 'sonner';
 import { BottomNavWrapper } from '@/components/BottomNavWrapper';
 import { Footer } from '@/components/Footer';
-import { LazyMotionProvider } from '@/components/LazyMotionProvider';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 import { ThemeProvider } from '@/lib/contexts/ThemeContext';
 import './globals.css';
@@ -84,12 +83,10 @@ export default function RootLayout({
       <body className="font-sans antialiased flex flex-col min-h-screen">
         <ThemeProvider>
           <AuthProvider>
-            <LazyMotionProvider>
-              <div className="flex-1 pb-20 md:pb-0">{children}</div>
-              <Footer />
-              <BottomNavWrapper />
-              <Toaster position="top-center" richColors />
-            </LazyMotionProvider>
+            <div className="flex-1 pb-20 md:pb-0">{children}</div>
+            <Footer />
+            <BottomNavWrapper />
+            <Toaster position="top-center" richColors />
           </AuthProvider>
         </ThemeProvider>
         <Script

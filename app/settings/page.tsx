@@ -17,13 +17,13 @@ export default function SettingsPage() {
   const [exportLoading, setExportLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const { replace } = useRouter();
+  const router = useRouter();
 
   useEffect(() => {
     if (!authLoading && !user) {
-      replace('/login');
+      router.replace('/login');
     }
-  }, [user, authLoading, replace]);
+  }, [user, authLoading, router]);
 
   const handleExportData = async () => {
     setExportLoading(true);
@@ -116,7 +116,7 @@ export default function SettingsPage() {
                     <span className="text-sm font-medium text-muted-foreground">
                       Account Created
                     </span>
-                    <p className="text-lg" suppressHydrationWarning>
+                    <p className="text-lg">
                       {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                     </p>
                   </div>
@@ -139,7 +139,7 @@ export default function SettingsPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <h3 className="font-medium">Legal Documents</h3>
-                    <div className="flex flex-col gap-y-2">
+                    <div className="flex flex-col space-y-2">
                       <Link
                         href="/legal/terms"
                         className="text-primary hover:underline"

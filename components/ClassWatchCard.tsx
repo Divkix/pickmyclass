@@ -1,6 +1,6 @@
 'use client';
 
-import { m } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Info, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -157,7 +157,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
         )}
 
         {/* Card with swipe animation */}
-        <m.div
+        <motion.div
           animate={{
             x: swipeOffset,
           }}
@@ -228,13 +228,13 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
             <CardContent>
               <ClassStateIndicator classState={classState} />
               {classState?.last_checked_at && (
-                <p className="text-xs text-muted-foreground mt-3" suppressHydrationWarning>
+                <p className="text-xs text-muted-foreground mt-3">
                   Last checked: {new Date(classState.last_checked_at).toLocaleString()}
                 </p>
               )}
             </CardContent>
           </Card>
-        </m.div>
+        </motion.div>
       </div>
 
       <ClassDetailsDialog

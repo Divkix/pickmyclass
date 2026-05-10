@@ -21,42 +21,46 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const [{ data: profile }, { data: watches }, { data: notifications }] = await Promise.all([
-      supabase.from('user_profiles').select('*').eq('user_id', user.id).single(),
-      supabase
-        .from('class_watches')
-        .select(
-          `
-          *,
-          class_states (
-            title,
-            instructor_name,
-            seats_available,
-            seats_capacity,
-            location,
-            meeting_times,
-            last_checked_at
-          )
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    const { data: watches } = await supabase
+      .from('class_watches')
+      .select(
         `
+        *,
+        class_states (
+          title,
+          instructor_name,
+          seats_available,
+          seats_capacity,
+          location,
+          meeting_times,
+          last_checked_at
         )
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('notifications_sent')
-        .select(
-          `
-          *,
-          class_watches (
-            term,
-            subject,
-            catalog_nbr,
-            class_nbr
-          )
+      `
+      )
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    const { data: notifications } = await supabase
+      .from('notifications_sent')
+      .select(
         `
+        *,
+        class_watches (
+          term,
+          subject,
+          catalog_nbr,
+          class_nbr
         )
-        .eq('class_watches.user_id', user.id)
-        .order('sent_at', { ascending: false }),
-    ]);
+      `
+      )
+      .eq('class_watches.user_id', user.id)
+      .order('sent_at', { ascending: false });
     const exportData = {
       export_info: {
         exported_at: new Date().toISOString(),

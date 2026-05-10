@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/table';
 import type { UserWithWatchCount } from '@/lib/db/admin-queries';
 import { formatRelativeDate } from '@/lib/utils/time-format';
-import { SortIcon } from './SortIcon';
 import { type UsersTableFilters, UsersTableFiltersComponent } from './UsersTableFilters';
 import { useTableSorting } from './useTableSorting';
 
@@ -60,7 +59,7 @@ function formatDate(dateString: string | null): string {
  * - Click to navigate to user detail pages
  */
 export function UsersTable({ users }: UsersTableProps) {
-  const { push } = useRouter();
+  const router = useRouter();
 
   // Filter state
   const [filters, setFilters] = useState<UsersTableFilters>({
@@ -70,7 +69,7 @@ export function UsersTable({ users }: UsersTableProps) {
     watchCount: 'all',
   });
 
-  const { sortField, sortDirection, toggleSort } = useTableSorting<SortField>();
+  const { sortField, sortDirection, toggleSort, renderSortIcon } = useTableSorting<SortField>();
 
   const filteredAndSortedUsers = useMemo(() => {
     let result = [...users];
@@ -165,7 +164,7 @@ export function UsersTable({ users }: UsersTableProps) {
       return;
     }
 
-    push(`/admin/users/${userId}`);
+    router.push(`/admin/users/${userId}`);
   };
 
   return (
@@ -184,7 +183,7 @@ export function UsersTable({ users }: UsersTableProps) {
               >
                 <div className="flex items-center">
                   Email
-                  <SortIcon field="email" sortField={sortField} sortDirection={sortDirection} />
+                  {renderSortIcon('email')}
                 </div>
               </TableHead>
               <TableHead
@@ -193,11 +192,7 @@ export function UsersTable({ users }: UsersTableProps) {
               >
                 <div className="flex items-center">
                   Registered
-                  <SortIcon
-                    field="created_at"
-                    sortField={sortField}
-                    sortDirection={sortDirection}
-                  />
+                  {renderSortIcon('created_at')}
                 </div>
               </TableHead>
               <TableHead
@@ -206,11 +201,7 @@ export function UsersTable({ users }: UsersTableProps) {
               >
                 <div className="flex items-center">
                   Last Sign In
-                  <SortIcon
-                    field="last_sign_in_at"
-                    sortField={sortField}
-                    sortDirection={sortDirection}
-                  />
+                  {renderSortIcon('last_sign_in_at')}
                 </div>
               </TableHead>
               <TableHead>Email Verified</TableHead>
@@ -220,11 +211,7 @@ export function UsersTable({ users }: UsersTableProps) {
               >
                 <div className="flex items-center justify-center">
                   Watches
-                  <SortIcon
-                    field="watch_count"
-                    sortField={sortField}
-                    sortDirection={sortDirection}
-                  />
+                  {renderSortIcon('watch_count')}
                 </div>
               </TableHead>
               <TableHead
@@ -233,11 +220,7 @@ export function UsersTable({ users }: UsersTableProps) {
               >
                 <div className="flex items-center justify-center">
                   Seat Emails
-                  <SortIcon
-                    field="seat_emails"
-                    sortField={sortField}
-                    sortDirection={sortDirection}
-                  />
+                  {renderSortIcon('seat_emails')}
                 </div>
               </TableHead>
               <TableHead
@@ -246,11 +229,7 @@ export function UsersTable({ users }: UsersTableProps) {
               >
                 <div className="flex items-center justify-center">
                   Instructor Emails
-                  <SortIcon
-                    field="instructor_emails"
-                    sortField={sortField}
-                    sortDirection={sortDirection}
-                  />
+                  {renderSortIcon('instructor_emails')}
                 </div>
               </TableHead>
               <TableHead
@@ -259,11 +238,7 @@ export function UsersTable({ users }: UsersTableProps) {
               >
                 <div className="flex items-center justify-center">
                   Engagement
-                  <SortIcon
-                    field="engagement_rate"
-                    sortField={sortField}
-                    sortDirection={sortDirection}
-                  />
+                  {renderSortIcon('engagement_rate')}
                 </div>
               </TableHead>
               <TableHead>Status</TableHead>

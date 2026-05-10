@@ -1,6 +1,6 @@
 'use client';
 
-import { m } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Calendar, CheckCircle2, Eye, Plus, Search, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -30,7 +30,7 @@ interface GetClassWatchesResponse {
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const { replace } = useRouter();
+  const router = useRouter();
   const [watches, setWatches] = useState<ClassWatch[]>([]);
   const [maxWatches, setMaxWatches] = useState<number>(10);
   const [isLoadingWatches, setIsLoadingWatches] = useState(true);
@@ -57,9 +57,9 @@ export default function DashboardPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      replace('/login');
+      router.replace('/login');
     }
-  }, [user, authLoading, replace]);
+  }, [user, authLoading, router]);
 
   // Fetch user's class watches
   const fetchWatches = useCallback(async (): Promise<GetClassWatchesResponse> => {
@@ -201,12 +201,12 @@ export default function DashboardPage() {
       />
       <main className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
         {/* Page Header */}
-        <m.div className="mb-8" initial="hidden" animate="visible" variants={fadeInUp}>
+        <motion.div className="mb-8" initial="hidden" animate="visible" variants={fadeInUp}>
           <h1 className="text-3xl font-semibold mb-2 sm:text-4xl">Your Class Watchlist</h1>
           <p className="text-muted-foreground">
             We're keeping an eye on your ASU classes so you don't have to.
           </p>
-        </m.div>
+        </motion.div>
 
         {error && (
           <Alert className="mb-6 bg-destructive/10 text-destructive border-destructive/20">
@@ -222,13 +222,13 @@ export default function DashboardPage() {
 
         {/* Quick Stats */}
         {!isLoadingWatches && watches.length > 0 && (
-          <m.div
+          <motion.div
             className="mb-8 grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-4"
             initial="hidden"
             animate="visible"
             variants={staggerContainer}
           >
-            <m.div variants={staggerItem}>
+            <motion.div variants={staggerItem}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -245,9 +245,9 @@ export default function DashboardPage() {
                   </p>
                 </CardContent>
               </Card>
-            </m.div>
+            </motion.div>
 
-            <m.div variants={staggerItem}>
+            <motion.div variants={staggerItem}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -264,9 +264,9 @@ export default function DashboardPage() {
                   </p>
                 </CardContent>
               </Card>
-            </m.div>
+            </motion.div>
 
-            <m.div variants={staggerItem}>
+            <motion.div variants={staggerItem}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -285,9 +285,9 @@ export default function DashboardPage() {
                   </p>
                 </CardContent>
               </Card>
-            </m.div>
+            </motion.div>
 
-            <m.div variants={staggerItem}>
+            <motion.div variants={staggerItem}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -300,7 +300,9 @@ export default function DashboardPage() {
                 <CardContent>
                   <div className="flex items-center gap-2">
                     {realtimeLoading ? (
-                      <span className="text-sm text-muted-foreground animate-pulse">Syncing…</span>
+                      <span className="text-sm text-muted-foreground animate-pulse">
+                        Syncing...
+                      </span>
                     ) : (
                       <>
                         <span className="relative flex size-2">
@@ -314,12 +316,12 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground">We check every 30 minutes</p>
                 </CardContent>
               </Card>
-            </m.div>
-          </m.div>
+            </motion.div>
+          </motion.div>
         )}
 
         {/* Search and Add Button */}
-        <m.div
+        <motion.div
           className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
           initial="hidden"
           animate="visible"
@@ -334,7 +336,7 @@ export default function DashboardPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="Search watched classes"
-                className="w-full rounded-md border border-input bg-background p-3 pl-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded-md border border-input bg-background px-3 py-3 pl-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
           )}
@@ -345,7 +347,7 @@ export default function DashboardPage() {
               Add Class
             </Button>
           </Link>
-        </m.div>
+        </motion.div>
 
         {/* Loading state */}
         {isLoadingWatches && (
@@ -358,7 +360,7 @@ export default function DashboardPage() {
 
         {/* Empty state */}
         {!isLoadingWatches && watches.length === 0 && (
-          <m.div
+          <motion.div
             className="text-center py-16 bg-muted/20 rounded-xl border-2 border-dashed border-border"
             initial="hidden"
             animate="visible"
@@ -381,12 +383,12 @@ export default function DashboardPage() {
                 Add Your First Class
               </Button>
             </Link>
-          </m.div>
+          </motion.div>
         )}
 
         {/* Class watches grid */}
         {!isLoadingWatches && filteredWatches.length > 0 && (
-          <m.div
+          <motion.div
             className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3"
             initial="hidden"
             animate="visible"
@@ -396,22 +398,22 @@ export default function DashboardPage() {
               const liveState = classStates[watch.class_nbr] || watch.class_state || null;
 
               return (
-                <m.div key={watch.id} variants={staggerItem}>
+                <motion.div key={watch.id} variants={staggerItem}>
                   <ClassWatchCard
                     watch={watch}
                     classState={liveState}
                     onDelete={handleDeleteWatch}
                     onRestore={fetchWatches}
                   />
-                </m.div>
+                </motion.div>
               );
             })}
-          </m.div>
+          </motion.div>
         )}
 
         {/* No search results */}
         {!isLoadingWatches && watches.length > 0 && filteredWatches.length === 0 && (
-          <m.div
+          <motion.div
             className="text-center py-12"
             initial="hidden"
             animate="visible"
@@ -420,7 +422,7 @@ export default function DashboardPage() {
             <Search className="size-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">No results found</h3>
             <p className="text-muted-foreground">Try adjusting your search query</p>
-          </m.div>
+          </motion.div>
         )}
       </main>
     </div>

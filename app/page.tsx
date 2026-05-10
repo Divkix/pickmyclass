@@ -1,13 +1,5 @@
-import type { Metadata } from 'next';
 import { Header } from '@/components/Header';
 import { AuthRedirect } from '@/components/landing/AuthRedirect';
-
-export const metadata: Metadata = {
-  title: 'Free ASU Class Seat Tracker & Open Seat Alerts',
-  description:
-    'Free ASU class seat tracker and notification service. Get email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils — checks every 30 minutes.',
-};
-
 import { DashboardPreview } from '@/components/landing/DashboardPreview';
 import { FAQSection, faqs } from '@/components/landing/FAQSection';
 import { FeaturesSection } from '@/components/landing/FeaturesSection';

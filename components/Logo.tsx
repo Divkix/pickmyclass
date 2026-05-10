@@ -1,42 +1,57 @@
 'use client';
 
-import Image from 'next/image';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface LogoProps {
   variant?: 'full' | 'icon';
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  animated?: boolean;
 }
 
-const sizeMap = {
-  sm: 32,
-  md: 40,
-  lg: 48,
+const sizeClasses = {
+  sm: 'h-8',
+  md: 'h-10',
+  lg: 'h-12',
 };
 
-// Hoisted static wordmark so it's not recreated each render
-const Wordmark = (
-  <span className="ml-2 text-xl font-bold tracking-tight">
-    Pick<span className="text-primary">My</span>Class
-  </span>
-);
-
-export function Logo({ variant = 'full', size = 'md', className }: LogoProps) {
-  const pixelSize = sizeMap[size];
-
-  return (
-    <div className={cn('flex items-center', className)}>
-      <Image
+export function Logo({ variant = 'full', size = 'md', className, animated = false }: LogoProps) {
+  const iconContent = (
+    <>
+      {/* biome-ignore lint/performance/noImgElement: SVG with dynamic Tailwind sizing requires native img - Image component incompatible */}
+      <img
         src="/favicon.svg"
         alt="PickMyClass Logo"
-        width={pixelSize}
-        height={pixelSize}
-        className="w-auto h-auto"
-        priority
-        unoptimized
+        className={cn(sizeClasses[size], 'w-auto', className)}
       />
-      {variant === 'full' && Wordmark}
+    </>
+  );
+
+  const wordmark = (
+    <span className="ml-2 text-xl font-bold tracking-tight">
+      Pick<span className="text-primary">My</span>Class
+    </span>
+  );
+
+  if (animated) {
+    return (
+      <motion.div
+        className="flex items-center"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+      >
+        {iconContent}
+        {variant === 'full' && wordmark}
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="flex items-center">
+      {iconContent}
+      {variant === 'full' && wordmark}
     </div>
   );
 }

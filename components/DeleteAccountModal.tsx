@@ -24,7 +24,7 @@ export function DeleteAccountModal({ open, onClose }: DeleteAccountModalProps) {
   const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { push } = useRouter();
+  const router = useRouter();
 
   const handleDelete = async () => {
     if (confirmText !== 'DELETE') {
@@ -46,7 +46,7 @@ export function DeleteAccountModal({ open, onClose }: DeleteAccountModalProps) {
       }
 
       // Account deleted successfully, redirect to login
-      push('/login?message=Account deleted successfully');
+      router.push('/login?message=Account deleted successfully');
     } catch (err) {
       console.error('Delete error:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete account');

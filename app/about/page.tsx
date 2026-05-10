@@ -138,7 +138,7 @@ export default async function AboutPage() {
           <p className="text-muted-foreground leading-relaxed">
             PickMyClass is an independent project. We are not endorsed by, sponsored by, or
             affiliated with Arizona State University. We use publicly available class search data to
-            monitor seat availability, the same data any student can access by visiting the ASU
+            monitor seat availability — the same data any student can access by visiting the ASU
             class search page.
           </p>
 

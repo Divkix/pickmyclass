@@ -264,7 +264,7 @@ export default function LoginPage() {
           <div className="flex flex-1 items-center justify-center p-4">
             <Card className="w-full max-w-md">
               <CardHeader className="text-center">
-                <CardTitle className="text-3xl">Loading…</CardTitle>
+                <CardTitle className="text-3xl">Loading...</CardTitle>
               </CardHeader>
             </Card>
           </div>

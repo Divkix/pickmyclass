@@ -1,7 +1,7 @@
 'use client';
 
 import type { Session, User } from '@supabase/supabase-js';
-import { createContext, use, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface AuthContextType {
@@ -20,8 +20,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
+    // Get initial session - use getUser() to sync with server-set HTTP-only cookies
     const initializeAuth = async () => {
       try {
+        // getUser() makes an authenticated request that includes HTTP-only cookies,
+        // allowing the server to validate the session even when login was server-side
         const {
           data: { user },
           error,
@@ -33,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        // After getUser() validates, getSession() returns the synced session
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -47,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
 
+    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
@@ -79,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAuth() {
-  const context = use(AuthContext);
+  const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }

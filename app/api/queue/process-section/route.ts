@@ -308,31 +308,24 @@ export async function POST(request: NextRequest) {
             fromEmail: cfEnv.NOTIFICATION_FROM_EMAIL,
           });
 
-          // Count successful sends and collect failed emails in a single pass
-          const successfulEmails: ((typeof results)[number] & {
-            email: (typeof emailsToSend)[number];
-          })[] = [];
-          const failedEmails: ((typeof results)[number] & {
-            email: (typeof emailsToSend)[number];
-          })[] = [];
-          for (let i = 0; i < results.length; i++) {
-            const enriched = { ...results[i], email: emailsToSend[i] };
-            if (results[i].success) {
-              successfulEmails.push(enriched);
-            } else {
-              failedEmails.push(enriched);
-            }
-          }
+          // Count successful sends (notifications already recorded via batch dedup)
+          const successfulEmails = results
+            .map((r, i) => ({ ...r, email: emailsToSend[i] }))
+            .filter((r) => r.success);
           emailsSent = successfulEmails.length;
 
+          // Rollback notification records for failed emails so they can be retried
+          const failedEmails = results
+            .map((r, i) => ({ ...r, email: emailsToSend[i] }))
+            .filter((r) => !r.success);
+
           if (failedEmails.length > 0) {
-            const failedSeatWatchIds: string[] = [];
-            const failedInstructorWatchIds: string[] = [];
-            for (const e of failedEmails) {
-              if (e.email.type === 'seat_available') failedSeatWatchIds.push(e.email.watchId);
-              if (e.email.type === 'instructor_assigned')
-                failedInstructorWatchIds.push(e.email.watchId);
-            }
+            const failedSeatWatchIds = failedEmails
+              .filter((e) => e.email.type === 'seat_available')
+              .map((e) => e.email.watchId);
+            const failedInstructorWatchIds = failedEmails
+              .filter((e) => e.email.type === 'instructor_assigned')
+              .map((e) => e.email.watchId);
 
             try {
               if (failedSeatWatchIds.length > 0) {

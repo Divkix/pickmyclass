@@ -16,14 +16,14 @@ interface ErrorResponse {
 
 export default function AddClassPage() {
   const { user, loading: authLoading } = useAuth();
-  const { replace, push } = useRouter();
+  const router = useRouter();
 
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      replace('/login');
+      router.replace('/login');
     }
-  }, [user, authLoading, replace]);
+  }, [user, authLoading, router]);
 
   // Handle adding a new watch
   const handleAddWatch = async (watchData: { term: string; class_nbr: string }) => {
@@ -39,7 +39,7 @@ export default function AddClassPage() {
     }
 
     // Navigate back to dashboard on success
-    push('/dashboard');
+    router.push('/dashboard');
   };
 
   // Show loading state while checking auth

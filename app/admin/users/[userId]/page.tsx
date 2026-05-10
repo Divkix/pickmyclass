@@ -258,10 +258,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                           <span className="text-muted-foreground text-sm">-</span>
                         )}
                       </TableCell>
-                      <TableCell
-                        className="text-right text-sm text-muted-foreground"
-                        suppressHydrationWarning
-                      >
+                      <TableCell className="text-right text-sm text-muted-foreground">
                         {new Date(watch.created_at).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'short',

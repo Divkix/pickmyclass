@@ -30,38 +30,32 @@ export function usePullToRefresh({
   const currentPullDistance = useRef<number>(0);
   const isAtTop = useRef<boolean>(false);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isRefreshingRef = useRef(false);
-  const onRefreshRef = useRef(onRefresh);
 
-  // Keep ref in sync with latest prop so listeners see the latest handler
-  useEffect(() => {
-    onRefreshRef.current = onRefresh;
-  }, [onRefresh]);
+  const handleTouchStart = useCallback(
+    (e: TouchEvent) => {
+      // Only start tracking if we're at the top of the page
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      isAtTop.current = scrollTop === 0;
 
-  useEffect(() => {
-    isRefreshingRef.current = isRefreshing;
-  }, [isRefreshing]);
-
-  // Stable event handler refs — subscriptions stay put, latest logic is always called
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    const scrollTop = window.scrollY || document.documentElement.scrollTop;
-    isAtTop.current = scrollTop === 0;
-
-    if (isAtTop.current && !isRefreshingRef.current) {
-      touchStartY.current = e.touches[0].clientY;
-    }
-  }, []);
+      if (isAtTop.current && !isRefreshing) {
+        touchStartY.current = e.touches[0].clientY;
+      }
+    },
+    [isRefreshing]
+  );
 
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
-      if (!isAtTop.current || isRefreshingRef.current || touchStartY.current === 0) {
+      if (!isAtTop.current || isRefreshing || touchStartY.current === 0) {
         return;
       }
 
       const touchY = e.touches[0].clientY;
       const pullDelta = touchY - touchStartY.current;
 
+      // Only handle downward pulls (positive delta)
       if (pullDelta > 0) {
+        // Check if we're still at the top
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
         if (scrollTop > 0) {
           isAtTop.current = false;
@@ -71,38 +65,40 @@ export function usePullToRefresh({
           return;
         }
 
+        // Apply resistance to make the pull feel natural
         const distance = Math.min(pullDelta / resistance, threshold * 1.5);
         currentPullDistance.current = distance;
         setPullDistance(distance);
 
+        // Prevent default scrolling when pulling
         if (distance > 10) {
           e.preventDefault();
         }
       }
     },
-    [threshold, resistance]
+    [isRefreshing, threshold, resistance]
   );
 
   const handleTouchEnd = useCallback(async () => {
-    if (!isAtTop.current || isRefreshingRef.current) {
+    if (!isAtTop.current || isRefreshing) {
       touchStartY.current = 0;
       setPullDistance(0);
       currentPullDistance.current = 0;
       return;
     }
 
+    // Trigger refresh if threshold exceeded
     if (currentPullDistance.current >= threshold) {
       setIsRefreshing(true);
-      isRefreshingRef.current = true;
-      setPullDistance(threshold);
+      setPullDistance(threshold); // Lock at threshold during refresh
 
       try {
-        await onRefreshRef.current();
+        await onRefresh();
       } catch (error) {
         console.error('Refresh failed:', error);
       } finally {
+        // Animate back to 0
         setIsRefreshing(false);
-        isRefreshingRef.current = false;
         if (resetTimeoutRef.current) {
           clearTimeout(resetTimeoutRef.current);
         }
@@ -112,18 +108,20 @@ export function usePullToRefresh({
         }, 100);
       }
     } else {
+      // Snap back to 0 if threshold not reached
       setPullDistance(0);
       currentPullDistance.current = 0;
     }
 
     touchStartY.current = 0;
     isAtTop.current = false;
-  }, [threshold]);
+  }, [isRefreshing, threshold, onRefresh]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    // Add passive: false to allow preventDefault
     container.addEventListener('touchstart', handleTouchStart, { passive: true });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd, { passive: true });
