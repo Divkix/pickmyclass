@@ -1,10 +1,12 @@
 export const dynamic = 'force-dynamic';
 
-import { Activity, Clock, Eye, Mail, TrendingUp, Users } from 'lucide-react';
+import { Activity, Eye, Mail, TrendingUp, Users } from 'lucide-react';
+import { RecentActivity } from '@/components/admin/RecentActivity';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { verifyAdmin } from '@/lib/auth/admin';
 import {
   getAdminCount,
+  getRecentActivity,
   getTotalClassesWatched,
   getTotalEmailsSent,
   getTotalUsers,
@@ -20,18 +22,19 @@ import {
  * - Total emails sent (notifications)
  * - Total registered users
  * - Total unique classes being watched
- * - Recent activity section (placeholder for future expansion)
+ * - Recent activity feed (registrations, watches, emails)
  */
 export default async function AdminDashboardPage() {
   // Verify admin access - redirects if not authenticated or not admin
   const adminUser = await verifyAdmin();
 
   // Fetch all statistics in parallel
-  const [totalEmails, totalUsers, totalClasses, adminCount] = await Promise.all([
+  const [totalEmails, totalUsers, totalClasses, adminCount, recentActivity] = await Promise.all([
     getTotalEmailsSent(),
     getTotalUsers(),
     getTotalClassesWatched(),
     getAdminCount(),
+    getRecentActivity(10),
   ]);
 
   // Calculate engagement metrics
@@ -152,36 +155,9 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Recent Activity Section - Placeholder */}
+      {/* Recent Activity Section */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-                <Clock className="size-5 text-muted-foreground" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Activity Feed Coming Soon</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Real-time monitoring and activity logs will be displayed here
-                </p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm text-muted-foreground space-y-2">
-              <p>Future features:</p>
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>Recent user registrations</li>
-                <li>Latest email notifications sent</li>
-                <li>New class watches added</li>
-                <li>System health metrics</li>
-                <li>ASU API status</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
+        <RecentActivity items={recentActivity} />
       </div>
 
       {/* System Info Footer */}
