@@ -130,7 +130,7 @@ export async function processSection(
 
     const { error: upsertError } = await serviceClient
       .from('class_states')
-      .upsert(newState, { onConflict: 'class_nbr' });
+      .upsert(newState, { onConflict: 'class_nbr,term' });
 
     if (upsertError) {
       console.error(`[ProcessSection] Database error for ${classNbr}:`, upsertError);

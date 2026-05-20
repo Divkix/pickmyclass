@@ -53,7 +53,7 @@ import { sendSectionNotifications } from '@/lib/queue/notification-sender';
 import { processSection } from '@/lib/queue/process-section';
 import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassDetails } from '@/lib/types/class';
-import type { Env } from '@/lib/types/env';
+import type { Env, SendEmail } from '@/lib/types/env';
 
 function mockClassDetails(overrides: Partial<ClassDetails> = {}): ClassDetails {
   return {
@@ -180,7 +180,7 @@ describe('processSection', () => {
         non_reserved_seats: 3,
         last_checked_at: expect.any(String),
       }),
-      { onConflict: 'class_nbr' }
+      { onConflict: 'class_nbr,term' }
     );
 
     expect(result).toMatchObject({
