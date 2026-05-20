@@ -19,6 +19,11 @@ import type { ClassCheckMessage } from './queue';
  * - ASU API credentials
  * - Email/notification settings
  */
+/**
+ * Cloudflare Workers SendEmail type (from generated types)
+ */
+export type SendEmail = Cloudflare.Env['EMAIL'];
+
 export interface Env extends Record<string, unknown> {
   // Asset serving
   ASSETS: Fetcher;
