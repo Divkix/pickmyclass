@@ -339,6 +339,64 @@ describe('POST /api/queue/process-section', () => {
       expect(data.changes_detected.instructor_assigned).toBe(false);
       expect(data.emails_sent).toBe(0);
     });
+
+    it('should reset notifications when seats are filled (seats 5 -> 0)', async () => {
+      // Mock existing state: 5 seats available
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  class_nbr: '12345',
+                  term: '2261',
+                  seats_available: 5,
+                  instructor_name: 'Staff',
+                },
+                error: null,
+              }),
+            })),
+          })),
+        })),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      });
+
+      // Mock ASU API: 0 seats available
+      mockFetchClassFromASU.mockResolvedValue({
+        subject: 'CSE',
+        catalog_nbr: '110',
+        title: 'Intro to Programming',
+        instructor: 'Staff',
+        seats_available: 0,
+        seats_capacity: 30,
+        non_reserved_seats: null,
+        location: 'Online',
+        meeting_times: 'MWF 9:00-9:50',
+      });
+
+      const response = await POST(
+        createRequest(
+          JSON.stringify({ class_nbr: '12345', term: '2261' }),
+          'Bearer test-cron-secret'
+        )
+      );
+
+      const data = (await response.json()) as {
+        success: boolean;
+        changes_detected: {
+          seats_filled: boolean;
+        };
+      };
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.changes_detected.seats_filled).toBe(true);
+      expect(mockResetNotificationsForSection).toHaveBeenCalledWith(
+        '12345',
+        '2261',
+        'seat_available'
+      );
+    });
   });
 
   describe('rollback failure handling (issue #158)', () => {

@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
         changes_detected: {
           seat_became_available: result.changes.seatBecameAvailable,
           instructor_assigned: result.changes.instructorAssigned,
+          seats_filled: result.changes.seatsFilled,
         },
         emails_sent: result.emailsSent,
         processing_time_ms: result.processingTimeMs,

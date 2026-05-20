@@ -210,7 +210,7 @@ describe('processSection', () => {
 
     const result = await processSection('42737', '2261', buildEnv());
 
-    expect(resetNotificationsForSection).toHaveBeenCalledWith('42737', 'seat_available');
+    expect(resetNotificationsForSection).toHaveBeenCalledWith('42737', '2261', 'seat_available');
     expect(sendSectionNotifications).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
   });

@@ -82,7 +82,7 @@ export async function processSection(
 
     // Step 4: Reset notifications if seats filled
     if (changes.seatsFilled) {
-      await resetNotificationsForSection(classNbr, 'seat_available');
+      await resetNotificationsForSection(classNbr, term, 'seat_available');
     }
 
     // Step 5: Send notifications if changes detected
