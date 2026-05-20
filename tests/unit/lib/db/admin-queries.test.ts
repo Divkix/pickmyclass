@@ -108,6 +108,24 @@ describe('getRecentActivity', () => {
     expect(result).toEqual([]);
   });
 
+  it('should degrade to an empty activity feed when the recent activity RPC is not deployed', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: 'PGRST202',
+        message:
+          'Could not find the function public.get_recent_activity(p_limit) in the schema cache',
+      },
+    });
+
+    const result = await getRecentActivity(42);
+
+    expect(mockRpc).toHaveBeenCalledWith('get_recent_activity', {
+      p_limit: 42,
+    });
+    expect(result).toEqual([]);
+  });
+
   it('should throw error when RPC fails', async () => {
     mockRpc.mockResolvedValue({
       data: null,

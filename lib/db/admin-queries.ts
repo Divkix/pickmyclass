@@ -521,6 +521,15 @@ interface RecentActivityRow {
   notification_type: string | null;
 }
 
+function isMissingRecentActivityRpcError(error: unknown): boolean {
+  const maybeError = error as { code?: string; message?: string };
+  return (
+    maybeError.code === 'PGRST202' ||
+    maybeError.code === '42883' ||
+    maybeError.message?.includes('get_recent_activity') === true
+  );
+}
+
 export async function getRecentActivity(limit: number = 50): Promise<RecentActivityItem[]> {
   if (!Number.isFinite(limit) || limit <= 0) {
     throw new TypeError('Invalid limit: must be a finite positive integer');
@@ -539,6 +548,11 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
   )) as unknown as { data: RecentActivityRow[] | null; error: Error | null };
 
   if (error) {
+    if (isMissingRecentActivityRpcError(error)) {
+      console.warn('[Admin] Recent activity RPC is unavailable; rendering an empty activity feed');
+      return [];
+    }
+
     console.error('[Admin] Error fetching recent activity:', error);
     throw new Error(`Failed to fetch recent activity: ${error.message}`);
   }

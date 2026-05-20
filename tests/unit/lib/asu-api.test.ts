@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, clearAsuApiCache, fetchClassFromASU } from '@/lib/asu/api';
+import {
+  ApiError,
+  AuthError,
+  clearAsuApiCache,
+  fetchClassFromASU,
+  NotFoundError,
+  RateLimitError,
+} from '@/lib/asu/api';
 
 function buildAsuSuccessResponse() {
   return {
@@ -123,6 +130,32 @@ describe('fetchClassFromASU', () => {
     });
   });
 
+  it.each([
+    ['base URL', { ASU_API_BASE_URL: '', ASU_API_TOKEN: 'test-token' }],
+    ['token', { ASU_API_BASE_URL: 'https://example.com/api/v1', ASU_API_TOKEN: '' }],
+  ])('should reject when the ASU API %s is missing', async (_field, env) => {
+    await expect(fetchClassFromASU('42737', '2264', env)).rejects.toSatisfy((error: unknown) => {
+      return error instanceof ApiError && error.message.includes('not configured');
+    });
+  });
+
+  it('should serve repeated class lookups from cache', async () => {
+    const fetchSpy = vi
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify(buildAsuSuccessResponse()), { status: 200 }));
+
+    const env = {
+      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+      ASU_API_TOKEN: 'test-token',
+    };
+
+    const first = await fetchClassFromASU('42737', '2264', env);
+    const second = await fetchClassFromASU('42737', '2264', env);
+
+    expect(first).toEqual(second);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('should throw ApiError with status 408 when fetch times out', async () => {
     const timeoutError = new DOMException('The operation was aborted.', 'TimeoutError');
     vi.spyOn(global, 'fetch').mockRejectedValue(timeoutError);
@@ -149,6 +182,55 @@ describe('fetchClassFromASU', () => {
         ASU_API_TOKEN: 'test-token',
       })
     ).rejects.toThrow('ASU API request timed out');
+  });
+
+  it('should rethrow non-timeout fetch failures', async () => {
+    const networkError = new TypeError('network down');
+    vi.spyOn(global, 'fetch').mockRejectedValue(networkError);
+
+    await expect(
+      fetchClassFromASU('42737', '2264', {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      })
+    ).rejects.toBe(networkError);
+  });
+
+  it.each([
+    [401, AuthError, 'token expired'],
+    [403, AuthError, 'token expired'],
+    [429, RateLimitError, 'rate limit'],
+    [503, ApiError, 'returned 503'],
+  ])('should map ASU API status %s to the expected error', async (status, ErrorClass, message) => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(new Response('{}', { status }));
+
+    await expect(
+      fetchClassFromASU('42737', '2264', {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      })
+    ).rejects.toSatisfy((error: unknown) => {
+      return error instanceof ErrorClass && error.message.includes(message);
+    });
+  });
+
+  it.each([
+    ['empty hit list', { hits: { total: { value: 0 }, hits: [] } }],
+    ['missing hit list', { hits: { total: { value: 0 } } }],
+  ])('should throw NotFoundError when the ASU response has an %s', async (_case, body) => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(body), { status: 200 })
+    );
+
+    await expect(
+      fetchClassFromASU('42737', '2264', {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      })
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('should compute non_reserved_seats correctly with waitlist data', async () => {
@@ -391,5 +473,80 @@ describe('fetchClassFromASU', () => {
     expect(Number.isNaN(result.seats_capacity)).toBe(false);
     expect(Number.isNaN(result.seats_available)).toBe(false);
     expect(Number.isNaN(result.non_reserved_seats)).toBe(false);
+  });
+
+  it('should map optional ASU fields to sensible fallbacks', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          hits: {
+            total: { value: 1 },
+            hits: [
+              {
+                _source: {
+                  CLASSNBR: '55555',
+                  SUBJECT: 'ENG',
+                  CATALOGNBR: '101',
+                  TITLE: 'First-Year Composition',
+                  MON: 'Y',
+                  TUES: 'Y',
+                  WED: 'Y',
+                  THURS: 'Y',
+                  FRI: 'Y',
+                  STARTTIME: '00:05:00',
+                  ENDTIME: '13:30:00',
+                },
+              },
+            ],
+          },
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await fetchClassFromASU('55555', '2264', {
+      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+      ASU_API_TOKEN: 'test-token',
+    });
+
+    expect(result).toMatchObject({
+      title: 'First-Year Composition',
+      instructor: 'Staff',
+      seats_available: 0,
+      seats_capacity: 0,
+      non_reserved_seats: 0,
+      location: 'TBD',
+      meeting_times: 'MTuWThF 12:05 AM-1:30 PM',
+    });
+  });
+
+  it('should use Unknown when ASU omits all title fields', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          hits: {
+            total: { value: 1 },
+            hits: [
+              {
+                _source: {
+                  CLASSNBR: '66666',
+                  SUBJECT: 'UNI',
+                  CATALOGNBR: '101',
+                },
+              },
+            ],
+          },
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await fetchClassFromASU('66666', '2264', {
+      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+      ASU_API_TOKEN: 'test-token',
+    });
+
+    expect(result.title).toBe('Unknown');
+    expect(result.meeting_times).toBe('TBD');
   });
 });

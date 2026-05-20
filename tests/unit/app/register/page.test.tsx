@@ -5,6 +5,7 @@ import { AuthProvider } from '@/lib/contexts/AuthContext';
 
 // Mock the supabase client module
 const mockSignInWithOAuth = vi.fn();
+const mockRpc = vi.fn();
 const mockSupabaseClient = {
   auth: {
     signInWithOAuth: mockSignInWithOAuth,
@@ -14,6 +15,7 @@ const mockSupabaseClient = {
       data: { subscription: { unsubscribe: vi.fn() } },
     }),
   },
+  rpc: mockRpc,
 };
 
 vi.mock('@/lib/supabase/client', () => ({
@@ -31,17 +33,57 @@ describe('RegisterPage - Google OAuth loading state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSignInWithOAuth.mockReset();
+    mockRpc.mockReset();
+    mockRpc.mockResolvedValue({ error: null });
+    global.fetch = vi.fn();
   });
 
-  it('should keep loading state true after successful OAuth initiation', async () => {
-    // Mock successful OAuth initiation
-    mockSignInWithOAuth.mockResolvedValue({ error: null });
-
+  function renderRegisterPage() {
     render(
       <AuthProvider>
         <RegisterPage />
       </AuthProvider>
     );
+  }
+
+  async function waitForRegisterForm() {
+    await screen.findByText('Get Started');
+  }
+
+  function registerForm(): HTMLFormElement {
+    return screen
+      .getByRole('button', { name: /create account/i })
+      .closest('form') as HTMLFormElement;
+  }
+
+  function fillRegistrationForm({
+    email = 'student@example.com',
+    password = 'StrongP@ss1',
+    confirmPassword,
+    age = true,
+    terms = true,
+  }: {
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+    age?: boolean;
+    terms?: boolean;
+  } = {}) {
+    fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: email } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: password } });
+    fireEvent.change(screen.getByLabelText(/confirm password/i), {
+      target: { value: confirmPassword ?? password },
+    });
+    if (age) fireEvent.click(screen.getByLabelText(/i am 18 years or older/i));
+    if (terms) fireEvent.click(screen.getByLabelText(/i agree to the terms/i));
+  }
+
+  it('should keep loading state true after successful OAuth initiation', async () => {
+    // Mock successful OAuth initiation
+    mockSignInWithOAuth.mockResolvedValue({ error: null });
+
+    renderRegisterPage();
+    await waitForRegisterForm();
 
     // Check the required checkboxes first
     const ageCheckbox = screen.getByLabelText(/i am 18 years or older/i);
@@ -70,11 +112,8 @@ describe('RegisterPage - Google OAuth loading state', () => {
     // Mock OAuth error
     mockSignInWithOAuth.mockResolvedValue({ error: { message: 'OAuth failed' } });
 
-    render(
-      <AuthProvider>
-        <RegisterPage />
-      </AuthProvider>
-    );
+    renderRegisterPage();
+    await waitForRegisterForm();
 
     // Check the required checkboxes first
     const ageCheckbox = screen.getByLabelText(/i am 18 years or older/i);
@@ -94,5 +133,134 @@ describe('RegisterPage - Google OAuth loading state', () => {
 
     // Button should be back to normal state
     expect(googleButton).toHaveTextContent(/sign up with google/i);
+  });
+
+  it('validates email registration fields before calling the API', async () => {
+    renderRegisterPage();
+    await waitForRegisterForm();
+
+    fireEvent.submit(registerForm());
+    expect(await screen.findByText('All fields are required')).toBeInTheDocument();
+
+    fillRegistrationForm({ age: false, terms: false });
+    fireEvent.submit(registerForm());
+    expect(
+      await screen.findByText('You must be 18 years or older to use this service')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/i am 18 years or older/i));
+    fireEvent.submit(registerForm());
+    expect(
+      await screen.findByText('You must agree to the Terms of Service and Privacy Policy')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/i agree to the terms/i));
+    fireEvent.change(screen.getByLabelText(/confirm password/i), {
+      target: { value: 'DifferentP@ss1' },
+    });
+    fireEvent.submit(registerForm());
+    expect(await screen.findByText('Passwords do not match')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'short' } });
+    fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'short' } });
+    fireEvent.submit(registerForm());
+    expect(await screen.findByText('Password must be at least 8 characters')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'abcdefgh' } });
+    fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'abcdefgh' } });
+    fireEvent.submit(registerForm());
+    expect(
+      await screen.findByText('Password is too weak. Please use a stronger password.')
+    ).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('registers email users, records profile consent, and routes to verification', async () => {
+    const mockPush = await import('next/navigation').then((mod) => mod.useRouter().push);
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    } as Response);
+    renderRegisterPage();
+    await waitForRegisterForm();
+
+    fillRegistrationForm();
+    fireEvent.submit(registerForm());
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'student@example.com', password: 'StrongP@ss1' }),
+      });
+    });
+    expect(mockRpc).toHaveBeenCalledWith('accept_terms_and_verify_age');
+    expect(mockPush).toHaveBeenCalledWith('/verify-email');
+  });
+
+  it('shows registration API and duplicate-account errors', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: false,
+      json: () => Promise.resolve({ error: 'Disposable email not accepted' }),
+    } as Response);
+    renderRegisterPage();
+    await waitForRegisterForm();
+
+    fillRegistrationForm();
+    fireEvent.submit(registerForm());
+    expect(await screen.findByText('Disposable email not accepted')).toBeInTheDocument();
+
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ duplicate: true }),
+    } as Response);
+    fireEvent.submit(registerForm());
+    expect(
+      await screen.findByText('This email is already registered. Please sign in.')
+    ).toBeInTheDocument();
+  });
+
+  it('continues after profile RPC errors and reports unexpected registration failures', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    } as Response);
+    mockRpc.mockResolvedValueOnce({ error: { message: 'profile write failed' } });
+    renderRegisterPage();
+    await waitForRegisterForm();
+
+    fillRegistrationForm();
+    fireEvent.submit(registerForm());
+    await waitFor(() => expect(mockRpc).toHaveBeenCalled());
+
+    vi.mocked(global.fetch).mockRejectedValueOnce(new Error('network down'));
+    fireEvent.submit(registerForm());
+    expect(await screen.findByText('An unexpected error occurred')).toBeInTheDocument();
+    errorSpy.mockRestore();
+  });
+
+  it('validates Google signup preconditions and handles initiation failures', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    renderRegisterPage();
+    await waitForRegisterForm();
+
+    const googleButton = screen.getByRole('button', { name: /sign up with google/i });
+    fireEvent.click(googleButton);
+    expect(
+      await screen.findByText('You must be 18 years or older to use this service')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/i am 18 years or older/i));
+    fireEvent.click(googleButton);
+    expect(
+      await screen.findByText('You must agree to the Terms of Service and Privacy Policy')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/i agree to the terms/i));
+    mockSignInWithOAuth.mockRejectedValueOnce(new Error('oauth unavailable'));
+    fireEvent.click(googleButton);
+    expect(await screen.findByText('Failed to initiate Google sign-up')).toBeInTheDocument();
+    errorSpy.mockRestore();
   });
 });
