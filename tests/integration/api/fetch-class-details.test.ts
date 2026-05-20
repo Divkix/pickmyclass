@@ -164,5 +164,7 @@ describe('/api/fetch-class-details', () => {
 
     expect(response.status).toBe(200);
     expect(data.meeting_times).toBe('MWF 9:00 AM-9:50 AM');
+    expect(mockGetServiceClient).toHaveBeenCalledTimes(1);
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 });

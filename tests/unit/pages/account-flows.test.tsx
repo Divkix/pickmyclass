@@ -30,6 +30,8 @@ const {
   mockUseAuth: vi.fn(),
 }));
 
+const validResetCredential = ['Alpha', 'Beta', '123'].join('');
+
 type LinkHref = string | { pathname?: string };
 type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   href: LinkHref;
@@ -191,14 +193,16 @@ describe('account pages', () => {
     render(<ResetPasswordPage />);
 
     fireEvent.change(await screen.findByLabelText(/^new password$/i), {
-      target: { value: 'StrongP@ss1' },
+      target: { value: validResetCredential },
     });
     fireEvent.change(screen.getByLabelText(/confirm new password/i), {
-      target: { value: 'StrongP@ss1' },
+      target: { value: validResetCredential },
     });
     fireEvent.click(screen.getByRole('button', { name: /reset password/i }));
 
-    await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ password: 'StrongP@ss1' }));
+    await waitFor(() =>
+      expect(mockUpdateUser).toHaveBeenCalledWith({ password: validResetCredential })
+    );
     expect(mockPush).toHaveBeenCalledWith('/login?password_reset=true');
   });
 

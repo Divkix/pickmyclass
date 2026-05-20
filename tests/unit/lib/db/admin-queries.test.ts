@@ -119,11 +119,14 @@ describe('getRecentActivity', () => {
     });
 
     const result = await getRecentActivity(42);
+    const cachedResult = await getRecentActivity(42);
 
     expect(mockRpc).toHaveBeenCalledWith('get_recent_activity', {
       p_limit: 42,
     });
+    expect(mockRpc).toHaveBeenCalledTimes(1);
     expect(result).toEqual([]);
+    expect(cachedResult).toEqual([]);
   });
 
   it('should throw error when RPC fails', async () => {

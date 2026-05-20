@@ -81,13 +81,17 @@ function createTableClient() {
         };
       }
 
-      return {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            order: mockNotificationsOrder,
+      if (table === 'notifications_sent') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              order: mockNotificationsOrder,
+            })),
           })),
-        })),
-      };
+        };
+      }
+
+      throw new Error(`Unexpected table queried in test mock: ${table}`);
     }),
   };
 }

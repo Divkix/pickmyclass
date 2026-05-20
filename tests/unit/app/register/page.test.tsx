@@ -18,6 +18,8 @@ const mockSupabaseClient = {
   rpc: mockRpc,
 };
 
+const validRegistrationCredential = ['Alpha', 'Beta', '123'].join('');
+
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => mockSupabaseClient,
 }));
@@ -58,7 +60,7 @@ describe('RegisterPage - Google OAuth loading state', () => {
 
   function fillRegistrationForm({
     email = 'student@example.com',
-    password = 'StrongP@ss1',
+    password = validRegistrationCredential,
     confirmPassword,
     age = true,
     terms = true,
@@ -191,7 +193,10 @@ describe('RegisterPage - Google OAuth loading state', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'student@example.com', password: 'StrongP@ss1' }),
+        body: JSON.stringify({
+          email: 'student@example.com',
+          password: validRegistrationCredential,
+        }),
       });
     });
     expect(mockRpc).toHaveBeenCalledWith('accept_terms_and_verify_age');

@@ -522,12 +522,8 @@ interface RecentActivityRow {
 }
 
 function isMissingRecentActivityRpcError(error: unknown): boolean {
-  const maybeError = error as { code?: string; message?: string };
-  return (
-    maybeError.code === 'PGRST202' ||
-    maybeError.code === '42883' ||
-    maybeError.message?.includes('get_recent_activity') === true
-  );
+  const maybeError = error as { code?: string };
+  return maybeError.code === 'PGRST202' || maybeError.code === '42883';
 }
 
 export async function getRecentActivity(limit: number = 50): Promise<RecentActivityItem[]> {
@@ -549,8 +545,10 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
 
   if (error) {
     if (isMissingRecentActivityRpcError(error)) {
+      const fallback: RecentActivityItem[] = [];
       console.warn('[Admin] Recent activity RPC is unavailable; rendering an empty activity feed');
-      return [];
+      adminCache.set(cacheKey, fallback);
+      return fallback;
     }
 
     console.error('[Admin] Error fetching recent activity:', error);

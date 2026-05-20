@@ -204,7 +204,7 @@ describe('interactive components', () => {
     expect(mockPush).toHaveBeenCalledWith('/login?message=Account deleted successfully');
   });
 
-  it('surfaces account deletion errors and ignores close while loading', async () => {
+  it('surfaces account deletion errors and allows close after error', async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       json: () => Promise.resolve({ error: 'Deletion failed' }),
