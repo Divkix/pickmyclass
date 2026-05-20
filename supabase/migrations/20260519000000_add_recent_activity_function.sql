@@ -71,6 +71,7 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION public.get_recent_activity(INTEGER) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.get_recent_activity(INTEGER) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_recent_activity(INTEGER) FROM anon;
 GRANT EXECUTE ON FUNCTION public.get_recent_activity(INTEGER) TO service_role;
 
 COMMENT ON FUNCTION public.get_recent_activity(INTEGER) IS

@@ -525,7 +525,7 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
   if (!Number.isFinite(limit) || limit <= 0) {
     throw new TypeError('Invalid limit: must be a finite positive integer');
   }
-  const sanitizedLimit = Math.min(Math.floor(limit), 500);
+  const sanitizedLimit = Math.min(500, Math.max(1, Math.floor(limit)));
 
   const cacheKey = `recent-activity-${sanitizedLimit}`;
   const cached = adminCache.get(cacheKey) as RecentActivityItem[] | undefined;
