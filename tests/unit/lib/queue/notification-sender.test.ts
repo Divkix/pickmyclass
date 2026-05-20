@@ -235,11 +235,11 @@ describe('sendSectionNotifications', () => {
 
   it('handles engagement recording failure gracefully', async () => {
     const rpcMock = mockRpc(mockWatchers);
-    // Make engagement calls fail
+    // Make engagement calls fail with error response
     rpcMock
       .mockResolvedValueOnce({ data: mockWatchers, error: null }) // get_watchers_for_sections
-      .mockRejectedValueOnce(new Error('Engagement error')) // record_engagement_send for u1
-      .mockRejectedValueOnce(new Error('Engagement error')); // record_engagement_send for u2
+      .mockResolvedValueOnce({ data: null, error: { message: 'Engagement error' } }) // record_engagement_send for u1
+      .mockResolvedValueOnce({ data: null, error: { message: 'Engagement error' } }); // record_engagement_send for u2
 
     await expect(sendSectionNotifications(defaultParams())).resolves.not.toThrow();
     expect(console.warn).toHaveBeenCalled();

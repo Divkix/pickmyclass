@@ -7,6 +7,30 @@ vi.mock('@/lib/supabase/service', () => ({
 
 vi.mock('@/lib/asu/api', () => ({
   fetchClassFromASU: vi.fn(),
+  AuthError: class AuthError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'AuthError';
+    }
+  },
+  NotFoundError: class NotFoundError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'NotFoundError';
+    }
+  },
+  RateLimitError: class RateLimitError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'RateLimitError';
+    }
+  },
+  ApiError: class ApiError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'ApiError';
+    }
+  },
 }));
 
 vi.mock('@/lib/db/queries', () => ({
@@ -129,11 +153,12 @@ describe('processSection', () => {
     const env = buildEnv();
     const result = await processSection('42737', '2261', env);
 
-    // Should have fetched old state with correct chaining
+    // Should have fetched old state with correct chaining (includes term)
     const db = getServiceClient() as unknown as ReturnType<typeof buildMockDb>;
     expect(db.from).toHaveBeenCalledWith('class_states');
     expect(db.select).toHaveBeenCalledWith('*');
     expect(db.eq).toHaveBeenCalledWith('class_nbr', '42737');
+    expect(db.eq).toHaveBeenCalledWith('term', '2261');
     expect(db.single).toHaveBeenCalled();
 
     // Should have fetched from ASU
@@ -190,35 +215,28 @@ describe('processSection', () => {
     expect(result.success).toBe(true);
   });
 
-  it('ASU API throws NotFoundError: returns non-retryable error', async () => {
-    const notFoundError = new Error('Section 42737 not found');
-    notFoundError.name = 'NotFoundError';
-    (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(notFoundError);
+  it('ASU API throws NotFoundError: rethrows for caller retry semantics', async () => {
+    const { NotFoundError } = await import('@/lib/asu/api');
+    (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new NotFoundError('Section 42737 not found')
+    );
 
-    const result = await processSection('42737', '2261', buildEnv());
-
-    expect(result).toMatchObject({
-      success: false,
-      error: expect.stringContaining('not found'),
-    });
+    await expect(processSection('42737', '2261', buildEnv())).rejects.toThrow(
+      'Section 42737 not found'
+    );
     // Should NOT have tried to persist or notify
     const db = getServiceClient() as unknown as ReturnType<typeof buildMockDb>;
     expect(db.upsert).not.toHaveBeenCalled();
     expect(sendSectionNotifications).not.toHaveBeenCalled();
   });
 
-  it('ASU API throws RateLimitError: returns error result (caught by try/catch)', async () => {
-    const rateLimitError = new Error('Rate limit hit');
-    rateLimitError.name = 'RateLimitError';
-    (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(rateLimitError);
+  it('ASU API throws RateLimitError: rethrows for caller retry semantics', async () => {
+    const { RateLimitError } = await import('@/lib/asu/api');
+    (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new RateLimitError('Rate limit hit')
+    );
 
-    const result = await processSection('42737', '2261', buildEnv());
-
-    // The catch block catches all errors and returns a ProcessingResult
-    expect(result).toMatchObject({
-      success: false,
-      error: expect.stringContaining('Rate limit'),
-    });
+    await expect(processSection('42737', '2261', buildEnv())).rejects.toThrow('Rate limit hit');
   });
 
   it('DB upsert fails: returns error result', async () => {

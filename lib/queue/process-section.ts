@@ -5,7 +5,13 @@
  * fetch old state → fetch new data → detect changes → send notifications → upsert state.
  */
 
-import { fetchClassFromASU } from '@/lib/asu/api';
+import {
+  ApiError,
+  AuthError,
+  fetchClassFromASU,
+  NotFoundError,
+  RateLimitError,
+} from '@/lib/asu/api';
 import { resetNotificationsForSection } from '@/lib/db/queries';
 import type { ClassInfo } from '@/lib/email/types';
 import { type ChangeResult, detectChanges } from '@/lib/queue/change-detector';
@@ -60,6 +66,7 @@ export async function processSection(
       .from('class_states')
       .select('*')
       .eq('class_nbr', classNbr)
+      .eq('term', term)
       .single();
 
     // PGRST116 = no rows found — not an error for first observation
@@ -151,6 +158,16 @@ export async function processSection(
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[ProcessSection] Error processing ${classNbr}:`, errorMessage);
+
+    // Let caller apply retry / non-retry semantics for known upstream errors
+    if (
+      error instanceof AuthError ||
+      error instanceof NotFoundError ||
+      error instanceof RateLimitError ||
+      error instanceof ApiError
+    ) {
+      throw error;
+    }
 
     return {
       success: false,

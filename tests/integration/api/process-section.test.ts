@@ -85,7 +85,9 @@ describe('POST /api/queue/process-section', () => {
     mockFrom.mockReturnValue({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
-          single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
+          eq: vi.fn(() => ({
+            single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
+          })),
         })),
       })),
       upsert: vi.fn().mockResolvedValue({ error: null }),
