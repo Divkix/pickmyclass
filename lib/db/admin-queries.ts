@@ -480,6 +480,79 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
 }
 
 /**
+ * A single recent activity item returned from the unified feed.
+ */
+
+export type ActivityType = 'user_registration' | 'new_watch' | 'email_sent';
+
+export interface RecentActivityItem {
+  type: ActivityType;
+  activityAt: string;
+  userEmail: string;
+  classNbr: string | null;
+  subject: string | null;
+  catalogNbr: string | null;
+  notificationType: 'seat_available' | 'instructor_assigned' | null;
+}
+
+/**
+ * Get the most recent platform activity.
+ *
+ * Calls the `get_recent_activity` RPC which unions:
+ * - `auth.users` (registrations)
+ * - `class_watches` (new watches)
+ * - `notifications_sent` (email notifications)
+ *
+ * Results are cached for 5 minutes.
+ *
+ * @param limit - Maximum number of items to return (default: 50)
+ * @returns Array of unified activity items ordered by `activityAt` descending
+ */
+/**
+ * Raw row returned by the get_recent_activity RPC.
+ */
+interface RecentActivityRow {
+  activity_type: string;
+  activity_at: string;
+  user_email: string;
+  class_nbr: string | null;
+  subject: string | null;
+  catalog_nbr: string | null;
+  notification_type: string | null;
+}
+
+export async function getRecentActivity(limit: number = 50): Promise<RecentActivityItem[]> {
+  const cacheKey = `recent-activity-${limit}`;
+  const cached = adminCache.get(cacheKey) as RecentActivityItem[] | undefined;
+  if (cached !== undefined) return cached;
+
+  const supabase = getServiceClient();
+
+  const { data, error } = (await supabase.rpc(
+    'get_recent_activity' as 'get_class_watchers',
+    { p_limit: limit } as unknown as { section_number: string }
+  )) as unknown as { data: RecentActivityRow[] | null; error: Error | null };
+
+  if (error) {
+    console.error('[Admin] Error fetching recent activity:', error);
+    throw new Error(`Failed to fetch recent activity: ${error.message}`);
+  }
+
+  const items: RecentActivityItem[] = (data || []).map((row) => ({
+    type: row.activity_type as ActivityType,
+    activityAt: row.activity_at,
+    userEmail: row.user_email,
+    classNbr: row.class_nbr,
+    subject: row.subject,
+    catalogNbr: row.catalog_nbr,
+    notificationType: row.notification_type as 'seat_available' | 'instructor_assigned' | null,
+  }));
+
+  adminCache.set(cacheKey, items);
+  return items;
+}
+
+/**
  * Get all class watches for a specific user
  *
  * Retrieves all watches for a given user ID and joins with class_states
