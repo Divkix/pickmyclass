@@ -117,13 +117,21 @@ describe('Notification Expiration (Issue #157)', () => {
 
   describe('resetNotificationsForSection', () => {
     it('should reset seat_available notifications for a section', async () => {
-      mockFrom.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
+      const mockQuery = {
+        eq: vi.fn().mockReturnThis(),
+      };
+      mockQuery.eq.mockImplementation((key, _value) => {
+        if (key === 'term') {
+          return Promise.resolve({
             data: [{ id: 'watch-1' }, { id: 'watch-2' }],
             error: null,
-          })),
-        })),
+          });
+        }
+        return mockQuery;
+      });
+
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => mockQuery),
         delete: vi.fn(() => ({
           in: vi.fn(() => ({
             eq: vi.fn().mockResolvedValue({ error: null }),
@@ -131,66 +139,74 @@ describe('Notification Expiration (Issue #157)', () => {
         })),
       });
 
-      // Need to handle the chained delete call differently
-      const mockDelete = vi.fn().mockResolvedValue({ error: null });
-      mockFrom.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn().mockResolvedValue({
-            data: [{ id: 'watch-1' }, { id: 'watch-2' }],
-            error: null,
-          }),
-        })),
-        delete: vi.fn(() => ({
-          in: vi.fn(() => ({
-            eq: mockDelete,
-          })),
-        })),
-      });
-
-      await resetNotificationsForSection('12345', 'seat_available');
+      await resetNotificationsForSection('12345', '2261', 'seat_available');
 
       expect(mockFrom).toHaveBeenCalledWith('class_watches');
     });
 
     it('should throw error when fetching watches fails', async () => {
-      mockFrom.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
+      const mockQuery = {
+        eq: vi.fn().mockReturnThis(),
+      };
+      mockQuery.eq.mockImplementation((key, _value) => {
+        if (key === 'term') {
+          return Promise.resolve({
             data: null,
             error: { message: 'Connection error' },
-          })),
-        })),
+          });
+        }
+        return mockQuery;
       });
 
-      await expect(resetNotificationsForSection('12345')).rejects.toThrow(
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => mockQuery),
+      });
+
+      await expect(resetNotificationsForSection('12345', '2261')).rejects.toThrow(
         'Failed to fetch watches: Connection error'
       );
     });
 
     it('should do nothing when no watches found', async () => {
-      mockFrom.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn().mockResolvedValue({
+      const mockQuery = {
+        eq: vi.fn().mockReturnThis(),
+      };
+      mockQuery.eq.mockImplementation((key, _value) => {
+        if (key === 'term') {
+          return Promise.resolve({
             data: [],
             error: null,
-          }),
-        })),
+          });
+        }
+        return mockQuery;
       });
 
-      await resetNotificationsForSection('12345', 'seat_available');
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => mockQuery),
+      });
+
+      await resetNotificationsForSection('12345', '2261', 'seat_available');
 
       // Should not call delete when no watches found
       expect(mockFrom).toHaveBeenCalledTimes(1);
     });
 
     it('should handle instructor_assigned notification type', async () => {
-      mockFrom.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn().mockResolvedValue({
+      const mockQuery = {
+        eq: vi.fn().mockReturnThis(),
+      };
+      mockQuery.eq.mockImplementation((key, _value) => {
+        if (key === 'term') {
+          return Promise.resolve({
             data: [{ id: 'watch-1' }],
             error: null,
-          }),
-        })),
+          });
+        }
+        return mockQuery;
+      });
+
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => mockQuery),
         delete: vi.fn(() => ({
           in: vi.fn(() => ({
             eq: vi.fn().mockResolvedValue({ error: null }),
@@ -198,19 +214,27 @@ describe('Notification Expiration (Issue #157)', () => {
         })),
       });
 
-      await resetNotificationsForSection('12345', 'instructor_assigned');
+      await resetNotificationsForSection('12345', '2261', 'instructor_assigned');
 
       expect(mockFrom).toHaveBeenCalledWith('class_watches');
     });
 
     it('should use seat_available as default notification type', async () => {
-      mockFrom.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn().mockResolvedValue({
+      const mockQuery = {
+        eq: vi.fn().mockReturnThis(),
+      };
+      mockQuery.eq.mockImplementation((key, _value) => {
+        if (key === 'term') {
+          return Promise.resolve({
             data: [{ id: 'watch-1' }],
             error: null,
-          }),
-        })),
+          });
+        }
+        return mockQuery;
+      });
+
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => mockQuery),
         delete: vi.fn(() => ({
           in: vi.fn(() => ({
             eq: vi.fn().mockResolvedValue({ error: null }),
@@ -218,10 +242,39 @@ describe('Notification Expiration (Issue #157)', () => {
         })),
       });
 
-      await resetNotificationsForSection('12345');
+      await resetNotificationsForSection('12345', '2261');
 
       // Should default to seat_available
       expect(mockFrom).toHaveBeenCalledWith('class_watches');
+    });
+
+    it('should filter by both class_nbr and term', async () => {
+      const mockQuery = {
+        eq: vi.fn().mockReturnThis(),
+      };
+      mockQuery.eq.mockImplementation((key, _value) => {
+        if (key === 'term') {
+          return Promise.resolve({
+            data: [{ id: 'watch-1' }],
+            error: null,
+          });
+        }
+        return mockQuery;
+      });
+
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => mockQuery),
+        delete: vi.fn(() => ({
+          in: vi.fn(() => ({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          })),
+        })),
+      });
+
+      await resetNotificationsForSection('12345', '2261');
+
+      expect(mockQuery.eq).toHaveBeenCalledWith('class_nbr', '12345');
+      expect(mockQuery.eq).toHaveBeenCalledWith('term', '2261');
     });
   });
 

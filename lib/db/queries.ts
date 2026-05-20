@@ -72,10 +72,12 @@ export async function getSectionsToCheck(
  * when seats open again.
  *
  * @param classNbr - Section number (e.g., "12431")
+ * @param term - Term code (e.g., "2261")
  * @param notificationType - Type of notification to reset (default: 'seat_available')
  */
 export async function resetNotificationsForSection(
   classNbr: string,
+  term: string,
   notificationType: 'seat_available' | 'instructor_assigned' = 'seat_available'
 ): Promise<void> {
   const supabase = getServiceClient();
@@ -83,7 +85,8 @@ export async function resetNotificationsForSection(
   const { data: watches, error: watchError } = await supabase
     .from('class_watches')
     .select('id')
-    .eq('class_nbr', classNbr);
+    .eq('class_nbr', classNbr)
+    .eq('term', term);
 
   if (watchError) {
     console.error(`[DB] Error fetching watches for reset:`, watchError);
