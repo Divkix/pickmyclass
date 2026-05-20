@@ -87,7 +87,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user) {
-      fetchWatches();
+      void fetchWatches().catch(() => {
+        // fetchWatches already stores the user-facing error for initial page load.
+      });
     }
   }, [user, fetchWatches]);
 

@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DashboardPage from '@/app/dashboard/page';
 
@@ -55,18 +56,24 @@ vi.mock('@/lib/contexts/AuthContext', () => ({
 
 // Mock realtime hook
 const mockUseRealtimeClassStates = vi.fn();
+const mockRefetchClassStates = vi.fn();
 
 vi.mock('@/lib/hooks/useRealtimeClassStates', () => ({
   useRealtimeClassStates: (opts: unknown) => mockUseRealtimeClassStates(opts),
 }));
 
 // Mock pull-to-refresh hook
+let lastRefreshHandler: (() => Promise<void>) | null = null;
+
 vi.mock('@/lib/hooks/usePullToRefresh', () => ({
-  usePullToRefresh: () => ({
-    pullDistance: 0,
-    isRefreshing: false,
-    containerRef: { current: null },
-  }),
+  usePullToRefresh: (opts: { onRefresh: () => Promise<void> }) => {
+    lastRefreshHandler = opts.onRefresh;
+    return {
+      pullDistance: 0,
+      isRefreshing: false,
+      containerRef: { current: null },
+    };
+  },
 }));
 
 // Mock sonner toast
@@ -113,8 +120,52 @@ vi.mock('@/components/PullToRefreshIndicator', () => ({
 }));
 
 vi.mock('@/components/ClassWatchCard', () => ({
-  ClassWatchCard: () => <div data-testid="class-watch-card">ClassWatchCard</div>,
+  ClassWatchCard: ({
+    watch,
+    classState,
+    onDelete,
+    onRestore,
+  }: {
+    watch: { id: string; class_nbr: string; subject?: string; catalog_nbr?: string };
+    classState?: { title?: string } | null;
+    onDelete: (watchId: string) => Promise<void>;
+    onRestore: () => Promise<unknown>;
+  }) => (
+    <div data-testid="class-watch-card">
+      <span>{watch.class_nbr}</span>
+      <span>{watch.subject}</span>
+      <span>{watch.catalog_nbr}</span>
+      <span>{classState?.title}</span>
+      <button type="button" onClick={() => void onDelete(watch.id).catch(() => undefined)}>
+        Delete {watch.id}
+      </button>
+      <button type="button" onClick={() => void onRestore()}>
+        Restore {watch.id}
+      </button>
+    </div>
+  ),
 }));
+
+const makeWatch = (overrides: Record<string, unknown> = {}) => ({
+  id: 'watch-1',
+  user_id: 'user-1',
+  term: '2267',
+  class_nbr: '12345',
+  subject: 'CSE',
+  catalog_nbr: '110',
+  created_at: '2026-05-19T00:00:00Z',
+  updated_at: '2026-05-19T00:00:00Z',
+  class_state: {
+    class_nbr: '12345',
+    term: '2267',
+    title: 'Intro to Programming',
+    instructor_name: 'Ada Lovelace',
+    seats_available: 0,
+    seats_total: 50,
+    updated_at: '2026-05-19T00:00:00Z',
+  },
+  ...overrides,
+});
 
 describe('DashboardPage', () => {
   beforeEach(() => {
@@ -131,8 +182,10 @@ describe('DashboardPage', () => {
       classStates: {},
       loading: false,
       error: null,
-      refetch: vi.fn(),
+      refetch: mockRefetchClassStates,
     });
+    mockRefetchClassStates.mockResolvedValue(undefined);
+    lastRefreshHandler = null;
 
     // Mock successful fetch response
     global.fetch = vi.fn().mockResolvedValue({
@@ -153,7 +206,7 @@ describe('DashboardPage', () => {
         classStates: {},
         loading: false,
         error: testError,
-        refetch: vi.fn(),
+        refetch: mockRefetchClassStates,
       });
 
       // Mock successful watches fetch (so the page loads)
@@ -163,11 +216,7 @@ describe('DashboardPage', () => {
           Promise.resolve({
             watches: [
               {
-                id: 'watch-1',
-                class_nbr: '12345',
-                subject: 'CSE',
-                catalog_nbr: '110',
-                user_id: 'user-1',
+                ...makeWatch(),
               },
             ],
             maxWatches: 10,
@@ -203,11 +252,7 @@ describe('DashboardPage', () => {
           Promise.resolve({
             watches: [
               {
-                id: 'watch-1',
-                class_nbr: '12345',
-                subject: 'CSE',
-                catalog_nbr: '110',
-                user_id: 'user-1',
+                ...makeWatch(),
               },
             ],
             maxWatches: 10,
@@ -223,5 +268,326 @@ describe('DashboardPage', () => {
       const alerts = screen.queryAllByTestId('alert');
       expect(alerts).toHaveLength(0);
     });
+  });
+
+  it('renders auth loading skeletons before the session check completes', () => {
+    mockUseAuth.mockReturnValue({
+      user: null,
+      loading: true,
+    });
+
+    render(<DashboardPage />);
+
+    expect(screen.getByTestId('header')).toBeInTheDocument();
+    expect(screen.getAllByTestId('skeleton')).toHaveLength(3);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('redirects unauthenticated visitors to login', async () => {
+    mockUseAuth.mockReturnValue({
+      user: null,
+      loading: false,
+    });
+
+    const { container } = render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/login');
+    });
+    expect(container).toBeEmptyDOMElement();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('shows the API error when class watches cannot be fetched', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({}),
+    });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to fetch class watches');
+    await waitFor(() => {
+      expect(screen.queryAllByTestId('skeleton')).toHaveLength(0);
+    });
+  });
+
+  it('renders the empty watchlist state after a successful empty response', async () => {
+    render(<DashboardPage />);
+
+    expect(await screen.findByText('Your watchlist is empty')).toBeInTheDocument();
+    expect(screen.getByText(/2,400\+/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /add your first class/i })).toHaveAttribute(
+      'href',
+      '/dashboard/add'
+    );
+  });
+
+  it('defaults missing watch payload fields to safe values', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({}),
+    });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText('Your watchlist is empty')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /add class/i })).toHaveAttribute(
+      'href',
+      '/dashboard/add'
+    );
+  });
+
+  it('uses the fallback load error for non-Error fetch failures', async () => {
+    global.fetch = vi.fn().mockRejectedValue('offline');
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load class watches');
+  });
+
+  it('renders stats from persisted and live class states', async () => {
+    mockUseRealtimeClassStates.mockReturnValue({
+      classStates: {
+        '67890': {
+          class_nbr: '67890',
+          term: '2267',
+          title: 'Discrete Math',
+          instructor_name: 'Grace Hopper',
+          seats_available: 3,
+        },
+      },
+      loading: true,
+      error: null,
+      refetch: mockRefetchClassStates,
+    });
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          watches: [
+            makeWatch(),
+            makeWatch({
+              id: 'watch-2',
+              class_nbr: '67890',
+              subject: 'MAT',
+              catalog_nbr: '243',
+              class_state: {
+                class_nbr: '67890',
+                term: '2267',
+                title: 'Old Title',
+                instructor_name: 'Old Instructor',
+                seats_available: 0,
+              },
+            }),
+          ],
+          maxWatches: 5,
+        }),
+    });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText('Total Watches')).toBeInTheDocument();
+    expect(screen.getByText('3 remaining')).toBeInTheDocument();
+    expect(screen.getByText('Go register now!')).toBeInTheDocument();
+    expect(screen.getByText("We'll alert you when seats open")).toBeInTheDocument();
+    expect(screen.getByText('Syncing...')).toBeInTheDocument();
+    expect(screen.getByText('Discrete Math')).toBeInTheDocument();
+  });
+
+  it('filters watched classes with the search field and shows the no-result state', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          watches: [
+            makeWatch(),
+            makeWatch({
+              id: 'watch-2',
+              class_nbr: '67890',
+              subject: 'MAT',
+              catalog_nbr: '243',
+              class_state: {
+                class_nbr: '67890',
+                term: '2267',
+                title: 'Calculus III',
+                instructor_name: 'Mary Jackson',
+                seats_available: 0,
+              },
+            }),
+          ],
+          maxWatches: 10,
+        }),
+    });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findAllByTestId('class-watch-card')).toHaveLength(2);
+
+    fireEvent.change(screen.getByLabelText(/search watched classes/i), {
+      target: { value: 'mary' },
+    });
+    expect(screen.getAllByTestId('class-watch-card')).toHaveLength(1);
+    expect(screen.getByText('67890')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/search watched classes/i), {
+      target: { value: 'no-match' },
+    });
+    expect(screen.getByText('No results found')).toBeInTheDocument();
+    expect(screen.getByText('Try adjusting your search query')).toBeInTheDocument();
+  });
+
+  it('removes a deleted watch from local state', async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            watches: [makeWatch(), makeWatch({ id: 'watch-2', class_nbr: '67890' })],
+            maxWatches: 10,
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({}),
+      });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findAllByTestId('class-watch-card')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: /delete watch-1/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('class-watch-card')).toHaveLength(1);
+    });
+    expect(global.fetch).toHaveBeenLastCalledWith('/api/class-watches?id=watch-1', {
+      method: 'DELETE',
+    });
+  });
+
+  it('leaves a watch in place when deletion fails', async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            watches: [makeWatch()],
+            maxWatches: 10,
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({}),
+      });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findAllByTestId('class-watch-card')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: /delete watch-1/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith('/api/class-watches?id=watch-1', {
+        method: 'DELETE',
+      });
+    });
+    expect(screen.getAllByTestId('class-watch-card')).toHaveLength(1);
+  });
+
+  it('uses pull-to-refresh success and error toasts', async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            watches: [makeWatch()],
+            maxWatches: 10,
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            watches: [makeWatch(), makeWatch({ id: 'watch-2', class_nbr: '67890' })],
+            maxWatches: 10,
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({}),
+      });
+
+    render(<DashboardPage />);
+    expect(await screen.findByText('Total Watches')).toBeInTheDocument();
+
+    await act(async () => {
+      await lastRefreshHandler?.();
+    });
+    expect(mockRefetchClassStates).toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringMatching(/^Dashboard refreshed at /),
+      expect.objectContaining({ description: 'Updated 2 class watches' })
+    );
+
+    await act(async () => {
+      await lastRefreshHandler?.();
+    });
+    expect(toast.error).toHaveBeenCalledWith(
+      'Failed to refresh dashboard',
+      expect.objectContaining({ description: 'Failed to fetch class watches' })
+    );
+  });
+
+  it('uses singular refresh wording and fallback refresh errors', async () => {
+    mockRefetchClassStates.mockRejectedValueOnce('realtime offline');
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            watches: [makeWatch()],
+            maxWatches: 10,
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            watches: [makeWatch()],
+            maxWatches: 10,
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            watches: [makeWatch()],
+            maxWatches: 10,
+          }),
+      });
+
+    render(<DashboardPage />);
+    expect(await screen.findByText('Total Watches')).toBeInTheDocument();
+
+    await act(async () => {
+      await lastRefreshHandler?.();
+    });
+    expect(toast.error).toHaveBeenCalledWith(
+      'Failed to refresh dashboard',
+      expect.objectContaining({ description: 'Please try again' })
+    );
+
+    mockRefetchClassStates.mockResolvedValueOnce(undefined);
+    await act(async () => {
+      await lastRefreshHandler?.();
+    });
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringMatching(/^Dashboard refreshed at /),
+      expect.objectContaining({ description: 'Updated 1 class watch' })
+    );
   });
 });
