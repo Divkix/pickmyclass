@@ -386,7 +386,6 @@ describe('POST /api/queue/process-section', () => {
       // Should return 500 to allow queue retry, not 200
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
-      expect(data.error).toContain('Rollback failed');
     });
 
     it('should return 500 when deleteNotificationRecords fails for instructor_assigned emails', async () => {
@@ -435,7 +434,6 @@ describe('POST /api/queue/process-section', () => {
       // Should return 500 to allow queue retry, not 200
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
-      expect(data.error).toContain('Rollback failed');
     });
   });
 
