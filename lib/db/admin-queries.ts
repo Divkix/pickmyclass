@@ -522,7 +522,12 @@ interface RecentActivityRow {
 }
 
 export async function getRecentActivity(limit: number = 50): Promise<RecentActivityItem[]> {
-  const cacheKey = `recent-activity-${limit}`;
+  if (!Number.isFinite(limit) || limit <= 0) {
+    throw new TypeError('Invalid limit: must be a finite positive integer');
+  }
+  const sanitizedLimit = Math.min(Math.floor(limit), 500);
+
+  const cacheKey = `recent-activity-${sanitizedLimit}`;
   const cached = adminCache.get(cacheKey) as RecentActivityItem[] | undefined;
   if (cached !== undefined) return cached;
 
@@ -530,7 +535,7 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
 
   const { data, error } = (await supabase.rpc(
     'get_recent_activity' as 'get_class_watchers',
-    { p_limit: limit } as unknown as { section_number: string }
+    { p_limit: sanitizedLimit } as unknown as { section_number: string }
   )) as unknown as { data: RecentActivityRow[] | null; error: Error | null };
 
   if (error) {

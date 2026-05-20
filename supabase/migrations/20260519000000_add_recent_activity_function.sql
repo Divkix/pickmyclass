@@ -69,5 +69,9 @@ BEGIN
 END;
 $$;
 
+REVOKE EXECUTE ON FUNCTION public.get_recent_activity(INTEGER) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.get_recent_activity(INTEGER) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.get_recent_activity(INTEGER) TO service_role;
+
 COMMENT ON FUNCTION public.get_recent_activity(INTEGER) IS
   'Returns a unified recent activity feed combining user registrations, new class watches, and sent email notifications. Used by the admin dashboard. SECURITY DEFINER is required to access auth.users.';

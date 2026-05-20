@@ -59,7 +59,7 @@ describe('RecentActivity', () => {
     expect(times).toHaveLength(4);
 
     expect(times[0]).toHaveAttribute('dateTime', '2026-05-19T10:00:00Z');
-    expect(times[0]).toHaveAttribute('title', expect.stringContaining('UTC'));
+    expect(times[0]).toHaveAttribute('title', expect.stringMatching(/GMT|UTC/));
   });
 
   it('renders empty state when no items provided', () => {

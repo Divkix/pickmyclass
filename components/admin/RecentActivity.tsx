@@ -30,10 +30,13 @@ export function RecentActivity({ items }: RecentActivityProps) {
           <p className="text-sm text-muted-foreground">No recent activity to display</p>
         ) : (
           <ul className="space-y-3">
-            {items.map((item, index) => {
+            {items.map((item) => {
               const Icon = iconByType[item.type];
               return (
-                <li key={index} className="flex items-start gap-3">
+                <li
+                  key={`${item.type}-${item.userEmail}-${item.activityAt}`}
+                  className="flex items-start gap-3"
+                >
                   <div className="flex size-8 items-center justify-center rounded-full bg-muted shrink-0 mt-0.5">
                     <Icon className="size-4 text-muted-foreground" />
                   </div>
