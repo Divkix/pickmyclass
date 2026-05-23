@@ -91,8 +91,8 @@ vi.mock('@/components/ui/select', () => ({
     >
       <option value="">Select term</option>
       <option value="asu">Arizona State University (ASU)</option>
-      <option value="2261">Spring 2026 (2261)</option>
       <option value="2264">Summer 2026 (2264)</option>
+      <option value="2267">Fall 2026 (2267)</option>
     </select>
   ),
   SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -164,7 +164,7 @@ describe('interactive components', () => {
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole('combobox', { name: /term/i }), {
-      target: { value: '2261' },
+      target: { value: '2264' },
     });
     fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: '123' } });
     fireEvent.submit(screen.getByRole('button', { name: /start watching/i }).closest('form')!);
@@ -172,7 +172,7 @@ describe('interactive components', () => {
 
     fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: '12345' } });
     fireEvent.submit(screen.getByRole('button', { name: /start watching/i }).closest('form')!);
-    await waitFor(() => expect(onAdd).toHaveBeenCalledWith({ term: '2261', class_nbr: '12345' }));
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith({ term: '2264', class_nbr: '12345' }));
   });
 
   it('shows add-class submission errors', async () => {
@@ -180,7 +180,7 @@ describe('interactive components', () => {
     render(<AddClassWatch onAdd={onAdd} />);
 
     fireEvent.change(screen.getByRole('combobox', { name: /term/i }), {
-      target: { value: '2261' },
+      target: { value: '2264' },
     });
     fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: '12345' } });
     fireEvent.submit(screen.getByRole('button', { name: /start watching/i }).closest('form')!);
