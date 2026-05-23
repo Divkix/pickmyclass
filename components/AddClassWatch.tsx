@@ -93,8 +93,8 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
                 <SelectValue placeholder="Select term" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="2261">Spring 2026 (2261)</SelectItem>
                 <SelectItem value="2264">Summer 2026 (2264)</SelectItem>
+                <SelectItem value="2267">Fall 2026 (2267)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">Select the term to monitor</p>
