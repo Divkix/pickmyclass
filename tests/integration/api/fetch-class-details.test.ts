@@ -81,7 +81,7 @@ describe('/api/fetch-class-details', () => {
   });
 
   it('rejects invalid class detail requests', async () => {
-    const response = await POST(request({ term: '2261', class_nbr: 'abc' }));
+    const response = await POST(request({ term: '2264', class_nbr: 'abc' }));
     const data = await json(response);
 
     expect(response.status).toBe(400);
@@ -90,7 +90,7 @@ describe('/api/fetch-class-details', () => {
   });
 
   it('fetches ASU details, persists the class state, and returns display data', async () => {
-    const response = await POST(request({ term: '2261', class_nbr: '12345' }));
+    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -100,13 +100,13 @@ describe('/api/fetch-class-details', () => {
       instructor_name: 'Dr. Smith',
       seats_available: 7,
     });
-    expect(mockFetchClassFromASU).toHaveBeenCalledWith('12345', '2261', {
+    expect(mockFetchClassFromASU).toHaveBeenCalledWith('12345', '2264', {
       ASU_API_BASE_URL: 'https://classes.example.test',
       ASU_API_TOKEN: 'test-token',
     });
     expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        term: '2261',
+        term: '2264',
         class_nbr: '12345',
         non_reserved_seats: 3,
       }),
@@ -117,7 +117,7 @@ describe('/api/fetch-class-details', () => {
   it('maps ASU not-found errors to 404', async () => {
     mockFetchClassFromASU.mockRejectedValueOnce(new NotFoundError('missing'));
 
-    const response = await POST(request({ term: '2261', class_nbr: '12345' }));
+    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(404);
@@ -127,7 +127,7 @@ describe('/api/fetch-class-details', () => {
   it('maps ASU auth failures to a temporary service outage', async () => {
     mockFetchClassFromASU.mockRejectedValueOnce(new AuthError('expired token'));
 
-    const response = await POST(request({ term: '2261', class_nbr: '12345' }));
+    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(503);
@@ -137,7 +137,7 @@ describe('/api/fetch-class-details', () => {
   it('maps unexpected ASU failures to a fetch error', async () => {
     mockFetchClassFromASU.mockRejectedValueOnce(new Error('network down'));
 
-    const response = await POST(request({ term: '2261', class_nbr: '12345' }));
+    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(500);
@@ -147,7 +147,7 @@ describe('/api/fetch-class-details', () => {
   it('still returns class details when persistence returns an error', async () => {
     mockUpsert.mockResolvedValueOnce({ error: { message: 'write failed' } });
 
-    const response = await POST(request({ term: '2261', class_nbr: '12345' }));
+    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -159,7 +159,7 @@ describe('/api/fetch-class-details', () => {
       throw new Error('service client unavailable');
     });
 
-    const response = await POST(request({ term: '2261', class_nbr: '12345' }));
+    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(200);

@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { isTermSelectable } from '@/lib/asu/terms';
 
 /**
  * Term code validation (4-digit format: YYSM)
@@ -41,15 +42,34 @@ export const registerPasswordSchema = z.string().min(8, 'Password must be at lea
  */
 export const uuidSchema = z.string().uuid('ID must be a valid UUID');
 
+const selectableTermRefinement = {
+  message: 'This term is no longer available. Please refresh and select a current term.',
+  path: ['term'],
+};
+
+function isSelectableTermCode(term: string): boolean {
+  return isTermSelectable(term);
+}
+
 // --- Pre-built schemas for common route inputs ---
+
+const classWatchFieldsSchema = z.object({
+  term: termSchema.min(1, 'Term is required'),
+  class_nbr: classNbrSchema.min(1, 'Class number is required'),
+});
+
+/**
+ * Schema for queue/cron messages — format only so existing watches on past terms keep processing.
+ */
+export const classCheckMessageSchema = classWatchFieldsSchema;
 
 /**
  * Schema for class watch creation (term + class_nbr)
  */
-export const createClassWatchSchema = z.object({
-  term: termSchema.min(1, 'Term is required'),
-  class_nbr: classNbrSchema.min(1, 'Class number is required'),
-});
+export const createClassWatchSchema = classWatchFieldsSchema.refine(
+  (data) => isSelectableTermCode(data.term),
+  selectableTermRefinement
+);
 
 /**
  * Schema for class watch deletion (watch ID)
@@ -61,10 +81,12 @@ export const deleteClassWatchSchema = z.object({
 /**
  * Schema for fetching class details
  */
-export const fetchClassDetailsSchema = z.object({
-  term: termSchema.min(1, 'Term is required'),
-  class_nbr: classNbrSchema.min(1, 'Section number is required'),
-});
+export const fetchClassDetailsSchema = z
+  .object({
+    term: termSchema.min(1, 'Term is required'),
+    class_nbr: classNbrSchema.min(1, 'Section number is required'),
+  })
+  .refine((data) => isSelectableTermCode(data.term), selectableTermRefinement);
 
 /**
  * Schema for login requests
