@@ -49,7 +49,7 @@ const mockUser = { id: 'user-123', email: 'test@example.com' };
 const mockWatch: ClassWatch = {
   id: 'watch-1',
   user_id: 'user-123',
-  term: '2261',
+  term: '2264',
   subject: 'CSE',
   catalog_nbr: '240',
   class_nbr: '12345',
@@ -57,7 +57,7 @@ const mockWatch: ClassWatch = {
 };
 const mockClassState: ClassState = {
   class_nbr: '12345',
-  term: '2261',
+  term: '2264',
   subject: 'CSE',
   catalog_nbr: '240',
   title: 'Intro to Programming',
@@ -251,7 +251,7 @@ describe('/api/class-watches', () => {
     it('should return 401 for unauthenticated requests', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: { message: 'Unauthorized' } });
 
-      const request = createRequest({ term: '2261', class_nbr: '12345' });
+      const request = createRequest({ term: '2264', class_nbr: '12345' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
 
@@ -284,7 +284,7 @@ describe('/api/class-watches', () => {
         eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
       });
 
-      const request = createRequest({ term: '2261', class_nbr: '123' });
+      const request = createRequest({ term: '2264', class_nbr: '123' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
 
@@ -299,7 +299,7 @@ describe('/api/class-watches', () => {
         eq: vi.fn().mockResolvedValue({ count: 10, error: null }),
       });
 
-      const request = createRequest({ term: '2261', class_nbr: '12345' });
+      const request = createRequest({ term: '2264', class_nbr: '12345' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
 
@@ -318,7 +318,7 @@ describe('/api/class-watches', () => {
         error: { code: '23505', message: 'Unique constraint violation' },
       });
 
-      const request = createRequest({ term: '2261', class_nbr: '12345' });
+      const request = createRequest({ term: '2264', class_nbr: '12345' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
 
@@ -337,7 +337,7 @@ describe('/api/class-watches', () => {
         error: { code: 'P0001', message: 'MAX_WATCHES_EXCEEDED' },
       });
 
-      const request = createRequest({ term: '2261', class_nbr: '12345' });
+      const request = createRequest({ term: '2264', class_nbr: '12345' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
 
@@ -353,7 +353,7 @@ describe('/api/class-watches', () => {
 
       mockFetchClassFromASU.mockRejectedValue(new Error('Network error'));
 
-      const request = createRequest({ term: '2261', class_nbr: '12345' });
+      const request = createRequest({ term: '2264', class_nbr: '12345' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
 
@@ -371,7 +371,7 @@ describe('/api/class-watches', () => {
       const { NotFoundError } = await import('@/lib/asu/api');
       mockFetchClassFromASU.mockRejectedValue(new NotFoundError('Section 99999 not found'));
 
-      const request = createRequest({ term: '2261', class_nbr: '99999' });
+      const request = createRequest({ term: '2264', class_nbr: '99999' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
 
@@ -388,7 +388,7 @@ describe('/api/class-watches', () => {
       const { AuthError } = await import('@/lib/asu/api');
       mockFetchClassFromASU.mockRejectedValue(new AuthError('Token expired'));
 
-      const request = createRequest({ term: '2261', class_nbr: '12345' });
+      const request = createRequest({ term: '2264', class_nbr: '12345' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
 
@@ -405,13 +405,13 @@ describe('/api/class-watches', () => {
       mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
       mockRpc.mockResolvedValue({ data: mockWatch, error: null });
 
-      const request = createRequest({ term: '2261', class_nbr: '12345' });
+      const request = createRequest({ term: '2264', class_nbr: '12345' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
 
       expect(response.status).toBe(201);
       expect(data.watch).toBeDefined();
-      expect(mockFetchClassFromASU).toHaveBeenCalledWith('12345', '2261', {
+      expect(mockFetchClassFromASU).toHaveBeenCalledWith('12345', '2264', {
         ASU_API_BASE_URL: expect.any(String),
         ASU_API_TOKEN: expect.any(String),
       });
@@ -419,7 +419,7 @@ describe('/api/class-watches', () => {
         'create_class_watch_with_limit',
         expect.objectContaining({
           p_user_id: mockUser.id,
-          p_term: '2261',
+          p_term: '2264',
           p_class_nbr: '12345',
         })
       );

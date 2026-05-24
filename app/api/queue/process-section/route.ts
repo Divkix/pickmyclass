@@ -7,14 +7,11 @@
 
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClassWatchSchema } from '@/lib/api/schemas';
+import { classCheckMessageSchema } from '@/lib/api/schemas';
 import { ApiError, AuthError, NotFoundError, RateLimitError } from '@/lib/asu/api';
 import { processSection } from '@/lib/queue/process-section';
 import type { Env } from '@/lib/types/env';
 import { timingSafeCompare } from '@/lib/utils/crypto';
-
-// Reuse the class watch schema for queue message validation (same fields)
-const classCheckMessageSchema = createClassWatchSchema;
 
 /**
  * Process a single class section message from the queue

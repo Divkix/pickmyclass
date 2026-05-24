@@ -1,7 +1,8 @@
 'use client';
 
 import { Lock } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { formatTermOption, getSelectableTerms } from '@/lib/asu/terms';
 import { Alert } from './ui/alert';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -14,11 +15,14 @@ interface AddClassWatchProps {
 }
 
 export function AddClassWatch({ onAdd }: AddClassWatchProps) {
+  const selectableTerms = useMemo(() => getSelectableTerms(), []);
+  const defaultTerm = selectableTerms[0]?.code ?? '';
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [university] = useState('asu');
-  const [term, setTerm] = useState('');
+  const [term, setTerm] = useState(defaultTerm);
   const [classNbr, setClassNbr] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,7 +47,7 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
         class_nbr: classNbr,
       });
       // Reset form on success
-      setTerm('');
+      setTerm(defaultTerm);
       setClassNbr('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add class watch');
@@ -88,15 +92,24 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
           {/* Term Dropdown */}
           <div className="space-y-2">
             <Label htmlFor="term">Term *</Label>
-            <Select value={term} onValueChange={setTerm} required>
-              <SelectTrigger id="term">
-                <SelectValue placeholder="Select term" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2264">Summer 2026 (2264)</SelectItem>
-                <SelectItem value="2267">Fall 2026 (2267)</SelectItem>
-              </SelectContent>
-            </Select>
+            {selectableTerms.length === 0 ? (
+              <Alert className="bg-destructive/10 text-destructive border-destructive/30">
+                No terms are currently available. Please check back later or contact support.
+              </Alert>
+            ) : (
+              <Select value={term} onValueChange={setTerm} required>
+                <SelectTrigger id="term">
+                  <SelectValue placeholder="Select term" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectableTerms.map((termOption) => (
+                    <SelectItem key={termOption.code} value={termOption.code}>
+                      {formatTermOption(termOption)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <p className="text-xs text-muted-foreground">Select the term to monitor</p>
           </div>
 
@@ -134,7 +147,7 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
           <Button
             type="submit"
             variant="gradient"
-            disabled={isSubmitting || !term || !classNbr}
+            disabled={isSubmitting || !term || !classNbr || selectableTerms.length === 0}
             className="w-full"
           >
             {isSubmitting ? "Checking ASU's class search... hang tight" : 'Start Watching'}

@@ -11,6 +11,32 @@ const { mockPathname, mockPush } = vi.hoisted(() => ({
   mockPush: vi.fn(),
 }));
 
+const mockSelectableTerms = vi.hoisted(() => [
+  {
+    code: '2264',
+    label: 'Summer 2026',
+    season: 'summer' as const,
+    year: 2026,
+    catalogAvailable: { year: 2026, month: 2, day: 5 },
+    sessionStart: { year: 2026, month: 5, day: 18 },
+    sessionEnd: { year: 2026, month: 8, day: 14 },
+  },
+  {
+    code: '2267',
+    label: 'Fall 2026',
+    season: 'fall' as const,
+    year: 2026,
+    catalogAvailable: { year: 2026, month: 2, day: 23 },
+    sessionStart: { year: 2026, month: 8, day: 20 },
+    sessionEnd: { year: 2026, month: 12, day: 12 },
+  },
+]);
+
+vi.mock('@/lib/asu/terms', () => ({
+  getSelectableTerms: () => mockSelectableTerms,
+  formatTermOption: (term: { label: string; code: string }) => `${term.label} (${term.code})`,
+}));
+
 vi.mock('next/link', () => ({
   default: ({
     href,
@@ -158,14 +184,6 @@ describe('interactive components', () => {
     const onAdd = vi.fn().mockResolvedValue(undefined);
     render(<AddClassWatch onAdd={onAdd} />);
 
-    fireEvent.submit(screen.getByRole('button', { name: /start watching/i }).closest('form')!);
-    expect(
-      await screen.findByText('Please select a term and enter a section number')
-    ).toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole('combobox', { name: /term/i }), {
-      target: { value: '2264' },
-    });
     fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: '123' } });
     fireEvent.submit(screen.getByRole('button', { name: /start watching/i }).closest('form')!);
     expect(await screen.findByText('Section number must be exactly 5 digits')).toBeInTheDocument();
@@ -179,9 +197,6 @@ describe('interactive components', () => {
     const onAdd = vi.fn().mockRejectedValue(new Error('Class already watched'));
     render(<AddClassWatch onAdd={onAdd} />);
 
-    fireEvent.change(screen.getByRole('combobox', { name: /term/i }), {
-      target: { value: '2264' },
-    });
     fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: '12345' } });
     fireEvent.submit(screen.getByRole('button', { name: /start watching/i }).closest('form')!);
 
