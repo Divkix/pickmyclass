@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DELETE, GET, POST } from '@/app/api/class-watches/route';
 import type { ValidationIssueDetail } from '@/lib/api/validation';
 
@@ -184,9 +184,15 @@ async function parseDeleteResponse(response: Response): Promise<DeleteResponse> 
 
 describe('/api/class-watches', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
     vi.clearAllMocks();
     setupMockChain();
     mockRpc.mockResolvedValue({ data: mockWatch, error: null });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('GET /api/class-watches', () => {
