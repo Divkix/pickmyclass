@@ -13,7 +13,7 @@ import type { ClassCheckMessage } from './queue';
  * Includes all bindings needed for:
  * - Asset serving (ASSETS)
  * - Queue processing (PICKMYCLASS_QUEUE)
- * - Durable Objects (CIRCUIT_BREAKER_DO, PICKMYCLASS_CRON_LOCK_DO)
+ * - Durable Objects (PICKMYCLASS_CRON_LOCK_DO)
  * - KV storage (PICKMYCLASS_DISPOSABLE_DOMAINS)
  * - Supabase configuration
  * - ASU API credentials
@@ -35,7 +35,6 @@ export interface Env extends Record<string, unknown> {
   PICKMYCLASS_QUEUE: Queue<ClassCheckMessage>;
 
   // Durable Object bindings
-  CIRCUIT_BREAKER_DO: DurableObjectNamespace;
   PICKMYCLASS_CRON_LOCK_DO: DurableObjectNamespace;
 
   // KV namespace bindings

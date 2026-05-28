@@ -30,7 +30,7 @@ We chose Cloudflare Workers as our deployment platform for several compelling re
 
 ### Native Primitives for Scalability
 - **Cloudflare Queues**: Reliable message queue for processing class checks at scale
-- **Durable Objects**: Distributed coordination for circuit breakers and cron locks
+- **Durable Objects**: Distributed coordination for cron locks (CronLockDO) and future coordination features
 - **Workers KV**: Edge caching for fast data retrieval
 - **Hyperdrive**: Connection pooling for PostgreSQL with automatic optimization
 
@@ -48,23 +48,29 @@ We chose Cloudflare Workers as our deployment platform for several compelling re
 
 ```
 User Browser
-     |
-     v
+      |
+      v
 vinext App (Cloudflare Workers) <---> Supabase (Auth + PostgreSQL + Realtime)
-     |
-     v
-Cloudflare Cron (every 30 min)
-     |
-     v
+      |
+      v
+Cloudflare Cron (every 30 min + daily at 4 AM)
+      |
+      v
+CronLockDO (Durable Object) - prevents duplicate executions
+      |
+      v
 Cloudflare Queue (pickmyclass-queue)
-     |
-     v
-Queue Consumers (100+ concurrent Workers)
-     |
-     v
+      |
+      v
+Queue Consumers (20 concurrent Workers)
+      |
+      v
+worker.ts -> internal HTTP -> app/api/queue/process-section/route.ts
+      |
+      v
 ASU Class Search API (direct HTTP calls)
-     |
-     v
+      |
+      v
 Change Detection --> Cloudflare Email Service --> User Notifications
 ```
 
@@ -77,6 +83,36 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `app/api/queue/process-section/route.ts` | Queue consumer - processes single section |
 | `lib/db/queries.ts` | Database query helpers with atomic deduplication |
 | `lib/asu/api.ts` | ASU Class Search API client (direct HTTP) |
+| `lib/queue/process-section.ts` | Section processing orchestrator |
+| `lib/queue/dlq-consumer.ts` | Dead Letter Queue consumer |
+| `lib/queue/change-detector.ts` | Change detection logic |
+| `lib/queue/notification-sender.ts` | Notification sending with atomic deduplication |
+| `lib/email/send.ts` | Cloudflare Email Service batch sender |
+| `lib/cache/ttl-cache.ts` | TTL cache for ASU API responses |
+| `lib/api/schemas.ts` | Queue message validation schemas |
+| `middleware.ts` | Next.js middleware (auth, routing) |
+| `proxy.ts` | Proxy configuration |
+| `lib/auth/lockout.ts` | Brute-force lockout protection |
+| `lib/auth/disposable-email.ts` | Disposable email validation |
+
+### API Routes
+
+| Route | Methods | Description |
+|-------|---------|-------------|
+| `app/api/auth/check-lockout/route.ts` | POST | Check account lockout status |
+| `app/api/auth/login/route.ts` | POST | User login with lockout protection |
+| `app/api/auth/register/route.ts` | POST | User registration with disposable email blocking |
+| `app/api/auth/send-email-hook/route.ts` | POST | Supabase auth email hook (custom email sending) |
+| `app/api/auth/signout/route.ts` | POST | Sign out and invalidate session |
+| `app/api/class-watches/route.ts` | GET, POST, DELETE | Create, read, and delete class watches (no update) |
+| `app/api/cron/route.ts` | GET | Cron job entry - enqueues sections with staggered groups and Durable Object lock |
+| `app/api/cron/update-disposable-domains/route.ts` | GET | Daily sync of disposable email domain blocklist |
+| `app/api/fetch-class-details/route.ts` | POST | Fetch class details from ASU API and persist state |
+| `app/api/monitoring/health/route.ts` | GET | System health check (DB, ASU API, Cron Lock, email, config) |
+| `app/api/queue/process-section/route.ts` | POST | Queue consumer adapter - processes single section via internal HTTP from worker.ts |
+| `app/api/unsubscribe/route.ts` | GET, POST | CAN-SPAM/RFC 8058 compliant email unsubscribe |
+| `app/api/user/delete/route.ts` | DELETE | Soft-delete account (CCPA compliance, 30-day retention) |
+| `app/api/user/export/route.ts` | GET | Export all user data in JSON (CCPA compliance) |
 
 ### Durable Objects
 
@@ -190,11 +226,10 @@ Your app will be live at `https://your-worker.workers.dev` or your custom domain
 
 ### 7. Set Up Cloudflare Queues
 
-Create the required queues in Cloudflare Dashboard:
+Verify queues exist in Cloudflare Dashboard:
 
 1. Go to Workers & Pages -> Queues
-2. Create `pickmyclass-queue`
-3. Create `pickmyclass-dlq` (dead letter queue)
+2. Confirm `pickmyclass-queue` and `pickmyclass-dlq` are present (created automatically by `wrangler deploy`)
 
 ### 8. Customize Legal Pages (Optional)
 
@@ -258,23 +293,47 @@ bunx supabase migration new <name>   # Create new migration
 
 ```
 app/                         # App Router
-  ├── api/
-  │   ├── class-watches/     # CRUD API for user watches
-  │   ├── cron/              # Cloudflare Workers cron handler
-  │   ├── queue/             # Queue consumer handlers
+  ├── about/                 # About page
+  ├── api/                   # API endpoints (14 routes)
+  ├── auth/callback/         # OAuth callback
+  ├── admin/                 # Admin panel (users, classes, dashboard)
+  ├── blog/                  # Blog pages (6 posts + RSS feed)
   ├── dashboard/             # Main dashboard with Realtime updates
-  ├── login/                 # Authentication pages
-  └── layout.tsx             # Root layout
+  ├── dashboard/add/         # Add class watch page
+  ├── faq/                   # FAQ page
+  ├── forgot-password/       # Forgot password flow
+  ├── go/[uni]/              # University redirect links
+  ├── legal/                 # Legal pages (terms, privacy)
+  ├── login/                 # Login page
+  ├── register/              # Registration page
+  ├── reset-password/        # Reset password flow
+  ├── settings/              # User settings
+  ├── verify-email/          # Email verification
+  ├── layout.tsx             # Root layout
+  └── page.tsx               # Landing page
 
 lib/
-  ├── supabase/              # Supabase clients (browser, server, service)
+  ├── api/                   # API schemas and validation
+  ├── asu/                   # ASU Class Search API client
+  ├── auth/                  # Authentication utilities (lockout, disposable email, admin)
+  ├── blog/                  # Blog posts data
+  ├── cache/                 # TTL cache utilities
+  ├── contexts/              # React contexts (Auth, Theme)
   ├── db/                    # Database query helpers
-  ├── email/                 # Email templates + Cloudflare Email Service integration
-  └── hooks/                 # React hooks (Realtime subscriptions)
+  ├── email/                 # Email templates + Cloudflare Email Service
+  ├── hooks/                 # React hooks (Realtime, pull-to-refresh, swipe)
+  ├── queue/                 # Queue processing (change detection, notification sending, DLQ)
+  ├── supabase/              # Supabase clients (browser, server, service)
+  ├── types/                 # TypeScript type definitions (class, env, queue, watch)
+  ├── utils/                 # Utility functions (crypto, rate-my-professor, seat badge, time format)
+  └── utils.ts               # shadcn/ui utility (cn function)
 
 components/
+  ├── admin/                 # Admin panel components (tables, filters, sorting)
+  ├── blog/                  # Blog components (TOC, author, FAQ, comparison)
+  ├── landing/               # Landing page components (hero, features, how it works, CTA)
   ├── ui/                    # shadcn/ui components
-  └── ...                    # Feature components
+  └── ...                    # Feature components (header, footer, watch cards, dialogs)
 
 supabase/
   └── migrations/            # Database migrations
@@ -283,11 +342,13 @@ worker.ts                    # Custom Cloudflare Worker
 wrangler.jsonc               # Cloudflare Workers config
 ```
 
+> **Note:** `lib/utils.ts` is the shadcn/ui utility file (contains the `cn` function), while `lib/utils/` is a directory for custom utility functions (crypto, formatting, seat badge helpers). Both coexist by design.
+
 ## How It Works
 
 1. **User adds class watch** - Student enters section number on dashboard
 2. **Every 30 minutes** - Cloudflare cron triggers enqueue all watched sections
-3. **Queue consumers process** - 100+ Workers query ASU API in parallel
+3. **Queue consumers process** - 20 concurrent Workers query ASU API in parallel
 4. **Change detection** - Compare new state with PostgreSQL cached state
 5. **Atomic deduplication** - PostgreSQL `INSERT...ON CONFLICT` prevents race conditions
 6. **Email notification** - Cloudflare Email Service sends alerts for available seats

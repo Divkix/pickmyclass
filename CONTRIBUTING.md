@@ -93,7 +93,7 @@ bun run format
 
 **Key Style Guidelines:**
 - Use spaces, not tabs (2 spaces)
-- No semicolons
+- Always use semicolons
 - Single quotes for strings
 - TypeScript strict mode enabled
 
@@ -132,6 +132,17 @@ Before submitting a PR:
    ```bash
    bun run preview
    ```
+
+5. **Run tests**
+   ```bash
+   bun run test:run
+   ```
+
+**Test Guidelines:**
+- All tests are in the `tests/` directory (not colocated with source files)
+- Test files: `*.test.ts`, `*.test.tsx`, `*.spec.ts`, or `*.spec.tsx`
+- Use `tests/mocks/` for Cloudflare Workers environment mocks
+- Run single test file: `bunx vitest run tests/unit/lib/utils.test.ts`
 
 ## Pull Request Process
 
@@ -188,6 +199,49 @@ How did you test these changes?
    bunx supabase gen types typescript --linked > lib/supabase/database.types.ts
    ```
 
+### API Validation
+
+- Use `lib/api/schemas.ts` for zod schemas
+- Use `lib/api/validation.ts` for input validation
+- Validate all input at API boundaries
+
+### Caching
+
+- Use `lib/cache/ttl-cache.ts` for time-to-live caching
+- Default TTL for ASU API responses: 2 minutes
+- Cache key format: `[provider]-[endpoint]` (e.g., `asu-class-${classNbr}`)
+
+### React Contexts
+
+- Place contexts in `lib/contexts/`
+- Export both provider and consumer hook
+- Name files as `[Name]Context.tsx` (e.g., `AuthContext.tsx`)
+
+### React Hooks
+
+- Place custom hooks in `lib/hooks/`
+- Name files as `use[Name].ts` (or `.tsx` if JSX is used)
+- Include cleanup in `useEffect` for subscriptions
+
+### Type Definitions
+
+- Place domain types in `lib/types/`
+- Use `.ts` extension (not `.d.ts` for domain types)
+- Export interfaces and types from index files
+
+### Utility Functions
+
+- Place custom utilities in `lib/utils/`
+- **Note:** `lib/utils.ts` is reserved for shadcn/ui utility (cn function)
+- Import custom utilities as `@/lib/utils/[name]`
+- Keep utility functions pure and testable
+
+### Blog Content
+
+- Place blog post data in `lib/blog/posts.ts`
+- Use TypeScript for blog metadata
+- Keep blog content separate from presentation logic
+
 ### API Routes
 
 - Place API routes in `app/api/`
@@ -207,6 +261,9 @@ How did you test these changes?
 - **No global state**: Workers are stateless; use Durable Objects for shared state
 - **Memory limits**: Workers have 128MB memory limit
 - **Execution time**: 30 seconds for HTTP, 15 minutes for cron
+- **Queue consumers**: `max_concurrency: 20`, `max_batch_size: 5` for queue processing
+- **CronLockDO**: Durable Object that prevents duplicate cron executions across Worker isolates
+- **update-disposable-domains cron**: Runs daily at 4 AM UTC to refresh the disposable email domain list
 - **Test with preview**: Always test with `bun run preview` before deploying
 
 ### Email Templates

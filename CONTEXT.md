@@ -34,3 +34,58 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Seam** — Where behaviour can be altered without editing in place (e.g., the `fetchClassFromASU()` function provides a seam at the ASU API boundary).
 - **Adapter** — A concrete implementation satisfying an interface at a seam (e.g., `TtlCache` is an adapter around `Map` with expiry logic).
+
+## Auth & Security
+
+- **Lockout** — Account lockout protection after 5 failed login attempts. Prevents brute-force attacks.
+- **Disposable Email Domain** — A temporary email service domain blocked during registration. Blocklist synced daily from GitHub.
+- **Admin Role** — Special user role for admin dashboard access. Checked via `lib/auth/admin.ts`.
+- **OAuth Callback** — Supabase OAuth redirect handler at `app/auth/callback/route.ts`.
+
+## Compliance
+
+- **CCPA Compliance** — California Consumer Privacy Act compliance features: data export (`/api/user/export`) and soft-delete (`/api/user/delete` with 30-day retention).
+- **CAN-SPAM Compliance** — Email unsubscribe compliance with RFC 8058 one-click unsubscribe.
+- **Data Rights** — User rights to access and delete their data.
+
+## Caching
+
+- **TTL Cache** — Time-to-live cache for ASU API responses. Default 2-minute TTL. Located in `lib/cache/ttl-cache.ts`.
+
+## API & Validation
+
+- **API Schema** — Zod schema for validating API inputs. Located in `lib/api/schemas.ts`.
+- **ClassCheckMessage** — Queue message type containing `class_nbr`, `term`, `enqueued_at`, `stagger_group`.
+
+## Email System
+
+- **Email Batch** — Batched email sending via Cloudflare Email Service. Max 5 messages per batch.
+- **Unsubscribe Token** — HMAC-signed token for one-click unsubscribe. Expires after 30 days.
+- **Auth Email Hook** — Supabase Send Email Hook that intercepts auth emails and sends via Cloudflare Email Service.
+
+## Durable Objects
+
+- **CronLockDO** — Durable Object that prevents duplicate cron executions. Auto-expires after 25 minutes.
+- **CIRCUIT_BREAKER_DO** — (Removed from codebase; reserved for future circuit breaker functionality.)
+
+## UI Components
+
+- **shadcn/ui** — UI component library used for base components (button, card, dialog, etc.).
+- **Landing Components** — Marketing page components (hero, features, social proof, CTA).
+- **Admin Components** — Dashboard tables with filtering, sorting, and pagination.
+
+## Blog System
+
+- **Blog Post** — Static blog post with Table of Contents, FAQ schema, and comparison tables.
+- **RSS Feed** — XML feed at `/blog/feed.xml`.
+
+## Utilities
+
+- **cn()** — shadcn/ui utility function combining `clsx` and `tailwind-merge` for conditional class names.
+- **Timing Safe Compare** — Constant-time string comparison for secret validation (prevents timing attacks).
+
+## Infrastructure
+
+- **Queue Consumer** — Cloudflare Queue consumer (`max_concurrency: 20`, `max_batch_size: 5`). Processes sections via `worker.ts` → internal HTTP → `app/api/queue/process-section/route.ts`.
+- **Queue Consumer** — Cloudflare Queue consumer with `max_concurrency: 20` and `max_batch_size: 5`.
+- **Dead Letter Queue (DLQ)** — Queue for failed messages that exceeded max retries.
