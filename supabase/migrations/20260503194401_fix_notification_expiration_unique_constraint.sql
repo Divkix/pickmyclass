@@ -8,19 +8,28 @@
 ALTER TABLE public.notifications_sent
 DROP CONSTRAINT IF EXISTS unique_notification;
 
--- Create a partial unique index that only applies to non-expired notifications
+-- Add an is_active column for the partial index
+-- Using a boolean column is required because PostgreSQL partial unique indexes
+-- cannot use volatile functions like NOW() in their predicates
+ALTER TABLE public.notifications_sent
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Update existing rows: set is_active = FALSE for expired notifications
+UPDATE public.notifications_sent
+SET is_active = FALSE
+WHERE expires_at IS NOT NULL AND expires_at <= NOW();
+
+-- Create a partial unique index that only applies to active notifications
 -- This allows expired notifications to be overwritten/re-inserted
 CREATE UNIQUE INDEX IF NOT EXISTS unique_notification_active
 ON public.notifications_sent (class_watch_id, notification_type)
-WHERE expires_at > NOW();
+WHERE is_active = TRUE;
 
 -- Add comment for documentation
 COMMENT ON INDEX unique_notification_active IS
-  'Partial unique index ensuring only one active notification per watch/type. Expired notifications (expires_at <= NOW()) can be re-inserted.';
+  'Partial unique index ensuring only one active notification per watch/type. Expired notifications (is_active = FALSE) can be re-inserted.';
 
--- Also update the batch notification function to remove the unique_violation exception handler
--- since it's no longer needed with the partial index. The function logic remains the same
--- but will now work correctly with the partial index.
+-- Update the batch notification function to use is_active instead of expires_at > NOW()
 CREATE OR REPLACE FUNCTION public.try_record_notifications_batch(
   p_class_watch_ids UUID[],
   p_notification_type TEXT,
@@ -50,16 +59,17 @@ BEGIN
       PERFORM 1 FROM public.notifications_sent
       WHERE class_watch_id = v_watch_id
         AND notification_type = p_notification_type
-        AND expires_at > NOW()
+        AND is_active = TRUE
       LIMIT 1;
 
       -- Only insert if no active notification found
       IF NOT FOUND THEN
         INSERT INTO public.notifications_sent (
-          class_watch_id, notification_type, sent_at, expires_at
+          class_watch_id, notification_type, sent_at, expires_at, is_active
         ) VALUES (
           v_watch_id, p_notification_type, NOW(),
-          NOW() + (p_expires_hours || ' hours')::INTERVAL
+          NOW() + (p_expires_hours || ' hours')::INTERVAL,
+          TRUE
         );
         v_recorded_ids := array_append(v_recorded_ids, v_watch_id);
       END IF;
@@ -76,5 +86,68 @@ BEGIN
 END;
 $$;
 
+-- Also update the single notification function for consistency
+CREATE OR REPLACE FUNCTION public.try_record_notification(
+  p_class_watch_id UUID,
+  p_notification_type TEXT,
+  p_expires_hours INTEGER DEFAULT 24
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_existing_id UUID;
+BEGIN
+  -- Validate notification type
+  IF p_notification_type NOT IN ('seat_available', 'instructor_assigned') THEN
+    RAISE EXCEPTION 'Invalid notification_type: %. Must be seat_available or instructor_assigned', p_notification_type;
+  END IF;
+
+  -- Validate expiration hours
+  IF p_expires_hours < 1 OR p_expires_hours > 168 THEN
+    RAISE EXCEPTION 'Invalid p_expires_hours: %. Must be between 1 and 168', p_expires_hours;
+  END IF;
+
+  -- Check if active notification already exists
+  SELECT id INTO v_existing_id
+  FROM public.notifications_sent
+  WHERE class_watch_id = p_class_watch_id
+    AND notification_type = p_notification_type
+    AND is_active = TRUE
+  LIMIT 1;
+
+  IF v_existing_id IS NOT NULL THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Attempt to insert new notification
+  BEGIN
+    INSERT INTO public.notifications_sent (
+      class_watch_id,
+      notification_type,
+      sent_at,
+      expires_at,
+      is_active
+    )
+    VALUES (
+      p_class_watch_id,
+      p_notification_type,
+      NOW(),
+      NOW() + (p_expires_hours || ' hours')::INTERVAL,
+      TRUE
+    );
+
+    RETURN TRUE;
+
+  EXCEPTION
+    WHEN unique_violation THEN
+      RETURN FALSE;
+  END;
+END;
+$$;
+
 -- Grant execute permission to service role
 GRANT EXECUTE ON FUNCTION public.try_record_notifications_batch(UUID[], TEXT, INTEGER) TO service_role;
+GRANT EXECUTE ON FUNCTION public.try_record_notification(UUID, TEXT, INTEGER) TO service_role;
