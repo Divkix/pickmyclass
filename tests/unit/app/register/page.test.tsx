@@ -178,6 +178,7 @@ describe('RegisterPage - Google OAuth loading state', () => {
   });
 
   it('registers email users, records profile consent, and routes to verification', async () => {
+    // oxlint-disable-next-line typescript/unbound-method
     const mockPush = await import('next/navigation').then((mod) => mod.useRouter().push);
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,

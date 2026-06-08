@@ -25,7 +25,7 @@ export default function VerifyEmailPage() {
         setUserEmail(user.email);
       }
     };
-    getUserEmail();
+    void getUserEmail();
   }, [supabase]);
 
   const handleSendVerificationAgain = async () => {

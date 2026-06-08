@@ -46,6 +46,7 @@ describe('GET /api/cron', () => {
 
     // Arrange: Mock queue to always fail (simulating Cloudflare Queue outage)
     const { env } = await import('cloudflare:workers');
+    // oxlint-disable-next-line typescript/unbound-method
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockRejectedValue(
       new Error('Queue service unavailable')
     );
@@ -75,6 +76,7 @@ describe('GET /api/cron', () => {
 
     // Arrange: Mock queue to succeed
     const { env } = await import('cloudflare:workers');
+    // oxlint-disable-next-line typescript/unbound-method
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue({
       metadata: {},
     } as QueueSendBatchResponse);
@@ -105,6 +107,7 @@ describe('GET /api/cron', () => {
     // Arrange: Mock queue to fail only the second batch
     const { env } = await import('cloudflare:workers');
     let callCount = 0;
+    // oxlint-disable-next-line typescript/unbound-method
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockImplementation(() => {
       callCount++;
       if (callCount === 2) {
@@ -138,6 +141,7 @@ describe('GET /api/cron', () => {
 
     // Arrange: Mock queue to succeed
     const { env } = await import('cloudflare:workers');
+    // oxlint-disable-next-line typescript/unbound-method
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue({
       metadata: {},
     } as QueueSendBatchResponse);

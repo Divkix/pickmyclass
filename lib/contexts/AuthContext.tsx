@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    initializeAuth();
+    void initializeAuth();
 
     // Listen for auth changes
     const {

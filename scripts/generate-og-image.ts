@@ -125,4 +125,4 @@ async function generateOGImage() {
   console.log(`OG image generated at public/og-image.png (${sizeKB}KB)`);
 }
 
-generateOGImage();
+void generateOGImage();

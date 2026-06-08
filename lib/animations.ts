@@ -12,6 +12,7 @@ export const reduceMotion = (variants: Variants): Variants => {
     // Return instant transitions for reduced motion
     return Object.keys(variants).reduce((acc, key) => {
       acc[key] = {
+        // oxlint-disable-next-line typescript/no-misused-spread
         ...variants[key],
         transition: { duration: 0.01 },
       };

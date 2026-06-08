@@ -41,7 +41,7 @@ export function Header() {
       }
     }
 
-    checkAdminStatus();
+    void checkAdminStatus();
   }, [user]);
 
   return (

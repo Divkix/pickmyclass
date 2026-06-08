@@ -40,6 +40,7 @@ function dataQuery(data: unknown, error: Error | null = null) {
     eq: vi.fn(() => builder),
     in: vi.fn(() => result),
   };
+  // oxlint-disable-next-line unicorn/no-thenable
   Object.defineProperty(builder, 'then', { value: result.then.bind(result) });
   Object.defineProperty(builder, 'catch', { value: result.catch.bind(result) });
   Object.defineProperty(builder, 'finally', { value: result.finally.bind(result) });

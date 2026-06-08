@@ -40,7 +40,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
       }
     },
     onSwipeLeft: () => {
-      handleSwipeDelete();
+      void handleSwipeDelete();
     },
     onSwipeEnd: () => {
       // Reset if not deleted

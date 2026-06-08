@@ -160,6 +160,7 @@ export async function POST(request: NextRequest) {
     const supabaseServiceRole = getServiceClient();
 
     // Step 2: Create class watch atomically (prevents concurrent limit bypass).
+    // oxlint-disable-next-line typescript/unbound-method
     const createClassWatchWithLimit = supabaseServiceRole.rpc as unknown as (
       fn: string,
       args: {

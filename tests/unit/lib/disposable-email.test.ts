@@ -129,6 +129,7 @@ describe('isDisposableEmail', () => {
     const kv = createMockKV(['gmail.com']); // even if gmail is in blocklist
     const result = await isDisposableEmail('user@gmail.com', kv);
     expect(result.disposable).toBe(false);
+    // oxlint-disable-next-line typescript/unbound-method
     expect(kv.get).not.toHaveBeenCalled();
   });
 
@@ -166,6 +167,7 @@ describe('isDisposableEmail', () => {
     await isDisposableEmail('user2@mailinator.com', kv);
 
     // KV.get should only be called once due to caching
+    // oxlint-disable-next-line typescript/unbound-method
     expect(kv.get).toHaveBeenCalledTimes(1);
   });
 
@@ -180,6 +182,7 @@ describe('isDisposableEmail', () => {
     await isDisposableEmail('user2@mailinator.com', kv);
 
     // Should have read KV twice
+    // oxlint-disable-next-line typescript/unbound-method
     expect(kv.get).toHaveBeenCalledTimes(2);
   });
 });

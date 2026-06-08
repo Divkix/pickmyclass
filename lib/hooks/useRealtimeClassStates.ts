@@ -75,7 +75,7 @@ export function useRealtimeClassStates({
     if (!enabled) return;
 
     // Initial fetch
-    fetchClassStates();
+    void fetchClassStates();
 
     // Set up real-time subscription
     const supabase = createClient();
@@ -110,15 +110,15 @@ export function useRealtimeClassStates({
           }
         )
         .subscribe((status) => {
-          if (status === 'SUBSCRIBED') fetchClassStates();
+          if (status === 'SUBSCRIBED') void fetchClassStates();
         });
     }
 
     // Cleanup subscription on unmount or when dependencies change
     return () => {
       if (channel) {
-        channel.unsubscribe();
-        supabase.removeChannel(channel);
+        void channel.unsubscribe();
+        void supabase.removeChannel(channel);
       }
     };
   }, [enabled, classNumbersKey, fetchClassStates]);
