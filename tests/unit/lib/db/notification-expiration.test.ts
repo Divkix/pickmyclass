@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { resetNotificationsForSection, tryRecordNotificationsBatch } from '@/lib/db/queries';
 
 // Mock Supabase service client

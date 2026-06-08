@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { Webhook } from 'standardwebhooks';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 const mockEmailSend = vi.hoisted(() => vi.fn());
 

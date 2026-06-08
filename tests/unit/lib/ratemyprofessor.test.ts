@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor';
 
 const ASU_SCHOOL_ID = '15723';

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { GET, POST } from '@/app/api/unsubscribe/route';
 
 const { mockEq, mockUpdate, mockVerifyUnsubscribeToken } = vi.hoisted(() => ({

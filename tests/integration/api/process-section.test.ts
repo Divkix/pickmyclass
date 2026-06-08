@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { ValidationIssueDetail } from '@/lib/api/validation';
 
 // Mock Cloudflare Workers env - must use factory function for hoisting

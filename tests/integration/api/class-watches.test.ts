@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { DELETE, GET, POST } from '@/app/api/class-watches/route';
 import type { ValidationIssueDetail } from '@/lib/api/validation';
 

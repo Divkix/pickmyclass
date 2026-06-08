@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { ClassWatchCard } from '@/components/ClassWatchCard';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 

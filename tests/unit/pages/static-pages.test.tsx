@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vite-plus/test';
 import AboutPage from '@/app/about/page';
 import ASUClassSeatTrackerPost from '@/app/blog/asu-class-seat-tracker/page';
 import ASURegistrationTipsPost from '@/app/blog/asu-registration-tips/page';
@@ -193,17 +193,17 @@ describe('blog pages', () => {
       renderPage: MyASUSearchTipsPost,
       heading: "MyASU Class Search: 10 Hidden Features Most Students Don't Know",
     },
-  ])('renders the $heading article body, takeaways, and FAQ section', async ({
-    renderPage,
-    heading,
-  }) => {
-    render(await renderPage());
+  ])(
+    'renders the $heading article body, takeaways, and FAQ section',
+    async ({ renderPage, heading }) => {
+      render(await renderPage());
 
-    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
-    expect(screen.getByText(/key takeaways/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: /frequently asked questions/i })
-    ).toBeInTheDocument();
-    expect(screen.getAllByText(/pickmyclass/i).length).toBeGreaterThan(0);
-  });
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+      expect(screen.getByText(/key takeaways/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: /frequently asked questions/i })
+      ).toBeInTheDocument();
+      expect(screen.getAllByText(/pickmyclass/i).length).toBeGreaterThan(0);
+    }
+  );
 });

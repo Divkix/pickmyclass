@@ -3,5 +3,5 @@ if [ -n "$CI" ]; then
   exit 0
 fi
 
-bunx lint-staged
+vp staged
 bun run type-check

@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 const { mockServiceClient } = vi.hoisted(() => ({
   mockServiceClient: {

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { POST } from '@/app/api/auth/register/route';
 import type { ValidationIssueDetail } from '@/lib/api/validation';
 import { _resetCache } from '@/lib/auth/disposable-email';

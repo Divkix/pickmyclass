@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import ForgotPasswordPage from '@/app/forgot-password/page';
 import ResetPasswordPage from '@/app/reset-password/page';
 import SettingsPage from '@/app/settings/page';

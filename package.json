@@ -2,29 +2,28 @@
   "name": "pickmyclass",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "format": "biome format --write .",
-    "format:check": "biome format .",
+    "lint": "vp lint",
+    "lint:fix": "vp lint --fix",
+    "format": "vp fmt",
+    "format:check": "vp fmt --check",
+    "check": "vp check",
+    "check:fix": "vp check --fix",
     "knip": "knip",
     "preview": "vinext build && wrangler dev",
     "deploy": "vinext build && wrangler deploy && wrangler triggers deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv lib/cloudflare-env.d.ts",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui",
+    "test": "vp test",
+    "test:run": "vp test run",
+    "test:coverage": "vp test run --coverage",
+    "test:ui": "vp test --ui",
     "type-check": "tsc --noEmit",
     "generate:og": "bun run scripts/generate-og-image.ts",
-    "prepare": "husky"
-  },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx,json,css,md}": ["biome check --write"],
-    "package.json": ["bash -c 'bun install'", "git add bun.lock"]
+    "prepare": "vp config"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.12",
@@ -49,7 +48,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.16",
     "@cloudflare/vite-plugin": "^1.40.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/postcss": "^4.3.0",
@@ -62,19 +60,22 @@
     "@vitejs/plugin-react": "^6.0.2",
     "@vitejs/plugin-rsc": "^0.5.27",
     "@vitest/coverage-v8": "^4.1.8",
-    "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "knip": "^6.16.1",
-    "lint-staged": "^17.0.7",
     "satori": "^0.26.0",
     "supabase": "^2.105.0",
     "tailwindcss": "^4.3.0",
     "tw-animate-css": "^1.4.0",
     "typescript": "^6.0.3",
     "vinext": "0.1.0",
-    "vite": "^8.0.16",
-    "vitest": "^4.1.8",
+    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+    "vite-plus": "latest",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest",
     "wrangler": "^4.98.0"
   },
-  "type": "module"
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
+  },
+  "packageManager": "bun@1.3.14"
 }

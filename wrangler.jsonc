@@ -8,20 +8,20 @@
     "nodejs_compat",
     // Allow to fetch URLs in your app
     // see https://developers.cloudflare.com/workers/configuration/compatibility-flags/#global-fetch-strictly-public
-    "global_fetch_strictly_public"
+    "global_fetch_strictly_public",
   ],
   "assets": {
     "directory": "dist/client",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
   },
   "placement": {
-    "mode": "smart"
+    "mode": "smart",
   },
   "kv_namespaces": [
     {
       "binding": "PICKMYCLASS_DISPOSABLE_DOMAINS",
-      "id": "3ff3f3f2b93b4de98f12ad7886d1f857"
-    }
+      "id": "3ff3f3f2b93b4de98f12ad7886d1f857",
+    },
   ],
   // Custom domain configuration - uncomment and update for your deployment
   // "routes": [
@@ -35,14 +35,14 @@
   // Schedule: Every 30 minutes at :00 (even class numbers) and :30 (odd class numbers)
   // Daily at 4 AM UTC: Update disposable email domain list
   "triggers": {
-    "crons": ["0,30 * * * *", "0 4 * * *"]
+    "crons": ["0,30 * * * *", "0 4 * * *"],
   },
   "queues": {
     "producers": [
       {
         "binding": "PICKMYCLASS_QUEUE",
-        "queue": "pickmyclass-queue"
-      }
+        "queue": "pickmyclass-queue",
+      },
     ],
     "consumers": [
       {
@@ -52,29 +52,29 @@
         "max_concurrency": 20,
         "max_retries": 3,
         "retry_delay": 60,
-        "dead_letter_queue": "pickmyclass-dlq"
+        "dead_letter_queue": "pickmyclass-dlq",
       },
       {
         "queue": "pickmyclass-dlq",
         "max_batch_size": 1,
-        "max_retries": 0
-      }
-    ]
+        "max_retries": 0,
+      },
+    ],
   },
   "durable_objects": {
     "bindings": [
       {
         "name": "PICKMYCLASS_CRON_LOCK_DO",
-        "class_name": "CronLockDO"
-      }
-    ]
+        "class_name": "CronLockDO",
+      },
+    ],
   },
   // Durable Objects migrations
   "migrations": [
     {
       "tag": "v2",
-      "new_classes": ["CronLockDO"]
-    }
+      "new_classes": ["CronLockDO"],
+    },
   ],
   "observability": {
     "enabled": true,
@@ -83,23 +83,23 @@
       "enabled": true,
       "head_sampling_rate": 1,
       "persist": true,
-      "invocation_logs": true
-    }
+      "invocation_logs": true,
+    },
   },
   "vars": {
     // Application configuration
     "MAX_WATCHES_PER_USER": "10",
     // UPDATE THESE VALUES for your deployment:
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
-    "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app"
+    "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app",
   },
   // Email sending via Cloudflare Email Service
   "send_email": [
     {
       "name": "EMAIL",
-      "remote": true
-    }
-  ]
+      "remote": true,
+    },
+  ],
   // IMPORTANT: Set these secrets via 'wrangler secret put <NAME>' or Cloudflare Dashboard:
   // - SUPABASE_SERVICE_ROLE_KEY
   // - ASU_API_BASE_URL (https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes)

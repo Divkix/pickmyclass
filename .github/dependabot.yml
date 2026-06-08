@@ -1,29 +1,29 @@
 version: 2
 updates:
-  - package-ecosystem: "bun"
-    directory: "/"
+  - package-ecosystem: 'bun'
+    directory: '/'
     schedule:
-      interval: "daily"
+      interval: 'daily'
     open-pull-requests-limit: 10
     commit-message:
-      prefix: "chore(deps)"
+      prefix: 'chore(deps)'
     labels:
-      - "dependencies"
+      - 'dependencies'
     groups:
       # Group all minor/patch updates
       all-minor-patch:
         patterns:
-          - "*"
+          - '*'
         update-types:
-          - "minor"
-          - "patch"
+          - 'minor'
+          - 'patch'
 
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "daily"
+      interval: 'daily'
     commit-message:
-      prefix: "chore(ci)"
+      prefix: 'chore(ci)'
     labels:
-      - "ci"
-      - "dependencies"
+      - 'ci'
+      - 'dependencies'

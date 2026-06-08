@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 
 describe('DeleteConfirmDialog', () => {

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 
 // Mock the supabase client module

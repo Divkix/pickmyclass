@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { detectChanges } from '@/lib/queue/change-detector';
 import type { ClassDetails } from '@/lib/types/class';
 import type { ClassStateRow } from '@/lib/types/class-watch';

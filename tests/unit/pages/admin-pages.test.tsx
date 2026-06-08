@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import AdminClassDetailPage from '@/app/admin/classes/[classNbr]/page';
 import AdminClassesPage from '@/app/admin/classes/page';
 import AdminLayout from '@/app/admin/layout';

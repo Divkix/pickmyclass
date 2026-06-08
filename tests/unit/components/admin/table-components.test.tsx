@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { ClassesTable } from '@/components/admin/ClassesTable';
 import type { ClassesTableFilters } from '@/components/admin/ClassesTableFilters';
 import { UsersTable } from '@/components/admin/UsersTable';

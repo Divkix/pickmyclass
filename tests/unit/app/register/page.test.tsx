@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import RegisterPage from '@/app/register/page';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 

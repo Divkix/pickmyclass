@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { AddClassWatch } from '@/components/AddClassWatch';
 import { BottomNav } from '@/components/BottomNav';
 import { DeleteAccountModal } from '@/components/DeleteAccountModal';

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from '@/lib/email/templates';
 import type { ClassInfo } from '@/lib/email/types';
 
