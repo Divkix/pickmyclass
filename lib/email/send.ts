@@ -94,7 +94,7 @@ export async function sendBatchEmailsOptimized(
       const errorMessage = errorObj.message || 'Email send failed';
       const errorCode = errorObj.code || 'UNKNOWN';
 
-      console.error(`[Email] Failed to send to ${email.to}: ${errorCode} - ${errorMessage}`);
+      log('Email').error(`Failed to send to ${email.to}: ${errorCode} - ${errorMessage}`);
 
       // Rate limit or daily limit — stop sending remaining emails
       if (
@@ -108,7 +108,7 @@ export async function sendBatchEmailsOptimized(
         for (let j = i + 1; j < emails.length; j++) {
           results.push({ success: false, error: `Skipped: ${errorCode} limit reached` });
         }
-        console.warn(`[Email] Stopped batch after ${errorCode} at email ${i + 1}/${emails.length}`);
+        log('Email').warn(`Stopped batch after ${errorCode} at email ${i + 1}/${emails.length}`);
         break;
       }
 
