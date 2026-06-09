@@ -82,6 +82,17 @@ bun run type-check       # TypeScript type checking
 
 Run `bun run lint:fix && bun run format` before committing.
 
+## Generated Files
+
+Two files are auto-generated and must be kept in sync when the database or Cloudflare config changes:
+
+| File | Command | When to regenerate |
+|------|---------|-------------------|
+| `lib/supabase/database.types.ts` | `bunx supabase gen types typescript --project-id osopxwuebsefhoxgeojh > lib/supabase/database.types.ts` | After any Supabase migration (new tables, columns, RPC functions) |
+| `lib/cloudflare-env.d.ts` | `bun run cf-typegen` | After changing `wrangler.jsonc` (bindings, vars, queues, DO, KV) |
+
+**Important**: If you see `as unknown as` casts on `.rpc()` calls with a comment like "not yet in generated types", regenerate `database.types.ts` and remove the cast. Wrangler secrets (e.g. `SUPABASE_SERVICE_ROLE_KEY`, `ASU_API_TOKEN`) are not in `wrangler.jsonc` and will never appear in the generated CF types — `env as unknown as Env` casts for those are correct and intentional.
+
 ## lib/ File Structure Note
 
 The `lib/` directory contains both a file and a subdirectory with the same base name:

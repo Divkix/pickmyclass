@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       class_states: {
@@ -146,6 +121,7 @@ export type Database = {
           class_watch_id: string
           expires_at: string
           id: string
+          is_active: boolean
           notification_type: string
           sent_at: string
         }
@@ -153,6 +129,7 @@ export type Database = {
           class_watch_id: string
           expires_at?: string
           id?: string
+          is_active?: boolean
           notification_type: string
           sent_at?: string
         }
@@ -160,6 +137,7 @@ export type Database = {
           class_watch_id?: string
           expires_at?: string
           id?: string
+          is_active?: boolean
           notification_type?: string
           sent_at?: string
         }
@@ -248,6 +226,31 @@ export type Database = {
     }
     Functions: {
       accept_terms_and_verify_age: { Args: never; Returns: undefined }
+      create_class_watch_with_limit: {
+        Args: {
+          p_catalog_nbr: string
+          p_class_nbr: string
+          p_max_watches: number
+          p_subject: string
+          p_term: string
+          p_user_id: string
+        }
+        Returns: {
+          catalog_nbr: string
+          class_nbr: string
+          created_at: string
+          id: string
+          subject: string
+          term: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "class_watches"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       delete_notification_records: {
         Args: { p_class_watch_ids: string[]; p_notification_type: string }
         Returns: number
@@ -274,6 +277,18 @@ export type Database = {
           instructor_emails: number
           seat_emails: number
           user_id: string
+        }[]
+      }
+      get_recent_activity: {
+        Args: { p_limit?: number }
+        Returns: {
+          activity_at: string
+          activity_type: string
+          catalog_nbr: string
+          class_nbr: string
+          notification_type: string
+          subject: string
+          user_email: string
         }[]
       }
       get_sections_to_check: {
@@ -303,8 +318,15 @@ export type Database = {
         }[]
       }
       increment_failed_attempts: {
-        Args: { p_email: string; p_max_attempts?: number; p_lockout_minutes?: number }
-        Returns: { attempts: number; locked: boolean }
+        Args: {
+          p_email: string
+          p_lockout_minutes?: number
+          p_max_attempts?: number
+        }
+        Returns: {
+          attempts: number
+          locked: boolean
+        }[]
       }
       record_engagement_open: {
         Args: { p_user_id: string }
@@ -456,9 +478,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

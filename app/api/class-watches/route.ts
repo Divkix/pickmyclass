@@ -5,7 +5,7 @@ import { mapValidationIssues } from '@/lib/api/validation';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
-import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
+import type { ClassStateRow } from '@/lib/types/class-watch';
 
 // Get max watches per user from env (default: 10)
 const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10);
@@ -160,23 +160,7 @@ export async function POST(request: NextRequest) {
     const supabaseServiceRole = getServiceClient();
 
     // Step 2: Create class watch atomically (prevents concurrent limit bypass).
-    // oxlint-disable-next-line typescript/unbound-method
-    const createClassWatchWithLimit = supabaseServiceRole.rpc as unknown as (
-      fn: string,
-      args: {
-        p_user_id: string;
-        p_term: string;
-        p_subject: string;
-        p_catalog_nbr: string;
-        p_class_nbr: string;
-        p_max_watches: number;
-      }
-    ) => Promise<{
-      data: ClassWatchRow | null;
-      error: { code?: string; message?: string } | null;
-    }>;
-
-    const { data: watchDataRaw, error: insertError } = await createClassWatchWithLimit(
+    const { data: watchDataRaw, error: insertError } = await supabaseServiceRole.rpc(
       'create_class_watch_with_limit',
       {
         p_user_id: user.id,

@@ -64,24 +64,6 @@ interface WatchWithClass extends Tables<'class_watches'> {
 }
 
 /**
- * RPC response type for notification counts by class
- */
-interface NotificationCountByClassRow {
-  class_nbr: string;
-  seat_emails: number;
-  instructor_emails: number;
-}
-
-/**
- * RPC response type for notification counts by user
- */
-interface NotificationCountByUserRow {
-  user_id: string;
-  seat_emails: number;
-  instructor_emails: number;
-}
-
-/**
  * RPC response type for engagement stats
  */
 interface EngagementStatsRow {
@@ -135,10 +117,7 @@ async function fetchAllAuthUsers(): Promise<User[]> {
 async function getNotificationCountsByClass(): Promise<Map<string, EmailCounts>> {
   const supabase = getServiceClient();
 
-  // Cast to unknown first to bypass strict type checking until types are regenerated
-  const { data, error } = (await supabase.rpc(
-    'get_notification_counts_by_class' as 'get_class_watchers'
-  )) as unknown as { data: NotificationCountByClassRow[] | null; error: Error | null };
+  const { data, error } = await supabase.rpc('get_notification_counts_by_class');
 
   if (error) {
     console.error('[Admin] Error fetching notification counts by class:', error);
@@ -167,10 +146,7 @@ async function getNotificationCountsByClass(): Promise<Map<string, EmailCounts>>
 async function getNotificationCountsByUser(): Promise<Map<string, EmailCounts>> {
   const supabase = getServiceClient();
 
-  // Cast to unknown first to bypass strict type checking until types are regenerated
-  const { data, error } = (await supabase.rpc(
-    'get_notification_counts_by_user' as 'get_class_watchers'
-  )) as unknown as { data: NotificationCountByUserRow[] | null; error: Error | null };
+  const { data, error } = await supabase.rpc('get_notification_counts_by_user');
 
   if (error) {
     console.error('[Admin] Error fetching notification counts by user:', error);
@@ -508,19 +484,6 @@ export interface RecentActivityItem {
  * @param limit - Maximum number of items to return (default: 50)
  * @returns Array of unified activity items ordered by `activityAt` descending
  */
-/**
- * Raw row returned by the get_recent_activity RPC.
- */
-interface RecentActivityRow {
-  activity_type: string;
-  activity_at: string;
-  user_email: string;
-  class_nbr: string | null;
-  subject: string | null;
-  catalog_nbr: string | null;
-  notification_type: string | null;
-}
-
 function isMissingRecentActivityRpcError(error: unknown): boolean {
   const maybeError = error as { code?: string };
   return maybeError.code === 'PGRST202' || maybeError.code === '42883';
@@ -538,10 +501,7 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
 
   const supabase = getServiceClient();
 
-  const { data, error } = (await supabase.rpc(
-    'get_recent_activity' as 'get_class_watchers',
-    { p_limit: sanitizedLimit } as unknown as { section_number: string }
-  )) as unknown as { data: RecentActivityRow[] | null; error: Error | null };
+  const { data, error } = await supabase.rpc('get_recent_activity', { p_limit: sanitizedLimit });
 
   if (error) {
     if (isMissingRecentActivityRpcError(error)) {
