@@ -3,52 +3,12 @@
 ## Project Structure & Module Organization
 
 ```
-app/              # vinext app routes (pages, API routes, layouts)
-  about/          # About page
-  api/            # API endpoints (14 routes: auth, cron, queue, monitoring, etc.)
-  auth/callback/  # OAuth callback route
-  admin/          # Admin panel pages (dashboard, users, classes)
-  blog/           # Blog pages (6 posts + RSS feed)
-  dashboard/      # User dashboard pages (main + add watch)
-  faq/            # FAQ page
-  forgot-password/# Forgot password flow
-  go/[uni]/       # University redirect links
-  legal/          # Legal pages (terms, privacy)
-  login/          # Login page
-  register/       # Registration page
-  reset-password/ # Reset password flow
-  settings/       # User settings page
-  verify-email/   # Email verification
-lib/              # Core business logic and utilities
-  api/            # API schemas and validation (zod)
-  asu/            # ASU Class Search API client
-  auth/           # Authentication utilities (lockout, disposable email, admin, cookies)
-  blog/           # Blog posts data
-  cache/           # TTL cache utilities
-  contexts/       # React contexts (Auth, Theme)
-  db/             # Database query helpers (queries, admin-queries)
-  email/           # Email templates and Cloudflare Email Service integration
-  hooks/           # React hooks (Realtime, pull-to-refresh, swipe)
-  queue/           # Queue processing and DLQ consumer
-  supabase/        # Supabase client configurations
-  types/           # TypeScript type definitions
-  utils/           # Utility functions (crypto, rate-my-professor, seat badge, time format)
-  utils.ts         # shadcn/ui utility (cn function)
-components/       # React components
-  admin/          # Admin panel components (tables, filters, sorting)
-  blog/           # Blog components (TOC, author, FAQ, comparison)
-  landing/        # Landing page components (hero, features, CTA)
-  ui/             # shadcn/ui components
-  ...             # Feature components (header, footer, watch cards, dialogs)
-tests/            # Test files (unit and integration)
-  unit/           # Unit tests organized by module
-  integration/    # Integration tests
-  mocks/          # Test mocks (Cloudflare Workers)
-middleware.ts     # Next.js middleware (auth, routing)
-proxy.ts          # Proxy configuration
-worker.ts         # Custom Cloudflare Worker (cron, queue, Durable Objects)
-scripts/          # Build/utility scripts (OG image generation)
-supabase/         # Supabase CLI config and migrations
+app/          # Routes, pages, and API endpoints
+lib/          # Core business logic and utilities
+components/   # React components (ui/, admin/, landing/, etc.)
+tests/        # Test files (unit/, integration/, mocks/)
+worker.ts     # Cloudflare Worker (cron, queue, Durable Objects)
+middleware.ts # Auth and routing middleware
 ```
 
 ## Build, Test, and Development Commands
