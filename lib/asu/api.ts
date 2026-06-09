@@ -6,6 +6,7 @@
  */
 
 import { TtlCache } from '@/lib/cache/ttl-cache';
+import { ASU_CACHE_TTL_MS } from '@/lib/config';
 
 // --- Error Classes ---
 
@@ -80,7 +81,7 @@ interface AsuApiResponse {
 
 const CLASS_SEARCH_ENDPOINT_PATH = '/search/classes';
 
-const asuApiCache = new TtlCache<ClassDetails>(2 * 60 * 1000);
+const asuApiCache = new TtlCache<ClassDetails>(ASU_CACHE_TTL_MS);
 
 /** Clear the in-memory ASU API cache. Exposed for test isolation. */
 export function clearAsuApiCache(): void {
@@ -121,7 +122,7 @@ function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
     subject: item.SUBJECT,
     catalog_nbr: item.CATALOGNBR,
     title: item.COURSETITLELONG || item.TITLE || 'Unknown',
-    instructor: item.INSTRUCTORSLIST?.[0] || 'Staff',
+    instructor_name: item.INSTRUCTORSLIST?.[0] || 'Staff',
     seats_available: Math.max(0, enrlCap - enrlTot),
     seats_capacity: enrlCap,
     non_reserved_seats: Math.max(0, enrlCap - enrlTot - waitTot),

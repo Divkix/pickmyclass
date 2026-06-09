@@ -12,8 +12,9 @@ import {
   NotFoundError,
   RateLimitError,
 } from '@/lib/asu/api';
+import { log } from '@/lib/log';
 import { resetNotificationsForSection } from '@/lib/db/queries';
-import type { ClassInfo } from '@/lib/email/types';
+import type { ClassInfo } from '@/lib/types/class';
 import { type ChangeResult, detectChanges } from '@/lib/queue/change-detector';
 import { type SentNotification, sendSectionNotifications } from '@/lib/queue/notification-sender';
 import { getServiceClient } from '@/lib/supabase/service';
@@ -93,7 +94,7 @@ export async function processSection(
         catalog_nbr: newData.catalog_nbr,
         class_nbr: classNbr,
         title: newData.title,
-        instructor_name: newData.instructor,
+        instructor_name: newData.instructor_name,
         seats_available: newData.seats_available ?? 0,
         seats_capacity: newData.seats_capacity ?? 0,
         non_reserved_seats: newData.non_reserved_seats ?? null,
@@ -119,7 +120,7 @@ export async function processSection(
       catalog_nbr: newData.catalog_nbr,
       class_nbr: classNbr,
       title: newData.title,
-      instructor_name: newData.instructor,
+      instructor_name: newData.instructor_name,
       seats_available: newData.seats_available ?? 0,
       seats_capacity: newData.seats_capacity ?? 0,
       non_reserved_seats: newData.non_reserved_seats ?? null,
@@ -145,7 +146,7 @@ export async function processSection(
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[ProcessSection] ✅ Completed ${classNbr} in ${duration}ms`);
+    log('ProcessSection').info(`✅ Completed ${classNbr} in ${duration}ms`);
 
     return {
       success: true,

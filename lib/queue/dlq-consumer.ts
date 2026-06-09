@@ -5,6 +5,8 @@
  * Provides visibility via structured logging and admin alert emails.
  */
 
+import { ALERTS_FROM_EMAIL, NOTIFICATION_FROM_EMAIL } from '@/lib/config';
+import { log } from '@/lib/log';
 import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassCheckMessage } from '@/lib/types/queue';
 
@@ -28,11 +30,10 @@ export async function handleDLQMessage(
 ): Promise<void> {
   const { class_nbr, term, enqueued_at } = message;
   const timestamp = new Date().toISOString();
-  const fromEmail = options.fromEmail || 'notifications@pickmyclass.app';
+  const fromEmail = options.fromEmail || NOTIFICATION_FROM_EMAIL;
 
   // 1. Structured error log
-  console.error(
-    '[DLQ]',
+  log('DLQ').error(
     `Section ${class_nbr} (term ${term}) permanently failed. Enqueued at: ${enqueued_at}. Processed at: ${timestamp}`
   );
 
@@ -45,21 +46,21 @@ export async function handleDLQMessage(
     });
 
     if (error) {
-      console.error('[DLQ]', `Failed to fetch watchers for section ${class_nbr}: ${error.message}`);
+      log('DLQ').error(`Failed to fetch watchers for section ${class_nbr}: ${error.message}`);
     } else {
       watcherCount = data?.length ?? 0;
     }
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[DLQ]', `Failed to fetch watchers for section ${class_nbr}: ${errMsg}`);
+    log('DLQ').error(`Failed to fetch watchers for section ${class_nbr}: ${errMsg}`);
   }
 
-  console.log('[DLQ]', `Section ${class_nbr}: ${watcherCount} watchers affected`);
+  log('DLQ').info(`Section ${class_nbr}: ${watcherCount} watchers affected`);
 
   // 3. Send admin alert email
   try {
     await emailBinding.send({
-      to: 'alerts@pickmyclass.app',
+      to: ALERTS_FROM_EMAIL,
       from: fromEmail,
       subject: `[DLQ Alert] Section ${class_nbr} permanently failed`,
       html: `
@@ -88,9 +89,9 @@ export async function handleDLQMessage(
       ].join('\n'),
     });
 
-    console.log('[DLQ]', `Alert email sent for section ${class_nbr}`);
+    log('DLQ').info(`Alert email sent for section ${class_nbr}`);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[DLQ]', `Sending alert email failed for section ${class_nbr}: ${errMsg}`);
+    log('DLQ').error(`Sending alert email failed for section ${class_nbr}: ${errMsg}`);
   }
 }

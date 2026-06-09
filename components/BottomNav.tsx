@@ -64,7 +64,7 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
                       'size-16 rounded-full',
                       'bg-primary text-primary-foreground',
                       'shadow-lg shadow-primary/25',
-                      'transition-all duration-200',
+                      'transition-[transform] duration-200',
                       'hover:scale-105 active:scale-95',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
                     )}
@@ -86,7 +86,7 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
                     'size-16 rounded-full',
                     'bg-primary text-primary-foreground',
                     'shadow-lg shadow-primary/25',
-                    'transition-all duration-200',
+                    'transition-[transform] duration-200',
                     'hover:scale-105 active:scale-95',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
                   )}
@@ -107,7 +107,7 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
                   type="button"
                   className={cn(
                     'flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg min-w-16',
-                    'transition-all duration-200',
+                    'transition-colors duration-200',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     isActive
                       ? 'text-primary bg-primary/10'
@@ -128,7 +128,7 @@ export function BottomNav({ onAddClass }: BottomNavProps) {
                 href={item.href}
                 className={cn(
                   'flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg min-w-16',
-                  'transition-all duration-200',
+                  'transition-colors duration-200',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   isActive
                     ? 'text-primary bg-primary/10'

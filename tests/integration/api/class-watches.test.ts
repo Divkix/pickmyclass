@@ -69,7 +69,7 @@ const mockClassDetails = {
   subject: 'CSE',
   catalog_nbr: '240',
   title: 'Intro to Programming',
-  instructor: 'John Doe',
+  instructor_name: 'John Doe',
   seats_available: 10,
   seats_capacity: 50,
   non_reserved_seats: null,
@@ -110,7 +110,11 @@ const setupMockChain = () => {
     order: mockOrder,
   });
   mockOrder.mockReturnValue(Promise.resolve({ data: [], error: null }));
-  mockIn.mockReturnValue(Promise.resolve({ data: [], error: null }));
+  mockIn.mockImplementation(() => {
+    const p = Promise.resolve({ data: [], error: null }) as any;
+    p.in = () => p;
+    return p;
+  });
   // Delete chain: .delete().eq(id).eq(user_id)
   mockDeleteEqChain.mockResolvedValue({ error: null });
   mockDelete.mockReturnValue({
@@ -221,7 +225,11 @@ describe('/api/class-watches', () => {
     it('should return watches with joined class states', async () => {
       mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
       mockOrder.mockResolvedValue({ data: [mockWatch], error: null });
-      mockIn.mockResolvedValue({ data: [mockClassState], error: null });
+      mockIn.mockImplementation(() => {
+        const p = Promise.resolve({ data: [mockClassState], error: null }) as any;
+        p.in = () => p;
+        return p;
+      });
 
       const response = await GET();
       const data = await parseGetResponse(response);
@@ -430,10 +438,12 @@ describe('/api/class-watches', () => {
         })
       );
       expect(mockServiceUpsert).toHaveBeenCalledWith(
-        expect.not.objectContaining({
-          last_changed_at: expect.any(String),
+        expect.objectContaining({
+          class_nbr: '12345',
+          term: '2264',
+          last_checked_at: expect.any(String),
         }),
-        { onConflict: 'class_nbr' }
+        { onConflict: 'class_nbr,term' }
       );
     });
   });

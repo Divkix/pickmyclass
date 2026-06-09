@@ -8,7 +8,8 @@
 
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { timingSafeCompare } from '@/lib/utils/crypto';
+import { verifyCronSecret } from '@/lib/auth/require-user';
+import { log } from '@/lib/log';
 
 const BLOCKLIST_URL =
   'https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/main/disposable_email_blocklist.conf';
@@ -20,21 +21,15 @@ export async function GET(request: NextRequest) {
 
   try {
     // Authentication: Require CRON_SECRET Bearer token
-    const authHeader = request.headers.get('authorization');
-    const expectedSecret = process.env.CRON_SECRET;
-
-    if (!expectedSecret) {
-      console.error('[SyncDisposableDomains] CRON_SECRET not configured');
+    if (!process.env.CRON_SECRET) {
+      log('SyncDisposableDomains').error('CRON_SECRET not configured');
       return NextResponse.json(
         { success: false, error: 'Server configuration error' },
         { status: 500 }
       );
     }
 
-    const isAuthorized =
-      authHeader !== null && timingSafeCompare(authHeader, `Bearer ${expectedSecret}`);
-
-    if (!isAuthorized) {
+    if (!verifyCronSecret(request, process.env.CRON_SECRET)) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -74,7 +69,7 @@ export async function GET(request: NextRequest) {
     await kv.put('disposable-domains', JSON.stringify(domains));
 
     const duration = Date.now() - startTime;
-    console.log(`[SyncDisposableDomains] Synced ${domains.length} domains in ${duration}ms`);
+    log('SyncDisposableDomains').info(`Synced ${domains.length} domains in ${duration}ms`);
 
     return NextResponse.json({
       success: true,
@@ -83,7 +78,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[SyncDisposableDomains] Fatal error:', message);
+    log('SyncDisposableDomains').error('Fatal error:', message);
     return NextResponse.json(
       { success: false, error: message, duration_ms: Date.now() - startTime },
       { status: 500 }

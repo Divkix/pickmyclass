@@ -9,10 +9,12 @@
 
 import type { User } from '@supabase/supabase-js';
 import { TtlCache } from '@/lib/cache/ttl-cache';
+import { ADMIN_CACHE_TTL_MS } from '@/lib/config';
+import { log } from '@/lib/log';
 import type { Tables } from '@/lib/supabase/database.types';
 import { getServiceClient } from '@/lib/supabase/service';
 
-const adminCache = new TtlCache<unknown>(600_000);
+const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS);
 
 /**
  * Email notification counts (seat and instructor)
@@ -300,7 +302,7 @@ export async function getTotalClassesWatched(): Promise<number> {
   const uniqueClasses = new Set(watches?.map((w) => w.class_nbr) || []);
   const result = uniqueClasses.size;
 
-  console.log(`[Admin] Counted ${result} unique classes being watched`);
+  log('Admin').info(`Counted ${result} unique classes being watched`);
 
   adminCache.set('total-classes-watched', result);
   return result;
@@ -359,8 +361,8 @@ export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> 
     })
     .sort((a, b) => b.watcher_count - a.watcher_count);
 
-  console.log(
-    `[Admin] Fetched ${classesWithWatchers.length} classes with watcher counts (total watchers: ${watches?.length || 0})`
+  log('Admin').info(
+    `Fetched ${classesWithWatchers.length} classes with watcher counts (total watchers: ${watches?.length || 0})`
   );
 
   adminCache.set('classes-with-watchers', classesWithWatchers);
@@ -445,7 +447,7 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
       })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    console.log(`[Admin] Fetched ${usersWithWatchCount.length} users with watch counts`);
+    log('Admin').info(`Fetched ${usersWithWatchCount.length} users with watch counts`);
 
     adminCache.set('users-with-watch-count', usersWithWatchCount);
     return usersWithWatchCount;
@@ -479,7 +481,7 @@ export interface RecentActivityItem {
  * - `class_watches` (new watches)
  * - `notifications_sent` (email notifications)
  *
- * Results are cached for 5 minutes.
+ * Results are cached for 10 minutes.
  *
  * @param limit - Maximum number of items to return (default: 50)
  * @returns Array of unified activity items ordered by `activityAt` descending
@@ -557,7 +559,7 @@ export async function getUserWatches(userId: string): Promise<WatchWithClass[]> 
   }
 
   if (!watches || watches.length === 0) {
-    console.log(`[Admin] No watches found for user ${userId}`);
+    log('Admin').info(`No watches found for user ${userId}`);
     return [];
   }
 
@@ -582,7 +584,7 @@ export async function getUserWatches(userId: string): Promise<WatchWithClass[]> 
     class_state: classStateMap.get(watch.class_nbr) || null,
   }));
 
-  console.log(`[Admin] Fetched ${watchesWithClass.length} watches for user ${userId}`);
+  log('Admin').info(`Fetched ${watchesWithClass.length} watches for user ${userId}`);
 
   return watchesWithClass;
 }

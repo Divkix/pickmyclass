@@ -12,10 +12,12 @@ describe('Unsubscribe Token utilities', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-06-15T12:00:00Z'));
+    process.env.UNSUBSCRIBE_SIGNING_SECRET = 'test-signing-secret-for-unsubscribe';
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    delete process.env.UNSUBSCRIBE_SIGNING_SECRET;
   });
 
   describe('generateUnsubscribeToken', () => {

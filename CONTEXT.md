@@ -66,7 +66,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 ## Durable Objects
 
 - **CronLockDO** — Durable Object that prevents duplicate cron executions. Auto-expires after 25 minutes.
-- **CIRCUIT_BREAKER_DO** — (Removed from codebase; reserved for future circuit breaker functionality.)
+
 
 ## UI Components
 
@@ -87,5 +87,4 @@ This document defines domain terms used throughout the codebase. New modules sho
 ## Infrastructure
 
 - **Queue Consumer** — Cloudflare Queue consumer (`max_concurrency: 20`, `max_batch_size: 5`). Processes sections via `worker.ts` → internal HTTP → `app/api/queue/process-section/route.ts`.
-- **Queue Consumer** — Cloudflare Queue consumer with `max_concurrency: 20` and `max_batch_size: 5`.
 - **Dead Letter Queue (DLQ)** — Queue for failed messages that exceeded max retries.

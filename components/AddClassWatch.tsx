@@ -3,12 +3,18 @@
 import { Lock } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { formatTermOption, getSelectableTerms } from '@/lib/asu/terms';
-import { Alert } from './ui/alert';
-import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Alert } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface AddClassWatchProps {
   onAdd: (watch: { term: string; class_nbr: string }) => Promise<void>;

@@ -13,10 +13,11 @@
 
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { verifyCronSecret } from '@/lib/auth/require-user';
 import { getSectionsToCheck } from '@/lib/db/queries';
+import { log } from '@/lib/log';
 import type { Env } from '@/lib/types/env';
 import type { ClassCheckMessage } from '@/lib/types/queue';
-import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
  * Main cron handler with staggered checking
@@ -29,11 +30,8 @@ export async function GET(request: NextRequest) {
   try {
     const cfEnv = env as unknown as Env;
 
-    const authHeader = request.headers.get('authorization');
-    const expectedSecret = cfEnv.CRON_SECRET;
-
-    if (!expectedSecret) {
-      console.error('[Cron] CRON_SECRET not configured');
+    if (!cfEnv.CRON_SECRET) {
+      log('Cron').error('CRON_SECRET not configured');
       return NextResponse.json(
         {
           success: false,
@@ -43,12 +41,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const isAuthorized =
-      authHeader !== null && timingSafeCompare(authHeader, `Bearer ${expectedSecret}`);
-
-    if (!isAuthorized) {
-      console.warn('[Cron] Unauthorized request - invalid or missing authentication');
-
+    if (!verifyCronSecret(request, cfEnv.CRON_SECRET)) {
+      log('Cron').warn('Unauthorized request - invalid or missing authentication');
       return NextResponse.json(
         {
           success: false,
@@ -72,7 +66,7 @@ export async function GET(request: NextRequest) {
       };
 
       if (!lockResult.acquired) {
-        console.warn('[Cron] Lock acquisition failed:', lockResult.message);
+        log('Cron').warn('Lock acquisition failed:', lockResult.message);
         return NextResponse.json(
           {
             success: false,
@@ -85,9 +79,9 @@ export async function GET(request: NextRequest) {
       }
 
       lockAcquired = true;
-      console.log('[Cron] Lock acquired successfully');
+      log('Cron').info('Lock acquired successfully');
     } else {
-      console.warn('[Cron] PICKMYCLASS_CRON_LOCK_DO not available - proceeding without lock');
+      log('Cron').warn('PICKMYCLASS_CRON_LOCK_DO not available - proceeding without lock');
     }
 
     // Use modulo calculation to properly handle both :00 and :30 minute triggers
@@ -101,14 +95,14 @@ export async function GET(request: NextRequest) {
     const currentMinute = now.getMinutes();
     const staggerGroup = Math.floor(currentMinute / 30) % 2 === 0 ? 'even' : 'odd';
 
-    console.log(
-      `[Cron] Starting 30-minute class check (stagger: ${staggerGroup}, time: ${now.toISOString()})`
+    log('Cron').info(
+      `Starting 30-minute class check (stagger: ${staggerGroup}, time: ${now.toISOString()})`
     );
 
     const queue = cfEnv.PICKMYCLASS_QUEUE;
 
     if (!queue) {
-      console.error('[Cron] PICKMYCLASS_QUEUE binding not found');
+      log('Cron').error('PICKMYCLASS_QUEUE binding not found');
       return NextResponse.json(
         {
           success: false,
@@ -121,10 +115,10 @@ export async function GET(request: NextRequest) {
     // Use server-side filtering function to get sections for this stagger group
     const sections = await getSectionsToCheck(staggerGroup);
 
-    console.log(`[Cron] Enqueueing ${sections.length} sections to queue`);
+    log('Cron').info(`Enqueueing ${sections.length} sections to queue`);
 
     if (sections.length === 0) {
-      console.log('[Cron] No sections to check');
+      log('Cron').info('No sections to check');
       return NextResponse.json({
         success: true,
         message: 'No sections to check',
@@ -158,10 +152,10 @@ export async function GET(request: NextRequest) {
 
     const failedBatches = batchResults.filter((r) => r.status === 'rejected');
     if (failedBatches.length > 0) {
-      console.error(`[Cron] ${failedBatches.length}/${batches.length} batches failed to enqueue`);
+      log('Cron').error(`${failedBatches.length}/${batches.length} batches failed to enqueue`);
       for (const failed of failedBatches) {
         if (failed.status === 'rejected') {
-          console.error('[Cron] Batch error:', failed.reason);
+          log('Cron').error('Batch error:', failed.reason);
         }
       }
     }
@@ -169,8 +163,8 @@ export async function GET(request: NextRequest) {
     const successfulBatches = batchResults.filter((r) => r.status === 'fulfilled').length;
 
     const duration = Date.now() - startTime;
-    console.log(
-      `[Cron] Enqueued ${sections.length} sections in ${duration}ms (${successfulBatches}/${batches.length} batches succeeded)`
+    log('Cron').info(
+      `Enqueued ${sections.length} sections in ${duration}ms (${successfulBatches}/${batches.length} batches succeeded)`
     );
 
     // Return success:false if any batches failed
@@ -189,7 +183,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[Cron] Fatal error:', errorMessage);
+    log('Cron').error('Fatal error:', errorMessage);
 
     return NextResponse.json(
       {
@@ -212,10 +206,10 @@ export async function GET(request: NextRequest) {
           await lockStub.fetch(`http://do/release?holder=${lockHolder}`, {
             method: 'POST',
           });
-          console.log('[Cron] Lock released');
+          log('Cron').info('Lock released');
         }
       } catch (error) {
-        console.error('[Cron] Error releasing lock:', error);
+        log('Cron').error('Error releasing lock:', error);
         // Don't throw - lock will auto-expire after 25 minutes
       }
     }

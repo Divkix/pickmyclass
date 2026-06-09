@@ -31,7 +31,7 @@ export interface ClassDetails {
   subject: string;
   catalog_nbr: string;
   title: string;
-  instructor: string;
+  instructor_name: string;
   seats_available: number;
   seats_capacity: number;
   non_reserved_seats: number | null;

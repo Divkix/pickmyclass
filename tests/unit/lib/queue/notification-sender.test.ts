@@ -66,7 +66,9 @@ describe('sendSectionNotifications', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Note: log(scope).info → console.info; log(scope).warn → console.warn; log(scope).error → console.error
 
     // Fresh email binding per test
     emailBinding = {
@@ -102,19 +104,15 @@ describe('sendSectionNotifications', () => {
     };
   }
 
-  it('returns empty array when fetch watchers rpc errors', async () => {
+  it('throws when fetch watchers rpc errors', async () => {
     const rpcMock = mockRpc(null, { message: 'DB error' });
 
-    const result = await sendSectionNotifications(defaultParams());
-
-    expect(result).toEqual([]);
+    await expect(sendSectionNotifications(defaultParams())).rejects.toThrow(
+      'Failed to fetch watchers for 42737: DB error'
+    );
     expect(rpcMock).toHaveBeenCalledWith('get_watchers_for_sections', {
       section_numbers: ['42737'],
     });
-    expect(console.error).toHaveBeenCalledWith(
-      '[NotificationSender] Error fetching watchers for 42737:',
-      expect.any(Object)
-    );
   });
 
   it('returns empty array when no watchers found', async () => {
@@ -123,7 +121,10 @@ describe('sendSectionNotifications', () => {
     const result = await sendSectionNotifications(defaultParams());
 
     expect(result).toEqual([]);
-    expect(console.log).toHaveBeenCalledWith('[NotificationSender] No watchers found for 42737');
+    expect(console.info).toHaveBeenCalledWith(
+      '[NotificationSender]',
+      'No watchers found for 42737'
+    );
   });
 
   it('claims slots and sends emails for seat_available changes', async () => {

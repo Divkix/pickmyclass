@@ -3,8 +3,14 @@
 import { ExternalLink } from 'lucide-react';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor';
-import { Button } from './ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface ClassDetailsDialogProps {
   watch: ClassWatchRow;

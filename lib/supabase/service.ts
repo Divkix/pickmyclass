@@ -11,6 +11,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { SUPABASE_URL } from './config';
 import type { Database } from './database.types';
 
 /**
@@ -22,8 +23,6 @@ import type { Database } from './database.types';
  * @param serviceRoleKey - The service_role key from Supabase (required in production)
  * @returns Supabase client with service role privileges
  */
-// Hardcoded public URL - not a secret
-const SUPABASE_URL = 'https://osopxwuebsefhoxgeojh.supabase.co';
 
 export function createServiceClient(serviceRoleKey: string): SupabaseClient<Database> {
   if (!serviceRoleKey) {

@@ -6,10 +6,12 @@
  */
 
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from './templates';
-import type { ClassInfo } from './types';
+import type { ClassInfo } from '@/lib/types/class';
+import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE, NOTIFICATION_FROM_EMAIL } from '@/lib/config';
+import { log } from '@/lib/log';
 import { generateUnsubscribeUrl } from './unsubscribe-token';
 
-export type { ClassInfo } from './types';
+export type { ClassInfo } from '@/lib/types/class';
 
 function stripHtml(html: string): string {
   return html
@@ -31,6 +33,13 @@ interface SendBatchEmailOptions {
   fromEmail?: string;
 }
 
+export interface OutboundEmail {
+  to: string;
+  userId: string;
+  classInfo: ClassInfo;
+  type: 'seat_available' | 'instructor_assigned';
+}
+
 /**
  * Send batch emails sequentially using Cloudflare Email Service.
  * Cloudflare has no batch API — each email is a separate send() call.
@@ -40,12 +49,7 @@ interface SendBatchEmailOptions {
  * @returns Array of per-email results
  */
 export async function sendBatchEmailsOptimized(
-  emails: Array<{
-    to: string;
-    userId: string;
-    classInfo: ClassInfo;
-    type: 'seat_available' | 'instructor_assigned';
-  }>,
+  emails: OutboundEmail[],
   emailBinding: SendEmail,
   options: SendBatchEmailOptions = {}
 ): Promise<EmailResult[]> {
@@ -53,7 +57,7 @@ export async function sendBatchEmailsOptimized(
     return [];
   }
 
-  const fromEmail = options.fromEmail || 'notifications@pickmyclass.app';
+  const fromEmail = options.fromEmail || NOTIFICATION_FROM_EMAIL;
 
   const results: EmailResult[] = [];
 
@@ -90,7 +94,7 @@ export async function sendBatchEmailsOptimized(
       const errorMessage = errorObj.message || 'Email send failed';
       const errorCode = errorObj.code || 'UNKNOWN';
 
-      console.error(`[Email] Failed to send to ${email.to}: ${errorCode} - ${errorMessage}`);
+      log('Email').error(`Failed to send to ${email.to}: ${errorCode} - ${errorMessage}`);
 
       // Rate limit or daily limit — stop sending remaining emails
       if (
@@ -104,7 +108,7 @@ export async function sendBatchEmailsOptimized(
         for (let j = i + 1; j < emails.length; j++) {
           results.push({ success: false, error: `Skipped: ${errorCode} limit reached` });
         }
-        console.warn(`[Email] Stopped batch after ${errorCode} at email ${i + 1}/${emails.length}`);
+        log('Email').warn(`Stopped batch after ${errorCode} at email ${i + 1}/${emails.length}`);
         break;
       }
 
@@ -113,13 +117,13 @@ export async function sendBatchEmailsOptimized(
     }
 
     // Small delay between sends when batch is large (avoid rate limits)
-    if (emails.length > 10 && i < emails.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 75));
+    if (emails.length > EMAIL_BATCH_SIZE && i < emails.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, EMAIL_BATCH_DELAY_MS));
     }
   }
 
   const successCount = results.filter((r) => r.success).length;
-  console.log(`[Email] Batch complete: ${successCount}/${emails.length} sent successfully`);
+  log('Email').info(`Batch complete: ${successCount}/${emails.length} sent successfully`);
 
   return results;
 }

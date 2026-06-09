@@ -4,6 +4,10 @@
  * Reusable database queries for common operations.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { log } from '@/lib/log';
+import type { Database } from '@/lib/supabase/database.types';
+import type { ClassDetails } from '@/lib/types/class';
 import { getServiceClient } from '@/lib/supabase/service';
 
 /**
@@ -33,7 +37,7 @@ export async function getClassWatchers(classNbr: string): Promise<ClassWatcher[]
   });
 
   if (error) {
-    console.error(`[DB] Error fetching watchers for section ${classNbr}:`, error);
+    log('DB').error(`Error fetching watchers for section ${classNbr}:`, error);
     throw new Error(`Failed to fetch watchers: ${error.message}`);
   }
 
@@ -57,11 +61,11 @@ export async function getSectionsToCheck(
   });
 
   if (error) {
-    console.error(`[DB] Error fetching sections to check:`, error);
+    log('DB').error(`Error fetching sections to check:`, error);
     throw new Error(`Failed to fetch sections: ${error.message}`);
   }
 
-  console.log(`[DB] Found ${data?.length || 0} sections to check (stagger: ${staggerType})`);
+  log('DB').info(`Found ${data?.length || 0} sections to check (stagger: ${staggerType})`);
 
   return data || [];
 }
@@ -89,12 +93,12 @@ export async function resetNotificationsForSection(
     .eq('term', term);
 
   if (watchError) {
-    console.error(`[DB] Error fetching watches for reset:`, watchError);
+    log('DB').error(`Error fetching watches for reset:`, watchError);
     throw new Error(`Failed to fetch watches: ${watchError.message}`);
   }
 
   if (!watches || watches.length === 0) {
-    console.log(`[DB] No watches found for section ${classNbr}, nothing to reset`);
+    log('DB').info(`No watches found for section ${classNbr}, nothing to reset`);
     return;
   }
 
@@ -107,12 +111,12 @@ export async function resetNotificationsForSection(
     .eq('notification_type', notificationType);
 
   if (deleteError) {
-    console.error('[DB] Error resetting notifications:', deleteError);
+    log('DB').error('Error resetting notifications:', deleteError);
     throw new Error(`Failed to reset notifications: ${deleteError.message}`);
   }
 
-  console.log(
-    `[DB] Reset ${notificationType} notifications for ${watchIds.length} watchers of section ${classNbr}`
+  log('DB').info(
+    `Reset ${notificationType} notifications for ${watchIds.length} watchers of section ${classNbr}`
   );
 }
 
@@ -137,11 +141,11 @@ export async function deleteNotificationRecords(
   });
 
   if (error) {
-    console.error('[DB] Error deleting notification records:', error);
+    log('DB').error('Error deleting notification records:', error);
     throw new Error(`Failed to delete notification records: ${error.message}`);
   }
 
-  console.log(`[DB] Deleted ${data} notification records for ${watchIds.length} watches`);
+  log('DB').info(`Deleted ${data} notification records for ${watchIds.length} watches`);
   return data;
 }
 
@@ -169,11 +173,49 @@ export async function tryRecordNotificationsBatch(
   });
 
   if (error) {
-    console.error('[DB] Error in batch notification check:', error);
+    log('DB').error('Error in batch notification check:', error);
     throw new Error(`Failed to batch record notifications: ${error.message}`);
   }
 
   const recordedIds = new Set<string>(data as string[]);
-  console.log(`[DB] Batch ${notificationType}: ${recordedIds.size}/${watchIds.length} recorded`);
+  log('DB').info(`Batch ${notificationType}: ${recordedIds.size}/${watchIds.length} recorded`);
   return recordedIds;
+}
+
+/**
+ * Upsert class state from fetched ASU API data.
+ * Used by both class-watches POST and fetch-class-details POST.
+ *
+ * @param serviceClient - Supabase service-role client
+ * @param term - Term code (e.g. "2261")
+ * @param class_nbr - Section number (e.g. "12431")
+ * @param details - Class details from the ASU API
+ */
+export async function upsertClassState(
+  serviceClient: SupabaseClient<Database>,
+  term: string,
+  class_nbr: string,
+  details: ClassDetails
+): Promise<void> {
+  const { error } = await serviceClient.from('class_states').upsert(
+    {
+      term,
+      subject: details.subject,
+      catalog_nbr: details.catalog_nbr,
+      class_nbr,
+      title: details.title,
+      instructor_name: details.instructor_name || null,
+      seats_available: details.seats_available || 0,
+      seats_capacity: details.seats_capacity || 0,
+      non_reserved_seats: details.non_reserved_seats ?? null,
+      location: details.location || null,
+      meeting_times: details.meeting_times || null,
+      last_checked_at: new Date().toISOString(),
+    },
+    { onConflict: 'class_nbr,term' }
+  );
+
+  if (error) {
+    throw new Error(`Failed to upsert class state: ${error.message}`);
+  }
 }

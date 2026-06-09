@@ -104,7 +104,7 @@ describe('fetchClassFromASU', () => {
       subject: 'ABS',
       catalog_nbr: '302',
       title: 'Ethical and Policy Issues in Biology',
-      instructor: 'Ms Julie Murphree',
+      instructor_name: 'Ms Julie Murphree',
       seats_available: 21,
       seats_capacity: 25,
     });
@@ -360,7 +360,7 @@ describe('fetchClassFromASU', () => {
     expect(result.subject).toBe('ABS');
     expect(result.catalog_nbr).toBe('302');
     expect(result.title).toBe('Ethical and Policy Issues in Biology');
-    expect(result.instructor).toBe('Ms Julie Murphree');
+    expect(result.instructor_name).toBe('Ms Julie Murphree');
     expect(result.seats_capacity).toBe(25);
   });
 
@@ -511,7 +511,7 @@ describe('fetchClassFromASU', () => {
 
     expect(result).toMatchObject({
       title: 'First-Year Composition',
-      instructor: 'Staff',
+      instructor_name: 'Staff',
       seats_available: 0,
       seats_capacity: 0,
       non_reserved_seats: 0,

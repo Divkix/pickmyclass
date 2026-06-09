@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from '@/lib/email/templates';
-import type { ClassInfo } from '@/lib/email/types';
+import type { ClassInfo } from '@/lib/types/class';
 
 const classInfo: ClassInfo = {
   term: '2261<script>',

@@ -8,10 +8,12 @@
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { classCheckMessageSchema } from '@/lib/api/schemas';
+import { mapValidationIssues } from '@/lib/api/validation';
 import { ApiError, AuthError, NotFoundError, RateLimitError } from '@/lib/asu/api';
+import { verifyCronSecret } from '@/lib/auth/require-user';
+import { log } from '@/lib/log';
 import { processSection } from '@/lib/queue/process-section';
 import type { Env } from '@/lib/types/env';
-import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
  * Process a single class section message from the queue
@@ -21,12 +23,10 @@ export async function POST(request: NextRequest) {
 
   try {
     // Authentication: Require CRON_SECRET Bearer token
-    const authHeader = request.headers.get('authorization');
     const cfEnv = env as unknown as Env;
-    const expectedSecret = cfEnv.CRON_SECRET;
 
-    if (!expectedSecret) {
-      console.error('[Queue-Processor] CRON_SECRET not configured');
+    if (!cfEnv.CRON_SECRET) {
+      log('Queue-Processor').error('CRON_SECRET not configured');
       return NextResponse.json(
         {
           success: false,
@@ -36,11 +36,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isAuthorized =
-      authHeader !== null && timingSafeCompare(authHeader, `Bearer ${expectedSecret}`);
-
-    if (!isAuthorized) {
-      console.warn('[Queue-Processor] Unauthorized request');
+    if (!verifyCronSecret(request, cfEnv.CRON_SECRET)) {
+      log('Queue-Processor').warn('Unauthorized request');
       return NextResponse.json(
         {
           success: false,
@@ -70,10 +67,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Invalid message payload',
-          details: messageValidation.error.issues.map((issue) => ({
-            field: issue.path.join('.'),
-            message: issue.message,
-          })),
+          details: mapValidationIssues(messageValidation.error),
           retryable: false,
         },
         { status: 200 }
@@ -82,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     const { class_nbr, term } = messageValidation.data;
 
-    console.log(`[Queue-Processor] Processing section ${class_nbr} (term: ${term})`);
+    log('Queue-Processor').info(`Processing section ${class_nbr} (term: ${term})`);
 
     // Delegate to section processor orchestrator
     try {
@@ -109,8 +103,8 @@ export async function POST(request: NextRequest) {
     } catch (processingError) {
       // Non-retryable errors: return 200 so the queue consumer acks the message
       if (processingError instanceof AuthError || processingError instanceof NotFoundError) {
-        console.error(
-          `[Queue-Processor] Non-retryable error for section ${class_nbr}:`,
+        log('Queue-Processor').error(
+          `Non-retryable error for section ${class_nbr}:`,
           (processingError as Error).message
         );
         return NextResponse.json(
@@ -125,9 +119,7 @@ export async function POST(request: NextRequest) {
 
       // Rate limit: return 429 so the queue consumer retries with delay
       if (processingError instanceof RateLimitError) {
-        console.warn(
-          `[Queue-Processor] Rate limited for section ${class_nbr}, retrying with delay`
-        );
+        log('Queue-Processor').warn(`Rate limited for section ${class_nbr}, retrying with delay`);
         return NextResponse.json(
           {
             success: false,
@@ -140,8 +132,8 @@ export async function POST(request: NextRequest) {
 
       // Other API errors: return 502 (upstream failure)
       if (processingError instanceof ApiError) {
-        console.error(
-          `[Queue-Processor] API error for section ${class_nbr}:`,
+        log('Queue-Processor').error(
+          `API error for section ${class_nbr}:`,
           (processingError as Error).message
         );
         return NextResponse.json(
@@ -160,7 +152,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const duration = Date.now() - startTime;
-    console.error(`[Queue-Processor] Error (${duration}ms):`, errorMessage);
+    log('Queue-Processor').error(`Error (${duration}ms):`, errorMessage);
 
     return NextResponse.json(
       {

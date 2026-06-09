@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/lib/contexts/AuthContext';
 
-export default function AuthButton() {
+export function AuthButton() {
   const { user, loading } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
 

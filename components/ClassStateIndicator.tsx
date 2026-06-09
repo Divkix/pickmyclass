@@ -1,5 +1,6 @@
 import { CheckCircle, Clock, ExternalLink, XCircle } from 'lucide-react';
 import type { ClassStateRow } from '@/lib/types/class-watch';
+import { cn } from '@/lib/utils';
 import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor';
 
 interface ClassStateIndicatorProps {
@@ -33,7 +34,7 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
     ariaLabel = `Seats available: ${seats_available} of ${seats_capacity} seats available`;
   } else {
     // Completely full - RED
-    seatColor = 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
+    seatColor = 'bg-destructive/20 text-destructive';
     SeatIcon = XCircle;
     seatMessage = `0 of ${seats_capacity} seats available`;
     ariaLabel = `Class is full: 0 of ${seats_capacity} seats available`;
@@ -43,7 +44,7 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
     <div className="flex flex-col gap-2">
       {/* Seats indicator */}
       <output
-        className={`inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm ${seatColor}`}
+        className={cn('inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm', seatColor)}
         aria-label={ariaLabel}
       >
         <SeatIcon className="size-4" aria-hidden="true" />

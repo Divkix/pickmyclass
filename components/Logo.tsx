@@ -19,7 +19,7 @@ const sizeClasses = {
 export function Logo({ variant = 'full', size = 'md', className, animated = false }: LogoProps) {
   const iconContent = (
     <>
-      {/* biome-ignore lint/performance/noImgElement: SVG with dynamic Tailwind sizing requires native img - Image component incompatible */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- SVG with dynamic Tailwind sizing requires native img */}
       <img
         src="/favicon.svg"
         alt="PickMyClass Logo"

@@ -178,71 +178,122 @@ export function ClassesTable({ classes }: ClassesTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead
-                className="w-[100px] cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => toggleSort('class_nbr')}
-              >
-                <div className="flex items-center">Class #{renderSortIcon('class_nbr')}</div>
+              <TableHead className="w-[100px] select-none">
+                <button
+                  type="button"
+                  className="flex items-center gap-1 cursor-pointer hover:text-foreground w-full text-left"
+                  onClick={() => toggleSort('class_nbr')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleSort('class_nbr');
+                    }
+                  }}
+                >
+                  Class #{renderSortIcon('class_nbr')}
+                </button>
               </TableHead>
-              <TableHead
-                className="w-[120px] cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => toggleSort('subject')}
-              >
-                <div className="flex items-center">
+              <TableHead className="w-[120px] select-none">
+                <button
+                  type="button"
+                  className="flex items-center gap-1 cursor-pointer hover:text-foreground w-full text-left"
+                  onClick={() => toggleSort('subject')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleSort('subject');
+                    }
+                  }}
+                >
                   Subject
                   {renderSortIcon('subject')}
-                </div>
+                </button>
               </TableHead>
               <TableHead>Title</TableHead>
               <TableHead>Instructor</TableHead>
-              <TableHead
-                className="text-center w-[120px] cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => toggleSort('seats_available')}
-              >
-                <div className="flex items-center justify-center">
+              <TableHead className="text-center w-[120px] select-none">
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
+                  onClick={() => toggleSort('seats_available')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleSort('seats_available');
+                    }
+                  }}
+                >
                   Seats
                   {renderSortIcon('seats_available')}
-                </div>
+                </button>
               </TableHead>
-              <TableHead
-                className="text-center w-[100px] cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => toggleSort('watcher_count')}
-              >
-                <div className="flex items-center justify-center gap-1">
+              <TableHead className="text-center w-[100px] select-none">
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
+                  onClick={() => toggleSort('watcher_count')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleSort('watcher_count');
+                    }
+                  }}
+                >
                   <Users className="size-4" />
                   <span>Watchers</span>
                   {renderSortIcon('watcher_count')}
-                </div>
+                </button>
               </TableHead>
-              <TableHead
-                className="text-center w-[100px] cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => toggleSort('seat_emails')}
-              >
-                <div className="flex items-center justify-center gap-1">
+              <TableHead className="text-center w-[100px] select-none">
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
+                  onClick={() => toggleSort('seat_emails')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleSort('seat_emails');
+                    }
+                  }}
+                >
                   <Mail className="size-4" />
                   <span>Seat Emails</span>
                   {renderSortIcon('seat_emails')}
-                </div>
+                </button>
               </TableHead>
-              <TableHead
-                className="text-center w-[100px] cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => toggleSort('instructor_emails')}
-              >
-                <div className="flex items-center justify-center gap-1">
+              <TableHead className="text-center w-[100px] select-none">
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
+                  onClick={() => toggleSort('instructor_emails')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleSort('instructor_emails');
+                    }
+                  }}
+                >
                   <Users className="size-4" />
                   <span>Instructor Emails</span>
                   {renderSortIcon('instructor_emails')}
-                </div>
+                </button>
               </TableHead>
-              <TableHead
-                className="text-right w-[120px] cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => toggleSort('last_checked_at')}
-              >
-                <div className="flex items-center justify-end gap-1">
+              <TableHead className="text-right w-[120px] select-none">
+                <button
+                  type="button"
+                  className="flex items-center justify-end gap-1 cursor-pointer hover:text-foreground w-full"
+                  onClick={() => toggleSort('last_checked_at')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleSort('last_checked_at');
+                    }
+                  }}
+                >
                   <Clock className="size-4" />
                   <span>Last Check</span>
                   {renderSortIcon('last_checked_at')}
-                </div>
+                </button>
               </TableHead>
             </TableRow>
           </TableHeader>
