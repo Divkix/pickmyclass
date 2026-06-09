@@ -3,13 +3,19 @@
 ## Project Structure & Module Organization
 
 ```
-app/          # Routes, pages, and API endpoints
+app/          # Routes, pages, and API endpoints (Next.js App Router, no route groups)
 lib/          # Core business logic and utilities
-components/   # React components (ui/, admin/, landing/, etc.)
+components/   # React components (ui/, admin/, landing/, blog/, + shared root components)
 tests/        # Test files (unit/, integration/, mocks/)
-worker.ts     # Cloudflare Worker (cron, queue, Durable Objects)
-middleware.ts # Auth and routing middleware
+worker.ts     # Cloudflare Worker (fetch, cron, queue, CronLockDO)
+middleware.ts # CDN cache headers only — NOT an auth gate
+supabase/     # Supabase CLI config and database migrations
+scripts/      # Build and utility scripts (e.g., OG image generation)
 ```
+
+**Key `lib/` sub-modules:** `asu/` (ASU API client + terms), `auth/`, `db/` (Supabase queries), `email/` (send + templates), `queue/` (section processing, DLQ), `supabase/` (clients + generated types), `types/`, `cache/`, `hooks/`, `contexts/`, `api/` (Zod schemas + validation).
+
+**Important naming collision:** `lib/utils.ts` is the shadcn/ui `cn()` utility only; `lib/utils/` contains custom utilities (crypto, formatting, seat-badge, time-format). Do not confuse them.
 
 ## Build, Test, and Development Commands
 
@@ -19,9 +25,11 @@ bun run build            # Build application for production
 bun run preview          # Build and preview on Cloudflare Workers locally
 bun run deploy           # Build and deploy to Cloudflare Workers
 
-bun run lint             # Run Biome linter
+bun run check            # Format, lint, and type-check (all-in-one)
+bun run check:fix        # Auto-fix format and lint issues, then type-check
+bun run lint             # Run Oxlint linter
 bun run lint:fix         # Auto-fix lint issues
-bun run format           # Format code with Biome
+bun run format           # Format code with Oxfmt
 
 bun run test             # Run vitest in watch mode
 bun run test:run         # Run tests once (CI mode)
@@ -33,14 +41,14 @@ bun run type-check       # TypeScript type checking
 
 ## Coding Style & Naming Conventions
 
-- **Formatter**: Biome with 2-space indentation, line width 100
+- **Toolchain**: Vite+ (Oxlint for linting, Oxfmt for formatting) with 2-space indentation, line width 100
 - **Strings**: Single quotes, semicolons required
 - **Naming**: camelCase for variables/functions, PascalCase for types/components
-- **Imports**: Auto-organized by Biome
+- **Imports**: Auto-organized by formatter
 - **Tests**: colocated in `tests/` directory, not alongside source files
 - **Test file naming**: `*.test.ts`, `*.test.tsx`, `*.spec.ts`, `*.spec.tsx`
 
-Run `bun run lint:fix && bun run format` before committing.
+Run `bun run check:fix` before committing (formats, lints, and type-checks in one pass).
 
 ## Generated Files
 
@@ -53,12 +61,7 @@ Two files are auto-generated and must be kept in sync when the database or Cloud
 
 **Important**: If you see `as unknown as` casts on `.rpc()` calls with a comment like "not yet in generated types", regenerate `database.types.ts` and remove the cast. Wrangler secrets (e.g. `SUPABASE_SERVICE_ROLE_KEY`, `ASU_API_TOKEN`) are not in `wrangler.jsonc` and will never appear in the generated CF types — `env as unknown as Env` casts for those are correct and intentional.
 
-## lib/ File Structure Note
-
-The `lib/` directory contains both a file and a subdirectory with the same base name:
-
-- `lib/utils.ts` is the shadcn/ui utility (cn function) imported as `@/lib/utils`
-- `lib/utils/` contains custom utilities (crypto, formatting, seat badge, time format) imported as `@/lib/utils/*`
+There is also `lib/cloudflare-env.supplemental.d.ts` for manually typing secrets that `cf-typegen` cannot generate (e.g. `SUPABASE_SERVICE_ROLE_KEY`). Edit this file when adding new Wrangler secrets.
 
 ## Testing Guidelines
 
@@ -72,12 +75,6 @@ Run single test file:
 ```bash
 bunx vitest run tests/unit/lib/utils.test.ts
 ```
-
-## Extra Directories
-
-- `scripts/` — Build and utility scripts (e.g., OG image generation)
-- `supabase/` — Supabase CLI configuration and database migrations
-- `tests/mocks/` — Test mocks for Cloudflare Workers environment
 
 ## Commit & Pull Request Guidelines
 
@@ -94,21 +91,27 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `sec
 - `fix(notifications): prevent duplicate emails on race condition`
 - `chore: upgrade deps`
 
+**Branch naming**: `feature/`, `fix/`, `docs/`, `refactor/` prefixes.
+
 **PR Requirements**:
 - All CI checks must pass (lint, test, typecheck, build)
 - Use the PR template with summary, changes, and testing details
 - Squash and merge to `main`
+- No `console.log` debugging or hardcoded secrets/URLs
 
 ## Cloudflare Workers Notes
 
 - **No global state**: Workers are stateless; use Durable Objects for coordination
 - **Memory limit**: 128MB per Worker
 - **Execution time**: 30s (HTTP), 15min (cron)
-- **CronLockDO**: Durable Object for distributed cron job locking to prevent duplicate cron execution
-- **Queue consumer**: `max_concurrency: 20`, `max_batch_size: 5` (configured in `wrangler.jsonc`)
-- **Cron triggers**: `0,30 * * * *` (class checks every 30min), `0 4 * * *` (daily `update-disposable-domains`)
+- **`worker.ts`**: Handles `fetch` (routes to Next.js), `scheduled` (cron → `/api/cron` or `/api/cron/update-disposable-domains`), and `queue` (processes `pickmyclass-queue` and `pickmyclass-dlq`)
+- **CronLockDO**: Durable Object for distributed cron locking; 25-minute auto-expiry. Binding: `PICKMYCLASS_CRON_LOCK_DO`
+- **Queue**: `PICKMYCLASS_QUEUE` → `pickmyclass-queue`, `max_concurrency: 20`, `max_batch_size: 5`, `max_retries: 3`, DLQ: `pickmyclass-dlq`
+- **KV**: `PICKMYCLASS_DISPOSABLE_DOMAINS` for disposable email domain blocklist
+- **Email**: `EMAIL` binding (Cloudflare Email Service, `send_email`, remote mode)
+- **Cron triggers**: `0,30 * * * *` (class checks), `0 4 * * *` (daily `update-disposable-domains`)
+- **TypeScript**: Two separate `tsconfig.json` configs — `tsconfig.json` for the Next.js app and `tsconfig.worker.json` for `worker.ts` and CF types
 - Always test with `bun run preview` before deploying
-- `worker.ts` handles fetch, scheduled (cron), and queue handlers
 
 <!--VITE PLUS START-->
 
