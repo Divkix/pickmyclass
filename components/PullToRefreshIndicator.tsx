@@ -2,7 +2,7 @@
 
 import { Loader2 } from 'lucide-react';
 
-export interface PullToRefreshIndicatorProps {
+interface PullToRefreshIndicatorProps {
   pullDistance: number;
   isRefreshing: boolean;
   threshold: number;

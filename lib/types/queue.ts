@@ -41,7 +41,7 @@ export interface QueueMessageBatch<T = ClassCheckMessage> {
 /**
  * Individual queue message
  */
-export interface QueueMessage<T = ClassCheckMessage> {
+interface QueueMessage<T = ClassCheckMessage> {
   readonly id: string;
   readonly timestamp: Date;
   readonly body: T;

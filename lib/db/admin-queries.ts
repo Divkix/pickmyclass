@@ -34,7 +34,7 @@ export interface ClassWithWatchers extends Tables<'class_states'> {
 /**
  * Engagement status for a user
  */
-export type EngagementStatus = 'healthy' | 'low' | 'disabled' | 'new';
+type EngagementStatus = 'healthy' | 'low' | 'disabled' | 'new';
 
 /**
  * User information with watch count
@@ -459,7 +459,7 @@ export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]>
  * A single recent activity item returned from the unified feed.
  */
 
-export type ActivityType = 'user_registration' | 'new_watch' | 'email_sent';
+type ActivityType = 'user_registration' | 'new_watch' | 'email_sent';
 
 export interface RecentActivityItem {
   type: ActivityType;

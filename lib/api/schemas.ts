@@ -12,35 +12,35 @@ import { isTermSelectable } from '@/lib/asu/terms';
  * Term code validation (4-digit format: YYSM)
  * Example: "2261" for Spring 2026
  */
-export const termSchema = z.string().regex(/^\d{4}$/, 'Term must be a 4-digit code (e.g., "2261")');
+const termSchema = z.string().regex(/^\d{4}$/, 'Term must be a 4-digit code (e.g., "2261")');
 
 /**
  * Class/section number validation (5-digit format)
  * Example: "12431"
  */
-export const classNbrSchema = z
+const classNbrSchema = z
   .string()
   .regex(/^\d{5}$/, 'Section number must be a 5-digit code (e.g., "12431")');
 
 /**
  * Email validation with required check.
  */
-export const emailSchema = z.string().email('Invalid email address').min(1, 'Email is required');
+const emailSchema = z.string().email('Invalid email address').min(1, 'Email is required');
 
 /**
  * Password validation for login (just required, no minimum length)
  */
-export const loginPasswordSchema = z.string().min(1, 'Password is required');
+const loginPasswordSchema = z.string().min(1, 'Password is required');
 
 /**
  * Password validation for registration (minimum 8 characters)
  */
-export const registerPasswordSchema = z.string().min(8, 'Password must be at least 8 characters');
+const registerPasswordSchema = z.string().min(8, 'Password must be at least 8 characters');
 
 /**
  * UUID validation for record IDs
  */
-export const uuidSchema = z.string().uuid('ID must be a valid UUID');
+const uuidSchema = z.string().uuid('ID must be a valid UUID');
 
 const selectableTermRefinement = {
   message: 'This term is no longer available. Please refresh and select a current term.',

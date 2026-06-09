@@ -8,7 +8,7 @@
 
 export type AsuSeason = 'spring' | 'summer' | 'fall';
 
-export interface DateParts {
+interface DateParts {
   year: number;
   month: number;
   day: number;
@@ -45,7 +45,7 @@ const SEASON_LABEL: Record<AsuSeason, string> = {
  * ASU academic calendar dates sourced from registrar.asu.edu/academic-calendar.
  * Dates use America/Phoenix (no DST).
  */
-export const ASU_TERM_CALENDAR: AsuTerm[] = [
+const ASU_TERM_CALENDAR: AsuTerm[] = [
   // 2025
   term(
     2025,
@@ -162,14 +162,14 @@ export function encodeTermCode(year: number, season: AsuSeason): string {
 }
 
 /** Compare two calendar dates (ignores time). Returns negative if a < b. */
-export function compareDateParts(a: DateParts, b: DateParts): number {
+function compareDateParts(a: DateParts, b: DateParts): number {
   if (a.year !== b.year) return a.year - b.year;
   if (a.month !== b.month) return a.month - b.month;
   return a.day - b.day;
 }
 
 /** Extract today's date in America/Phoenix. */
-export function getPhoenixDateParts(now: Date = new Date()): DateParts {
+function getPhoenixDateParts(now: Date = new Date()): DateParts {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: ASU_TIMEZONE,
     year: 'numeric',

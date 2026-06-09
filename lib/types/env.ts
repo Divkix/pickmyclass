@@ -62,6 +62,6 @@ export interface Env extends Record<string, unknown> {
 /**
  * Cloudflare Workers Fetcher type (for asset serving)
  */
-export interface Fetcher {
+interface Fetcher {
   fetch(request: Request): Promise<Response>;
 }

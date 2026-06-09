@@ -1,9 +1,4 @@
-export type SupabaseAuthEmailAction =
-  | 'signup'
-  | 'recovery'
-  | 'email_change'
-  | 'invite'
-  | 'magiclink';
+type SupabaseAuthEmailAction = 'signup' | 'recovery' | 'email_change' | 'invite' | 'magiclink';
 
 export interface SupabaseSendEmailHookPayload {
   user: {
