@@ -12,7 +12,7 @@ vi.mock('@/lib/email/unsubscribe-token', () => ({
 }));
 
 import { sendBatchEmailsOptimized } from '@/lib/email/send';
-import type { ClassInfo } from '@/lib/email/types';
+import type { ClassInfo } from '@/lib/types/class';
 
 function createMockSendEmail() {
   return {

@@ -3,7 +3,7 @@
 import { LayoutDashboard, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import AuthButton from '@/components/AuthButton';
+import { AuthButton } from '@/components/AuthButton';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';

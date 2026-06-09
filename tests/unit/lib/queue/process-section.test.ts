@@ -60,7 +60,7 @@ function mockClassDetails(overrides: Partial<ClassDetails> = {}): ClassDetails {
     subject: 'CSE',
     catalog_nbr: '110',
     title: 'Principles of Programming',
-    instructor: 'Staff',
+    instructor_name: 'Staff',
     seats_available: 0,
     seats_capacity: 100,
     non_reserved_seats: null,
@@ -131,7 +131,7 @@ describe('processSection', () => {
     (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
     (fetchClassFromASU as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockClassDetails({ seats_available: 5, non_reserved_seats: 3, instructor: 'Dr. Smith' })
+      mockClassDetails({ seats_available: 5, non_reserved_seats: 3, instructor_name: 'Dr. Smith' })
     );
 
     (detectChanges as ReturnType<typeof vi.fn>).mockReturnValue(

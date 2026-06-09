@@ -10,14 +10,13 @@ import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
  * Generate a secret key for HMAC signing
- * Uses SUPABASE_SERVICE_ROLE_KEY as the signing secret
  */
 function getSigningSecret(): string {
-  const secret = process.env.UNSUBSCRIBE_SIGNING_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const secret = process.env.UNSUBSCRIBE_SIGNING_SECRET;
   if (!secret) {
     throw new Error(
-      'UNSUBSCRIBE_SIGNING_SECRET (or SUPABASE_SERVICE_ROLE_KEY as fallback) is not set. ' +
-        'Required for HMAC token signing.'
+      'UNSUBSCRIBE_SIGNING_SECRET is not set. ' +
+        'Required for HMAC token signing. Set this via wrangler secret put UNSUBSCRIBE_SIGNING_SECRET.'
     );
   }
   return secret;

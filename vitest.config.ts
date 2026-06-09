@@ -19,6 +19,7 @@ export default defineConfig({
         '.next',
         '**/*.d.ts',
         '**/types.ts',
+        'lib/types/**',
         'vitest.config.ts',
         'next.config.ts',
         'postcss.config.mjs',

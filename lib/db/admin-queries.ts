@@ -479,7 +479,7 @@ export interface RecentActivityItem {
  * - `class_watches` (new watches)
  * - `notifications_sent` (email notifications)
  *
- * Results are cached for 5 minutes.
+ * Results are cached for 10 minutes.
  *
  * @param limit - Maximum number of items to return (default: 50)
  * @returns Array of unified activity items ordered by `activityAt` descending

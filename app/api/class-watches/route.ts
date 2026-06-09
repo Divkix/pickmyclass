@@ -1,8 +1,12 @@
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { ok, fail } from '@/lib/api/response';
 import { createClassWatchSchema, deleteClassWatchSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
+import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
+import { upsertClassState } from '@/lib/db/queries';
+import { log } from '@/lib/log';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassStateRow } from '@/lib/types/class-watch';
@@ -17,14 +21,12 @@ const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 
 export async function GET() {
   const supabase = await createClient();
 
-  // Check authentication
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let user: Awaited<ReturnType<typeof requireUser>>['user'];
+  try {
+    ({ user } = await requireUser(supabase));
+  } catch (e) {
+    if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
+    throw e;
   }
 
   try {
@@ -62,14 +64,10 @@ export async function GET() {
       class_state: statesMap[watch.class_nbr] || null,
     }));
 
-    return NextResponse.json({
-      watches: watchesWithStates,
-      maxWatches: MAX_WATCHES_PER_USER,
-    });
+    return ok({ watches: watchesWithStates, maxWatches: MAX_WATCHES_PER_USER });
   } catch (error) {
-    console.error('Error fetching class watches:', error);
-
-    return NextResponse.json({ error: 'Failed to fetch class watches' }, { status: 500 });
+    log('API').error('Error fetching class watches:', error);
+    return fail('Failed to fetch class watches', 500);
   }
 }
 
@@ -87,14 +85,12 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
-  // Check authentication
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let user: Awaited<ReturnType<typeof requireUser>>['user'];
+  try {
+    ({ user } = await requireUser(supabase));
+  } catch (e) {
+    if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
+    throw e;
   }
 
   try {
@@ -104,17 +100,14 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id);
 
     if (countError) {
-      console.error('Error counting user watches:', countError);
-
+      log('API').error('Error counting user watches:', countError);
       throw countError;
     }
 
     if (watchCount !== null && watchCount >= MAX_WATCHES_PER_USER) {
-      return NextResponse.json(
-        {
-          error: `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
-        },
-        { status: 429 }
+      return fail(
+        `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
+        429
       );
     }
 
@@ -122,19 +115,10 @@ export async function POST(request: NextRequest) {
     const validation = createClassWatchSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json(
-        {
-          error: 'Invalid input',
-          details: mapValidationIssues(validation.error),
-        },
-        { status: 400 }
-      );
+      return fail('Invalid input', 400, mapValidationIssues(validation.error));
     }
 
     const { term, class_nbr } = validation.data;
-
-    // Step 1: Fetch class details from ASU API
-    console.log(`[API] Fetching class details for section ${class_nbr}, term ${term}`);
 
     // Get ASU API env vars (Cloudflare secrets)
     const asuEnv = env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
@@ -144,17 +128,15 @@ export async function POST(request: NextRequest) {
       classDetails = await fetchClassFromASU(class_nbr, term, asuEnv);
     } catch (error) {
       if (error instanceof NotFoundError) {
-        return NextResponse.json({ error: 'Class section not found' }, { status: 404 });
+        return fail('Class section not found', 404);
       }
       if (error instanceof AuthError) {
-        console.error('ASU API auth error:', error instanceof Error ? error.message : error);
-        return NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 });
+        log('API').error('ASU API auth error:', error instanceof Error ? error.message : error);
+        return fail('Service temporarily unavailable', 503);
       }
-      console.error('Failed to fetch class details:', error);
-      return NextResponse.json({ error: 'Failed to fetch class details' }, { status: 500 });
+      log('API').error('Failed to fetch class details:', error);
+      return fail('Failed to fetch class details', 500);
     }
-
-    console.log('[API] Successfully fetched class details from ASU API');
 
     // Use service role for atomic insert RPC so clients cannot bypass limit checks by calling it directly.
     const supabaseServiceRole = getServiceClient();
@@ -175,7 +157,7 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       // Handle unique constraint violation
       if (insertError.code === '23505') {
-        return NextResponse.json({ error: 'You are already watching this class' }, { status: 409 });
+        return fail('You are already watching this class', 409);
       }
 
       // Handle atomic limit-enforcement function error.
@@ -184,11 +166,9 @@ export async function POST(request: NextRequest) {
         typeof insertError.message === 'string' &&
         insertError.message.includes('MAX_WATCHES_EXCEEDED')
       ) {
-        return NextResponse.json(
-          {
-            error: `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
-          },
-          { status: 429 }
+        return fail(
+          `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
+          429
         );
       }
 
@@ -199,46 +179,18 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to create class watch');
     }
 
-    console.log('[API] Successfully created class watch');
-
     // Step 3: Persist class state
     try {
-      const { error: upsertError } = await supabaseServiceRole.from('class_states').upsert(
-        {
-          term,
-          subject: classDetails.subject,
-          catalog_nbr: classDetails.catalog_nbr,
-          class_nbr,
-          title: classDetails.title,
-          instructor_name: classDetails.instructor || null,
-          seats_available: classDetails.seats_available,
-          seats_capacity: classDetails.seats_capacity,
-          non_reserved_seats: classDetails.non_reserved_seats ?? null,
-          location: classDetails.location || null,
-          meeting_times: classDetails.meeting_times || null,
-          last_checked_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'class_nbr',
-        }
-      );
-
-      if (upsertError) {
-        console.error('[API] Failed to upsert class state:', upsertError);
-        // Continue anyway - watch was created successfully
-      } else {
-        console.log('[API] Successfully persisted class state to database');
-      }
+      await upsertClassState(supabaseServiceRole, term, class_nbr, classDetails);
     } catch (dbError) {
-      console.error('[API] Error persisting to database:', dbError);
+      log('API').error('Failed to persist class state:', dbError);
       // Continue anyway - watch was created successfully
     }
 
-    return NextResponse.json({ watch: watchDataRaw }, { status: 201 });
+    return ok({ watch: watchDataRaw }, { status: 201 });
   } catch (error) {
-    console.error('Error creating class watch:', error);
-
-    return NextResponse.json({ error: 'Failed to create class watch' }, { status: 500 });
+    log('API').error('Error creating class watch:', error);
+    return fail('Failed to create class watch', 500);
   }
 }
 
@@ -249,13 +201,12 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let user: Awaited<ReturnType<typeof requireUser>>['user'];
+  try {
+    ({ user } = await requireUser(supabase));
+  } catch (e) {
+    if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
+    throw e;
   }
 
   try {
@@ -266,13 +217,7 @@ export async function DELETE(request: NextRequest) {
     const validation = deleteClassWatchSchema.safeParse({ id: watchId });
 
     if (!validation.success) {
-      return NextResponse.json(
-        {
-          error: 'Invalid input',
-          details: mapValidationIssues(validation.error),
-        },
-        { status: 400 }
-      );
+      return fail('Invalid input', 400, mapValidationIssues(validation.error));
     }
 
     // Delete the watch (RLS ensures user can only delete their own)
@@ -288,8 +233,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting class watch:', error);
-
-    return NextResponse.json({ error: 'Failed to delete class watch' }, { status: 500 });
+    log('API').error('Error deleting class watch:', error);
+    return fail('Failed to delete class watch', 500);
   }
 }

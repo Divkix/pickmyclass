@@ -266,9 +266,9 @@ bun run preview          # Build with vinext and preview locally
 
 ```bash
 bun run build            # Build application
-bun run lint             # Run Biome linter
+bun run lint             # Run Oxlint linter
 bun run lint:fix         # Fix lint issues
-bun run format           # Format code with Biome
+bun run format           # Format code with Oxfmt
 bun run knip             # Find unused exports/dependencies
 bun run cf-typegen       # Generate TypeScript types for Cloudflare env
 ```

@@ -6,10 +6,10 @@
  */
 
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from './templates';
-import type { ClassInfo } from './types';
+import type { ClassInfo } from '@/lib/types/class';
 import { generateUnsubscribeUrl } from './unsubscribe-token';
 
-export type { ClassInfo } from './types';
+export type { ClassInfo } from '@/lib/types/class';
 
 function stripHtml(html: string): string {
   return html
@@ -31,6 +31,13 @@ interface SendBatchEmailOptions {
   fromEmail?: string;
 }
 
+export interface OutboundEmail {
+  to: string;
+  userId: string;
+  classInfo: ClassInfo;
+  type: 'seat_available' | 'instructor_assigned';
+}
+
 /**
  * Send batch emails sequentially using Cloudflare Email Service.
  * Cloudflare has no batch API — each email is a separate send() call.
@@ -40,12 +47,7 @@ interface SendBatchEmailOptions {
  * @returns Array of per-email results
  */
 export async function sendBatchEmailsOptimized(
-  emails: Array<{
-    to: string;
-    userId: string;
-    classInfo: ClassInfo;
-    type: 'seat_available' | 'instructor_assigned';
-  }>,
+  emails: OutboundEmail[],
   emailBinding: SendEmail,
   options: SendBatchEmailOptions = {}
 ): Promise<EmailResult[]> {

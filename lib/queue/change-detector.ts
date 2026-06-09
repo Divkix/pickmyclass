@@ -63,8 +63,8 @@ export function detectChanges(
     seatsFilled: oldOpenSeats > 0 && newOpenSeats === 0,
     instructorAssigned:
       oldInstructor === 'Staff' &&
-      newData.instructor !== undefined &&
-      newData.instructor !== 'Staff',
+      newData.instructor_name !== undefined &&
+      newData.instructor_name !== 'Staff',
     newOpenSeats,
   };
 }

@@ -1,19 +1,26 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const { AuthError, NotFoundError, mockFetchClassFromASU, mockGetServiceClient, mockUpsert } =
-  vi.hoisted(() => {
-    class MockNotFoundError extends Error {}
-    class MockAuthError extends Error {}
+const {
+  AuthError,
+  NotFoundError,
+  mockFetchClassFromASU,
+  mockGetServiceClient,
+  mockUpsert,
+  mockGetUser,
+} = vi.hoisted(() => {
+  class MockNotFoundError extends Error {}
+  class MockAuthError extends Error {}
 
-    return {
-      AuthError: MockAuthError,
-      NotFoundError: MockNotFoundError,
-      mockFetchClassFromASU: vi.fn(),
-      mockGetServiceClient: vi.fn(),
-      mockUpsert: vi.fn(),
-    };
-  });
+  return {
+    AuthError: MockAuthError,
+    NotFoundError: MockNotFoundError,
+    mockFetchClassFromASU: vi.fn(),
+    mockGetServiceClient: vi.fn(),
+    mockUpsert: vi.fn(),
+    mockGetUser: vi.fn(),
+  };
+});
 
 vi.mock('cloudflare:workers', () => ({
   env: {
@@ -32,13 +39,21 @@ vi.mock('@/lib/supabase/service', () => ({
   getServiceClient: mockGetServiceClient,
 }));
 
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn().mockResolvedValue({
+    auth: {
+      getUser: mockGetUser,
+    },
+  }),
+}));
+
 import { POST } from '@/app/api/fetch-class-details/route';
 
 const classDetails = {
   subject: 'CSE',
   catalog_nbr: '240',
   title: 'Intro to Programming',
-  instructor: 'Dr. Smith',
+  instructor_name: 'Dr. Smith',
   seats_available: 7,
   seats_capacity: 40,
   non_reserved_seats: 3,
@@ -66,6 +81,10 @@ describe('/api/fetch-class-details', () => {
     vi.clearAllMocks();
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'test-user-id', email: 'test@example.com' } },
+      error: null,
+    });
     mockFetchClassFromASU.mockResolvedValue(classDetails);
     mockUpsert.mockResolvedValue({ error: null });
     mockGetServiceClient.mockReturnValue({
@@ -166,5 +185,11 @@ describe('/api/fetch-class-details', () => {
     expect(data.meeting_times).toBe('MWF 9:00 AM-9:50 AM');
     expect(mockGetServiceClient).toHaveBeenCalledTimes(1);
     expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects unauthenticated requests', async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
+    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
+    expect(response.status).toBe(401);
   });
 });

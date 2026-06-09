@@ -121,7 +121,7 @@ function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
     subject: item.SUBJECT,
     catalog_nbr: item.CATALOGNBR,
     title: item.COURSETITLELONG || item.TITLE || 'Unknown',
-    instructor: item.INSTRUCTORSLIST?.[0] || 'Staff',
+    instructor_name: item.INSTRUCTORSLIST?.[0] || 'Staff',
     seats_available: Math.max(0, enrlCap - enrlTot),
     seats_capacity: enrlCap,
     non_reserved_seats: Math.max(0, enrlCap - enrlTot - waitTot),

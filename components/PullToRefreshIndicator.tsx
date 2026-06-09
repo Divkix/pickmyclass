@@ -37,7 +37,7 @@ export function PullToRefreshIndicator({
 
   return (
     <div
-      className="fixed top-0 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-100 ease-out"
+      className="fixed top-0 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-[opacity,height] duration-100 ease-out"
       style={{
         opacity,
         height: `${height}px`,

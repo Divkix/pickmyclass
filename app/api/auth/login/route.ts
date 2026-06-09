@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { loginSchema } from '@/lib/api/schemas';
+import { log } from '@/lib/log';
 import { mapValidationIssues } from '@/lib/api/validation';
 import {
   checkLockoutStatus,
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[Auth Login] Unexpected error:', err);
+    log('Auth').error('Unexpected error:', err);
     return NextResponse.json({ error: 'Failed to sign in' }, { status: 500 });
   }
 }

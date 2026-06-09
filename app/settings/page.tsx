@@ -231,7 +231,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <DeleteAccountModal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} />
+      <DeleteAccountModal open={showDeleteModal} onOpenChange={setShowDeleteModal} />
     </div>
   );
 }

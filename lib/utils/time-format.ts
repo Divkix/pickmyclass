@@ -63,3 +63,39 @@ export function formatRelativeDate(dateString: string | null): string | null {
 
   return null;
 }
+
+/**
+ * Format a timestamp to a human-readable relative time string.
+ * Returns null for timestamps older than 7 days.
+ *
+ * @param format - 'short' produces "5m ago", 'long' produces "5 minutes ago" (default: 'long')
+ */
+export function formatRelative(
+  timestamp: string | null,
+  format: 'short' | 'long' = 'long'
+): string | null {
+  if (!timestamp) return null;
+
+  const now = new Date();
+  const then = new Date(timestamp);
+  const diffMs = now.getTime() - then.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays >= 7) return null;
+
+  if (format === 'short') {
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  }
+
+  // long format
+  if (diffMins < 1) return 'Just now';
+  if (diffHours === 0) return diffMins === 1 ? '1 minute ago' : `${diffMins} minutes ago`;
+  if (diffHours < 24) return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+  if (diffDays === 1) return 'Yesterday';
+  return `${diffDays} days ago`;
+}

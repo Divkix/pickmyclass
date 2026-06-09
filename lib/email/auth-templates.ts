@@ -1,3 +1,5 @@
+import { escapeHtml } from '@/lib/utils/escape-html';
+
 type SupabaseAuthEmailAction = 'signup' | 'recovery' | 'email_change' | 'invite' | 'magiclink';
 
 export interface SupabaseSendEmailHookPayload {
@@ -80,15 +82,6 @@ const contentByAction: Record<SupabaseAuthEmailAction, MessageContent> = {
     button: 'Sign in',
   },
 };
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function getActionType(actionType: string): SupabaseAuthEmailAction {
   if (

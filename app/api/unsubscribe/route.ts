@@ -6,17 +6,11 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { unsubscribeTokenSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token';
+import { log } from '@/lib/log';
 import { getServiceClient } from '@/lib/supabase/service';
-
-/**
- * Validation schema for token query parameter
- */
-const tokenSchema = z.object({
-  token: z.string().min(1, 'Token is required'),
-});
 
 /**
  * GET handler for web-based unsubscribe
@@ -29,7 +23,7 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get('token');
 
   // Validate token parameter
-  const validation = tokenSchema.safeParse({ token });
+  const validation = unsubscribeTokenSchema.safeParse({ token });
 
   if (!validation.success) {
     return new NextResponse(
@@ -116,11 +110,11 @@ export async function GET(request: NextRequest) {
       .eq('user_id', userId);
 
     if (error) {
-      console.error('[Unsubscribe] Database error:', error);
+      log('Unsubscribe').error('Database error:', error);
       throw error;
     }
 
-    console.log(`[Unsubscribe] User ${userId} unsubscribed successfully`);
+    log('Unsubscribe').info(`User ${userId} unsubscribed successfully`);
 
     return new NextResponse(
       `
@@ -162,7 +156,7 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error) {
-    console.error('[Unsubscribe] Error processing unsubscribe:', error);
+    log('Unsubscribe').error('Error processing unsubscribe:', error);
 
     return new NextResponse(
       `
@@ -208,7 +202,7 @@ export async function POST(request: NextRequest) {
   const token = searchParams.get('token');
 
   // Validate token parameter
-  const validation = tokenSchema.safeParse({ token });
+  const validation = unsubscribeTokenSchema.safeParse({ token });
 
   if (!validation.success) {
     return NextResponse.json(
@@ -244,15 +238,15 @@ export async function POST(request: NextRequest) {
       .eq('user_id', userId);
 
     if (error) {
-      console.error('[Unsubscribe] Database error:', error);
+      log('Unsubscribe').error('Database error:', error);
       throw error;
     }
 
-    console.log(`[Unsubscribe] User ${userId} unsubscribed via POST`);
+    log('Unsubscribe').info(`User ${userId} unsubscribed via POST`);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[Unsubscribe] Error processing unsubscribe:', error);
+    log('Unsubscribe').error('Error processing unsubscribe:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

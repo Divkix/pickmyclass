@@ -152,7 +152,7 @@ describe('POST /api/queue/process-section', () => {
         subject: 'CSE',
         catalog_nbr: '110',
         title: 'Intro to Programming',
-        instructor: 'Dr. Smith',
+        instructor_name: 'Dr. Smith',
         seats_available: 5,
         seats_capacity: 30,
         non_reserved_seats: null,
@@ -206,7 +206,7 @@ describe('POST /api/queue/process-section', () => {
         subject: 'CSE',
         catalog_nbr: '110',
         title: 'Intro to Programming',
-        instructor: 'Dr. Johnson', // Not 'Staff'
+        instructor_name: 'Dr. Johnson', // Not 'Staff'
         seats_available: 0, // No seats available
         seats_capacity: 30,
         non_reserved_seats: null,
@@ -255,7 +255,7 @@ describe('POST /api/queue/process-section', () => {
         subject: 'CSE',
         catalog_nbr: '110',
         title: 'Intro to Programming',
-        instructor: 'Dr. Smith', // Not 'Staff'
+        instructor_name: 'Dr. Smith', // Not 'Staff'
         seats_available: 5,
         seats_capacity: 30,
         non_reserved_seats: null,
@@ -309,7 +309,7 @@ describe('POST /api/queue/process-section', () => {
         subject: 'CSE',
         catalog_nbr: '110',
         title: 'Intro to Programming',
-        instructor: 'Staff',
+        instructor_name: 'Staff',
         seats_available: 0,
         seats_capacity: 30,
         non_reserved_seats: null,
@@ -366,7 +366,7 @@ describe('POST /api/queue/process-section', () => {
         subject: 'CSE',
         catalog_nbr: '110',
         title: 'Intro to Programming',
-        instructor: 'Staff',
+        instructor_name: 'Staff',
         seats_available: 0,
         seats_capacity: 30,
         non_reserved_seats: null,
@@ -406,7 +406,7 @@ describe('POST /api/queue/process-section', () => {
         subject: 'CSE',
         catalog_nbr: '110',
         title: 'Intro to Programming',
-        instructor: 'Dr. Smith',
+        instructor_name: 'Dr. Smith',
         seats_available: 5,
         seats_capacity: 30,
         non_reserved_seats: null,
@@ -454,7 +454,7 @@ describe('POST /api/queue/process-section', () => {
         subject: 'CSE',
         catalog_nbr: '110',
         title: 'Intro to Programming',
-        instructor: 'Dr. Smith', // Not 'Staff'
+        instructor_name: 'Dr. Smith', // Not 'Staff'
         seats_available: 0, // No seats available
         seats_capacity: 30,
         non_reserved_seats: null,
@@ -504,7 +504,7 @@ describe('POST /api/queue/process-section', () => {
         subject: 'CSE',
         catalog_nbr: '110',
         title: 'Intro to Programming',
-        instructor: 'Dr. Smith',
+        instructor_name: 'Dr. Smith',
         seats_available: 5,
         seats_capacity: 30,
         non_reserved_seats: null,
@@ -546,7 +546,7 @@ describe('POST /api/queue/process-section', () => {
         subject: 'CSE',
         catalog_nbr: '110',
         title: 'Intro to Programming',
-        instructor: 'Dr. Smith',
+        instructor_name: 'Dr. Smith',
         seats_available: 5,
         seats_capacity: 30,
         non_reserved_seats: null,
@@ -601,7 +601,7 @@ describe('POST /api/queue/process-section', () => {
         subject: 'CSE',
         catalog_nbr: '110',
         title: 'Intro to Programming',
-        instructor: 'Staff', // No instructor change
+        instructor_name: 'Staff', // No instructor change
         seats_available: 5,
         seats_capacity: 30,
         non_reserved_seats: null,
@@ -646,7 +646,7 @@ describe('POST /api/queue/process-section', () => {
         subject: 'CSE',
         catalog_nbr: '110',
         title: 'Intro to Programming',
-        instructor: 'Dr. Smith',
+        instructor_name: 'Dr. Smith',
         seats_available: 5,
         seats_capacity: 30,
         non_reserved_seats: null,

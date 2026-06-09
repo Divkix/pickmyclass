@@ -8,7 +8,7 @@ function mockClassDetails(overrides: Partial<ClassDetails> = {}): ClassDetails {
     subject: 'CSE',
     catalog_nbr: '110',
     title: 'Principles of Programming',
-    instructor: 'Staff',
+    instructor_name: 'Staff',
     seats_available: 0,
     seats_capacity: 100,
     non_reserved_seats: null,
@@ -106,7 +106,7 @@ describe('detectChanges', () => {
     const oldState = mockOldState({ instructor_name: 'Staff' });
     const result = detectChanges(
       oldState,
-      mockClassDetails({ instructor: 'Dr. Smith', seats_available: 2, non_reserved_seats: 1 })
+      mockClassDetails({ instructor_name: 'Dr. Smith', seats_available: 2, non_reserved_seats: 1 })
     );
 
     expect(result).toEqual({
@@ -119,7 +119,7 @@ describe('detectChanges', () => {
 
   it('old named instructor to new named instructor does not set instructorAssigned', () => {
     const oldState = mockOldState({ instructor_name: 'Dr. Smith' });
-    const result = detectChanges(oldState, mockClassDetails({ instructor: 'Prof. Johnson' }));
+    const result = detectChanges(oldState, mockClassDetails({ instructor_name: 'Prof. Johnson' }));
 
     expect(result.instructorAssigned).toBe(false);
   });
@@ -128,7 +128,7 @@ describe('detectChanges', () => {
     const oldState = mockOldState({ non_reserved_seats: 0, instructor_name: 'Staff' });
     const result = detectChanges(
       oldState,
-      mockClassDetails({ seats_available: 10, non_reserved_seats: 5, instructor: 'Dr. Smith' })
+      mockClassDetails({ seats_available: 10, non_reserved_seats: 5, instructor_name: 'Dr. Smith' })
     );
 
     expect(result).toEqual({
@@ -164,7 +164,7 @@ describe('detectChanges', () => {
     const oldState = mockOldState({ instructor_name: 'Staff' });
     const result = detectChanges(
       oldState,
-      mockClassDetails({ instructor: undefined as unknown as string })
+      mockClassDetails({ instructor_name: undefined as unknown as string })
     );
 
     expect(result.instructorAssigned).toBe(false);

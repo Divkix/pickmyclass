@@ -5,22 +5,8 @@
  * User-provided data is escaped to prevent XSS attacks.
  */
 
-import type { ClassInfo } from '../types';
-
-/**
- * Escape HTML entities to prevent XSS attacks
- *
- * Converts special characters to HTML entities.
- * This is a lightweight alternative to DOMPurify for simple text sanitization.
- */
-function sanitize(dirty: string): string {
-  return dirty
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+import type { ClassInfo } from '@/lib/types/class';
+import { escapeHtml } from '@/lib/utils/escape-html';
 
 /**
  * Sanitize class information for use in email templates
@@ -41,13 +27,13 @@ interface SanitizedClassInfo {
 
 function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
   // Sanitize all user-provided data
-  const safeSubject = sanitize(classInfo.subject);
-  const safeCatalogNbr = sanitize(classInfo.catalog_nbr);
-  const safeTitle = sanitize(classInfo.title);
-  const safeClassNbr = sanitize(classInfo.class_nbr);
-  const safeInstructor = sanitize(classInfo.instructor_name);
-  const safeLocation = classInfo.location ? sanitize(classInfo.location) : null;
-  const safeMeetingTimes = classInfo.meeting_times ? sanitize(classInfo.meeting_times) : null;
+  const safeSubject = escapeHtml(classInfo.subject);
+  const safeCatalogNbr = escapeHtml(classInfo.catalog_nbr);
+  const safeTitle = escapeHtml(classInfo.title);
+  const safeClassNbr = escapeHtml(classInfo.class_nbr);
+  const safeInstructor = escapeHtml(classInfo.instructor_name);
+  const safeLocation = classInfo.location ? escapeHtml(classInfo.location) : null;
+  const safeMeetingTimes = classInfo.meeting_times ? escapeHtml(classInfo.meeting_times) : null;
 
   // Term and class_nbr are used in URLs - validate format (numbers only)
   const safeTerm = classInfo.term.replace(/[^0-9]/g, '');
@@ -86,7 +72,7 @@ function getEmailFooter(unsubscribeUrl?: string): string {
   }
 
   // Sanitize unsubscribe URL to prevent XSS in query params
-  const safeUnsubscribeUrl = sanitize(unsubscribeUrl);
+  const safeUnsubscribeUrl = escapeHtml(unsubscribeUrl);
 
   return `
     <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">

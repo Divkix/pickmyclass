@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
+import { log } from '@/lib/log';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
 import { invalidateProfileCache } from '@/proxy';
@@ -16,13 +18,13 @@ export async function DELETE() {
   try {
     const supabase = await createClient();
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let user: Awaited<ReturnType<typeof requireUser>>['user'];
+    try {
+      ({ user } = await requireUser(supabase));
+    } catch (e) {
+      if (e instanceof UnauthorizedError)
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      throw e;
     }
 
     const deletionTimestamp = new Date().toISOString();
@@ -40,7 +42,7 @@ export async function DELETE() {
       .eq('user_id', user.id);
 
     if (updateError) {
-      console.error('Error disabling account:', updateError);
+      log('User').error('Error disabling account:', updateError);
       return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 });
     }
 
@@ -51,7 +53,7 @@ export async function DELETE() {
     const { error: signOutError } = await supabase.auth.signOut();
 
     if (signOutError) {
-      console.error('Error signing out:', signOutError);
+      log('User').error('Error signing out:', signOutError);
       // Don't fail the request if sign out fails
     }
 
@@ -63,7 +65,7 @@ export async function DELETE() {
       permanent_deletion_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     });
   } catch (error) {
-    console.error('Delete account error:', error);
+    log('User').error('Delete account error:', error);
     return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 });
   }
 }

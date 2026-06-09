@@ -110,3 +110,8 @@ export const registerSchema = z.object({
 export const checkLockoutSchema = z.object({
   email: emailSchema,
 });
+
+/** Schema for unsubscribe token query/body parameter */
+export const unsubscribeTokenSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+});

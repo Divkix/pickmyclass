@@ -7,7 +7,8 @@
  */
 
 import { deleteNotificationRecords, tryRecordNotificationsBatch } from '@/lib/db/queries';
-import { type ClassInfo, sendBatchEmailsOptimized } from '@/lib/email/send';
+import { type ClassInfo, type OutboundEmail, sendBatchEmailsOptimized } from '@/lib/email/send';
+import { log } from '@/lib/log';
 import type { ChangeResult } from '@/lib/queue/change-detector';
 import { getServiceClient } from '@/lib/supabase/service';
 
@@ -60,16 +61,15 @@ export async function sendSectionNotifications(
   );
 
   if (watchersError) {
-    console.error(`[NotificationSender] Error fetching watchers for ${classNbr}:`, watchersError);
-    return [];
+    throw new Error(`Failed to fetch watchers for ${classNbr}: ${watchersError.message}`);
   }
 
   if (!watchers || watchers.length === 0) {
-    console.log(`[NotificationSender] No watchers found for ${classNbr}`);
+    log('NotificationSender').info(`No watchers found for ${classNbr}`);
     return [];
   }
 
-  console.log(`[NotificationSender] Found ${watchers.length} watchers for ${classNbr}`);
+  log('NotificationSender').info(`Found ${watchers.length} watchers for ${classNbr}`);
 
   const allWatchIds = watchers.map((w: Watcher) => w.watch_id);
 
@@ -99,13 +99,7 @@ export async function sendSectionNotifications(
     : new Set<string>();
 
   // Step 3: Construct email payloads
-  const emailsToSend: Array<{
-    to: string;
-    userId: string;
-    watchId: string;
-    classInfo: ClassInfo;
-    type: 'seat_available' | 'instructor_assigned';
-  }> = [];
+  const emailsToSend: Array<OutboundEmail & { watchId: string }> = [];
 
   for (const watcher of watchers as Watcher[]) {
     if (claimedSeatIds.has(watcher.watch_id)) {
@@ -129,8 +123,8 @@ export async function sendSectionNotifications(
   }
 
   if (emailsToSend.length === 0) {
-    console.log(
-      `[NotificationSender] No emails to send for ${classNbr}` +
+    log('NotificationSender').info(
+      `No emails to send for ${classNbr}` +
         ` (seat: ${claimedSeatIds.size}, instructor: ${claimedInstructorIds.size})`
     );
     return [];
@@ -162,8 +156,8 @@ export async function sendSectionNotifications(
         await deleteNotificationRecords(failedInstructorWatchIds, 'instructor_assigned');
       }
     } catch (rollbackError) {
-      console.error(
-        `[NotificationSender] Failed to rollback notification records for ${classNbr}:`,
+      log('NotificationSender').error(
+        `Failed to rollback notification records for ${classNbr}:`,
         rollbackError
       );
       throw rollbackError;
@@ -181,8 +175,8 @@ export async function sendSectionNotifications(
       p_user_id: userId,
     });
     if (engagementError) {
-      console.warn(
-        `[NotificationSender] Failed to record engagement for user ${userId}:`,
+      log('NotificationSender').warn(
+        `Failed to record engagement for user ${userId}:`,
         engagementError
       );
     }
@@ -198,11 +192,11 @@ export async function sendSectionNotifications(
   const successCount = sentResults.filter((r) => r.success).length;
   const failCount = sentResults.length - successCount;
   if (failCount > 0) {
-    console.warn(
-      `[NotificationSender] ${failCount}/${sentResults.length} notifications failed for ${classNbr}`
+    log('NotificationSender').warn(
+      `${failCount}/${sentResults.length} notifications failed for ${classNbr}`
     );
   } else {
-    console.log(`[NotificationSender] Sent ${successCount} notifications for ${classNbr}`);
+    log('NotificationSender').info(`Sent ${successCount} notifications for ${classNbr}`);
   }
 
   return sentResults;

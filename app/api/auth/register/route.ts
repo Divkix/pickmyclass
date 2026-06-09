@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { registerSchema } from '@/lib/api/schemas';
+import { log } from '@/lib/log';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { isDisposableEmail } from '@/lib/auth/disposable-email';
 import { createClient } from '@/lib/supabase/server';
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (error) {
       // Fail open - if KV is unavailable, allow signup
-      console.warn('[Register] Failed to check disposable domain, failing open:', error);
+      log('Register').warn('Failed to check disposable domain, failing open:', error);
     }
 
     const siteUrl = env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin || 'https://pickmyclass.app';
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[Auth Register] Unexpected error:', err);
+    log('Auth').error('Unexpected error:', err);
     return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
   }
 }

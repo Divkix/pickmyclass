@@ -6,11 +6,11 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useSwipe } from '@/lib/hooks/useSwipe';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
-import { ClassDetailsDialog } from './ClassDetailsDialog';
-import { ClassStateIndicator } from './ClassStateIndicator';
-import { DeleteConfirmDialog } from './DeleteConfirmDialog';
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { ClassDetailsDialog } from '@/components/ClassDetailsDialog';
+import { ClassStateIndicator } from '@/components/ClassStateIndicator';
+import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ClassWatchCardProps {
   watch: ClassWatchRow;
@@ -148,7 +148,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
       <div className="relative overflow-hidden rounded-xl">
         {/* Delete indicator (revealed on swipe) */}
         {swipeOffset < -10 && (
-          <div className="absolute inset-0 flex items-center justify-end pr-6 bg-red-500 rounded-xl">
+          <div className="absolute inset-0 flex items-center justify-end pr-6 bg-destructive rounded-xl">
             <div className="flex items-center gap-2 text-white">
               <Trash2 className="size-5" />
               <span className="font-semibold">Delete</span>

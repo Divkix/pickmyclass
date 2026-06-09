@@ -17,10 +17,10 @@ import { Label } from '@/components/ui/label';
 
 interface DeleteAccountModalProps {
   open: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function DeleteAccountModal({ open, onClose }: DeleteAccountModalProps) {
+export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalProps) {
   const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +59,7 @@ export function DeleteAccountModal({ open, onClose }: DeleteAccountModalProps) {
     if (!loading) {
       setConfirmText('');
       setError(null);
-      onClose();
+      onOpenChange(false);
     }
   };
 

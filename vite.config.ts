@@ -24,7 +24,7 @@ export default defineConfig({
   },
   lint: {
     jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }],
-    rules: { 'vite-plus/prefer-vite-plus-imports': 'error' },
+    rules: { 'vite-plus/prefer-vite-plus-imports': 'error', 'no-console': 'warn' },
     ignorePatterns: ['**/cloudflare-env.d.ts', 'lib/supabase/database.types.ts', 'worker.ts'],
     options: { typeAware: true, typeCheck: true },
   },

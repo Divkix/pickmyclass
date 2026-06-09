@@ -205,7 +205,7 @@ describe('interactive components', () => {
 
   it('requires explicit confirmation before deleting an account', async () => {
     const onClose = vi.fn();
-    render(<DeleteAccountModal open onClose={onClose} />);
+    render(<DeleteAccountModal open onOpenChange={onClose} />);
 
     expect(screen.getByRole('button', { name: /delete account/i })).toBeDisabled();
     fireEvent.change(screen.getByLabelText(/type delete to confirm/i), {
@@ -225,7 +225,7 @@ describe('interactive components', () => {
       json: () => Promise.resolve({ error: 'Deletion failed' }),
     } as Response);
     const onClose = vi.fn();
-    render(<DeleteAccountModal open onClose={onClose} />);
+    render(<DeleteAccountModal open onOpenChange={onClose} />);
 
     fireEvent.change(screen.getByLabelText(/type delete to confirm/i), {
       target: { value: 'DELETE' },
