@@ -69,7 +69,7 @@ const mockClassDetails = {
   subject: 'CSE',
   catalog_nbr: '240',
   title: 'Intro to Programming',
-  instructor: 'John Doe',
+  instructor_name: 'John Doe',
   seats_available: 10,
   seats_capacity: 50,
   non_reserved_seats: null,
@@ -430,10 +430,12 @@ describe('/api/class-watches', () => {
         })
       );
       expect(mockServiceUpsert).toHaveBeenCalledWith(
-        expect.not.objectContaining({
-          last_changed_at: expect.any(String),
+        expect.objectContaining({
+          class_nbr: '12345',
+          term: '2264',
+          last_checked_at: expect.any(String),
         }),
-        { onConflict: 'class_nbr' }
+        { onConflict: 'class_nbr,term' }
       );
     });
   });

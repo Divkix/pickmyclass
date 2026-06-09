@@ -129,7 +129,7 @@ describe('/api/fetch-class-details', () => {
         class_nbr: '12345',
         non_reserved_seats: 3,
       }),
-      { onConflict: 'class_nbr' }
+      { onConflict: 'class_nbr,term' }
     );
   });
 
