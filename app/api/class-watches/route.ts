@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import { ok, fail } from '@/lib/api/response';
 import { createClassWatchSchema, deleteClassWatchSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
@@ -231,7 +231,7 @@ export async function DELETE(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json({ success: true });
+    return ok(undefined);
   } catch (error) {
     log('API').error('Error deleting class watch:', error);
     return fail('Failed to delete class watch', 500);

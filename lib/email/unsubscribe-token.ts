@@ -31,6 +31,7 @@ function getSigningSecret(): string {
  */
 export function generateUnsubscribeToken(
   userId: string,
+  // Default to UNSUBSCRIBE_TOKEN_EXPIRY_DAYS (90 days) to preserve backward compatibility
   expiresInDays = UNSUBSCRIBE_TOKEN_EXPIRY_DAYS
 ): string {
   const expiresAt = Date.now() + expiresInDays * 24 * 60 * 60 * 1000;

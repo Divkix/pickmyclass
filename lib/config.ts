@@ -18,7 +18,7 @@ export const ADMIN_CACHE_TTL_MS = 600_000;
 /** Disposable-email KV cache TTL: 1 hour */
 export const DISPOSABLE_EMAIL_CACHE_TTL_MS = 60 * 60 * 1000;
 
-/** Unsubscribe token validity window in days */
+/** Unsubscribe token validity window in days. Must be 90 to preserve backward compatibility. */
 export const UNSUBSCRIBE_TOKEN_EXPIRY_DAYS = 90;
 
 /** Max emails sent per batch */

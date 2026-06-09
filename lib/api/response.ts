@@ -6,14 +6,15 @@ import { NextResponse } from 'next/server';
  * Spreads data at the top level for backward compatibility with consumers
  * that read fields directly (e.g. `data.watches`).
  */
-export function ok<T extends Record<string, unknown> | null | undefined>(
+export function ok<T extends (Record<string, unknown> & { success?: never }) | null | undefined>(
   data: T,
   init?: ResponseInit
 ): NextResponse {
   if (data == null) {
     return NextResponse.json({ success: true }, init);
   }
-  return NextResponse.json({ success: true, ...data }, init);
+  const responseData: Record<string, unknown> = { ...data, success: true };
+  return NextResponse.json(responseData, init);
 }
 
 /**
