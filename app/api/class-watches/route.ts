@@ -39,13 +39,15 @@ export async function GET() {
     if (watchesError) throw watchesError;
 
     const classNumbers = watches?.map((w) => w.class_nbr) || [];
+    const terms = Array.from(new Set(watches?.map((w) => w.term) || []));
 
     let classStates: ClassStateRow[] = [];
     if (classNumbers.length > 0) {
       const { data: states, error: statesError } = await supabase
         .from('class_states')
         .select('*')
-        .in('class_nbr', classNumbers);
+        .in('class_nbr', classNumbers)
+        .in('term', terms);
 
       if (statesError) throw statesError;
       classStates = states || [];
@@ -53,7 +55,7 @@ export async function GET() {
 
     const statesMap = classStates.reduce(
       (acc, state) => {
-        acc[state.class_nbr] = state;
+        acc[`${state.term}:${state.class_nbr}`] = state;
         return acc;
       },
       {} as Record<string, ClassStateRow>
@@ -61,7 +63,7 @@ export async function GET() {
 
     const watchesWithStates = watches?.map((watch) => ({
       ...watch,
-      class_state: statesMap[watch.class_nbr] || null,
+      class_state: statesMap[`${watch.term}:${watch.class_nbr}`] || null,
     }));
 
     return ok({ watches: watchesWithStates, maxWatches: MAX_WATCHES_PER_USER });

@@ -66,8 +66,9 @@ describe('sendSectionNotifications', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    // Note: log(scope).info/warn → console.warn; log(scope).error → console.error
+    // Note: log(scope).info → console.info; log(scope).warn → console.warn; log(scope).error → console.error
 
     // Fresh email binding per test
     emailBinding = {
@@ -120,7 +121,7 @@ describe('sendSectionNotifications', () => {
     const result = await sendSectionNotifications(defaultParams());
 
     expect(result).toEqual([]);
-    expect(console.warn).toHaveBeenCalledWith(
+    expect(console.info).toHaveBeenCalledWith(
       '[NotificationSender]',
       'No watchers found for 42737'
     );

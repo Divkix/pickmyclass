@@ -11,7 +11,7 @@ export function log(scope: string): {
   error(...args: unknown[]): void;
 } {
   return {
-    info: (...args: unknown[]) => console.warn(`[${scope}]`, ...args),
+    info: (...args: unknown[]) => console.info(`[${scope}]`, ...args),
     warn: (...args: unknown[]) => console.warn(`[${scope}]`, ...args),
     error: (...args: unknown[]) => console.error(`[${scope}]`, ...args),
   };

@@ -7,7 +7,7 @@
 
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from './templates';
 import type { ClassInfo } from '@/lib/types/class';
-import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE } from '@/lib/config';
+import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE, NOTIFICATION_FROM_EMAIL } from '@/lib/config';
 import { log } from '@/lib/log';
 import { generateUnsubscribeUrl } from './unsubscribe-token';
 
@@ -57,7 +57,7 @@ export async function sendBatchEmailsOptimized(
     return [];
   }
 
-  const fromEmail = options.fromEmail || 'notifications@pickmyclass.app';
+  const fromEmail = options.fromEmail || NOTIFICATION_FROM_EMAIL;
 
   const results: EmailResult[] = [];
 

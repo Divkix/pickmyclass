@@ -110,7 +110,11 @@ const setupMockChain = () => {
     order: mockOrder,
   });
   mockOrder.mockReturnValue(Promise.resolve({ data: [], error: null }));
-  mockIn.mockReturnValue(Promise.resolve({ data: [], error: null }));
+  mockIn.mockImplementation(() => {
+    const p = Promise.resolve({ data: [], error: null }) as any;
+    p.in = () => p;
+    return p;
+  });
   // Delete chain: .delete().eq(id).eq(user_id)
   mockDeleteEqChain.mockResolvedValue({ error: null });
   mockDelete.mockReturnValue({
@@ -221,7 +225,11 @@ describe('/api/class-watches', () => {
     it('should return watches with joined class states', async () => {
       mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
       mockOrder.mockResolvedValue({ data: [mockWatch], error: null });
-      mockIn.mockResolvedValue({ data: [mockClassState], error: null });
+      mockIn.mockImplementation(() => {
+        const p = Promise.resolve({ data: [mockClassState], error: null }) as any;
+        p.in = () => p;
+        return p;
+      });
 
       const response = await GET();
       const data = await parseGetResponse(response);

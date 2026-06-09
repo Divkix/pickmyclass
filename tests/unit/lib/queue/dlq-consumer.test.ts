@@ -34,6 +34,7 @@ describe('handleDLQMessage', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});
     mockSend.mockResolvedValue(undefined);
   });
@@ -81,7 +82,7 @@ describe('handleDLQMessage', () => {
         subject: expect.stringContaining('42737'),
       })
     );
-    expect(console.warn).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('Alert email sent'));
+    expect(console.info).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('Alert email sent'));
   });
 
   it('uses configured sender for alert emails', async () => {
@@ -104,7 +105,7 @@ describe('handleDLQMessage', () => {
     await handleDLQMessage(buildMessage(), mockEmailBinding);
 
     expect(console.error).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('42737'));
-    expect(console.warn).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('0 watchers'));
+    expect(console.info).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('0 watchers'));
   });
 
   it('handles Supabase errors gracefully without throwing', async () => {

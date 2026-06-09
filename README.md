@@ -214,6 +214,7 @@ wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 wrangler secret put ASU_API_BASE_URL
 wrangler secret put ASU_API_TOKEN
 wrangler secret put CRON_SECRET
+wrangler secret put UNSUBSCRIBE_SIGNING_SECRET
 ```
 
 ### 6. Deploy

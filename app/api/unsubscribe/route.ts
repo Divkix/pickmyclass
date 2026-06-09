@@ -6,11 +6,20 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { unsubscribeTokenSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token';
 import { log } from '@/lib/log';
 import { getServiceClient } from '@/lib/supabase/service';
+
+/**
+ * Redacts a user identifier by hashing it to produce a consistent,
+ * non-reversible token for safe logging and tracing.
+ */
+function redactIdentifier(userId: string): string {
+  return createHash('sha256').update(userId).digest('hex');
+}
 
 /**
  * GET handler for web-based unsubscribe
@@ -114,7 +123,7 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    log('Unsubscribe').info(`User ${userId} unsubscribed successfully`);
+    log('Unsubscribe').info(`User ${redactIdentifier(userId)} unsubscribed successfully`);
 
     return new NextResponse(
       `
@@ -242,7 +251,7 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    log('Unsubscribe').info(`User ${userId} unsubscribed via POST`);
+    log('Unsubscribe').info(`User ${redactIdentifier(userId)} unsubscribed via POST`);
 
     return NextResponse.json({ success: true });
   } catch (error) {
