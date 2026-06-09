@@ -6,6 +6,7 @@
  */
 
 import type { ClassInfo } from '@/lib/types/class';
+import { DEFAULT_SITE_URL } from '@/lib/config';
 import { escapeHtml } from '@/lib/utils/escape-html';
 
 /**
@@ -40,7 +41,7 @@ function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
   const safeClassNbrUrl = classInfo.class_nbr.replace(/[^0-9]/g, '');
 
   // Use internal redirect URL to match sending domain (improves email deliverability)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
   const catalogUrl = `${siteUrl}/go/asu?classNbr=${safeClassNbrUrl}&term=${safeTerm}`;
 
   return {

@@ -6,6 +6,8 @@
  * Fails open on any infrastructure failure — email verification is the safety net.
  */
 
+import { DISPOSABLE_EMAIL_CACHE_TTL_MS } from '@/lib/config';
+
 export interface DisposableCheckResult {
   disposable: boolean;
 }
@@ -68,7 +70,7 @@ export function isTrustedDomain(domain: string): boolean {
 // Module-level cache for domain blocklist
 let cachedDomains: Set<string> | null = null;
 let cacheTimestamp = 0;
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL_MS = DISPOSABLE_EMAIL_CACHE_TTL_MS;
 
 /**
  * Reset the module-level domain cache.

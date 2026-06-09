@@ -9,11 +9,12 @@
 
 import type { User } from '@supabase/supabase-js';
 import { TtlCache } from '@/lib/cache/ttl-cache';
+import { ADMIN_CACHE_TTL_MS } from '@/lib/config';
 import { log } from '@/lib/log';
 import type { Tables } from '@/lib/supabase/database.types';
 import { getServiceClient } from '@/lib/supabase/service';
 
-const adminCache = new TtlCache<unknown>(600_000);
+const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS);
 
 /**
  * Email notification counts (seat and instructor)

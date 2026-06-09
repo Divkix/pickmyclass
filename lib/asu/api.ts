@@ -6,6 +6,7 @@
  */
 
 import { TtlCache } from '@/lib/cache/ttl-cache';
+import { ASU_CACHE_TTL_MS } from '@/lib/config';
 
 // --- Error Classes ---
 
@@ -80,7 +81,7 @@ interface AsuApiResponse {
 
 const CLASS_SEARCH_ENDPOINT_PATH = '/search/classes';
 
-const asuApiCache = new TtlCache<ClassDetails>(2 * 60 * 1000);
+const asuApiCache = new TtlCache<ClassDetails>(ASU_CACHE_TTL_MS);
 
 /** Clear the in-memory ASU API cache. Exposed for test isolation. */
 export function clearAsuApiCache(): void {

@@ -7,6 +7,7 @@
 
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from './templates';
 import type { ClassInfo } from '@/lib/types/class';
+import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE } from '@/lib/config';
 import { log } from '@/lib/log';
 import { generateUnsubscribeUrl } from './unsubscribe-token';
 
@@ -116,8 +117,8 @@ export async function sendBatchEmailsOptimized(
     }
 
     // Small delay between sends when batch is large (avoid rate limits)
-    if (emails.length > 10 && i < emails.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 75));
+    if (emails.length > EMAIL_BATCH_SIZE && i < emails.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, EMAIL_BATCH_DELAY_MS));
     }
   }
 

@@ -212,7 +212,7 @@ export async function upsertClassState(
       meeting_times: details.meeting_times || null,
       last_checked_at: new Date().toISOString(),
     },
-    { onConflict: 'class_nbr' }
+    { onConflict: 'class_nbr,term' }
   );
 
   if (error) {

@@ -6,6 +6,7 @@
  */
 
 import { createHmac } from 'node:crypto';
+import { DEFAULT_SITE_URL, UNSUBSCRIBE_TOKEN_EXPIRY_DAYS } from '@/lib/config';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
@@ -28,7 +29,10 @@ function getSigningSecret(): string {
  * Token format: base64(userId:expiresAt:signature)
  * Expires in 90 days by default
  */
-export function generateUnsubscribeToken(userId: string, expiresInDays = 90): string {
+export function generateUnsubscribeToken(
+  userId: string,
+  expiresInDays = UNSUBSCRIBE_TOKEN_EXPIRY_DAYS
+): string {
   const expiresAt = Date.now() + expiresInDays * 24 * 60 * 60 * 1000;
   const payload = `${userId}:${expiresAt}`;
 
@@ -90,6 +94,6 @@ export function verifyUnsubscribeToken(token: string): string | null {
  */
 export function generateUnsubscribeUrl(userId: string, baseUrl?: string): string {
   const token = generateUnsubscribeToken(userId);
-  const url = baseUrl || process.env.NEXT_PUBLIC_SITE_URL || 'https://pickmyclass.app';
+  const url = baseUrl || process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
   return `${url}/api/unsubscribe?token=${token}`;
 }
