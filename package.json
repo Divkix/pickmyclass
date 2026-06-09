@@ -21,7 +21,7 @@
     "test:run": "vp test run",
     "test:coverage": "vp test run --coverage",
     "test:ui": "vp test --ui",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit && tsc -p tsconfig.worker.json --noEmit",
     "generate:og": "bun run scripts/generate-og-image.ts",
     "prepare": "vp config"
   },
