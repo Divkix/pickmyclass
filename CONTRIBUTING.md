@@ -78,16 +78,19 @@ git commit -m "docs: update self-hosting guide with queue setup"
 
 ### Code Style
 
-We use [Biome](https://biomejs.dev/) for linting and formatting:
+We use [Vite+](https://viteplus.dev/) (Oxlint + Oxfmt) for linting and formatting:
 
 ```bash
-# Check for issues
-bun run lint
+# Check and auto-fix everything (format + lint + typecheck)
+bun run check:fix
 
-# Auto-fix issues
+# Check only (no fixes)
+bun run check
+
+# Lint only
 bun run lint:fix
 
-# Format code
+# Format only
 bun run format
 ```
 
