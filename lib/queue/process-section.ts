@@ -12,6 +12,7 @@ import {
   NotFoundError,
   RateLimitError,
 } from '@/lib/asu/api';
+import { log } from '@/lib/log';
 import { resetNotificationsForSection } from '@/lib/db/queries';
 import type { ClassInfo } from '@/lib/types/class';
 import { type ChangeResult, detectChanges } from '@/lib/queue/change-detector';
@@ -145,7 +146,7 @@ export async function processSection(
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[ProcessSection] ✅ Completed ${classNbr} in ${duration}ms`);
+    log('ProcessSection').info(`✅ Completed ${classNbr} in ${duration}ms`);
 
     return {
       success: true,

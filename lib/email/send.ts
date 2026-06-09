@@ -7,6 +7,7 @@
 
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from './templates';
 import type { ClassInfo } from '@/lib/types/class';
+import { log } from '@/lib/log';
 import { generateUnsubscribeUrl } from './unsubscribe-token';
 
 export type { ClassInfo } from '@/lib/types/class';
@@ -121,7 +122,7 @@ export async function sendBatchEmailsOptimized(
   }
 
   const successCount = results.filter((r) => r.success).length;
-  console.log(`[Email] Batch complete: ${successCount}/${emails.length} sent successfully`);
+  log('Email').info(`Batch complete: ${successCount}/${emails.length} sent successfully`);
 
   return results;
 }
