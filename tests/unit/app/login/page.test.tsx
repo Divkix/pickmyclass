@@ -112,7 +112,8 @@ describe('LoginPage - Google OAuth loading state', () => {
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       status: 423,
-      json: () => Promise.resolve({ error: 'Locked', remainingMinutes: 1 }),
+      json: () =>
+        Promise.resolve({ success: false, error: 'Locked', details: { remainingMinutes: 1 } }),
     } as Response);
     fireEvent.submit(loginForm());
     expect(await screen.findByText(/Please try again in 1 minute\./i)).toBeInTheDocument();
@@ -120,7 +121,12 @@ describe('LoginPage - Google OAuth loading state', () => {
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       status: 401,
-      json: () => Promise.resolve({ error: 'Invalid email or password', remainingAttempts: 2 }),
+      json: () =>
+        Promise.resolve({
+          success: false,
+          error: 'Invalid email or password',
+          details: { remainingAttempts: 2 },
+        }),
     } as Response);
     fireEvent.submit(loginForm());
     expect(await screen.findByText(/2 attempts remaining/i)).toBeInTheDocument();

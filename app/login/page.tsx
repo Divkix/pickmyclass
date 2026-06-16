@@ -70,26 +70,31 @@ function LoginForm() {
       });
 
       type LoginResponse = {
+        success?: boolean;
         error?: string;
-        remainingMinutes?: number;
-        remainingAttempts?: number;
+        details?: {
+          isLocked?: boolean;
+          remainingMinutes?: number;
+          remainingAttempts?: number;
+        };
       };
 
       const data: LoginResponse = await response.json();
 
       if (!response.ok) {
-        if (response.status === 423 && data.remainingMinutes) {
-          const minutes = data.remainingMinutes || 15;
+        const details = data.details;
+        if (response.status === 423 && details?.remainingMinutes) {
+          const minutes = details.remainingMinutes || 15;
           setError(
             `Account locked due to too many failed login attempts. Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`
           );
         } else if (
-          typeof data.remainingAttempts === 'number' &&
-          data.remainingAttempts > 0 &&
-          data.remainingAttempts <= 3
+          typeof details?.remainingAttempts === 'number' &&
+          details.remainingAttempts > 0 &&
+          details.remainingAttempts <= 3
         ) {
           setError(
-            `${data.error || 'Invalid email or password'} (${data.remainingAttempts} attempt${data.remainingAttempts !== 1 ? 's' : ''} remaining)`
+            `${data.error || 'Invalid email or password'} (${details.remainingAttempts} attempt${details.remainingAttempts !== 1 ? 's' : ''} remaining)`
           );
         } else {
           setError(data.error || 'Failed to sign in');

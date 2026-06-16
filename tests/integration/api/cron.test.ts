@@ -58,12 +58,11 @@ describe('GET /api/cron', () => {
     // Assert: Should return success:false when batches fail
     const responseData = data as {
       success: boolean;
-      batches_failed: number;
-      batches_total: number;
+      details?: { batches_failed: number; batches_total: number };
     };
     expect(responseData.success).toBe(false);
-    expect(responseData.batches_failed).toBeGreaterThan(0);
-    expect(responseData.batches_total).toBeGreaterThan(0);
+    expect(responseData.details?.batches_failed).toBeGreaterThan(0);
+    expect(responseData.details?.batches_total).toBeGreaterThan(0);
   });
 
   it('returns success:true when all queue batches succeed', async () => {
@@ -159,15 +158,14 @@ describe('GET /api/cron', () => {
     const response = await GET(createRequest('Bearer test-cron-secret'));
     const data = await response.json();
 
-    // Assert: Retry also failed → success:false with batches_failed reported
+    // Assert: Retry also failed → success:false with batches_failed reported in details
     const responseData = data as {
       success: boolean;
-      batches_failed: number;
-      batches_total: number;
+      details?: { batches_failed: number; batches_total: number };
     };
     expect(responseData.success).toBe(false);
-    expect(responseData.batches_failed).toBe(1);
-    expect(responseData.batches_total).toBe(2);
+    expect(responseData.details?.batches_failed).toBe(1);
+    expect(responseData.details?.batches_total).toBe(2);
     // sendBatch was called 3 times: 2 first-pass + 1 retry
     expect(callCount).toBe(3);
   });

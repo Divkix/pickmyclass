@@ -1,7 +1,8 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import { loginSchema } from '@/lib/api/schemas';
 import { log } from '@/lib/log';
 import { mapValidationIssues } from '@/lib/api/validation';
+import { fail, ok } from '@/lib/api/response';
 import {
   checkLockoutStatus,
   clearFailedAttempts,
@@ -17,13 +18,7 @@ export async function POST(request: NextRequest) {
     const validation = loginSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json(
-        {
-          error: 'Invalid input',
-          details: mapValidationIssues(validation.error),
-        },
-        { status: 400 }
-      );
+      return fail('Invalid input', 400, mapValidationIssues(validation.error));
     }
 
     const email = validation.data.email.toLowerCase();
@@ -32,13 +27,13 @@ export async function POST(request: NextRequest) {
     const lockoutStatus = await checkLockoutStatus(email);
 
     if (lockoutStatus.isLocked) {
-      return NextResponse.json(
+      return fail(
+        'Account locked due to too many failed login attempts. Please try again later.',
+        423,
         {
-          error: 'Account locked due to too many failed login attempts. Please try again later.',
           isLocked: true,
           remainingMinutes: getRemainingLockoutTime(lockoutStatus.lockedUntil),
-        },
-        { status: 423 }
+        }
       );
     }
 
@@ -58,7 +53,7 @@ export async function POST(request: NextRequest) {
 
       if (profile?.is_disabled) {
         await supabase.auth.signOut();
-        return NextResponse.json({ error: 'Account has been disabled' }, { status: 403 });
+        return fail('Account has been disabled', 403);
       }
     }
 
@@ -68,26 +63,26 @@ export async function POST(request: NextRequest) {
       const attempts = updatedStatus.attempts ?? 0;
       const remainingAttempts = Math.max(0, MAX_FAILED_ATTEMPTS - attempts);
 
-      return NextResponse.json(
+      return fail(
+        updatedStatus.isLocked
+          ? 'Too many failed login attempts. Your account has been locked for 15 minutes.'
+          : error?.message || 'Invalid email or password',
+        updatedStatus.isLocked ? 423 : 401,
         {
-          error: updatedStatus.isLocked
-            ? 'Too many failed login attempts. Your account has been locked for 15 minutes.'
-            : error?.message || 'Invalid email or password',
           isLocked: updatedStatus.isLocked,
           remainingAttempts,
           remainingMinutes: updatedStatus.isLocked
             ? getRemainingLockoutTime(updatedStatus.lockedUntil)
             : undefined,
-        },
-        { status: updatedStatus.isLocked ? 423 : 401 }
+        }
       );
     }
 
     await clearFailedAttempts(email);
 
-    return NextResponse.json({ success: true });
+    return ok(null);
   } catch (err) {
     log('Auth').error('Unexpected error:', err);
-    return NextResponse.json({ error: 'Failed to sign in' }, { status: 500 });
+    return fail('Failed to sign in', 500);
   }
 }

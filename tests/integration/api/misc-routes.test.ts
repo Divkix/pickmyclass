@@ -110,7 +110,7 @@ describe('misc API routes', () => {
 
     expect(response.status).toBe(200);
     // `attempts` is intentionally excluded from the response (SEC-02 — reduces disclosure)
-    expect(data).toEqual({ isLocked: true, remainingMinutes: 14 });
+    expect(data).toEqual({ success: true, isLocked: true, remainingMinutes: 14 });
     expect(mockCheckLockoutStatus).toHaveBeenCalledWith('student@example.com');
   });
 

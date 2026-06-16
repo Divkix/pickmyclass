@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import { checkLockoutSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
+import { fail, ok } from '@/lib/api/response';
 import { checkLockoutStatus, getRemainingLockoutTime } from '@/lib/auth/lockout';
 
 export async function POST(request: NextRequest) {
@@ -9,13 +10,7 @@ export async function POST(request: NextRequest) {
     const validation = checkLockoutSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json(
-        {
-          error: 'Invalid input',
-          details: mapValidationIssues(validation.error),
-        },
-        { status: 400 }
-      );
+      return fail('Invalid input', 400, mapValidationIssues(validation.error));
     }
 
     const { email } = validation.data;
@@ -33,12 +28,12 @@ export async function POST(request: NextRequest) {
     // unauthenticated amplification primitive for account enumeration.
     // The in-app guard is intentionally omitted here because the right
     // enforcement layer is the edge (WAF), not per-Worker state.
-    return NextResponse.json({
+    return ok({
       isLocked: status.isLocked,
       remainingMinutes: getRemainingLockoutTime(status.lockedUntil),
     });
   } catch (error) {
     console.error('Error checking lockout status:', error);
-    return NextResponse.json({ error: 'Failed to check lockout status' }, { status: 500 });
+    return fail('Failed to check lockout status', 500);
   }
 }

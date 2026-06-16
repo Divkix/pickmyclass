@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
 import { log } from '@/lib/log';
+import { fail } from '@/lib/api/response';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -17,8 +18,7 @@ export async function GET() {
     try {
       ({ user } = await requireUser(supabase));
     } catch (e) {
-      if (e instanceof UnauthorizedError)
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
       throw e;
     }
 
@@ -102,6 +102,6 @@ export async function GET() {
     });
   } catch (error) {
     log('User').error('Export error:', error);
-    return NextResponse.json({ error: 'Failed to export data' }, { status: 500 });
+    return fail('Failed to export data', 500);
   }
 }

@@ -1,8 +1,9 @@
 import { env } from 'cloudflare:workers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import { registerSchema } from '@/lib/api/schemas';
 import { log } from '@/lib/log';
 import { mapValidationIssues } from '@/lib/api/validation';
+import { fail, ok } from '@/lib/api/response';
 import { isDisposableEmail } from '@/lib/auth/disposable-email';
 import { createClient } from '@/lib/supabase/server';
 
@@ -12,13 +13,7 @@ export async function POST(request: NextRequest) {
     const validation = registerSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json(
-        {
-          error: 'Invalid input',
-          details: mapValidationIssues(validation.error),
-        },
-        { status: 400 }
-      );
+      return fail('Invalid input', 400, mapValidationIssues(validation.error));
     }
 
     const email = validation.data.email.toLowerCase();
@@ -30,9 +25,9 @@ export async function POST(request: NextRequest) {
           .PICKMYCLASS_DISPOSABLE_DOMAINS ?? null;
       const result = await isDisposableEmail(email, kv);
       if (result.disposable) {
-        return NextResponse.json(
-          { error: 'This email domain is not accepted. Please use a different email address.' },
-          { status: 422 }
+        return fail(
+          'This email domain is not accepted. Please use a different email address.',
+          422
         );
       }
     } catch (error) {
@@ -51,20 +46,17 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return fail(error.message, 400);
     }
 
     // Check for duplicate email (Supabase returns user with empty identities)
     if (data.user?.identities?.length === 0) {
-      return NextResponse.json(
-        { error: 'This email is already registered. Please sign in.', duplicate: true },
-        { status: 409 }
-      );
+      return fail('This email is already registered. Please sign in.', 409, { duplicate: true });
     }
 
-    return NextResponse.json({ success: true });
+    return ok(null);
   } catch (err) {
     log('Auth').error('Unexpected error:', err);
-    return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
+    return fail('Failed to create account', 500);
   }
 }

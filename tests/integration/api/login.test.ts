@@ -7,10 +7,13 @@ import type { ValidationIssueDetail } from '@/lib/api/validation';
 interface LoginResponse {
   success?: boolean;
   error?: string;
-  details?: ValidationIssueDetail[];
-  isLocked?: boolean;
-  remainingMinutes?: number;
-  remainingAttempts?: number;
+  details?:
+    | ValidationIssueDetail[]
+    | {
+        isLocked?: boolean;
+        remainingMinutes?: number;
+        remainingAttempts?: number;
+      };
 }
 
 // Mock the lockout module
@@ -162,8 +165,10 @@ describe('POST /api/auth/login', () => {
       const data = await parseResponse(response);
 
       expect(response.status).toBe(423);
-      expect(data.isLocked).toBe(true);
-      expect(data.remainingMinutes).toBe(15);
+      expect(data.success).toBe(false);
+      const details = data.details as { isLocked?: boolean; remainingMinutes?: number };
+      expect(details.isLocked).toBe(true);
+      expect(details.remainingMinutes).toBe(15);
     });
 
     it('should normalize email to lowercase before checking lockout', async () => {
@@ -269,7 +274,8 @@ describe('POST /api/auth/login', () => {
       const response = await POST(request);
       const data = await parseResponse(response);
 
-      expect(data.remainingAttempts).toBe(2); // MAX_FAILED_ATTEMPTS (5) - attempts (3)
+      const details = data.details as { remainingAttempts?: number };
+      expect(details.remainingAttempts).toBe(2); // MAX_FAILED_ATTEMPTS (5) - attempts (3)
     });
 
     it('should return 423 when account becomes locked after failed attempt', async () => {
@@ -293,7 +299,9 @@ describe('POST /api/auth/login', () => {
       const data = await parseResponse(response);
 
       expect(response.status).toBe(423);
-      expect(data.isLocked).toBe(true);
+      expect(data.success).toBe(false);
+      const details = data.details as { isLocked?: boolean };
+      expect(details.isLocked).toBe(true);
     });
   });
 

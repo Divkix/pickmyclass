@@ -41,6 +41,8 @@ export async function GET(request: Request) {
     !!cronSecret && !!authHeader && timingSafeCompare(authHeader, `Bearer ${cronSecret}`);
 
   if (!isAuthenticated) {
+    // Intentional exception: unauthenticated liveness probe uses { status: 'ok' }
+    // (external monitoring contract — not the ok()/fail() envelope).
     return NextResponse.json({ status: 'ok' }, { status: 200 });
   }
 

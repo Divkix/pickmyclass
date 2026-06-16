@@ -8,8 +8,7 @@ import { _resetCache } from '@/lib/auth/disposable-email';
 interface RegisterResponse {
   success?: boolean;
   error?: string;
-  details?: ValidationIssueDetail[];
-  duplicate?: boolean;
+  details?: ValidationIssueDetail[] | { duplicate?: boolean };
 }
 
 // Mock cloudflare:workers for env import
@@ -195,7 +194,9 @@ describe('POST /api/auth/register', () => {
       const data = await parseResponse(response);
 
       expect(response.status).toBe(409);
-      expect(data.duplicate).toBe(true);
+      expect(data.success).toBe(false);
+      const details = data.details as { duplicate?: boolean };
+      expect(details.duplicate).toBe(true);
       expect(data.error).toContain('already registered');
     });
 

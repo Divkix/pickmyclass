@@ -9,6 +9,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { unsubscribeTokenSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
+import { fail, ok } from '@/lib/api/response';
 import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token';
 import { log } from '@/lib/log';
 import { getServiceClient } from '@/lib/supabase/service';
@@ -214,24 +215,14 @@ export async function POST(request: NextRequest) {
   const validation = unsubscribeTokenSchema.safeParse({ token });
 
   if (!validation.success) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Invalid input',
-        details: mapValidationIssues(validation.error),
-      },
-      { status: 400 }
-    );
+    return fail('Invalid input', 400, mapValidationIssues(validation.error));
   }
 
   // Verify token
   const userId = verifyUnsubscribeToken(validation.data.token);
 
   if (!userId) {
-    return NextResponse.json(
-      { success: false, error: 'Invalid or expired token' },
-      { status: 400 }
-    );
+    return fail('Invalid or expired token', 400);
   }
 
   // Unsubscribe user
@@ -253,9 +244,9 @@ export async function POST(request: NextRequest) {
 
     log('Unsubscribe').info(`User ${redactIdentifier(userId)} unsubscribed via POST`);
 
-    return NextResponse.json({ success: true });
+    return ok(null);
   } catch (error) {
     log('Unsubscribe').error('Error processing unsubscribe:', error);
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+    return fail('Internal server error', 500);
   }
 }

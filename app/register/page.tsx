@@ -148,7 +148,7 @@ export default function RegisterPage() {
       const data = (await response.json()) as {
         success?: boolean;
         error?: string;
-        duplicate?: boolean;
+        details?: { duplicate?: boolean };
       };
 
       if (!response.ok) {
@@ -157,7 +157,7 @@ export default function RegisterPage() {
         return;
       }
 
-      if (data.duplicate) {
+      if (data.details?.duplicate) {
         setError('This email is already registered. Please sign in.');
         setLoading(false);
         return;

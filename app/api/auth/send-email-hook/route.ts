@@ -19,6 +19,8 @@ function normalizeHookSecret(secret: string): string {
   return secret.startsWith('v1,') ? secret.slice(3) : secret;
 }
 
+// Intentional exception: response shape is dictated by the Supabase Send Email Hook
+// (standardwebhooks protocol) — not the ok()/fail() envelope.
 export async function POST(request: Request) {
   const cfEnv = env as unknown as {
     EMAIL?: SendEmail;

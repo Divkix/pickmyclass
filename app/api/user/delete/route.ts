@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
 import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
 import { log } from '@/lib/log';
+import { fail, ok } from '@/lib/api/response';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
 import { invalidateProfileCache } from '@/proxy';
@@ -22,8 +22,7 @@ export async function DELETE() {
     try {
       ({ user } = await requireUser(supabase));
     } catch (e) {
-      if (e instanceof UnauthorizedError)
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
       throw e;
     }
 
@@ -43,7 +42,7 @@ export async function DELETE() {
 
     if (updateError) {
       log('User').error('Error disabling account:', updateError);
-      return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 });
+      return fail('Failed to delete account', 500);
     }
 
     // Invalidate the profile cache to ensure immediate effect
@@ -57,8 +56,7 @@ export async function DELETE() {
       // Don't fail the request if sign out fails
     }
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       message:
         'Account disabled successfully. Your data will be permanently deleted after 30 days.',
       disabled_at: deletionTimestamp,
@@ -66,6 +64,6 @@ export async function DELETE() {
     });
   } catch (error) {
     log('User').error('Delete account error:', error);
-    return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 });
+    return fail('Failed to delete account', 500);
   }
 }

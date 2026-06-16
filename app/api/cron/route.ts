@@ -12,8 +12,9 @@
  */
 
 import { env } from 'cloudflare:workers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import { verifyCronSecret } from '@/lib/auth/require-user';
+import { fail, ok } from '@/lib/api/response';
 import { getSectionsToCheck } from '@/lib/db/queries';
 import { log } from '@/lib/log';
 import type { Env } from '@/lib/types/env';
@@ -32,24 +33,12 @@ export async function GET(request: NextRequest) {
 
     if (!cfEnv.CRON_SECRET) {
       log('Cron').error('CRON_SECRET not configured');
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Server configuration error',
-        },
-        { status: 500 }
-      );
+      return fail('Server configuration error', 500);
     }
 
     if (!verifyCronSecret(request, cfEnv.CRON_SECRET)) {
       log('Cron').warn('Unauthorized request - invalid or missing authentication');
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Unauthorized - this endpoint requires authentication',
-        },
-        { status: 401 }
-      );
+      return fail('Unauthorized - this endpoint requires authentication', 401);
     }
 
     if (cfEnv.PICKMYCLASS_CRON_LOCK_DO) {
@@ -67,15 +56,10 @@ export async function GET(request: NextRequest) {
 
       if (!lockResult.acquired) {
         log('Cron').warn('Lock acquisition failed:', lockResult.message);
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Another cron job is already running',
-            details: lockResult.message,
-            current_holder: lockResult.lockHolder,
-          },
-          { status: 409 }
-        );
+        return fail('Another cron job is already running', 409, {
+          message: lockResult.message,
+          current_holder: lockResult.lockHolder,
+        });
       }
 
       lockAcquired = true;
@@ -103,13 +87,7 @@ export async function GET(request: NextRequest) {
 
     if (!queue) {
       log('Cron').error('PICKMYCLASS_QUEUE binding not found');
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Queue binding not configured',
-        },
-        { status: 500 }
-      );
+      return fail('Queue binding not configured', 500);
     }
 
     // Use server-side filtering function to get sections for this stagger group
@@ -119,8 +97,7 @@ export async function GET(request: NextRequest) {
 
     if (sections.length === 0) {
       log('Cron').info('No sections to check');
-      return NextResponse.json({
-        success: true,
+      return ok({
         message: 'No sections to check',
         sections_enqueued: 0,
         stagger_group: staggerGroup,
@@ -194,29 +171,32 @@ export async function GET(request: NextRequest) {
     // Return success:false if any batches failed
     const hasFailedBatches = failedBatches.length > 0;
 
-    return NextResponse.json(
-      {
-        success: !hasFailedBatches,
-        sections_enqueued: sections.length,
-        batches_total: batches.length,
-        batches_failed: failedBatches.length,
-        stagger_group: staggerGroup,
-        duration,
-      },
-      { status: hasFailedBatches ? 207 : 200 } // 207 Multi-Status for partial failures
-    );
+    if (hasFailedBatches) {
+      return fail(
+        'Some batches failed to enqueue',
+        207, // 207 Multi-Status for partial failures
+        {
+          sections_enqueued: sections.length,
+          batches_total: batches.length,
+          batches_failed: failedBatches.length,
+          stagger_group: staggerGroup,
+          duration,
+        }
+      );
+    }
+
+    return ok({
+      sections_enqueued: sections.length,
+      batches_total: batches.length,
+      batches_failed: 0,
+      stagger_group: staggerGroup,
+      duration,
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     log('Cron').error('Fatal error:', errorMessage);
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: errorMessage,
-        duration: Date.now() - startTime,
-      },
-      { status: 500 }
-    );
+    return fail(errorMessage, 500, { duration: Date.now() - startTime });
   } finally {
     // Release lock if it was acquired
     if (lockAcquired) {

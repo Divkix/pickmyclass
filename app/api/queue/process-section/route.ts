@@ -3,6 +3,11 @@
  *
  * Thin adapter route called by the queue consumer Worker for each message.
  * Delegates to the section processor orchestrator for the actual pipeline.
+ *
+ * Intentional exception: does NOT use ok()/fail() envelope because the queue consumer
+ * reads the top-level `retryable` boolean to decide whether to ack or retry the message,
+ * and fail() cannot carry arbitrary top-level fields. HTTP status codes (200/429/502)
+ * are also part of the queue-consumer contract and must be preserved.
  */
 
 import { env } from 'cloudflare:workers';

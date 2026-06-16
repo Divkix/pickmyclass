@@ -7,8 +7,9 @@
  */
 
 import { env } from 'cloudflare:workers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import { verifyCronSecret } from '@/lib/auth/require-user';
+import { fail, ok } from '@/lib/api/response';
 import { log } from '@/lib/log';
 import { getServiceClient } from '@/lib/supabase/service';
 
@@ -24,26 +25,17 @@ export async function GET(request: NextRequest) {
     // Authentication: Require CRON_SECRET Bearer token
     if (!process.env.CRON_SECRET) {
       log('SyncDisposableDomains').error('CRON_SECRET not configured');
-      return NextResponse.json(
-        { success: false, error: 'Server configuration error' },
-        { status: 500 }
-      );
+      return fail('Server configuration error', 500);
     }
 
     if (!verifyCronSecret(request, process.env.CRON_SECRET)) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      return fail('Unauthorized', 401);
     }
 
     // Fetch blocklist from GitHub
     const response = await fetch(BLOCKLIST_URL);
     if (!response.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Failed to fetch blocklist: ${response.status} ${response.statusText}`,
-        },
-        { status: 502 }
-      );
+      return fail(`Failed to fetch blocklist: ${response.status} ${response.statusText}`, 502);
     }
 
     const text = await response.text();
@@ -54,12 +46,9 @@ export async function GET(request: NextRequest) {
 
     // Sanity check: prevent wiping KV on fetch errors that return empty/garbage
     if (domains.length < MINIMUM_DOMAIN_COUNT) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Sanity check failed: only ${domains.length} domains (minimum ${MINIMUM_DOMAIN_COUNT})`,
-        },
-        { status: 502 }
+      return fail(
+        `Sanity check failed: only ${domains.length} domains (minimum ${MINIMUM_DOMAIN_COUNT})`,
+        502
       );
     }
 
@@ -85,17 +74,13 @@ export async function GET(request: NextRequest) {
     const duration = Date.now() - startTime;
     log('SyncDisposableDomains').info(`Synced ${domains.length} domains in ${duration}ms`);
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       domainCount: domains.length,
       duration_ms: duration,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     log('SyncDisposableDomains').error('Fatal error:', message);
-    return NextResponse.json(
-      { success: false, error: message, duration_ms: Date.now() - startTime },
-      { status: 500 }
-    );
+    return fail(message, 500, { duration_ms: Date.now() - startTime });
   }
 }

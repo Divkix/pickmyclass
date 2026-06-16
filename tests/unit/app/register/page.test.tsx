@@ -218,7 +218,7 @@ describe('RegisterPage - Google OAuth loading state', () => {
 
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ duplicate: true }),
+      json: () => Promise.resolve({ success: true, details: { duplicate: true } }),
     } as Response);
     fireEvent.submit(registerForm());
     expect(
