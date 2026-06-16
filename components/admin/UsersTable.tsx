@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import type { UserWithWatchCount } from '@/lib/db/admin-queries';
 import { formatRelativeDate } from '@/lib/utils/time-format';
+import { SortableHeader } from './SortableHeader';
 import { type UsersTableFilters, UsersTableFiltersComponent } from './UsersTableFilters';
 import { useTableSorting } from './useTableSorting';
 
@@ -177,119 +178,61 @@ export function UsersTable({ users }: UsersTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[300px] select-none">
-                <button
-                  type="button"
-                  className="flex items-center gap-1 cursor-pointer hover:text-foreground w-full text-left"
-                  onClick={() => toggleSort('email')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('email');
-                    }
-                  }}
-                >
-                  Email
-                  {renderSortIcon('email')}
-                </button>
-              </TableHead>
-              <TableHead className="select-none">
-                <button
-                  type="button"
-                  className="flex items-center gap-1 cursor-pointer hover:text-foreground w-full text-left"
-                  onClick={() => toggleSort('created_at')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('created_at');
-                    }
-                  }}
-                >
-                  Registered
-                  {renderSortIcon('created_at')}
-                </button>
-              </TableHead>
-              <TableHead className="select-none">
-                <button
-                  type="button"
-                  className="flex items-center gap-1 cursor-pointer hover:text-foreground w-full text-left"
-                  onClick={() => toggleSort('last_sign_in_at')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('last_sign_in_at');
-                    }
-                  }}
-                >
-                  Last Sign In
-                  {renderSortIcon('last_sign_in_at')}
-                </button>
-              </TableHead>
+              <SortableHeader
+                field="email"
+                label="Email"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="left"
+                className="w-[300px]"
+              />
+              <SortableHeader
+                field="created_at"
+                label="Registered"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="left"
+              />
+              <SortableHeader
+                field="last_sign_in_at"
+                label="Last Sign In"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="left"
+              />
               <TableHead>Email Verified</TableHead>
-              <TableHead className="text-center select-none">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
-                  onClick={() => toggleSort('watch_count')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('watch_count');
-                    }
-                  }}
-                >
-                  Watches
-                  {renderSortIcon('watch_count')}
-                </button>
-              </TableHead>
-              <TableHead className="text-center select-none">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
-                  onClick={() => toggleSort('seat_emails')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('seat_emails');
-                    }
-                  }}
-                >
-                  Seat Emails
-                  {renderSortIcon('seat_emails')}
-                </button>
-              </TableHead>
-              <TableHead className="text-center select-none">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
-                  onClick={() => toggleSort('instructor_emails')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('instructor_emails');
-                    }
-                  }}
-                >
-                  Instructor Emails
-                  {renderSortIcon('instructor_emails')}
-                </button>
-              </TableHead>
-              <TableHead className="text-center select-none">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
-                  onClick={() => toggleSort('engagement_rate')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('engagement_rate');
-                    }
-                  }}
-                >
-                  Engagement
-                  {renderSortIcon('engagement_rate')}
-                </button>
-              </TableHead>
+              <SortableHeader
+                field="watch_count"
+                label="Watches"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="center"
+                className="text-center"
+              />
+              <SortableHeader
+                field="seat_emails"
+                label="Seat Emails"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="center"
+                className="text-center"
+              />
+              <SortableHeader
+                field="instructor_emails"
+                label="Instructor Emails"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="center"
+                className="text-center"
+              />
+              <SortableHeader
+                field="engagement_rate"
+                label="Engagement"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="center"
+                className="text-center"
+              />
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>

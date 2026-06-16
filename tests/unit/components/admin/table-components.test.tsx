@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { SortableHeader } from '@/components/admin/SortableHeader';
 import { ClassesTable } from '@/components/admin/ClassesTable';
 import type { ClassesTableFilters } from '@/components/admin/ClassesTableFilters';
 import { UsersTable } from '@/components/admin/UsersTable';
@@ -442,5 +443,130 @@ describe('admin table components', () => {
     mockPush.mockClear();
     fireEvent.click(screen.getByText('student@example.com'));
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  describe('SortableHeader', () => {
+    it('calls toggleSort on click', () => {
+      const toggleSort = vi.fn();
+      const renderSortIcon = vi.fn(() => null);
+
+      render(
+        <table>
+          <thead>
+            <tr>
+              <SortableHeader
+                field="email"
+                label="Email"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+              />
+            </tr>
+          </thead>
+        </table>
+      );
+
+      fireEvent.click(screen.getByText('Email'));
+      expect(toggleSort).toHaveBeenCalledWith('email');
+      expect(renderSortIcon).toHaveBeenCalledWith('email');
+    });
+
+    it('calls toggleSort on Enter keydown', () => {
+      const toggleSort = vi.fn();
+      const renderSortIcon = vi.fn(() => null);
+
+      render(
+        <table>
+          <thead>
+            <tr>
+              <SortableHeader
+                field="email"
+                label="Email"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+              />
+            </tr>
+          </thead>
+        </table>
+      );
+
+      const button = screen.getByRole('button');
+      fireEvent.keyDown(button, { key: 'Enter' });
+      expect(toggleSort).toHaveBeenCalledWith('email');
+    });
+
+    it('calls toggleSort on Space keydown', () => {
+      const toggleSort = vi.fn();
+      const renderSortIcon = vi.fn(() => null);
+
+      render(
+        <table>
+          <thead>
+            <tr>
+              <SortableHeader
+                field="email"
+                label="Email"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+              />
+            </tr>
+          </thead>
+        </table>
+      );
+
+      const button = screen.getByRole('button');
+      fireEvent.keyDown(button, { key: ' ' });
+      expect(toggleSort).toHaveBeenCalledWith('email');
+    });
+
+    it('does not call toggleSort on other keys', () => {
+      const toggleSort = vi.fn();
+      const renderSortIcon = vi.fn(() => null);
+
+      render(
+        <table>
+          <thead>
+            <tr>
+              <SortableHeader
+                field="email"
+                label="Email"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+              />
+            </tr>
+          </thead>
+        </table>
+      );
+
+      const button = screen.getByRole('button');
+      fireEvent.keyDown(button, { key: 'Tab' });
+      expect(toggleSort).not.toHaveBeenCalled();
+    });
+
+    it('renders children icons and the sort icon', () => {
+      const toggleSort = vi.fn();
+      const renderSortIcon = vi.fn(() => <span data-testid="sort-icon" />);
+
+      render(
+        <table>
+          <thead>
+            <tr>
+              <SortableHeader
+                field="watcher_count"
+                label="Watchers"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="center"
+              >
+                <span data-testid="col-icon" />
+              </SortableHeader>
+            </tr>
+          </thead>
+        </table>
+      );
+
+      expect(screen.getByTestId('col-icon')).toBeInTheDocument();
+      expect(screen.getByTestId('sort-icon')).toBeInTheDocument();
+      expect(screen.getByText('Watchers')).toBeInTheDocument();
+    });
   });
 });

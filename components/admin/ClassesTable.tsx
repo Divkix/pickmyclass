@@ -16,6 +16,7 @@ import {
 import type { ClassWithWatchers } from '@/lib/db/admin-queries';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 import { formatRelativeTime } from '@/lib/utils/time-format';
+import { SortableHeader } from './SortableHeader';
 import { type ClassesTableFilters, ClassesTableFiltersComponent } from './ClassesTableFilters';
 import { useTableSorting } from './useTableSorting';
 
@@ -178,123 +179,72 @@ export function ClassesTable({ classes }: ClassesTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[100px] select-none">
-                <button
-                  type="button"
-                  className="flex items-center gap-1 cursor-pointer hover:text-foreground w-full text-left"
-                  onClick={() => toggleSort('class_nbr')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('class_nbr');
-                    }
-                  }}
-                >
-                  Class #{renderSortIcon('class_nbr')}
-                </button>
-              </TableHead>
-              <TableHead className="w-[120px] select-none">
-                <button
-                  type="button"
-                  className="flex items-center gap-1 cursor-pointer hover:text-foreground w-full text-left"
-                  onClick={() => toggleSort('subject')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('subject');
-                    }
-                  }}
-                >
-                  Subject
-                  {renderSortIcon('subject')}
-                </button>
-              </TableHead>
+              <SortableHeader
+                field="class_nbr"
+                label="Class #"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="left"
+                className="w-[100px]"
+              />
+              <SortableHeader
+                field="subject"
+                label="Subject"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="left"
+                className="w-[120px]"
+              />
               <TableHead>Title</TableHead>
               <TableHead>Instructor</TableHead>
-              <TableHead className="text-center w-[120px] select-none">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
-                  onClick={() => toggleSort('seats_available')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('seats_available');
-                    }
-                  }}
-                >
-                  Seats
-                  {renderSortIcon('seats_available')}
-                </button>
-              </TableHead>
-              <TableHead className="text-center w-[100px] select-none">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
-                  onClick={() => toggleSort('watcher_count')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('watcher_count');
-                    }
-                  }}
-                >
-                  <Users className="size-4" />
-                  <span>Watchers</span>
-                  {renderSortIcon('watcher_count')}
-                </button>
-              </TableHead>
-              <TableHead className="text-center w-[100px] select-none">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
-                  onClick={() => toggleSort('seat_emails')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('seat_emails');
-                    }
-                  }}
-                >
-                  <Mail className="size-4" />
-                  <span>Seat Emails</span>
-                  {renderSortIcon('seat_emails')}
-                </button>
-              </TableHead>
-              <TableHead className="text-center w-[100px] select-none">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-1 cursor-pointer hover:text-foreground w-full"
-                  onClick={() => toggleSort('instructor_emails')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('instructor_emails');
-                    }
-                  }}
-                >
-                  <Users className="size-4" />
-                  <span>Instructor Emails</span>
-                  {renderSortIcon('instructor_emails')}
-                </button>
-              </TableHead>
-              <TableHead className="text-right w-[120px] select-none">
-                <button
-                  type="button"
-                  className="flex items-center justify-end gap-1 cursor-pointer hover:text-foreground w-full"
-                  onClick={() => toggleSort('last_checked_at')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleSort('last_checked_at');
-                    }
-                  }}
-                >
-                  <Clock className="size-4" />
-                  <span>Last Check</span>
-                  {renderSortIcon('last_checked_at')}
-                </button>
-              </TableHead>
+              <SortableHeader
+                field="seats_available"
+                label="Seats"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="center"
+                className="text-center w-[120px]"
+              />
+              <SortableHeader
+                field="watcher_count"
+                label="Watchers"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="center"
+                className="text-center w-[100px]"
+              >
+                <Users className="size-4" />
+              </SortableHeader>
+              <SortableHeader
+                field="seat_emails"
+                label="Seat Emails"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="center"
+                className="text-center w-[100px]"
+              >
+                <Mail className="size-4" />
+              </SortableHeader>
+              <SortableHeader
+                field="instructor_emails"
+                label="Instructor Emails"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="center"
+                className="text-center w-[100px]"
+              >
+                <Users className="size-4" />
+              </SortableHeader>
+              <SortableHeader
+                field="last_checked_at"
+                label="Last Check"
+                toggleSort={toggleSort}
+                renderSortIcon={renderSortIcon}
+                align="right"
+                className="text-right w-[120px]"
+              >
+                <Clock className="size-4" />
+              </SortableHeader>
             </TableRow>
           </TableHeader>
           <TableBody>
