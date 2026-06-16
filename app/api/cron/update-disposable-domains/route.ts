@@ -10,6 +10,7 @@ import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { verifyCronSecret } from '@/lib/auth/require-user';
 import { log } from '@/lib/log';
+import { getServiceClient } from '@/lib/supabase/service';
 
 const BLOCKLIST_URL =
   'https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/main/disposable_email_blocklist.conf';
@@ -67,6 +68,26 @@ export async function GET(request: NextRequest) {
       .PICKMYCLASS_DISPOSABLE_DOMAINS;
 
     await kv.put('disposable-domains', JSON.stringify(domains));
+
+    // Sweep expired notification dedup slots so they can be re-claimed on the next cycle.
+    // `expire_stale_notifications` is not yet in generated types; the cast can be removed once
+    // lib/supabase/database.types.ts is regenerated.
+    const sweepClient = getServiceClient() as unknown as {
+      rpc: (
+        name: 'expire_stale_notifications'
+      ) => Promise<{ data: number | null; error: { message: string } | null }>;
+    };
+    const { data: expiredCount, error: sweepError } = await sweepClient.rpc(
+      'expire_stale_notifications'
+    );
+    if (sweepError) {
+      log('SyncDisposableDomains').warn(
+        'Failed to expire stale notifications:',
+        sweepError.message
+      );
+    } else {
+      log('SyncDisposableDomains').info(`Expired ${expiredCount ?? 0} stale notification records`);
+    }
 
     const duration = Date.now() - startTime;
     log('SyncDisposableDomains').info(`Synced ${domains.length} domains in ${duration}ms`);

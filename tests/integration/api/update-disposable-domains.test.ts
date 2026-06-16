@@ -13,6 +13,12 @@ interface SyncResponse {
 // vi.hoisted ensures mockKvPut is initialized before the hoisted vi.mock factory runs
 const mockKvPut = vi.hoisted(() => vi.fn());
 
+// Mock the Supabase service client so we can assert the expiry-sweep RPC is invoked.
+const mockRpc = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/supabase/service', () => ({
+  getServiceClient: () => ({ rpc: mockRpc }),
+}));
+
 vi.mock('cloudflare:workers', () => ({
   env: {
     PICKMYCLASS_DISPOSABLE_DOMAINS: {
@@ -54,6 +60,7 @@ describe('GET /api/cron/update-disposable-domains', () => {
     vi.clearAllMocks();
     process.env.CRON_SECRET = 'test-cron-secret';
     mockKvPut.mockResolvedValue(undefined);
+    mockRpc.mockResolvedValue({ data: 0, error: null });
 
     const mod = await import('@/app/api/cron/update-disposable-domains/route');
     GET = mod.GET;
@@ -127,6 +134,22 @@ describe('GET /api/cron/update-disposable-domains', () => {
       const storedDomains = JSON.parse(mockKvPut.mock.calls[0][1] as string) as string[];
       expect(storedDomains).toHaveLength(1500);
       expect(storedDomains[0]).toBe('domain0.com');
+    });
+
+    it('should invoke the expire_stale_notifications sweep after a successful sync', async () => {
+      const domains = Array.from({ length: 1500 }, (_, i) => `domain${i}.com`);
+      const blocklist = domains.join('\n');
+
+      globalThis.fetch = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(blocklist) });
+      mockRpc.mockResolvedValue({ data: 7, error: null });
+
+      const request = createRequest('test-cron-secret');
+      const response = await GET(request);
+
+      expect(response.status).toBe(200);
+      expect(mockRpc).toHaveBeenCalledWith('expire_stale_notifications');
     });
 
     it('should normalize domains to lowercase and filter empty lines', async () => {
