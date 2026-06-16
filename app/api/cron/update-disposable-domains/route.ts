@@ -70,14 +70,7 @@ export async function GET(request: NextRequest) {
     await kv.put('disposable-domains', JSON.stringify(domains));
 
     // Sweep expired notification dedup slots so they can be re-claimed on the next cycle.
-    // `expire_stale_notifications` is not yet in generated types; the cast can be removed once
-    // lib/supabase/database.types.ts is regenerated.
-    const sweepClient = getServiceClient() as unknown as {
-      rpc: (
-        name: 'expire_stale_notifications'
-      ) => Promise<{ data: number | null; error: { message: string } | null }>;
-    };
-    const { data: expiredCount, error: sweepError } = await sweepClient.rpc(
+    const { data: expiredCount, error: sweepError } = await getServiceClient().rpc(
       'expire_stale_notifications'
     );
     if (sweepError) {
