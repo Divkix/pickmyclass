@@ -85,7 +85,12 @@ function makeBatch(
 const successResult = (classNbr: string) => ({
   success: true,
   classNbr,
-  changes: { seatBecameAvailable: false, seatsFilled: false, instructorAssigned: false, newOpenSeats: 0 },
+  changes: {
+    seatBecameAvailable: false,
+    seatsFilled: false,
+    instructorAssigned: false,
+    newOpenSeats: 0,
+  },
   emailsSent: 0,
   processingTimeMs: 10,
 });
@@ -93,7 +98,12 @@ const successResult = (classNbr: string) => ({
 const dbFailResult = (classNbr: string) => ({
   success: false,
   classNbr,
-  changes: { seatBecameAvailable: false, seatsFilled: false, instructorAssigned: false, newOpenSeats: 0 },
+  changes: {
+    seatBecameAvailable: false,
+    seatsFilled: false,
+    instructorAssigned: false,
+    newOpenSeats: 0,
+  },
   emailsSent: 0,
   processingTimeMs: 10,
   error: 'duplicate key value violates unique constraint',
@@ -117,7 +127,7 @@ const testCtx = {
 // ── Queue handler tests (plan 004) ────────────────────────────────────────────
 
 describe('worker queue handler — direct processSection call ack/retry mapping', () => {
-  let worker: typeof import('@/worker')['default'];
+  let worker: (typeof import('@/worker'))['default'];
 
   beforeEach(async () => {
     vi.clearAllMocks();

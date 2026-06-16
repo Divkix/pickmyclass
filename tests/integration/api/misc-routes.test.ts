@@ -102,7 +102,9 @@ describe('misc API routes', () => {
 
   it('returns the lockout status for valid email input', async () => {
     const response = await postCheckLockout(
-      post('https://pickmyclass.app/api/auth/check-lockout', { email: 'student@example.com' })
+      post('https://pickmyclass.app/api/auth/check-lockout', {
+        email: 'student@example.com',
+      })
     );
     const data = await json(response);
 
@@ -116,7 +118,9 @@ describe('misc API routes', () => {
     mockCheckLockoutStatus.mockRejectedValueOnce(new Error('kv unavailable'));
 
     const response = await postCheckLockout(
-      post('https://pickmyclass.app/api/auth/check-lockout', { email: 'student@example.com' })
+      post('https://pickmyclass.app/api/auth/check-lockout', {
+        email: 'student@example.com',
+      })
     );
     const data = await json(response);
 
@@ -146,7 +150,9 @@ describe('misc API routes', () => {
   });
 
   it('falls back to login when callback exchange fails or code is missing', async () => {
-    mockExchangeCodeForSession.mockResolvedValueOnce({ error: { message: 'bad code' } });
+    mockExchangeCodeForSession.mockResolvedValueOnce({
+      error: { message: 'bad code' },
+    });
 
     const response = await authCallback(
       new Request('https://pickmyclass.app/auth/callback?code=bad&next=https://evil.test')

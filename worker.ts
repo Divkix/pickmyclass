@@ -432,10 +432,7 @@ export default {
           const duration = Date.now() - msgStartTime;
 
           if (result.success) {
-            console.log(
-              `[Queue] Processed ${message.body.class_nbr} in ${duration}ms:`,
-              result
-            );
+            console.log(`[Queue] Processed ${message.body.class_nbr} in ${duration}ms:`, result);
             message.ack();
             return { success: true, class_nbr: message.body.class_nbr, duration };
           } else {
