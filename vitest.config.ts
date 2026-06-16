@@ -13,7 +13,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      include: ['lib/**/*.{ts,tsx}', 'app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}'],
+      include: ['lib/**/*.{ts,tsx}', 'app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}', 'worker.ts'],
       exclude: [
         'node_modules',
         '.next',
@@ -44,6 +44,10 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, './'),
       'cloudflare:workers': resolve(__dirname, './tests/mocks/cloudflare-workers.ts'),
+      'vinext/server/app-router-entry': resolve(
+        __dirname,
+        './tests/mocks/vinext-app-router-entry.ts'
+      ),
     },
   },
 });
