@@ -7,9 +7,16 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import handler from 'vinext/server/app-router-entry';
+import { ApiError, AuthError, NotFoundError, RateLimitError } from './lib/asu/api';
 import { handleDLQMessage } from './lib/queue/dlq-consumer';
+import { processSection } from './lib/queue/process-section';
 import type { Env } from './lib/types/env';
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';
+/**
+ * NOTE: The ack/retry semantics below mirror those in
+ * app/api/queue/process-section/route.ts exactly. If the route mapping changes,
+ * update this handler to match (or extract the mapping into a shared helper).
+ */
 
 /**
  * Durable Object for distributed cron job locking
@@ -365,8 +372,12 @@ export default {
       console.log('[Scheduled] Cron completed in', duration, 'ms');
       console.log('[Scheduled] Response:', body);
 
-      if (!response.ok) {
-        console.error('[Scheduled] Cron returned error status:', response.status);
+      if (!response.ok || response.status === 207) {
+        // Surface partial or full enqueue failures with a greppable tag so they appear
+        // in `wrangler tail` logs. Cloudflare cron has no auto-retry, so the goal is
+        // visibility rather than recovery — we log rather than throw to avoid marking
+        // the entire cron invocation as failed for partial batch failures.
+        console.error('[Scheduled] CRON_PARTIAL_FAILURE status:', response.status, 'body:', body);
       }
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -412,61 +423,59 @@ export default {
       return;
     }
 
-    // Process all messages in the batch concurrently
+    // Process all messages in the batch concurrently — direct call, no HTTP indirection
     const results = await Promise.allSettled(
       batch.messages.map(async (message) => {
         const msgStartTime = Date.now();
         try {
-          // Make internal HTTP request to the section processor API route
-          const request = new Request('http://localhost/api/queue/process-section', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${env.CRON_SECRET}`,
-              'Content-Type': 'application/json',
-              'User-Agent': 'Cloudflare-Workers-Queue',
-            },
-            body: JSON.stringify(message.body),
-          });
+          const result = await processSection(message.body.class_nbr, message.body.term, env);
+          const duration = Date.now() - msgStartTime;
 
-          const response = await handler.fetch(request);
-          const rawResult = await response.text();
-          let result: unknown;
-
-          try {
-            result = rawResult.length > 0 ? JSON.parse(rawResult) : null;
-          } catch (parseError) {
-            const duration = Date.now() - msgStartTime;
+          if (result.success) {
+            console.log(
+              `[Queue] Processed ${message.body.class_nbr} in ${duration}ms:`,
+              result
+            );
+            message.ack();
+            return { success: true, class_nbr: message.body.class_nbr, duration };
+          } else {
+            // DB upsert error — transient, retry
             console.error(
-              `[Queue] Non-JSON response for ${message.body.class_nbr} in ${duration}ms (status: ${response.status})`,
-              parseError
+              `[Queue] DB failure for ${message.body.class_nbr} in ${duration}ms:`,
+              result.error
             );
             message.retry();
-            return {
-              success: false,
-              class_nbr: message.body.class_nbr,
-              duration,
-              parse_error: true,
-            };
+            return { success: false, class_nbr: message.body.class_nbr, duration };
           }
-
-          const duration = Date.now() - msgStartTime;
-
-          if (response.ok) {
-            console.log(`[Queue] Processed ${message.body.class_nbr} in ${duration}ms:`, result);
-            message.ack(); // Acknowledge successful processing
-          } else {
-            console.error(`[Queue] Failed ${message.body.class_nbr} in ${duration}ms:`, result);
-            message.retry(); // Retry on failure
-          }
-
-          return { success: response.ok, class_nbr: message.body.class_nbr, duration };
         } catch (error) {
           const duration = Date.now() - msgStartTime;
+
+          if (error instanceof AuthError || error instanceof NotFoundError) {
+            // Non-retryable: ASU auth failure or section no longer exists
+            console.error(
+              `[Queue] Non-retryable error for ${message.body.class_nbr} in ${duration}ms:`,
+              (error as Error).message
+            );
+            message.ack();
+            return { success: false, class_nbr: message.body.class_nbr, duration, acked: true };
+          }
+
+          if (error instanceof RateLimitError || error instanceof ApiError) {
+            // Upstream transient — retry with delay
+            console.error(
+              `[Queue] Retryable API error for ${message.body.class_nbr} in ${duration}ms:`,
+              (error as Error).message
+            );
+            message.retry();
+            return { success: false, class_nbr: message.body.class_nbr, duration };
+          }
+
+          // Unknown error — retry defensively
           console.error(
-            `[Queue] Error processing ${message.body.class_nbr} in ${duration}ms:`,
+            `[Queue] Unknown error for ${message.body.class_nbr} in ${duration}ms:`,
             error
           );
-          message.retry(); // Retry on error
+          message.retry();
           return { success: false, class_nbr: message.body.class_nbr, duration, error };
         }
       })
