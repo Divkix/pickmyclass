@@ -25,7 +25,7 @@ bun run build            # Build application for production
 bun run preview          # Build and preview on Cloudflare Workers locally
 bun run deploy           # Build and deploy to Cloudflare Workers
 
-bun run check            # Format, lint, and type-check (all-in-one)
+bun run check            # Format, lint, and type-check (all-in-one; does NOT cover worker.ts or scripts/ — see note below)
 bun run check:fix        # Auto-fix format and lint issues, then type-check
 bun run lint             # Run Oxlint linter
 bun run lint:fix         # Auto-fix lint issues
@@ -36,8 +36,10 @@ bun run test:run         # Run tests once (CI mode)
 bun run test:coverage    # Run tests with coverage (80% threshold required)
 
 bun run knip             # Find unused exports/dependencies
-bun run type-check       # TypeScript type checking
+bun run type-check       # TypeScript type checking (authoritative full check — covers both app and worker.ts/scripts/)
 ```
+
+> **`bun run check` type-check scope**: `vite.config.ts` excludes `worker.ts` and `scripts/**` from Oxlint's type-aware pass because they require the separate `tsconfig.worker.json` context (Cloudflare Workers types such as `cloudflare:workers` and `Cloudflare.Env` are not available under the app tsconfig). As a result, **`bun run check` does not type-check `worker.ts` or `scripts/`**. Run `bun run type-check` (which runs both `tsc --noEmit` and `tsc -p tsconfig.worker.json --noEmit`) as the authoritative full check before committing any changes to those files.
 
 ## Coding Style & Naming Conventions
 
@@ -48,7 +50,7 @@ bun run type-check       # TypeScript type checking
 - **Tests**: colocated in `tests/` directory, not alongside source files
 - **Test file naming**: `*.test.ts`, `*.test.tsx`, `*.spec.ts`, `*.spec.tsx`
 
-Run `bun run check:fix` before committing (formats, lints, and type-checks in one pass).
+Run `bun run check:fix` before committing (formats, lints, and type-checks in one pass). If you changed `worker.ts` or `scripts/`, also run `bun run type-check` to cover the worker tsconfig.
 
 ## Generated Files
 
