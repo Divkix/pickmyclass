@@ -2,33 +2,73 @@ export const dynamic = 'force-dynamic';
 
 import { UsersTable } from '@/components/admin/UsersTable';
 import { verifyAdmin } from '@/lib/auth/admin';
-import { getAllUsersWithWatchCount } from '@/lib/db/admin-queries';
+import { getUsersPage } from '@/lib/db/admin-queries';
+import type { UserSortField } from '@/lib/db/admin-queries';
+
+const PAGE_SIZE = 25;
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function param(searchParams: Record<string, string | string[] | undefined>, key: string): string {
+  const v = searchParams[key];
+  return typeof v === 'string' ? v : '';
+}
 
 /**
  * Admin Users List Page
  *
- * Displays all registered users with their watch counts and account status.
- * Requires admin authentication.
+ * Server component that reads page/sort/filter searchParams and calls
+ * getUsersPage() (server-side paginated RPC). Only the current page of rows
+ * is fetched — the full table is never loaded into the Worker.
  */
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({ searchParams }: { searchParams?: SearchParams }) {
   // Verify admin access
   await verifyAdmin();
 
-  // Fetch all users with watch counts
-  const users = await getAllUsersWithWatchCount();
+  const sp = await (searchParams ?? Promise.resolve({}));
+
+  const page = Math.max(1, Number(param(sp, 'page') || '1'));
+  const sort = (param(sp, 'sort') || 'created_at') as UserSortField;
+  const dir = (param(sp, 'dir') === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
+  const search = param(sp, 'search');
+  const role = (param(sp, 'role') || 'all') as 'all' | 'admin' | 'user';
+  const verified = (param(sp, 'verified') || 'all') as 'all' | 'verified' | 'unverified';
+  const watchCount = (param(sp, 'watchCount') || 'all') as 'all' | 'none' | '1-5' | '6-10' | '10+';
+
+  const { rows, total } = await getUsersPage({
+    page,
+    pageSize: PAGE_SIZE,
+    search,
+    role,
+    verified,
+    watchCount,
+    sort,
+    dir,
+  });
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <div className="mb-8">
         <h1 className="text-3xl font-semibold text-foreground mb-2">Users</h1>
         <p className="text-muted-foreground">
-          Total registered users: <span className="font-semibold">{users.length}</span>
+          Total registered users: <span className="font-semibold">{total}</span>
         </p>
       </div>
 
-      <UsersTable users={users} />
+      <UsersTable
+        users={rows}
+        total={total}
+        page={page}
+        pageSize={PAGE_SIZE}
+        sort={sort}
+        dir={dir}
+        search={search}
+        role={role}
+        verified={verified}
+        watchCount={watchCount}
+      />
 
-      {users.length > 0 && (
+      {rows.length > 0 && (
         <div className="mt-4 text-sm text-muted-foreground">
           Click on a user email to view detailed information
         </div>

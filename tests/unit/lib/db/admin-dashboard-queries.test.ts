@@ -17,14 +17,31 @@ vi.mock('@/lib/supabase/service', () => ({
   getServiceClient: vi.fn(() => mockServiceClient),
 }));
 
+// Disable the TTL cache so each test exercises the real fetch path rather than
+// hitting a module-level cache populated by a previous test.
+vi.mock('@/lib/cache/ttl-cache', () => ({
+  TtlCache: class {
+    get(_key: string) {
+      return undefined;
+    }
+    set(_key: string, _data: unknown) {}
+    clear() {}
+    delete(_key: string) {
+      return false;
+    }
+  },
+}));
+
 import {
   getAdminCount,
   getAllClassesWithWatchers,
   getAllUsersWithWatchCount,
+  getClassesPage,
   getTotalClassesWatched,
   getTotalEmailsSent,
   getTotalUsers,
   getUserWatches,
+  getUsersPage,
 } from '@/lib/db/admin-queries';
 
 function countQuery(count: number, error: Error | null = null) {
@@ -144,7 +161,7 @@ describe('admin dashboard query helpers', () => {
       throw new Error(`Unexpected table ${table}`);
     });
 
-    mockServiceClient.rpc.mockImplementation((name: string) => {
+    mockServiceClient.rpc.mockImplementation((name: string, _args?: unknown) => {
       if (name === 'get_notification_counts_by_class') {
         return Promise.resolve({
           data: [{ class_nbr: '12345', seat_emails: 4, instructor_emails: 1 }],
@@ -171,13 +188,31 @@ describe('admin dashboard query helpers', () => {
           error: null,
         });
       }
+      // New scalar RPCs
+      if (name === 'count_all_users') {
+        return Promise.resolve({ data: 2, error: null });
+      }
+      if (name === 'count_distinct_classes_watched') {
+        return Promise.resolve({ data: 2, error: null });
+      }
       throw new Error(`Unexpected RPC ${name}`);
     });
 
     await expect(getTotalEmailsSent()).resolves.toBe(9);
+
+    // getTotalUsers now uses count_all_users RPC instead of auth.admin.listUsers
     await expect(getTotalUsers()).resolves.toBe(2);
+    expect(mockServiceClient.auth.admin.listUsers).not.toHaveBeenCalled();
+
     await expect(getAdminCount()).resolves.toBe(1);
+
+    // getTotalClassesWatched now uses count_distinct_classes_watched RPC
     await expect(getTotalClassesWatched()).resolves.toBe(2);
+    // Confirm it does NOT call from('class_watches').select('class_nbr')
+    const classWatchCalls = (mockServiceClient.from.mock.calls as string[][]).filter(
+      (c) => c[0] === 'class_watches'
+    );
+    expect(classWatchCalls.length).toBe(0);
 
     const classes = await getAllClassesWithWatchers();
     expect(classes).toMatchObject([
@@ -232,5 +267,148 @@ describe('admin dashboard query helpers', () => {
 
     await expect(getUserWatches('user-without-watches')).resolves.toEqual([]);
     expect(mockServiceClient.from).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Paginated RPC wrappers ────────────────────────────────────────────────
+
+  it('getUsersPage calls get_users_page RPC with correct parameters', async () => {
+    const pageRows = [
+      {
+        id: 'user-1',
+        email: 'one@example.com',
+        created_at: '2026-05-01T00:00:00Z',
+        last_sign_in_at: null,
+        email_confirmed_at: '2026-05-01T00:00:00Z',
+        watch_count: 2,
+        is_admin: false,
+        seat_emails: 1,
+        instructor_emails: 0,
+        engagement_emails_sent: 0,
+        engagement_emails_opened: 0,
+        engagement_rate: null,
+        engagement_status: 'new',
+        total_count: 42,
+      },
+    ];
+
+    mockServiceClient.rpc.mockResolvedValueOnce({ data: pageRows, error: null });
+
+    const result = await getUsersPage({
+      page: 2,
+      pageSize: 10,
+      search: 'one',
+      role: 'user',
+      verified: 'verified',
+      watchCount: '1-5',
+      sort: 'email',
+      dir: 'asc',
+    });
+
+    expect(mockServiceClient.rpc).toHaveBeenCalledWith('get_users_page', {
+      p_page: 2,
+      p_page_size: 10,
+      p_search: 'one',
+      p_role: 'user',
+      p_verified: 'verified',
+      p_watch_count: '1-5',
+      p_sort: 'email',
+      p_dir: 'asc',
+    });
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].email).toBe('one@example.com');
+    expect(result.rows[0].watch_count).toBe(2);
+    expect(result.total).toBe(42);
+  });
+
+  it('getUsersPage returns empty page when RPC returns no rows', async () => {
+    mockServiceClient.rpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const result = await getUsersPage();
+    expect(result.rows).toEqual([]);
+    expect(result.total).toBe(0);
+  });
+
+  it('getClassesPage calls get_classes_page RPC with correct parameters', async () => {
+    const pageRows = [
+      {
+        id: 'state-1',
+        class_nbr: '12345',
+        term: '2261',
+        subject: 'CSE',
+        catalog_nbr: '240',
+        title: 'Intro',
+        instructor_name: 'Dr. X',
+        seats_available: 5,
+        seats_capacity: 30,
+        non_reserved_seats: null,
+        location: null,
+        meeting_times: null,
+        last_checked_at: '2026-05-01T00:00:00Z',
+        last_changed_at: '2026-05-01T00:00:00Z',
+        watcher_count: 7,
+        seat_emails: 3,
+        instructor_emails: 1,
+        total_count: 99,
+      },
+    ];
+
+    mockServiceClient.rpc.mockResolvedValueOnce({ data: pageRows, error: null });
+
+    const result = await getClassesPage({
+      page: 3,
+      pageSize: 50,
+      search: 'cse',
+      subject: 'CSE',
+      seatStatus: 'limited',
+      instructor: 'named',
+      watcherCount: '6-10',
+      sort: 'seats_available',
+      dir: 'asc',
+    });
+
+    expect(mockServiceClient.rpc).toHaveBeenCalledWith('get_classes_page', {
+      p_page: 3,
+      p_page_size: 50,
+      p_search: 'cse',
+      p_subject: 'CSE',
+      p_seat_status: 'limited',
+      p_instructor: 'named',
+      p_watcher_count: '6-10',
+      p_sort: 'seats_available',
+      p_dir: 'asc',
+    });
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].class_nbr).toBe('12345');
+    expect(result.rows[0].watcher_count).toBe(7);
+    expect(result.total).toBe(99);
+  });
+
+  it('getClassesPage returns empty page when RPC returns no rows', async () => {
+    mockServiceClient.rpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const result = await getClassesPage();
+    expect(result.rows).toEqual([]);
+    expect(result.total).toBe(0);
+  });
+
+  it('getTotalClassesWatched uses count_distinct_classes_watched RPC (no full select)', async () => {
+    mockServiceClient.rpc.mockResolvedValueOnce({ data: 17, error: null });
+
+    const count = await getTotalClassesWatched();
+    expect(count).toBe(17);
+    expect(mockServiceClient.rpc).toHaveBeenCalledWith('count_distinct_classes_watched');
+    // Must NOT do a full table scan
+    expect(mockServiceClient.from).not.toHaveBeenCalled();
+  });
+
+  it('getTotalUsers uses count_all_users RPC (no auth.admin.listUsers walk)', async () => {
+    mockServiceClient.rpc.mockResolvedValueOnce({ data: 500, error: null });
+
+    const count = await getTotalUsers();
+    expect(count).toBe(500);
+    expect(mockServiceClient.rpc).toHaveBeenCalledWith('count_all_users');
+    expect(mockServiceClient.auth.admin.listUsers).not.toHaveBeenCalled();
   });
 });

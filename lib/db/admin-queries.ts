@@ -228,7 +228,9 @@ export async function getTotalEmailsSent(): Promise<number> {
 /**
  * Get total number of registered users
  *
- * Queries auth.users table via admin API.
+ * Counts rows in user_profiles (1:1 with auth.users via on_auth_user_created
+ * trigger from migration 20251024120000). Replaces the old 50-page
+ * auth.admin.listUsers walk.
  *
  * @returns Total count of registered users
  *
@@ -239,8 +241,16 @@ export async function getTotalUsers(): Promise<number> {
   const cached = adminCache.get('total-users') as number | undefined;
   if (cached !== undefined) return cached;
 
-  const users = await fetchAllAuthUsers();
-  const result = users.length;
+  const supabase = getServiceClient();
+
+  const { data, error } = await supabase.rpc('count_all_users');
+
+  if (error) {
+    console.error('[Admin] Error counting users:', error);
+    throw new Error(`Failed to count users: ${error.message}`);
+  }
+
+  const result = Number(data ?? 0);
   adminCache.set('total-users', result);
   return result;
 }
@@ -279,7 +289,8 @@ export async function getAdminCount(): Promise<number> {
 /**
  * Get total number of unique classes being watched
  *
- * Counts distinct class_nbr values in class_watches table.
+ * Calls the count_distinct_classes_watched RPC (SELECT COUNT(DISTINCT class_nbr))
+ * instead of fetching all rows and building a Set in application memory.
  *
  * @returns Total count of unique classes
  *
@@ -292,19 +303,232 @@ export async function getTotalClassesWatched(): Promise<number> {
 
   const supabase = getServiceClient();
 
-  const { data: watches, error } = await supabase.from('class_watches').select('class_nbr');
+  const { data, error } = await supabase.rpc('count_distinct_classes_watched');
 
   if (error) {
-    console.error('[Admin] Error fetching total classes watched:', error);
+    console.error('[Admin] Error counting distinct classes watched:', error);
     throw new Error(`Failed to fetch class count: ${error.message}`);
   }
 
-  const uniqueClasses = new Set(watches?.map((w) => w.class_nbr) || []);
-  const result = uniqueClasses.size;
+  const result = Number(data ?? 0);
 
   log('Admin').info(`Counted ${result} unique classes being watched`);
 
   adminCache.set('total-classes-watched', result);
+  return result;
+}
+
+// ─── Paginated query parameters ─────────────────────────────────────────────
+
+export type UserSortField =
+  | 'email'
+  | 'created_at'
+  | 'last_sign_in_at'
+  | 'watch_count'
+  | 'seat_emails'
+  | 'instructor_emails'
+  | 'engagement_rate';
+
+export type ClassSortField =
+  | 'class_nbr'
+  | 'subject'
+  | 'seats_available'
+  | 'watcher_count'
+  | 'seat_emails'
+  | 'instructor_emails'
+  | 'last_checked_at';
+
+export type SortDirection = 'asc' | 'desc';
+export type WatchCountFilter = 'all' | 'none' | '1-5' | '6-10' | '10+';
+
+export interface GetUsersPageParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  role?: 'all' | 'admin' | 'user';
+  verified?: 'all' | 'verified' | 'unverified';
+  watchCount?: WatchCountFilter;
+  sort?: UserSortField;
+  dir?: SortDirection;
+}
+
+export interface GetClassesPageParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  subject?: string;
+  seatStatus?: 'all' | 'full' | 'limited' | 'available';
+  instructor?: 'all' | 'staff' | 'named';
+  watcherCount?: WatchCountFilter;
+  sort?: ClassSortField;
+  dir?: SortDirection;
+}
+
+export interface UsersPage {
+  rows: UserWithWatchCount[];
+  total: number;
+}
+
+export interface ClassesPage {
+  rows: ClassWithWatchers[];
+  total: number;
+}
+
+/**
+ * Get a single page of users for the admin dashboard
+ *
+ * Calls get_users_page RPC which applies all filter/sort dimensions in SQL
+ * and returns only the requested page of rows. Replaces getAllUsersWithWatchCount
+ * for the table render path.
+ *
+ * @param params - Page, sort, and filter parameters
+ * @returns Paginated result with rows and total matching count
+ */
+export async function getUsersPage(params: GetUsersPageParams = {}): Promise<UsersPage> {
+  const {
+    page = 1,
+    pageSize = 25,
+    search = '',
+    role = 'all',
+    verified = 'all',
+    watchCount = 'all',
+    sort = 'created_at',
+    dir = 'desc',
+  } = params;
+
+  const supabase = getServiceClient();
+
+  const { data, error } = await supabase.rpc('get_users_page', {
+    p_page: page,
+    p_page_size: pageSize,
+    p_search: search,
+    p_role: role,
+    p_verified: verified,
+    p_watch_count: watchCount,
+    p_sort: sort,
+    p_dir: dir,
+  });
+
+  if (error) {
+    console.error('[Admin] Error fetching users page:', error);
+    throw new Error(`Failed to fetch users page: ${error.message}`);
+  }
+
+  const rows: UserWithWatchCount[] = (data ?? []).map((row) => ({
+    id: row.id,
+    email: row.email,
+    created_at: row.created_at,
+    last_sign_in_at: row.last_sign_in_at ?? null,
+    email_confirmed_at: row.email_confirmed_at ?? null,
+    watch_count: Number(row.watch_count),
+    is_admin: row.is_admin,
+    seat_emails: Number(row.seat_emails),
+    instructor_emails: Number(row.instructor_emails),
+    engagement_emails_sent: row.engagement_emails_sent,
+    engagement_emails_opened: row.engagement_emails_opened,
+    engagement_rate: row.engagement_rate !== null ? Number(row.engagement_rate) : null,
+    engagement_status: row.engagement_status as 'healthy' | 'low' | 'disabled' | 'new',
+  }));
+
+  const total = data && data.length > 0 ? Number(data[0].total_count) : 0;
+
+  log('Admin').info(`Fetched ${rows.length} users (page ${page}, total ${total})`);
+
+  return { rows, total };
+}
+
+/**
+ * Get a single page of classes for the admin dashboard
+ *
+ * Calls get_classes_page RPC which applies all filter/sort dimensions in SQL
+ * and returns only the requested page of rows. Replaces getAllClassesWithWatchers
+ * for the table render path.
+ *
+ * @param params - Page, sort, and filter parameters
+ * @returns Paginated result with rows and total matching count
+ */
+export async function getClassesPage(params: GetClassesPageParams = {}): Promise<ClassesPage> {
+  const {
+    page = 1,
+    pageSize = 25,
+    search = '',
+    subject = 'all',
+    seatStatus = 'all',
+    instructor = 'all',
+    watcherCount = 'all',
+    sort = 'watcher_count',
+    dir = 'desc',
+  } = params;
+
+  const supabase = getServiceClient();
+
+  const { data, error } = await supabase.rpc('get_classes_page', {
+    p_page: page,
+    p_page_size: pageSize,
+    p_search: search,
+    p_subject: subject,
+    p_seat_status: seatStatus,
+    p_instructor: instructor,
+    p_watcher_count: watcherCount,
+    p_sort: sort,
+    p_dir: dir,
+  });
+
+  if (error) {
+    console.error('[Admin] Error fetching classes page:', error);
+    throw new Error(`Failed to fetch classes page: ${error.message}`);
+  }
+
+  const rows: ClassWithWatchers[] = (data ?? []).map((row) => ({
+    id: row.id,
+    class_nbr: row.class_nbr,
+    term: row.term,
+    subject: row.subject,
+    catalog_nbr: row.catalog_nbr,
+    title: row.title ?? null,
+    instructor_name: row.instructor_name ?? null,
+    seats_available: row.seats_available,
+    seats_capacity: row.seats_capacity,
+    non_reserved_seats: row.non_reserved_seats ?? null,
+    location: row.location ?? null,
+    meeting_times: row.meeting_times ?? null,
+    last_checked_at: row.last_checked_at,
+    last_changed_at: row.last_changed_at,
+    watcher_count: Number(row.watcher_count),
+    seat_emails: Number(row.seat_emails),
+    instructor_emails: Number(row.instructor_emails),
+  }));
+
+  const total = data && data.length > 0 ? Number(data[0].total_count) : 0;
+
+  log('Admin').info(`Fetched ${rows.length} classes (page ${page}, total ${total})`);
+
+  return { rows, total };
+}
+
+/**
+ * Get distinct subject codes from class_states
+ *
+ * Calls get_distinct_subjects RPC to populate the subject filter drop-down
+ * on the admin classes page.
+ *
+ * @returns Sorted array of subject codes
+ */
+export async function getDistinctSubjects(): Promise<string[]> {
+  const cached = adminCache.get('distinct-subjects') as string[] | undefined;
+  if (cached !== undefined) return cached;
+
+  const supabase = getServiceClient();
+
+  const { data, error } = await supabase.rpc('get_distinct_subjects');
+
+  if (error) {
+    console.error('[Admin] Error fetching distinct subjects:', error);
+    throw new Error(`Failed to fetch subjects: ${error.message}`);
+  }
+
+  const result = (data ?? []).map((r) => r.subject);
+  adminCache.set('distinct-subjects', result);
   return result;
 }
 

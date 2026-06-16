@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useCallback, useTransition } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -12,24 +13,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { UserSortField } from '@/lib/db/admin-queries';
 import type { UserWithWatchCount } from '@/lib/db/admin-queries';
 import { formatRelativeDate } from '@/lib/utils/time-format';
 import { SortableHeader } from './SortableHeader';
 import { type UsersTableFilters, UsersTableFiltersComponent } from './UsersTableFilters';
-import { useTableSorting } from './useTableSorting';
+
+// UsersTableFilters is used by parent pages; re-export for convenience
+export type { UsersTableFilters };
 
 interface UsersTableProps {
   users: UserWithWatchCount[];
+  total: number;
+  page: number;
+  pageSize: number;
+  sort: UserSortField;
+  dir: 'asc' | 'desc';
+  search: string;
+  role: 'all' | 'admin' | 'user';
+  verified: 'all' | 'verified' | 'unverified';
+  watchCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
 }
-
-type SortField =
-  | 'email'
-  | 'created_at'
-  | 'last_sign_in_at'
-  | 'watch_count'
-  | 'seat_emails'
-  | 'instructor_emails'
-  | 'engagement_rate';
 
 /**
  * Format date to readable format with relative time
@@ -40,7 +44,6 @@ function formatDate(dateString: string | null): string {
   const relative = formatRelativeDate(dateString);
   if (relative) return relative;
 
-  // Otherwise show formatted date
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
@@ -52,126 +55,89 @@ function formatDate(dateString: string | null): string {
 /**
  * Admin Users Table Component
  *
- * Client component for displaying all users with filtering, sorting, and navigation support.
- * Features:
- * - Search by email
- * - Filter by role, verification status, watch count
- * - Sort by email, registration date, last sign in, watch count
- * - Click to navigate to user detail pages
+ * Server-driven client component: sort, search, and filter all update URL
+ * searchParams so the server re-queries.  Renders only the server-provided
+ * page of rows — the full dataset is never in the browser.
  */
-export function UsersTable({ users }: UsersTableProps) {
+export function UsersTable({
+  users,
+  total,
+  page,
+  pageSize,
+  sort,
+  dir,
+  search,
+  role,
+  verified,
+  watchCount,
+}: UsersTableProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
 
-  // Filter state
-  const [filters, setFilters] = useState<UsersTableFilters>({
-    search: '',
-    role: 'all',
-    verified: 'all',
-    watchCount: 'all',
-  });
-
-  const { sortField, sortDirection, toggleSort, renderSortIcon } = useTableSorting<SortField>();
-
-  const filteredAndSortedUsers = useMemo(() => {
-    let result = [...users];
-
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      result = result.filter((user) => user.email.toLowerCase().includes(searchLower));
-    }
-
-    if (filters.role !== 'all') {
-      result = result.filter((user) => {
-        if (filters.role === 'admin') return user.is_admin;
-        if (filters.role === 'user') return !user.is_admin;
-        return true;
-      });
-    }
-
-    if (filters.verified !== 'all') {
-      result = result.filter((user) => {
-        const isVerified = !!user.email_confirmed_at;
-        if (filters.verified === 'verified') return isVerified;
-        if (filters.verified === 'unverified') return !isVerified;
-        return true;
-      });
-    }
-
-    if (filters.watchCount !== 'all') {
-      result = result.filter((user) => {
-        const count = user.watch_count;
-        if (filters.watchCount === 'none') return count === 0;
-        if (filters.watchCount === '1-5') return count >= 1 && count <= 5;
-        if (filters.watchCount === '6-10') return count >= 6 && count <= 10;
-        if (filters.watchCount === '10+') return count > 10;
-        return true;
-      });
-    }
-
-    if (sortField && sortDirection) {
-      result.sort((a, b) => {
-        let aVal: string | number | null;
-        let bVal: string | number | null;
-
-        if (sortField === 'email') {
-          aVal = a.email;
-          bVal = b.email;
-        } else if (sortField === 'created_at') {
-          aVal = a.created_at;
-          bVal = b.created_at;
-        } else if (sortField === 'last_sign_in_at') {
-          aVal = a.last_sign_in_at;
-          bVal = b.last_sign_in_at;
-        } else if (sortField === 'watch_count') {
-          aVal = a.watch_count;
-          bVal = b.watch_count;
-        } else if (sortField === 'seat_emails') {
-          aVal = a.seat_emails;
-          bVal = b.seat_emails;
-        } else if (sortField === 'instructor_emails') {
-          aVal = a.instructor_emails;
-          bVal = b.instructor_emails;
-        } else if (sortField === 'engagement_rate') {
-          aVal = a.engagement_rate;
-          bVal = b.engagement_rate;
+  /** Build a new URL with updated searchParam(s) */
+  const buildUrl = useCallback(
+    (updates: Record<string, string>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [k, v] of Object.entries(updates)) {
+        if (v === '' || v === 'all') {
+          params.delete(k);
         } else {
-          return 0;
+          params.set(k, v);
         }
+      }
+      const qs = params.toString();
+      return qs ? `${pathname}?${qs}` : pathname;
+    },
+    [pathname, searchParams]
+  );
 
-        // Handle null values (sort to end)
-        if (aVal === null && bVal === null) return 0;
-        if (aVal === null) return 1;
-        if (bVal === null) return -1;
-
-        // Compare values
-        let comparison = 0;
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
-          comparison = aVal.localeCompare(bVal);
-        } else if (typeof aVal === 'number' && typeof bVal === 'number') {
-          comparison = aVal - bVal;
-        }
-
-        return sortDirection === 'asc' ? comparison : -comparison;
+  const navigate = useCallback(
+    (updates: Record<string, string>) => {
+      startTransition(() => {
+        router.push(buildUrl(updates));
       });
-    }
+    },
+    [router, buildUrl]
+  );
 
-    return result;
-  }, [users, filters, sortField, sortDirection]);
+  /** URL-driven sort handler — passed to SortableHeader as toggleSort */
+  const handleSortClick = (field: UserSortField) => {
+    if (sort === field) {
+      navigate({ sort: field, dir: dir === 'asc' ? 'desc' : 'asc', page: '1' });
+    } else {
+      navigate({ sort: field, dir: 'asc', page: '1' });
+    }
+  };
+
+  /** Icon renderer that reads URL state rather than hook-internal state */
+  const renderSortIconFromUrl = (field: UserSortField) => {
+    const { ChevronDown, ChevronUp, ChevronsUpDown } =
+      require('lucide-react') as typeof import('lucide-react');
+    if (sort !== field) return <ChevronsUpDown className="size-4 ml-1 text-muted-foreground" />;
+    if (dir === 'asc') return <ChevronUp className="size-4 ml-1" />;
+    return <ChevronDown className="size-4 ml-1" />;
+  };
 
   const handleRowClick = (userId: string, event: React.MouseEvent) => {
-    // Don't navigate if user clicked on the email link
     const target = event.target as HTMLElement;
-    if (target.tagName === 'A' || target.closest('a')) {
-      return;
-    }
-
+    if (target.tagName === 'A' || target.closest('a')) return;
     router.push(`/admin/users/${userId}`);
   };
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <UsersTableFiltersComponent filters={filters} onFiltersChange={setFilters} />
+      <UsersTableFiltersComponent
+        search={search}
+        role={role}
+        verified={verified}
+        watchCount={watchCount}
+        onNavigate={(updates) => navigate({ ...updates, page: '1' })}
+      />
 
       {/* Table */}
       <div className="rounded-lg border bg-card">
@@ -181,55 +147,55 @@ export function UsersTable({ users }: UsersTableProps) {
               <SortableHeader
                 field="email"
                 label="Email"
-                toggleSort={toggleSort}
-                renderSortIcon={renderSortIcon}
+                toggleSort={handleSortClick}
+                renderSortIcon={renderSortIconFromUrl}
                 align="left"
                 className="w-[300px]"
               />
               <SortableHeader
                 field="created_at"
                 label="Registered"
-                toggleSort={toggleSort}
-                renderSortIcon={renderSortIcon}
+                toggleSort={handleSortClick}
+                renderSortIcon={renderSortIconFromUrl}
                 align="left"
               />
               <SortableHeader
                 field="last_sign_in_at"
                 label="Last Sign In"
-                toggleSort={toggleSort}
-                renderSortIcon={renderSortIcon}
+                toggleSort={handleSortClick}
+                renderSortIcon={renderSortIconFromUrl}
                 align="left"
               />
               <TableHead>Email Verified</TableHead>
               <SortableHeader
                 field="watch_count"
                 label="Watches"
-                toggleSort={toggleSort}
-                renderSortIcon={renderSortIcon}
+                toggleSort={handleSortClick}
+                renderSortIcon={renderSortIconFromUrl}
                 align="center"
                 className="text-center"
               />
               <SortableHeader
                 field="seat_emails"
                 label="Seat Emails"
-                toggleSort={toggleSort}
-                renderSortIcon={renderSortIcon}
+                toggleSort={handleSortClick}
+                renderSortIcon={renderSortIconFromUrl}
                 align="center"
                 className="text-center"
               />
               <SortableHeader
                 field="instructor_emails"
                 label="Instructor Emails"
-                toggleSort={toggleSort}
-                renderSortIcon={renderSortIcon}
+                toggleSort={handleSortClick}
+                renderSortIcon={renderSortIconFromUrl}
                 align="center"
                 className="text-center"
               />
               <SortableHeader
                 field="engagement_rate"
                 label="Engagement"
-                toggleSort={toggleSort}
-                renderSortIcon={renderSortIcon}
+                toggleSort={handleSortClick}
+                renderSortIcon={renderSortIconFromUrl}
                 align="center"
                 className="text-center"
               />
@@ -237,14 +203,14 @@ export function UsersTable({ users }: UsersTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAndSortedUsers.length === 0 ? (
+            {users.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   No users found
                 </TableCell>
               </TableRow>
             ) : (
-              filteredAndSortedUsers.map((user) => {
+              users.map((user) => {
                 const isVerified = !!user.email_confirmed_at;
 
                 return (
@@ -335,12 +301,42 @@ export function UsersTable({ users }: UsersTableProps) {
         </Table>
       </div>
 
-      {/* Results count */}
-      {filteredAndSortedUsers.length > 0 && (
+      {/* Results count + pagination */}
+      <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Showing {filteredAndSortedUsers.length} of {users.length} users
+          {total === 0 ? (
+            'No users found'
+          ) : (
+            <>
+              Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}{' '}
+              users
+            </>
+          )}
         </p>
-      )}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => navigate({ page: String(page - 1) })}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => navigate({ page: String(page + 1) })}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

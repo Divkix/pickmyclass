@@ -1,6 +1,7 @@
 'use client';
 
 import { Search, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -11,6 +12,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+// Keep the legacy interface for backwards compatibility with any existing
+// imports that use UsersTableFilters (currently none outside this file).
 export interface UsersTableFilters {
   search: string;
   role: 'all' | 'admin' | 'user';
@@ -19,61 +22,76 @@ export interface UsersTableFilters {
 }
 
 interface UsersTableFiltersProps {
-  filters: UsersTableFilters;
-  onFiltersChange: (filters: UsersTableFilters) => void;
+  /** Current filter values (from URL searchParams via parent) */
+  search: string;
+  role: 'all' | 'admin' | 'user';
+  verified: 'all' | 'verified' | 'unverified';
+  watchCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
+  /**
+   * Called with a flat map of searchParam updates when any filter changes.
+   * The parent component (UsersTable) merges these into the URL.
+   */
+  onNavigate: (updates: Record<string, string>) => void;
 }
+
+const SEARCH_DEBOUNCE_MS = 350;
 
 /**
  * Users Table Filters Component
  *
- * Provides filtering controls for the users table:
- * - Search by email
- * - Filter by role (admin/user)
- * - Filter by email verification status
- * - Filter by watch count ranges
+ * URL-driven: filter changes update URL searchParams so the server re-queries.
+ * Search is debounced to avoid a request on every keystroke.
  */
-export function UsersTableFiltersComponent({ filters, onFiltersChange }: UsersTableFiltersProps) {
-  // Update a single filter field
-  const updateFilter = <K extends keyof UsersTableFilters>(key: K, value: UsersTableFilters[K]) => {
-    onFiltersChange({ ...filters, [key]: value });
-  };
+export function UsersTableFiltersComponent({
+  search,
+  role,
+  verified,
+  watchCount,
+  onNavigate,
+}: UsersTableFiltersProps) {
+  // Local state for search input so it feels responsive while debouncing
+  const [localSearch, setLocalSearch] = useState(search);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset all filters to defaults
+  // Sync local state when the URL-driven value changes (e.g. clear button)
+  useEffect(() => {
+    setLocalSearch(search);
+  }, [search]);
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setLocalSearch(value);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        onNavigate({ search: value });
+      }, SEARCH_DEBOUNCE_MS);
+    },
+    [onNavigate]
+  );
+
   const clearFilters = () => {
-    onFiltersChange({
-      search: '',
-      role: 'all',
-      verified: 'all',
-      watchCount: 'all',
-    });
+    onNavigate({ search: '', role: 'all', verified: 'all', watchCount: 'all' });
   };
 
-  // Check if any filters are active
   const hasActiveFilters =
-    filters.search !== '' ||
-    filters.role !== 'all' ||
-    filters.verified !== 'all' ||
-    filters.watchCount !== 'all';
+    search !== '' || role !== 'all' || verified !== 'all' || watchCount !== 'all';
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Search Input */}
+        {/* Search Input (debounced) */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Search by email..."
-            value={filters.search}
-            onChange={(e) => updateFilter('search', e.target.value)}
+            value={localSearch}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-9"
           />
         </div>
 
         {/* Role Filter */}
-        <Select
-          value={filters.role}
-          onValueChange={(value) => updateFilter('role', value as UsersTableFilters['role'])}
-        >
+        <Select value={role} onValueChange={(value) => onNavigate({ role: value })}>
           <SelectTrigger>
             <SelectValue placeholder="All Roles" />
           </SelectTrigger>
@@ -85,12 +103,7 @@ export function UsersTableFiltersComponent({ filters, onFiltersChange }: UsersTa
         </Select>
 
         {/* Email Verified Filter */}
-        <Select
-          value={filters.verified}
-          onValueChange={(value) =>
-            updateFilter('verified', value as UsersTableFilters['verified'])
-          }
-        >
+        <Select value={verified} onValueChange={(value) => onNavigate({ verified: value })}>
           <SelectTrigger>
             <SelectValue placeholder="Email Status" />
           </SelectTrigger>
@@ -102,12 +115,7 @@ export function UsersTableFiltersComponent({ filters, onFiltersChange }: UsersTa
         </Select>
 
         {/* Watch Count Filter */}
-        <Select
-          value={filters.watchCount}
-          onValueChange={(value) =>
-            updateFilter('watchCount', value as UsersTableFilters['watchCount'])
-          }
-        >
+        <Select value={watchCount} onValueChange={(value) => onNavigate({ watchCount: value })}>
           <SelectTrigger>
             <SelectValue placeholder="Watch Count" />
           </SelectTrigger>

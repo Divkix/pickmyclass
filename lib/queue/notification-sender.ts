@@ -162,13 +162,7 @@ export async function sendSectionNotifications(
 
   const uniqueUserIds = [...new Set(successfulEmails.map((e) => e.email.userId))];
   if (uniqueUserIds.length > 0) {
-    // record_engagement_send_batch not yet in generated types — regenerate database.types.ts and remove this cast
-    const { error: engagementError } = await (
-      serviceClient.rpc as unknown as (
-        fn: string,
-        args: { p_user_ids: string[] }
-      ) => Promise<{ data: unknown; error: unknown }>
-    )('record_engagement_send_batch', {
+    const { error: engagementError } = await serviceClient.rpc('record_engagement_send_batch', {
       p_user_ids: uniqueUserIds,
     });
     if (engagementError) {

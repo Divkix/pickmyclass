@@ -13,12 +13,15 @@ const {
   mockGetAllClassesWithWatchers,
   mockGetAllUsersWithWatchCount,
   mockGetClassWatchers,
+  mockGetClassesPage,
+  mockGetDistinctSubjects,
   mockGetRecentActivity,
   mockGetServiceClient,
   mockGetTotalClassesWatched,
   mockGetTotalEmailsSent,
   mockGetTotalUsers,
   mockGetUserWatches,
+  mockGetUsersPage,
   mockPush,
   mockVerifyAdmin,
 } = vi.hoisted(() => ({
@@ -26,12 +29,15 @@ const {
   mockGetAllClassesWithWatchers: vi.fn(),
   mockGetAllUsersWithWatchCount: vi.fn(),
   mockGetClassWatchers: vi.fn(),
+  mockGetClassesPage: vi.fn(),
+  mockGetDistinctSubjects: vi.fn(),
   mockGetRecentActivity: vi.fn(),
   mockGetServiceClient: vi.fn(),
   mockGetTotalClassesWatched: vi.fn(),
   mockGetTotalEmailsSent: vi.fn(),
   mockGetTotalUsers: vi.fn(),
   mockGetUserWatches: vi.fn(),
+  mockGetUsersPage: vi.fn(),
   mockPush: vi.fn(),
   mockVerifyAdmin: vi.fn(),
 }));
@@ -59,6 +65,7 @@ vi.mock('next/navigation', () => ({
     push: mockPush,
     replace: vi.fn(),
   }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('next-themes', () => ({
@@ -97,11 +104,14 @@ vi.mock('@/lib/db/admin-queries', () => ({
   getAdminCount: mockGetAdminCount,
   getAllClassesWithWatchers: mockGetAllClassesWithWatchers,
   getAllUsersWithWatchCount: mockGetAllUsersWithWatchCount,
+  getClassesPage: mockGetClassesPage,
+  getDistinctSubjects: mockGetDistinctSubjects,
   getRecentActivity: mockGetRecentActivity,
   getTotalClassesWatched: mockGetTotalClassesWatched,
   getTotalEmailsSent: mockGetTotalEmailsSent,
   getTotalUsers: mockGetTotalUsers,
   getUserWatches: mockGetUserWatches,
+  getUsersPage: mockGetUsersPage,
 }));
 
 vi.mock('@/lib/db/queries', () => ({
@@ -219,6 +229,9 @@ const userRows = [
   },
 ];
 
+/** Default empty searchParams */
+const emptySearchParams = Promise.resolve({} as Record<string, string | undefined>);
+
 describe('admin pages', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -238,8 +251,13 @@ describe('admin pages', () => {
         notificationType: 'seat_available',
       },
     ]);
+    // Legacy whole-table functions (still used by dashboard/detail pages)
     mockGetAllClassesWithWatchers.mockResolvedValue(classRows);
     mockGetAllUsersWithWatchCount.mockResolvedValue(userRows);
+    // New paginated functions
+    mockGetUsersPage.mockResolvedValue({ rows: userRows, total: userRows.length });
+    mockGetClassesPage.mockResolvedValue({ rows: classRows, total: classRows.length });
+    mockGetDistinctSubjects.mockResolvedValue(['CSE', 'MAT']);
     mockGetClassWatchers.mockResolvedValue([
       {
         watch_id: 'watch-1',
@@ -292,12 +310,16 @@ describe('admin pages', () => {
     expect(screen.getAllByRole('link', { name: /classes/i }).length).toBeGreaterThan(0);
   });
 
-  it('renders class tables and supports row navigation/sorting controls', async () => {
-    render(await AdminClassesPage());
+  it('renders class tables with paginated rows and supports row navigation/sorting controls', async () => {
+    render(await AdminClassesPage({ searchParams: emptySearchParams }));
 
     expect(screen.getByRole('heading', { name: /all classes/i })).toBeInTheDocument();
     expect(screen.getByText('Intro to Programming')).toBeInTheDocument();
     expect(screen.getByText('Calculus I')).toBeInTheDocument();
+
+    // Verify paginated query was called (not the whole-table function)
+    expect(mockGetClassesPage).toHaveBeenCalled();
+    expect(mockGetDistinctSubjects).toHaveBeenCalled();
 
     fireEvent.click(screen.getByText('Class #'));
     fireEvent.click(screen.getByText('67890').closest('tr') as HTMLTableRowElement);
@@ -313,12 +335,15 @@ describe('admin pages', () => {
     expect(screen.getByText('12345')).toBeInTheDocument();
   });
 
-  it('renders user tables and supports row navigation/sorting controls', async () => {
-    render(await AdminUsersPage());
+  it('renders user tables with paginated rows and supports row navigation/sorting controls', async () => {
+    render(await AdminUsersPage({ searchParams: emptySearchParams }));
 
     expect(screen.getByRole('heading', { name: /users/i })).toBeInTheDocument();
     expect(screen.getByText('admin@example.com')).toBeInTheDocument();
     expect(screen.getByText('student@example.com')).toBeInTheDocument();
+
+    // Verify paginated query was called (not the whole-table function)
+    expect(mockGetUsersPage).toHaveBeenCalled();
 
     fireEvent.click(screen.getByText('Email'));
     fireEvent.click(screen.getByText('student@example.com').closest('tr') as HTMLTableRowElement);
@@ -332,5 +357,47 @@ describe('admin pages', () => {
     expect(screen.getByText('User Information')).toBeInTheDocument();
     expect(screen.getAllByText('admin@example.com').length).toBeGreaterThan(0);
     expect(screen.getByText('Intro to Programming')).toBeInTheDocument();
+  });
+
+  it('passes page/sort/filter searchParams to getUsersPage', async () => {
+    const sp = Promise.resolve({
+      page: '2',
+      sort: 'email',
+      dir: 'asc',
+      role: 'admin',
+    } as Record<string, string | undefined>);
+
+    await AdminUsersPage({ searchParams: sp });
+
+    expect(mockGetUsersPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        page: 2,
+        sort: 'email',
+        dir: 'asc',
+        role: 'admin',
+      })
+    );
+  });
+
+  it('passes page/sort/filter searchParams to getClassesPage', async () => {
+    const sp = Promise.resolve({
+      page: '3',
+      sort: 'class_nbr',
+      dir: 'asc',
+      subject: 'CSE',
+      seatStatus: 'full',
+    } as Record<string, string | undefined>);
+
+    await AdminClassesPage({ searchParams: sp });
+
+    expect(mockGetClassesPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        page: 3,
+        sort: 'class_nbr',
+        dir: 'asc',
+        subject: 'CSE',
+        seatStatus: 'full',
+      })
+    );
   });
 });

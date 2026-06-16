@@ -3,26 +3,61 @@ export const dynamic = 'force-dynamic';
 import { ClassesTable } from '@/components/admin/ClassesTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { verifyAdmin } from '@/lib/auth/admin';
-import { getAllClassesWithWatchers } from '@/lib/db/admin-queries';
+import { getClassesPage, getDistinctSubjects } from '@/lib/db/admin-queries';
+import type { ClassSortField } from '@/lib/db/admin-queries';
+
+const PAGE_SIZE = 25;
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function param(searchParams: Record<string, string | string[] | undefined>, key: string): string {
+  const v = searchParams[key];
+  return typeof v === 'string' ? v : '';
+}
 
 /**
  * Admin Classes List Page
  *
- * Displays all classes being watched across the platform with:
- * - Class information (number, subject, title, instructor)
- * - Seat availability status
- * - Watcher count
- * - Last check timestamp
+ * Server component that reads page/sort/filter searchParams and calls
+ * getClassesPage() (server-side paginated RPC). Only the current page of rows
+ * is fetched — the full table is never loaded into the Worker.
  *
  * Requires admin authentication via verifyAdmin().
- * Uses server-side data fetching for optimal performance.
  */
-export default async function AdminClassesPage() {
+export default async function AdminClassesPage({ searchParams }: { searchParams?: SearchParams }) {
   // Verify admin authentication (redirects if unauthorized)
   await verifyAdmin();
 
-  // Fetch all classes with watcher counts
-  const classes = await getAllClassesWithWatchers();
+  const sp = await (searchParams ?? Promise.resolve({}));
+
+  const page = Math.max(1, Number(param(sp, 'page') || '1'));
+  const sort = (param(sp, 'sort') || 'watcher_count') as ClassSortField;
+  const dir = (param(sp, 'dir') === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
+  const search = param(sp, 'search');
+  const subject = param(sp, 'subject') || 'all';
+  const seatStatus = (param(sp, 'seatStatus') || 'all') as 'all' | 'full' | 'limited' | 'available';
+  const instructor = (param(sp, 'instructor') || 'all') as 'all' | 'staff' | 'named';
+  const watcherCount = (param(sp, 'watcherCount') || 'all') as
+    | 'all'
+    | 'none'
+    | '1-5'
+    | '6-10'
+    | '10+';
+
+  const [{ rows, total }, subjects] = await Promise.all([
+    getClassesPage({
+      page,
+      pageSize: PAGE_SIZE,
+      search,
+      subject,
+      seatStatus,
+      instructor,
+      watcherCount,
+      sort,
+      dir,
+    }),
+    getDistinctSubjects(),
+  ]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -43,7 +78,7 @@ export default async function AdminClassesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{classes.length}</div>
+            <div className="text-2xl font-bold">{total}</div>
           </CardContent>
         </Card>
 
@@ -55,7 +90,7 @@ export default async function AdminClassesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {classes.reduce((sum, c) => sum + c.watcher_count, 0)}
+              {rows.reduce((sum, c) => sum + c.watcher_count, 0)}
             </div>
           </CardContent>
         </Card>
@@ -68,7 +103,7 @@ export default async function AdminClassesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">
-              {classes.filter((c) => c.seats_available === 0).length}
+              {rows.filter((c) => c.seats_available === 0).length}
             </div>
           </CardContent>
         </Card>
@@ -81,7 +116,20 @@ export default async function AdminClassesPage() {
           <CardDescription>Click on a class number to view detailed information</CardDescription>
         </CardHeader>
         <CardContent>
-          <ClassesTable classes={classes} />
+          <ClassesTable
+            classes={rows}
+            total={total}
+            page={page}
+            pageSize={PAGE_SIZE}
+            subjects={subjects}
+            sort={sort}
+            dir={dir}
+            search={search}
+            subject={subject}
+            seatStatus={seatStatus}
+            instructor={instructor}
+            watcherCount={watcherCount}
+          />
         </CardContent>
       </Card>
     </div>

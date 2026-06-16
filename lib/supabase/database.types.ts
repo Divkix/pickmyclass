@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -251,6 +246,8 @@ export type Database = {
     }
     Functions: {
       accept_terms_and_verify_age: { Args: never; Returns: undefined }
+      count_all_users: { Args: never; Returns: number }
+      count_distinct_classes_watched: { Args: never; Returns: number }
       create_class_watch_with_limit: {
         Args: {
           p_catalog_nbr: string
@@ -287,6 +284,45 @@ export type Database = {
           email: string
           user_id: string
           watch_id: string
+        }[]
+      }
+      get_classes_page: {
+        Args: {
+          p_dir?: string
+          p_instructor?: string
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+          p_seat_status?: string
+          p_sort?: string
+          p_subject?: string
+          p_watcher_count?: string
+        }
+        Returns: {
+          catalog_nbr: string
+          class_nbr: string
+          id: string
+          instructor_emails: number
+          instructor_name: string
+          last_changed_at: string
+          last_checked_at: string
+          location: string
+          meeting_times: string
+          non_reserved_seats: number
+          seat_emails: number
+          seats_available: number
+          seats_capacity: number
+          subject: string
+          term: string
+          title: string
+          total_count: number
+          watcher_count: number
+        }[]
+      }
+      get_distinct_subjects: {
+        Args: never
+        Returns: {
+          subject: string
         }[]
       }
       get_notification_counts_by_class: {
@@ -334,6 +370,34 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_users_page: {
+        Args: {
+          p_dir?: string
+          p_page?: number
+          p_page_size?: number
+          p_role?: string
+          p_search?: string
+          p_sort?: string
+          p_verified?: string
+          p_watch_count?: string
+        }
+        Returns: {
+          created_at: string
+          email: string
+          email_confirmed_at: string
+          engagement_emails_opened: number
+          engagement_emails_sent: number
+          engagement_rate: number
+          engagement_status: string
+          id: string
+          instructor_emails: number
+          is_admin: boolean
+          last_sign_in_at: string
+          seat_emails: number
+          total_count: number
+          watch_count: number
+        }[]
+      }
       get_watchers_for_sections: {
         Args: { section_numbers: string[] }
         Returns: {
@@ -359,6 +423,10 @@ export type Database = {
         Returns: undefined
       }
       record_engagement_send: { Args: { p_user_id: string }; Returns: boolean }
+      record_engagement_send_batch: {
+        Args: { p_user_ids: string[] }
+        Returns: undefined
+      }
       try_record_notification: {
         Args: {
           p_class_watch_id: string
@@ -511,3 +579,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

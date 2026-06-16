@@ -1,6 +1,7 @@
 'use client';
 
 import { Search, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -11,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+// Keep the legacy interface for backwards compatibility with any existing imports.
 export interface ClassesTableFilters {
   search: string;
   subject: string;
@@ -21,36 +23,58 @@ export interface ClassesTableFilters {
 
 interface ClassesTableFiltersProps {
   subjects: string[];
-  filters: ClassesTableFilters;
-  onFiltersChange: (filters: ClassesTableFilters) => void;
+  /** Current filter values (from URL searchParams via parent) */
+  search: string;
+  subject: string;
+  seatStatus: 'all' | 'full' | 'limited' | 'available';
+  instructor: 'all' | 'staff' | 'named';
+  watcherCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
+  /**
+   * Called with a flat map of searchParam updates when any filter changes.
+   * The parent component (ClassesTable) merges these into the URL.
+   */
+  onNavigate: (updates: Record<string, string>) => void;
 }
+
+const SEARCH_DEBOUNCE_MS = 350;
 
 /**
  * Classes Table Filters Component
  *
- * Provides filtering controls for the classes table:
- * - Search by class number or title
- * - Filter by subject
- * - Filter by seat availability status
- * - Filter by instructor type (staff vs named)
- * - Filter by watcher count ranges
+ * URL-driven: filter changes update URL searchParams so the server re-queries.
+ * Search is debounced to avoid a request on every keystroke.
  */
 export function ClassesTableFiltersComponent({
   subjects,
-  filters,
-  onFiltersChange,
+  search,
+  subject,
+  seatStatus,
+  instructor,
+  watcherCount,
+  onNavigate,
 }: ClassesTableFiltersProps) {
-  // Update a single filter field
-  const updateFilter = <K extends keyof ClassesTableFilters>(
-    key: K,
-    value: ClassesTableFilters[K]
-  ) => {
-    onFiltersChange({ ...filters, [key]: value });
-  };
+  // Local state for search input so it feels responsive while debouncing
+  const [localSearch, setLocalSearch] = useState(search);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset all filters to defaults
+  // Sync local state when the URL-driven value changes (e.g. clear button)
+  useEffect(() => {
+    setLocalSearch(search);
+  }, [search]);
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setLocalSearch(value);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        onNavigate({ search: value });
+      }, SEARCH_DEBOUNCE_MS);
+    },
+    [onNavigate]
+  );
+
   const clearFilters = () => {
-    onFiltersChange({
+    onNavigate({
       search: '',
       subject: 'all',
       seatStatus: 'all',
@@ -59,50 +83,44 @@ export function ClassesTableFiltersComponent({
     });
   };
 
-  // Check if any filters are active
   const hasActiveFilters =
-    filters.search !== '' ||
-    filters.subject !== 'all' ||
-    filters.seatStatus !== 'all' ||
-    filters.instructor !== 'all' ||
-    filters.watcherCount !== 'all';
+    search !== '' ||
+    subject !== 'all' ||
+    seatStatus !== 'all' ||
+    instructor !== 'all' ||
+    watcherCount !== 'all';
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Search Input */}
+        {/* Search Input (debounced) */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Search by class # or title..."
-            value={filters.search}
-            onChange={(e) => updateFilter('search', e.target.value)}
+            value={localSearch}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-9"
           />
         </div>
 
         {/* Subject Filter */}
-        <Select value={filters.subject} onValueChange={(value) => updateFilter('subject', value)}>
+        <Select value={subject} onValueChange={(value) => onNavigate({ subject: value })}>
           <SelectTrigger>
             <SelectValue placeholder="All Subjects" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Subjects</SelectItem>
-            {subjects.map((subject) => (
-              <SelectItem key={subject} value={subject}>
-                {subject}
+            {subjects.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         {/* Seat Status Filter */}
-        <Select
-          value={filters.seatStatus}
-          onValueChange={(value) =>
-            updateFilter('seatStatus', value as ClassesTableFilters['seatStatus'])
-          }
-        >
+        <Select value={seatStatus} onValueChange={(value) => onNavigate({ seatStatus: value })}>
           <SelectTrigger>
             <SelectValue placeholder="Seat Status" />
           </SelectTrigger>
@@ -115,12 +133,7 @@ export function ClassesTableFiltersComponent({
         </Select>
 
         {/* Instructor Filter */}
-        <Select
-          value={filters.instructor}
-          onValueChange={(value) =>
-            updateFilter('instructor', value as ClassesTableFilters['instructor'])
-          }
-        >
+        <Select value={instructor} onValueChange={(value) => onNavigate({ instructor: value })}>
           <SelectTrigger>
             <SelectValue placeholder="Instructor" />
           </SelectTrigger>
@@ -132,12 +145,7 @@ export function ClassesTableFiltersComponent({
         </Select>
 
         {/* Watcher Count Filter */}
-        <Select
-          value={filters.watcherCount}
-          onValueChange={(value) =>
-            updateFilter('watcherCount', value as ClassesTableFilters['watcherCount'])
-          }
-        >
+        <Select value={watcherCount} onValueChange={(value) => onNavigate({ watcherCount: value })}>
           <SelectTrigger>
             <SelectValue placeholder="Watchers" />
           </SelectTrigger>
