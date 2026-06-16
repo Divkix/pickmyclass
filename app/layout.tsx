@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { headers } from 'next/headers';
 import Script from 'next/script';
 import { Toaster } from 'sonner';
 import { BottomNavWrapper } from '@/components/BottomNavWrapper';
@@ -73,18 +72,19 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read the per-request nonce forwarded by proxy.ts via x-nonce request header.
-  // In development the nonce is absent (DEV_CSP uses 'unsafe-inline'); in
-  // production it matches the 'nonce-<value>' in the Content-Security-Policy
-  // response header so browsers will allow these inline JSON-LD scripts.
-  const headersList = await headers();
-  const nonce = headersList.get('x-nonce') ?? undefined;
-
+  // NOTE: Do NOT read headers()/cookies() or any dynamic API here. The root
+  // layout wraps every page, including statically-rendered ones (`export const
+  // dynamic = 'error'` on /, /blog/*, /about, /faq, /legal/*); a dynamic API
+  // here forces those pages dynamic and makes them throw at runtime (500).
+  // The CSP nonce for framework scripts is applied by vinext from the CSP
+  // response header (see proxy.ts) — it does not need the layout. The JSON-LD
+  // blocks below are `type="application/ld+json"` (non-executable data), which
+  // CSP script-src does not gate, so they need no nonce.
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
@@ -104,7 +104,6 @@ export default async function RootLayout({
         />
         <script
           type="application/ld+json"
-          nonce={nonce}
           // static JSON-LD structured data, no user input
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
@@ -124,7 +123,6 @@ export default async function RootLayout({
         />
         <script
           type="application/ld+json"
-          nonce={nonce}
           // static JSON-LD structured data, no user input
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
