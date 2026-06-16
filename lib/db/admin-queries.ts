@@ -338,8 +338,8 @@ export type ClassSortField =
   | 'instructor_emails'
   | 'last_checked_at';
 
-export type SortDirection = 'asc' | 'desc';
-export type WatchCountFilter = 'all' | 'none' | '1-5' | '6-10' | '10+';
+type SortDirection = 'asc' | 'desc';
+type WatchCountFilter = 'all' | 'none' | '1-5' | '6-10' | '10+';
 
 export interface GetUsersPageParams {
   page?: number;

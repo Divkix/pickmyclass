@@ -12,15 +12,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-// Keep the legacy interface for backwards compatibility with any existing
-// imports that use UsersTableFilters (currently none outside this file).
-export interface UsersTableFilters {
-  search: string;
-  role: 'all' | 'admin' | 'user';
-  verified: 'all' | 'verified' | 'unverified';
-  watchCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
-}
-
 interface UsersTableFiltersProps {
   /** Current filter values (from URL searchParams via parent) */
   search: string;

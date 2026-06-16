@@ -13,14 +13,6 @@ import {
 } from '@/components/ui/select';
 
 // Keep the legacy interface for backwards compatibility with any existing imports.
-export interface ClassesTableFilters {
-  search: string;
-  subject: string;
-  seatStatus: 'all' | 'full' | 'limited' | 'available';
-  instructor: 'all' | 'staff' | 'named';
-  watcherCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
-}
-
 interface ClassesTableFiltersProps {
   subjects: string[];
   /** Current filter values (from URL searchParams via parent) */

@@ -19,10 +19,7 @@ import type { ClassWithWatchers } from '@/lib/db/admin-queries';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 import { formatRelativeTime } from '@/lib/utils/time-format';
 import { SortableHeader } from './SortableHeader';
-import { type ClassesTableFilters, ClassesTableFiltersComponent } from './ClassesTableFilters';
-
-// ClassesTableFilters is used by parent pages; re-export for convenience
-export type { ClassesTableFilters };
+import { ClassesTableFiltersComponent } from './ClassesTableFilters';
 
 interface ClassesTableProps {
   classes: ClassWithWatchers[];

@@ -17,10 +17,7 @@ import type { UserSortField } from '@/lib/db/admin-queries';
 import type { UserWithWatchCount } from '@/lib/db/admin-queries';
 import { formatRelativeDate } from '@/lib/utils/time-format';
 import { SortableHeader } from './SortableHeader';
-import { type UsersTableFilters, UsersTableFiltersComponent } from './UsersTableFilters';
-
-// UsersTableFilters is used by parent pages; re-export for convenience
-export type { UsersTableFilters };
+import { UsersTableFiltersComponent } from './UsersTableFilters';
 
 interface UsersTableProps {
   users: UserWithWatchCount[];
