@@ -32,7 +32,7 @@ We chose Cloudflare Workers as our deployment platform for several compelling re
 - **Cloudflare Queues**: Reliable message queue for processing class checks at scale
 - **Durable Objects**: Distributed coordination for cron locks (CronLockDO) and future coordination features
 - **Workers KV**: Edge caching for fast data retrieval
-- **Hyperdrive**: Connection pooling for PostgreSQL with automatic optimization
+- **Supabase over HTTP**: Database and auth accessed via `@supabase/supabase-js` over HTTP (no Hyperdrive binding)
 
 ### Reliability
 - **Automatic Failover**: Built-in redundancy across data centers
@@ -150,7 +150,7 @@ bun install
    ```
 4. Generate TypeScript types:
    ```bash
-   bunx supabase gen types typescript --linked > lib/supabase/database.types.ts
+   bunx supabase gen types typescript --project-id osopxwuebsefhoxgeojh > lib/supabase/database.types.ts
    ```
 
 ### 3. Configure Environment Variables
@@ -169,8 +169,11 @@ Required variables:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Supabase Dashboard -> Settings -> API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (bypasses RLS) | Supabase Dashboard -> Settings -> API |
 | `ASU_API_BASE_URL` | Base URL for ASU Class Search API | ASU API endpoint |
-| `ASU_API_TOKEN` | Auth token for ASU API | Generate: `openssl rand -hex 32` |
+| `ASU_API_TOKEN` | Auth token for ASU API | Obtained from ASU (external API credential) |
 | `CRON_SECRET` | Auth for cron endpoint | Generate: `openssl rand -hex 32` |
+| `NOTIFICATION_FROM_EMAIL` | Sender address for email notifications | A Cloudflare Email Service-enabled sender address |
+| `SUPABASE_SEND_EMAIL_HOOK_SECRET` | Secret for Supabase auth email hook | Supabase Dashboard -> Authentication -> Hooks -> Send Email |
+| `UNSUBSCRIBE_SIGNING_SECRET` | Signs unsubscribe tokens (CAN-SPAM) | Generate: `openssl rand -hex 32` |
 
 ### 4. Update Cloudflare Configuration
 
@@ -214,6 +217,7 @@ wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 wrangler secret put ASU_API_BASE_URL
 wrangler secret put ASU_API_TOKEN
 wrangler secret put CRON_SECRET
+wrangler secret put SUPABASE_SEND_EMAIL_HOOK_SECRET
 wrangler secret put UNSUBSCRIBE_SIGNING_SECRET
 ```
 
