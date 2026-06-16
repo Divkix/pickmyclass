@@ -61,7 +61,7 @@
     "@vitejs/plugin-rsc": "^0.5.27",
     "@vitest/coverage-v8": "^4.1.9",
     "jsdom": "^29.1.1",
-    "knip": "^6.16.1",
+    "knip": "^6.17.1",
     "satori": "^0.26.0",
     "supabase": "^2.106.0",
     "tailwindcss": "^4.3.1",
