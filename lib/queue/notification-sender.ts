@@ -161,15 +161,18 @@ export async function sendSectionNotifications(
     .filter((r) => r.success);
 
   const uniqueUserIds = [...new Set(successfulEmails.map((e) => e.email.userId))];
-  for (const userId of uniqueUserIds) {
-    const { error: engagementError } = await serviceClient.rpc('record_engagement_send', {
-      p_user_id: userId,
+  if (uniqueUserIds.length > 0) {
+    // record_engagement_send_batch not yet in generated types — regenerate database.types.ts and remove this cast
+    const { error: engagementError } = await (
+      serviceClient.rpc as unknown as (
+        fn: string,
+        args: { p_user_ids: string[] }
+      ) => Promise<{ data: unknown; error: unknown }>
+    )('record_engagement_send_batch', {
+      p_user_ids: uniqueUserIds,
     });
     if (engagementError) {
-      log('NotificationSender').warn(
-        `Failed to record engagement for user ${userId}:`,
-        engagementError
-      );
+      log('NotificationSender').warn('Failed to record batch engagement:', engagementError);
     }
   }
 
