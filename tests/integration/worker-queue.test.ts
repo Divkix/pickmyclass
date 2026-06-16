@@ -342,7 +342,14 @@ describe('worker.ts scheduled handler', () => {
       testCtx
     );
 
-    expect(errSpy).toHaveBeenCalledWith(expect.stringMatching(/CRON_PARTIAL_FAILURE/));
+    // console.error is called with multiple args: ('[Scheduled] CRON_PARTIAL_FAILURE status:', 207, 'body:', 'partial')
+    // Assert the first argument contains the greppable tag
+    expect(errSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/CRON_PARTIAL_FAILURE/),
+      expect.anything(),
+      expect.anything(),
+      expect.anything()
+    );
 
     errSpy.mockRestore();
   });
