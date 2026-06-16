@@ -483,6 +483,48 @@ describe('proxy', () => {
       expect(csp).toContain("frame-ancestors 'none'");
     });
 
+    it('should use a per-request nonce in production script-src instead of unsafe-inline', async () => {
+      // Tests run with NODE_ENV=test (not 'development'), so proxy uses the
+      // production CSP path with a nonce generated via crypto.randomUUID().
+      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+      const request = createRequest('/login');
+      const response = await proxy(request);
+
+      const csp = response.headers.get('Content-Security-Policy');
+      // Production script-src must contain a nonce token
+      expect(csp).toMatch(/'nonce-[a-f0-9-]+'/);
+      // Production script-src must NOT contain unsafe-inline
+      const scriptSrcMatch = csp?.match(/script-src ([^;]+)/);
+      expect(scriptSrcMatch).not.toBeNull();
+      expect(scriptSrcMatch![1]).not.toContain("'unsafe-inline'");
+      // External script domains must still be present
+      expect(csp).toContain('https://static.cloudflareinsights.com');
+      expect(csp).toContain('https://analytics.divkix.me');
+    });
+
+    it('should use a different nonce on each request', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+      const response1 = await proxy(createRequest('/login'));
+      const response2 = await proxy(createRequest('/login'));
+
+      const csp1 = response1.headers.get('Content-Security-Policy');
+      const csp2 = response2.headers.get('Content-Security-Policy');
+      // Each request gets a unique nonce — they must not be equal
+      expect(csp1).not.toBe(csp2);
+    });
+
+    it('should keep style-src unsafe-inline in production CSP', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+      const request = createRequest('/login');
+      const response = await proxy(request);
+
+      const csp = response.headers.get('Content-Security-Policy');
+      expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+    });
+
     it('should add security headers on redirect responses (unauthenticated to protected route)', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 

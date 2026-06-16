@@ -29,19 +29,32 @@ export function invalidateProfileCache(userId: string): boolean {
 }
 
 /**
- * Pre-computed CSP headers (computed once at module load, not per-request)
+ * Build a per-request production CSP that replaces 'unsafe-inline' in
+ * script-src with a cryptographic nonce. The nonce is generated fresh for
+ * every request so it cannot be predicted or reused across requests.
+ *
+ * vinext reads the nonce directly from the content-security-policy header
+ * (via getScriptNonceFromHeaderSources in app-rsc-handler.js) and applies it
+ * to all framework/hydration/inline scripts automatically — no x-nonce
+ * plumbing inside vinext is needed.
+ *
+ * We also forward the nonce as an x-nonce request header so that RSC
+ * components can read it via next/headers and attach it to their own inline
+ * scripts (e.g. the JSON-LD blocks in app/layout.tsx).
  */
-const PRODUCTION_CSP = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://analytics.divkix.me",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https:",
-  "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://analytics.divkix.me",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join('; ');
+function buildProductionCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' https://static.cloudflareinsights.com https://analytics.divkix.me`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://analytics.divkix.me",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; ');
+}
 
 const DEV_CSP = [
   "default-src 'self'",
@@ -84,9 +97,12 @@ const AUTH_PAGES = ['/login', '/register', '/forgot-password'];
 const PROTECTED_ROUTE_PREFIXES = ['/dashboard', '/admin', '/settings', '/verify-email'];
 
 /**
- * Add security headers to a response
+ * Add security headers to a response.
+ *
+ * @param csp - The fully-formed CSP string to set. In production this is
+ *   built per-request (with a nonce); in development it is the static DEV_CSP.
  */
-function addSecurityHeaders(response: NextResponse, isDevelopment: boolean): void {
+function addSecurityHeaders(response: NextResponse, isDevelopment: boolean, csp: string): void {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -97,7 +113,7 @@ function addSecurityHeaders(response: NextResponse, isDevelopment: boolean): voi
   if (!isDevelopment) {
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
-  response.headers.set('Content-Security-Policy', isDevelopment ? DEV_CSP : PRODUCTION_CSP);
+  response.headers.set('Content-Security-Policy', csp);
 }
 
 /**
@@ -159,6 +175,23 @@ export async function proxy(request: NextRequest) {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const pathname = request.nextUrl.pathname;
 
+  // Generate a per-request nonce for the production CSP.
+  // crypto.randomUUID() is available in both Node.js 19+ and Cloudflare Workers.
+  // In development we skip the nonce (DEV_CSP keeps 'unsafe-inline' + 'unsafe-eval').
+  const nonce = !isDevelopment ? crypto.randomUUID() : '';
+  const csp = isDevelopment ? DEV_CSP : buildProductionCsp(nonce);
+
+  // Build the modified request headers that forward the nonce to RSC components.
+  // Using NextResponse.next({ request: { headers } }) encodes these as
+  // x-middleware-request-<name> on the response, which vinext decodes and makes
+  // available via headers() in Server Components (next/headers).
+  // The nonce is also readable by vinext's framework layer directly from the
+  // content-security-policy response header set below.
+  const requestHeadersWithNonce = new Headers(request.headers);
+  if (!isDevelopment) {
+    requestHeadersWithNonce.set('x-nonce', nonce);
+  }
+
   // Early exit for public routes WITHOUT auth cookies
   // This skips the expensive getUser() call for unauthenticated visitors
   const routeIsPublic = isPublicRoute(pathname);
@@ -166,14 +199,14 @@ export async function proxy(request: NextRequest) {
     routeIsPublic &&
     !hasSupabaseAuthCookies(request.cookies.getAll().map((cookie) => cookie.name))
   ) {
-    const response = NextResponse.next({ request });
-    addSecurityHeaders(response, isDevelopment);
+    const response = NextResponse.next({ request: { headers: requestHeadersWithNonce } });
+    addSecurityHeaders(response, isDevelopment, csp);
     return response;
   }
 
   // For routes that need auth checking, create Supabase client
   let supabaseResponse = NextResponse.next({
-    request,
+    request: { headers: requestHeadersWithNonce },
   });
 
   const supabase = createServerClient<Database>(
@@ -187,7 +220,7 @@ export async function proxy(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
-            request,
+            request: { headers: requestHeadersWithNonce },
           });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
@@ -220,7 +253,7 @@ export async function proxy(request: NextRequest) {
       url.pathname = '/login';
       url.searchParams.set('error', 'account_disabled');
       const redirectResponse = NextResponse.redirect(url);
-      addSecurityHeaders(redirectResponse, isDevelopment);
+      addSecurityHeaders(redirectResponse, isDevelopment, csp);
       return redirectResponse;
     }
   }
@@ -236,7 +269,7 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = '/verify-email';
       const redirectResponse = NextResponse.redirect(url);
-      addSecurityHeaders(redirectResponse, isDevelopment);
+      addSecurityHeaders(redirectResponse, isDevelopment, csp);
       return redirectResponse;
     }
   }
@@ -250,7 +283,7 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     const redirectResponse = NextResponse.redirect(url);
-    addSecurityHeaders(redirectResponse, isDevelopment);
+    addSecurityHeaders(redirectResponse, isDevelopment, csp);
     return redirectResponse;
   }
 
@@ -265,7 +298,7 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = redirectPath;
       const redirectResponse = NextResponse.redirect(url);
-      addSecurityHeaders(redirectResponse, isDevelopment);
+      addSecurityHeaders(redirectResponse, isDevelopment, csp);
       return redirectResponse;
     }
   }
@@ -280,13 +313,13 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = '/admin';
       const redirectResponse = NextResponse.redirect(url);
-      addSecurityHeaders(redirectResponse, isDevelopment);
+      addSecurityHeaders(redirectResponse, isDevelopment, csp);
       return redirectResponse;
     }
   }
 
   // Add security headers to all responses
-  addSecurityHeaders(supabaseResponse, isDevelopment);
+  addSecurityHeaders(supabaseResponse, isDevelopment, csp);
   return supabaseResponse;
 }
 

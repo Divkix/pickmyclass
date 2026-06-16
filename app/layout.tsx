@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import Script from 'next/script';
 import { Toaster } from 'sonner';
 import { BottomNavWrapper } from '@/components/BottomNavWrapper';
@@ -72,11 +73,18 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read the per-request nonce forwarded by proxy.ts via x-nonce request header.
+  // In development the nonce is absent (DEV_CSP uses 'unsafe-inline'); in
+  // production it matches the 'nonce-<value>' in the Content-Security-Policy
+  // response header so browsers will allow these inline JSON-LD scripts.
+  const headersList = await headers();
+  const nonce = headersList.get('x-nonce') ?? undefined;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
@@ -96,6 +104,7 @@ export default function RootLayout({
         />
         <script
           type="application/ld+json"
+          nonce={nonce}
           // static JSON-LD structured data, no user input
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
@@ -115,6 +124,7 @@ export default function RootLayout({
         />
         <script
           type="application/ld+json"
+          nonce={nonce}
           // static JSON-LD structured data, no user input
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
