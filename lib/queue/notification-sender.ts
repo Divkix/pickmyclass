@@ -75,19 +75,10 @@ export async function sendSectionNotifications(
 
   // Step 2: Claim notification slots for each change type
   async function claimSlots(type: 'seat_available' | 'instructor_assigned'): Promise<Set<string>> {
-    const claimed = await tryRecordNotificationsBatch(allWatchIds, type);
-
-    // If nothing was claimed, there may be stale records — clean up and retry once
-    if (claimed.size === 0 && allWatchIds.length > 0) {
-      try {
-        await deleteNotificationRecords(allWatchIds, type);
-      } catch {
-        // best-effort cleanup
-      }
-      return tryRecordNotificationsBatch(allWatchIds, type);
-    }
-
-    return claimed;
+    // A record only exists if a notification was already sent and hasn't expired.
+    // "0 claimed" means everyone is already (recently) notified — do not resend.
+    // Expired records are freed by the scheduled expiry sweep (migration), not by deleting here.
+    return tryRecordNotificationsBatch(allWatchIds, type);
   }
 
   // Claim sequentially to preserve deterministic call order

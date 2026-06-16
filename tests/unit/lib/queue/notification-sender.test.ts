@@ -188,22 +188,16 @@ describe('sendSectionNotifications', () => {
     expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
   });
 
-  it('cleans up stale records and retries claim when first attempt returns empty', async () => {
-    (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(new Set()) // first attempt empty
-      .mockResolvedValueOnce(new Set(['w1'])); // retry succeeds
-
-    // sendBatchEmailsOptimized is called with 1 email (only w1 claimed)
-    (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { success: true, messageId: 'msg_1' },
-    ]);
+  it('does not delete or retry when first claim returns empty (non-destructive)', async () => {
+    (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(new Set());
 
     const result = await sendSectionNotifications(defaultParams());
 
-    expect(deleteNotificationRecords).toHaveBeenCalledWith(['w1', 'w2'], 'seat_available');
-    expect(tryRecordNotificationsBatch).toHaveBeenCalledTimes(2);
-    expect(result).toHaveLength(1);
-    expect(result[0].watchId).toBe('w1');
+    // "0 claimed" means everyone is already notified — no destructive cleanup, no retry.
+    expect(deleteNotificationRecords).not.toHaveBeenCalled();
+    expect(tryRecordNotificationsBatch).toHaveBeenCalledTimes(1);
+    expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
   });
 
   it('rolls back notification records when email sending fails', async () => {
@@ -286,7 +280,7 @@ describe('sendSectionNotifications', () => {
     expect(result).toEqual([]);
   });
 
-  describe('claimSlots behavior (characterization)', () => {
+  describe('claimSlots behavior', () => {
     it('happy path: first claim non-empty → no stale cleanup, emails only to claimed watchers', async () => {
       // First (and only) claim attempt returns all watchers.
       (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
@@ -305,22 +299,18 @@ describe('sendSectionNotifications', () => {
       expect(result.map((r) => r.watchId)).toEqual(['w1', 'w2']);
     });
 
-    it('stale cleanup path: first claim empty → deletes all watch ids then re-claims and re-emails everyone', async () => {
-      // Characterizes current (buggy) behavior — plan 002 changes this.
-      (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(new Set()) // first attempt: nothing claimed
-        .mockResolvedValueOnce(new Set(['w1', 'w2'])); // retry after cleanup: all claimed
+    it('first claim empty → no destructive delete, no re-claim, no re-send', async () => {
+      // Fixed behavior: "0 claimed" means everyone is already (recently) notified.
+      // We must NOT delete records and re-claim, which would re-email everyone.
+      (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(new Set());
 
       const result = await sendSectionNotifications(defaultParams());
 
-      // Today the empty first claim triggers a delete of ALL watch ids, then a re-claim.
-      expect(deleteNotificationRecords).toHaveBeenCalledWith(['w1', 'w2'], 'seat_available');
-      expect(tryRecordNotificationsBatch).toHaveBeenCalledTimes(2);
-
-      // Every watcher is (re-)emailed after the cleanup+retry.
-      const [emails] = (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(emails.map((e: { watchId: string }) => e.watchId)).toEqual(['w1', 'w2']);
-      expect(result.map((r) => r.watchId)).toEqual(['w1', 'w2']);
+      // No delete, single claim attempt, nobody re-emailed.
+      expect(deleteNotificationRecords).not.toHaveBeenCalled();
+      expect(tryRecordNotificationsBatch).toHaveBeenCalledTimes(1);
+      expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
     });
   });
 });
