@@ -145,8 +145,8 @@ describe('POST /api/queue/process-section', () => {
     expect(data.details.length).toBeGreaterThan(0);
   });
 
-  describe('change detection with null oldState (first observation)', () => {
-    it('should detect seatBecameAvailable when oldState is null and seats are available', async () => {
+  describe('first-observation suppression (null oldState)', () => {
+    it('suppresses seatBecameAvailable on first observation even when seats are available', async () => {
       // Mock ASU API to return class with open seats
       mockFetchClassFromASU.mockResolvedValue({
         subject: 'CSE',
@@ -166,17 +166,6 @@ describe('POST /api/queue/process-section', () => {
         error: null,
       });
 
-      // Mock notification recording to succeed for both types
-      mockTryRecordNotificationsBatch
-        .mockResolvedValueOnce(new Set(['watch-1'])) // seat_available
-        .mockResolvedValueOnce(new Set(['watch-1'])); // instructor_assigned
-
-      // Mock email sending
-      mockSendBatchEmailsOptimized.mockResolvedValue([
-        { success: true, id: 'email-1' },
-        { success: true, id: 'email-2' },
-      ]);
-
       const response = await POST(
         createRequest(
           JSON.stringify({ class_nbr: '12345', term: '2261' }),
@@ -193,14 +182,16 @@ describe('POST /api/queue/process-section', () => {
         emails_sent: number;
       };
 
+      // First observation: no baseline, so no transition emails — just persist the baseline.
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.changes_detected.seat_became_available).toBe(true);
-      expect(data.changes_detected.instructor_assigned).toBe(true); // Staff -> Dr. Smith
-      expect(data.emails_sent).toBe(2); // Both notifications
+      expect(data.changes_detected.seat_became_available).toBe(false);
+      expect(data.changes_detected.instructor_assigned).toBe(false);
+      expect(data.emails_sent).toBe(0);
+      expect(mockTryRecordNotificationsBatch).not.toHaveBeenCalled();
     });
 
-    it('should detect instructorAssigned when oldState is null and instructor is not Staff', async () => {
+    it('suppresses instructorAssigned on first observation even when instructor is not Staff', async () => {
       // Mock ASU API to return class with assigned instructor (not Staff)
       mockFetchClassFromASU.mockResolvedValue({
         subject: 'CSE',
@@ -220,12 +211,6 @@ describe('POST /api/queue/process-section', () => {
         error: null,
       });
 
-      // Mock notification recording to succeed
-      mockTryRecordNotificationsBatch.mockResolvedValue(new Set(['watch-1']));
-
-      // Mock email sending
-      mockSendBatchEmailsOptimized.mockResolvedValue([{ success: true, id: 'email-1' }]);
-
       const response = await POST(
         createRequest(
           JSON.stringify({ class_nbr: '12345', term: '2261' }),
@@ -244,12 +229,13 @@ describe('POST /api/queue/process-section', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.changes_detected.seat_became_available).toBe(false); // 0 seats available
-      expect(data.changes_detected.instructor_assigned).toBe(true); // Staff -> Dr. Johnson
-      expect(data.emails_sent).toBe(1);
+      expect(data.changes_detected.seat_became_available).toBe(false);
+      expect(data.changes_detected.instructor_assigned).toBe(false); // suppressed on first observation
+      expect(data.emails_sent).toBe(0);
+      expect(mockTryRecordNotificationsBatch).not.toHaveBeenCalled();
     });
 
-    it('should detect both changes when oldState is null and both conditions are met', async () => {
+    it('suppresses both changes on first observation even when both conditions are met', async () => {
       // Mock ASU API to return class with open seats and assigned instructor
       mockFetchClassFromASU.mockResolvedValue({
         subject: 'CSE',
@@ -269,17 +255,6 @@ describe('POST /api/queue/process-section', () => {
         error: null,
       });
 
-      // Mock notification recording to succeed for both types
-      mockTryRecordNotificationsBatch
-        .mockResolvedValueOnce(new Set(['watch-1'])) // seat_available
-        .mockResolvedValueOnce(new Set(['watch-1'])); // instructor_assigned
-
-      // Mock email sending
-      mockSendBatchEmailsOptimized.mockResolvedValue([
-        { success: true, id: 'email-1' },
-        { success: true, id: 'email-2' },
-      ]);
-
       const response = await POST(
         createRequest(
           JSON.stringify({ class_nbr: '12345', term: '2261' }),
@@ -298,9 +273,10 @@ describe('POST /api/queue/process-section', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.changes_detected.seat_became_available).toBe(true);
-      expect(data.changes_detected.instructor_assigned).toBe(true);
-      expect(data.emails_sent).toBe(2);
+      expect(data.changes_detected.seat_became_available).toBe(false);
+      expect(data.changes_detected.instructor_assigned).toBe(false);
+      expect(data.emails_sent).toBe(0);
+      expect(mockTryRecordNotificationsBatch).not.toHaveBeenCalled();
     });
 
     it('should not trigger notifications when seats are 0 and instructor is Staff with null oldState', async () => {
@@ -401,6 +377,27 @@ describe('POST /api/queue/process-section', () => {
 
   describe('rollback failure handling (issue #158)', () => {
     it('should return 500 when deleteNotificationRecords fails for seat_available emails', async () => {
+      // Existing baseline (0 seats, Dr. Smith) so a real seat transition fires (not first observation).
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  class_nbr: '12345',
+                  term: '2261',
+                  seats_available: 0,
+                  non_reserved_seats: 0,
+                  instructor_name: 'Dr. Smith',
+                },
+                error: null,
+              }),
+            })),
+          })),
+        })),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      });
+
       // Mock ASU API to return class with open seats
       mockFetchClassFromASU.mockResolvedValue({
         subject: 'CSE',
@@ -449,6 +446,27 @@ describe('POST /api/queue/process-section', () => {
     });
 
     it('should return 500 when deleteNotificationRecords fails for instructor_assigned emails', async () => {
+      // Existing baseline (0 seats, Staff) so a real instructor transition fires (not first observation).
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  class_nbr: '12345',
+                  term: '2261',
+                  seats_available: 0,
+                  non_reserved_seats: 0,
+                  instructor_name: 'Staff',
+                },
+                error: null,
+              }),
+            })),
+          })),
+        })),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      });
+
       // Mock ASU API to return class with assigned instructor
       mockFetchClassFromASU.mockResolvedValue({
         subject: 'CSE',
@@ -497,8 +515,33 @@ describe('POST /api/queue/process-section', () => {
     });
   });
 
-  describe('notification cleanup optimization (issue #193)', () => {
+  describe('notification dedup claim (issue #193)', () => {
+    // Existing baseline so genuine transitions fire (not a first observation).
+    function mockBaseline(instructor_name: string) {
+      mockFrom.mockReturnValue({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  class_nbr: '12345',
+                  term: '2261',
+                  seats_available: 0,
+                  non_reserved_seats: 0,
+                  instructor_name,
+                },
+                error: null,
+              }),
+            })),
+          })),
+        })),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      });
+    }
+
     it('should NOT run cleanup when tryRecordNotificationsBatch succeeds on first attempt', async () => {
+      mockBaseline('Staff'); // baseline: 0 seats + Staff → both transitions fire
+
       // Mock ASU API to return class with open seats and assigned instructor
       mockFetchClassFromASU.mockResolvedValue({
         subject: 'CSE',
@@ -540,8 +583,10 @@ describe('POST /api/queue/process-section', () => {
       expect(mockDeleteNotificationRecords).not.toHaveBeenCalled();
     });
 
-    it('should run cleanup and retry when tryRecordNotificationsBatch returns empty set (stale records)', async () => {
-      // Mock ASU API to return class with open seats
+    it('does NOT delete or retry when tryRecordNotificationsBatch returns empty set (already notified)', async () => {
+      mockBaseline('Staff'); // baseline: 0 seats + Staff → both transitions fire
+
+      // Mock ASU API to return class with open seats + assigned instructor
       mockFetchClassFromASU.mockResolvedValue({
         subject: 'CSE',
         catalog_nbr: '110',
@@ -560,15 +605,11 @@ describe('POST /api/queue/process-section', () => {
         error: null,
       });
 
-      // Mock notification recording: seat_available has stale records, instructor_assigned succeeds first try
+      // seat_available already notified (empty); instructor_assigned still claimable.
       mockTryRecordNotificationsBatch
-        .mockResolvedValueOnce(new Set()) // seat_available: first attempt returns empty (stale)
-        .mockResolvedValueOnce(new Set(['watch-1'])) // seat_available: retry succeeds after cleanup
-        .mockResolvedValueOnce(new Set(['watch-1'])); // instructor_assigned: succeeds first try
+        .mockResolvedValueOnce(new Set()) // seat_available: nobody claimable → no resend
+        .mockResolvedValueOnce(new Set(['watch-1'])); // instructor_assigned: claimable
 
-      mockDeleteNotificationRecords.mockResolvedValue(undefined);
-
-      // Mock email sending
       mockSendBatchEmailsOptimized.mockResolvedValue([{ success: true, id: 'email-1' }]);
 
       await POST(
@@ -578,25 +619,19 @@ describe('POST /api/queue/process-section', () => {
         )
       );
 
-      // Cleanup should be called for seat_available type only (selective cleanup)
-      expect(mockDeleteNotificationRecords).toHaveBeenCalledWith(['watch-1'], 'seat_available');
-      // Should NOT cleanup instructor_assigned since no instructor change detected
-      expect(mockDeleteNotificationRecords).not.toHaveBeenCalledWith(
-        expect.anything(),
-        'instructor_assigned'
-      );
-
-      // Verify cleanup-then-record ordering: retry happens after cleanup
+      // Non-destructive: no delete, and each type is claimed exactly once (no retry).
+      expect(mockDeleteNotificationRecords).not.toHaveBeenCalled();
       const calls = mockTryRecordNotificationsBatch.mock.calls;
-      expect(calls.length).toBeGreaterThanOrEqual(2);
-      // First call should be before cleanup
-      expect(calls[0]).toEqual([['watch-1'], 'seat_available']);
-      // Second call (retry) should be after cleanup
-      expect(calls[1]).toEqual([['watch-1'], 'seat_available']);
+      const seatCalls = calls.filter((call) => call[1] === 'seat_available');
+      const instructorCalls = calls.filter((call) => call[1] === 'instructor_assigned');
+      expect(seatCalls.length).toBe(1);
+      expect(instructorCalls.length).toBe(1);
     });
 
-    it('should only cleanup notification types with detected changes', async () => {
-      // Mock ASU API to return class with ONLY seat change (instructor is Staff)
+    it('should only claim notification types with detected changes', async () => {
+      mockBaseline('Staff'); // baseline: 0 seats + Staff
+
+      // ASU API: ONLY seat change (instructor stays Staff)
       mockFetchClassFromASU.mockResolvedValue({
         subject: 'CSE',
         catalog_nbr: '110',
@@ -636,11 +671,13 @@ describe('POST /api/queue/process-section', () => {
       expect(seatCalls.length).toBeGreaterThanOrEqual(1);
       expect(instructorCalls.length).toBe(0); // No instructor change, so no recording
 
-      // No cleanup should occur since first attempt succeeded
+      // No cleanup should occur
       expect(mockDeleteNotificationRecords).not.toHaveBeenCalled();
     });
 
-    it('should handle partial stale records (one type succeeds, other needs cleanup)', async () => {
+    it('does NOT delete when one type is claimable and the other is already notified', async () => {
+      mockBaseline('Staff'); // baseline: 0 seats + Staff → both transitions fire
+
       // Mock ASU API to return class with both changes
       mockFetchClassFromASU.mockResolvedValue({
         subject: 'CSE',
@@ -660,19 +697,13 @@ describe('POST /api/queue/process-section', () => {
         error: null,
       });
 
-      // Mock: seat_available succeeds, instructor_assigned has stale records
+      // seat_available claimable; instructor_assigned already notified (empty).
       mockTryRecordNotificationsBatch
-        .mockResolvedValueOnce(new Set(['watch-1'])) // seat_available succeeds
-        .mockResolvedValueOnce(new Set()) // instructor_assigned returns empty (stale)
-        .mockResolvedValueOnce(new Set(['watch-1'])); // retry instructor succeeds
-
-      mockDeleteNotificationRecords.mockResolvedValue(undefined);
+        .mockResolvedValueOnce(new Set(['watch-1'])) // seat_available claimable
+        .mockResolvedValueOnce(new Set()); // instructor_assigned already notified
 
       // Mock email sending
-      mockSendBatchEmailsOptimized.mockResolvedValue([
-        { success: true, id: 'email-1' },
-        { success: true, id: 'email-2' },
-      ]);
+      mockSendBatchEmailsOptimized.mockResolvedValue([{ success: true, id: 'email-1' }]);
 
       await POST(
         createRequest(
@@ -681,16 +712,8 @@ describe('POST /api/queue/process-section', () => {
         )
       );
 
-      // Should only cleanup instructor_assigned (the one that returned empty)
-      expect(mockDeleteNotificationRecords).toHaveBeenCalledWith(
-        ['watch-1'],
-        'instructor_assigned'
-      );
-      // Should NOT cleanup seat_available (it succeeded on first try)
-      expect(mockDeleteNotificationRecords).not.toHaveBeenCalledWith(
-        expect.anything(),
-        'seat_available'
-      );
+      // Non-destructive: never delete, even when a type returns an empty claim set.
+      expect(mockDeleteNotificationRecords).not.toHaveBeenCalled();
     });
   });
 });

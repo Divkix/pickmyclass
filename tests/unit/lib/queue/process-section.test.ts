@@ -255,7 +255,7 @@ describe('processSection', () => {
     });
   });
 
-  it('first observation with open seats: sends seat available notification', async () => {
+  it('first observation with open seats: suppresses notification, only persists baseline', async () => {
     // First observation = PGRST116 error (no rows found)
     const mockDb = buildMockDb({
       data: null,
@@ -267,6 +267,8 @@ describe('processSection', () => {
       mockClassDetails({ seats_available: 5, non_reserved_seats: 3 })
     );
 
+    // detectChanges would report a seat became available, but with no baseline (oldState null)
+    // this is a false positive that must be suppressed.
     (detectChanges as ReturnType<typeof vi.fn>).mockReturnValue(
       buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 3 })
     );
@@ -279,11 +281,16 @@ describe('processSection', () => {
       expect.objectContaining({ seats_available: 5 })
     );
 
-    // Should have sent notifications
-    expect(sendSectionNotifications).toHaveBeenCalled();
+    // First-observation suppression: NO emails sent.
+    expect(sendSectionNotifications).not.toHaveBeenCalled();
+    // Baseline still persisted.
+    expect(mockDb.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ class_nbr: '42737', term: '2261', seats_available: 5 }),
+      { onConflict: 'class_nbr,term' }
+    );
     expect(result.success).toBe(true);
-    expect(result.changes.seatBecameAvailable).toBe(true);
-    expect(result.emailsSent).toBe(1);
+    expect(result.changes.seatBecameAvailable).toBe(false);
+    expect(result.emailsSent).toBe(0);
   });
 
   it('handles non-PGRST116 DB error gracefully and continues processing', async () => {
@@ -305,16 +312,14 @@ describe('processSection', () => {
     expect(result.success).toBe(true);
   });
 
-  describe('send/persist ordering (characterization)', () => {
-    it('sends notifications even when the subsequent state upsert fails', async () => {
-      // Characterizes current behavior: emails sent before persist; plan 002 reorders this.
-
+  describe('send/persist ordering', () => {
+    it('does NOT send notifications when the state upsert fails (persist before send)', async () => {
       // oldState: no open seats. ASU: open seats available → seat became available.
       const mockDb = buildMockDb({
         data: { non_reserved_seats: 0, seats_available: 0, instructor_name: 'Staff' },
         error: null,
       });
-      // The class_states upsert (Step 6) fails.
+      // The class_states upsert (Step 5, now before send) fails.
       mockDb.upsert.mockResolvedValue({ error: { message: 'upsert exploded' } });
       (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
@@ -327,8 +332,9 @@ describe('processSection', () => {
 
       const result = await processSection('42737', '2261', buildEnv());
 
-      // Today notifications are sent (Step 5) BEFORE the failing upsert (Step 6).
-      expect(sendSectionNotifications).toHaveBeenCalledTimes(1);
+      // Persist-before-send: a failed upsert must short-circuit BEFORE any emails go out,
+      // so a retry re-attempts cleanly with no duplicate emails.
+      expect(sendSectionNotifications).not.toHaveBeenCalled();
       // The upsert failure still surfaces as an unsuccessful result.
       expect(result).toMatchObject({
         success: false,

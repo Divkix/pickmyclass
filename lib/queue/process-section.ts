@@ -2,7 +2,7 @@
  * Section Processor Orchestrator
  *
  * Coordinates the section checking pipeline:
- * fetch old state → fetch new data → detect changes → send notifications → upsert state.
+ * fetch old state → fetch new data → detect changes → upsert state → send notifications.
  */
 
 import {
@@ -41,8 +41,8 @@ export interface ProcessingResult {
  * 2. Fetch latest data from ASU API
  * 3. Detect changes between old and new state
  * 4. Reset notifications if seats filled
- * 5. Send notifications if seat became available or instructor assigned
- * 6. Upsert new class state
+ * 5. Upsert new class state
+ * 6. Send notifications if seat became available or instructor assigned
  *
  * @param classNbr - 5-digit section number (e.g., "12431")
  * @param term - 4-digit term code (e.g., "2261")
@@ -81,12 +81,56 @@ export async function processSection(
     // Step 3: Detect changes
     changes = detectChanges(oldState, newData);
 
+    // First observation: when there is no persisted baseline (oldState falsy, e.g. PGRST116),
+    // do not treat a currently-open seat / assigned instructor as a fresh transition. This
+    // prevents a false "seat available" email on the first check when a watch's initial
+    // state-seed failed silently — we only persist the baseline and send nothing this cycle.
+    if (!oldState) {
+      changes.seatBecameAvailable = false;
+      changes.instructorAssigned = false;
+    }
+
     // Step 4: Reset notifications if seats filled
     if (changes.seatsFilled) {
       await resetNotificationsForSection(classNbr, term, 'seat_available');
     }
 
-    // Step 5: Send notifications if changes detected
+    // Step 5: Upsert new class state BEFORE sending notifications.
+    // Persisting the new baseline first means a retried message reads the *new* state, so
+    // detectChanges no longer re-fires the same transition and no duplicate emails are sent.
+    const newState = {
+      term,
+      subject: newData.subject,
+      catalog_nbr: newData.catalog_nbr,
+      class_nbr: classNbr,
+      title: newData.title,
+      instructor_name: newData.instructor_name,
+      seats_available: newData.seats_available ?? 0,
+      seats_capacity: newData.seats_capacity ?? 0,
+      non_reserved_seats: newData.non_reserved_seats ?? null,
+      location: newData.location,
+      meeting_times: newData.meeting_times,
+      last_checked_at: new Date().toISOString(),
+    };
+
+    const { error: upsertError } = await serviceClient
+      .from('class_states')
+      .upsert(newState, { onConflict: 'class_nbr,term' });
+
+    if (upsertError) {
+      // Return before sending any emails so a retry re-attempts cleanly with no emails sent yet.
+      console.error(`[ProcessSection] Database error for ${classNbr}:`, upsertError);
+      return {
+        success: false,
+        classNbr,
+        changes,
+        emailsSent,
+        processingTimeMs: Date.now() - startTime,
+        error: upsertError.message,
+      };
+    }
+
+    // Step 6: Send notifications if changes detected (baseline is now persisted)
     if (changes.seatBecameAvailable || changes.instructorAssigned) {
       const classInfo: ClassInfo = {
         term,
@@ -111,38 +155,6 @@ export async function processSection(
       });
 
       emailsSent = sentResults.filter((r: SentNotification) => r.success).length;
-    }
-
-    // Step 6: Upsert new class state
-    const newState = {
-      term,
-      subject: newData.subject,
-      catalog_nbr: newData.catalog_nbr,
-      class_nbr: classNbr,
-      title: newData.title,
-      instructor_name: newData.instructor_name,
-      seats_available: newData.seats_available ?? 0,
-      seats_capacity: newData.seats_capacity ?? 0,
-      non_reserved_seats: newData.non_reserved_seats ?? null,
-      location: newData.location,
-      meeting_times: newData.meeting_times,
-      last_checked_at: new Date().toISOString(),
-    };
-
-    const { error: upsertError } = await serviceClient
-      .from('class_states')
-      .upsert(newState, { onConflict: 'class_nbr,term' });
-
-    if (upsertError) {
-      console.error(`[ProcessSection] Database error for ${classNbr}:`, upsertError);
-      return {
-        success: false,
-        classNbr,
-        changes,
-        emailsSent,
-        processingTimeMs: Date.now() - startTime,
-        error: upsertError.message,
-      };
     }
 
     const duration = Date.now() - startTime;
