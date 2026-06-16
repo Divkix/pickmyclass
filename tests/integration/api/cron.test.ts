@@ -96,7 +96,7 @@ describe('GET /api/cron', () => {
     expect(responseData.sections_enqueued).toBe(50);
   });
 
-  it('returns success:false with partial failure info when some batches fail', async () => {
+  it('retries failed batch once and returns success:true when retry succeeds', async () => {
     // Arrange: Mock sections to check (need at least 2 batches)
     const mockSections = Array.from({ length: 150 }, (_, i) => ({
       class_nbr: String(10000 + i),
@@ -104,7 +104,8 @@ describe('GET /api/cron', () => {
     }));
     vi.mocked(getSectionsToCheck).mockResolvedValue(mockSections);
 
-    // Arrange: Mock queue to fail only the second batch
+    // Arrange: Mock queue to fail only the second batch on first attempt,
+    // then succeed on retry (calls: 1=success, 2=fail, 3=retry success)
     const { env } = await import('cloudflare:workers');
     let callCount = 0;
     // oxlint-disable-next-line typescript/unbound-method
@@ -120,7 +121,45 @@ describe('GET /api/cron', () => {
     const response = await GET(createRequest('Bearer test-cron-secret'));
     const data = await response.json();
 
-    // Assert: Should return success:false when there are any failed batches
+    // Assert: Retry recovered the failed batch → success:true, batches_failed:0
+    const responseData = data as {
+      success: boolean;
+      batches_failed: number;
+      batches_total: number;
+    };
+    expect(responseData.success).toBe(true);
+    expect(responseData.batches_failed).toBe(0);
+    expect(responseData.batches_total).toBe(2);
+    // sendBatch was called 3 times: 2 first-pass + 1 retry
+    expect(callCount).toBe(3);
+  });
+
+  it('returns success:false with partial failure info when retry also fails', async () => {
+    // Arrange: Mock sections to check (need at least 2 batches)
+    const mockSections = Array.from({ length: 150 }, (_, i) => ({
+      class_nbr: String(10000 + i),
+      term: '2261',
+    }));
+    vi.mocked(getSectionsToCheck).mockResolvedValue(mockSections);
+
+    // Arrange: Mock queue — first batch succeeds, second batch fails on both attempts
+    const { env } = await import('cloudflare:workers');
+    let callCount = 0;
+    // oxlint-disable-next-line typescript/unbound-method
+    vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockImplementation(() => {
+      callCount++;
+      if (callCount !== 1) {
+        // call 1 (first pass batch 0) succeeds; calls 2 & 3 (batch 1 first + retry) fail
+        return Promise.reject(new Error('Persistent error'));
+      }
+      return Promise.resolve({ metadata: {} } as QueueSendBatchResponse);
+    });
+
+    // Act
+    const response = await GET(createRequest('Bearer test-cron-secret'));
+    const data = await response.json();
+
+    // Assert: Retry also failed → success:false with batches_failed reported
     const responseData = data as {
       success: boolean;
       batches_failed: number;
@@ -129,6 +168,8 @@ describe('GET /api/cron', () => {
     expect(responseData.success).toBe(false);
     expect(responseData.batches_failed).toBe(1);
     expect(responseData.batches_total).toBe(2);
+    // sendBatch was called 3 times: 2 first-pass + 1 retry
+    expect(callCount).toBe(3);
   });
 
   it('uses X-Cron-Scheduled-Time header for stagger group computation', async () => {

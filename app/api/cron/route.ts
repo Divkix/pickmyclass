@@ -146,9 +146,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const batchResults = await Promise.allSettled(
+    const firstPassResults = await Promise.allSettled(
       batches.map((batch) => queue.sendBatch(batch.map((msg) => ({ body: msg }))))
     );
+
+    // Retry any failed batches once before giving up
+    const initialFailures = firstPassResults
+      .map((result, idx) => ({ result, idx }))
+      .filter(({ result }) => result.status === 'rejected');
+
+    let batchResults = firstPassResults;
+
+    if (initialFailures.length > 0) {
+      log('Cron').warn(
+        `${initialFailures.length}/${batches.length} batches failed on first attempt — retrying`
+      );
+      const retryResults = await Promise.allSettled(
+        initialFailures.map(({ idx }) =>
+          queue.sendBatch(batches[idx].map((msg) => ({ body: msg })))
+        )
+      );
+
+      // Merge retry results back into the result array
+      batchResults = [...firstPassResults];
+      for (let i = 0; i < initialFailures.length; i++) {
+        batchResults[initialFailures[i].idx] = retryResults[i];
+      }
+    }
 
     const failedBatches = batchResults.filter((r) => r.status === 'rejected');
     if (failedBatches.length > 0) {
