@@ -107,7 +107,8 @@ describe('misc API routes', () => {
     const data = await json(response);
 
     expect(response.status).toBe(200);
-    expect(data).toEqual({ isLocked: true, attempts: 5, remainingMinutes: 14 });
+    // `attempts` is intentionally excluded from the response (SEC-02 — reduces disclosure)
+    expect(data).toEqual({ isLocked: true, remainingMinutes: 14 });
     expect(mockCheckLockoutStatus).toHaveBeenCalledWith('student@example.com');
   });
 
