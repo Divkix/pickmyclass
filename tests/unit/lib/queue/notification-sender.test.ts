@@ -285,4 +285,42 @@ describe('sendSectionNotifications', () => {
     expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
     expect(result).toEqual([]);
   });
+
+  describe('claimSlots behavior (characterization)', () => {
+    it('happy path: first claim non-empty → no stale cleanup, emails only to claimed watchers', async () => {
+      // First (and only) claim attempt returns all watchers.
+      (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        new Set(['w1', 'w2'])
+      );
+
+      const result = await sendSectionNotifications(defaultParams());
+
+      // No stale-cleanup path taken when the first claim succeeds.
+      expect(deleteNotificationRecords).not.toHaveBeenCalled();
+      expect(tryRecordNotificationsBatch).toHaveBeenCalledTimes(1);
+
+      // Emails sent to exactly the claimed watchers.
+      const [emails] = (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(emails.map((e: { watchId: string }) => e.watchId)).toEqual(['w1', 'w2']);
+      expect(result.map((r) => r.watchId)).toEqual(['w1', 'w2']);
+    });
+
+    it('stale cleanup path: first claim empty → deletes all watch ids then re-claims and re-emails everyone', async () => {
+      // Characterizes current (buggy) behavior — plan 002 changes this.
+      (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(new Set()) // first attempt: nothing claimed
+        .mockResolvedValueOnce(new Set(['w1', 'w2'])); // retry after cleanup: all claimed
+
+      const result = await sendSectionNotifications(defaultParams());
+
+      // Today the empty first claim triggers a delete of ALL watch ids, then a re-claim.
+      expect(deleteNotificationRecords).toHaveBeenCalledWith(['w1', 'w2'], 'seat_available');
+      expect(tryRecordNotificationsBatch).toHaveBeenCalledTimes(2);
+
+      // Every watcher is (re-)emailed after the cleanup+retry.
+      const [emails] = (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(emails.map((e: { watchId: string }) => e.watchId)).toEqual(['w1', 'w2']);
+      expect(result.map((r) => r.watchId)).toEqual(['w1', 'w2']);
+    });
+  });
 });

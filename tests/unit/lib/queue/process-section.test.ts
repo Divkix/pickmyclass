@@ -304,4 +304,36 @@ describe('processSection', () => {
     expect(detectChanges).toHaveBeenCalledWith(null, expect.any(Object));
     expect(result.success).toBe(true);
   });
+
+  describe('send/persist ordering (characterization)', () => {
+    it('sends notifications even when the subsequent state upsert fails', async () => {
+      // Characterizes current behavior: emails sent before persist; plan 002 reorders this.
+
+      // oldState: no open seats. ASU: open seats available → seat became available.
+      const mockDb = buildMockDb({
+        data: { non_reserved_seats: 0, seats_available: 0, instructor_name: 'Staff' },
+        error: null,
+      });
+      // The class_states upsert (Step 6) fails.
+      mockDb.upsert.mockResolvedValue({ error: { message: 'upsert exploded' } });
+      (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
+
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockClassDetails({ seats_available: 5, non_reserved_seats: 5 })
+      );
+      (detectChanges as ReturnType<typeof vi.fn>).mockReturnValue(
+        buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 5 })
+      );
+
+      const result = await processSection('42737', '2261', buildEnv());
+
+      // Today notifications are sent (Step 5) BEFORE the failing upsert (Step 6).
+      expect(sendSectionNotifications).toHaveBeenCalledTimes(1);
+      // The upsert failure still surfaces as an unsuccessful result.
+      expect(result).toMatchObject({
+        success: false,
+        error: expect.stringContaining('upsert exploded'),
+      });
+    });
+  });
 });
