@@ -50,6 +50,18 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
     },
   });
 
+  const showRemovedToast = () => {
+    toast.success('Class watch removed', {
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          await handleUndo();
+        },
+      },
+      duration: 5000,
+    });
+  };
+
   const handleSwipeDelete = async () => {
     setIsSwipeDeleting(true);
     setSwipeOffset(-500); // Slide out animation
@@ -59,17 +71,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
     swipeDeleteTimeoutRef.current = setTimeout(async () => {
       try {
         await onDelete(watch.id);
-
-        // Show undo toast
-        toast.success('Class watch removed', {
-          action: {
-            label: 'Undo',
-            onClick: async () => {
-              await handleUndo();
-            },
-          },
-          duration: 5000,
-        });
+        showRemovedToast();
         setIsSwipeDeleting(false);
         setSwipeOffset(0);
       } catch (error) {
@@ -112,9 +114,10 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
 
   const handleDelete = async () => {
     setIsDeleting(true);
+    deletedWatchRef.current = watch;
     try {
       await onDelete(watch.id);
-      toast.success('Class watch removed');
+      showRemovedToast();
       setShowDeleteConfirm(false);
     } catch (error) {
       console.error('Failed to delete watch:', error);
