@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
 
     const email = validation.data.email.toLowerCase();
     const password = validation.data.password;
+    const { ageVerified, agreedToTerms } = validation.data;
 
     try {
       const kv =
@@ -42,6 +43,12 @@ export async function POST(request: NextRequest) {
       password,
       options: {
         emailRedirectTo: `${siteUrl}/auth/callback?next=/dashboard`,
+        // Consent is persisted by the handle_new_user trigger from this metadata
+        // at profile-creation time (no session exists yet for a client-side RPC).
+        data: {
+          age_verified: ageVerified,
+          agreed_to_terms: agreedToTerms,
+        },
       },
     });
 

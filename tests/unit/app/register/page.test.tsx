@@ -26,8 +26,9 @@ vi.mock('@/lib/supabase/client', () => ({
 
 // Mock next/navigation
 const mockPush = vi.fn();
+const mockReplace = vi.fn();
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -177,9 +178,7 @@ describe('RegisterPage - Google OAuth loading state', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('registers email users, records profile consent, and routes to verification', async () => {
-    // oxlint-disable-next-line typescript/unbound-method
-    const mockPush = await import('next/navigation').then((mod) => mod.useRouter().push);
+  it('registers email users with consent metadata and routes to verification', async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ success: true }),
@@ -197,10 +196,13 @@ describe('RegisterPage - Google OAuth loading state', () => {
         body: JSON.stringify({
           email: 'student@example.com',
           password: validRegistrationCredential,
+          ageVerified: true,
+          agreedToTerms: true,
         }),
       });
     });
-    expect(mockRpc).toHaveBeenCalledWith('accept_terms_and_verify_age');
+    // Consent is persisted server-side via the signup trigger; no client RPC.
+    expect(mockRpc).not.toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalledWith('/verify-email');
   });
 
@@ -226,20 +228,12 @@ describe('RegisterPage - Google OAuth loading state', () => {
     ).toBeInTheDocument();
   });
 
-  it('continues after profile RPC errors and reports unexpected registration failures', async () => {
+  it('reports unexpected registration failures', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.mocked(global.fetch).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ success: true }),
-    } as Response);
-    mockRpc.mockResolvedValueOnce({ error: { message: 'profile write failed' } });
     renderRegisterPage();
     await waitForRegisterForm();
 
     fillRegistrationForm();
-    fireEvent.submit(registerForm());
-    await waitFor(() => expect(mockRpc).toHaveBeenCalled());
-
     vi.mocked(global.fetch).mockRejectedValueOnce(new Error('network down'));
     fireEvent.submit(registerForm());
     expect(await screen.findByText('An unexpected error occurred')).toBeInTheDocument();

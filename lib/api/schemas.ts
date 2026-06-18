@@ -102,6 +102,12 @@ export const loginSchema = z.object({
 export const registerSchema = z.object({
   email: emailSchema,
   password: registerPasswordSchema,
+  ageVerified: z
+    .boolean()
+    .refine((v) => v === true, 'You must be 18 years or older to use this service'),
+  agreedToTerms: z
+    .boolean()
+    .refine((v) => v === true, 'You must agree to the Terms of Service and Privacy Policy'),
 });
 
 /**

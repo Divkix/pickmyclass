@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 
 /**
@@ -64,10 +65,18 @@ export default function RegisterPage() {
     feedback: { warning?: string; suggestions?: string[] };
   } | null>(null);
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Redirect already-authenticated users away from the register page.
+  useEffect(() => {
+    if (!authLoading && user?.email_confirmed_at) {
+      router.replace('/dashboard');
+    }
+  }, [authLoading, user, router]);
 
   if (!mounted) {
     return (
@@ -143,7 +152,7 @@ export default function RegisterPage() {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, ageVerified, agreedToTerms }),
       });
       const data = (await response.json()) as {
         success?: boolean;
@@ -163,13 +172,8 @@ export default function RegisterPage() {
         return;
       }
 
-      // Success - call RPC for terms/age verification (needs client-side supabase)
-      const supabase = createClient();
-      const { error: profileError } = await supabase.rpc('accept_terms_and_verify_age');
-      if (profileError) {
-        console.error('Error updating profile:', profileError);
-      }
-
+      // Consent (age/terms) is persisted server-side by the signup trigger from
+      // the metadata sent above — no client-side RPC is needed here.
       router.push('/verify-email');
     } catch (err) {
       setError('An unexpected error occurred');

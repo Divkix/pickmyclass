@@ -39,11 +39,12 @@ vi.mock('@/lib/supabase/server', () => ({
   ),
 }));
 
-// Helper to create NextRequest
+// Helper to create NextRequest. Consent flags default to true (required by the
+// schema) but can be overridden/omitted by spreading a partial body.
 function createRequest(body: Record<string, unknown>): NextRequest {
   return new NextRequest('http://localhost:3000/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ageVerified: true, agreedToTerms: true, ...body }),
     headers: {
       'Content-Type': 'application/json',
     },
@@ -179,6 +180,10 @@ describe('POST /api/auth/register', () => {
         password: 'StrongP@ss1',
         options: {
           emailRedirectTo: 'https://pickmyclass.app/auth/callback?next=/dashboard',
+          data: {
+            age_verified: true,
+            agreed_to_terms: true,
+          },
         },
       });
     });
