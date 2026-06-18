@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
     }
     .success { color: #059669; }
     a {
-      color: #6366f1;
+      color: #8C1D40;
       text-decoration: none;
     }
     a:hover {

@@ -1,6 +1,6 @@
 'use client';
 
-import { Lock } from 'lucide-react';
+import { Lightbulb, Lock } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { formatTermOption, getSelectableTerms } from '@/lib/asu/terms';
 import { Alert } from '@/components/ui/alert';
@@ -132,14 +132,15 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
               pattern="\d{5}"
               title="Must be a 5-digit section number"
             />
-            <div className="rounded-md bg-info/10 border border-info/30 p-3 text-sm">
-              <p className="text-primary">
-                💡 <strong>How to find this:</strong> Go to the{' '}
+            <div className="flex gap-2.5 rounded-md bg-primary/5 border border-primary/20 p-3 text-sm">
+              <Lightbulb className="size-4 shrink-0 text-primary mt-0.5" aria-hidden="true" />
+              <p className="text-foreground">
+                <strong>How to find this:</strong> Go to the{' '}
                 <a
                   href="https://catalog.apps.asu.edu/catalog/classes/classlist"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline hover:text-primary/80"
+                  className="font-medium text-primary underline hover:text-primary/80"
                 >
                   ASU Class Search page
                 </a>

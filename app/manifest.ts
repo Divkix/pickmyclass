@@ -8,7 +8,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
-    theme_color: '#6366F1',
+    theme_color: '#8C1D40',
     icons: [
       { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' },
       { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },

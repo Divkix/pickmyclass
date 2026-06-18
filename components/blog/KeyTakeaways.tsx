@@ -11,9 +11,11 @@ interface KeyTakeawaysProps {
 
 export function KeyTakeaways({ title = 'Key Takeaways', items }: KeyTakeawaysProps) {
   return (
-    <div className="not-prose my-8 rounded-lg border border-asu-gold/30 bg-asu-gold/5 p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Lightbulb className="size-5 text-asu-gold" />
+    <div className="not-prose my-8 rounded-xl border border-accent/40 bg-accent/10 p-6">
+      <div className="flex items-center gap-2.5 mb-4">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+          <Lightbulb className="size-4" aria-hidden="true" />
+        </span>
         <h3 className="text-lg font-semibold text-foreground">{title}</h3>
       </div>
       <ul className="space-y-2">

@@ -49,8 +49,9 @@ export function Footer() {
 
           <div className="flex items-center gap-4">
             <div className="text-center md:text-right">
-              <p className="text-xs font-medium text-asu-gold">
-                Built for Sun Devils. Checking MyASU so you don't have to.
+              <p className="text-xs font-medium text-foreground">
+                <span className="mr-1.5 inline-block size-2 rounded-full bg-accent align-middle" />
+                Built for Sun Devils. Checking MyASU so you don&apos;t have to.
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Not affiliated with Arizona State University

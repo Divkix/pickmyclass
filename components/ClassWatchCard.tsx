@@ -140,7 +140,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
     if (swipeOffset < -10) {
       const opacity = Math.min(Math.abs(swipeOffset) / 120, 1);
       return {
-        backgroundColor: `hsl(var(--destructive) / ${opacity * 0.1})`,
+        backgroundColor: `color-mix(in oklch, var(--destructive) ${opacity * 10}%, transparent)`,
       };
     }
     return {};

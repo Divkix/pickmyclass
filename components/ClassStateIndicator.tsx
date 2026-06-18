@@ -10,8 +10,8 @@ interface ClassStateIndicatorProps {
 export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
   if (!classState) {
     return (
-      <div className="inline-flex items-center gap-2 rounded-md bg-asu-gold/20 dark:bg-asu-gold/10 px-3 py-1 text-sm">
-        <Clock className="size-4 text-asu-gold" aria-hidden="true" />
+      <div className="inline-flex items-center gap-2 rounded-md bg-accent/15 px-3 py-1 text-sm">
+        <Clock className="size-4 text-foreground/70" aria-hidden="true" />
         <span className="text-foreground">Checking soon...</span>
       </div>
     );

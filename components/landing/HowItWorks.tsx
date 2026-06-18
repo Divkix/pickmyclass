@@ -25,11 +25,11 @@ export function HowItWorks() {
 
         <div className="relative space-y-12">
           {/* Connecting Line */}
-          <div className="absolute bottom-5 left-4.5 top-5 w-0.5 bg-linear-to-b from-primary via-accent to-asu-maroon sm:left-6" />
+          <div className="absolute bottom-5 left-4.5 top-5 w-0.5 bg-primary/25 sm:left-6" />
 
           {/* Step 1 */}
           <motion.div className="relative flex items-start gap-6" variants={staggerItem}>
-            <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground shadow-lg sm:size-12">
+            <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground shadow-smooth sm:size-12">
               1
             </div>
             <div className="flex-1 space-y-2 pt-1">
@@ -44,7 +44,7 @@ export function HowItWorks() {
 
           {/* Step 2 */}
           <motion.div className="relative flex items-start gap-6" variants={staggerItem}>
-            <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-white shadow-lg sm:size-12">
+            <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-accent-foreground shadow-smooth sm:size-12">
               2
             </div>
             <div className="flex-1 space-y-2 pt-1">
@@ -60,7 +60,7 @@ export function HowItWorks() {
 
           {/* Step 3 */}
           <motion.div className="relative flex items-start gap-6" variants={staggerItem}>
-            <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-asu-maroon text-lg font-bold text-white shadow-lg sm:size-12">
+            <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground shadow-smooth sm:size-12">
               3
             </div>
             <div className="flex-1 space-y-2 pt-1">

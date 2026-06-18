@@ -62,12 +62,14 @@ beforeAll(() => {
   } as unknown as typeof IntersectionObserver;
 });
 
+type MotionTag = 'div' | 'button' | 'h1' | 'p' | 'ul' | 'li' | 'article' | 'span' | 'section';
+
 function createMotionElements() {
   const MotionElement = ({
     as: Component,
     children,
     ...props
-  }: { as: 'div' | 'button'; children?: ReactNode } & Record<string, unknown>) => {
+  }: { as: MotionTag; children?: ReactNode } & Record<string, unknown>) => {
     const {
       initial: _initial,
       animate: _animate,
@@ -83,14 +85,16 @@ function createMotionElements() {
     return <Component {...domProps}>{children}</Component>;
   };
 
-  return {
-    div: (props: { children?: ReactNode } & Record<string, unknown>) => (
-      <MotionElement as="div" {...props} />
-    ),
-    button: (props: { children?: ReactNode } & Record<string, unknown>) => (
-      <MotionElement as="button" {...props} />
-    ),
-  };
+  const tags: MotionTag[] = ['div', 'button', 'h1', 'p', 'ul', 'li', 'article', 'span', 'section'];
+
+  return Object.fromEntries(
+    tags.map((tag) => [
+      tag,
+      (props: { children?: ReactNode } & Record<string, unknown>) => (
+        <MotionElement as={tag} {...props} />
+      ),
+    ])
+  );
 }
 
 describe('static marketing and legal pages', () => {

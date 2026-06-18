@@ -23,7 +23,7 @@ async function generateOGImage() {
         justifyContent: 'center',
         width: 1200,
         height: 630,
-        background: 'linear-gradient(135deg, #6366F1 0%, #10B981 100%)',
+        background: 'linear-gradient(135deg, #8C1D40 0%, #6E1733 100%)',
         color: 'white',
         fontFamily: 'Inter',
         position: 'relative',
@@ -72,7 +72,7 @@ async function generateOGImage() {
                   style: {
                     fontSize: 24,
                     fontWeight: 700,
-                    opacity: 0.75,
+                    color: '#FFC627',
                     marginBottom: 48,
                   },
                   children: 'Free ASU Class Seat Notifications',

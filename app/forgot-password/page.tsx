@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
             <CardDescription>We&apos;ve sent you a password reset link</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <Alert className="bg-green-50 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/50">
+            <Alert className="bg-success/10 text-success border-success/30">
               <AlertDescription>
                 A password reset link has been sent to <strong>{email}</strong>. Please check your
                 inbox and follow the instructions to reset your password.

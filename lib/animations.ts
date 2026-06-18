@@ -1,7 +1,15 @@
 import type { Variants } from 'framer-motion';
 
 /**
- * Utility to respect user's motion preferences
+ * Exponential ease-out curves (no bounce/elastic). Entering motion eases out;
+ * exiting motion eases in. Keeps the whole site on one motion rhythm.
+ */
+const easeOutExpo = [0.16, 1, 0.3, 1] as const;
+const easeOutQuart = [0.25, 1, 0.5, 1] as const;
+
+/**
+ * Utility to respect the user's motion preferences. When reduced motion is
+ * requested, transitions collapse to a near-instant crossfade.
  */
 export const reduceMotion = (variants: Variants): Variants => {
   if (
@@ -9,7 +17,6 @@ export const reduceMotion = (variants: Variants): Variants => {
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
   ) {
-    // Return instant transitions for reduced motion
     return Object.keys(variants).reduce((acc, key) => {
       acc[key] = {
         // oxlint-disable-next-line typescript/no-misused-spread
@@ -31,7 +38,18 @@ export const fadeInUp: Variants = reduceMotion({
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: 'easeOut' },
+    transition: { duration: 0.55, ease: easeOutExpo },
+  },
+});
+
+// A softer, slightly larger reveal for hero/feature imagery
+export const revealUp: Variants = reduceMotion({
+  hidden: { opacity: 0, y: 28, scale: 0.98 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.7, ease: easeOutExpo },
   },
 });
 
@@ -52,7 +70,7 @@ export const staggerItem: Variants = reduceMotion({
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: 'easeOut' },
+    transition: { duration: 0.5, ease: easeOutExpo },
   },
 });
 
@@ -62,7 +80,7 @@ export const cardHover: Variants = reduceMotion({
   hover: {
     scale: 1.02,
     y: -4,
-    transition: { duration: 0.3, ease: 'easeOut' },
+    transition: { duration: 0.25, ease: easeOutQuart },
   },
 });
 

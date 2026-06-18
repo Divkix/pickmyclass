@@ -74,130 +74,131 @@
   --radius: 0.625rem;
 
   /* Brand Colors - Indigo Primary, Emerald Accent - More Vibrant */
-  --brand-primary: oklch(0.58 0.23 270);
-  --brand-primary-foreground: oklch(0.985 0 0);
-  --brand-accent: oklch(0.7 0.18 166);
-  --brand-accent-foreground: oklch(0.145 0 0);
+  /* Brand: ASU Maroon primary, ASU Gold accent */
+  --brand-primary: oklch(0.42 0.155 12);
+  --brand-primary-foreground: oklch(0.99 0 0);
+  --brand-accent: oklch(0.84 0.165 84);
+  --brand-accent-foreground: oklch(0.27 0.05 50);
 
   /* ASU Brand Colors */
-  --brand-asu-maroon: oklch(0.4 0.16 15); /* #8C1D40 */
-  --brand-asu-gold: oklch(0.85 0.17 85); /* #FFC627 */
+  --brand-asu-maroon: oklch(0.42 0.155 12); /* #8C1D40 */
+  --brand-asu-gold: oklch(0.84 0.165 84); /* #FFC627 */
 
-  /* Base Colors */
+  /* Base Colors — true off-white at chroma 0; warmth comes from brand layer */
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --foreground: oklch(0.16 0.01 20);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.16 0.01 20);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.16 0.01 20);
 
-  /* Primary now uses brand indigo */
-  --primary: oklch(0.58 0.23 270);
-  --primary-foreground: oklch(0.985 0 0);
+  /* Primary — ASU maroon */
+  --primary: oklch(0.42 0.155 12);
+  --primary-foreground: oklch(0.99 0 0);
 
-  /* Secondary */
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  /* Secondary — maroon-tinted neutral */
+  --secondary: oklch(0.965 0.006 20);
+  --secondary-foreground: oklch(0.27 0.04 16);
 
-  /* Muted */
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  /* Muted — maroon-tinted neutral */
+  --muted: oklch(0.965 0.006 20);
+  --muted-foreground: oklch(0.5 0.02 18);
 
-  /* Accent now uses emerald */
-  --accent: oklch(0.7 0.18 166);
-  --accent-foreground: oklch(0.145 0 0);
+  /* Accent — ASU gold with dark foreground (gold + white fails contrast) */
+  --accent: oklch(0.84 0.165 84);
+  --accent-foreground: oklch(0.27 0.05 50);
 
-  /* Semantic Colors */
+  /* Semantic Colors — functional status layer, independent of brand */
   --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.7 0.18 166);
+  --success: oklch(0.62 0.16 155);
   --warning: oklch(0.828 0.189 84.429);
-  --info: oklch(0.58 0.23 270);
+  --info: oklch(0.42 0.155 12);
 
-  /* Borders & Inputs */
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.58 0.23 270);
+  /* Borders & Inputs — faint maroon tint */
+  --border: oklch(0.915 0.006 20);
+  --input: oklch(0.915 0.006 20);
+  --ring: oklch(0.42 0.155 12);
 
-  /* Charts */
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  /* Charts — anchored on the ASU brand pair */
+  --chart-1: oklch(0.42 0.155 12);
+  --chart-2: oklch(0.84 0.165 84);
+  --chart-3: oklch(0.6 0.118 184.704);
+  --chart-4: oklch(0.62 0.18 30);
+  --chart-5: oklch(0.55 0.16 50);
 
   /* Sidebar */
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.58 0.23 270);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.58 0.23 270);
+  --sidebar: oklch(0.985 0.004 20);
+  --sidebar-foreground: oklch(0.16 0.01 20);
+  --sidebar-primary: oklch(0.42 0.155 12);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.965 0.006 20);
+  --sidebar-accent-foreground: oklch(0.27 0.04 16);
+  --sidebar-border: oklch(0.915 0.006 20);
+  --sidebar-ring: oklch(0.42 0.155 12);
 }
 
 .dark {
-  /* Brand Colors remain consistent but tuned for dark mode */
-  --brand-primary: oklch(0.65 0.23 270);
-  --brand-primary-foreground: oklch(0.985 0 0);
-  --brand-accent: oklch(0.75 0.18 166);
-  --brand-accent-foreground: oklch(0.145 0 0);
+  /* Brand: lightened maroon so white text stays >=4.5:1; gold brighter */
+  --brand-primary: oklch(0.55 0.16 14);
+  --brand-primary-foreground: oklch(0.99 0 0);
+  --brand-accent: oklch(0.86 0.165 85);
+  --brand-accent-foreground: oklch(0.24 0.05 50);
 
-  /* ASU Brand Colors - slightly brighter for dark mode */
-  --brand-asu-maroon: oklch(0.45 0.18 15); /* Slightly lighter for dark */
-  --brand-asu-gold: oklch(0.88 0.17 85); /* Slightly brighter */
+  /* ASU Brand Colors */
+  --brand-asu-maroon: oklch(0.55 0.16 14);
+  --brand-asu-gold: oklch(0.86 0.165 85);
 
-  /* Base Colors */
-  --background: oklch(0.12 0 0); /* Slightly darker background for more contrast */
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.16 0 0); /* Distinct card background */
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.16 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  /* Base Colors — faint maroon-tinted near-black */
+  --background: oklch(0.14 0.008 18);
+  --foreground: oklch(0.97 0.004 60);
+  --card: oklch(0.18 0.008 18);
+  --card-foreground: oklch(0.97 0.004 60);
+  --popover: oklch(0.18 0.008 18);
+  --popover-foreground: oklch(0.97 0.004 60);
 
-  /* Primary uses lighter indigo in dark mode */
-  --primary: oklch(0.65 0.23 270);
-  --primary-foreground: oklch(0.985 0 0);
+  /* Primary — lightened ASU maroon for dark surfaces */
+  --primary: oklch(0.55 0.16 14);
+  --primary-foreground: oklch(0.99 0 0);
 
   /* Secondary */
-  --secondary: oklch(0.22 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.24 0.012 18);
+  --secondary-foreground: oklch(0.97 0.004 60);
 
   /* Muted */
-  --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  --muted: oklch(0.24 0.012 18);
+  --muted-foreground: oklch(0.72 0.012 30);
 
-  /* Accent uses lighter emerald in dark mode */
-  --accent: oklch(0.75 0.18 166);
-  --accent-foreground: oklch(0.145 0 0);
+  /* Accent — ASU gold with dark foreground */
+  --accent: oklch(0.86 0.165 85);
+  --accent-foreground: oklch(0.24 0.05 50);
 
   /* Semantic Colors */
   --destructive: oklch(0.704 0.191 22.216);
-  --success: oklch(0.75 0.18 166);
+  --success: oklch(0.72 0.16 158);
   --warning: oklch(0.828 0.189 84.429);
-  --info: oklch(0.65 0.23 270);
+  --info: oklch(0.55 0.16 14);
 
   /* Borders & Inputs */
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.65 0.23 270);
+  --ring: oklch(0.6 0.16 14);
 
   /* Charts */
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  --chart-1: oklch(0.55 0.16 14);
+  --chart-2: oklch(0.86 0.165 85);
+  --chart-3: oklch(0.696 0.17 162.48);
+  --chart-4: oklch(0.627 0.18 30);
+  --chart-5: oklch(0.645 0.18 50);
 
   /* Sidebar */
-  --sidebar: oklch(0.16 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.65 0.23 270);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.22 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar: oklch(0.18 0.008 18);
+  --sidebar-foreground: oklch(0.97 0.004 60);
+  --sidebar-primary: oklch(0.55 0.16 14);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.24 0.012 18);
+  --sidebar-accent-foreground: oklch(0.97 0.004 60);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.65 0.23 270);
+  --sidebar-ring: oklch(0.6 0.16 14);
 }
 
 @layer base {
@@ -273,37 +274,78 @@
     font-size: clamp(2.5rem, 5vw, 3.5rem);
     line-height: 1.1;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
   }
 
   .text-hero {
     font-size: clamp(2rem, 4vw, 3rem);
-    line-height: 1.2;
+    line-height: 1.15;
     font-weight: 700;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
   }
 
-  /* Gradient Text */
-  .text-gradient {
-    @apply bg-linear-to-r from-primary to-accent bg-clip-text text-transparent;
+  /* Branded emphasis — solid maroon, no gradient text */
+  .text-emphasis {
+    color: var(--color-primary);
   }
 
-  /* Glass Morphism */
-  .glass {
-    @apply backdrop-blur-xl bg-background/80 border border-white/10;
+  /* Gold highlighter behind a run of heading text (robust, no z-index) */
+  .mark-gold {
+    background-image: linear-gradient(
+      to top,
+      var(--color-accent) 0.06em,
+      color-mix(in oklch, var(--color-accent) 42%, transparent) 0.06em,
+      color-mix(in oklch, var(--color-accent) 42%, transparent) 0.42em,
+      transparent 0.42em
+    );
+    padding-inline: 0.06em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
   }
 
-  /* Smooth Shadow */
+  /* Smooth Shadow — single defined elevation, no ghost-card pairing */
   .shadow-smooth {
-    box-shadow:
-      0 1px 2px 0 rgba(0, 0, 0, 0.05),
-      0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 2px 0 oklch(0.42 0.155 12 / 0.06);
   }
 
   .shadow-smooth-lg {
     box-shadow:
-      0 4px 6px -1px rgba(0, 0, 0, 0.1),
-      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      0 4px 12px -2px oklch(0.42 0.155 12 / 0.1),
+      0 2px 6px -2px oklch(0.42 0.155 12 / 0.08);
+  }
+
+  /* FAQ accordion (native <details>) — chevron rotate + grid-rows reveal */
+  .faq-item > summary {
+    list-style: none;
+    cursor: pointer;
+  }
+  .faq-item > summary::-webkit-details-marker {
+    display: none;
+  }
+  .faq-item .faq-chevron {
+    transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  .faq-item[open] .faq-chevron {
+    transform: rotate(180deg);
+  }
+  .faq-item .faq-answer {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .faq-item[open] .faq-answer {
+    grid-template-rows: 1fr;
+  }
+  .faq-item .faq-answer > div {
+    overflow: hidden;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .faq-item .faq-answer,
+    .faq-item .faq-chevron {
+      transition: none;
+    }
   }
 
   /* Animation Utilities */

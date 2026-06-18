@@ -91,7 +91,7 @@ export default function VerifyEmailPage() {
             </div>
 
             {success && (
-              <Alert className="bg-green-50 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/50">
+              <Alert className="bg-success/10 text-success border-success/30">
                 <AlertDescription>{success}</AlertDescription>
               </Alert>
             )}

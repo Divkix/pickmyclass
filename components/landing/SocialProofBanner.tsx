@@ -1,35 +1,29 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { staggerContainer, staggerItem } from '@/lib/animations';
+import { GraduationCap } from 'lucide-react';
+import { fadeInUp } from '@/lib/animations';
 
 export function SocialProofBanner() {
   return (
-    <section className="border-b border-border bg-muted/30 py-8">
+    <section className="border-b border-border bg-primary text-primary-foreground">
       <motion.div
-        className="mx-auto max-w-4xl px-6"
+        className="mx-auto flex max-w-5xl flex-col items-center gap-x-8 gap-y-3 px-6 py-5 text-center sm:flex-row sm:justify-center sm:text-left"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
-        variants={staggerContainer}
+        variants={fadeInUp}
       >
-        <motion.div
-          className="flex flex-col items-center justify-center gap-8 sm:flex-row sm:gap-16"
-          variants={staggerItem}
-        >
-          <div className="text-center">
-            <div className="text-3xl font-bold text-foreground">2,400+</div>
-            <div className="text-sm text-muted-foreground">Sun Devils using it</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-foreground">15,000+</div>
-            <div className="text-sm text-muted-foreground">Classes monitored</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-primary">8,500+</div>
-            <div className="text-sm text-muted-foreground">Students got their seat</div>
-          </div>
-        </motion.div>
+        <span className="inline-flex items-center gap-2 text-sm font-medium">
+          <GraduationCap className="size-5 text-accent" aria-hidden="true" />
+          Trusted across every ASU campus
+        </span>
+        <span className="hidden h-4 w-px bg-primary-foreground/25 sm:block" aria-hidden="true" />
+        <p className="text-sm text-primary-foreground/85">
+          <strong className="font-semibold text-primary-foreground">2,400+</strong> Sun Devils ·{' '}
+          <strong className="font-semibold text-primary-foreground">15,000+</strong> classes
+          monitored · <strong className="font-semibold text-accent">8,500+</strong> seats secured
+        </p>
       </motion.div>
     </section>
   );

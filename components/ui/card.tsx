@@ -29,7 +29,7 @@ function Card({ className, interactive = false, ...props }: CardProps) {
     <motion.div
       data-slot="card"
       className={cn(
-        'bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-smooth transition-shadow cursor-pointer hover:shadow-smooth-lg',
+        'bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-smooth transition-[box-shadow,border-color] cursor-pointer hover:shadow-smooth-lg hover:border-primary/30',
         className
       )}
       initial="rest"

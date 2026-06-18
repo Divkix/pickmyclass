@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 
 const faqs = [
@@ -56,12 +57,25 @@ export function FAQSection() {
           </p>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-3">
           {faqs.map((faq) => (
-            <div key={faq.question} className="rounded-lg border border-border bg-card p-6">
-              <h3 className="mb-2 text-lg font-semibold text-foreground">{faq.question}</h3>
-              <p className="text-muted-foreground leading-relaxed">{faq.answer}</p>
-            </div>
+            <details
+              key={faq.question}
+              className="faq-item group rounded-xl border border-border bg-card px-5 transition-colors hover:border-primary/30 open:border-primary/30"
+            >
+              <summary className="flex items-center justify-between gap-4 py-5 text-left text-base font-semibold text-foreground">
+                {faq.question}
+                <ChevronDown
+                  className="faq-chevron size-5 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+              </summary>
+              <div className="faq-answer">
+                <div>
+                  <p className="pb-5 leading-relaxed text-muted-foreground">{faq.answer}</p>
+                </div>
+              </div>
+            </details>
           ))}
         </div>
 

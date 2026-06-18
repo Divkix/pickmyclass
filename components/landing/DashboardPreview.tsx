@@ -44,7 +44,7 @@ export function DashboardPreview() {
       >
         <motion.div className="mb-12 text-center" variants={staggerItem}>
           <h2 className="mb-4 text-3xl font-semibold text-foreground sm:text-4xl">
-            Your Dashboard, <span className="text-gradient">Ready to Go</span>
+            Your dashboard, <span className="text-emphasis">ready to go</span>
           </h2>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
             Here&apos;s what you get the moment you sign up. No learning curve.
@@ -58,7 +58,10 @@ export function DashboardPreview() {
               <div className="flex items-center gap-4">
                 <span className="text-sm font-medium text-foreground">My Watched Classes</span>
                 <div className="flex items-center gap-1.5">
-                  <div className="size-2 animate-pulse rounded-full bg-green-500" />
+                  <span className="relative flex size-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                    <span className="relative inline-flex size-2 rounded-full bg-accent" />
+                  </span>
                   <span className="text-xs text-muted-foreground">Live</span>
                 </div>
               </div>
@@ -66,10 +69,10 @@ export function DashboardPreview() {
                 <span className="hidden sm:inline">
                   <strong className="text-foreground">5</strong> classes
                 </span>
-                <span className="text-green-600 dark:text-green-400">
+                <span className="text-success">
                   <strong>2</strong> available
                 </span>
-                <span className="text-red-600 dark:text-red-400">
+                <span className="text-destructive">
                   <strong>3</strong> full
                 </span>
               </div>
@@ -86,8 +89,8 @@ export function DashboardPreview() {
                     <div
                       className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
                         cls.status === 'available'
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                          ? 'bg-success/15 text-success'
+                          : 'bg-destructive/15 text-destructive'
                       }`}
                     >
                       {cls.status === 'available' ? (
@@ -115,8 +118,8 @@ export function DashboardPreview() {
                       variant={cls.status === 'available' ? 'default' : 'secondary'}
                       className={
                         cls.status === 'available'
-                          ? 'bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400'
+                          ? 'bg-success/15 text-success hover:bg-success/15'
+                          : 'bg-destructive/15 text-destructive hover:bg-destructive/15'
                       }
                     >
                       {cls.status === 'available' ? `${cls.seats} seats open` : 'Full'}
