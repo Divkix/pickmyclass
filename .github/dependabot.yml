@@ -9,6 +9,13 @@ updates:
       prefix: 'chore(deps)'
     labels:
       - 'dependencies'
+    ignore:
+      # vite-plus ships as 3 lockstep packages: vite-plus (cli) plus the
+      # npm-aliased vite (@voidzero-dev/vite-plus-core) and vitest
+      # (@voidzero-dev/vite-plus-test). Dependabot only sees vite-plus by
+      # name and can't track/group the aliases, so a solo vite-plus bump
+      # desyncs the trio and breaks CI. Bump all three manually in lockstep.
+      - dependency-name: 'vite-plus'
     groups:
       # Group all minor/patch updates
       all-minor-patch:
