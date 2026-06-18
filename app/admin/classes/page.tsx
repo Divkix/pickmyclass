@@ -74,11 +74,14 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Classes
+              Sections Tracked
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{total}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Includes sections with no current watchers
+            </p>
           </CardContent>
         </Card>
 
