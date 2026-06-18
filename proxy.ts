@@ -45,7 +45,10 @@ export function invalidateProfileCache(userId: string): boolean {
 function buildProductionCsp(nonce: string): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' https://static.cloudflareinsights.com https://analytics.divkix.me`,
+    // The sha256 hash whitelists next-themes' inline no-flash theme script,
+    // which runs before hydration and cannot receive the per-request nonce
+    // (the root layout intentionally avoids headers() to stay static).
+    `script-src 'self' 'nonce-${nonce}' 'sha256-jGCia7LAT8V5tk83CgiiU5FMqw9uEVddMT+0ZQDzVAM=' https://static.cloudflareinsights.com https://analytics.divkix.me`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
@@ -150,7 +153,7 @@ async function getUserProfile(
       .from('user_profiles')
       .select('is_admin, is_disabled')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (profile) {
       profileCache.set(userId, profile);

@@ -23,7 +23,7 @@ vi.mock('@supabase/ssr', () => ({
 const setupMockChain = () => {
   mockFrom.mockReturnValue({ select: mockSelect });
   mockSelect.mockReturnValue({ eq: mockEq });
-  mockEq.mockReturnValue({ single: mockSingle });
+  mockEq.mockReturnValue({ single: mockSingle, maybeSingle: mockSingle });
 };
 
 // Import proxy after mocks are set up

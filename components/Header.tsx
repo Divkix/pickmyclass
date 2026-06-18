@@ -30,7 +30,7 @@ export function Header() {
           .from('user_profiles')
           .select('is_admin')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         setIsAdmin(profile?.is_admin ?? false);
       } catch (error) {
