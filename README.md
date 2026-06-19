@@ -1,6 +1,6 @@
 # PickMyClass
 
-<img width="1624" height="964" alt="Screenshot 2026-06-16 at 4 32 56 PM" src="https://github.com/user-attachments/assets/964272b3-258e-4817-9315-a0f61e008be5" />
+<img width="1440" height="900" alt="PickMyClass - free ASU class seat tracker with open-seat email alerts" src=".github/screenshot.png" />
 
 
 A high-performance, scalable class seat notification system for university students. Monitor class availability, get notified when seats open up, and track instructor assignments.
