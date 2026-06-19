@@ -193,8 +193,8 @@ describe('GET /api/cron', () => {
 
     // oxlint-disable-next-line typescript/unbound-method
     const sendBatch = vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch);
-    const enqueuedTerms = sendBatch.mock.calls.flatMap(
-      ([batch]) => (batch as { body: { term: string } }[]).map((m) => m.body.term)
+    const enqueuedTerms = sendBatch.mock.calls.flatMap(([batch]) =>
+      (batch as { body: { term: string } }[]).map((m) => m.body.term)
     );
     expect(enqueuedTerms).toEqual(['2271']);
   });
