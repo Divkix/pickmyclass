@@ -180,7 +180,9 @@ describe('GET /api/cron', () => {
 
     const { env } = await import('cloudflare:workers');
     // oxlint-disable-next-line typescript/unbound-method
-    vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue(undefined);
+    vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue({
+      metadata: {},
+    } as QueueSendBatchResponse);
 
     const response = await GET(createRequest('Bearer test-cron-secret'));
     // ok() spreads fields at the top level (see lib/api/response.ts); only fail()/207 nests
