@@ -2,17 +2,22 @@
 
 > Free ASU class seat tracker and open-seat email notification app for Arizona State University students.
 
-PickMyClass helps ASU students stop manually refreshing My ASU and ASU Class Search. Students add class sections they care about, and PickMyClass checks ASU class seat availability every 30 minutes, then emails them when seats open or when an instructor changes from Staff.
+PickMyClass (also known as Pick My Class, Pick A Class, or PickAClass) helps ASU students stop manually refreshing My ASU and ASU Class Search. Students add class sections they care about, and PickMyClass checks ASU class seat availability every 30 minutes, then emails them when seats open or when an instructor changes from Staff.
 
 ## Search Intent Match
 
 - pickmyclass
 - pick my class
+- pick a class
 - ASU class seat tracker
 - ASU class tracker
 - ASU class finder
+- ASU class search
 - ASU class registration
+- how to register for classes at ASU
 - ASU waitlist alternatives
+- best ASU class seat tracker
+- ASUClassFinder alternative
 - My ASU class search alerts
 - MyASU open class notifications
 
@@ -21,7 +26,11 @@ PickMyClass helps ASU students stop manually refreshing My ASU and ASU Class Sea
 - Home: https://pickmyclass.app/
 - FAQ: https://pickmyclass.app/faq
 - Blog: https://pickmyclass.app/blog
+- Pricing (machine-readable): https://pickmyclass.app/pricing.md
 - ASU class seat tracker guide: https://pickmyclass.app/blog/asu-class-seat-tracker
+- Best ASU class seat tracker (comparison): https://pickmyclass.app/blog/best-asu-class-seat-tracker
+- ASU class search guide: https://pickmyclass.app/blog/asu-class-search
+- How to register for classes at ASU: https://pickmyclass.app/blog/how-to-register-for-classes-at-asu
 - Full ASU class strategies: https://pickmyclass.app/blog/how-to-get-into-full-asu-classes
 - ASU registration tips: https://pickmyclass.app/blog/asu-registration-tips
 - ASU waitlist guide: https://pickmyclass.app/blog/asu-waitlist-guide
@@ -30,10 +39,11 @@ PickMyClass helps ASU students stop manually refreshing My ASU and ASU Class Sea
 
 ## Product Facts
 
-- Free for ASU students.
+- Free for ASU students. No paid tiers, no ads.
 - Checks class availability every 30 minutes.
-- Sends email alerts when seats open.
+- Sends email alerts when seats open and when a Staff section gets a named instructor.
 - Supports all ASU campuses and online classes represented in ASU Class Search.
+- Never asks for your MyASU password; only reads public class data.
 - Not affiliated with Arizona State University.
 - Source: https://github.com/Divkix/pickmyclass
 

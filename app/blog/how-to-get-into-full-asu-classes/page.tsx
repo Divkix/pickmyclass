@@ -6,6 +6,7 @@ import {
   ComparisonTable,
   FAQSchema,
   KeyTakeaways,
+  ShortAnswer,
   TableOfContents,
 } from '@/components/blog';
 import { Header } from '@/components/Header';
@@ -37,7 +38,7 @@ const articleSchema = {
   description:
     'Practical strategies to get into full ASU classes during registration and add/drop period. From waitlist tips to automated seat tracking tools.',
   datePublished: '2026-03-27T00:00:00Z',
-  dateModified: '2026-05-08T00:00:00Z',
+  dateModified: '2026-06-18T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -182,6 +183,8 @@ export default async function HowToGetIntoFullClassesPost() {
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
               <time dateTime="2026-03-27">March 27, 2026</time>
+              <span>·</span>
+              <span>Updated June 18, 2026</span>
               <span>7 min read</span>
             </div>
           </div>
@@ -191,6 +194,13 @@ export default async function HowToGetIntoFullClassesPost() {
             time slot that works with your schedule? You guessed it. If you're an ASU student
             dealing with full classes, here are seven strategies that actually work to get you in.
           </p>
+
+          <ShortAnswer>
+            To get into a full ASU class: register the minute your window opens, keep a backup
+            schedule ready, track the section so you catch drops, check during add/drop week, and
+            ask the professor for an override when it's required for graduation. Automated seat
+            tracking does the watching for you.
+          </ShortAnswer>
 
           <KeyTakeaways
             items={[
@@ -480,7 +490,15 @@ export default async function HowToGetIntoFullClassesPost() {
                   href="/blog/asu-waitlist-guide"
                   className="text-primary hover:text-primary/80 transition-colors"
                 >
-                  ASU Waitlist Guide: How It Actually Works
+                  How to Add a Full ASU Class to the Waitlist
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/blog/best-asu-class-seat-tracker"
+                  className="text-primary hover:text-primary/80 transition-colors"
+                >
+                  Best ASU Class Seat Tracker in 2026 (Free vs Paid)
                 </Link>
               </li>
             </ul>

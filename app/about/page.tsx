@@ -26,6 +26,7 @@ const organizationSchema = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: 'PickMyClass',
+  alternateName: ['Pick My Class', 'Pick A Class', 'PickAClass', 'PickaClass'],
   url: 'https://pickmyclass.app',
   logo: 'https://pickmyclass.app/apple-touch-icon.png',
   description: 'Free ASU class seat notification service built by ASU students',
@@ -68,9 +69,10 @@ export default async function AboutPage() {
 
           <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">What We Built</h2>
           <p className="text-muted-foreground leading-relaxed">
-            PickMyClass is a free class seat tracker for ASU students. You add the classes you want,
-            and we check the ASU class search every 30 minutes. When a seat opens up, you get an
-            email immediately.
+            PickMyClass (some students search for it as &ldquo;Pick My Class&rdquo; or &ldquo;Pick A
+            Class&rdquo;) is a free class seat tracker for ASU students. You add the classes you
+            want, and we check the ASU class search every 30 minutes. When a seat opens up, you get
+            an email immediately.
           </p>
           <p className="text-muted-foreground leading-relaxed">
             It sounds simple because it is. No premium tiers. No ads. No tricks. Just a tool that

@@ -1,22 +1,30 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BlogAuthor, BlogFAQ, FAQSchema, KeyTakeaways, TableOfContents } from '@/components/blog';
+import {
+  BlogAuthor,
+  BlogFAQ,
+  FAQSchema,
+  KeyTakeaways,
+  ShortAnswer,
+  TableOfContents,
+} from '@/components/blog';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
 export const metadata: Metadata = {
-  title: "ASU Waitlist Guide: How It Actually Works (And Why Most Classes Don't Have One)",
+  title: "How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)",
   description:
-    "Confused about ASU waitlists? Learn how ASU's waitlist system actually works, which classes have them, and what to do when there's no waitlist available.",
+    "Class full? Here's how to add yourself to an ASU waitlist when one exists, how the 24-hour rule works, and the faster backup that gets you a seat when there's no waitlist.",
   alternates: {
     canonical: '/blog/asu-waitlist-guide',
   },
   openGraph: {
-    title: "ASU Waitlist Guide: How It Actually Works (And Why Most Classes Don't Have One)",
+    title: "How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)",
     description:
-      "Learn how ASU's waitlist system actually works, which classes have them, and what to do when there's no waitlist.",
+      'How to add yourself to an ASU waitlist when one exists, how the 24-hour rule works, and what to do when a full class has no waitlist.',
     type: 'article',
     publishedTime: '2026-04-26T00:00:00Z',
+    modifiedTime: '2026-06-18T00:00:00Z',
     images: ['/og-image.png'],
   },
 };
@@ -26,11 +34,11 @@ export const dynamic = 'error';
 const articleSchema = {
   '@context': 'https://schema.org',
   '@type': 'Article',
-  headline: "ASU Waitlist Guide: How It Actually Works (And Why Most Classes Don't Have One)",
+  headline: "How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)",
   description:
-    "Confused about ASU waitlists? Learn how ASU's waitlist system actually works, which classes have them, and what to do when there's no waitlist available.",
+    "Class full? Here's how to add yourself to an ASU waitlist when one exists, how the 24-hour rule works, and the faster backup that gets you a seat when there's no waitlist.",
   datePublished: '2026-04-26T00:00:00Z',
-  dateModified: '2026-05-08T00:00:00Z',
+  dateModified: '2026-06-18T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -122,19 +130,31 @@ export default async function ASUWaitlistGuidePost() {
 
           <div className="not-prose mb-8">
             <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">
-              ASU Waitlist Guide: How It Actually Works (And Why Most Classes Don&apos;t Have One)
+              How to Add a Full ASU Class to the Waitlist (And What to Do If There&apos;s No
+              Waitlist)
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
               <time dateTime="2026-04-26">April 26, 2026</time>
+              <span>·</span>
+              <span>Updated June 18, 2026</span>
               <span>6 min read</span>
             </div>
           </div>
 
           <p className="text-lg text-muted-foreground leading-relaxed">
-            You keep hearing other students talk about their &ldquo;waitlist position&rdquo; and
-            wondering why your full class does not have one. You are not alone. This is one of the
-            most confusing parts of ASU registration. Here is the deal.
+            Your class is full, your friends keep mentioning their &ldquo;waitlist position,&rdquo;
+            and you can&apos;t find a waitlist button anywhere. Here&apos;s the part nobody tells
+            you: most ASU classes don&apos;t have a waitlist at all. This guide covers how to add
+            yourself when one exists, and the backup that actually works when one doesn&apos;t.
           </p>
+
+          <ShortAnswer>
+            To add yourself to a waitlist for a full ASU class, open the section in ASU Class Search
+            and look for a &ldquo;Waitlist&rdquo; option. If it&apos;s there, add the class and you
+            join the queue. If you only see &ldquo;Closed&rdquo; with no waitlist button, that class
+            has no waitlist. Your best move is to track the section and get an alert the moment a
+            seat opens.
+          </ShortAnswer>
 
           <KeyTakeaways
             items={[

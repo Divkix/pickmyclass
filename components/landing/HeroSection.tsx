@@ -39,8 +39,9 @@ export function HeroSection() {
             className="mx-auto max-w-xl text-lg text-muted-foreground sm:text-xl lg:mx-0"
             variants={staggerItem}
           >
-            Get timely email alerts when seats open up in full ASU classes. Our free seat tracker
-            checks every 30 minutes so you don&apos;t have to.
+            Get timely email alerts when seats open up in full ASU classes. PickMyClass (yep, people
+            also call it Pick My Class) checks the ASU class search every 30 minutes so you
+            don&apos;t have to.
           </motion.p>
 
           <motion.div

@@ -1,6 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BlogAuthor, BlogFAQ, FAQSchema, KeyTakeaways, TableOfContents } from '@/components/blog';
+import {
+  BlogAuthor,
+  BlogFAQ,
+  FAQSchema,
+  KeyTakeaways,
+  ShortAnswer,
+  TableOfContents,
+} from '@/components/blog';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
@@ -30,7 +37,7 @@ const articleSchema = {
   description:
     'Everything transfer students need to know about ASU registration. How transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.',
   datePublished: '2026-04-26T00:00:00Z',
-  dateModified: '2026-05-08T00:00:00Z',
+  dateModified: '2026-06-18T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -127,6 +134,8 @@ export default async function ASUTransferRegistrationPost() {
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
               <time dateTime="2026-04-26">April 26, 2026</time>
+              <span>·</span>
+              <span>Updated June 18, 2026</span>
               <span>8 min read</span>
             </div>
           </div>
@@ -140,6 +149,13 @@ export default async function ASUTransferRegistrationPost() {
             do this. I built PickMyClass after missing registration for a required class myself, so
             trust me when I say: the transfer process is doable, but you have to play it smart.
           </p>
+
+          <ShortAnswer>
+            As a transfer student, your registration date is based on your officially evaluated
+            credits, so it often lands later than continuing students. Use MyPath2ASU to see how
+            your credits map, register the minute your window opens, and track full sections so you
+            catch a seat when someone drops.
+          </ShortAnswer>
 
           <KeyTakeaways
             items={[

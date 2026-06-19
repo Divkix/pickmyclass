@@ -1,6 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BlogAuthor, BlogFAQ, ComparisonTable, FAQSchema, KeyTakeaways } from '@/components/blog';
+import {
+  BlogAuthor,
+  BlogFAQ,
+  ComparisonTable,
+  FAQSchema,
+  KeyTakeaways,
+  ShortAnswer,
+} from '@/components/blog';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
@@ -30,7 +37,7 @@ const articleSchema = {
   description:
     'Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.',
   datePublished: '2026-03-27T00:00:00Z',
-  dateModified: '2026-05-08T00:00:00Z',
+  dateModified: '2026-06-18T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -162,7 +169,9 @@ export default async function ASUClassSeatTrackerPost() {
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
               <time dateTime="2026-03-27">March 27, 2026</time>
-              <span>5 min read</span>
+              <span>·</span>
+              <span>Updated June 18, 2026</span>
+              <span>8 min read</span>
             </div>
           </div>
 
@@ -176,6 +185,13 @@ export default async function ASUClassSeatTrackerPost() {
             you can use an automated tracker to watch classes for you and send you an email the
             second a seat opens.
           </p>
+
+          <ShortAnswer>
+            An ASU class seat tracker watches a full section for you and emails you the moment a
+            seat opens. PickMyClass checks ASU Class Search every 30 minutes, alerts you on open
+            seats and instructor changes, and is free. Add the section number, then register in
+            MyASU as soon as the alert hits.
+          </ShortAnswer>
 
           <KeyTakeaways
             items={[
@@ -393,10 +409,18 @@ export default async function ASUClassSeatTrackerPost() {
               </li>
               <li>
                 <Link
-                  href="/blog/asu-waitlist-guide"
+                  href="/blog/best-asu-class-seat-tracker"
                   className="text-primary hover:text-primary/80 transition-colors"
                 >
-                  ASU Waitlist Guide: How It Actually Works
+                  Best ASU Class Seat Tracker in 2026 (Free vs Paid)
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/blog/asu-class-search"
+                  className="text-primary hover:text-primary/80 transition-colors"
+                >
+                  ASU Class Search: How to Find Open Classes Fast
                 </Link>
               </li>
             </ul>

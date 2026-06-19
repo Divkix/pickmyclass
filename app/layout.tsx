@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     template: '%s | PickMyClass',
   },
   description:
-    'Free ASU class seat tracker and notification service. Get email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils — checks every 30 minutes.',
+    'Get a free email the moment a seat opens in a full ASU class. PickMyClass tracks ASU class search every 30 minutes so you stop refreshing MyASU. Trusted by 2,400+ Sun Devils.',
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -110,9 +110,11 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'Organization',
               name: 'PickMyClass',
+              alternateName: ['Pick My Class', 'Pick A Class', 'PickAClass', 'PickaClass'],
               url: 'https://pickmyclass.app',
               logo: 'https://pickmyclass.app/apple-touch-icon.png',
               description: 'Free ASU class seat notification service',
+              sameAs: ['https://github.com/Divkix/pickmyclass'],
               contactPoint: {
                 '@type': 'ContactPoint',
                 email: 'support@pickmyclass.app',
@@ -129,6 +131,7 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'WebSite',
               name: 'PickMyClass',
+              alternateName: ['Pick My Class', 'Pick A Class', 'PickAClass'],
               url: 'https://pickmyclass.app',
             }),
           }}

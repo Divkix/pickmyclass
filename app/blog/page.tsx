@@ -6,16 +6,16 @@ import { JsonLd } from '@/components/landing/JsonLd';
 import { blogPosts } from '@/lib/blog/posts';
 
 export const metadata: Metadata = {
-  title: 'ASU Class Registration Tips & Guides — PickMyClass Blog',
+  title: 'ASU Registration Tips & Guides: Class Search, Waitlists & Open Seats',
   description:
-    'Expert tips and strategies for ASU class registration. Learn how to get into full classes, track seat availability, and build the perfect schedule.',
+    'Real guides for ASU class registration. Find open classes, beat waitlists, get into full sections, and track seats so you stop refreshing MyASU.',
   alternates: {
     canonical: '/blog',
   },
   openGraph: {
-    title: 'ASU Class Registration Tips & Guides — PickMyClass Blog',
+    title: 'ASU Registration Tips & Guides: Class Search, Waitlists & Open Seats',
     description:
-      'Expert tips and strategies for ASU class registration. Learn how to get into full classes and track seat availability.',
+      'Real guides for ASU class registration. Find open classes, beat waitlists, and track seats so you stop refreshing MyASU.',
     type: 'website',
     url: 'https://pickmyclass.app/blog',
   },
@@ -49,10 +49,13 @@ export default async function BlogIndexPage() {
           </div>
 
           <div className="mb-12">
-            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl">Blog</h1>
+            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl">
+              ASU Registration Tips &amp; Guides
+            </h1>
             <p className="mt-4 text-lg text-muted-foreground">
-              Tips, guides, and strategies for ASU class registration. Learn how to build the
-              perfect schedule and never miss an open seat.
+              Straight answers for the stuff ASU never explains clearly: how to find open classes,
+              how waitlists really work, how to get into full sections, and how to lock in the
+              schedule you actually want.
             </p>
           </div>
 

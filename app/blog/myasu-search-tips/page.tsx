@@ -1,6 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BlogAuthor, BlogFAQ, FAQSchema, KeyTakeaways, TableOfContents } from '@/components/blog';
+import {
+  BlogAuthor,
+  BlogFAQ,
+  FAQSchema,
+  KeyTakeaways,
+  ShortAnswer,
+  TableOfContents,
+} from '@/components/blog';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
@@ -30,7 +37,7 @@ const articleSchema = {
   description:
     'Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips to find the perfect classes faster.',
   datePublished: '2026-04-26T00:00:00Z',
-  dateModified: '2026-05-08T00:00:00Z',
+  dateModified: '2026-06-18T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -127,6 +134,8 @@ export default async function MyASUSearchTipsPost() {
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
               <time dateTime="2026-04-26">April 26, 2026</time>
+              <span>·</span>
+              <span>Updated June 18, 2026</span>
               <span>7 min read</span>
             </div>
           </div>
@@ -138,6 +147,13 @@ export default async function MyASUSearchTipsPost() {
             few tricks, you can avoid 8 AMs you don't want, find sections at less crowded campuses,
             and actually build a schedule that works with your life instead of against it.
           </p>
+
+          <ShortAnswer>
+            The MyASU class search hides its power in the advanced filters: search by subject code,
+            filter to open seats only, narrow by campus and session, and use the 5-digit class
+            number to register fast. Below are 10 features most students miss, plus how to handle a
+            section that's already full.
+          </ShortAnswer>
 
           <KeyTakeaways
             items={[

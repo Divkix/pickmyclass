@@ -6,6 +6,7 @@ import {
   ComparisonTable,
   FAQSchema,
   KeyTakeaways,
+  ShortAnswer,
   TableOfContents,
 } from '@/components/blog';
 import { Header } from '@/components/Header';
@@ -37,7 +38,7 @@ const articleSchema = {
   description:
     'Everything you need to know about ASU class registration. Enrollment appointment tips, class search strategies, and tools to help you get the schedule you want.',
   datePublished: '2026-03-27T00:00:00Z',
-  dateModified: '2026-05-08T00:00:00Z',
+  dateModified: '2026-06-18T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -175,16 +176,25 @@ export default async function ASURegistrationTipsPost() {
             </h1>
             <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
               <time dateTime="2026-03-27">March 27, 2026</time>
+              <span>·</span>
+              <span>Updated June 18, 2026</span>
               <span>6 min read</span>
             </div>
           </div>
 
           <p className="text-lg text-muted-foreground leading-relaxed">
-            ASU class registration can feel like a high-stakes game. Between limited enrollment
-            windows, popular classes filling instantly, and the complexity of building a balanced
-            schedule, it is easy to feel overwhelmed. Honestly, I have been there. This is what I
-            wish I knew before my first registration day.
+            ASU registration can feel like a high-stakes game. Your window is short, the good
+            classes fill in minutes, and building a schedule that actually fits together is harder
+            than it looks. I have been there. This is what I wish I knew before my first
+            registration day.
           </p>
+
+          <ShortAnswer>
+            The students who get the schedule they want do the prep before their window opens: check
+            your enrollment appointment, clear holds early, build two or three backup schedules, and
+            enroll the minute registration opens. For full classes, track the section and grab the
+            seat when someone drops.
+          </ShortAnswer>
 
           <KeyTakeaways
             items={[
@@ -543,10 +553,10 @@ export default async function ASURegistrationTipsPost() {
               </li>
               <li>
                 <Link
-                  href="/blog/asu-transfer-registration"
+                  href="/blog/how-to-register-for-classes-at-asu"
                   className="text-primary hover:text-primary/80 transition-colors"
                 >
-                  ASU Transfer Student Registration: Complete Guide
+                  How to Register for Classes at ASU: Step-by-Step
                 </Link>
               </li>
             </ul>
