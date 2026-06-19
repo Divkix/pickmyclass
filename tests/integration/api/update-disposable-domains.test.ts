@@ -19,6 +19,12 @@ vi.mock('@/lib/supabase/service', () => ({
   getServiceClient: () => ({ rpc: mockRpc }),
 }));
 
+// Mock the past-term watch sweep so we can assert it's called with the right term codes.
+const mockDeletePastTermWatches = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/db/queries', () => ({
+  deletePastTermWatches: mockDeletePastTermWatches,
+}));
+
 vi.mock('cloudflare:workers', () => ({
   env: {
     PICKMYCLASS_DISPOSABLE_DOMAINS: {
@@ -61,6 +67,7 @@ describe('GET /api/cron/update-disposable-domains', () => {
     process.env.CRON_SECRET = 'test-cron-secret';
     mockKvPut.mockResolvedValue(undefined);
     mockRpc.mockResolvedValue({ data: 0, error: null });
+    mockDeletePastTermWatches.mockResolvedValue(0);
 
     const mod = await import('@/app/api/cron/update-disposable-domains/route');
     GET = mod.GET;
@@ -215,6 +222,64 @@ describe('GET /api/cron/update-disposable-domains', () => {
 
       expect(response.status).toBe(502);
       expect(mockKvPut).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('past-term watch sweep', () => {
+    function mockBlocklistFetch() {
+      const domains = Array.from({ length: 1500 }, (_, i) => `domain${i}.com`);
+      globalThis.fetch = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(domains.join('\n')) });
+    }
+
+    it('hard-deletes class_watches for terms that have ended', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-09-01T19:00:00Z'));
+      try {
+        mockBlocklistFetch();
+        mockDeletePastTermWatches.mockResolvedValue(3);
+
+        const response = await GET(createRequest('test-cron-secret'));
+        expect(response.status).toBe(200);
+
+        expect(mockDeletePastTermWatches).toHaveBeenCalledTimes(1);
+        const [codes] = mockDeletePastTermWatches.mock.calls[0] as [string[]];
+        expect(codes).toContain('2261'); // Spring 2026 ended 2026-05-09
+        expect(codes).toContain('2264'); // Summer 2026 ended 2026-08-14
+        expect(codes).not.toContain('2267'); // Fall 2026 still in session
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('skips the delete when no term has ended', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-01-01T19:00:00Z'));
+      try {
+        mockBlocklistFetch();
+
+        const response = await GET(createRequest('test-cron-secret'));
+        expect(response.status).toBe(200);
+        expect(mockDeletePastTermWatches).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not fail the daily job when the sweep errors', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-09-01T19:00:00Z'));
+      try {
+        mockBlocklistFetch();
+        mockDeletePastTermWatches.mockRejectedValue(new Error('db down'));
+
+        const response = await GET(createRequest('test-cron-secret'));
+        expect(response.status).toBe(200);
+        expect(mockDeletePastTermWatches).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

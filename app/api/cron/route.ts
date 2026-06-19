@@ -16,6 +16,7 @@ import { type NextRequest } from 'next/server';
 import { verifyCronSecret } from '@/lib/auth/require-user';
 import { fail, ok } from '@/lib/api/response';
 import { getSectionsToCheck } from '@/lib/db/queries';
+import { getPastTermCodes } from '@/lib/asu/terms';
 import { log } from '@/lib/log';
 import type { Env } from '@/lib/types/env';
 import type { ClassCheckMessage } from '@/lib/types/queue';
@@ -91,7 +92,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Use server-side filtering function to get sections for this stagger group
-    const sections = await getSectionsToCheck(staggerGroup);
+    const allSections = await getSectionsToCheck(staggerGroup);
+    // Drop sections whose term has ended — they'd 404 at ASU forever (handled by the
+    // daily sweep too; this stops the wasted calls + error logs in the meantime).
+    // Compute the past-term set once, then filter — O(1) per section.
+    const pastTerms = new Set(getPastTermCodes());
+    const sections = allSections.filter((s) => !pastTerms.has(s.term));
+    const skippedPastTerm = allSections.length - sections.length;
+    if (skippedPastTerm > 0) {
+      log('Cron').info(`Skipped ${skippedPastTerm} past-term sections`);
+    }
 
     log('Cron').info(`Enqueueing ${sections.length} sections to queue`);
 

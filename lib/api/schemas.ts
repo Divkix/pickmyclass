@@ -59,7 +59,9 @@ const classWatchFieldsSchema = z.object({
 });
 
 /**
- * Schema for queue/cron messages — format only so existing watches on past terms keep processing.
+ * Schema for queue/cron messages — format only (no term-selectability refinement) so an
+ * in-flight message for a term ending mid-flight still processes. Past-term watches are
+ * excluded earlier, at cron enqueue (isTermPast) and by the daily sweep, not here.
  */
 export const classCheckMessageSchema = classWatchFieldsSchema;
 
