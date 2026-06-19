@@ -8,6 +8,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isAdmin: boolean;
+  checkingAdmin: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -17,6 +19,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
@@ -65,6 +69,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase.auth]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkAdminStatus() {
+      if (!user) {
+        setIsAdmin(false);
+        setCheckingAdmin(false);
+        return;
+      }
+
+      setCheckingAdmin(true);
+      try {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('is_admin')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+        setIsAdmin(profile?.is_admin ?? false);
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Error checking admin status:', error);
+        setIsAdmin(false);
+      } finally {
+        if (!cancelled) setCheckingAdmin(false);
+      }
+    }
+
+    void checkAdminStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, supabase]);
+
   const signOut = async () => {
     try {
       await fetch('/api/auth/signout', { method: 'POST' });
@@ -77,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, checkingAdmin, signOut }}>
       {children}
     </AuthContext.Provider>
   );
