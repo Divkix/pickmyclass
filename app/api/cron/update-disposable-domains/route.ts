@@ -12,6 +12,7 @@ import { verifyCronSecret } from '@/lib/auth/require-user';
 import { fail, ok } from '@/lib/api/response';
 import { log } from '@/lib/log';
 import { getServiceClient } from '@/lib/supabase/service';
+import { getPastTermCodes } from '@/lib/asu/terms';
 
 const BLOCKLIST_URL =
   'https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/main/disposable_email_blocklist.conf';
@@ -69,6 +70,26 @@ export async function GET(request: NextRequest) {
       );
     } else {
       log('SyncDisposableDomains').info(`Expired ${expiredCount ?? 0} stale notification records`);
+    }
+
+    // Hard-delete watches whose term has ended (e.g. a student forgot to remove a
+    // last-semester section). Cascade removes their notifications_sent rows. Silent —
+    // a past-term watch can never become useful again. Layer 1 (cron enqueue filter)
+    // already stops these from being processed; this clears the stale rows.
+    const pastTermCodes = getPastTermCodes();
+    if (pastTermCodes.length > 0) {
+      const { count: sweptCount, error: sweepWatchError } = await getServiceClient()
+        .from('class_watches')
+        .delete({ count: 'exact' })
+        .in('term', pastTermCodes);
+      if (sweepWatchError) {
+        log('SyncDisposableDomains').warn(
+          'Failed to sweep past-term watches:',
+          sweepWatchError.message
+        );
+      } else {
+        log('SyncDisposableDomains').info(`Swept ${sweptCount ?? 0} past-term watches`);
+      }
     }
 
     const duration = Date.now() - startTime;
