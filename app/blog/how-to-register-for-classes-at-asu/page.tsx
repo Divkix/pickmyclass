@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   BlogAuthor,
+  BlogCTA,
   BlogFAQ,
   FAQSchema,
   KeyTakeaways,
@@ -309,21 +310,10 @@ export default async function HowToRegisterAtASUPost() {
             difference between graduating on time and pushing a class to next semester.
           </p>
 
-          <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-semibold text-foreground">
-              Required class already full?
-            </h2>
-            <p className="mb-6 text-muted-foreground">
-              PickMyClass emails you the moment a seat opens, so you register before everyone else.
-              Free for every Sun Devil.
-            </p>
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
-            >
-              Start Tracking Free
-            </Link>
-          </div>
+          <BlogCTA
+            heading="Required class already full?"
+            description="PickMyClass emails you the moment a seat opens, so you register before everyone else. Free for every Sun Devil."
+          />
 
           <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Frequently Asked Questions

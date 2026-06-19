@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   BlogAuthor,
+  BlogCTA,
   BlogFAQ,
   ComparisonTable,
   FAQSchema,
@@ -510,21 +511,10 @@ export default async function ASURegistrationTipsPost() {
             <li>Have a device with reliable internet ready</li>
           </ul>
 
-          <div className="not-prose mt-12 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-semibold text-foreground">
-              Full classes do not have to ruin your schedule
-            </h2>
-            <p className="mb-6 text-muted-foreground">
-              Track ASU class seats automatically and get notified when spots open. Free for all Sun
-              Devils.
-            </p>
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
-            >
-              Get Started Free
-            </Link>
-          </div>
+          <BlogCTA
+            heading="Full classes do not have to ruin your schedule"
+            description="Track ASU class seats automatically and get notified when spots open. Free for all Sun Devils."
+          />
 
           <BlogAuthor
             name="PickMyClass Team"
