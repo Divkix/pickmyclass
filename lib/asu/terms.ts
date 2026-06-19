@@ -259,6 +259,11 @@ export function isTermSelectable(code: string, now: Date = new Date()): boolean 
   return isSelectable(termEntry, today);
 }
 
+/** A term is past when today is strictly after its session-C finals end. */
+function isEntryPast(termEntry: AsuTerm, today: DateParts): boolean {
+  return compareDateParts(today, termEntry.sessionEnd) > 0;
+}
+
 /**
  * Whether a term has ended (today is strictly after its session-C finals end).
  * Unknown and future term codes return false (fail-safe: keep the watch). This is
@@ -269,16 +274,13 @@ export function isTermPast(code: string, now: Date = new Date()): boolean {
   if (!termEntry) {
     return false;
   }
-  const today = getPhoenixDateParts(now);
-  return compareDateParts(today, termEntry.sessionEnd) > 0;
+  return isEntryPast(termEntry, getPhoenixDateParts(now));
 }
 
 /** All calendar term codes whose sessionEnd has passed — used by the daily watch sweep. */
 export function getPastTermCodes(now: Date = new Date()): string[] {
   const today = getPhoenixDateParts(now);
-  return ASU_TERM_CALENDAR.filter((t) => compareDateParts(today, t.sessionEnd) > 0).map(
-    (t) => t.code
-  );
+  return ASU_TERM_CALENDAR.filter((t) => isEntryPast(t, today)).map((t) => t.code);
 }
 
 /** Format a term for display in the dropdown (e.g. "Fall 2026 (2267)"). */

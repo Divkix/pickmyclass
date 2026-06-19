@@ -15,15 +15,14 @@ const mockKvPut = vi.hoisted(() => vi.fn());
 
 // Mock the Supabase service client so we can assert the expiry-sweep RPC is invoked.
 const mockRpc = vi.hoisted(() => vi.fn());
-// `.in('term', codes)` is the terminal call of `from('class_watches').delete(...).in(...)`.
-const mockWatchDeleteIn = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: () => ({
-    rpc: mockRpc,
-    from: vi.fn(() => ({
-      delete: vi.fn(() => ({ in: mockWatchDeleteIn })),
-    })),
-  }),
+  getServiceClient: () => ({ rpc: mockRpc }),
+}));
+
+// Mock the past-term watch sweep so we can assert it's called with the right term codes.
+const mockDeletePastTermWatches = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/db/queries', () => ({
+  deletePastTermWatches: mockDeletePastTermWatches,
 }));
 
 vi.mock('cloudflare:workers', () => ({
@@ -68,7 +67,7 @@ describe('GET /api/cron/update-disposable-domains', () => {
     process.env.CRON_SECRET = 'test-cron-secret';
     mockKvPut.mockResolvedValue(undefined);
     mockRpc.mockResolvedValue({ data: 0, error: null });
-    mockWatchDeleteIn.mockResolvedValue({ count: 0, error: null });
+    mockDeletePastTermWatches.mockResolvedValue(0);
 
     const mod = await import('@/app/api/cron/update-disposable-domains/route');
     GET = mod.GET;
@@ -239,14 +238,13 @@ describe('GET /api/cron/update-disposable-domains', () => {
       vi.setSystemTime(new Date('2026-09-01T19:00:00Z'));
       try {
         mockBlocklistFetch();
-        mockWatchDeleteIn.mockResolvedValue({ count: 3, error: null });
+        mockDeletePastTermWatches.mockResolvedValue(3);
 
         const response = await GET(createRequest('test-cron-secret'));
         expect(response.status).toBe(200);
 
-        expect(mockWatchDeleteIn).toHaveBeenCalledTimes(1);
-        const [column, codes] = mockWatchDeleteIn.mock.calls[0] as [string, string[]];
-        expect(column).toBe('term');
+        expect(mockDeletePastTermWatches).toHaveBeenCalledTimes(1);
+        const [codes] = mockDeletePastTermWatches.mock.calls[0] as [string[]];
         expect(codes).toContain('2261'); // Spring 2026 ended 2026-05-09
         expect(codes).toContain('2264'); // Summer 2026 ended 2026-08-14
         expect(codes).not.toContain('2267'); // Fall 2026 still in session
@@ -263,7 +261,22 @@ describe('GET /api/cron/update-disposable-domains', () => {
 
         const response = await GET(createRequest('test-cron-secret'));
         expect(response.status).toBe(200);
-        expect(mockWatchDeleteIn).not.toHaveBeenCalled();
+        expect(mockDeletePastTermWatches).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not fail the daily job when the sweep errors', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-09-01T19:00:00Z'));
+      try {
+        mockBlocklistFetch();
+        mockDeletePastTermWatches.mockRejectedValue(new Error('db down'));
+
+        const response = await GET(createRequest('test-cron-secret'));
+        expect(response.status).toBe(200);
+        expect(mockDeletePastTermWatches).toHaveBeenCalledTimes(1);
       } finally {
         vi.useRealTimers();
       }

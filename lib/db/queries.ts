@@ -150,6 +150,32 @@ export async function deleteNotificationRecords(
 }
 
 /**
+ * Hard-delete all class watches for the given (ended) term codes.
+ * The notifications_sent rows cascade via the class_watch_id FK (ON DELETE CASCADE).
+ * Used by the daily sweep to clear watches a student left on a finished semester.
+ *
+ * @param termCodes - Term codes whose watches should be removed (e.g. from getPastTermCodes)
+ * @returns Number of class_watches rows deleted
+ */
+export async function deletePastTermWatches(termCodes: string[]): Promise<number> {
+  if (termCodes.length === 0) return 0;
+  const supabase = getServiceClient();
+
+  const { count, error } = await supabase
+    .from('class_watches')
+    .delete({ count: 'exact' })
+    .in('term', termCodes);
+
+  if (error) {
+    log('DB').error('Error deleting past-term watches:', error);
+    throw new Error(`Failed to delete past-term watches: ${error.message}`);
+  }
+
+  log('DB').info(`Deleted ${count ?? 0} past-term watches for ${termCodes.length} terms`);
+  return count ?? 0;
+}
+
+/**
  * Batch check-and-record notifications atomically.
  * Returns the set of watch IDs that were successfully recorded (safe to send email).
  *
