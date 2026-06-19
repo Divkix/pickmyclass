@@ -14,6 +14,7 @@ import LegalPage from '@/app/legal/page';
 import PrivacyPolicyPage from '@/app/legal/privacy/page';
 import TermsOfServicePage from '@/app/legal/terms/page';
 import Home from '@/app/page';
+import { blogPosts } from '@/lib/blog/posts';
 
 type LinkHref = string | { pathname?: string };
 type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
@@ -104,7 +105,7 @@ describe('static marketing and legal pages', () => {
     expect(
       screen.getByRole('heading', { name: /free asu class seat tracker/i })
     ).toBeInTheDocument();
-    expect(screen.getByText(/checks every 30 minutes so you don't have to/i)).toBeInTheDocument();
+    expect(screen.getByText(/every 30 minutes so you don't have to/i)).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: /your dashboard, ready to go/i })
     ).toBeInTheDocument();
@@ -164,8 +165,10 @@ describe('blog pages', () => {
       return link.getAttribute('href')?.startsWith('/blog/');
     });
 
-    expect(screen.getByRole('heading', { name: 'Blog' })).toBeInTheDocument();
-    expect(articleLinks).toHaveLength(6);
+    expect(
+      screen.getByRole('heading', { name: /asu registration tips & guides/i })
+    ).toBeInTheDocument();
+    expect(articleLinks).toHaveLength(blogPosts.length);
     expect(
       screen.getByRole('heading', { name: /how to get into full classes at asu/i })
     ).toBeInTheDocument();
@@ -187,7 +190,8 @@ describe('blog pages', () => {
     },
     {
       renderPage: ASUWaitlistGuidePost,
-      heading: "ASU Waitlist Guide: How It Actually Works (And Why Most Classes Don't Have One)",
+      heading:
+        "How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)",
     },
     {
       renderPage: HowToGetIntoFullClassesPost,
