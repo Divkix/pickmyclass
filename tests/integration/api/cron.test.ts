@@ -170,6 +170,33 @@ describe('GET /api/cron', () => {
     expect(callCount).toBe(3);
   });
 
+  it('does not enqueue sections whose term has already ended', async () => {
+    // 2027-01-15: Spring 2026 (2261, ends 2026-05-09) is past; Spring 2027 (2271) is current.
+    vi.setSystemTime(new Date('2027-01-15T19:00:00Z'));
+    vi.mocked(getSectionsToCheck).mockResolvedValue([
+      { class_nbr: '10001', term: '2261' }, // past — must be dropped
+      { class_nbr: '10002', term: '2271' }, // current — must be kept
+    ]);
+
+    const { env } = await import('cloudflare:workers');
+    // oxlint-disable-next-line typescript/unbound-method
+    vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue(undefined);
+
+    const response = await GET(createRequest('Bearer test-cron-secret'));
+    // ok() spreads fields at the top level (see lib/api/response.ts); only fail()/207 nests
+    // under `details`. The success path here exposes sections_enqueued at the top level.
+    const data = (await response.json()) as { sections_enqueued?: number };
+
+    expect(data.sections_enqueued).toBe(1);
+
+    // oxlint-disable-next-line typescript/unbound-method
+    const sendBatch = vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch);
+    const enqueuedTerms = sendBatch.mock.calls.flatMap(
+      ([batch]) => (batch as { body: { term: string } }[]).map((m) => m.body.term)
+    );
+    expect(enqueuedTerms).toEqual(['2271']);
+  });
+
   it('uses X-Cron-Scheduled-Time header for stagger group computation', async () => {
     // Arrange: Mock sections to check
     const mockSections = Array.from({ length: 50 }, (_, i) => ({
