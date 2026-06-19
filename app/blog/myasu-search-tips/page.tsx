@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   BlogAuthor,
+  BlogCTA,
   BlogFAQ,
   FAQSchema,
   KeyTakeaways,
@@ -458,21 +459,10 @@ export default async function MyASUSearchTipsPost() {
             <li>Department consent needed</li>
           </ul>
 
-          <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-semibold text-foreground">
-              Full class? Don't just wait and hope
-            </h2>
-            <p className="mb-6 text-muted-foreground">
-              PickMyClass checks every 30 minutes and sends you a text when a seat opens. A lot of
-              students get into their must-have classes during add/drop week this way.
-            </p>
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
-            >
-              Start Tracking Free
-            </Link>
-          </div>
+          <BlogCTA
+            heading="Full class? Don't just wait and hope"
+            description="PickMyClass checks every 30 minutes and sends you a text when a seat opens. A lot of students get into their must-have classes during add/drop week this way."
+          />
 
           <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Frequently Asked Questions

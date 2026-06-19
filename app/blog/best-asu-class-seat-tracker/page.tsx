@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   BlogAuthor,
+  BlogCTA,
   BlogFAQ,
   ComparisonTable,
   FAQSchema,
@@ -304,18 +305,10 @@ export default async function BestASUSeatTrackerPost() {
             genuinely need SMS.
           </p>
 
-          <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-semibold text-foreground">Try the free one first</h2>
-            <p className="mb-6 text-muted-foreground">
-              PickMyClass tracks your ASU classes and emails you when seats open. No cost, no catch.
-            </p>
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
-            >
-              Start Tracking Free
-            </Link>
-          </div>
+          <BlogCTA
+            heading="Try the free one first"
+            description="PickMyClass tracks your ASU classes and emails you when seats open. No cost, no catch."
+          />
 
           <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Frequently Asked Questions

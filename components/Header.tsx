@@ -2,13 +2,12 @@
 
 import { LayoutDashboard, Menu, Shield, X } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AuthButton } from '@/components/AuthButton';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { createClient } from '@/lib/supabase/client';
 
 const navLinks = [
   { label: 'Blog', href: '/blog' },
@@ -17,39 +16,8 @@ const navLinks = [
 ];
 
 export function Header() {
-  const { user, loading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [checkingAdmin, setCheckingAdmin] = useState(true);
+  const { user, loading, isAdmin, checkingAdmin } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // Fetch admin status when user changes
-  useEffect(() => {
-    async function checkAdminStatus() {
-      if (!user) {
-        setIsAdmin(false);
-        setCheckingAdmin(false);
-        return;
-      }
-
-      try {
-        const supabase = createClient();
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('is_admin')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        setIsAdmin(profile?.is_admin ?? false);
-      } catch (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
-      } finally {
-        setCheckingAdmin(false);
-      }
-    }
-
-    void checkAdminStatus();
-  }, [user]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-lg">

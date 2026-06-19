@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   BlogAuthor,
+  BlogCTA,
   BlogFAQ,
   FAQSchema,
   KeyTakeaways,
@@ -406,21 +407,10 @@ export default async function ASUTransferRegistrationPost() {
             there's often more room. You can stack them to catch up on credits.
           </p>
 
-          <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">
-            <h2 className="mb-2 text-2xl font-semibold text-foreground">
-              Late registration is rough, but it's not the end
-            </h2>
-            <p className="mb-6 text-muted-foreground">
-              PickMyClass checks seats every 30 minutes and texts you the second something opens. A
-              lot of transfer students use it to catch up during add/drop week.
-            </p>
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
-            >
-              Start Tracking Free
-            </Link>
-          </div>
+          <BlogCTA
+            heading="Late registration is rough, but it's not the end"
+            description="PickMyClass checks seats every 30 minutes and texts you the second something opens. A lot of transfer students use it to catch up during add/drop week."
+          />
 
           <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Frequently Asked Questions
