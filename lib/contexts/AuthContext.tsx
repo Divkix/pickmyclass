@@ -69,11 +69,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase.auth]);
 
+  // Key on user id (not the user object) so token refreshes, which produce a new
+  // user reference with the same id, don't trigger a redundant admin re-query.
+  const userId = user?.id;
+
   useEffect(() => {
     let cancelled = false;
 
     async function checkAdminStatus() {
-      if (!user) {
+      if (!userId) {
         setIsAdmin(false);
         setCheckingAdmin(false);
         return;
@@ -84,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('is_admin')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .maybeSingle();
 
         if (cancelled) return;
@@ -103,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user, supabase]);
+  }, [userId, supabase]);
 
   const signOut = async () => {
     try {
