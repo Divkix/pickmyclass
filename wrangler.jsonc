@@ -69,6 +69,12 @@
       },
     ],
   },
+  // Exposes the deployed Worker version id at runtime. Used as part of the
+  // edge HTML cache key in worker.ts so every deploy auto-busts cached pages
+  // (cached HTML references hashed /_next/static chunks that change per deploy).
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA",
+  },
   // Durable Objects migrations
   "migrations": [
     {

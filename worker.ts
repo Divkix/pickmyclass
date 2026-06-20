@@ -8,6 +8,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import handler from 'vinext/server/app-router-entry';
 import { ApiError, AuthError, NotFoundError, RateLimitError } from './lib/asu/api';
+import { hasSupabaseAuthCookiesInHeader } from './lib/auth/supabase-auth-cookies';
+import { EDGE_HTML_CACHE_TTL_S } from './lib/config';
 import { handleDLQMessage } from './lib/queue/dlq-consumer';
 import { processSection } from './lib/queue/process-section';
 import type { Env } from './lib/types/env';
@@ -311,13 +313,55 @@ if (typeof __durableObjectExports === 'undefined') {
 }
 
 /**
+ * Anonymous, fully-static marketing pages that are safe to serve from the
+ * edge HTML cache. The HTML is identical for every visitor (auth resolves
+ * client-side), so caching skips a full RSC render on every hit.
+ *
+ * Exact paths are matched verbatim; prefixes match nested pages (e.g.
+ * /blog/<slug>, /legal/privacy).
+ */
+const EDGE_CACHE_EXACT_PATHS = new Set(['/', '/faq', '/about', '/blog', '/legal']);
+const EDGE_CACHE_PREFIXES = ['/blog/', '/legal/'];
+
+function isEdgeCacheablePath(pathname: string): boolean {
+  return (
+    EDGE_CACHE_EXACT_PATHS.has(pathname) ||
+    EDGE_CACHE_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  );
+}
+
+/**
+ * Build a synthetic cache key for an anonymous marketing page.
+ *
+ * - Keyed on pathname only (query string ignored) so `?utm=…`/`?x=N` variants
+ *   can't flood the cache or lower the hit rate.
+ * - Includes the deploy version id so every deploy busts the cache — cached
+ *   HTML references hashed /_next/static chunks that change per deploy.
+ */
+function edgeCacheKey(pathname: string, env: Env): Request {
+  const versionId = env.CF_VERSION_METADATA?.id ?? 'dev';
+  return new Request(`https://edge-cache.internal/${versionId}${pathname}`);
+}
+
+/**
+ * Minimal shape of the Cloudflare default cache. The `caches` global is typed
+ * by @types/node (whose CacheStorage lacks `.default`), so we narrow it here.
+ */
+interface EdgeCache {
+  match(key: Request): Promise<Response | undefined>;
+  put(key: Request, response: Response): Promise<void>;
+}
+
+/**
  * Export the worker with fetch, scheduled, queue handlers, and Durable Object classes
  */
 export default {
   /**
-   * HTTP request handler - routes to vinext app
+   * HTTP request handler - routes to vinext app, with an edge HTML cache for
+   * anonymous marketing pages (see isEdgeCacheablePath). On a cache hit we
+   * return the stored response and skip proxy.ts + the RSC render entirely.
    */
-  async fetch(request: Request): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Sanitize GET/HEAD requests with bodies - bots sometimes send these
     // Web API spec forbids Request objects with GET/HEAD + body
     const isGetOrHead = request.method === 'GET' || request.method === 'HEAD';
@@ -330,7 +374,37 @@ export default {
       request = new Request(request, { body: null });
     }
 
-    return handler.fetch(request);
+    // Edge HTML cache: GET, allowlisted path, and no Supabase auth cookie
+    // (logged-in users always get a fresh render so personalized headers /
+    // redirects are never served from cache).
+    const pathname = new URL(request.url).pathname;
+    const cacheEligible =
+      request.method === 'GET' &&
+      isEdgeCacheablePath(pathname) &&
+      !hasSupabaseAuthCookiesInHeader(request.headers.get('cookie'));
+
+    if (!cacheEligible) {
+      return handler.fetch(request);
+    }
+
+    const cache = (caches as unknown as { default: EdgeCache }).default;
+    const cacheKey = edgeCacheKey(pathname, env);
+
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const response = await handler.fetch(request);
+
+    // Only cache successful, non-personalized responses.
+    if (response.status === 200 && !response.headers.has('set-cookie')) {
+      const toStore = new Response(response.clone().body, response);
+      toStore.headers.set('Cache-Control', `public, s-maxage=${EDGE_HTML_CACHE_TTL_S}`);
+      ctx.waitUntil(cache.put(cacheKey, toStore));
+    }
+
+    return response;
   },
 
   /**
