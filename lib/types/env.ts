@@ -57,6 +57,10 @@ export interface Env extends Record<string, unknown> {
   // App configuration (optional)
   MAX_WATCHES_PER_USER?: string;
   UNSUBSCRIBE_SIGNING_SECRET?: string;
+
+  // Deploy version metadata (from wrangler version_metadata binding).
+  // Used in the edge HTML cache key so each deploy busts cached pages.
+  CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
 }
 
 /**

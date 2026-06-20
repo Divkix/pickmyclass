@@ -21,6 +21,13 @@ export const DISPOSABLE_EMAIL_CACHE_TTL_MS = 60 * 60 * 1000;
 /** Unsubscribe token validity window in days. Must be 90 to preserve backward compatibility. */
 export const UNSUBSCRIBE_TOKEN_EXPIRY_DAYS = 90;
 
+/**
+ * Edge HTML cache TTL (seconds) for anonymous marketing pages cached in
+ * worker.ts via the Cache API. The deploy version id in the cache key is the
+ * real busting mechanism; this TTL just bounds staleness within a deploy.
+ */
+export const EDGE_HTML_CACHE_TTL_S = 3600;
+
 /** Max emails sent per batch */
 export const EMAIL_BATCH_SIZE = 10;
 
