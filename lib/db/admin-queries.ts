@@ -7,7 +7,6 @@
  * @module lib/db/admin-queries
  */
 
-import type { User } from '@supabase/supabase-js';
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import { ADMIN_CACHE_TTL_MS } from '@/lib/config';
 import { log } from '@/lib/log';
@@ -15,14 +14,6 @@ import type { Tables } from '@/lib/supabase/database.types';
 import { getServiceClient } from '@/lib/supabase/service';
 
 const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS);
-
-/**
- * Email notification counts (seat and instructor)
- */
-interface EmailCounts {
-  seat_emails: number;
-  instructor_emails: number;
-}
 
 /**
  * Class state with aggregated watcher count
@@ -63,136 +54,6 @@ export interface UserWithWatchCount {
  */
 interface WatchWithClass extends Tables<'class_watches'> {
   class_state: Tables<'class_states'> | null;
-}
-
-/**
- * RPC response type for engagement stats
- */
-interface EngagementStatsRow {
-  user_id: string;
-  engagement_emails_sent: number;
-  engagement_emails_opened: number;
-  engagement_rate: number | null;
-  engagement_status: EngagementStatus;
-}
-
-async function fetchAllAuthUsers(): Promise<User[]> {
-  const supabase = getServiceClient();
-  const perPage = 1000;
-  const maxPages = 50; // Cap at 50,000 users
-  let page = 1;
-  const users: User[] = [];
-
-  while (page <= maxPages) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
-
-    if (error) {
-      console.error('[Admin] Error fetching users:', error);
-      throw new Error(`Failed to fetch users: ${error.message}`);
-    }
-
-    const batch = data?.users || [];
-    users.push(...batch);
-
-    if (batch.length < perPage) {
-      break;
-    }
-
-    page += 1;
-  }
-
-  if (page > maxPages) {
-    console.warn(`[Admin] User fetch capped at ${maxPages * perPage} users`);
-  }
-
-  return users;
-}
-
-/**
- * Get notification counts grouped by class number
- *
- * Calls the get_notification_counts_by_class RPC function to aggregate
- * seat_available and instructor_assigned notification counts per class.
- *
- * @returns Map of class_nbr to EmailCounts
- */
-async function getNotificationCountsByClass(): Promise<Map<string, EmailCounts>> {
-  const supabase = getServiceClient();
-
-  const { data, error } = await supabase.rpc('get_notification_counts_by_class');
-
-  if (error) {
-    console.error('[Admin] Error fetching notification counts by class:', error);
-    throw new Error(`Failed to fetch notification counts by class: ${error.message}`);
-  }
-
-  const countsMap = new Map<string, EmailCounts>();
-  for (const row of data || []) {
-    countsMap.set(row.class_nbr, {
-      seat_emails: row.seat_emails || 0,
-      instructor_emails: row.instructor_emails || 0,
-    });
-  }
-
-  return countsMap;
-}
-
-/**
- * Get notification counts grouped by user ID
- *
- * Calls the get_notification_counts_by_user RPC function to aggregate
- * seat_available and instructor_assigned notification counts per user.
- *
- * @returns Map of user_id to EmailCounts
- */
-async function getNotificationCountsByUser(): Promise<Map<string, EmailCounts>> {
-  const supabase = getServiceClient();
-
-  const { data, error } = await supabase.rpc('get_notification_counts_by_user');
-
-  if (error) {
-    console.error('[Admin] Error fetching notification counts by user:', error);
-    throw new Error(`Failed to fetch notification counts by user: ${error.message}`);
-  }
-
-  const countsMap = new Map<string, EmailCounts>();
-  for (const row of data || []) {
-    countsMap.set(row.user_id, {
-      seat_emails: row.seat_emails || 0,
-      instructor_emails: row.instructor_emails || 0,
-    });
-  }
-
-  return countsMap;
-}
-
-/**
- * Get engagement statistics for all users
- *
- * Calls the get_user_engagement_stats RPC function to retrieve
- * engagement tracking data for admin dashboard.
- *
- * @returns Map of user_id to engagement stats
- */
-async function getEngagementStats(): Promise<Map<string, EngagementStatsRow>> {
-  const supabase = getServiceClient();
-
-  const { data, error } = await supabase.rpc('get_user_engagement_stats');
-
-  if (error) {
-    console.error('[Admin] Error fetching engagement stats:', error);
-    throw new Error(`Failed to fetch engagement stats: ${error.message}`);
-  }
-
-  const statsMap = new Map<string, EngagementStatsRow>();
-  for (const row of data || []) {
-    statsMap.set(row.user_id, {
-      ...row,
-      engagement_status: row.engagement_status as EngagementStatus,
-    });
-  }
-
-  return statsMap;
 }
 
 /**
@@ -378,8 +239,7 @@ export interface ClassesPage {
  * Get a single page of users for the admin dashboard
  *
  * Calls get_users_page RPC which applies all filter/sort dimensions in SQL
- * and returns only the requested page of rows. Replaces getAllUsersWithWatchCount
- * for the table render path.
+ * and returns only the requested page of rows for the table render path.
  *
  * @param params - Page, sort, and filter parameters
  * @returns Paginated result with rows and total matching count
@@ -441,8 +301,7 @@ export async function getUsersPage(params: GetUsersPageParams = {}): Promise<Use
  * Get a single page of classes for the admin dashboard
  *
  * Calls get_classes_page RPC which applies all filter/sort dimensions in SQL
- * and returns only the requested page of rows. Replaces getAllClassesWithWatchers
- * for the table render path.
+ * and returns only the requested page of rows for the table render path.
  *
  * @param params - Page, sort, and filter parameters
  * @returns Paginated result with rows and total matching count
@@ -530,155 +389,6 @@ export async function getDistinctSubjects(): Promise<string[]> {
   const result = (data ?? []).map((r) => r.subject);
   adminCache.set('distinct-subjects', result);
   return result;
-}
-
-/**
- * Get all classes with their watcher counts
- *
- * Joins class_states with aggregated class_watches to show which classes
- * are most popular. Sorted by watcher count descending.
- *
- * @returns Array of classes with watcher counts
- *
- * @example
- * const classes = await getAllClassesWithWatchers()
- */
-export async function getAllClassesWithWatchers(): Promise<ClassWithWatchers[]> {
-  const cached = adminCache.get('classes-with-watchers') as ClassWithWatchers[] | undefined;
-  if (cached !== undefined) return cached;
-
-  const supabase = getServiceClient();
-
-  const [classStatesResult, watchesResult, notificationCounts] = await Promise.all([
-    supabase.from('class_states').select('*').order('class_nbr', { ascending: true }),
-    supabase.from('class_watches').select('class_nbr'),
-    getNotificationCountsByClass(),
-  ]);
-
-  const { data: classStates, error: classError } = classStatesResult;
-  const { data: watches, error: watchError } = watchesResult;
-
-  if (classError) {
-    console.error('[Admin] Error fetching class states:', classError);
-    throw new Error(`Failed to fetch classes: ${classError.message}`);
-  }
-
-  if (watchError) {
-    console.error('[Admin] Error fetching class watches:', watchError);
-    throw new Error(`Failed to fetch watches: ${watchError.message}`);
-  }
-
-  const watcherCountMap = new Map<string, number>();
-  for (const watch of watches || []) {
-    watcherCountMap.set(watch.class_nbr, (watcherCountMap.get(watch.class_nbr) || 0) + 1);
-  }
-
-  const classesWithWatchers: ClassWithWatchers[] = (classStates || [])
-    .map((classState) => {
-      const emailCounts = notificationCounts.get(classState.class_nbr);
-      return {
-        ...classState,
-        watcher_count: watcherCountMap.get(classState.class_nbr) || 0,
-        seat_emails: emailCounts?.seat_emails || 0,
-        instructor_emails: emailCounts?.instructor_emails || 0,
-      };
-    })
-    .sort((a, b) => b.watcher_count - a.watcher_count);
-
-  log('Admin').info(
-    `Fetched ${classesWithWatchers.length} classes with watcher counts (total watchers: ${watches?.length || 0})`
-  );
-
-  adminCache.set('classes-with-watchers', classesWithWatchers);
-  return classesWithWatchers;
-}
-
-/**
- * Get all users with their watch counts and admin status
- *
- * Retrieves all users from auth.users and joins with class_watches
- * and user_profiles to show how many classes each user is monitoring
- * and their admin status. Sorted by created_at descending.
- *
- * @returns Array of users with watch counts and admin status
- *
- * @example
- * const users = await getAllUsersWithWatchCount()
- */
-export async function getAllUsersWithWatchCount(): Promise<UserWithWatchCount[]> {
-  const cached = adminCache.get('users-with-watch-count') as UserWithWatchCount[] | undefined;
-  if (cached !== undefined) return cached;
-
-  const supabase = getServiceClient();
-
-  try {
-    const users = await fetchAllAuthUsers();
-
-    if (users.length === 0) {
-      return [];
-    }
-
-    const [watchCountsResult, profilesResult, notificationCounts, engagementStats] =
-      await Promise.all([
-        supabase.from('class_watches').select('user_id'),
-        supabase.from('user_profiles').select('user_id, is_admin'),
-        getNotificationCountsByUser(),
-        getEngagementStats(),
-      ]);
-
-    const { data: watchCounts, error: watchError } = watchCountsResult;
-    const { data: profiles, error: profileError } = profilesResult;
-
-    if (watchError) {
-      console.error('[Admin] Error fetching watch counts:', watchError);
-      throw new Error(`Failed to fetch watch counts: ${watchError.message}`);
-    }
-
-    if (profileError) {
-      console.error('[Admin] Error fetching user profiles:', profileError);
-      throw new Error(`Failed to fetch user profiles: ${profileError.message}`);
-    }
-
-    const watchCountMap = new Map<string, number>();
-    for (const watch of watchCounts || []) {
-      watchCountMap.set(watch.user_id, (watchCountMap.get(watch.user_id) || 0) + 1);
-    }
-
-    const adminStatusMap = new Map<string, boolean>();
-    for (const profile of profiles || []) {
-      adminStatusMap.set(profile.user_id, profile.is_admin);
-    }
-    const usersWithWatchCount: UserWithWatchCount[] = users
-      .map((user) => {
-        const emailCounts = notificationCounts.get(user.id);
-        const engagement = engagementStats.get(user.id);
-        return {
-          id: user.id,
-          email: user.email || '',
-          created_at: user.created_at,
-          last_sign_in_at: user.last_sign_in_at || null,
-          email_confirmed_at: user.email_confirmed_at || null,
-          watch_count: watchCountMap.get(user.id) || 0,
-          is_admin: adminStatusMap.get(user.id) || false,
-          seat_emails: emailCounts?.seat_emails || 0,
-          instructor_emails: emailCounts?.instructor_emails || 0,
-          // Engagement tracking
-          engagement_emails_sent: engagement?.engagement_emails_sent || 0,
-          engagement_emails_opened: engagement?.engagement_emails_opened || 0,
-          engagement_rate: engagement?.engagement_rate ?? null,
-          engagement_status: engagement?.engagement_status || 'new',
-        };
-      })
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    log('Admin').info(`Fetched ${usersWithWatchCount.length} users with watch counts`);
-
-    adminCache.set('users-with-watch-count', usersWithWatchCount);
-    return usersWithWatchCount;
-  } catch (err) {
-    console.error('[Admin] Exception fetching users with watch counts:', err);
-    throw err;
-  }
 }
 
 /**

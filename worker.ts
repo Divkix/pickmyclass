@@ -250,17 +250,6 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
   }
 
   /**
-   * Force release lock (admin/testing only)
-   */
-  async forceRelease(): Promise<void> {
-    console.log(`[CronLockDO] Force release requested`);
-    this.locked = false;
-    this.lockAcquiredAt = null;
-    this.lockHolder = null;
-    await this.persist();
-  }
-
-  /**
    * Fetch handler - provides HTTP API for lock operations
    */
   async fetch(request: Request): Promise<Response> {
@@ -282,13 +271,6 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
 
       case '/status':
         return Response.json(await this.getStatus());
-
-      case '/force-release':
-        if (request.method !== 'POST') {
-          return new Response('Method not allowed', { status: 405 });
-        }
-        await this.forceRelease();
-        return Response.json({ success: true, message: 'Lock force released' });
 
       default:
         return new Response('Not found', { status: 404 });

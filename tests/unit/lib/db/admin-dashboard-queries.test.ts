@@ -34,8 +34,6 @@ vi.mock('@/lib/cache/ttl-cache', () => ({
 
 import {
   getAdminCount,
-  getAllClassesWithWatchers,
-  getAllUsersWithWatchCount,
   getClassesPage,
   getTotalClassesWatched,
   getTotalEmailsSent,
@@ -162,32 +160,6 @@ describe('admin dashboard query helpers', () => {
     });
 
     mockServiceClient.rpc.mockImplementation((name: string, _args?: unknown) => {
-      if (name === 'get_notification_counts_by_class') {
-        return Promise.resolve({
-          data: [{ class_nbr: '12345', seat_emails: 4, instructor_emails: 1 }],
-          error: null,
-        });
-      }
-      if (name === 'get_notification_counts_by_user') {
-        return Promise.resolve({
-          data: [{ user_id: 'user-2', seat_emails: 3, instructor_emails: 2 }],
-          error: null,
-        });
-      }
-      if (name === 'get_user_engagement_stats') {
-        return Promise.resolve({
-          data: [
-            {
-              user_id: 'user-2',
-              engagement_emails_sent: 5,
-              engagement_emails_opened: 4,
-              engagement_rate: 0.8,
-              engagement_status: 'healthy',
-            },
-          ],
-          error: null,
-        });
-      }
       // New scalar RPCs
       if (name === 'count_all_users') {
         return Promise.resolve({ data: 2, error: null });
@@ -213,45 +185,6 @@ describe('admin dashboard query helpers', () => {
       (c) => c[0] === 'class_watches'
     );
     expect(classWatchCalls.length).toBe(0);
-
-    const classes = await getAllClassesWithWatchers();
-    expect(classes).toMatchObject([
-      {
-        class_nbr: '12345',
-        watcher_count: 2,
-        seat_emails: 4,
-        instructor_emails: 1,
-      },
-      {
-        class_nbr: '67890',
-        watcher_count: 1,
-        seat_emails: 0,
-        instructor_emails: 0,
-      },
-    ]);
-
-    const usersWithCounts = await getAllUsersWithWatchCount();
-    expect(usersWithCounts).toMatchObject([
-      {
-        id: 'user-2',
-        email: 'two@example.com',
-        watch_count: 2,
-        is_admin: false,
-        seat_emails: 3,
-        instructor_emails: 2,
-        engagement_emails_sent: 5,
-        engagement_emails_opened: 4,
-        engagement_rate: 0.8,
-        engagement_status: 'healthy',
-      },
-      {
-        id: 'user-1',
-        email: 'one@example.com',
-        watch_count: 1,
-        is_admin: true,
-        engagement_status: 'new',
-      },
-    ]);
 
     const userWatches = await getUserWatches('user-2');
     expect(userWatches).toHaveLength(3);

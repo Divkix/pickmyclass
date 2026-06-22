@@ -173,29 +173,6 @@ describe('CronLockDO', () => {
     });
   });
 
-  // ── forceRelease ──────────────────────────────────────────────────────────
-
-  describe('forceRelease', () => {
-    it('unlocks even when a different holder has the lock', async () => {
-      const do_ = makeDO();
-      await do_.acquireLock('worker-a');
-
-      await do_.forceRelease();
-
-      const status = await do_.getStatus();
-      expect(status.locked).toBe(false);
-    });
-
-    it('is a no-op when lock is already free', async () => {
-      const do_ = makeDO();
-      // Should not throw
-      await expect(do_.forceRelease()).resolves.toBeUndefined();
-
-      const status = await do_.getStatus();
-      expect(status.locked).toBe(false);
-    });
-  });
-
   // ── HTTP fetch dispatcher ─────────────────────────────────────────────────
 
   describe('fetch dispatcher', () => {
@@ -248,29 +225,6 @@ describe('CronLockDO', () => {
       expect(body.locked).toBe(false);
     });
 
-    it('POST /force-release unlocks and returns success', async () => {
-      const do_ = makeDO();
-      await do_.acquireLock('worker-a');
-
-      const req = new Request('http://localhost/force-release', { method: 'POST' });
-      const resp = await do_.fetch(req);
-
-      expect(resp.status).toBe(200);
-      const body = (await resp.json()) as { success: boolean };
-      expect(body.success).toBe(true);
-
-      const status = await do_.getStatus();
-      expect(status.locked).toBe(false);
-    });
-
-    it('GET /force-release returns 405', async () => {
-      const do_ = makeDO();
-      const req = new Request('http://localhost/force-release', { method: 'GET' });
-      const resp = await do_.fetch(req);
-
-      expect(resp.status).toBe(405);
-    });
-
     it('unknown path returns 404', async () => {
       const do_ = makeDO();
       const req = new Request('http://localhost/unknown-path', { method: 'GET' });
@@ -316,16 +270,6 @@ describe('CronLockDO', () => {
       const do_ = new CronLockDO(ctx, {} as Cloudflare.Env);
       await do_.acquireLock('worker-a');
       await do_.releaseLock('worker-a');
-
-      const stored = await ctx.storage.get<{ locked: boolean }>('lock_state');
-      expect(stored?.locked).toBe(false);
-    });
-
-    it('persists unlocked state on forceRelease', async () => {
-      const ctx = makeFakeCtx();
-      const do_ = new CronLockDO(ctx, {} as Cloudflare.Env);
-      await do_.acquireLock('worker-a');
-      await do_.forceRelease();
 
       const stored = await ctx.storage.get<{ locked: boolean }>('lock_state');
       expect(stored?.locked).toBe(false);
