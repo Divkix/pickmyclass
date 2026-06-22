@@ -18,7 +18,6 @@ export interface ClassWatcher {
   email: string;
   watch_id: string;
   created_at?: string; // Optional for backward compatibility
-  class_nbr?: string; // Added for bulk fetching
 }
 
 /**

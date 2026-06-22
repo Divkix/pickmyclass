@@ -10,8 +10,6 @@ import AdminUsersPage from '@/app/admin/users/page';
 
 const {
   mockGetAdminCount,
-  mockGetAllClassesWithWatchers,
-  mockGetAllUsersWithWatchCount,
   mockGetClassWatchers,
   mockGetClassesPage,
   mockGetDistinctSubjects,
@@ -26,8 +24,6 @@ const {
   mockVerifyAdmin,
 } = vi.hoisted(() => ({
   mockGetAdminCount: vi.fn(),
-  mockGetAllClassesWithWatchers: vi.fn(),
-  mockGetAllUsersWithWatchCount: vi.fn(),
   mockGetClassWatchers: vi.fn(),
   mockGetClassesPage: vi.fn(),
   mockGetDistinctSubjects: vi.fn(),
@@ -102,8 +98,6 @@ vi.mock('@/lib/supabase/service', () => ({
 
 vi.mock('@/lib/db/admin-queries', () => ({
   getAdminCount: mockGetAdminCount,
-  getAllClassesWithWatchers: mockGetAllClassesWithWatchers,
-  getAllUsersWithWatchCount: mockGetAllUsersWithWatchCount,
   getClassesPage: mockGetClassesPage,
   getDistinctSubjects: mockGetDistinctSubjects,
   getRecentActivity: mockGetRecentActivity,
@@ -251,9 +245,6 @@ describe('admin pages', () => {
         notificationType: 'seat_available',
       },
     ]);
-    // Legacy whole-table functions (still used by dashboard/detail pages)
-    mockGetAllClassesWithWatchers.mockResolvedValue(classRows);
-    mockGetAllUsersWithWatchCount.mockResolvedValue(userRows);
     // New paginated functions
     mockGetUsersPage.mockResolvedValue({ rows: userRows, total: userRows.length });
     mockGetClassesPage.mockResolvedValue({ rows: classRows, total: classRows.length });
