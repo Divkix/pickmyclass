@@ -93,8 +93,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/email/send.ts` | Cloudflare Email Service batch sender |
 | `lib/cache/ttl-cache.ts` | TTL cache for ASU API responses |
 | `lib/api/schemas.ts` | Queue message validation schemas |
-| `middleware.ts` | Next.js middleware (auth, routing) |
-| `proxy.ts` | Proxy configuration |
+| `proxy.ts` | vinext middleware — auth gate, redirects, security headers + CSP |
 | `lib/auth/lockout.ts` | Brute-force lockout protection |
 | `lib/auth/disposable-email.ts` | Disposable email validation |
 

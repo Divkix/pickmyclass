@@ -103,16 +103,15 @@ Files: `app/api/auth/*` (5 routes: `register`, `login`, `signout`, `check-lockou
 
 ---
 
-## The two edge files (do not confuse them)
+## The edge auth gate (`proxy.ts`)
 
 | File | Role | Matcher |
 |------|------|---------|
-| **`proxy.ts`** | **THE auth gate** (vinext's middleware; exported as `proxy`, `middleware`, and `default`). `getUser()`, redirects (disabled→signout, unverified→`/verify-email`, unauthenticated-protected→`/login`, authed-on-auth-page→dashboard/admin, admin-on-`/dashboard`→`/admin`), **per-request CSP nonce** + all security headers (X-Frame-Options, HSTS in prod, etc.), and a **30s per-isolate `profileCache`** of `{is_admin, is_disabled}`. | catch-all |
-| **`middleware.ts`** | **CDN cache headers only** — sets `Cache-Control: public, max-age=0, s-maxage=3600, stale-while-revalidate=86400` on `/`, `/faq`, `/blog`, `/blog/*`, `/legal`. **Not auth.** | excludes api/auth/app routes |
+| **`proxy.ts`** | **THE auth gate** (vinext's middleware convention — `proxy.ts` is the only middleware file; vinext picks it over a `middleware.ts` and 0.1.7+ errors if both exist. Exported as `proxy`, `middleware`, and `default`). `getUser()`, redirects (disabled→signout, unverified→`/verify-email`, unauthenticated-protected→`/login`, authed-on-auth-page→dashboard/admin, admin-on-`/dashboard`→`/admin`), **per-request CSP nonce** + all security headers (X-Frame-Options, HSTS in prod, etc.), and a **30s per-isolate `profileCache`** of `{is_admin, is_disabled}`. | catch-all |
 
-- Caching has **four layers**: `worker.ts fetch()` **edge HTML cache** (Cache API `caches.default`, anonymous GETs to `/`, `/faq`, `/about`, `/blog`, `/blog/*`, `/legal`, `/legal/*` — a HIT skips `proxy.ts` + the RSC render entirely; this is the big CPU saver — `GET /` was ~58% of worker CPU at ~33ms/render), `middleware.ts` (HTML `Cache-Control` headers), **`public/_headers`** (static assets — fonts/images `immutable` 1yr; `llms.txt`/`llms-full.txt`/og-image with SWR), and the Cloudflare edge. `public/_headers` notes that HTML caching is *not* set there.
+- Caching has **three layers**: `worker.ts fetch()` **edge HTML cache** (Cache API `caches.default`, anonymous GETs to `/`, `/faq`, `/about`, `/blog`, `/blog/*`, `/legal`, `/legal/*` — a HIT skips `proxy.ts` + the RSC render entirely; this is the big CPU saver — `GET /` was ~58% of worker CPU at ~33ms/render and is the **only** thing setting `Cache-Control` on HTML), **`public/_headers`** (static assets — fonts/images `immutable` 1yr; `llms.txt`/`llms-full.txt`/og-image with SWR), and the Cloudflare edge. `public/_headers` notes that HTML caching is *not* set there.
 - **Worker edge HTML cache invariants** (`worker.ts`): cache key is **pathname-only** (query string ignored, so `?utm=`/`?x=N` can't flood it) **+ the deploy version id** (`env.CF_VERSION_METADATA.id`, from the `version_metadata` binding) so every deploy auto-busts entries (cached HTML references hashed `/_next/static` chunks that change per deploy). Only **anonymous** (`!hasSupabaseAuthCookiesInHeader`), **200**, **no-`Set-Cookie`** responses are stored — logged-in users always get a fresh render. **Accepted trade-off:** the per-request CSP nonce is frozen-but-internally-consistent per cache entry (cached CSP header nonce matches cached body script nonces), reused for the entry's lifetime on these public no-user-content pages. TTL `EDGE_HTML_CACHE_TTL_S` (1h) just bounds staleness within a deploy.
-- Editing `middleware.ts` does **nothing** to auth. Security/CSP/redirects live in `proxy.ts`.
+- Security/CSP/redirects live in `proxy.ts` (the sole edge gate).
 - The Supabase **URL + anon key are hardcoded inline in THREE places**: `lib/supabase/config.ts`, `proxy.ts`, and `app/auth/callback/route.ts`. Changing the Supabase project requires editing all three (the anon key is public/RLS-gated, so this is safe to ship).
 - The production CSP whitelists next-themes' inline no-flash script via a specific **sha256 hash** in `proxy.ts` — changing that script breaks CSP/theme-flash until the hash is regenerated. RSC inline scripts (JSON-LD in `app/layout.tsx`) read the nonce from `next/headers` (`x-nonce`); never add `'unsafe-inline'`.
 - After mutating an authorization field (`is_admin`/`is_disabled`), call `invalidateProfileCache(userId)` or `proxy.ts` serves a 30s-stale decision.
@@ -164,7 +163,6 @@ components/   # React components (ui/, admin/, landing/, blog/, + shared root)
 tests/        # unit/, integration/, mocks/
 worker.ts     # Cloudflare Worker (fetch, scheduled/cron, queue, CronLockDO)
 proxy.ts      # vinext middleware — REAL auth gate + security headers + CSP nonce
-middleware.ts # CDN cache headers only — NOT an auth gate
 supabase/     # Supabase CLI config + timestamped migrations
 scripts/      # build/utility scripts (e.g. OG image generation)
 public/       # static + AEO assets (llms.txt, llms-full.txt, pricing.md, og-image.png)
@@ -172,7 +170,7 @@ public/       # static + AEO assets (llms.txt, llms-full.txt, pricing.md, og-ima
 
 **Key `lib/` sub-modules:** `asu/` (ASU client + terms), `api/` (zod schemas + `ok()/fail()` envelope + validation), `auth/`, `db/` (Supabase queries + admin queries), `supabase/` (3 clients + generated types), `queue/` (process-section, change-detector, notification-sender, dlq-consumer), `email/` (send + templates + auth-templates + unsubscribe-token), `cache/`, `hooks/`, `contexts/`, `types/`, `blog/`, `config.ts`, `log.ts`, `animations.ts`.
 
-**Naming collisions to remember:** `lib/utils.ts` holds **only** the shadcn `cn()`; `lib/utils/` is custom utilities (crypto, escape-html, ratemyprofessor, seat-badge, time-format). `proxy.ts` vs `middleware.ts` (above). Both are by design — don't "deduplicate" them.
+**Naming collisions to remember:** `lib/utils.ts` holds **only** the shadcn `cn()`; `lib/utils/` is custom utilities (crypto, escape-html, ratemyprofessor, seat-badge, time-format). By design — don't "deduplicate" them.
 
 ---
 
@@ -272,7 +270,7 @@ If you see `as unknown as` casts on `.rpc()` with a "not yet in generated types"
 - The **daily `expire_stale_notifications()` cron is load-bearing** — without it, re-notifications stop after 24h.
 - **Keep `worker.ts queue()` and `app/api/queue/process-section/route.ts` ack/retry behavior identical.** The HTTP route returns `200` for non-retryable failures *on purpose* (200 = ack/drop); returning 4xx/5xx there causes infinite retries.
 - **`class_states` is keyed on `(class_nbr, term)`** — always include `term`.
-- **`proxy.ts` is the auth gate, not `middleware.ts`.** Supabase URL/anon-key are duplicated in 3 files. Profile cache is 30s — invalidate after authz-field changes.
+- **`proxy.ts` is the auth gate** (the sole vinext middleware file). Supabase URL/anon-key are duplicated in 3 files. Profile cache is 30s — invalidate after authz-field changes.
 - **First-observation guard** (`!oldState`) prevents false "seat available" emails — keep it; note it triggers on row *existence*, not content.
 - **`non_reserved_seats` is dormant (always NULL in prod), not removable.** Don't build on it.
 - **`lib/asu/terms.ts` needs yearly (August) maintenance**; lapsing silently blocks new watches.
