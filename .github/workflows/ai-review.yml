@@ -17,8 +17,13 @@ concurrency:
 jobs:
   review:
     # Fork PRs get no secrets (LLM_API_KEY would be empty), so skip
-    # them; a collaborator can run /review on the PR instead.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # them; a collaborator can run /review on the PR instead. Dependabot
+    # PRs likewise run without access to Actions secrets, so the required
+    # LLM_API_KEY is empty and the reusable workflow's gate hard-fails —
+    # skip them too (CI still gates the dependency bumps).
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
     permissions:
       # contents:write is needed for the resolveReviewThread GraphQL mutation
       # (auto-resolving fixed threads); the review never pushes code.
