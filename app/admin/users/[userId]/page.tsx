@@ -223,7 +223,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                     <TableRow key={watch.id}>
                       <TableCell className="font-mono font-semibold">
                         <Link
-                          href={`/admin/classes/${watch.class_nbr}`}
+                          href={`/admin/classes/${watch.term}/${watch.class_nbr}`}
                           className="text-primary hover:underline"
                         >
                           {watch.class_nbr}

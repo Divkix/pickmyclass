@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import AdminClassDetailPage from '@/app/admin/classes/[classNbr]/page';
+import AdminClassDetailPage from '@/app/admin/classes/[term]/[classNbr]/page';
 import AdminClassesPage from '@/app/admin/classes/page';
 import AdminLayout from '@/app/admin/layout';
 import AdminDashboardPage from '@/app/admin/page';
@@ -190,6 +190,38 @@ const classRows = [
   },
 ];
 
+/**
+ * class_states rows the service-client mock filters over. Reset to `classRows`
+ * before each test; individual tests reassign it (e.g. the two-term case).
+ */
+let classStateFixtures: Array<Record<string, unknown>> = classRows;
+
+/**
+ * Minimal term-aware `class_states` query builder: records the `.eq` filters
+ * applySectionRef applies and resolves `.single()` to the row matching BOTH
+ * class_nbr and term — so a section number shared by two terms resolves to one
+ * row instead of the real client's multi-row error.
+ */
+function makeClassStatesQuery() {
+  const filters: Record<string, string> = {};
+  const builder = {
+    select: () => builder,
+    eq: (column: string, value: string) => {
+      filters[column] = value;
+      return builder;
+    },
+    single: () => {
+      const match = classStateFixtures.find(
+        (row) => row.class_nbr === filters.class_nbr && row.term === filters.term
+      );
+      return Promise.resolve(
+        match ? { data: match, error: null } : { data: null, error: { code: 'PGRST116' } }
+      );
+    },
+  };
+  return builder;
+}
+
 const userRows = [
   {
     id: 'user-1',
@@ -229,6 +261,7 @@ const emptySearchParams = Promise.resolve({} as Record<string, string | undefine
 describe('admin pages', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    classStateFixtures = classRows;
     mockVerifyAdmin.mockResolvedValue({ email: 'admin@example.com' });
     mockGetTotalEmailsSent.mockResolvedValue(11);
     mockGetTotalUsers.mockResolvedValue(68);
@@ -280,13 +313,7 @@ describe('admin pages', () => {
           ),
         },
       },
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn(() => Promise.resolve({ data: classRows[0], error: null })),
-          })),
-        })),
-      })),
+      from: vi.fn(() => makeClassStatesQuery()),
     });
   });
 
@@ -314,16 +341,52 @@ describe('admin pages', () => {
 
     fireEvent.click(screen.getByText('Class #'));
     fireEvent.click(screen.getByText('67890').closest('tr') as HTMLTableRowElement);
-    expect(mockPush).toHaveBeenCalledWith('/admin/classes/67890');
+    expect(mockPush).toHaveBeenCalledWith('/admin/classes/2261/67890');
   });
 
   it('renders class detail pages with class metadata and watchers', async () => {
-    render(await AdminClassDetailPage({ params: Promise.resolve({ classNbr: '12345' }) }));
+    render(
+      await AdminClassDetailPage({ params: Promise.resolve({ term: '2261', classNbr: '12345' }) })
+    );
 
     expect(screen.getByRole('heading', { name: /cse 240/i })).toBeInTheDocument();
     expect(screen.getByText('Class Information')).toBeInTheDocument();
     expect(screen.getByText('student@example.com')).toBeInTheDocument();
     expect(screen.getByText('12345')).toBeInTheDocument();
+  });
+
+  it('loads the requested term when a class number exists in two terms', async () => {
+    // Same class_nbr in two terms with different seats/instructor — the route must
+    // resolve the exact SectionRef, not trip .single()'s multi-row error (the #278 bug).
+    classStateFixtures = [
+      {
+        ...classRows[0],
+        id: 'state-fall',
+        term: '2257',
+        instructor_name: 'Professor Autumn',
+        seats_available: 9,
+        seats_capacity: 30,
+      },
+      {
+        ...classRows[0],
+        id: 'state-spring',
+        term: '2261',
+        instructor_name: 'Professor Vernal',
+        seats_available: 2,
+        seats_capacity: 30,
+      },
+    ];
+
+    render(
+      await AdminClassDetailPage({ params: Promise.resolve({ term: '2261', classNbr: '12345' }) })
+    );
+
+    // Shows the clicked term's data...
+    expect(screen.getByText('Professor Vernal')).toBeInTheDocument();
+    expect(screen.getByText('2/30 seats')).toBeInTheDocument();
+    // ...and never the other term's.
+    expect(screen.queryByText('Professor Autumn')).not.toBeInTheDocument();
+    expect(screen.queryByText('9/30 seats')).not.toBeInTheDocument();
   });
 
   it('renders user tables with paginated rows and supports row navigation/sorting controls', async () => {
