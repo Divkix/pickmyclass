@@ -6,6 +6,9 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Class Section** — An ASU course section, identified by `class_nbr` (5-digit) + `term` (4-digit YYSM code, e.g. "2261" for Spring 2026). Each section is a single offering of a course with a specific instructor, schedule, and seat capacity. The class picker shows only the current and next selectable terms, driven by the ASU academic calendar in [`lib/asu/terms.ts`](./lib/asu/terms.ts). Extend that calendar each August when ASU publishes the next academic year.
 
+- **SectionRef** — The identity of a Class Section: the `{ class_nbr, term }` pair that Class State, Class Watch, and every pipeline stage are keyed by. A section number repeats across terms, so a SectionRef always carries both fields — neither identifies a section alone.
+  _Avoid_: "section number" / "class_nbr" when you mean the whole identity; bare `(class_nbr, term)` tuples.
+
 - **Class Watch** — A user's subscription to monitor a Class Section for changes. Each watch belongs to one user and targets one section. Users are limited to `MAX_WATCHES_PER_USER` (default: 10).
 
 - **Class State** — A cached snapshot of a Class Section's current data stored in the `class_states` table. Updated during each section check. Contains seats, instructor, location, and meeting times. Not authoritative — the ASU API is the source of truth.
@@ -30,12 +33,17 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Queue Message** — A `ClassCheckMessage` containing `class_nbr`, `term`, `enqueued_at`, and `stagger_group`. Sent to Cloudflare Queue for parallel processing.
 
+- **Disposition** — The retry-vs-give-up verdict for one Section Check: `ack` (done, drop the message) or `retry` (transient, try again). Decided once by `classifyDisposition`; the queue consumer and the HTTP mirror route each translate it to their own transport (queue `ack()`/`retry()` vs HTTP `200`/`429`/`502`).
+
 ## Architecture
 
 - **Seam** — Where behaviour can be altered without editing in place (e.g., the `fetchClassFromASU()` function provides a seam at the ASU API boundary).
 - **Adapter** — A concrete implementation satisfying an interface at a seam (e.g., `TtlCache` is an adapter around `Map` with expiry logic).
 
 ## Auth & Security
+
+- **Authorization State** — A user's `{ is_admin, is_disabled }` pair from `user_profiles` — the two flags every server-side gate (edge proxy, admin verification, login) reads to decide access. Owned by one module (`lib/auth/authorization-state.ts`) that exposes a cached read (edge, 30s-stale OK) and a fresh read (authoritative backstop) plus cache invalidation. The browser `AuthContext`'s `is_admin` is a UI affordance only, not part of this security-side concept.
+  _Avoid_: "profile" when you mean only these two flags.
 
 - **Lockout** — Account lockout protection after 5 failed login attempts. Prevents brute-force attacks.
 - **Disposable Email Domain** — A temporary email service domain blocked during registration. Blocklist synced daily from GitHub.
