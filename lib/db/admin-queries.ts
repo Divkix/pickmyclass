@@ -10,6 +10,7 @@
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import { ADMIN_CACHE_TTL_MS } from '@/lib/config';
 import { log } from '@/lib/log';
+import { sectionRefKey } from '@/lib/section-ref';
 import type { Tables } from '@/lib/supabase/database.types';
 import { getServiceClient } from '@/lib/supabase/service';
 
@@ -508,14 +509,18 @@ export async function getUserWatches(userId: string): Promise<WatchWithClass[]> 
     throw new Error(`Failed to fetch class states: ${classError.message}`);
   }
 
+  // Key by sectionRefKey ({ class_nbr, term }) so a class_nbr watched in two
+  // terms joins each watch to its own term's state instead of one overwriting
+  // the other. The .in('class_nbr', ...) fetch above returns rows for every
+  // matching term, which this map now keeps distinct.
   const classStateMap = new Map<string, Tables<'class_states'>>();
   for (const classState of classStates || []) {
-    classStateMap.set(classState.class_nbr, classState);
+    classStateMap.set(sectionRefKey(classState), classState);
   }
 
   const watchesWithClass: WatchWithClass[] = watches.map((watch) => ({
     ...watch,
-    class_state: classStateMap.get(watch.class_nbr) || null,
+    class_state: classStateMap.get(sectionRefKey(watch)) || null,
   }));
 
   log('Admin').info(`Fetched ${watchesWithClass.length} watches for user ${userId}`);

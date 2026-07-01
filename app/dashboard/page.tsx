@@ -17,6 +17,7 @@ import { fadeInUp, staggerContainer, staggerItem } from '@/lib/animations';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh';
 import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates';
+import { sectionRefKey } from '@/lib/section-ref';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 
 type ClassWatch = ClassWatchRow & {
@@ -148,7 +149,7 @@ export default function DashboardPage() {
 
     const query = searchQuery.toLowerCase();
     return watches.filter((watch) => {
-      const liveState = classStates[watch.class_nbr] || watch.class_state;
+      const liveState = classStates[sectionRefKey(watch)] || watch.class_state;
       return (
         watch.class_nbr.toLowerCase().includes(query) ||
         watch.subject?.toLowerCase().includes(query) ||
@@ -163,11 +164,11 @@ export default function DashboardPage() {
   const stats = useMemo(() => {
     const totalWatches = watches.length;
     const availableSeats = watches.filter((watch) => {
-      const liveState = classStates[watch.class_nbr] || watch.class_state;
+      const liveState = classStates[sectionRefKey(watch)] || watch.class_state;
       return liveState && liveState.seats_available > 0;
     }).length;
     const fullClasses = watches.filter((watch) => {
-      const liveState = classStates[watch.class_nbr] || watch.class_state;
+      const liveState = classStates[sectionRefKey(watch)] || watch.class_state;
       return liveState && liveState.seats_available === 0;
     }).length;
 
@@ -397,7 +398,7 @@ export default function DashboardPage() {
             variants={staggerContainer}
           >
             {filteredWatches.map((watch) => {
-              const liveState = classStates[watch.class_nbr] || watch.class_state || null;
+              const liveState = classStates[sectionRefKey(watch)] || watch.class_state || null;
 
               return (
                 <motion.div key={watch.id} variants={staggerItem}>

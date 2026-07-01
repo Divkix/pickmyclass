@@ -235,8 +235,9 @@ describe('DashboardPage', () => {
       // Mock the hook to return no error
       mockUseRealtimeClassStates.mockReturnValue({
         classStates: {
-          '12345': {
+          '2267:12345': {
             class_nbr: '12345',
+            term: '2267',
             seats_available: 5,
           },
         },
@@ -349,7 +350,7 @@ describe('DashboardPage', () => {
   it('renders stats from persisted and live class states', async () => {
     mockUseRealtimeClassStates.mockReturnValue({
       classStates: {
-        '67890': {
+        '2267:67890': {
           class_nbr: '67890',
           term: '2267',
           title: 'Discrete Math',

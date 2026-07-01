@@ -1,6 +1,7 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates';
+import type { ClassStateRow } from '@/lib/types/class-watch';
 
 // Mock Supabase client
 const mockSupabase = {
@@ -128,6 +129,125 @@ describe('useRealtimeClassStates hook', () => {
       await waitFor(() => {
         expect(fetchCalls.length).toBe(1);
       });
+    });
+  });
+
+  describe('per-term keying (issue #279)', () => {
+    // Two Class States sharing a class_nbr across terms; keyed by class_nbr
+    // alone they would collide, one overwriting the other.
+    const spring: ClassStateRow = {
+      class_nbr: '12345',
+      term: '2261',
+      seats_available: 5,
+    } as ClassStateRow;
+    const fall: ClassStateRow = {
+      class_nbr: '12345',
+      term: '2267',
+      seats_available: 0,
+    } as ClassStateRow;
+
+    /**
+     * Wire the Supabase mock so the initial fetch resolves to `data` and the
+     * postgres_changes handler passed to `.on()` is captured for firing events.
+     */
+    function setup(data: ClassStateRow[]) {
+      let capturedHandler:
+        | ((payload: {
+            eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+            new?: ClassStateRow;
+            old?: ClassStateRow;
+          }) => void)
+        | undefined;
+
+      const mockChannel = {
+        on: vi.fn((_event: string, _config: unknown, cb: typeof capturedHandler) => {
+          capturedHandler = cb;
+          return mockChannel;
+        }),
+        subscribe: vi.fn(() => mockChannel),
+        unsubscribe: vi.fn(),
+      };
+
+      mockSupabase.channel.mockReturnValue(mockChannel);
+      mockSupabase.from.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data, error: null }),
+        }),
+      });
+
+      return { getHandler: () => capturedHandler };
+    }
+
+    it('keeps two states sharing a class_nbr across terms in separate slots', async () => {
+      setup([spring, fall]);
+
+      const { result } = renderHook(() => useRealtimeClassStates({ classNumbers: ['12345'] }));
+
+      await waitFor(() => {
+        expect(Object.keys(result.current.classStates)).toHaveLength(2);
+      });
+
+      // Each term keeps its own seats — no overwrite.
+      expect(result.current.classStates['2261:12345'].seats_available).toBe(5);
+      expect(result.current.classStates['2267:12345'].seats_available).toBe(0);
+    });
+
+    it('applies an UPDATE event to the correct term only', async () => {
+      const { getHandler } = setup([spring, fall]);
+
+      const { result } = renderHook(() => useRealtimeClassStates({ classNumbers: ['12345'] }));
+
+      await waitFor(() => {
+        expect(Object.keys(result.current.classStates)).toHaveLength(2);
+      });
+
+      // Fall section (2267) gains a seat; spring (2261) must be untouched.
+      act(() => {
+        getHandler()?.({
+          eventType: 'UPDATE',
+          new: { ...fall, seats_available: 4 },
+        });
+      });
+
+      expect(result.current.classStates['2267:12345'].seats_available).toBe(4);
+      expect(result.current.classStates['2261:12345'].seats_available).toBe(5);
+    });
+
+    it('applies an INSERT event under its own term key', async () => {
+      const { getHandler } = setup([spring]);
+
+      const { result } = renderHook(() => useRealtimeClassStates({ classNumbers: ['12345'] }));
+
+      await waitFor(() => {
+        expect(Object.keys(result.current.classStates)).toHaveLength(1);
+      });
+
+      act(() => {
+        getHandler()?.({ eventType: 'INSERT', new: fall });
+      });
+
+      // Insert adds a new term rather than replacing the existing one.
+      expect(Object.keys(result.current.classStates)).toHaveLength(2);
+      expect(result.current.classStates['2261:12345'].seats_available).toBe(5);
+      expect(result.current.classStates['2267:12345'].seats_available).toBe(0);
+    });
+
+    it('removes only the deleted term on a DELETE event', async () => {
+      const { getHandler } = setup([spring, fall]);
+
+      const { result } = renderHook(() => useRealtimeClassStates({ classNumbers: ['12345'] }));
+
+      await waitFor(() => {
+        expect(Object.keys(result.current.classStates)).toHaveLength(2);
+      });
+
+      act(() => {
+        getHandler()?.({ eventType: 'DELETE', old: fall });
+      });
+
+      // Only the fall section is gone; spring survives.
+      expect(result.current.classStates['2267:12345']).toBeUndefined();
+      expect(result.current.classStates['2261:12345'].seats_available).toBe(5);
     });
   });
 });
