@@ -16,12 +16,14 @@ import {
 } from '@/components/ui/table';
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getClassWatchers } from '@/lib/db/queries';
+import { applySectionRef } from '@/lib/section-ref';
 import { getServiceClient } from '@/lib/supabase/service';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 import { formatRelativeTime } from '@/lib/utils/time-format';
 
 interface AdminClassDetailPageProps {
   params: Promise<{
+    term: string;
     classNbr: string;
   }>;
 }
@@ -35,22 +37,24 @@ interface AdminClassDetailPageProps {
  * - Last checked/changed timestamps
  *
  * Requires admin authentication via verifyAdmin().
- * Uses dynamic route parameter [classNbr] to fetch class data.
+ * Uses dynamic route parameters [term]/[classNbr] to fetch the exact section —
+ * a class_nbr repeats across terms, so both fields are required to identify one.
  */
 export default async function AdminClassDetailPage({ params }: AdminClassDetailPageProps) {
   // Verify admin authentication (redirects if unauthorized)
   await verifyAdmin();
 
   // Resolve params promise
-  const { classNbr } = await params;
+  const { term, classNbr } = await params;
 
-  // Fetch class state from database
+  // Fetch the exact class state by its SectionRef identity (class_nbr + term).
+  // applySectionRef filters on both fields, so a section number shared by two
+  // terms resolves to one row instead of tripping .single()'s multi-row error.
   const supabase = getServiceClient();
-  const { data: classState, error: classError } = await supabase
-    .from('class_states')
-    .select('*')
-    .eq('class_nbr', classNbr)
-    .single();
+  const { data: classState, error: classError } = await applySectionRef(
+    supabase.from('class_states').select('*'),
+    { class_nbr: classNbr, term }
+  ).single();
 
   // Handle case where class not found
   if (classError || !classState) {

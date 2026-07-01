@@ -209,7 +209,7 @@ describe('admin table components (server-driven)', () => {
     render(<ClassesTable {...defaultClassProps} classes={classes} total={2} />);
 
     fireEvent.click(screen.getByText('Calculus I').closest('tr') as HTMLTableRowElement);
-    expect(mockPush).toHaveBeenCalledWith('/admin/classes/23456');
+    expect(mockPush).toHaveBeenCalledWith('/admin/classes/2261/23456');
   });
 
   it('sort header clicks update URL searchParams', () => {

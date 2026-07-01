@@ -223,12 +223,12 @@ export function ClassesTable({
                   key={classItem.id}
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => {
-                    router.push(`/admin/classes/${classItem.class_nbr}`);
+                    router.push(`/admin/classes/${classItem.term}/${classItem.class_nbr}`);
                   }}
                 >
                   <TableCell className="font-mono font-semibold">
                     <Link
-                      href={`/admin/classes/${classItem.class_nbr}`}
+                      href={`/admin/classes/${classItem.term}/${classItem.class_nbr}`}
                       className="text-primary hover:underline"
                       onClick={(e) => e.stopPropagation()}
                     >
