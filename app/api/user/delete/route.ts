@@ -1,9 +1,9 @@
+import { invalidateAuthorizationState } from '@/lib/auth/authorization-state';
 import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
 import { log } from '@/lib/log';
 import { fail, ok } from '@/lib/api/response';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
-import { invalidateProfileCache } from '@/proxy';
 
 /**
  * Account Deletion API - CCPA Compliance
@@ -45,8 +45,8 @@ export async function DELETE() {
       return fail('Failed to delete account', 500);
     }
 
-    // Invalidate the profile cache to ensure immediate effect
-    invalidateProfileCache(user.id);
+    // Invalidate the cached authorization state to ensure immediate effect
+    invalidateAuthorizationState(user.id);
 
     // Sign out the user (invalidate session)
     const { error: signOutError } = await supabase.auth.signOut();

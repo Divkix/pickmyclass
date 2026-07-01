@@ -37,12 +37,14 @@ vi.mock('@/lib/auth/lockout', () => ({
 const mockSignInWithPassword = vi.fn();
 const mockSignOut = vi.fn();
 
-// Default mock for user_profiles query (non-disabled user)
+// Default mock for user_profiles query (non-disabled user).
+// readAuthorizationState uses .maybeSingle(); older call sites used .single() —
+// expose both so the chain works regardless.
 const mockSingle = vi.fn().mockResolvedValue({
   data: { is_disabled: false },
   error: null,
 });
-const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
+const mockEq = vi.fn().mockReturnValue({ single: mockSingle, maybeSingle: mockSingle });
 const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
 const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
 
@@ -332,12 +334,12 @@ describe('POST /api/auth/login', () => {
         error: null,
       });
 
-      // Mock the from/single chain for checking user profile
+      // Mock the from/maybeSingle chain for checking user profile
       const mockSingle = vi.fn().mockResolvedValue({
         data: { is_disabled: true },
         error: null,
       });
-      const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
+      const mockEq = vi.fn().mockReturnValue({ single: mockSingle, maybeSingle: mockSingle });
       const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
       const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
 
@@ -371,12 +373,12 @@ describe('POST /api/auth/login', () => {
         error: null,
       });
 
-      // Mock the from/single chain to return non-disabled user
+      // Mock the from/maybeSingle chain to return non-disabled user
       const mockSingle = vi.fn().mockResolvedValue({
         data: { is_disabled: false },
         error: null,
       });
-      const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
+      const mockEq = vi.fn().mockReturnValue({ single: mockSingle, maybeSingle: mockSingle });
       const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
       const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
 

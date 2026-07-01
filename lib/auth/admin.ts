@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
+import { readAuthorizationState } from '@/lib/auth/authorization-state';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -37,21 +38,12 @@ export async function verifyAdmin(): Promise<User> {
     redirect('/login');
   }
 
-  // Check if user has admin privileges in user_profiles table
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('is_admin')
-    .eq('user_id', user.id)
-    .single();
+  // Check admin privileges via a FRESH authorization read (never cached), so a
+  // demoted or disabled admin is enforced immediately on admin pages.
+  const authState = await readAuthorizationState(supabase, user.id, { cache: false });
 
-  if (profileError) {
-    // Profile doesn't exist or database error - treat as non-admin
-    console.error('Error fetching user profile:', profileError);
-    redirect('/dashboard');
-  }
-
-  if (!profile?.is_admin) {
-    // User is authenticated but not an admin
+  if (!authState?.is_admin) {
+    // Not admin, profile missing, or read error — treat as non-admin.
     redirect('/dashboard');
   }
 

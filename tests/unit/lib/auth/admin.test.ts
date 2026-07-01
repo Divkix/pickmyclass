@@ -34,6 +34,7 @@ describe('verifyAdmin', () => {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
             single: mockSingle,
+            maybeSingle: mockSingle,
           })),
         })),
       })),

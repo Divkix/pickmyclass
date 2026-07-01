@@ -4,7 +4,7 @@ const {
   mockCreateClient,
   mockGetServiceClient,
   mockGetUser,
-  mockInvalidateProfileCache,
+  mockInvalidateAuthorizationState,
   mockProfileSingle,
   mockServiceEq,
   mockServiceUpdate,
@@ -15,7 +15,7 @@ const {
   mockCreateClient: vi.fn(),
   mockGetServiceClient: vi.fn(),
   mockGetUser: vi.fn(),
-  mockInvalidateProfileCache: vi.fn(),
+  mockInvalidateAuthorizationState: vi.fn(),
   mockProfileSingle: vi.fn(),
   mockServiceEq: vi.fn(),
   mockServiceUpdate: vi.fn(),
@@ -32,8 +32,8 @@ vi.mock('@/lib/supabase/service', () => ({
   getServiceClient: mockGetServiceClient,
 }));
 
-vi.mock('@/proxy', () => ({
-  invalidateProfileCache: mockInvalidateProfileCache,
+vi.mock('@/lib/auth/authorization-state', () => ({
+  invalidateAuthorizationState: mockInvalidateAuthorizationState,
 }));
 
 import { DELETE } from '@/app/api/user/delete/route';
@@ -193,7 +193,7 @@ describe('user data rights APIs', () => {
       })
     );
     expect(mockServiceEq).toHaveBeenCalledWith('user_id', 'user-123');
-    expect(mockInvalidateProfileCache).toHaveBeenCalledWith('user-123');
+    expect(mockInvalidateAuthorizationState).toHaveBeenCalledWith('user-123');
     expect(mockSignOut).toHaveBeenCalled();
   });
 
@@ -205,7 +205,7 @@ describe('user data rights APIs', () => {
 
     expect(response.status).toBe(500);
     expect(data.error).toBe('Failed to delete account');
-    expect(mockInvalidateProfileCache).not.toHaveBeenCalled();
+    expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
   it('still completes account deletion when sign out fails', async () => {

@@ -1,32 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
+import { type AuthorizationState, readAuthorizationState } from '@/lib/auth/authorization-state';
 import { hasSupabaseAuthCookies } from '@/lib/auth/supabase-auth-cookies';
-import { TtlCache } from '@/lib/cache/ttl-cache';
 import type { Database } from './lib/supabase/database.types';
-
-/**
- * User profile data from database
- */
-interface UserProfile {
-  is_admin: boolean;
-  is_disabled: boolean;
-}
-
-/**
- * Per-isolate profile cache with 30-second TTL for authorization decisions.
- * Reduces redundant DB lookups while ensuring stale data doesn't persist long.
- */
-const profileCache = new TtlCache<UserProfile>(30 * 1000);
-
-/** Clear the entire profile cache. Exposed for test isolation. */
-export function clearProfileCache(): void {
-  profileCache.clear();
-}
-
-/** Invalidate cached profile for a specific user. Call when profile is updated. */
-export function invalidateProfileCache(userId: string): boolean {
-  return profileCache.delete(userId);
-}
 
 /**
  * Build a per-request production CSP that replaces 'unsafe-inline' in
@@ -138,40 +114,11 @@ function isPublicRoute(pathname: string): boolean {
 }
 
 /**
- * Get user profile data from database with per-isolate TTL cache.
- * Returns null if user not found or error occurs.
- */
-async function getUserProfile(
-  supabase: ReturnType<typeof createServerClient<Database>>,
-  userId: string
-): Promise<UserProfile | null> {
-  const cached = profileCache.get(userId);
-  if (cached) return cached;
-
-  try {
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('is_admin, is_disabled')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (profile) {
-      profileCache.set(userId, profile);
-    }
-
-    return profile;
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return null;
-  }
-}
-
-/**
  * Helper function to determine redirect path based on user's admin status.
  * Defaults to /dashboard if user is not admin.
  */
-function getRedirectPath(profile: UserProfile | null): string {
-  return profile?.is_admin ? '/admin' : '/dashboard';
+function getRedirectPath(authState: AuthorizationState | null): string {
+  return authState?.is_admin ? '/admin' : '/dashboard';
 }
 
 export async function proxy(request: NextRequest) {
@@ -244,13 +191,14 @@ export async function proxy(request: NextRequest) {
   // user_profiles.is_admin checks. Never trust middleware alone for authorization.
   // Admin routes are protected by standard auth check below (not in publicRoutes).
 
-  // Fetch user profile data once and cache for the entire request
-  let userProfile: UserProfile | null = null;
+  // Read the cached authorization decision. The edge gate deliberately serves a
+  // (up to 30s) stale decision as a CPU saver; verifyAdmin and login read fresh.
+  let authState: AuthorizationState | null = null;
   if (user) {
-    userProfile = await getUserProfile(supabase, user.id);
+    authState = await readAuthorizationState(supabase, user.id, { cache: true });
 
     // If account is disabled, sign out and redirect to login
-    if (userProfile?.is_disabled) {
+    if (authState?.is_disabled) {
       await supabase.auth.signOut();
       const url = request.nextUrl.clone();
       url.pathname = '/login';
@@ -295,7 +243,7 @@ export async function proxy(request: NextRequest) {
   const isAuthPage = AUTH_PAGES.some((route) => pathname.startsWith(route));
 
   if (user?.email_confirmed_at && isAuthPage) {
-    const redirectPath = getRedirectPath(userProfile);
+    const redirectPath = getRedirectPath(authState);
     // Only redirect if not already on the target path to prevent loops
     if (pathname !== redirectPath) {
       const url = request.nextUrl.clone();
@@ -312,7 +260,7 @@ export async function proxy(request: NextRequest) {
   // Redirect admin users from /dashboard to /admin
   // Regular users can access /dashboard, but admins should use /admin exclusively
   if (user?.email_confirmed_at && pathname.startsWith('/dashboard')) {
-    if (userProfile?.is_admin) {
+    if (authState?.is_admin) {
       const url = request.nextUrl.clone();
       url.pathname = '/admin';
       const redirectResponse = NextResponse.redirect(url);
