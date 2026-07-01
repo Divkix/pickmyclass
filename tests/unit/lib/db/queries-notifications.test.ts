@@ -46,7 +46,7 @@ describe('resetNotificationsForSection (characterization)', () => {
     mockFrom.mockReturnValue({ select: vi.fn(() => selectQuery) });
 
     await expect(
-      resetNotificationsForSection('12345', '2261', 'seat_available')
+      resetNotificationsForSection({ class_nbr: '12345', term: '2261' }, 'seat_available')
     ).resolves.toBeUndefined();
 
     // Only the class_watches fetch happens; no delete chain is invoked.
@@ -58,9 +58,9 @@ describe('resetNotificationsForSection (characterization)', () => {
     const selectQuery = mockWatchFetch({ data: null, error: { message: 'Connection error' } });
     mockFrom.mockReturnValue({ select: vi.fn(() => selectQuery) });
 
-    await expect(resetNotificationsForSection('12345', '2261')).rejects.toThrow(
-      'Failed to fetch watches: Connection error'
-    );
+    await expect(
+      resetNotificationsForSection({ class_nbr: '12345', term: '2261' })
+    ).rejects.toThrow('Failed to fetch watches: Connection error');
   });
 
   it('delete error → throws "Failed to reset notifications"', async () => {
@@ -76,9 +76,9 @@ describe('resetNotificationsForSection (characterization)', () => {
       })),
     });
 
-    await expect(resetNotificationsForSection('12345', '2261', 'seat_available')).rejects.toThrow(
-      'Failed to reset notifications: delete blew up'
-    );
+    await expect(
+      resetNotificationsForSection({ class_nbr: '12345', term: '2261' }, 'seat_available')
+    ).rejects.toThrow('Failed to reset notifications: delete blew up');
   });
 });
 

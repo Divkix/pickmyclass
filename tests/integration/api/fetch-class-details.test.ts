@@ -119,10 +119,13 @@ describe('/api/fetch-class-details', () => {
       instructor_name: 'Dr. Smith',
       seats_available: 7,
     });
-    expect(mockFetchClassFromASU).toHaveBeenCalledWith('12345', '2264', {
-      ASU_API_BASE_URL: 'https://classes.example.test',
-      ASU_API_TOKEN: 'test-token',
-    });
+    expect(mockFetchClassFromASU).toHaveBeenCalledWith(
+      { class_nbr: '12345', term: '2264' },
+      {
+        ASU_API_BASE_URL: 'https://classes.example.test',
+        ASU_API_TOKEN: 'test-token',
+      }
+    );
     expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         term: '2264',

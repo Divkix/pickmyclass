@@ -94,7 +94,7 @@ export async function GET(request: Request) {
   // 2. Check ASU API
   try {
     const asuEnv = env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
-    await fetchClassFromASU('10001', '2251', asuEnv);
+    await fetchClassFromASU({ class_nbr: '10001', term: '2251' }, asuEnv);
     health.checks.asu_api = {
       name: 'ASU API',
       status: 'healthy',

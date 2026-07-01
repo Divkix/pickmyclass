@@ -425,10 +425,13 @@ describe('/api/class-watches', () => {
 
       expect(response.status).toBe(201);
       expect(data.watch).toBeDefined();
-      expect(mockFetchClassFromASU).toHaveBeenCalledWith('12345', '2264', {
-        ASU_API_BASE_URL: expect.any(String),
-        ASU_API_TOKEN: expect.any(String),
-      });
+      expect(mockFetchClassFromASU).toHaveBeenCalledWith(
+        { class_nbr: '12345', term: '2264' },
+        {
+          ASU_API_BASE_URL: expect.any(String),
+          ASU_API_TOKEN: expect.any(String),
+        }
+      );
       expect(mockRpc).toHaveBeenCalledWith(
         'create_class_watch_with_limit',
         expect.objectContaining({

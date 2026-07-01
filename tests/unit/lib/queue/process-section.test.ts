@@ -151,7 +151,7 @@ describe('processSection', () => {
 
   it('successful full flow: fetches, detects, notifies, and persists', async () => {
     const env = buildEnv();
-    const result = await processSection('42737', '2261', env);
+    const result = await processSection({ class_nbr: '42737', term: '2261' }, env);
 
     // Should have fetched old state with correct chaining (includes term)
     const db = getServiceClient() as unknown as ReturnType<typeof buildMockDb>;
@@ -161,8 +161,8 @@ describe('processSection', () => {
     expect(db.eq).toHaveBeenCalledWith('term', '2261');
     expect(db.single).toHaveBeenCalled();
 
-    // Should have fetched from ASU
-    expect(fetchClassFromASU).toHaveBeenCalledWith('42737', '2261', env);
+    // Should have fetched from ASU with the SectionRef
+    expect(fetchClassFromASU).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' }, env);
 
     // Should have detected changes
     expect(detectChanges).toHaveBeenCalled();
@@ -195,7 +195,7 @@ describe('processSection', () => {
   it('no changes detected: only persists, no notifications', async () => {
     (detectChanges as ReturnType<typeof vi.fn>).mockReturnValue(buildChangeResult());
 
-    const result = await processSection('42737', '2261', buildEnv());
+    const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
     expect(sendSectionNotifications).not.toHaveBeenCalled();
     expect(resetNotificationsForSection).not.toHaveBeenCalled();
@@ -208,9 +208,12 @@ describe('processSection', () => {
       buildChangeResult({ seatsFilled: true, newOpenSeats: 0 })
     );
 
-    const result = await processSection('42737', '2261', buildEnv());
+    const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
-    expect(resetNotificationsForSection).toHaveBeenCalledWith('42737', '2261', 'seat_available');
+    expect(resetNotificationsForSection).toHaveBeenCalledWith(
+      { class_nbr: '42737', term: '2261' },
+      'seat_available'
+    );
     expect(sendSectionNotifications).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
   });
@@ -221,7 +224,7 @@ describe('processSection', () => {
       new NotFoundError('Section 42737 not found')
     );
 
-    await expect(processSection('42737', '2261', buildEnv())).rejects.toThrow(
+    await expect(processSection({ class_nbr: '42737', term: '2261' }, buildEnv())).rejects.toThrow(
       'Section 42737 not found'
     );
     // Should NOT have tried to persist or notify
@@ -236,7 +239,9 @@ describe('processSection', () => {
       new RateLimitError('Rate limit hit')
     );
 
-    await expect(processSection('42737', '2261', buildEnv())).rejects.toThrow('Rate limit hit');
+    await expect(processSection({ class_nbr: '42737', term: '2261' }, buildEnv())).rejects.toThrow(
+      'Rate limit hit'
+    );
   });
 
   it('DB upsert fails: returns error result', async () => {
@@ -247,7 +252,7 @@ describe('processSection', () => {
     mockDb.upsert.mockResolvedValue({ error: { message: 'Constraint violation' } });
     (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
-    const result = await processSection('42737', '2261', buildEnv());
+    const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
     expect(result).toMatchObject({
       success: false,
@@ -273,7 +278,7 @@ describe('processSection', () => {
       buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 3 })
     );
 
-    const result = await processSection('42737', '2261', buildEnv());
+    const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
     // detectChanges should have been called with null oldState (PGRST116 returns data: null)
     expect(detectChanges).toHaveBeenCalledWith(
@@ -300,7 +305,7 @@ describe('processSection', () => {
     });
     (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
-    const result = await processSection('42737', '2261', buildEnv());
+    const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
     // non-PGRST116 errors log but don't stop processing
     expect(console.error).toHaveBeenCalledWith(
@@ -330,7 +335,7 @@ describe('processSection', () => {
         buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 5 })
       );
 
-      const result = await processSection('42737', '2261', buildEnv());
+      const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
       // Persist-before-send: a failed upsert must short-circuit BEFORE any emails go out,
       // so a retry re-attempts cleanly with no duplicate emails.

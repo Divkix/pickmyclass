@@ -148,7 +148,10 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
 
     expect(msg.ack).toHaveBeenCalledOnce();
     expect(msg.retry).not.toHaveBeenCalled();
-    expect(mockProcessSection).toHaveBeenCalledWith('12345', '2261', mockEnv);
+    expect(mockProcessSection).toHaveBeenCalledWith(
+      expect.objectContaining({ class_nbr: '12345', term: '2261' }),
+      mockEnv
+    );
   });
 
   it('retries message when processSection returns success:false (DB upsert error)', async () => {

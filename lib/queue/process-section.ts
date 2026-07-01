@@ -14,6 +14,7 @@ import {
 } from '@/lib/asu/api';
 import { log } from '@/lib/log';
 import { resetNotificationsForSection } from '@/lib/db/queries';
+import { applySectionRef, type SectionRef } from '@/lib/section-ref';
 import type { ClassInfo } from '@/lib/types/class';
 import { type ChangeResult, detectChanges } from '@/lib/queue/change-detector';
 import { type SentNotification, sendSectionNotifications } from '@/lib/queue/notification-sender';
@@ -44,16 +45,15 @@ export interface ProcessingResult {
  * 5. Upsert new class state
  * 6. Send notifications if seat became available or instructor assigned
  *
- * @param classNbr - 5-digit section number (e.g., "12431")
- * @param term - 4-digit term code (e.g., "2261")
+ * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @param env - Environment bindings for ASU API and email
  * @returns ProcessingResult with timing info
  */
 export async function processSection(
-  classNbr: string,
-  term: string,
+  ref: SectionRef,
   env: Pick<Env, 'ASU_API_BASE_URL' | 'ASU_API_TOKEN' | 'EMAIL' | 'NOTIFICATION_FROM_EMAIL'>
 ): Promise<ProcessingResult> {
+  const { class_nbr: classNbr, term } = ref;
   const startTime = Date.now();
   const serviceClient = getServiceClient();
 
@@ -62,13 +62,11 @@ export async function processSection(
   let emailsSent = 0;
 
   try {
-    // Step 1: Fetch old state from DB
-    const { data: oldState, error: stateError } = await serviceClient
-      .from('class_states')
-      .select('*')
-      .eq('class_nbr', classNbr)
-      .eq('term', term)
-      .single();
+    // Step 1: Fetch old state from DB by its SectionRef identity (class_nbr + term).
+    const { data: oldState, error: stateError } = await applySectionRef(
+      serviceClient.from('class_states').select('*'),
+      ref
+    ).single();
 
     // PGRST116 = no rows found — not an error for first observation
     if (stateError && stateError.code !== 'PGRST116') {
@@ -76,7 +74,7 @@ export async function processSection(
     }
 
     // Step 2: Fetch from ASU API
-    newData = await fetchClassFromASU(classNbr, term, env);
+    newData = await fetchClassFromASU(ref, env);
 
     // Step 3: Detect changes
     changes = detectChanges(oldState, newData);
@@ -92,7 +90,7 @@ export async function processSection(
 
     // Step 4: Reset notifications if seats filled
     if (changes.seatsFilled) {
-      await resetNotificationsForSection(classNbr, term, 'seat_available');
+      await resetNotificationsForSection(ref, 'seat_available');
     }
 
     // Step 5: Upsert new class state BEFORE sending notifications.

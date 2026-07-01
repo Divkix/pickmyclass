@@ -84,10 +84,14 @@ describe('fetchClassFromASU', () => {
       .spyOn(global, 'fetch')
       .mockResolvedValue(new Response(JSON.stringify(buildAsuSuccessResponse()), { status: 200 }));
 
-    const result = await fetchClassFromASU('42737', '2264', {
-      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-      ASU_API_TOKEN: 'null',
-    });
+    const result = await fetchClassFromASU(
+      { class_nbr: '42737', term: '2264' },
+      {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'null',
+      }
+    );
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0];
@@ -115,11 +119,14 @@ describe('fetchClassFromASU', () => {
       .spyOn(global, 'fetch')
       .mockResolvedValue(new Response(JSON.stringify(buildAsuSuccessResponse()), { status: 200 }));
 
-    await fetchClassFromASU('42737', '2264', {
-      ASU_API_BASE_URL:
-        'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes',
-      ASU_API_TOKEN: 'Bearer null',
-    });
+    await fetchClassFromASU(
+      { class_nbr: '42737', term: '2264' },
+      {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes',
+        ASU_API_TOKEN: 'Bearer null',
+      }
+    );
 
     const [url, init] = fetchSpy.mock.calls[0];
     const parsedUrl = new URL(url as string);
@@ -134,9 +141,11 @@ describe('fetchClassFromASU', () => {
     ['base URL', { ASU_API_BASE_URL: '', ASU_API_TOKEN: 'test-token' }],
     ['token', { ASU_API_BASE_URL: 'https://example.com/api/v1', ASU_API_TOKEN: '' }],
   ])('should reject when the ASU API %s is missing', async (_field, env) => {
-    await expect(fetchClassFromASU('42737', '2264', env)).rejects.toSatisfy((error: unknown) => {
-      return error instanceof ApiError && error.message.includes('not configured');
-    });
+    await expect(fetchClassFromASU({ class_nbr: '42737', term: '2264' }, env)).rejects.toSatisfy(
+      (error: unknown) => {
+        return error instanceof ApiError && error.message.includes('not configured');
+      }
+    );
   });
 
   it('should serve repeated class lookups from cache', async () => {
@@ -149,8 +158,8 @@ describe('fetchClassFromASU', () => {
       ASU_API_TOKEN: 'test-token',
     };
 
-    const first = await fetchClassFromASU('42737', '2264', env);
-    const second = await fetchClassFromASU('42737', '2264', env);
+    const first = await fetchClassFromASU({ class_nbr: '42737', term: '2264' }, env);
+    const second = await fetchClassFromASU({ class_nbr: '42737', term: '2264' }, env);
 
     expect(first).toEqual(second);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -161,11 +170,14 @@ describe('fetchClassFromASU', () => {
     vi.spyOn(global, 'fetch').mockRejectedValue(timeoutError);
 
     await expect(
-      fetchClassFromASU('42737', '2264', {
-        ASU_API_BASE_URL:
-          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-        ASU_API_TOKEN: 'test-token',
-      })
+      fetchClassFromASU(
+        { class_nbr: '42737', term: '2264' },
+        {
+          ASU_API_BASE_URL:
+            'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+          ASU_API_TOKEN: 'test-token',
+        }
+      )
     ).rejects.toSatisfy((error: unknown) => {
       return error instanceof ApiError && error.status === 408;
     });
@@ -176,11 +188,14 @@ describe('fetchClassFromASU', () => {
     vi.spyOn(global, 'fetch').mockRejectedValue(timeoutError);
 
     await expect(
-      fetchClassFromASU('42737', '2264', {
-        ASU_API_BASE_URL:
-          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-        ASU_API_TOKEN: 'test-token',
-      })
+      fetchClassFromASU(
+        { class_nbr: '42737', term: '2264' },
+        {
+          ASU_API_BASE_URL:
+            'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+          ASU_API_TOKEN: 'test-token',
+        }
+      )
     ).rejects.toThrow('ASU API request timed out');
   });
 
@@ -189,11 +204,14 @@ describe('fetchClassFromASU', () => {
     vi.spyOn(global, 'fetch').mockRejectedValue(networkError);
 
     await expect(
-      fetchClassFromASU('42737', '2264', {
-        ASU_API_BASE_URL:
-          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-        ASU_API_TOKEN: 'test-token',
-      })
+      fetchClassFromASU(
+        { class_nbr: '42737', term: '2264' },
+        {
+          ASU_API_BASE_URL:
+            'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+          ASU_API_TOKEN: 'test-token',
+        }
+      )
     ).rejects.toBe(networkError);
   });
 
@@ -206,11 +224,14 @@ describe('fetchClassFromASU', () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(new Response('{}', { status }));
 
     await expect(
-      fetchClassFromASU('42737', '2264', {
-        ASU_API_BASE_URL:
-          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-        ASU_API_TOKEN: 'test-token',
-      })
+      fetchClassFromASU(
+        { class_nbr: '42737', term: '2264' },
+        {
+          ASU_API_BASE_URL:
+            'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+          ASU_API_TOKEN: 'test-token',
+        }
+      )
     ).rejects.toSatisfy((error: unknown) => {
       return error instanceof ErrorClass && error.message.includes(message);
     });
@@ -225,11 +246,14 @@ describe('fetchClassFromASU', () => {
     );
 
     await expect(
-      fetchClassFromASU('42737', '2264', {
-        ASU_API_BASE_URL:
-          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-        ASU_API_TOKEN: 'test-token',
-      })
+      fetchClassFromASU(
+        { class_nbr: '42737', term: '2264' },
+        {
+          ASU_API_BASE_URL:
+            'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+          ASU_API_TOKEN: 'test-token',
+        }
+      )
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
@@ -241,10 +265,14 @@ describe('fetchClassFromASU', () => {
       })
     );
 
-    const result = await fetchClassFromASU('12345', '2264', {
-      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-      ASU_API_TOKEN: 'test-token',
-    });
+    const result = await fetchClassFromASU(
+      { class_nbr: '12345', term: '2264' },
+      {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      }
+    );
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(result.non_reserved_seats).toBe(15);
@@ -258,10 +286,14 @@ describe('fetchClassFromASU', () => {
       })
     );
 
-    const result = await fetchClassFromASU('12345', '2264', {
-      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-      ASU_API_TOKEN: 'test-token',
-    });
+    const result = await fetchClassFromASU(
+      { class_nbr: '12345', term: '2264' },
+      {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      }
+    );
 
     expect(result.non_reserved_seats).toBe(0);
   });
@@ -272,10 +304,14 @@ describe('fetchClassFromASU', () => {
       new Response(JSON.stringify(buildAsuSuccessResponse()), { status: 200 })
     );
 
-    const result = await fetchClassFromASU('42737', '2264', {
-      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-      ASU_API_TOKEN: 'null',
-    });
+    const result = await fetchClassFromASU(
+      { class_nbr: '42737', term: '2264' },
+      {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'null',
+      }
+    );
 
     expect(result.non_reserved_seats).toBe(21);
   });
@@ -351,10 +387,14 @@ describe('fetchClassFromASU', () => {
       new Response(JSON.stringify(responseWithMultipleHits), { status: 200 })
     );
 
-    const result = await fetchClassFromASU('42737', '2264', {
-      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-      ASU_API_TOKEN: 'test-token',
-    });
+    const result = await fetchClassFromASU(
+      { class_nbr: '42737', term: '2264' },
+      {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      }
+    );
 
     // Should return the class with CLASSNBR='42737', not the first hit (CLASSNBR='99999')
     expect(result.subject).toBe('ABS');
@@ -416,11 +456,14 @@ describe('fetchClassFromASU', () => {
     );
 
     await expect(
-      fetchClassFromASU('99999', '2264', {
-        ASU_API_BASE_URL:
-          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-        ASU_API_TOKEN: 'test-token',
-      })
+      fetchClassFromASU(
+        { class_nbr: '99999', term: '2264' },
+        {
+          ASU_API_BASE_URL:
+            'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+          ASU_API_TOKEN: 'test-token',
+        }
+      )
     ).rejects.toSatisfy((error: unknown) => {
       return error instanceof Error && error.message.includes('Section 99999 not found');
     });
@@ -461,10 +504,14 @@ describe('fetchClassFromASU', () => {
       new Response(JSON.stringify(responseWithEmptyStrings), { status: 200 })
     );
 
-    const result = await fetchClassFromASU('12345', '2264', {
-      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-      ASU_API_TOKEN: 'test-token',
-    });
+    const result = await fetchClassFromASU(
+      { class_nbr: '12345', term: '2264' },
+      {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      }
+    );
 
     // All seat counts should be valid numbers, not NaN
     expect(result.seats_capacity).toBe(0);
@@ -504,10 +551,14 @@ describe('fetchClassFromASU', () => {
       )
     );
 
-    const result = await fetchClassFromASU('55555', '2264', {
-      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-      ASU_API_TOKEN: 'test-token',
-    });
+    const result = await fetchClassFromASU(
+      { class_nbr: '55555', term: '2264' },
+      {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      }
+    );
 
     expect(result).toMatchObject({
       title: 'First-Year Composition',
@@ -541,10 +592,14 @@ describe('fetchClassFromASU', () => {
       )
     );
 
-    const result = await fetchClassFromASU('66666', '2264', {
-      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
-      ASU_API_TOKEN: 'test-token',
-    });
+    const result = await fetchClassFromASU(
+      { class_nbr: '66666', term: '2264' },
+      {
+        ASU_API_BASE_URL:
+          'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+        ASU_API_TOKEN: 'test-token',
+      }
+    );
 
     expect(result.title).toBe('Unknown');
     expect(result.meeting_times).toBe('TBD');

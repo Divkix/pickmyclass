@@ -41,6 +41,8 @@ export class NotFoundError extends ApiError {
   }
 }
 
+import type { SectionRef } from '@/lib/section-ref';
+import { sectionRefKey } from '@/lib/section-ref';
 import type { ClassDetails } from '@/lib/types/class';
 import type { Env } from '@/lib/types/env';
 
@@ -154,16 +156,14 @@ function normalizeAuthHeader(token: string): string {
 
 // --- Main Function ---
 
-export async function fetchClassFromASU(
-  classNbr: string,
-  term: string,
-  env: AsuApiEnv
-): Promise<ClassDetails> {
+export async function fetchClassFromASU(ref: SectionRef, env: AsuApiEnv): Promise<ClassDetails> {
   if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN) {
     throw new ApiError('ASU API environment variables not configured');
   }
 
-  const cacheKey = `${classNbr}:${term}`;
+  const { class_nbr: classNbr, term } = ref;
+
+  const cacheKey = sectionRefKey(ref);
   const cached = asuApiCache.get(cacheKey);
   if (cached) return cached;
 
