@@ -6,8 +6,8 @@
  */
 
 import { ALERTS_FROM_EMAIL, NOTIFICATION_FROM_EMAIL } from '@/lib/config';
+import { getClassWatchers } from '@/lib/db/queries';
 import { log } from '@/lib/log';
-import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassCheckMessage } from '@/lib/types/queue';
 
 interface HandleDLQMessageOptions {
@@ -37,19 +37,13 @@ export async function handleDLQMessage(
     `Section ${class_nbr} (term ${term}) permanently failed. Enqueued at: ${enqueued_at}. Processed at: ${timestamp}`
   );
 
-  // 2. Look up affected watchers
+  // 2. Look up affected watchers for this exact SectionRef (class_nbr + term).
+  // getClassWatchers throws on RPC error; the try/catch keeps the never-throw
+  // contract by falling back to a count of 0.
   let watcherCount = 0;
   try {
-    const supabase = getServiceClient();
-    const { data, error } = await supabase.rpc('get_class_watchers', {
-      section_number: class_nbr,
-    });
-
-    if (error) {
-      log('DLQ').error(`Failed to fetch watchers for section ${class_nbr}: ${error.message}`);
-    } else {
-      watcherCount = data?.length ?? 0;
-    }
+    const watchers = await getClassWatchers({ class_nbr, term });
+    watcherCount = watchers.length;
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     log('DLQ').error(`Failed to fetch watchers for section ${class_nbr}: ${errMsg}`);

@@ -284,7 +284,7 @@ export type Database = {
       }
       expire_stale_notifications: { Args: never; Returns: number }
       get_class_watchers: {
-        Args: { section_number: string }
+        Args: { p_class_nbr: string; p_term: string }
         Returns: {
           created_at: string
           email: string

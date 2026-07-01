@@ -353,6 +353,8 @@ describe('admin pages', () => {
     expect(screen.getByText('Class Information')).toBeInTheDocument();
     expect(screen.getByText('student@example.com')).toBeInTheDocument();
     expect(screen.getByText('12345')).toBeInTheDocument();
+    // Watchers are scoped to the full SectionRef (class_nbr + term), not class_nbr alone.
+    expect(mockGetClassWatchers).toHaveBeenCalledWith({ class_nbr: '12345', term: '2261' });
   });
 
   it('loads the requested term when a class number exists in two terms', async () => {
