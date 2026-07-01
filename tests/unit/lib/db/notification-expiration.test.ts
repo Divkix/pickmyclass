@@ -139,7 +139,7 @@ describe('Notification Expiration (Issue #157)', () => {
         })),
       });
 
-      await resetNotificationsForSection('12345', '2261', 'seat_available');
+      await resetNotificationsForSection({ class_nbr: '12345', term: '2261' }, 'seat_available');
 
       expect(mockFrom).toHaveBeenCalledWith('class_watches');
     });
@@ -162,9 +162,9 @@ describe('Notification Expiration (Issue #157)', () => {
         select: vi.fn(() => mockQuery),
       });
 
-      await expect(resetNotificationsForSection('12345', '2261')).rejects.toThrow(
-        'Failed to fetch watches: Connection error'
-      );
+      await expect(
+        resetNotificationsForSection({ class_nbr: '12345', term: '2261' })
+      ).rejects.toThrow('Failed to fetch watches: Connection error');
     });
 
     it('should do nothing when no watches found', async () => {
@@ -185,7 +185,7 @@ describe('Notification Expiration (Issue #157)', () => {
         select: vi.fn(() => mockQuery),
       });
 
-      await resetNotificationsForSection('12345', '2261', 'seat_available');
+      await resetNotificationsForSection({ class_nbr: '12345', term: '2261' }, 'seat_available');
 
       // Should not call delete when no watches found
       expect(mockFrom).toHaveBeenCalledTimes(1);
@@ -214,7 +214,10 @@ describe('Notification Expiration (Issue #157)', () => {
         })),
       });
 
-      await resetNotificationsForSection('12345', '2261', 'instructor_assigned');
+      await resetNotificationsForSection(
+        { class_nbr: '12345', term: '2261' },
+        'instructor_assigned'
+      );
 
       expect(mockFrom).toHaveBeenCalledWith('class_watches');
     });
@@ -242,7 +245,7 @@ describe('Notification Expiration (Issue #157)', () => {
         })),
       });
 
-      await resetNotificationsForSection('12345', '2261');
+      await resetNotificationsForSection({ class_nbr: '12345', term: '2261' });
 
       // Should default to seat_available
       expect(mockFrom).toHaveBeenCalledWith('class_watches');
@@ -271,7 +274,7 @@ describe('Notification Expiration (Issue #157)', () => {
         })),
       });
 
-      await resetNotificationsForSection('12345', '2261');
+      await resetNotificationsForSection({ class_nbr: '12345', term: '2261' });
 
       expect(mockQuery.eq).toHaveBeenCalledWith('class_nbr', '12345');
       expect(mockQuery.eq).toHaveBeenCalledWith('term', '2261');

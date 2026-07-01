@@ -6,6 +6,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { log } from '@/lib/log';
+import { applySectionRef, type SectionRef } from '@/lib/section-ref';
 import type { Database } from '@/lib/supabase/database.types';
 import type { ClassDetails } from '@/lib/types/class';
 import { getServiceClient } from '@/lib/supabase/service';
@@ -52,7 +53,7 @@ export async function getClassWatchers(classNbr: string): Promise<ClassWatcher[]
  */
 export async function getSectionsToCheck(
   staggerType: 'even' | 'odd' | 'all' = 'all'
-): Promise<Array<{ class_nbr: string; term: string }>> {
+): Promise<SectionRef[]> {
   const supabase = getServiceClient();
 
   const { data, error } = await supabase.rpc('get_sections_to_check', {
@@ -74,22 +75,19 @@ export async function getSectionsToCheck(
  * Called when seats fill back to zero, allowing users to be re-notified
  * when seats open again.
  *
- * @param classNbr - Section number (e.g., "12431")
- * @param term - Term code (e.g., "2261")
+ * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @param notificationType - Type of notification to reset (default: 'seat_available')
  */
 export async function resetNotificationsForSection(
-  classNbr: string,
-  term: string,
+  ref: SectionRef,
   notificationType: 'seat_available' | 'instructor_assigned' = 'seat_available'
 ): Promise<void> {
   const supabase = getServiceClient();
 
-  const { data: watches, error: watchError } = await supabase
-    .from('class_watches')
-    .select('id')
-    .eq('class_nbr', classNbr)
-    .eq('term', term);
+  const { data: watches, error: watchError } = await applySectionRef(
+    supabase.from('class_watches').select('id'),
+    ref
+  );
 
   if (watchError) {
     log('DB').error(`Error fetching watches for reset:`, watchError);
@@ -97,7 +95,7 @@ export async function resetNotificationsForSection(
   }
 
   if (!watches || watches.length === 0) {
-    log('DB').info(`No watches found for section ${classNbr}, nothing to reset`);
+    log('DB').info(`No watches found for section ${ref.class_nbr}, nothing to reset`);
     return;
   }
 
@@ -115,7 +113,7 @@ export async function resetNotificationsForSection(
   }
 
   log('DB').info(
-    `Reset ${notificationType} notifications for ${watchIds.length} watchers of section ${classNbr}`
+    `Reset ${notificationType} notifications for ${watchIds.length} watchers of section ${ref.class_nbr}`
   );
 }
 
@@ -212,16 +210,15 @@ export async function tryRecordNotificationsBatch(
  * Used by both class-watches POST and fetch-class-details POST.
  *
  * @param serviceClient - Supabase service-role client
- * @param term - Term code (e.g. "2261")
- * @param class_nbr - Section number (e.g. "12431")
+ * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @param details - Class details from the ASU API
  */
 export async function upsertClassState(
   serviceClient: SupabaseClient<Database>,
-  term: string,
-  class_nbr: string,
+  ref: SectionRef,
   details: ClassDetails
 ): Promise<void> {
+  const { class_nbr, term } = ref;
   const { error } = await serviceClient.from('class_states').upsert(
     {
       term,

@@ -368,8 +368,7 @@ describe('POST /api/queue/process-section', () => {
       expect(data.success).toBe(true);
       expect(data.changes_detected.seats_filled).toBe(true);
       expect(mockResetNotificationsForSection).toHaveBeenCalledWith(
-        '12345',
-        '2261',
+        { class_nbr: '12345', term: '2261' },
         'seat_available'
       );
     });

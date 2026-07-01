@@ -484,7 +484,7 @@ export default {
       batch.messages.map(async (message) => {
         const msgStartTime = Date.now();
         try {
-          const result = await processSection(message.body.class_nbr, message.body.term, env);
+          const result = await processSection(message.body, env);
           const duration = Date.now() - msgStartTime;
 
           if (result.success) {

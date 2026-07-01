@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     // Delegate to section processor orchestrator
     try {
-      const result = await processSection(class_nbr, term, env);
+      const result = await processSection({ class_nbr, term }, env);
 
       if (!result.success) {
         return NextResponse.json(

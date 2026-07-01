@@ -44,14 +44,14 @@ export async function POST(request: NextRequest) {
     let classDetails: ClassDetails;
 
     try {
-      classDetails = await fetchClassFromASU(class_nbr, term, asuEnv);
+      classDetails = await fetchClassFromASU({ class_nbr, term }, asuEnv);
     } catch (error) {
       return mapAsuErrorToResponse(error);
     }
 
     // Persist fetched data to class_states table for immediate dashboard display
     try {
-      await upsertClassState(getServiceClient(), term, class_nbr, classDetails);
+      await upsertClassState(getServiceClient(), { class_nbr, term }, classDetails);
     } catch (dbError) {
       log('API').error('Failed to persist class state:', dbError);
       // Continue anyway - graceful degradation

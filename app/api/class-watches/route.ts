@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     let classDetails: ClassDetails;
     try {
-      classDetails = await fetchClassFromASU(class_nbr, term, asuEnv);
+      classDetails = await fetchClassFromASU({ class_nbr, term }, asuEnv);
     } catch (error) {
       if (error instanceof NotFoundError) {
         return fail('Class section not found', 404);
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
 
     // Step 3: Persist class state
     try {
-      await upsertClassState(supabaseServiceRole, term, class_nbr, classDetails);
+      await upsertClassState(supabaseServiceRole, { class_nbr, term }, classDetails);
     } catch (dbError) {
       log('API').error('Failed to persist class state:', dbError);
       // Continue anyway - watch was created successfully
