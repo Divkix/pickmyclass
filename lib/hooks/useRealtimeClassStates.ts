@@ -2,6 +2,7 @@
 
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { sectionRefKey } from '@/lib/section-ref';
 import { createClient } from '@/lib/supabase/client';
 import type { ClassStateRow } from '@/lib/types/class-watch';
 
@@ -11,7 +12,9 @@ interface UseRealtimeClassStatesOptions {
 }
 
 interface UseRealtimeClassStatesReturn {
-  classStates: Record<string, ClassStateRow>; // Keyed by class_nbr for easy lookup
+  // Keyed by sectionRefKey ({ class_nbr, term }) so a section watched in two
+  // terms keeps a separate slot instead of one term overwriting the other.
+  classStates: Record<string, ClassStateRow>;
   loading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
@@ -54,10 +57,11 @@ export function useRealtimeClassStates({
 
       if (fetchError) throw fetchError;
 
-      // Convert array to object keyed by class_nbr
+      // Convert array to object keyed by sectionRefKey so states for the same
+      // class_nbr in different terms don't collide.
       const statesMap = (data || []).reduce(
         (acc, state) => {
-          acc[state.class_nbr] = state;
+          acc[sectionRefKey(state)] = state;
           return acc;
         },
         {} as Record<string, ClassStateRow>
@@ -97,13 +101,13 @@ export function useRealtimeClassStates({
               const newState = payload.new as ClassStateRow;
               setClassStates((prev) => ({
                 ...prev,
-                [newState.class_nbr]: newState,
+                [sectionRefKey(newState)]: newState,
               }));
             } else if (payload.eventType === 'DELETE') {
               const oldState = payload.old as ClassStateRow;
               setClassStates((prev) => {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { [oldState.class_nbr]: _deleted, ...rest } = prev;
+                const { [sectionRefKey(oldState)]: _deleted, ...rest } = prev;
                 return rest;
               });
             }

@@ -128,9 +128,9 @@ describe('admin dashboard query helpers', () => {
     ];
 
     const watches = [
-      { id: 'watch-1', user_id: 'user-1', class_nbr: '12345' },
-      { id: 'watch-2', user_id: 'user-2', class_nbr: '12345' },
-      { id: 'watch-3', user_id: 'user-2', class_nbr: '67890' },
+      { id: 'watch-1', user_id: 'user-1', class_nbr: '12345', term: '2261' },
+      { id: 'watch-2', user_id: 'user-2', class_nbr: '12345', term: '2261' },
+      { id: 'watch-3', user_id: 'user-2', class_nbr: '67890', term: '2261' },
     ];
 
     mockServiceClient.from.mockImplementation((table: string) => {
