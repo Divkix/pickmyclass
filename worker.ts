@@ -7,18 +7,13 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import handler from 'vinext/server/app-router-entry';
-import { ApiError, AuthError, NotFoundError, RateLimitError } from './lib/asu/api';
 import { hasSupabaseAuthCookiesInHeader } from './lib/auth/supabase-auth-cookies';
 import { EDGE_HTML_CACHE_TTL_S } from './lib/config';
+import { classifyDisposition } from './lib/queue/disposition';
 import { handleDLQMessage } from './lib/queue/dlq-consumer';
 import { processSection } from './lib/queue/process-section';
 import type { Env } from './lib/types/env';
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';
-/**
- * NOTE: The ack/retry semantics below mirror those in
- * app/api/queue/process-section/route.ts exactly. If the route mapping changes,
- * update this handler to match (or extract the mapping into a shared helper).
- */
 
 /**
  * Durable Object for distributed cron job locking
@@ -479,53 +474,47 @@ export default {
       return;
     }
 
-    // Process all messages in the batch concurrently — direct call, no HTTP indirection
+    // Process all messages in the batch concurrently — direct call, no HTTP indirection.
+    // classifyDisposition owns the ack/retry decision; this handler only translates
+    // the verdict to the queue transport (ack → message.ack(), retry → message.retry()).
     const results = await Promise.allSettled(
       batch.messages.map(async (message) => {
         const msgStartTime = Date.now();
         try {
           const result = await processSection(message.body, env);
           const duration = Date.now() - msgStartTime;
+          const disposition = classifyDisposition(result);
 
-          if (result.success) {
+          if (disposition === 'ack') {
             console.log(`[Queue] Processed ${message.body.class_nbr} in ${duration}ms:`, result);
             message.ack();
             return { success: true, class_nbr: message.body.class_nbr, duration };
-          } else {
-            // DB upsert error — transient, retry
-            console.error(
-              `[Queue] DB failure for ${message.body.class_nbr} in ${duration}ms:`,
-              result.error
-            );
-            message.retry();
-            return { success: false, class_nbr: message.body.class_nbr, duration };
           }
+
+          // DB upsert error — transient, retry
+          console.error(
+            `[Queue] DB failure for ${message.body.class_nbr} in ${duration}ms:`,
+            result.error
+          );
+          message.retry();
+          return { success: false, class_nbr: message.body.class_nbr, duration };
         } catch (error) {
           const duration = Date.now() - msgStartTime;
+          const disposition = classifyDisposition(error);
 
-          if (error instanceof AuthError || error instanceof NotFoundError) {
+          if (disposition === 'ack') {
             // Non-retryable: ASU auth failure or section no longer exists
             console.error(
               `[Queue] Non-retryable error for ${message.body.class_nbr} in ${duration}ms:`,
-              (error as Error).message
+              error
             );
             message.ack();
             return { success: false, class_nbr: message.body.class_nbr, duration, acked: true };
           }
 
-          if (error instanceof RateLimitError || error instanceof ApiError) {
-            // Upstream transient — retry with delay
-            console.error(
-              `[Queue] Retryable API error for ${message.body.class_nbr} in ${duration}ms:`,
-              (error as Error).message
-            );
-            message.retry();
-            return { success: false, class_nbr: message.body.class_nbr, duration };
-          }
-
-          // Unknown error — retry defensively
+          // Retryable: upstream transient (rate limit / API error) or unknown — retry
           console.error(
-            `[Queue] Unknown error for ${message.body.class_nbr} in ${duration}ms:`,
+            `[Queue] Retryable error for ${message.body.class_nbr} in ${duration}ms:`,
             error
           );
           message.retry();

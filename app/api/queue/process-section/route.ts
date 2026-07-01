@@ -14,9 +14,10 @@ import { env } from 'cloudflare:workers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { classCheckMessageSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
-import { ApiError, AuthError, NotFoundError, RateLimitError } from '@/lib/asu/api';
+import { ApiError, RateLimitError } from '@/lib/asu/api';
 import { verifyCronSecret } from '@/lib/auth/require-user';
 import { log } from '@/lib/log';
+import { classifyDisposition } from '@/lib/queue/disposition';
 import { processSection } from '@/lib/queue/process-section';
 import type { Env } from '@/lib/types/env';
 
@@ -83,31 +84,36 @@ export async function POST(request: NextRequest) {
 
     log('Queue-Processor').info(`Processing section ${class_nbr} (term: ${term})`);
 
-    // Delegate to section processor orchestrator
+    // Delegate to section processor orchestrator.
+    // classifyDisposition owns the ack/retry decision; this route only translates
+    // the verdict to its transport: ack → 200, retry → non-200. The 429-vs-502
+    // split within a retry is a route-local logging label, not a separate verdict.
     try {
       const result = await processSection({ class_nbr, term }, env);
 
-      if (!result.success) {
-        return NextResponse.json(
-          { success: false, error: result.error, class_nbr: result.classNbr },
-          { status: 500 }
-        );
+      if (classifyDisposition(result) === 'ack') {
+        return NextResponse.json({
+          success: true,
+          class_nbr: result.classNbr,
+          changes_detected: {
+            seat_became_available: result.changes.seatBecameAvailable,
+            instructor_assigned: result.changes.instructorAssigned,
+            seats_filled: result.changes.seatsFilled,
+          },
+          emails_sent: result.emailsSent,
+          processing_time_ms: result.processingTimeMs,
+        });
       }
 
-      return NextResponse.json({
-        success: true,
-        class_nbr: result.classNbr,
-        changes_detected: {
-          seat_became_available: result.changes.seatBecameAvailable,
-          instructor_assigned: result.changes.instructorAssigned,
-          seats_filled: result.changes.seatsFilled,
-        },
-        emails_sent: result.emailsSent,
-        processing_time_ms: result.processingTimeMs,
-      });
+      // retry: DB upsert error — 500 so the queue consumer retries
+      return NextResponse.json(
+        { success: false, error: result.error, class_nbr: result.classNbr },
+        { status: 500 }
+      );
     } catch (processingError) {
-      // Non-retryable errors: return 200 so the queue consumer acks the message
-      if (processingError instanceof AuthError || processingError instanceof NotFoundError) {
+      // Non-retryable errors (AuthError / NotFoundError): return 200 so the queue
+      // consumer acks the message.
+      if (classifyDisposition(processingError) === 'ack') {
         log('Queue-Processor').error(
           `Non-retryable error for section ${class_nbr}:`,
           (processingError as Error).message
@@ -122,6 +128,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // retry: pick the route-local status label by error type.
       // Rate limit: return 429 so the queue consumer retries with delay
       if (processingError instanceof RateLimitError) {
         log('Queue-Processor').warn(`Rate limited for section ${class_nbr}, retrying with delay`);
@@ -151,7 +158,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Unknown errors: re-throw for the outer catch
+      // Unknown errors: re-throw for the outer catch (500 — also a retry)
       throw processingError;
     }
   } catch (error) {
