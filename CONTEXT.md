@@ -25,7 +25,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Section Check** — One complete cycle of: fetch current state from DB → fetch latest data from ASU API → detect changes → send notifications → persist state. Each section check processes a single `class_nbr`.
 
-- **Change Detection** — The algorithm that compares old and new section data to determine if seats became available, seats filled, or an instructor was assigned. Uses non-reserved seats (not total available) as the primary seat count signal.
+- **Change Detection** — The algorithm that compares old and new section data to determine if seats became available, seats filled, or an instructor was assigned. The seat signal is `non_reserved_seats ?? seats_available`; since ASU exposes no waitlist data, `non_reserved_seats` is NULL in production and `seats_available` is the value actually used (see `docs/adr/0005-non-reserved-seats-dormant-column.md`).
 
 - **Cron Cycle** — The every-30-minute scheduled job (`/api/cron`) that enqueues Section Checks. Partitioned by Stagger Group.
 
@@ -94,5 +94,5 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 ## Infrastructure
 
-- **Queue Consumer** — Cloudflare Queue consumer (`max_concurrency: 20`, `max_batch_size: 5`). Processes sections via `worker.ts` → internal HTTP → `app/api/queue/process-section/route.ts`.
+- **Queue Consumer** — Cloudflare Queue consumer (`max_concurrency: 20`, `max_batch_size: 5`). `worker.ts queue()` calls `processSection()` directly (no HTTP); `app/api/queue/process-section/route.ts` is an HTTP mirror for tests/HTTP dispatch (see `docs/adr/0006-queue-ack-retry-contract.md`).
 - **Dead Letter Queue (DLQ)** — Queue for failed messages that exceeded max retries.

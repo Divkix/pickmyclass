@@ -149,7 +149,7 @@ password_requirements = ""
 # Production uses a custom Cloudflare Email send hook (no SMTP per-send cost), so this
 # limit can be raised safely. This value only governs the local CLI stack; the
 # production limit lives in the Supabase Dashboard (Auth -> Rate Limits). See
-# docs/auth-email-rate-limit.md.
+# docs/adr/0002-auth-email-rate-limit.md.
 email_sent = 30
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30

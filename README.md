@@ -68,7 +68,7 @@ Cloudflare Queue (pickmyclass-queue)
 Queue Consumers (20 concurrent Workers)
       |
       v
-worker.ts -> internal HTTP -> app/api/queue/process-section/route.ts
+worker.ts queue() -> processSection() (direct call, no HTTP)
       |
       v
 ASU Class Search API (direct HTTP calls)
@@ -83,7 +83,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 |-----------|---------|
 | `worker.ts` | Custom Cloudflare Worker with cron, queue handlers, and Durable Objects |
 | `app/api/cron/route.ts` | Cron job entry point - enqueues sections to queue |
-| `app/api/queue/process-section/route.ts` | Queue consumer - processes single section |
+| `app/api/queue/process-section/route.ts` | HTTP mirror of the queue consumer (tests/HTTP dispatch; not the production path) |
 | `lib/db/queries.ts` | Database query helpers with atomic deduplication |
 | `lib/asu/api.ts` | ASU Class Search API client (direct HTTP) |
 | `lib/queue/process-section.ts` | Section processing orchestrator |
@@ -111,7 +111,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `app/api/cron/update-disposable-domains/route.ts` | GET | Daily sync of disposable email domain blocklist |
 | `app/api/fetch-class-details/route.ts` | POST | Fetch class details from ASU API and persist state |
 | `app/api/monitoring/health/route.ts` | GET | System health check (DB, ASU API, Cron Lock, email, config) |
-| `app/api/queue/process-section/route.ts` | POST | Queue consumer adapter - processes single section via internal HTTP from worker.ts |
+| `app/api/queue/process-section/route.ts` | POST | HTTP mirror of the queue consumer (tests/HTTP dispatch); production path is `worker.ts queue()` calling `processSection()` directly |
 | `app/api/unsubscribe/route.ts` | GET, POST | CAN-SPAM/RFC 8058 compliant email unsubscribe |
 | `app/api/user/delete/route.ts` | DELETE | Soft-delete account (CCPA compliance, 30-day retention) |
 | `app/api/user/export/route.ts` | GET | Export all user data in JSON (CCPA compliance) |
@@ -304,7 +304,7 @@ app/                         # App Router
   ├── api/                   # API endpoints (14 routes)
   ├── auth/callback/         # OAuth callback
   ├── admin/                 # Admin panel (users, classes, dashboard)
-  ├── blog/                  # Blog pages (6 posts + RSS feed)
+  ├── blog/                  # Blog pages (9 posts + RSS feed)
   ├── dashboard/             # Main dashboard with Realtime updates
   ├── dashboard/add/         # Add class watch page
   ├── faq/                   # FAQ page
@@ -357,7 +357,7 @@ wrangler.jsonc               # Cloudflare Workers config
 2. **Every 30 minutes** - Cloudflare cron triggers enqueue all watched sections
 3. **Queue consumers process** - 20 concurrent Workers query ASU API in parallel
 4. **Change detection** - Compare new state with PostgreSQL cached state
-5. **Atomic deduplication** - PostgreSQL `INSERT...ON CONFLICT` prevents race conditions
+5. **Atomic deduplication** - a partial unique index (`is_active=TRUE`) + `try_record_notifications_batch` claims recipients; a daily `expire_stale_notifications()` sweep frees expired slots
 6. **Email notification** - Cloudflare Email Service sends alerts for available seats
 7. **Real-time update** - Dashboard reflects changes via Supabase Realtime
 
