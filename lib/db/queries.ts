@@ -22,22 +22,30 @@ export interface ClassWatcher {
 }
 
 /**
- * Get all users watching a specific class section
+ * Get all users watching a specific Class Section.
  *
- * @param classNbr - Section number (e.g., "12431")
+ * Scoped by the full SectionRef ({ class_nbr, term }) — a section number repeats
+ * across terms, so filtering by class_nbr alone over-lists watchers from other
+ * terms.
+ *
+ * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @returns Array of watchers with email addresses and creation timestamps
  */
-export async function getClassWatchers(classNbr: string): Promise<ClassWatcher[]> {
+export async function getClassWatchers(ref: SectionRef): Promise<ClassWatcher[]> {
   const supabase = getServiceClient();
 
   // Call PostgreSQL function that joins class_watches with auth.users
   // SECURITY DEFINER allows accessing auth.users from service role context
   const { data, error } = await supabase.rpc('get_class_watchers', {
-    section_number: classNbr,
+    p_class_nbr: ref.class_nbr,
+    p_term: ref.term,
   });
 
   if (error) {
-    log('DB').error(`Error fetching watchers for section ${classNbr}:`, error);
+    log('DB').error(
+      `Error fetching watchers for section ${ref.class_nbr} (term ${ref.term}):`,
+      error
+    );
     throw new Error(`Failed to fetch watchers: ${error.message}`);
   }
 

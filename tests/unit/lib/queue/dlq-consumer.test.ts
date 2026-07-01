@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 // Mock dependencies before importing the module under test
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: vi.fn(),
+vi.mock('@/lib/db/queries', () => ({
+  getClassWatchers: vi.fn(),
 }));
 
 const mockSend = vi.fn();
@@ -10,8 +10,8 @@ const mockEmailBinding: SendEmail = {
   send: mockSend,
 } as unknown as SendEmail;
 
+import { getClassWatchers } from '@/lib/db/queries';
 import { handleDLQMessage } from '@/lib/queue/dlq-consumer';
-import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassCheckMessage } from '@/lib/types/queue';
 
 function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMessage {
@@ -24,10 +24,14 @@ function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMes
   };
 }
 
-function mockSupabaseRpc(data: unknown[] | null, error: { message: string } | null = null) {
-  const rpcMock = vi.fn().mockResolvedValue({ data, error });
-  (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue({ rpc: rpcMock });
-  return rpcMock;
+const mockGetClassWatchers = getClassWatchers as ReturnType<typeof vi.fn>;
+
+function mockWatchers(watchers: unknown[]) {
+  mockGetClassWatchers.mockResolvedValue(watchers);
+}
+
+function mockWatchersError(message: string) {
+  mockGetClassWatchers.mockRejectedValue(new Error(message));
 }
 
 describe('handleDLQMessage', () => {
@@ -42,11 +46,12 @@ describe('handleDLQMessage', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     mockSend.mockReset();
+    mockGetClassWatchers.mockReset();
   });
 
   it('logs structured error with correct fields', async () => {
     const msg = buildMessage();
-    mockSupabaseRpc([]);
+    mockWatchers([]);
 
     await handleDLQMessage(msg, mockEmailBinding);
 
@@ -58,18 +63,19 @@ describe('handleDLQMessage', () => {
     );
   });
 
-  it('calls Supabase to look up watchers', async () => {
-    const rpcMock = mockSupabaseRpc([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
+  it('looks up watchers scoped to the failed SectionRef (class_nbr + term)', async () => {
+    mockWatchers([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
 
     await handleDLQMessage(buildMessage(), mockEmailBinding);
 
-    expect(rpcMock).toHaveBeenCalledWith('get_class_watchers', {
-      section_number: '42737',
+    expect(mockGetClassWatchers).toHaveBeenCalledWith({
+      class_nbr: '42737',
+      term: '2261',
     });
   });
 
   it('sends alert email via Cloudflare Email Service when watchers exist', async () => {
-    mockSupabaseRpc([
+    mockWatchers([
       { user_id: 'u1', email: 'a@test.com', watch_id: 'w1' },
       { user_id: 'u2', email: 'b@test.com', watch_id: 'w2' },
     ]);
@@ -86,7 +92,7 @@ describe('handleDLQMessage', () => {
   });
 
   it('uses configured sender for alert emails', async () => {
-    mockSupabaseRpc([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
+    mockWatchers([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
 
     await handleDLQMessage(buildMessage(), mockEmailBinding, {
       fromEmail: 'alerts@pickmyclass.app',
@@ -100,7 +106,7 @@ describe('handleDLQMessage', () => {
   });
 
   it('handles case where no watchers found', async () => {
-    mockSupabaseRpc([]);
+    mockWatchers([]);
 
     await handleDLQMessage(buildMessage(), mockEmailBinding);
 
@@ -108,8 +114,8 @@ describe('handleDLQMessage', () => {
     expect(console.info).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('0 watchers'));
   });
 
-  it('handles Supabase errors gracefully without throwing', async () => {
-    mockSupabaseRpc(null, { message: 'Connection refused' });
+  it('handles watcher lookup errors gracefully without throwing', async () => {
+    mockWatchersError('Connection refused');
 
     await expect(handleDLQMessage(buildMessage(), mockEmailBinding)).resolves.not.toThrow();
 
@@ -120,7 +126,7 @@ describe('handleDLQMessage', () => {
   });
 
   it('handles Cloudflare Email errors gracefully without throwing', async () => {
-    mockSupabaseRpc([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
+    mockWatchers([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
     mockSend.mockRejectedValue(new Error('API key invalid'));
 
     await expect(handleDLQMessage(buildMessage(), mockEmailBinding)).resolves.not.toThrow();

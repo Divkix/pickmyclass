@@ -61,8 +61,8 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
     notFound();
   }
 
-  // Fetch watchers for this class
-  const watchers = await getClassWatchers(classNbr);
+  // Fetch watchers for this exact section (SectionRef: class_nbr + term).
+  const watchers = await getClassWatchers({ class_nbr: classNbr, term });
 
   /**
    * Format timestamp to readable date/time string
