@@ -10,6 +10,7 @@ import {
   incrementFailedAttempts,
   MAX_FAILED_ATTEMPTS,
 } from '@/lib/auth/lockout';
+import { readAuthorizationState } from '@/lib/auth/authorization-state';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
@@ -43,15 +44,12 @@ export async function POST(request: NextRequest) {
       password,
     });
 
-    // Check if user account is disabled before proceeding
+    // Check if user account is disabled before proceeding. FRESH read (never
+    // cached) so a just-disabled account cannot log back in.
     if (data?.user) {
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('is_disabled')
-        .eq('user_id', data.user.id)
-        .single();
+      const authState = await readAuthorizationState(supabase, data.user.id, { cache: false });
 
-      if (profile?.is_disabled) {
+      if (authState?.is_disabled) {
         await supabase.auth.signOut();
         return fail('Account has been disabled', 403);
       }

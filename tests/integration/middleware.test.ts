@@ -27,7 +27,11 @@ const setupMockChain = () => {
 };
 
 // Import proxy after mocks are set up
-import proxy, { clearProfileCache, invalidateProfileCache } from '@/proxy';
+import {
+  clearAuthorizationStateCache,
+  invalidateAuthorizationState,
+} from '@/lib/auth/authorization-state';
+import proxy from '@/proxy';
 
 // Helper to create NextRequest (unauthenticated)
 const createRequest = (pathname: string): NextRequest => {
@@ -79,7 +83,7 @@ const mockDisabledProfile = {
 describe('proxy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    clearProfileCache();
+    clearAuthorizationStateCache();
     setupMockChain();
   });
 
@@ -684,7 +688,7 @@ describe('proxy', () => {
       expect(response1.headers.get('location')).toBe('http://localhost:3000/admin');
 
       // Invalidate cache (simulating admin demotion)
-      invalidateProfileCache(mockAuthenticatedUser.id);
+      invalidateAuthorizationState(mockAuthenticatedUser.id);
 
       // Second request - should fetch fresh profile (regular user)
       const request2 = createRequest('/dashboard');
@@ -712,7 +716,7 @@ describe('proxy', () => {
       expect(response1.status).toBe(200);
 
       // Invalidate cache (simulating account disable)
-      invalidateProfileCache(mockAuthenticatedUser.id);
+      invalidateAuthorizationState(mockAuthenticatedUser.id);
 
       // Second request - should detect disabled account
       const request2 = createRequest('/dashboard');
@@ -721,7 +725,7 @@ describe('proxy', () => {
       expect(mockSignOut).toHaveBeenCalled();
     });
 
-    it('invalidateProfileCache returns true when key existed', async () => {
+    it('invalidateAuthorizationState returns true when key existed', async () => {
       mockGetUser.mockResolvedValue({
         data: { user: mockAuthenticatedUser },
         error: null,
@@ -733,13 +737,13 @@ describe('proxy', () => {
       await proxy(request);
 
       // Invalidate should return true since key existed
-      const result = invalidateProfileCache(mockAuthenticatedUser.id);
+      const result = invalidateAuthorizationState(mockAuthenticatedUser.id);
       expect(result).toBe(true);
     });
 
-    it('invalidateProfileCache returns false when key did not exist', () => {
+    it('invalidateAuthorizationState returns false when key did not exist', () => {
       // Try to invalidate cache for user that was never cached
-      const result = invalidateProfileCache('non-cached-user-id');
+      const result = invalidateAuthorizationState('non-cached-user-id');
       expect(result).toBe(false);
     });
   });
