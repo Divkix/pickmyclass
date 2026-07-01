@@ -23,6 +23,22 @@ this file, so edit `CLAUDE.md`.
 
 ---
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked as **GitHub Issues** on `Divkix/pickmyclass` via the `gh` CLI. External PRs are **not** a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+---
+
 ## What this is
 
 **PickMyClass** notifies ASU students by email when a seat opens (or an instructor is assigned) in a class section they watch. It's a **Next.js 16 App Router** app (React 19, TypeScript strict) deployed on **Cloudflare Workers via the `vinext` adapter** (Vite-based Next.js — *not* `@cloudflare/next-on-pages` or OpenNext), backed by **Supabase** (Postgres + Auth + Realtime, accessed over HTTP — no Hyperdrive), with **Cloudflare Email Service** for all transactional email and **Cloudflare Queues + a Durable Object** for the seat-checking pipeline. Tooling is **Vite+ (`vp`)** and the package manager is **`bun`**.
