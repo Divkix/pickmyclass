@@ -10,7 +10,7 @@ Be respectful, inclusive, and constructive. We welcome contributors of all exper
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) >= 1.0
+- [pnpm](https://pnpm.io/) >= 9.0
 - [Node.js](https://nodejs.org/) >= 20 (for some tooling)
 - Git
 
@@ -24,7 +24,7 @@ Be respectful, inclusive, and constructive. We welcome contributors of all exper
 
 2. **Install dependencies**
    ```bash
-   bun install
+   pnpm install
    ```
 
 3. **Set up environment variables**
@@ -35,7 +35,7 @@ Be respectful, inclusive, and constructive. We welcome contributors of all exper
 
 4. **Start the development server**
    ```bash
-   bun run dev
+   pnpm run dev
    ```
 
 ## Development Workflow
@@ -82,16 +82,16 @@ We use [Vite+](https://viteplus.dev/) (Oxlint + Oxfmt) for linting and formattin
 
 ```bash
 # Check and auto-fix everything (format + lint + typecheck)
-bun run check:fix
+pnpm run check:fix
 
 # Check only (no fixes)
-bun run check
+pnpm run check
 
 # Lint only
-bun run lint:fix
+pnpm run lint:fix
 
 # Format only
-bun run format
+pnpm run format
 ```
 
 **Key Style Guidelines:**
@@ -104,13 +104,13 @@ bun run format
 
 When modifying dependencies in `package.json`:
 
-1. **Always run `bun install`** to update `bun.lock`
-2. **Commit both files together** - `package.json` and `bun.lock` must be in the same commit
+1. **Always run `pnpm install`** to update `pnpm-lock.yaml`
+2. **Commit both files together** - `package.json` and `pnpm-lock.yaml` must be in the same commit
 3. **Verify locally** before pushing:
    ```bash
-   bun install --frozen-lockfile
+   pnpm install --frozen-lockfile
    ```
-   If this fails, your lockfile is out of sync. Run `bun install` again and commit the updated `bun.lock`.
+   If this fails, your lockfile is out of sync. Run `pnpm install` again and commit the updated `pnpm-lock.yaml`.
 
 ### Testing Changes
 
@@ -118,34 +118,34 @@ Before submitting a PR:
 
 1. **Run the linter**
    ```bash
-   bun run lint
+   pnpm run lint
    ```
 
 2. **Check for unused exports**
    ```bash
-   bun run knip
+   pnpm run knip
    ```
 
 3. **Build the project**
    ```bash
-   bun run build
+   pnpm run build
    ```
 
 4. **Test with Cloudflare Workers locally**
    ```bash
-   bun run preview
+   pnpm run preview
    ```
 
 5. **Run tests**
    ```bash
-   bun run test:run
+   pnpm run test:run
    ```
 
 **Test Guidelines:**
 - All tests are in the `tests/` directory (not colocated with source files)
 - Test files: `*.test.ts`, `*.test.tsx`, `*.spec.ts`, or `*.spec.tsx`
 - Use `tests/mocks/` for Cloudflare Workers environment mocks
-- Run single test file: `bunx vitest run tests/unit/lib/utils.test.ts`
+- Run single test file: `pnpm exec vitest run tests/unit/lib/utils.test.ts`
 
 ## Pull Request Process
 
@@ -187,19 +187,19 @@ How did you test these changes?
 
 1. Create migrations using Supabase CLI:
    ```bash
-   bunx supabase migration new <migration-name>
+   pnpm exec supabase migration new <migration-name>
    ```
 
 2. Test migrations locally before pushing:
    ```bash
-   bunx supabase db reset
+   pnpm exec supabase db reset
    ```
 
 3. Use Row Level Security (RLS) for all new tables
 
 4. Generate types after schema changes:
    ```bash
-   bunx supabase gen types typescript --linked > lib/supabase/database.types.ts
+   pnpm exec supabase gen types typescript --linked > lib/supabase/database.types.ts
    ```
 
 ### API Validation
@@ -267,7 +267,7 @@ How did you test these changes?
 - **Queue consumers**: `max_concurrency: 20`, `max_batch_size: 5` for queue processing
 - **CronLockDO**: Durable Object that prevents duplicate cron executions across Worker isolates
 - **update-disposable-domains cron**: Runs daily at 4 AM UTC to refresh the disposable email domain list
-- **Test with preview**: Always test with `bun run preview` before deploying
+- **Test with preview**: Always test with `pnpm run preview` before deploying
 
 ### Email Templates
 

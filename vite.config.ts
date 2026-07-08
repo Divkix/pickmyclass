@@ -19,7 +19,7 @@ export default defineConfig({
       'next-env.d.ts',
       'supabase/migrations/*.sql',
       '**/*.lock',
-      '**/bun.lock',
+      '**/pnpm-lock.yaml',
     ],
   },
   lint: {
@@ -46,7 +46,7 @@ export default defineConfig({
   },
   staged: {
     '*.{js,jsx,ts,tsx,json,css,md}': ['vp check --fix'],
-    'package.json': ["bash -c 'bun install'", 'git add bun.lock'],
+    'package.json': ["bash -c 'pnpm install'", 'git add pnpm-lock.yaml'],
   },
   plugins: [
     vinext(),

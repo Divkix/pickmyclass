@@ -41,7 +41,7 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agent
 
 ## What this is
 
-**PickMyClass** notifies ASU students by email when a seat opens (or an instructor is assigned) in a class section they watch. It's a **Next.js 16 App Router** app (React 19, TypeScript strict) deployed on **Cloudflare Workers via the `vinext` adapter** (Vite-based Next.js — *not* `@cloudflare/next-on-pages` or OpenNext), backed by **Supabase** (Postgres + Auth + Realtime, accessed over HTTP — no Hyperdrive), with **Cloudflare Email Service** for all transactional email and **Cloudflare Queues + a Durable Object** for the seat-checking pipeline. Tooling is **Vite+ (`vp`)** and the package manager is **`bun`**.
+**PickMyClass** notifies ASU students by email when a seat opens (or an instructor is assigned) in a class section they watch. It's a **Next.js 16 App Router** app (React 19, TypeScript strict) deployed on **Cloudflare Workers via the `vinext` adapter** (Vite-based Next.js — *not* `@cloudflare/next-on-pages` or OpenNext), backed by **Supabase** (Postgres + Auth + Realtime, accessed over HTTP — no Hyperdrive), with **Cloudflare Email Service** for all transactional email and **Cloudflare Queues + a Durable Object** for the seat-checking pipeline. Tooling is **Vite+ (`vp`)** and the package manager is **`pnpm@11.10.0`**.
 
 The two systems worth understanding before anything else are the **seat-check notification pipeline** and the **auth/account lifecycle** (both below).
 
@@ -148,7 +148,7 @@ Files: `app/api/auth/*` (5 routes: `register`, `login`, `signout`, `check-lockou
 - Filenames are timestamp-prefixed (`YYYYMMDDHHMMSS_*.sql`), applied in order; **last definition wins**. To change an applied function, add a **new** migration that `CREATE OR REPLACE` / `DROP+CREATE`s it — **never edit an applied migration**.
 - Every sensitive `SECURITY DEFINER` function must `SET search_path = public` and be locked down: `REVOKE EXECUTE FROM PUBLIC/authenticated/anon` then `GRANT EXECUTE TO service_role`. `GRANT` alone is additive and leaves it callable by PUBLIC (the bug fixed in `20260501000000`).
 - `notification_type` is always exactly `'seat_available'` or `'instructor_assigned'` (CHECK + re-validated in every RPC). Adding a type means touching the column, the RPCs, and `lib/queue/*` / `lib/db/queries.ts`.
-- Workflow: `bunx supabase migration new <name>` → write SQL → `bunx supabase db reset` (local) / `bunx supabase db push` (remote) → **regenerate `database.types.ts`** (see Generated Files).
+- Workflow: `pnpm exec supabase migration new <name>` → write SQL → `pnpm exec supabase db reset` (local) / `pnpm exec supabase db push` (remote) → **regenerate `database.types.ts`** (see Generated Files).
 
 ---
 
@@ -192,39 +192,39 @@ public/       # static + AEO assets (llms.txt, llms-full.txt, pricing.md, og-ima
 - **Secrets** (set via `wrangler secret put`, **never** in `wrangler.jsonc`): `SUPABASE_SERVICE_ROLE_KEY`, `ASU_API_BASE_URL`, `ASU_API_TOKEN`, `CRON_SECRET`, `SUPABASE_SEND_EMAIL_HOOK_SECRET`, `UNSUBSCRIBE_SIGNING_SECRET`. These never appear in generated CF types — `env as unknown as Env` casts for them are correct and intentional.
 - **Accessing bindings inside routes:** `import { env } from 'cloudflare:workers'` then cast `env as unknown as Env` (or a narrow inline `Pick`). Bindings are **not** passed as route params.
 - **Runtime config** (`wrangler.jsonc`): `main ./worker.ts`, `compatibility_date 2026-05-07`, `compatibility_flags ["nodejs_compat", "global_fetch_strictly_public"]`, `placement: smart`, `observability` enabled (head sampling 1). DO migration tag `v2` (`new_classes: ["CronLockDO"]`). Queue consumer also sets `max_batch_timeout 10`.
-- **Constraints:** stateless (no global mutable state — coordinate via Durable Objects), 128MB memory, 30s HTTP / 15min cron execution. Cron triggers require `wrangler triggers deploy` (included in `bun run deploy`). Always `bun run preview` before deploying.
+- **Constraints:** stateless (no global mutable state — coordinate via Durable Objects), 128MB memory, 30s HTTP / 15min cron execution. Cron triggers require `wrangler triggers deploy` (included in `pnpm run deploy`). Always `pnpm run preview` before deploying.
 
 ---
 
 ## Build, test & dev commands
 
-This project routes everything through `vinext` (app lifecycle) and `vp` (Vite+: lint/format/test/check) — **do not substitute `next`/`vitest`/`eslint`/`prettier` directly.** Package manager is `bun@1.3.14`.
+This project routes everything through `vinext` (app lifecycle) and `vp` (Vite+: lint/format/test/check) — **do not substitute `next`/`vitest`/`eslint`/`prettier` directly.** Package manager is `pnpm@11.10.0`.
 
 ```bash
-bun run dev              # vinext dev server (localhost:3000)
-bun run build            # vinext production build
-bun run preview          # vinext build + wrangler dev (test the real Worker locally)
-bun run deploy           # vinext build + wrangler deploy + wrangler triggers deploy
+pnpm run dev              # vinext dev server (localhost:3000)
+pnpm run build            # vinext production build
+pnpm run preview          # vinext build + wrangler dev (test the real Worker locally)
+pnpm run deploy           # vinext build + wrangler deploy + wrangler triggers deploy
 
-bun run check            # format + lint + type-check (all-in-one; see scope caveat below)
-bun run check:fix        # auto-fix format/lint, then type-check
-bun run lint / lint:fix  # Oxlint
-bun run format           # Oxfmt
+pnpm run check            # format + lint + type-check (all-in-one; see scope caveat below)
+pnpm run check:fix        # auto-fix format/lint, then type-check
+pnpm run lint / lint:fix  # Oxlint
+pnpm run format           # Oxfmt
 
-bun run test             # vitest (vite-plus) watch
-bun run test:run         # run once (CI mode)
-bun run test:coverage    # run with coverage (80% threshold required)
+pnpm run test             # vitest (vite-plus) watch
+pnpm run test:run         # run once (CI mode)
+pnpm run test:coverage    # run with coverage (80% threshold required)
 
-bun run knip             # find unused exports/dependencies
-bun run type-check       # AUTHORITATIVE full check: tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
-bun run generate:og      # regenerate public/og-image.png (satori + resvg)
+pnpm run knip             # find unused exports/dependencies
+pnpm run type-check       # AUTHORITATIVE full check: tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
+pnpm run generate:og      # regenerate public/og-image.png (satori + resvg)
 ```
 
-> **`bun run check` type-check scope:** `vite.config.ts` excludes `worker.ts` and `scripts/**` from Oxlint's type-aware pass (they need the separate `tsconfig.worker.json` for Cloudflare Workers types). So **`bun run check` does NOT type-check `worker.ts` or `scripts/`.** If you touch those, run `bun run type-check` (runs both tsconfigs) before committing. There are **two tsconfigs**: `tsconfig.json` (app, DOM, excludes `worker.ts`) and `tsconfig.worker.json` (Workers, `types:[node]`, narrow `include` — **new worker-side files must be added to its `include` array or they're silently un-typechecked**).
+> **`pnpm run check` type-check scope:** `vite.config.ts` excludes `worker.ts` and `scripts/**` from Oxlint's type-aware pass (they need the separate `tsconfig.worker.json` for Cloudflare Workers types). So **`pnpm run check` does NOT type-check `worker.ts` or `scripts/`.** If you touch those, run `pnpm run type-check` (runs both tsconfigs) before committing. There are **two tsconfigs**: `tsconfig.json` (app, DOM, excludes `worker.ts`) and `tsconfig.worker.json` (Workers, `types:[node]`, narrow `include` — **new worker-side files must be added to its `include` array or they're silently un-typechecked**).
 
-**Tests** (`vitest.config.ts`, jsdom, 80% v8 threshold on branches/functions/lines/statements + typecheck): split into `tests/unit/` (pure fns, orchestration, `CronLockDO`, DB wrappers) and `tests/integration/` (API route handlers called directly, `proxy`/middleware, `worker.ts` queue/scheduled). The two unresolvable virtual modules — `cloudflare:workers` and `vinext/server/app-router-entry` — are aliased to `tests/mocks/*` in `vitest.config.ts`; individual tests override `cloudflare:workers` via `vi.mock` to inject bindings. **Import test utils from `'vite-plus/test'`, not `'vitest'`.** Re-export the ASU error subclasses in mocks (production branches on `instanceof`). Run one file: `bunx vitest run tests/unit/lib/utils.test.ts`.
+**Tests** (`vitest.config.ts`, jsdom, 80% v8 threshold on branches/functions/lines/statements + typecheck): split into `tests/unit/` (pure fns, orchestration, `CronLockDO`, DB wrappers) and `tests/integration/` (API route handlers called directly, `proxy`/middleware, `worker.ts` queue/scheduled). The two unresolvable virtual modules — `cloudflare:workers` and `vinext/server/app-router-entry` — are aliased to `tests/mocks/*` in `vitest.config.ts`; individual tests override `cloudflare:workers` via `vi.mock` to inject bindings. **Import test utils from `'vite-plus/test'`, not `'vitest'`.** Re-export the ASU error subclasses in mocks (production branches on `instanceof`). Run one file: `pnpm exec vitest run tests/unit/lib/utils.test.ts`.
 
-**Pre-commit** (`core.hooksPath=.husky`): the operative logic lives in **`.vite-hooks/pre-commit`** (managed by `vp config`): runs `vp staged` + `bun run type-check`, **skipped entirely when `$CI` is set** — so CI must (and does) re-run these independently.
+**Pre-commit** (`core.hooksPath=.husky`): the operative logic lives in **`.vite-hooks/pre-commit`** (managed by `vp config`): runs `vp staged` + `pnpm run type-check`, **skipped entirely when `$CI` is set** — so CI must (and does) re-run these independently.
 
 ---
 
@@ -232,13 +232,13 @@ bun run generate:og      # regenerate public/og-image.png (satori + resvg)
 
 Runs on push/PR to `main` (`concurrency` cancels in-progress). Jobs:
 
-1. **`validate-lockfile`** — `bun install --frozen-lockfile`, fails if `bun.lock` drifts from `package.json`. Gates everything else.
-2. **`quality`** — `bun run check` (format + lint + app type-check via Oxlint).
-3. **`test`** — `bun run test:coverage` (80% threshold).
-4. **`check`** — `tsc --noEmit` (app) **and** `tsc -p tsconfig.worker.json --noEmit` (worker) **and** `bunx knip` **and** `bun run build`.
+1. **`validate-lockfile`** — `pnpm install --frozen-lockfile`, fails if `pnpm-lock.yaml` drifts from `package.json`. Gates everything else.
+2. **`quality`** — `pnpm run check` (format + lint + app type-check via Oxlint).
+3. **`test`** — `pnpm run test:coverage` (80% threshold).
+4. **`check`** — `tsc --noEmit` (app) **and** `tsc -p tsconfig.worker.json --noEmit` (worker) **and** `pnpm exec knip` **and** `pnpm run build`.
 5. **`ci-success`** — `needs: [all]`, `if: always()`, fails unless every job succeeded. This is the required status check.
 
-All five jobs (`validate-lockfile`, `quality`, `test`, `check`, `ci-success`) must pass to merge (`ci-success` is the required check; the other three run in parallel after `validate-lockfile`). Dependabot (`bun` + `github-actions`, daily) groups minor/patch into one `all-minor-patch` PR but **ignores `vite-plus`** — it ships as lockstep packages (`vite-plus` + npm-aliased `vite`=`@voidzero-dev/vite-plus-core` + plain `vitest`, whose major must match the `vitest` that `vite-plus` bundles) that must be bumped manually in sync or CI breaks. **A `package.json` `overrides` block additionally pins `vite` to `@voidzero-dev/vite-plus-core@0.2.1` and `vitest` to the exact version `vite-plus` bundles (`4.1.9`)** regardless of the `^` ranges in `devDependencies`, so the resolved version is the override, not the range. After bumping `vite-plus`, **re-pin `vitest` to the version it now bundles** (`vp --version` / `node_modules/vite-plus/docs/guide/upgrade.md`) — a stale pin makes `vp test` fail with *"Could not find 'vitest' bin entry"* (vite-plus 0.2.x moved off the old `@voidzero-dev/vite-plus-test` alias to plain `vitest`, which broke the 0.1.24 pin).
+All five jobs (`validate-lockfile`, `quality`, `test`, `check`, `ci-success`) must pass to merge (`ci-success` is the required check; the other three run in parallel after `validate-lockfile`). Dependabot (`npm` + `github-actions`, daily) groups minor/patch into one `all-minor-patch` PR but **ignores `vite-plus`** — it ships as lockstep packages (`vite-plus` + npm-aliased `vite`=`@voidzero-dev/vite-plus-core` + plain `vitest`, whose major must match the `vitest` that `vite-plus` bundles) that must be bumped manually in sync or CI breaks. **A `package.json` `pnpm.overrides` block additionally pins `vite` to `@voidzero-dev/vite-plus-core@0.2.1` and `vitest` to the exact version `vite-plus` bundles (`4.1.9`)** regardless of the `^` ranges in `devDependencies`, so the resolved version is the override, not the range. After bumping `vite-plus`, **re-pin `vitest` to the version it now bundles** (`vp --version` / `node_modules/vite-plus/docs/guide/upgrade.md`) — a stale pin makes `vp test` fail with *"Could not find 'vitest' bin entry"* (vite-plus 0.2.x moved off the old `@voidzero-dev/vite-plus-test` alias to plain `vitest`, which broke the 0.1.24 pin).
 
 ---
 
@@ -246,8 +246,8 @@ All five jobs (`validate-lockfile`, `quality`, `test`, `check`, `ci-success`) mu
 
 | File | Command | When to regenerate |
 |------|---------|-------------------|
-| `lib/supabase/database.types.ts` | `bunx supabase gen types typescript --project-id osopxwuebsefhoxgeojh > lib/supabase/database.types.ts` | After any migration (new tables/columns/RPCs) |
-| `lib/cloudflare-env.d.ts` | `bun run cf-typegen` | After changing `wrangler.jsonc` (bindings, vars, queues, DO, KV) |
+| `lib/supabase/database.types.ts` | `pnpm exec supabase gen types typescript --project-id osopxwuebsefhoxgeojh > lib/supabase/database.types.ts` | After any migration (new tables/columns/RPCs) |
+| `lib/cloudflare-env.d.ts` | `pnpm run cf-typegen` | After changing `wrangler.jsonc` (bindings, vars, queues, DO, KV) |
 
 If you see `as unknown as` casts on `.rpc()` with a "not yet in generated types" comment, regenerate `database.types.ts` and remove the cast. **Secrets** never appear in generated CF types — hand-type them in `lib/cloudflare-env.supplemental.d.ts` (augments both `Cloudflare.Env` and `NodeJS.ProcessEnv`).
 
@@ -261,7 +261,7 @@ If you see `as unknown as` casts on `.rpc()` with a "not yet in generated types"
 - **Client choice:** service client only where bypassing RLS is intended; RLS server client for user-scoped work; never expose the service client to the browser.
 - **Email/lowercasing:** lowercase email before any auth/lockout op (it's the PK of `failed_login_attempts`).
 - **Redirect params** from query strings must be sanitized like `/auth/callback` (start with `/`, reject `//` and `/\`).
-- **Style:** Oxfmt/Oxlint, 2-space indent, width 100, single quotes, semicolons, camelCase (vars/fns) / PascalCase (types/components), imports auto-organized. Run `bun run check:fix` before committing.
+- **Style:** Oxfmt/Oxlint, 2-space indent, width 100, single quotes, semicolons, camelCase (vars/fns) / PascalCase (types/components), imports auto-organized. Run `pnpm run check:fix` before committing.
 - **Tests:** colocated under `tests/` (not next to source), `*.test.ts(x)` / `*.spec.ts(x)`.
 
 ---
@@ -270,7 +270,7 @@ If you see `as unknown as` casts on `.rpc()` with a "not yet in generated types"
 
 - **[Conventional Commits](https://www.conventionalcommits.org/):** `type(scope): description`. Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `security`. Branches: `feature/`, `fix/`, `docs/`, `refactor/`.
 - **PRs:** all CI checks pass; use the template; no `console.log` debugging or hardcoded secrets/URLs; **squash and merge to `main`.**
-- Don't add/remove/upgrade dependencies unless asked; if you do, commit `package.json` + `bun.lock` together (`bun install`, verify with `--frozen-lockfile`).
+- Don't add/remove/upgrade dependencies unless asked; if you do, commit `package.json` + `pnpm-lock.yaml` together (`pnpm install`, verify with `--frozen-lockfile`).
 
 ---
 

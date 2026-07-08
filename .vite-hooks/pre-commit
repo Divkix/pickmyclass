@@ -4,4 +4,4 @@ if [ -n "$CI" ]; then
 fi
 
 vp staged
-bun run type-check
+pnpm run type-check

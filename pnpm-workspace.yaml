@@ -1,0 +1,11 @@
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true
+confirmModulesPurge: false
+minimumReleaseAge: 0
+overrides:
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.1
+  vite-plus: 0.2.1
+  vitest: 4.1.9
+  '@vitest/coverage-v8': 4.1.9

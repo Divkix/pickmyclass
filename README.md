@@ -126,7 +126,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) (package manager)
+- [pnpm](https://pnpm.io/) (package manager)
 - [Supabase Account](https://supabase.com/) (free tier available)
 - [Cloudflare Account](https://cloudflare.com/) (free tier available)
 - ASU API access (configured via `ASU_API_BASE_URL` and `ASU_API_TOKEN`)
@@ -136,7 +136,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 ```bash
 git clone https://github.com/yourusername/pickmyclass.git
 cd pickmyclass
-bun install
+pnpm install
 ```
 
 ### 2. Set Up Supabase
@@ -144,15 +144,15 @@ bun install
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Link your local project:
    ```bash
-   bunx supabase link --project-ref your-project-id
+   pnpm exec supabase link --project-ref your-project-id
    ```
 3. Push database migrations:
    ```bash
-   bunx supabase db push
+   pnpm exec supabase db push
    ```
 4. Generate TypeScript types:
    ```bash
-   bunx supabase gen types typescript --project-id osopxwuebsefhoxgeojh > lib/supabase/database.types.ts
+   pnpm exec supabase gen types typescript --project-id osopxwuebsefhoxgeojh > lib/supabase/database.types.ts
    ```
 
 ### 3. Configure Environment Variables
@@ -226,7 +226,7 @@ wrangler secret put UNSUBSCRIBE_SIGNING_SECRET
 ### 6. Deploy
 
 ```bash
-bun run deploy
+pnpm run deploy
 ```
 
 Your app will be live at `https://your-worker.workers.dev` or your custom domain.
@@ -260,32 +260,32 @@ The `app/legal/` directory contains Terms of Service and Privacy Policy pages wi
 ### Local Development
 
 ```bash
-bun run dev              # Start dev server (localhost:3000)
+pnpm run dev              # Start dev server (localhost:3000)
 ```
 
 ### Preview with Cloudflare
 
 ```bash
-bun run preview          # Build with vinext and preview locally
+pnpm run preview          # Build with vinext and preview locally
 ```
 
 ### Other Commands
 
 ```bash
-bun run build            # Build application
-bun run lint             # Run Oxlint linter
-bun run lint:fix         # Fix lint issues
-bun run format           # Format code with Oxfmt
-bun run knip             # Find unused exports/dependencies
-bun run cf-typegen       # Generate TypeScript types for Cloudflare env
+pnpm run build            # Build application
+pnpm run lint             # Run Oxlint linter
+pnpm run lint:fix         # Fix lint issues
+pnpm run format           # Format code with Oxfmt
+pnpm run knip             # Find unused exports/dependencies
+pnpm run cf-typegen       # Generate TypeScript types for Cloudflare env
 ```
 
 ### Database Commands
 
 ```bash
-bunx supabase db push                # Push migrations to remote
-bunx supabase db pull                # Pull remote schema changes
-bunx supabase migration new <name>   # Create new migration
+pnpm exec supabase db push                # Push migrations to remote
+pnpm exec supabase db pull                # Pull remote schema changes
+pnpm exec supabase migration new <name>   # Create new migration
 ```
 
 ## Tech Stack
@@ -370,7 +370,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/my-feature`
 3. Make your changes
-4. Run linting: `bun run lint:fix`
+4. Run linting: `pnpm run lint:fix`
 5. Commit with conventional commits: `git commit -m "feat: add new feature"`
 6. Push and open a PR
 
