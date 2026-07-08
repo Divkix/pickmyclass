@@ -6,9 +6,9 @@ confirmModulesPurge: false
 minimumReleaseAge: 0
 overrides:
   vite: 'catalog:'
-  vite-plus: 0.2.1
+  vite-plus: 0.2.3
   vitest: 'catalog:'
-  '@vitest/coverage-v8': 4.1.9
+  '@vitest/coverage-v8': 4.1.10
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@^0.2.3
   vitest: 4.1.10
