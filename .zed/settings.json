@@ -14,7 +14,8 @@
       "initialization_options": {
         "settings": {
           "configPath": "./vite.config.ts",
-          "run": "onSave"
+          "run": "onSave",
+          "fmt.configPath": "./vite.config.ts"
         }
       }
     }

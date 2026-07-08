@@ -5,7 +5,29 @@ allowBuilds:
 confirmModulesPurge: false
 minimumReleaseAge: 0
 overrides:
-  vite: npm:@voidzero-dev/vite-plus-core@0.2.1
+  vite: 'catalog:'
   vite-plus: 0.2.1
-  vitest: 4.1.9
+  vitest: 'catalog:'
   '@vitest/coverage-v8': 4.1.9
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@latest
+  vitest: 4.1.9
+  vite-plus: latest
+peerDependencyRules:
+  allowAny:
+    - vite
+    - vitest
+  allowedVersions:
+    vite: '*'
+    vitest: '*'
+minimumReleaseAgeExclude:
+  - vite-plus
+  - '@voidzero-dev/*'
+  - oxlint
+  - '@oxlint/*'
+  - oxlint-tsgolint
+  - '@oxlint-tsgolint/*'
+  - oxfmt
+  - '@oxfmt/*'
+  - vitest
+  - '@vitest/*'
