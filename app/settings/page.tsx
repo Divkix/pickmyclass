@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import posthog from 'posthog-js';
 import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { Header } from '@/components/Header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -49,6 +50,7 @@ export default function SettingsPage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
+      posthog.capture('data_exported');
       setMessage({ type: 'success', text: 'Data exported successfully!' });
     } catch (error) {
       console.error('Export error:', error);

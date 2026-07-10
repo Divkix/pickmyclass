@@ -57,3 +57,4 @@ supabase/.branches/
 sentry.properties
 /dist/
 /worker/
+.env.local

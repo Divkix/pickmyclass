@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import posthog from 'posthog-js';
 import { AddClassWatch } from '@/components/AddClassWatch';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,11 @@ export default function AddClassPage() {
       const data = (await response.json()) as ErrorResponse;
       throw new Error(data.error || 'Failed to add class watch');
     }
+
+    posthog.capture('class_watch_added', {
+      term: watchData.term,
+      class_nbr: watchData.class_nbr,
+    });
 
     // Navigate back to dashboard on success
     router.push('/dashboard');

@@ -12,6 +12,7 @@ import { mapValidationIssues } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
 import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token';
 import { log } from '@/lib/log';
+import { getPostHogClient } from '@/lib/posthog-server';
 import { getServiceClient } from '@/lib/supabase/service';
 
 /**
@@ -125,6 +126,10 @@ export async function GET(request: NextRequest) {
     }
 
     log('Unsubscribe').info(`User ${redactIdentifier(userId)} unsubscribed successfully`);
+
+    const posthog = getPostHogClient();
+    posthog.capture({ distinctId: userId, event: 'user_unsubscribed' });
+    await posthog.shutdown();
 
     return new NextResponse(
       `
@@ -243,6 +248,10 @@ export async function POST(request: NextRequest) {
     }
 
     log('Unsubscribe').info(`User ${redactIdentifier(userId)} unsubscribed via POST`);
+
+    const posthog = getPostHogClient();
+    posthog.capture({ distinctId: userId, event: 'user_unsubscribed' });
+    await posthog.shutdown();
 
     return ok(null);
   } catch (error) {

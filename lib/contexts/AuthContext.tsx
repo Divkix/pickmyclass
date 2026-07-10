@@ -1,6 +1,7 @@
 'use client';
 
 import type { Session, User } from '@supabase/supabase-js';
+import posthog from 'posthog-js';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } = await supabase.auth.getSession();
         setSession(session);
         setUser(user);
+        posthog.identify(user.id, { email: user.email });
       } catch (error) {
         console.error('Error getting session:', error);
       } finally {
@@ -59,6 +61,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+      if (_event === 'SIGNED_IN' && currentSession?.user) {
+        posthog.identify(currentSession.user.id, { email: currentSession.user.email });
+        posthog.capture('user_logged_in');
+      }
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setLoading(false);
@@ -111,6 +117,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      posthog.capture('user_logged_out');
+      posthog.reset();
       await fetch('/api/auth/signout', { method: 'POST' });
       setUser(null);
       setSession(null);

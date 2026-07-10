@@ -2,6 +2,7 @@ import { invalidateAuthorizationState } from '@/lib/auth/authorization-state';
 import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
 import { log } from '@/lib/log';
 import { fail, ok } from '@/lib/api/response';
+import { getPostHogClient } from '@/lib/posthog-server';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
 
@@ -47,6 +48,10 @@ export async function DELETE() {
 
     // Invalidate the cached authorization state to ensure immediate effect
     invalidateAuthorizationState(user.id);
+
+    const posthog = getPostHogClient();
+    posthog.capture({ distinctId: user.id, event: 'account_deleted' });
+    await posthog.shutdown();
 
     // Sign out the user (invalidate session)
     const { error: signOutError } = await supabase.auth.signOut();
