@@ -60,6 +60,12 @@ function get(path: string, headers?: Record<string, string>): Request {
   return new Request(`https://pickmyclass.app${path}`, { method: 'GET', headers });
 }
 
+function html(body: string, init?: ResponseInit): Response {
+  const res = new Response(body, init);
+  res.headers.set('content-type', 'text/html; charset=utf-8');
+  return res;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   matchMock.mockResolvedValue(undefined);
@@ -91,7 +97,7 @@ describe('worker fetch handler — edge HTML cache', () => {
   it('renders and stores a 200 response on a cache miss', async () => {
     const fetchSpy = vi
       .spyOn(handlerMock.default, 'fetch')
-      .mockResolvedValueOnce(new Response('fresh home', { status: 200 }));
+      .mockResolvedValueOnce(html('fresh home', { status: 200 }));
 
     const res = await workerDefault.fetch(get('/'), makeEnv(), testCtx);
 
@@ -105,7 +111,7 @@ describe('worker fetch handler — edge HTML cache', () => {
   });
 
   it('caches nested blog and legal pages', async () => {
-    vi.spyOn(handlerMock.default, 'fetch').mockResolvedValue(new Response('post', { status: 200 }));
+    vi.spyOn(handlerMock.default, 'fetch').mockResolvedValue(html('post', { status: 200 }));
 
     await workerDefault.fetch(get('/blog/asu-waitlist-guide'), makeEnv(), testCtx);
     await workerDefault.fetch(get('/legal/privacy'), makeEnv(), testCtx);
@@ -197,5 +203,49 @@ describe('worker fetch handler — edge HTML cache', () => {
 
     await workerDefault.fetch(get('/'), makeEnv('v2def'), testCtx);
     expect((matchMock.mock.calls[1]![0] as Request).url).toBe('https://edge-cache.internal/v2def/');
+  });
+
+  it('bypasses the cache for RSC requests marked by the RSC header', async () => {
+    const fetchSpy = vi.spyOn(handlerMock.default, 'fetch').mockResolvedValueOnce(
+      new Response('0:["flight"]', {
+        status: 200,
+        headers: { 'content-type': 'text/x-component' },
+      })
+    );
+
+    await workerDefault.fetch(get('/', { rsc: '1' }), makeEnv(), testCtx);
+
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(putMock).not.toHaveBeenCalled();
+  });
+
+  it('bypasses the cache for RSC requests marked by the _rsc query param', async () => {
+    const fetchSpy = vi.spyOn(handlerMock.default, 'fetch').mockResolvedValueOnce(
+      new Response('0:["flight"]', {
+        status: 200,
+        headers: { 'content-type': 'text/x-component' },
+      })
+    );
+
+    await workerDefault.fetch(get('/?_rsc=abc123'), makeEnv(), testCtx);
+
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(putMock).not.toHaveBeenCalled();
+  });
+
+  it('does not store non-HTML (flight) responses on a cache miss', async () => {
+    vi.spyOn(handlerMock.default, 'fetch').mockResolvedValueOnce(
+      new Response('0:["flight"]', {
+        status: 200,
+        headers: { 'content-type': 'text/x-component' },
+      })
+    );
+
+    await workerDefault.fetch(get('/'), makeEnv(), testCtx);
+
+    expect(matchMock).toHaveBeenCalledOnce();
+    expect(putMock).not.toHaveBeenCalled();
   });
 });

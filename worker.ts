@@ -354,9 +354,19 @@ export default {
     // Edge HTML cache: GET, allowlisted path, and no Supabase auth cookie
     // (logged-in users always get a fresh render so personalized headers /
     // redirects are never served from cache).
-    const pathname = new URL(request.url).pathname;
+    //
+    // RSC navigation/prefetch requests are excluded: Next.js issues them with
+    // an `RSC: 1` header (and a `?_rsc=` query param) and expects a
+    // `text/x-component` flight payload. Because the cache key ignores the
+    // query string and does not vary on the RSC header, caching them would
+    // let a flight response be served as a full document (the browser then
+    // renders the raw RSC stream as text). See ADR 0009.
+    const url = new URL(request.url);
+    const pathname = url.pathname;
+    const isRscRequest = request.headers.has('rsc') || url.searchParams.has('_rsc');
     const cacheEligible =
       request.method === 'GET' &&
+      !isRscRequest &&
       isEdgeCacheablePath(pathname) &&
       !hasSupabaseAuthCookiesInHeader(request.headers.get('cookie'));
 
@@ -374,8 +384,11 @@ export default {
 
     const response = await handler.fetch(request);
 
-    // Only cache successful, non-personalized responses.
-    if (response.status === 200 && !response.headers.has('set-cookie')) {
+    // Only cache successful, non-personalized HTML documents. The content-type
+    // guard is defense in depth against caching a flight payload as a document
+    // (see the RSC exclusion above and ADR 0009).
+    const isHtml = response.headers.get('content-type')?.includes('text/html') ?? false;
+    if (response.status === 200 && isHtml && !response.headers.has('set-cookie')) {
       const toStore = new Response(response.clone().body, response);
       toStore.headers.set('Cache-Control', `public, s-maxage=${EDGE_HTML_CACHE_TTL_S}`);
       ctx.waitUntil(cache.put(cacheKey, toStore));
