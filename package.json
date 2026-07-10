@@ -61,7 +61,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "@vitejs/plugin-rsc": "^0.5.27",
-    "@vitest/coverage-v8": "4.1.10",
+    "@vitest/coverage-v8": "4.1.9",
     "jsdom": "^29.1.1",
     "knip": "^6.26.0",
     "satori": "^0.26.0",
@@ -73,7 +73,7 @@
     "vinext": "1.0.0-beta.1",
     "vite": "npm:@voidzero-dev/vite-plus-core@^0.2.4",
     "vite-plus": "0.2.3",
-    "vitest": "4.1.10",
+    "vitest": "4.1.9",
     "wrangler": "^4.110.0"
   },
   "packageManager": "pnpm@11.10.0"

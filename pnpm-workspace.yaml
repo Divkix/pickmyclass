@@ -6,14 +6,11 @@ allowBuilds:
 confirmModulesPurge: false
 minimumReleaseAge: 0
 overrides:
-  vite: 'catalog:'
-  vite-plus: 0.2.3
-  vitest: 'catalog:'
-  '@vitest/coverage-v8': 4.1.10
-catalog:
   vite: npm:@voidzero-dev/vite-plus-core@^0.2.3
-  vitest: 4.1.10
-  vite-plus: latest
+  vite-plus: 0.2.3
+  vitest: 4.1.9
+  '@vitest/coverage-v8': 4.1.9
+  postcss: 8.5.16
 peerDependencyRules:
   allowAny:
     - vite
