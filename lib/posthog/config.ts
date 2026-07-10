@@ -1,0 +1,26 @@
+/**
+ * Shared PostHog configuration constants.
+ *
+ * The project token is PUBLIC (shipped in the client bundle). It is not a secret —
+ * the PostHog project is rate-limited / access-controlled in the PostHog UI.
+ *
+ * These must be real string literals (not process.env.NEXT_PUBLIC_*), because
+ * client bundles only get NEXT_PUBLIC_* values that existed at *build* time.
+ * Wrangler `vars` alone are runtime-only and leave the browser with
+ * `init(undefined)`, which silently drops every event.
+ */
+
+/** PostHog project API token (public) */
+export const POSTHOG_PROJECT_TOKEN = 'phc_rRbMvons2ERXqNoArYFrmJYAwTX5YnWmLsnqPgk58Wwo';
+
+/**
+ * Server-side API host for posthog-node (direct; no reverse proxy needed).
+ * Client uses same-origin `/ingest` (see next.config.ts rewrites).
+ */
+export const POSTHOG_API_HOST = 'https://us.i.posthog.com';
+
+/** PostHog app UI host (toolbar / session replay links) */
+export const POSTHOG_UI_HOST = 'https://us.posthog.com';
+
+/** Browser reverse-proxy path (rewritten to PostHog; avoids ad blockers) */
+export const POSTHOG_BROWSER_API_HOST = '/ingest';

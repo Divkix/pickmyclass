@@ -1,8 +1,9 @@
 import { PostHog } from 'posthog-node';
+import { POSTHOG_API_HOST, POSTHOG_PROJECT_TOKEN } from '@/lib/posthog/config';
 
 export function getPostHogClient(): PostHog {
-  return new PostHog(process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN!, {
-    host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+  return new PostHog(POSTHOG_PROJECT_TOKEN, {
+    host: POSTHOG_API_HOST,
     flushAt: 1,
     flushInterval: 0,
   });
