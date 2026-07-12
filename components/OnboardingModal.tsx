@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, CheckCircle2, ExternalLink, Lightbulb, Mail } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ExternalLink, Lightbulb, Mail, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import posthog from 'posthog-js';
 import {
@@ -18,6 +18,22 @@ import type { ClassWatchRow } from '@/lib/types/class-watch';
 export type { OnboardingState };
 
 type Step = 1 | 2 | 3;
+
+/** Display details for the popular-class shortcut (mirrors the API payload). */
+interface PopularClassDetails {
+  subject: string;
+  catalog_nbr: string;
+  title: string;
+  instructor_name: string;
+  seats_available: number;
+  seats_capacity: number;
+}
+
+interface PopularClass {
+  class_nbr: string;
+  term: string;
+  details: PopularClassDetails;
+}
 
 interface OnboardingModalProps {
   open: boolean;
@@ -52,6 +68,14 @@ export function OnboardingModal({
   const [skipping, setSkipping] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createdWatch, setCreatedWatch] = useState<ClassWatchRow | null>(null);
+  // Popular-class example for step 1. `null` means "no example" (the modal then
+  // shows the text-only guide). `popularLoading` distinguishes "still fetching"
+  // from "fetched and none available" so we don't flash the guide before the
+  // fetch resolves.
+  const [popularClass, setPopularClass] = useState<PopularClass | null>(null);
+  const [popularLoading, setPopularLoading] = useState(false);
+  // Class number carried from the "Track this class" shortcut into the form.
+  const [prefillClassNbr, setPrefillClassNbr] = useState('');
   // Synchronous guard: Radix fires onPointerDownOutside and onInteractOutside
   // for the same backdrop event, and setSkipping is async, so a ref is the only
   // way to prevent a double POST.
@@ -66,8 +90,25 @@ export function OnboardingModal({
     if (open) {
       setStep(1);
       setCreatedWatch(null);
+      setPopularClass(null);
+      setPrefillClassNbr('');
       completedRef.current = false;
       posthog.capture('onboarding_started');
+      // Load the most-watched class for the current selectable term. Any failure
+      // (no selectable term, no watches, ASU 404/error) resolves to null and the
+      // step falls back to the text-only guide — the fetch never blocks onboarding.
+      setPopularLoading(true);
+      fetch('/api/onboarding/popular-class')
+        .then((response) => response.json())
+        .then((data) => {
+          setPopularClass((data as { popularClass?: PopularClass | null }).popularClass ?? null);
+        })
+        .catch(() => {
+          setPopularClass(null);
+        })
+        .finally(() => {
+          setPopularLoading(false);
+        });
     }
   }, [open]);
 
@@ -128,6 +169,18 @@ export function OnboardingModal({
     }
   };
 
+  // Copy the popular example's class number into the simplified form and advance
+  // to step 2. The form mounts with `defaultClassNbr` so the field is pre-filled.
+  const handleTrackPopular = () => {
+    if (!popularClass) return;
+    setPrefillClassNbr(popularClass.class_nbr);
+    posthog.capture('onboarding_popular_class_tracked', {
+      class_nbr: popularClass.class_nbr,
+      term: popularClass.term,
+    });
+    setStep(2);
+  };
+
   // Route every close attempt (Escape, backdrop, X, Skip) through the skip flow.
   // On the confirmation step we instead let the close through as a completion.
   const requestClose = () => {
@@ -172,23 +225,55 @@ export function OnboardingModal({
             </DialogHeader>
 
             <div className="space-y-4 py-2">
-              <div className="flex gap-3 rounded-md bg-primary/5 border border-primary/20 p-3 text-sm">
-                <Lightbulb className="size-4 shrink-0 text-primary mt-0.5" aria-hidden="true" />
-                <p className="text-foreground">
-                  Every ASU class section has a <strong>5-digit class number</strong>. Find it on
-                  the{' '}
-                  <a
-                    href="https://catalog.apps.asu.edu/catalog/classes/classlist"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-primary underline hover:text-primary/80 inline-flex items-center gap-1"
+              {popularLoading ? (
+                <div
+                  className="h-28 rounded-md bg-primary/5 border border-primary/20 animate-pulse"
+                  aria-hidden="true"
+                />
+              ) : popularClass ? (
+                <div className="rounded-md bg-primary/5 border border-primary/20 p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                    <Sparkles className="size-4" aria-hidden="true" />
+                    <span>Most-watched class right now</span>
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-medium text-foreground">
+                      {popularClass.details.subject} {popularClass.details.catalog_nbr}
+                    </p>
+                    <p className="text-muted-foreground">{popularClass.details.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Class #{popularClass.class_nbr}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="gradient"
+                    className="w-full gap-2"
+                    onClick={handleTrackPopular}
                   >
-                    ASU Class Search page
-                    <ExternalLink className="size-3" />
-                  </a>{' '}
-                  in the &quot;Class #&quot; column.
-                </p>
-              </div>
+                    <Sparkles className="size-4" />
+                    Track this class
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-3 rounded-md bg-primary/5 border border-primary/20 p-3 text-sm">
+                  <Lightbulb className="size-4 shrink-0 text-primary mt-0.5" aria-hidden="true" />
+                  <p className="text-foreground">
+                    Every ASU class section has a <strong>5-digit class number</strong>. Find it on
+                    the{' '}
+                    <a
+                      href="https://catalog.apps.asu.edu/catalog/classes/classlist"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-primary underline hover:text-primary/80 inline-flex items-center gap-1"
+                    >
+                      ASU Class Search page
+                      <ExternalLink className="size-3" />
+                    </a>{' '}
+                    in the &quot;Class #&quot; column.
+                  </p>
+                </div>
+              )}
 
               <p className="text-sm text-muted-foreground">
                 Once you have a class number, we&apos;ll start tracking it and email you the moment
@@ -230,6 +315,7 @@ export function OnboardingModal({
             <div className="py-2">
               <SimplifiedWatchForm
                 onSubmit={handleCreateWatch}
+                defaultClassNbr={prefillClassNbr}
                 submitLabel="Add class"
                 submittingLabel="Adding your class..."
               />

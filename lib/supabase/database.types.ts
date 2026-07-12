@@ -337,6 +337,13 @@ export type Database = {
           subject: string
         }[]
       }
+      get_most_watched_class: {
+        Args: { p_term: string }
+        Returns: {
+          class_nbr: string
+          term: string
+        }[]
+      }
       get_notification_counts_by_class: {
         Args: never
         Returns: {

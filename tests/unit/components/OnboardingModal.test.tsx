@@ -41,17 +41,61 @@ const createdWatch: ClassWatchRow = {
   updated_at: '2026-07-11T12:00:00Z',
 } as ClassWatchRow;
 
+const popularClassPayload = {
+  class_nbr: '12345',
+  term: '2267',
+  details: {
+    subject: 'CSE',
+    catalog_nbr: '240',
+    title: 'Intro to Programming',
+    instructor_name: 'John Doe',
+    seats_available: 10,
+    seats_capacity: 50,
+  },
+};
+
 describe('OnboardingModal', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
+  // Configurable responses per endpoint so `mockResolvedValueOnce` ordering
+  // (broken by the open-time popular-class GET) doesn't bleed across tests.
+  let popularClassResponse: { popularClass?: typeof popularClassPayload | null };
+  let classWatchesResponse: { watch?: ClassWatchRow; error?: string };
+  let skipResponse: Partial<OnboardingState> & { error?: string };
+  let skipOk: boolean;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ ...skippedState }),
+    popularClassResponse = { popularClass: null };
+    classWatchesResponse = { watch: createdWatch };
+    skipResponse = { ...skippedState };
+    skipOk = true;
+    fetchMock = vi.fn((url: string) => {
+      if (url === '/api/onboarding/popular-class') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(popularClassResponse),
+        });
+      }
+      if (url === '/api/class-watches') {
+        return Promise.resolve({
+          ok: classWatchesResponse.watch ? true : false,
+          json: () => Promise.resolve(classWatchesResponse),
+        });
+      }
+      // /api/user/onboarding (skip POST)
+      return Promise.resolve({
+        ok: skipOk,
+        json: () => Promise.resolve(skipResponse),
+      });
     });
     global.fetch = fetchMock as unknown as typeof fetch;
   });
+
+  /** Count only the skip POST calls (the popular-class GET also uses fetch). */
+  const skipPostCalls = () =>
+    fetchMock.mock.calls.filter(
+      ([url, init]) => url === '/api/user/onboarding' && (init as RequestInit)?.method === 'POST'
+    ).length;
 
   it('renders the welcome (step 1) content when open', () => {
     render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
@@ -75,7 +119,7 @@ describe('OnboardingModal', () => {
     await user.click(screen.getByRole('button', { name: 'Skip for now' }));
 
     expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', { method: 'POST' });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(skipPostCalls()).toBe(1);
     await waitFor(() => {
       expect(onSkipped).toHaveBeenCalledWith(skippedState);
     });
@@ -90,7 +134,7 @@ describe('OnboardingModal', () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', { method: 'POST' });
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(skipPostCalls()).toBe(1);
     await waitFor(() => {
       expect(onSkipped).toHaveBeenCalledWith(skippedState);
     });
@@ -110,7 +154,7 @@ describe('OnboardingModal', () => {
     });
     // Radix fires both onPointerDownOutside and onInteractOutside for one
     // backdrop click; the ref guard must keep this to a single POST.
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(skipPostCalls()).toBe(1);
     await waitFor(() => {
       expect(onSkipped).toHaveBeenCalledWith(skippedState);
     });
@@ -118,10 +162,8 @@ describe('OnboardingModal', () => {
 
   it('calls onSkipError and does not call onSkipped when the skip request fails', async () => {
     const user = userEvent.setup();
-    fetchMock.mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({ error: 'boom' }),
-    });
+    skipOk = false;
+    skipResponse = { error: 'boom' };
     const onSkipped = vi.fn();
     const onSkipError = vi.fn();
 
@@ -161,10 +203,7 @@ describe('OnboardingModal', () => {
       const user = userEvent.setup();
       const onCompleted = vi.fn();
 
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ watch: createdWatch }),
-      });
+      classWatchesResponse = { watch: createdWatch };
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} onCompleted={onCompleted} />);
 
@@ -195,10 +234,7 @@ describe('OnboardingModal', () => {
       const user = userEvent.setup();
       const onCompleted = vi.fn();
 
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ watch: createdWatch }),
-      });
+      classWatchesResponse = { watch: createdWatch };
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} onCompleted={onCompleted} />);
 
@@ -217,10 +253,7 @@ describe('OnboardingModal', () => {
       const user = userEvent.setup();
       const onCompleted = vi.fn();
 
-      fetchMock.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: 'Class section not found' }),
-      });
+      classWatchesResponse = { error: 'Class section not found' };
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} onCompleted={onCompleted} />);
 
@@ -238,10 +271,7 @@ describe('OnboardingModal', () => {
       const onCompleted = vi.fn();
       const onSkipped = vi.fn();
 
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ watch: createdWatch }),
-      });
+      classWatchesResponse = { watch: createdWatch };
 
       render(<OnboardingModal open={true} onSkipped={onSkipped} onCompleted={onCompleted} />);
 
@@ -264,6 +294,57 @@ describe('OnboardingModal', () => {
       expect(fetchMock.mock.calls.filter(([url]) => url === '/api/user/onboarding').length).toBe(
         skipCalls
       );
+    });
+  });
+
+  describe('popular-class example', () => {
+    it('shows the text-only guide (ASU catalog link) when no popular class is available', async () => {
+      popularClassResponse = { popularClass: null };
+
+      render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
+
+      // The catalog link is the fallback guide's anchor.
+      expect(await screen.findByText('ASU Class Search page')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Track this class/i })).not.toBeInTheDocument();
+    });
+
+    it('shows the text-only guide when the popular-class fetch fails', async () => {
+      // fetch rejects for the popular-class endpoint; the modal catches and
+      // falls back to the guide.
+      fetchMock.mockImplementation((url: string) => {
+        if (url === '/api/onboarding/popular-class') {
+          return Promise.reject(new Error('network'));
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(skipResponse) });
+      });
+
+      render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
+
+      expect(await screen.findByText('ASU Class Search page')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Track this class/i })).not.toBeInTheDocument();
+    });
+
+    it('shows the popular class card with a Track this class button when loaded', async () => {
+      popularClassResponse = { popularClass: popularClassPayload };
+
+      render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
+
+      expect(await screen.findByText('CSE 240')).toBeInTheDocument();
+      expect(screen.getByText('Intro to Programming')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Track this class/i })).toBeInTheDocument();
+    });
+
+    it('copies the example class number into the form and advances to step 2', async () => {
+      const user = userEvent.setup();
+      popularClassResponse = { popularClass: popularClassPayload };
+
+      render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
+
+      await user.click(await screen.findByRole('button', { name: /Track this class/i }));
+
+      expect(screen.getByText('Add your first class')).toBeInTheDocument();
+      const classNbrInput = screen.getByLabelText(/class number/i) as HTMLInputElement;
+      expect(classNbrInput).toHaveValue('12345');
     });
   });
 });
