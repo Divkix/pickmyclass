@@ -418,7 +418,7 @@ export type Database = {
         }[]
       }
       get_watchers_for_sections: {
-        Args: { section_numbers: string[]; p_term: string }
+        Args: { p_term: string; section_numbers: string[] }
         Returns: {
           class_nbr: string
           email: string
@@ -447,10 +447,10 @@ export type Database = {
         Returns: undefined
       }
       skip_onboarding: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
-          onboarding_completed_at: string | null
-          onboarding_skipped_at: string | null
+          onboarding_completed_at: string
+          onboarding_skipped_at: string
         }[]
       }
       try_record_notification: {
