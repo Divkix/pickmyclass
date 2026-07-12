@@ -10,8 +10,12 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+const { mockCapture } = vi.hoisted(() => ({
+  mockCapture: vi.fn(),
+}));
+
 vi.mock('posthog-js', () => ({
-  default: { capture: vi.fn() },
+  default: { capture: mockCapture },
 }));
 
 // Mock Radix Dialog portal so content renders in the jsdom document body.
@@ -97,11 +101,38 @@ describe('OnboardingModal', () => {
       ([url, init]) => url === '/api/user/onboarding' && (init as RequestInit)?.method === 'POST'
     ).length;
 
-  it('renders the welcome (step 1) content when open', () => {
+  it('renders the welcome (step 1) content when open', async () => {
     render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-    expect(screen.getByText('Welcome to PickMyClass')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Welcome to PickMyClass')).toBeInTheDocument();
+    });
     expect(screen.getByRole('button', { name: /I have my class number/i })).toBeInTheDocument();
+  });
+
+  it('captures onboarding_started when the modal opens', async () => {
+    render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(mockCapture).toHaveBeenCalledWith('onboarding_started');
+    });
+  });
+
+  it('announces the current step for screen readers via a live region', async () => {
+    render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
+
+    const liveRegion = await screen.findByText('Step 1 of 3: Welcome to PickMyClass');
+    expect(liveRegion).toHaveClass('sr-only');
+    expect(liveRegion).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('moves focus to the step title when the modal opens', async () => {
+    render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
+
+    const title = screen.getByRole('heading', { name: 'Welcome to PickMyClass' });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(title);
+    });
   });
 
   it('does not render content when closed', () => {
@@ -228,6 +259,66 @@ describe('OnboardingModal', () => {
       // Closing the confirmation calls onCompleted with the new watch.
       await user.click(screen.getByRole('button', { name: /Done/i }));
       expect(onCompleted).toHaveBeenCalledWith(createdWatch);
+    });
+
+    it('captures onboarding_completed exactly once when a watch is created', async () => {
+      const user = userEvent.setup();
+      classWatchesResponse = { watch: createdWatch };
+
+      render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
+
+      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
+      await user.type(screen.getByLabelText(/class number/i), '12345');
+      await user.click(screen.getByRole('button', { name: 'Add class' }));
+
+      await waitFor(() => {
+        expect(mockCapture).toHaveBeenCalledWith('onboarding_completed');
+      });
+      const completedCalls = mockCapture.mock.calls.filter(
+        (args) => args[0] === 'onboarding_completed'
+      );
+      expect(completedCalls).toHaveLength(1);
+    });
+
+    it('moves focus to the new step title when advancing between steps', async () => {
+      const user = userEvent.setup();
+      render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
+
+      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
+
+      const title = await screen.findByRole('heading', { name: 'Add your first class' });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(title);
+      });
+    });
+
+    it('announces the new step when advancing between steps', async () => {
+      const user = userEvent.setup();
+      render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
+
+      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Step 2 of 3: Add your first class')).toBeInTheDocument();
+      });
+    });
+
+    it('keeps focus inside the modal while tabbing', async () => {
+      const user = userEvent.setup();
+      popularClassResponse = { popularClass: popularClassPayload };
+
+      render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
+
+      const dialog = await screen.findByRole('dialog');
+      await waitFor(() => {
+        expect(document.activeElement).toBeTruthy();
+      });
+
+      // Tab through all focusable elements and assert focus never leaves the dialog.
+      for (let i = 0; i < 12; i++) {
+        await user.tab();
+        expect(dialog.contains(document.activeElement)).toBe(true);
+      }
     });
 
     it('calls onCompleted only once even if Done is clicked twice', async () => {

@@ -19,6 +19,12 @@ export type { OnboardingState };
 
 type Step = 1 | 2 | 3;
 
+const stepTitles: Record<Step, string> = {
+  1: 'Welcome to PickMyClass',
+  2: 'Add your first class',
+  3: "You're all set",
+};
+
 /** Display details for the popular-class shortcut (mirrors the API payload). */
 interface PopularClassDetails {
   subject: string;
@@ -84,6 +90,10 @@ export function OnboardingModal({
   // "Done" can all fire before the parent lowers `open`, which would call
   // onCompleted twice and duplicate the watch in the dashboard list.
   const completedRef = useRef(false);
+  // Ref to the current step title so we can move focus there on step transitions.
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  // Screen-reader-only announcement for step transitions and the current step number.
+  const [announcement, setAnnouncement] = useState('');
 
   // Track funnel start once per open. Reset to step 1 whenever the modal opens.
   useEffect(() => {
@@ -111,6 +121,17 @@ export function OnboardingModal({
         });
     }
   }, [open]);
+
+  // Announce step changes and move focus to the new title so screen readers
+  // read the updated heading when the user moves between steps.
+  useEffect(() => {
+    if (!open) return;
+    setAnnouncement(`Step ${step} of 3: ${stepTitles[step]}`);
+    const id = setTimeout(() => {
+      titleRef.current?.focus();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [open, step]);
 
   const handleSkip = async () => {
     if (skippingRef.current) return;
@@ -200,6 +221,7 @@ export function OnboardingModal({
     >
       <DialogContent
         className="sm:max-w-[480px]"
+        aria-describedby="onboarding-step-description"
         onEscapeKeyDown={(e) => {
           // On the confirmation step Escape confirms; otherwise it skips.
           if (step === 3) {
@@ -215,11 +237,23 @@ export function OnboardingModal({
           requestClose();
         }}
       >
+        {/* Screen-reader-only live region for step transitions. */}
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {announcement}
+        </div>
         {step === 1 && (
           <>
             <DialogHeader>
-              <DialogTitle className="text-2xl">Welcome to PickMyClass</DialogTitle>
-              <DialogDescription>
+              <div
+                className="text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                aria-hidden="true"
+              >
+                Step 1 of 3
+              </div>
+              <DialogTitle className="text-2xl" ref={titleRef} tabIndex={-1}>
+                Welcome to PickMyClass
+              </DialogTitle>
+              <DialogDescription id="onboarding-step-description">
                 Let&apos;s set up your first class alert. It takes about 30 seconds.
               </DialogDescription>
             </DialogHeader>
@@ -306,8 +340,16 @@ export function OnboardingModal({
         {step === 2 && (
           <>
             <DialogHeader>
-              <DialogTitle className="text-2xl">Add your first class</DialogTitle>
-              <DialogDescription>
+              <div
+                className="text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                aria-hidden="true"
+              >
+                Step 2 of 3
+              </div>
+              <DialogTitle className="text-2xl" ref={titleRef} tabIndex={-1}>
+                Add your first class
+              </DialogTitle>
+              <DialogDescription id="onboarding-step-description">
                 Enter the 5-digit class number and pick the term you want to watch.
               </DialogDescription>
             </DialogHeader>
@@ -345,8 +387,16 @@ export function OnboardingModal({
         {step === 3 && (
           <>
             <DialogHeader>
-              <DialogTitle className="text-2xl">You&apos;re all set!</DialogTitle>
-              <DialogDescription>
+              <div
+                className="text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                aria-hidden="true"
+              >
+                Step 3 of 3
+              </div>
+              <DialogTitle className="text-2xl" ref={titleRef} tabIndex={-1}>
+                You&apos;re all set!
+              </DialogTitle>
+              <DialogDescription id="onboarding-step-description">
                 Your first class is being watched. Here&apos;s what happens next.
               </DialogDescription>
             </DialogHeader>

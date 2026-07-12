@@ -1,15 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const { mockCreateClient, mockGetUser, mockFrom, mockSelect, mockEq, mockMaybeSingle, mockRpc } =
-  vi.hoisted(() => ({
-    mockCreateClient: vi.fn(),
-    mockGetUser: vi.fn(),
-    mockFrom: vi.fn(),
-    mockSelect: vi.fn(),
-    mockEq: vi.fn(),
-    mockMaybeSingle: vi.fn(),
-    mockRpc: vi.fn(),
-  }));
+const {
+  mockCreateClient,
+  mockGetUser,
+  mockFrom,
+  mockSelect,
+  mockEq,
+  mockMaybeSingle,
+  mockRpc,
+  mockCapture,
+  mockShutdown,
+} = vi.hoisted(() => ({
+  mockCreateClient: vi.fn(),
+  mockGetUser: vi.fn(),
+  mockFrom: vi.fn(),
+  mockSelect: vi.fn(),
+  mockEq: vi.fn(),
+  mockMaybeSingle: vi.fn(),
+  mockRpc: vi.fn(),
+  mockCapture: vi.fn(),
+  mockShutdown: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/lib/posthog-server', () => ({
+  getPostHogClient: vi.fn(() => ({
+    capture: mockCapture,
+    shutdown: mockShutdown,
+  })),
+}));
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mockCreateClient,
@@ -161,6 +179,14 @@ describe('/api/user/onboarding', () => {
       expect(data.onboarding_skipped_at).toBe('2026-07-11T12:00:00Z');
       expect(data.onboarding_completed_at).toBeNull();
       expect(data.needs_onboarding).toBe(false);
+      expect(mockCapture).toHaveBeenCalledWith({
+        distinctId: user.id,
+        event: 'onboarding_skipped',
+      });
+      expect(mockShutdown).toHaveBeenCalledTimes(1);
+      expect(mockShutdown.mock.invocationCallOrder[0]).toBeGreaterThan(
+        mockCapture.mock.invocationCallOrder[0]
+      );
     });
 
     it('returns 500 when the RPC fails', async () => {
