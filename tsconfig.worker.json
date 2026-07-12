@@ -23,6 +23,7 @@
     "worker.ts",
     "global.d.ts",
     "lib/types/queue.ts",
+    "lib/worker/edge-html-cache.ts",
     "lib/cloudflare-env.d.ts",
     "lib/cloudflare-env.supplemental.d.ts"
   ],

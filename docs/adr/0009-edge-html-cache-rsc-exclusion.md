@@ -2,7 +2,7 @@
 
 **Supersedes:** [0003-edge-html-cache](./0003-edge-html-cache.md).
 
-`worker.ts fetch()` keeps an **edge HTML cache** (Cache API `caches.default`) for anonymous GETs to `/`, `/faq`, `/about`, `/blog`, `/blog/*`, `/legal`, `/legal/*`. A HIT skips `proxy.ts` **and** the RSC render entirely. This ADR keeps everything from 0003 and adds one invariant: **RSC navigation/prefetch requests are never cached or served from the cache, and only `text/html` documents are stored.**
+`lib/worker/edge-html-cache.ts` owns an **edge HTML cache** (Cache API `caches.default`) for anonymous GETs to `/`, `/faq`, `/about`, `/blog`, `/blog/*`, `/legal`, `/legal/*`; `worker.ts fetch()` is only its vinext/Cloudflare adapter. A HIT skips `proxy.ts` **and** the RSC render entirely. This ADR keeps everything from 0003 and adds one invariant: **RSC navigation/prefetch requests are never cached or served from the cache, and only `text/html` documents are stored.**
 
 ## Why
 
@@ -15,7 +15,7 @@ Because the query string is dropped and the RSC header isn't part of the key, bo
 
 ## Decision
 
-In `worker.ts fetch()`:
+In `lib/worker/edge-html-cache.ts`:
 
 - **Exclude RSC requests from cache eligibility** — `request.headers.has('rsc') || url.searchParams.has('_rsc')` ⇒ bypass both the read and the store, always render fresh.
 - **Store only `text/html` responses** — a content-type guard (`content-type` includes `text/html`) on the store step, on top of the existing `status === 200 && !Set-Cookie` checks. Defense in depth so a flight payload can never be stored even if the request-side classification changes.
