@@ -11,7 +11,7 @@ import { getPostHogClient } from '@/lib/posthog-server';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassStateRow } from '@/lib/types/class-watch';
-import { toOnboardingState, type OnboardingRow } from '@/lib/onboarding';
+import { applyFirstWatchGuard, toOnboardingState, type OnboardingRow } from '@/lib/onboarding';
 
 // Get max watches per user from env (default: 10)
 const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10);
@@ -210,14 +210,16 @@ export async function POST(request: NextRequest) {
 
     // Step 4: Mark onboarding complete on the user's first class watch so the
     // finish-setup card stops reappearing. Service role bypasses the escalation
-    // trigger; only set it when still pending.
+    // trigger. The guard only checks `onboarding_completed_at IS NULL`, so a
+    // user who skipped onboarding still transitions to completed on their first
+    // watch (ADR 0010). See `applyFirstWatchGuard` in `lib/onboarding.ts`.
     try {
-      await supabaseServiceRole
-        .from('user_profiles')
-        .update({ onboarding_completed_at: new Date().toISOString() })
-        .eq('user_id', user.id)
-        .is('onboarding_completed_at', null)
-        .is('onboarding_skipped_at', null);
+      await applyFirstWatchGuard(
+        supabaseServiceRole
+          .from('user_profiles')
+          .update({ onboarding_completed_at: new Date().toISOString() })
+          .eq('user_id', user.id)
+      );
     } catch (dbError) {
       log('API').error('Failed to mark onboarding complete:', dbError);
       // Non-fatal - watch was created successfully

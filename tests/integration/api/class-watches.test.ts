@@ -101,8 +101,9 @@ const mockServiceUpdate = vi.fn();
 const mockDeleteEqChain = vi.fn();
 
 // Onboarding-complete update chain on the service client:
-// .update(...).eq('user_id').is(...).is(...)
+// .update(...).eq('user_id').is('onboarding_completed_at', null)
 const mockServiceOnboardingUpdateEq = vi.fn();
+const mockServiceOnboardingIs = vi.fn();
 
 // Setup mock chain
 const setupMockChain = () => {
@@ -140,9 +141,14 @@ const setupMockChain = () => {
     }),
   });
   // Service client: upsert (class state) + update (onboarding completion).
+  // Onboarding-complete update chain on the service client:
+  // .update(...).eq('user_id').is('onboarding_completed_at', null)
+  // (issue #307: the guard only filters completed_at, NOT skipped_at, so a
+  // skipped user still completes on their first watch.)
   const onboardingIsChain = Promise.resolve({ error: null }) as any;
-  onboardingIsChain.is = () => onboardingIsChain;
-  mockServiceOnboardingUpdateEq.mockReturnValue({ is: () => onboardingIsChain });
+  onboardingIsChain.is = mockServiceOnboardingIs;
+  mockServiceOnboardingIs.mockReturnValue(onboardingIsChain);
+  mockServiceOnboardingUpdateEq.mockReturnValue({ is: mockServiceOnboardingIs });
   mockServiceUpdate.mockReturnValue({ eq: mockServiceOnboardingUpdateEq });
   mockServiceFrom.mockReturnValue({
     upsert: mockServiceUpsert,
@@ -480,6 +486,10 @@ describe('/api/class-watches', () => {
         expect.objectContaining({ onboarding_completed_at: expect.any(String) })
       );
       expect(mockServiceOnboardingUpdateEq).toHaveBeenCalledWith('user_id', mockUser.id);
+      // Issue #307: completion guard filters ONLY on onboarding_completed_at,
+      // not on onboarding_skipped_at, so a skipped user still completes.
+      expect(mockServiceOnboardingIs).toHaveBeenCalledWith('onboarding_completed_at', null);
+      expect(mockServiceOnboardingIs).not.toHaveBeenCalledWith('onboarding_skipped_at', null);
     });
   });
 

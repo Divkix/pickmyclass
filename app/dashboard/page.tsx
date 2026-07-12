@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fadeInUp, staggerContainer, staggerItem } from '@/lib/animations';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { completeOnFirstWatch } from '@/lib/onboarding';
 import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh';
 import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates';
 import { sectionRefKey } from '@/lib/section-ref';
@@ -136,15 +137,13 @@ export default function DashboardPage() {
   });
 
   // Onboarding completion: the modal created the first watch server-side (which
-  // also sets onboarding_completed_at). Add the watch locally and drop the modal
-  // / Finish Setup Card so the user lands on a populated dashboard.
+  // also sets onboarding_completed_at). Add the watch locally and project the
+  // new onboarding state through the lifecycle module so it matches the server
+  // (a skipped user keeps their skipped_at timestamp rather than having it
+  // fabricated back to null).
   const handleOnboardingCompleted = useCallback((watch: ClassWatch) => {
     setWatches((prev) => [watch, ...prev]);
-    setOnboarding({
-      onboarding_completed_at: new Date().toISOString(),
-      onboarding_skipped_at: null,
-      needs_onboarding: false,
-    });
+    setOnboarding((prev) => (prev ? completeOnFirstWatch(prev) : prev));
   }, []);
 
   // Handle deleting a watch

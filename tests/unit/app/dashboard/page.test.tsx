@@ -158,7 +158,13 @@ vi.mock('@/components/OnboardingModal', () => ({
       data-testid="onboarding-modal"
       data-open={open ? 'true' : 'false'}
       data-on-completed={onCompleted ? 'true' : 'false'}
-    />
+    >
+      {onCompleted && (
+        <button type="button" onClick={() => onCompleted({ id: 'watch-new' })}>
+          Complete onboarding
+        </button>
+      )}
+    </div>
   ),
 }));
 
@@ -676,6 +682,41 @@ describe('DashboardPage', () => {
       await screen.findByText('Your watchlist is empty');
       expect(screen.getByTestId('onboarding-modal')).toHaveAttribute('data-open', 'false');
       expect(screen.queryByTestId('finish-setup-card')).not.toBeInTheDocument();
+    });
+
+    it('hides the finish-setup card and adds the watch when a skipped user completes (issue #307)', async () => {
+      // Simulates `handleOnboardingCompleted` firing after a skipped user
+      // creates their first watch elsewhere (e.g. via /dashboard/add). The
+      // mocked modal exposes a trigger so we can exercise the dashboard's
+      // `completeOnFirstWatch` projection without a real modal interaction.
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            watches: [],
+            maxWatches: 10,
+            onboarding: {
+              onboarding_completed_at: null,
+              onboarding_skipped_at: '2026-07-11T12:00:00Z',
+              needs_onboarding: false,
+            },
+          }),
+      });
+
+      render(<DashboardPage />);
+
+      // Skipped user: card shown, modal closed.
+      expect(await screen.findByTestId('finish-setup-card')).toBeInTheDocument();
+      expect(screen.getByTestId('onboarding-modal')).toHaveAttribute('data-open', 'false');
+
+      // The modal's completion handler fires (e.g. via the in-modal watch form).
+      fireEvent.click(screen.getByRole('button', { name: 'Complete onboarding' }));
+
+      // First watch appears locally and the finish-setup card is dropped.
+      await waitFor(() => {
+        expect(screen.queryByTestId('finish-setup-card')).not.toBeInTheDocument();
+      });
+      expect(screen.getByRole('button', { name: /delete watch-new/i })).toBeInTheDocument();
     });
   });
 });

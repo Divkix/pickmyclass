@@ -17,13 +17,13 @@ Add a **first-time onboarding flow** that is shown once, after email verificatio
 
 - The flow is shown only when `user_profiles.onboarding_completed_at` and `onboarding_skipped_at` are both `NULL`.
 - Existing users are treated as complete by default (both columns already `NULL` but they will never see the modal because we backfill `onboarding_completed_at` for existing accounts, or equivalently only show the flow to users whose account was created after this feature is enabled).
-- Creating the **first watch anywhere** in the app sets `onboarding_completed_at` and hides the onboarding UI.
+- Creating the **first watch anywhere** in the app sets `onboarding_completed_at` and hides the onboarding UI. This applies **even after a skip**: a skipped user (`onboarding_skipped_at` set, `onboarding_completed_at` null) still transitions to completed on their first watch. The completion guard therefore filters only on `onboarding_completed_at IS NULL`, not on `skipped_at`. The lifecycle rules live in `lib/onboarding.ts` (`onboardingStatus`, `completeOnFirstWatch`, `applyFirstWatchGuard`); routes are transport adapters.
 
 ### Presentation
 
 - A **centered full-screen modal** is rendered over the dashboard. The user cannot interact with the dashboard until they complete the flow or explicitly skip it.
-- Escape, backdrop click, and an explicit **"Skip for now"** button all set `onboarding_skipped_at` and close the modal.
-- After skipping, a compact **"Finish setup"** card appears on the dashboard until the user adds their first watch.
+- Escape, backdrop click, and an explicit **"Skip for now"** button all set `onboarding_skipped_at` and close the modal. Skipping is final *as a dismissal of the modal* (the modal won't reappear), but it is **not** a terminal lifecycle state: the first watch still transitions the user to completed.
+- After skipping, a compact **"Finish setup"** card appears on the dashboard until the user adds their first watch, at which point `onboarding_completed_at` is set (with `onboarding_skipped_at` left untouched) and the card is hidden.
 
 ### Steps
 
