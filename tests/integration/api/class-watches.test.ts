@@ -29,6 +29,11 @@ interface ClassState {
 interface GetResponse {
   watches?: ClassWatch[];
   maxWatches?: number;
+  onboarding?: {
+    onboarding_completed_at: string | null;
+    onboarding_skipped_at: string | null;
+    needs_onboarding: boolean;
+  };
   error?: string;
 }
 
@@ -86,12 +91,18 @@ const mockDelete = vi.fn();
 const mockEq = vi.fn();
 const mockIn = vi.fn();
 const mockOrder = vi.fn();
+const mockMaybeSingle = vi.fn();
 const mockUpsert = vi.fn();
 const mockServiceFrom = vi.fn();
 const mockServiceUpsert = vi.fn();
+const mockServiceUpdate = vi.fn();
 
 // Mock for delete with double eq chain
 const mockDeleteEqChain = vi.fn();
+
+// Onboarding-complete update chain on the service client:
+// .update(...).eq('user_id').is(...).is(...)
+const mockServiceOnboardingUpdateEq = vi.fn();
 
 // Setup mock chain
 const setupMockChain = () => {
@@ -105,11 +116,17 @@ const setupMockChain = () => {
     in: mockIn,
     order: mockOrder,
   });
+  // Shared eq chain supports both .order() (class_watches) and .maybeSingle() (user_profiles).
   mockEq.mockReturnValue({
     eq: mockEq,
     order: mockOrder,
+    maybeSingle: mockMaybeSingle,
   });
   mockOrder.mockReturnValue(Promise.resolve({ data: [], error: null }));
+  mockMaybeSingle.mockResolvedValue({
+    data: { onboarding_completed_at: '2026-01-01T00:00:00Z', onboarding_skipped_at: null },
+    error: null,
+  });
   mockIn.mockImplementation(() => {
     const p = Promise.resolve({ data: [], error: null }) as any;
     p.in = () => p;
@@ -122,8 +139,14 @@ const setupMockChain = () => {
       eq: mockDeleteEqChain,
     }),
   });
+  // Service client: upsert (class state) + update (onboarding completion).
+  const onboardingIsChain = Promise.resolve({ error: null }) as any;
+  onboardingIsChain.is = () => onboardingIsChain;
+  mockServiceOnboardingUpdateEq.mockReturnValue({ is: () => onboardingIsChain });
+  mockServiceUpdate.mockReturnValue({ eq: mockServiceOnboardingUpdateEq });
   mockServiceFrom.mockReturnValue({
     upsert: mockServiceUpsert,
+    update: mockServiceUpdate,
   });
   mockServiceUpsert.mockResolvedValue({ error: null });
 };
@@ -220,6 +243,10 @@ describe('/api/class-watches', () => {
       expect(response.status).toBe(200);
       expect(data.watches).toEqual([]);
       expect(data.maxWatches).toBeDefined();
+      expect(data.onboarding).toMatchObject({
+        onboarding_completed_at: expect.any(String),
+        needs_onboarding: false,
+      });
     });
 
     it('should return watches with joined class states', async () => {
@@ -448,6 +475,11 @@ describe('/api/class-watches', () => {
         }),
         { onConflict: 'class_nbr,term' }
       );
+      // Onboarding is marked complete on the user's first watch.
+      expect(mockServiceUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ onboarding_completed_at: expect.any(String) })
+      );
+      expect(mockServiceOnboardingUpdateEq).toHaveBeenCalledWith('user_id', mockUser.id);
     });
   });
 

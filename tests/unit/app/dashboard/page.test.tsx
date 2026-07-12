@@ -146,6 +146,16 @@ vi.mock('@/components/ClassWatchCard', () => ({
   ),
 }));
 
+vi.mock('@/components/OnboardingModal', () => ({
+  OnboardingModal: ({ open }: { open: boolean }) => (
+    <div data-testid="onboarding-modal" data-open={open ? 'true' : 'false'} />
+  ),
+}));
+
+vi.mock('@/components/FinishSetupCard', () => ({
+  FinishSetupCard: () => <div data-testid="finish-setup-card" />,
+}));
+
 const makeWatch = (overrides: Record<string, unknown> = {}) => ({
   id: 'watch-1',
   user_id: 'user-1',
@@ -590,5 +600,72 @@ describe('DashboardPage', () => {
       expect.stringMatching(/^Dashboard refreshed at /),
       expect.objectContaining({ description: 'Updated 1 class watch' })
     );
+  });
+
+  describe('onboarding (issue #298)', () => {
+    it('renders the onboarding modal for a new user who has not completed or skipped', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            watches: [],
+            maxWatches: 10,
+            onboarding: {
+              onboarding_completed_at: null,
+              onboarding_skipped_at: null,
+              needs_onboarding: true,
+            },
+          }),
+      });
+
+      render(<DashboardPage />);
+
+      const modal = await screen.findByTestId('onboarding-modal');
+      expect(modal).toHaveAttribute('data-open', 'true');
+      expect(screen.queryByTestId('finish-setup-card')).not.toBeInTheDocument();
+    });
+
+    it('renders the finish-setup card after skipping and hides it once a watch exists', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            watches: [],
+            maxWatches: 10,
+            onboarding: {
+              onboarding_completed_at: null,
+              onboarding_skipped_at: '2026-07-11T12:00:00Z',
+              needs_onboarding: false,
+            },
+          }),
+      });
+
+      render(<DashboardPage />);
+
+      expect(await screen.findByTestId('finish-setup-card')).toBeInTheDocument();
+      expect(screen.getByTestId('onboarding-modal')).toHaveAttribute('data-open', 'false');
+    });
+
+    it('does not render the modal or card for existing (completed) users', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            watches: [],
+            maxWatches: 10,
+            onboarding: {
+              onboarding_completed_at: '2026-07-10T00:00:00Z',
+              onboarding_skipped_at: null,
+              needs_onboarding: false,
+            },
+          }),
+      });
+
+      render(<DashboardPage />);
+
+      await screen.findByText('Your watchlist is empty');
+      expect(screen.getByTestId('onboarding-modal')).toHaveAttribute('data-open', 'false');
+      expect(screen.queryByTestId('finish-setup-card')).not.toBeInTheDocument();
+    });
   });
 });

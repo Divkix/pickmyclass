@@ -8,7 +8,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import posthog from 'posthog-js';
 import { toast } from 'sonner';
 import { ClassWatchCard } from '@/components/ClassWatchCard';
+import { FinishSetupCard } from '@/components/FinishSetupCard';
 import { Header } from '@/components/Header';
+import { OnboardingModal, type OnboardingState } from '@/components/OnboardingModal';
 import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -28,6 +30,7 @@ type ClassWatch = ClassWatchRow & {
 interface GetClassWatchesResponse {
   watches: ClassWatch[];
   maxWatches: number;
+  onboarding?: OnboardingState;
 }
 
 export default function DashboardPage() {
@@ -38,6 +41,7 @@ export default function DashboardPage() {
   const [isLoadingWatches, setIsLoadingWatches] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
 
   // Get class numbers from watches for Realtime subscription
   // CRITICAL: Must memoize to prevent infinite re-render loop
@@ -77,6 +81,7 @@ export default function DashboardPage() {
       const data = (await response.json()) as GetClassWatchesResponse;
       setWatches(data.watches || []);
       setMaxWatches(data.maxWatches || 10);
+      if (data.onboarding) setOnboarding(data.onboarding);
       return data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load class watches';
@@ -205,6 +210,13 @@ export default function DashboardPage() {
         isRefreshing={isRefreshing}
         threshold={80}
       />
+      <OnboardingModal
+        open={onboarding?.needs_onboarding === true}
+        onSkipped={setOnboarding}
+        onSkipError={(message) =>
+          toast.error('Could not skip onboarding', { description: message })
+        }
+      />
       <main className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
         {/* Page Header */}
         <motion.div className="mb-8" initial="hidden" animate="visible" variants={fadeInUp}>
@@ -225,6 +237,12 @@ export default function DashboardPage() {
             Live updates unavailable: {realtimeError.message}
           </Alert>
         )}
+
+        {/* Finish setup card: shown after skipping onboarding, until first watch */}
+        {!isLoadingWatches &&
+          watches.length === 0 &&
+          onboarding?.onboarding_skipped_at &&
+          !onboarding.onboarding_completed_at && <FinishSetupCard />}
 
         {/* Quick Stats */}
         {!isLoadingWatches && watches.length > 0 && (
