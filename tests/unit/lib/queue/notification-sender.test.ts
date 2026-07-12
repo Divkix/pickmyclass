@@ -96,7 +96,7 @@ describe('sendSectionNotifications', () => {
 
   function defaultParams(): Parameters<typeof sendSectionNotifications>[0] {
     return {
-      classNbr: '42737',
+      ref: { class_nbr: '42737', term: '2261' },
       classInfo: buildClassInfo(),
       changes: buildChanges({ seatBecameAvailable: true }),
       emailBinding,
@@ -108,10 +108,11 @@ describe('sendSectionNotifications', () => {
     const rpcMock = mockRpc(null, { message: 'DB error' });
 
     await expect(sendSectionNotifications(defaultParams())).rejects.toThrow(
-      'Failed to fetch watchers for 42737: DB error'
+      'Failed to fetch watchers for 2261:42737: DB error'
     );
     expect(rpcMock).toHaveBeenCalledWith('get_watchers_for_sections', {
       section_numbers: ['42737'],
+      p_term: '2261',
     });
   });
 
@@ -123,8 +124,25 @@ describe('sendSectionNotifications', () => {
     expect(result).toEqual([]);
     expect(console.info).toHaveBeenCalledWith(
       '[NotificationSender]',
-      'No watchers found for 42737'
+      'No watchers found for 2261:42737'
     );
+  });
+
+  it('scopes the watcher lookup to the full SectionRef (class_nbr + term)', async () => {
+    // A section number repeats across terms. The RPC must receive the term so
+    // a transition in one term cannot select watchers for the same class number
+    // in a different term (cross-term isolation, issue #303).
+    const rpcMock = mockRpc(mockWatchers);
+
+    await sendSectionNotifications({
+      ...defaultParams(),
+      ref: { class_nbr: '42737', term: '2267' },
+    });
+
+    expect(rpcMock).toHaveBeenCalledWith('get_watchers_for_sections', {
+      section_numbers: ['42737'],
+      p_term: '2267',
+    });
   });
 
   it('claims slots and sends emails for seat_available changes', async () => {

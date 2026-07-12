@@ -145,7 +145,7 @@ export async function processSection(
       };
 
       const sentResults = await sendSectionNotifications({
-        classNbr,
+        ref,
         classInfo,
         changes,
         emailBinding: env.EMAIL,

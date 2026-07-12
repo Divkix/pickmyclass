@@ -10,6 +10,7 @@ import { deleteNotificationRecords, tryRecordNotificationsBatch } from '@/lib/db
 import { type ClassInfo, type OutboundEmail, sendBatchEmailsOptimized } from '@/lib/email/send';
 import { log } from '@/lib/log';
 import type { ChangeResult } from '@/lib/queue/change-detector';
+import { type SectionRef, sectionRefKey } from '@/lib/section-ref';
 import { getServiceClient } from '@/lib/supabase/service';
 
 /**
@@ -23,9 +24,14 @@ interface Watcher {
 
 /**
  * Parameters for sending section notifications.
+ *
+ * `ref` is the SectionRef ({ class_nbr, term }) of the section that changed.
+ * Recipient selection is scoped to this exact SectionRef — a class number
+ * repeats across terms, so filtering by class_nbr alone would select watchers
+ * for the same section number in a different term and send wrong-term emails.
  */
 export interface SendSectionNotificationsParams {
-  classNbr: string;
+  ref: SectionRef;
   classInfo: ClassInfo;
   changes: ChangeResult;
   emailBinding: SendEmail;
@@ -51,25 +57,28 @@ export interface SentNotification {
 export async function sendSectionNotifications(
   params: SendSectionNotificationsParams
 ): Promise<SentNotification[]> {
-  const { classNbr, classInfo, changes, emailBinding, fromEmail } = params;
+  const { ref, classInfo, changes, emailBinding, fromEmail } = params;
+  const scope = sectionRefKey(ref);
   const serviceClient = getServiceClient();
 
-  // Step 1: Fetch watchers
+  // Step 1: Fetch watchers — scoped to the full SectionRef (class_nbr + term).
+  // A section number repeats across terms, so the term filter is what prevents
+  // a transition in one term from selecting watchers in another.
   const { data: watchers, error: watchersError } = await serviceClient.rpc(
     'get_watchers_for_sections',
-    { section_numbers: [classNbr] }
+    { section_numbers: [ref.class_nbr], p_term: ref.term }
   );
 
   if (watchersError) {
-    throw new Error(`Failed to fetch watchers for ${classNbr}: ${watchersError.message}`);
+    throw new Error(`Failed to fetch watchers for ${scope}: ${watchersError.message}`);
   }
 
   if (!watchers || watchers.length === 0) {
-    log('NotificationSender').info(`No watchers found for ${classNbr}`);
+    log('NotificationSender').info(`No watchers found for ${scope}`);
     return [];
   }
 
-  log('NotificationSender').info(`Found ${watchers.length} watchers for ${classNbr}`);
+  log('NotificationSender').info(`Found ${watchers.length} watchers for ${scope}`);
 
   const allWatchIds = watchers.map((w: Watcher) => w.watch_id);
 
@@ -115,7 +124,7 @@ export async function sendSectionNotifications(
 
   if (emailsToSend.length === 0) {
     log('NotificationSender').info(
-      `No emails to send for ${classNbr}` +
+      `No emails to send for ${scope}` +
         ` (seat: ${claimedSeatIds.size}, instructor: ${claimedInstructorIds.size})`
     );
     return [];
@@ -148,7 +157,7 @@ export async function sendSectionNotifications(
       }
     } catch (rollbackError) {
       log('NotificationSender').error(
-        `Failed to rollback notification records for ${classNbr}:`,
+        `Failed to rollback notification records for ${scope}:`,
         rollbackError
       );
       throw rollbackError;
@@ -181,10 +190,10 @@ export async function sendSectionNotifications(
   const failCount = sentResults.length - successCount;
   if (failCount > 0) {
     log('NotificationSender').warn(
-      `${failCount}/${sentResults.length} notifications failed for ${classNbr}`
+      `${failCount}/${sentResults.length} notifications failed for ${scope}`
     );
   } else {
-    log('NotificationSender').info(`Sent ${successCount} notifications for ${classNbr}`);
+    log('NotificationSender').info(`Sent ${successCount} notifications for ${scope}`);
   }
 
   return sentResults;

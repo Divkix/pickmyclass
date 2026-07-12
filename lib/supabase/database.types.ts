@@ -418,7 +418,7 @@ export type Database = {
         }[]
       }
       get_watchers_for_sections: {
-        Args: { section_numbers: string[] }
+        Args: { section_numbers: string[]; p_term: string }
         Returns: {
           class_nbr: string
           email: string

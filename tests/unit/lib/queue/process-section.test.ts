@@ -167,8 +167,14 @@ describe('processSection', () => {
     // Should have detected changes
     expect(detectChanges).toHaveBeenCalled();
 
-    // Should have sent notifications
-    expect(sendSectionNotifications).toHaveBeenCalled();
+    // Should have sent notifications, carrying the full SectionRef (class_nbr + term)
+    // so recipient selection is term-scoped (issue #303).
+    expect(sendSectionNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ref: { class_nbr: '42737', term: '2261' },
+        classInfo: expect.objectContaining({ class_nbr: '42737', term: '2261' }),
+      })
+    );
 
     // Should have upserted new state (with onConflict option)
     expect(db.upsert).toHaveBeenCalledWith(
