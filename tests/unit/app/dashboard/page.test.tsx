@@ -147,8 +147,18 @@ vi.mock('@/components/ClassWatchCard', () => ({
 }));
 
 vi.mock('@/components/OnboardingModal', () => ({
-  OnboardingModal: ({ open }: { open: boolean }) => (
-    <div data-testid="onboarding-modal" data-open={open ? 'true' : 'false'} />
+  OnboardingModal: ({
+    open,
+    onCompleted,
+  }: {
+    open: boolean;
+    onCompleted?: (watch: { id: string }) => void;
+  }) => (
+    <div
+      data-testid="onboarding-modal"
+      data-open={open ? 'true' : 'false'}
+      data-on-completed={onCompleted ? 'true' : 'false'}
+    />
   ),
 }));
 

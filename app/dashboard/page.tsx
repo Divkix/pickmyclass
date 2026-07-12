@@ -135,6 +135,18 @@ export default function DashboardPage() {
     resistance: 2.5,
   });
 
+  // Onboarding completion: the modal created the first watch server-side (which
+  // also sets onboarding_completed_at). Add the watch locally and drop the modal
+  // / Finish Setup Card so the user lands on a populated dashboard.
+  const handleOnboardingCompleted = useCallback((watch: ClassWatch) => {
+    setWatches((prev) => [watch, ...prev]);
+    setOnboarding({
+      onboarding_completed_at: new Date().toISOString(),
+      onboarding_skipped_at: null,
+      needs_onboarding: false,
+    });
+  }, []);
+
   // Handle deleting a watch
   const handleDeleteWatch = async (watchId: string) => {
     const response = await fetch(`/api/class-watches?id=${watchId}`, {
@@ -213,6 +225,7 @@ export default function DashboardPage() {
       <OnboardingModal
         open={onboarding?.needs_onboarding === true}
         onSkipped={setOnboarding}
+        onCompleted={handleOnboardingCompleted}
         onSkipError={(message) =>
           toast.error('Could not skip onboarding', { description: message })
         }
