@@ -193,6 +193,8 @@ export type Database = {
           is_admin: boolean
           is_disabled: boolean
           notifications_enabled: boolean
+          onboarding_completed_at: string | null
+          onboarding_skipped_at: string | null
           spam_complained: boolean
           spam_complained_at: string | null
           unsubscribed_at: string | null
@@ -215,6 +217,8 @@ export type Database = {
           is_admin?: boolean
           is_disabled?: boolean
           notifications_enabled?: boolean
+          onboarding_completed_at?: string | null
+          onboarding_skipped_at?: string | null
           spam_complained?: boolean
           spam_complained_at?: string | null
           unsubscribed_at?: string | null
@@ -237,6 +241,8 @@ export type Database = {
           is_admin?: boolean
           is_disabled?: boolean
           notifications_enabled?: boolean
+          onboarding_completed_at?: string | null
+          onboarding_skipped_at?: string | null
           spam_complained?: boolean
           spam_complained_at?: string | null
           unsubscribed_at?: string | null
@@ -329,6 +335,13 @@ export type Database = {
         Args: never
         Returns: {
           subject: string
+        }[]
+      }
+      get_most_watched_class: {
+        Args: { p_term: string }
+        Returns: {
+          class_nbr: string
+          term: string
         }[]
       }
       get_notification_counts_by_class: {
@@ -432,6 +445,13 @@ export type Database = {
       record_engagement_send_batch: {
         Args: { p_user_ids: string[] }
         Returns: undefined
+      }
+      skip_onboarding: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          onboarding_completed_at: string | null
+          onboarding_skipped_at: string | null
+        }[]
       }
       try_record_notification: {
         Args: {

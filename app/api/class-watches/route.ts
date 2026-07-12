@@ -11,6 +11,7 @@ import { getPostHogClient } from '@/lib/posthog-server';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassStateRow } from '@/lib/types/class-watch';
+import { toOnboardingState, type OnboardingRow } from '@/lib/onboarding';
 
 // Get max watches per user from env (default: 10)
 const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10);
@@ -67,7 +68,24 @@ export async function GET() {
       class_state: statesMap[`${watch.term}:${watch.class_nbr}`] || null,
     }));
 
-    return ok({ watches: watchesWithStates, maxWatches: MAX_WATCHES_PER_USER });
+    // Expose onboarding state so the dashboard can render the first-time modal
+    // / finish-setup card without an extra round trip. Fails open: a profile-read
+    // error defaults to "not needed" rather than failing the whole watches fetch.
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('onboarding_completed_at, onboarding_skipped_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      log('API').warn('Onboarding state read failed; failing open:', profileError);
+    }
+
+    return ok({
+      watches: watchesWithStates,
+      maxWatches: MAX_WATCHES_PER_USER,
+      onboarding: toOnboardingState(profile as OnboardingRow | null),
+    });
   } catch (error) {
     log('API').error('Error fetching class watches:', error);
     return fail('Failed to fetch class watches', 500);
@@ -188,6 +206,21 @@ export async function POST(request: NextRequest) {
     } catch (dbError) {
       log('API').error('Failed to persist class state:', dbError);
       // Continue anyway - watch was created successfully
+    }
+
+    // Step 4: Mark onboarding complete on the user's first class watch so the
+    // finish-setup card stops reappearing. Service role bypasses the escalation
+    // trigger; only set it when still pending.
+    try {
+      await supabaseServiceRole
+        .from('user_profiles')
+        .update({ onboarding_completed_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .is('onboarding_completed_at', null)
+        .is('onboarding_skipped_at', null);
+    } catch (dbError) {
+      log('API').error('Failed to mark onboarding complete:', dbError);
+      // Non-fatal - watch was created successfully
     }
 
     const posthog = getPostHogClient();

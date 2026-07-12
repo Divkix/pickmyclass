@@ -79,6 +79,29 @@ export async function getSectionsToCheck(
 }
 
 /**
+ * Get the most-watched Class Section for a term — the onboarding "popular class"
+ * example. Counts only active watchers (the RPC applies the same eligibility
+ * filters as `get_sections_to_check` / `get_watchers_for_sections`). Returns
+ * `null` when no active watches exist for the term.
+ *
+ * @param term - selectable term code to look up
+ */
+export async function getMostWatchedClass(term: string): Promise<SectionRef | null> {
+  const supabase = getServiceClient();
+
+  const { data, error } = await supabase.rpc('get_most_watched_class', { p_term: term });
+
+  if (error) {
+    log('DB').error(`Error fetching most watched class for term ${term}:`, error);
+    throw new Error(`Failed to fetch most watched class: ${error.message}`);
+  }
+
+  const row = (data as SectionRef[] | null)?.[0];
+  if (!row) return null;
+  return { class_nbr: row.class_nbr, term: row.term };
+}
+
+/**
  * Reset seat_available notifications for a specific class section
  * Called when seats fill back to zero, allowing users to be re-notified
  * when seats open again.

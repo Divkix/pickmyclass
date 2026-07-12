@@ -75,6 +75,15 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **CronLockDO** — Durable Object that prevents duplicate cron executions. Auto-expires after 25 minutes.
 
+## Onboarding
+ 
+- **Onboarding Flow** — The first-time experience shown after email verification on the first dashboard visit. It teaches the user how to find an ASU class number and create their first watch. Implemented as a blocking modal with a linear checklist.
+- **Onboarding Step** — One of the three stages of the Onboarding Flow: find a class ID, add a watch, and confirmation. Steps are sequential and cannot be skipped individually.
+- **Onboarding Completion** — The state in which the user has created their first watch. Persisted in `user_profiles.onboarding_completed_at` and hides the Onboarding Flow and the Finish Setup Card.
+- **Onboarding Skip** — The state in which the user dismissed the Onboarding Flow via Escape, backdrop click, or the Skip button. Persisted in `user_profiles.onboarding_skipped_at` and keeps the Finish Setup Card visible.
+- **Popular Class Example** — A real, currently-watched `(class_nbr, term)` surfaced in step 1 to give the user a one-click shortcut. Sourced by the `get_most_watched_class` RPC and validated against the ASU API when the modal loads.
+- **Finish Setup Card** — A compact dashboard card shown after the user skips the Onboarding Flow. It remains until the user creates their first watch, at which point Onboarding Completion is reached.
+- **Simplified Watch Form** — The class-watch form used inside the Onboarding Flow. It contains only `class_nbr` and `term`, unlike the full dashboard form, but submits through the same `create_class_watch_with_limit` RPC.
 
 ## UI Components
 
