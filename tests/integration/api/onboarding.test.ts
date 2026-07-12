@@ -8,8 +8,7 @@ const {
   mockEq,
   mockMaybeSingle,
   mockRpc,
-  mockCapture,
-  mockShutdown,
+  mockCaptureServerEvent,
 } = vi.hoisted(() => ({
   mockCreateClient: vi.fn(),
   mockGetUser: vi.fn(),
@@ -18,15 +17,11 @@ const {
   mockEq: vi.fn(),
   mockMaybeSingle: vi.fn(),
   mockRpc: vi.fn(),
-  mockCapture: vi.fn(),
-  mockShutdown: vi.fn().mockResolvedValue(undefined),
+  mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/posthog-server', () => ({
-  getPostHogClient: vi.fn(() => ({
-    capture: mockCapture,
-    shutdown: mockShutdown,
-  })),
+  captureServerEvent: mockCaptureServerEvent,
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -179,13 +174,12 @@ describe('/api/user/onboarding', () => {
       expect(data.onboarding_skipped_at).toBe('2026-07-11T12:00:00Z');
       expect(data.onboarding_completed_at).toBeNull();
       expect(data.needs_onboarding).toBe(false);
-      expect(mockCapture).toHaveBeenCalledWith({
+      expect(mockCaptureServerEvent).toHaveBeenCalledWith({
         distinctId: user.id,
         event: 'onboarding_skipped',
       });
-      expect(mockShutdown).toHaveBeenCalledTimes(1);
-      expect(mockShutdown.mock.invocationCallOrder[0]).toBeGreaterThan(
-        mockCapture.mock.invocationCallOrder[0]
+      expect(mockCaptureServerEvent.mock.invocationCallOrder[0]).toBeGreaterThan(
+        mockRpc.mock.invocationCallOrder[0]
       );
     });
 
