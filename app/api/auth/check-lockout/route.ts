@@ -2,7 +2,8 @@ import { type NextRequest } from 'next/server';
 import { checkLockoutSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
-import { checkLockoutStatus, getRemainingLockoutTime } from '@/lib/auth/lockout';
+import { loginAttemptPolicy } from '@/lib/auth/login-attempt-policy';
+import { log } from '@/lib/log';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,9 +14,7 @@ export async function POST(request: NextRequest) {
       return fail('Invalid input', 400, mapValidationIssues(validation.error));
     }
 
-    const { email } = validation.data;
-
-    const status = await checkLockoutStatus(email);
+    const status = await loginAttemptPolicy.getPublicStatus(validation.data.email);
 
     // NOTE: `attempts` is intentionally omitted from the response.
     // Returning exact per-email failure counts turns this unauthenticated
@@ -30,10 +29,10 @@ export async function POST(request: NextRequest) {
     // enforcement layer is the edge (WAF), not per-Worker state.
     return ok({
       isLocked: status.isLocked,
-      remainingMinutes: getRemainingLockoutTime(status.lockedUntil),
+      remainingMinutes: status.remainingMinutes,
     });
   } catch (error) {
-    console.error('Error checking lockout status:', error);
+    log('Auth').error('Error checking lockout status:', error);
     return fail('Failed to check lockout status', 500);
   }
 }
