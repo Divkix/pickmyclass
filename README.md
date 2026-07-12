@@ -91,6 +91,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/queue/change-detector.ts` | Change detection logic |
 | `lib/queue/notification-sender.ts` | Notification sending with atomic deduplication |
 | `lib/email/send.ts` | Cloudflare Email Service batch sender |
+| `lib/class-watches/class-watch-creation.ts` | Browser-side watch creation policy and transport |
 | `lib/cache/ttl-cache.ts` | TTL cache for ASU API responses |
 | `lib/api/schemas.ts` | Queue message validation schemas |
 | `proxy.ts` | vinext middleware — auth gate, redirects, security headers + CSP |

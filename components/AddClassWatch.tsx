@@ -2,7 +2,7 @@
 
 import { Lightbulb, Lock } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { formatTermOption, getSelectableTerms } from '@/lib/asu/terms';
+import { formatTermOption } from '@/lib/asu/terms';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,14 +15,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  classWatchCreation,
+  type ClassWatchCreationInput,
+} from '@/lib/class-watches/class-watch-creation';
+import type { ClassWatchRow } from '@/lib/types/class-watch';
 
 interface AddClassWatchProps {
-  onAdd: (watch: { term: string; class_nbr: string }) => Promise<void>;
+  onCreated: (watch: ClassWatchRow, input: ClassWatchCreationInput) => void | Promise<void>;
 }
 
-export function AddClassWatch({ onAdd }: AddClassWatchProps) {
-  const selectableTerms = useMemo(() => getSelectableTerms(), []);
-  const defaultTerm = selectableTerms[0]?.code ?? '';
+export function AddClassWatch({ onCreated }: AddClassWatchProps) {
+  const { terms: selectableTerms, defaultTerm } = useMemo(
+    () => classWatchCreation.getOptions(),
+    []
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,23 +42,15 @@ export function AddClassWatch({ onAdd }: AddClassWatchProps) {
     e.preventDefault();
     setError(null);
 
-    if (!term || !classNbr) {
-      setError('Please select a term and enter a section number');
-      return;
-    }
-
-    if (classNbr.length !== 5 || !/^\d{5}$/.test(classNbr)) {
-      setError('Section number must be exactly 5 digits');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      await onAdd({
+      const input = {
         term,
         class_nbr: classNbr,
-      });
+      };
+      const watch = await classWatchCreation.create(input);
+      await onCreated(watch, input);
       // Reset form on success
       setTerm(defaultTerm);
       setClassNbr('');

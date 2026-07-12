@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Info, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { classWatchCreation } from '@/lib/class-watches/class-watch-creation';
 import { useSwipe } from '@/lib/hooks/useSwipe';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 import { ClassDetailsDialog } from '@/components/ClassDetailsDialog';
@@ -87,20 +88,10 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
     if (!deletedWatchRef.current) return;
 
     try {
-      const response = await fetch('/api/class-watches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          term: deletedWatchRef.current.term,
-          subject: deletedWatchRef.current.subject,
-          catalog_nbr: deletedWatchRef.current.catalog_nbr,
-          class_nbr: deletedWatchRef.current.class_nbr,
-        }),
+      await classWatchCreation.create({
+        term: deletedWatchRef.current.term,
+        class_nbr: deletedWatchRef.current.class_nbr,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to restore watch');
-      }
 
       toast.success('Class watch restored');
       deletedWatchRef.current = null;
