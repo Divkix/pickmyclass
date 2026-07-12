@@ -12,6 +12,7 @@ import { handleDLQMessage } from './lib/queue/dlq-consumer';
 import { processSection } from './lib/queue/process-section';
 import type { Env } from './lib/types/env';
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';
+import { createCronLockLifecycle } from './lib/worker/cron-lock';
 import { edgeHtmlCache } from './lib/worker/edge-html-cache';
 
 /**
@@ -41,70 +42,18 @@ import { edgeHtmlCache } from './lib/worker/edge-html-cache';
  * ```
  */
 export class CronLockDO extends DurableObject<Cloudflare.Env> {
-  private locked: boolean;
-  private lockAcquiredAt: number | null;
-  private lockHolder: string | null;
-  private readonly LOCK_TIMEOUT_MS = 25 * 60 * 1000; // 25 minutes (safety before 30min cron)
+  private readonly lock;
 
   /**
    * Constructor - loads persistent state from storage
    */
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);
-
-    // Initialize default state
-    this.locked = false;
-    this.lockAcquiredAt = null;
-    this.lockHolder = null;
-
-    // Load state from storage asynchronously
-    this.ctx.blockConcurrencyWhile(async () => {
-      const stored = await this.ctx.storage.get<{
-        locked: boolean;
-        lockAcquiredAt: number | null;
-        lockHolder: string | null;
-      }>('lock_state');
-
-      if (stored) {
-        // Check if lock expired during downtime
-        if (
-          stored.locked &&
-          stored.lockAcquiredAt &&
-          Date.now() - stored.lockAcquiredAt > this.LOCK_TIMEOUT_MS
-        ) {
-          console.log(
-            '[CronLockDO] Lock expired during downtime, releasing (held by:',
-            stored.lockHolder,
-            ')'
-          );
-          this.locked = false;
-          this.lockAcquiredAt = null;
-          this.lockHolder = null;
-          await this.persist();
-        } else {
-          this.locked = stored.locked;
-          this.lockAcquiredAt = stored.lockAcquiredAt;
-          this.lockHolder = stored.lockHolder;
-          console.log('[CronLockDO] Loaded state from storage:', {
-            locked: this.locked,
-            holder: this.lockHolder,
-          });
-        }
-      } else {
-        console.log('[CronLockDO] Initialized with default state (unlocked)');
-      }
+    this.lock = createCronLockLifecycle({
+      load: () => this.ctx.storage.get('lock_state'),
+      save: (state) => this.ctx.storage.put('lock_state', state),
     });
-  }
-
-  /**
-   * Persist current state to durable storage
-   */
-  private async persist(): Promise<void> {
-    await this.ctx.storage.put('lock_state', {
-      locked: this.locked,
-      lockAcquiredAt: this.lockAcquiredAt,
-      lockHolder: this.lockHolder,
-    });
+    this.ctx.blockConcurrencyWhile(() => this.lock.initialize());
   }
 
   /**
@@ -113,58 +62,8 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
    * @param holder - Identifier for who is acquiring the lock (for debugging)
    * @returns Object with acquired status and message
    */
-  async acquireLock(holder: string = 'unknown'): Promise<{
-    acquired: boolean;
-    message: string;
-    lockHolder?: string;
-    lockedSince?: number;
-  }> {
-    // Check if lock expired
-    if (
-      this.locked &&
-      this.lockAcquiredAt &&
-      Date.now() - this.lockAcquiredAt >= this.LOCK_TIMEOUT_MS
-    ) {
-      console.log(
-        `[CronLockDO] Lock expired (held by ${this.lockHolder} for ${Math.floor((Date.now() - this.lockAcquiredAt) / 1000)}s), auto-releasing`
-      );
-      this.locked = false;
-      this.lockAcquiredAt = null;
-      this.lockHolder = null;
-      await this.persist();
-    }
-
-    // Check if already locked
-    if (this.locked) {
-      const timeHeld = this.lockAcquiredAt ? Date.now() - this.lockAcquiredAt : 0;
-      const timeRemaining = this.LOCK_TIMEOUT_MS - timeHeld;
-
-      console.log(
-        `[CronLockDO] Lock acquisition denied - already held by ${this.lockHolder} for ${Math.floor(timeHeld / 1000)}s`
-      );
-
-      return {
-        acquired: false,
-        message: `Cron lock already held by ${this.lockHolder}. Time remaining: ${Math.ceil(timeRemaining / 1000)}s`,
-        lockHolder: this.lockHolder || undefined,
-        lockedSince: this.lockAcquiredAt || undefined,
-      };
-    }
-
-    // Acquire lock
-    this.locked = true;
-    this.lockAcquiredAt = Date.now();
-    this.lockHolder = holder;
-    await this.persist();
-
-    console.log(`[CronLockDO] Lock acquired by ${holder}`);
-
-    return {
-      acquired: true,
-      message: `Lock acquired successfully`,
-      lockHolder: holder,
-      lockedSince: this.lockAcquiredAt,
-    };
+  async acquireLock(holder: string = 'unknown') {
+    return this.lock.acquire(holder);
   }
 
   /**
@@ -172,75 +71,15 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
    *
    * @param holder - Identifier for who is releasing (must match acquirer)
    */
-  async releaseLock(holder: string = 'unknown'): Promise<{
-    released: boolean;
-    message: string;
-  }> {
-    if (!this.locked) {
-      console.log(`[CronLockDO] Release requested by ${holder}, but lock not held`);
-      return {
-        released: false,
-        message: 'Lock was not held',
-      };
-    }
-
-    if (this.lockHolder !== holder) {
-      console.warn(
-        `[CronLockDO] Release denied - lock held by ${this.lockHolder}, requested by ${holder}`
-      );
-      return {
-        released: false,
-        message: `Lock held by different holder (${this.lockHolder})`,
-      };
-    }
-
-    const timeHeld = this.lockAcquiredAt ? Date.now() - this.lockAcquiredAt : 0;
-
-    this.locked = false;
-    this.lockAcquiredAt = null;
-    this.lockHolder = null;
-    await this.persist();
-
-    console.log(`[CronLockDO] Lock released by ${holder} after ${Math.floor(timeHeld / 1000)}s`);
-
-    return {
-      released: true,
-      message: `Lock released after ${Math.floor(timeHeld / 1000)}s`,
-    };
+  async releaseLock(holder: string = 'unknown') {
+    return this.lock.release(holder);
   }
 
   /**
    * Get current lock status
    */
-  async getStatus(): Promise<{
-    locked: boolean;
-    lockHolder: string | null;
-    lockAcquiredAt: number | null;
-    timeHeldMs: number | null;
-    expiresAt: number | null;
-  }> {
-    // Check for expiry
-    if (
-      this.locked &&
-      this.lockAcquiredAt &&
-      Date.now() - this.lockAcquiredAt >= this.LOCK_TIMEOUT_MS
-    ) {
-      this.locked = false;
-      this.lockAcquiredAt = null;
-      this.lockHolder = null;
-      await this.persist();
-    }
-
-    const timeHeldMs = this.lockAcquiredAt ? Date.now() - this.lockAcquiredAt : null;
-    const expiresAt = this.lockAcquiredAt ? this.lockAcquiredAt + this.LOCK_TIMEOUT_MS : null;
-
-    return {
-      locked: this.locked,
-      lockHolder: this.lockHolder,
-      lockAcquiredAt: this.lockAcquiredAt,
-      timeHeldMs,
-      expiresAt,
-    };
+  async getStatus() {
+    return this.lock.status();
   }
 
   /**

@@ -82,6 +82,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | Component | Purpose |
 |-----------|---------|
 | `worker.ts` | Custom Cloudflare Worker with cron, queue handlers, and Durable Objects |
+| `lib/worker/cron-lock.ts` | Cron lock lifecycle, status semantics, and Durable Object client |
 | `lib/worker/edge-html-cache.ts` | Edge HTML cache eligibility, keying, lookup, and storage rules |
 | `app/api/cron/route.ts` | Cron job entry point - enqueues sections to queue |
 | `app/api/queue/process-section/route.ts` | HTTP mirror of the queue consumer (tests/HTTP dispatch; not the production path) |

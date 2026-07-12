@@ -1,9 +1,18 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
+const { mockAcquireLock, mockReleaseLock } = vi.hoisted(() => ({
+  mockAcquireLock: vi.fn(),
+  mockReleaseLock: vi.fn(),
+}));
+
 // Mock modules before importing route
 vi.mock('@/lib/db/queries', () => ({
   getSectionsToCheck: vi.fn(),
+}));
+
+vi.mock('@/lib/worker/cron-lock', () => ({
+  createCronLockClient: () => ({ acquire: mockAcquireLock }),
 }));
 
 vi.mock('cloudflare:workers', () => ({
@@ -29,6 +38,13 @@ describe('GET /api/cron', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-01-15T12:00:00Z'));
+    mockReleaseLock.mockResolvedValue(undefined);
+    mockAcquireLock.mockResolvedValue({
+      configured: false,
+      acquired: true,
+      message: 'not configured',
+      release: mockReleaseLock,
+    });
   });
 
   afterEach(() => {
@@ -230,5 +246,53 @@ describe('GET /api/cron', () => {
 
     // Assert: Should use 'even' stagger group based on header, not 'odd' from current time
     expect(getSectionsToCheck).toHaveBeenCalledWith('even');
+  });
+
+  it('returns 409 when the shared lock client reports an active run', async () => {
+    mockAcquireLock.mockResolvedValue({
+      configured: true,
+      acquired: false,
+      message: 'already held',
+      currentHolder: 'worker-a',
+      release: mockReleaseLock,
+    });
+
+    const response = await GET(createRequest('Bearer test-cron-secret'));
+    const data = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(409);
+    expect(data.error).toBe('Another cron job is already running');
+    expect(getSectionsToCheck).not.toHaveBeenCalled();
+  });
+
+  it('releases an acquired lease after cron work finishes', async () => {
+    vi.mocked(getSectionsToCheck).mockResolvedValue([]);
+    mockAcquireLock.mockResolvedValue({
+      configured: true,
+      acquired: true,
+      message: 'acquired',
+      release: mockReleaseLock,
+    });
+
+    const response = await GET(createRequest('Bearer test-cron-secret'));
+
+    expect(response.status).toBe(200);
+    expect(mockReleaseLock).toHaveBeenCalledOnce();
+  });
+
+  it('does not fail completed cron work when lease release throws', async () => {
+    vi.mocked(getSectionsToCheck).mockResolvedValue([]);
+    mockReleaseLock.mockRejectedValueOnce(new Error('release unavailable'));
+    mockAcquireLock.mockResolvedValue({
+      configured: true,
+      acquired: true,
+      message: 'acquired',
+      release: mockReleaseLock,
+    });
+
+    const response = await GET(createRequest('Bearer test-cron-secret'));
+
+    expect(response.status).toBe(200);
+    expect(mockReleaseLock).toHaveBeenCalledOnce();
   });
 });

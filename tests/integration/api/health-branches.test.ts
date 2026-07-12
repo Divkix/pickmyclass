@@ -7,6 +7,7 @@ type HealthRouteOptions = {
   dbThrows?: boolean;
   asuError?: Error;
   doThrows?: boolean;
+  lockTimestamps?: { acquiredAt: number; expiresAt: number };
 };
 
 const baseEnv = {
@@ -22,21 +23,7 @@ const baseEnv = {
 async function loadHealthRoute(options: HealthRouteOptions = {}) {
   vi.resetModules();
 
-  const lockFetch = vi.fn(async () =>
-    Response.json({
-      locked: true,
-      lockHolder: 'cron-run',
-      lockAcquiredAt: Date.now() - 1000,
-      timeHeldMs: 1000,
-      expiresAt: Date.now() + 1000,
-    })
-  );
-  const doBinding = {
-    idFromName: vi.fn(() => 'lock-id'),
-    get: vi.fn(() => ({
-      fetch: options.doThrows ? vi.fn(async () => Promise.reject(new Error('DO down'))) : lockFetch,
-    })),
-  };
+  const doBinding = {};
   const env = {
     ...baseEnv,
     PICKMYCLASS_CRON_LOCK_DO: doBinding,
@@ -44,6 +31,20 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
   };
 
   vi.doMock('cloudflare:workers', () => ({ env }));
+
+  const lockStatus = vi.fn(async () => {
+    if (options.doThrows) throw new Error('DO down');
+    if (!env.PICKMYCLASS_CRON_LOCK_DO) return null;
+    return {
+      locked: true,
+      lockHolder: 'cron-run',
+      lockAcquiredAt: options.lockTimestamps?.acquiredAt ?? Date.now() - 1000,
+      timeHeldMs: 1000,
+      expiresAt: options.lockTimestamps?.expiresAt ?? Date.now() + 1000,
+    };
+  });
+  const createCronLockClient = vi.fn(() => ({ status: lockStatus }));
+  vi.doMock('@/lib/worker/cron-lock', () => ({ createCronLockClient }));
 
   class MockNotFoundError extends Error {}
   const fetchClassFromASU = vi.fn();
@@ -73,7 +74,15 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
   }));
 
   const mod = await import('@/app/api/monitoring/health/route');
-  return { GET: mod.GET, doBinding, fetchClassFromASU, getServiceClient, limit, lockFetch };
+  return {
+    GET: mod.GET,
+    createCronLockClient,
+    doBinding,
+    fetchClassFromASU,
+    getServiceClient,
+    limit,
+    lockStatus,
+  };
 }
 
 function request(auth = 'Bearer test-cron-secret') {
@@ -88,6 +97,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
     vi.doUnmock('cloudflare:workers');
     vi.doUnmock('@/lib/asu/api');
     vi.doUnmock('@/lib/supabase/service');
+    vi.doUnmock('@/lib/worker/cron-lock');
   });
 
   it('returns a cheap liveness probe without auth', async () => {
@@ -102,7 +112,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
   });
 
   it('reports healthy detailed checks with a configured cron lock durable object', async () => {
-    const { GET, doBinding, lockFetch } = await loadHealthRoute();
+    const { GET, createCronLockClient, doBinding, lockStatus } = await loadHealthRoute();
 
     const response = await GET(request());
     const data = (await response.json()) as {
@@ -119,8 +129,24 @@ describe('GET /api/monitoring/health branch coverage', () => {
       locked: true,
       lock_holder: 'cron-run',
     });
-    expect(doBinding.idFromName).toHaveBeenCalledWith('pickmyclass-cron-lock');
-    expect(lockFetch).toHaveBeenCalledWith('http://do/status');
+    expect(createCronLockClient).toHaveBeenCalledWith(doBinding);
+    expect(lockStatus).toHaveBeenCalledOnce();
+  });
+
+  it('formats epoch lock timestamps instead of treating them as absent', async () => {
+    const { GET } = await loadHealthRoute({
+      lockTimestamps: { acquiredAt: 0, expiresAt: 1 },
+    });
+
+    const response = await GET(request());
+    const data = (await response.json()) as {
+      checks: {
+        cron_lock: { lock_acquired_at: string | null; expires_at: string | null };
+      };
+    };
+
+    expect(data.checks.cron_lock.lock_acquired_at).toBe('1970-01-01T00:00:00.000Z');
+    expect(data.checks.cron_lock.expires_at).toBe('1970-01-01T00:00:00.001Z');
   });
 
   it('caches detailed health checks for repeated authenticated requests', async () => {

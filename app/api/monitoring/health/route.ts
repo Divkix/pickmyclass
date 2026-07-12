@@ -10,6 +10,7 @@ import { fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import { getServiceClient } from '@/lib/supabase/service';
 import { timingSafeCompare } from '@/lib/utils/crypto';
+import { createCronLockClient } from '@/lib/worker/cron-lock';
 
 /**
  * Health status response
@@ -122,29 +123,20 @@ export async function GET(request: Request) {
       PICKMYCLASS_CRON_LOCK_DO?: DurableObjectNamespace;
     };
 
-    if (cfEnv?.PICKMYCLASS_CRON_LOCK_DO) {
-      const lockId = cfEnv.PICKMYCLASS_CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
-      const lockStub = cfEnv.PICKMYCLASS_CRON_LOCK_DO.get(lockId);
-
-      const lockStatusResponse = await lockStub.fetch('http://do/status');
-      const lockStatus = (await lockStatusResponse.json()) as {
-        locked: boolean;
-        lockHolder: string | null;
-        lockAcquiredAt: number | null;
-        timeHeldMs: number | null;
-        expiresAt: number | null;
-      };
-
+    const lockStatus = await createCronLockClient(cfEnv?.PICKMYCLASS_CRON_LOCK_DO).status();
+    if (lockStatus) {
       health.checks.cron_lock = {
         status: 'healthy',
         type: 'durable_object',
         locked: lockStatus.locked,
         lock_holder: lockStatus.lockHolder,
         time_held_ms: lockStatus.timeHeldMs,
-        lock_acquired_at: lockStatus.lockAcquiredAt
-          ? new Date(lockStatus.lockAcquiredAt).toISOString()
-          : null,
-        expires_at: lockStatus.expiresAt ? new Date(lockStatus.expiresAt).toISOString() : null,
+        lock_acquired_at:
+          lockStatus.lockAcquiredAt !== null
+            ? new Date(lockStatus.lockAcquiredAt).toISOString()
+            : null,
+        expires_at:
+          lockStatus.expiresAt !== null ? new Date(lockStatus.expiresAt).toISOString() : null,
       };
     } else {
       health.checks.cron_lock = {
