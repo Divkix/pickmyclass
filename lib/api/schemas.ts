@@ -113,6 +113,14 @@ export const registerSchema = z.object({
 });
 
 /**
+ * Schema for recording consent after an OAuth account has authenticated.
+ */
+export const consentSchema = registerSchema.pick({
+  ageVerified: true,
+  agreedToTerms: true,
+});
+
+/**
  * Schema for lockout status check
  */
 export const checkLockoutSchema = z.object({

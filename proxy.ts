@@ -73,7 +73,7 @@ const AUTH_PAGES = ['/login', '/register', '/forgot-password'];
  * Protected route prefixes that require authentication.
  * Unknown routes outside these prefixes pass through to the app (which returns 404).
  */
-const PROTECTED_ROUTE_PREFIXES = ['/dashboard', '/admin', '/settings', '/verify-email'];
+const PROTECTED_ROUTE_PREFIXES = ['/dashboard', '/admin', '/settings', '/verify-email', '/consent'];
 
 /**
  * Add security headers to a response.
@@ -118,6 +118,7 @@ function isPublicRoute(pathname: string): boolean {
  * Defaults to /dashboard if user is not admin.
  */
 function getRedirectPath(authState: AuthorizationState | null): string {
+  if (authState && !authState.has_consent) return '/consent';
   return authState?.is_admin ? '/admin' : '/dashboard';
 }
 
@@ -233,6 +234,35 @@ export async function proxy(request: NextRequest) {
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    const redirectResponse = NextResponse.redirect(url);
+    addSecurityHeaders(redirectResponse, isDevelopment, csp);
+    return redirectResponse;
+  }
+
+  // OAuth accounts without a complete consent record cannot enter protected
+  // application pages. The dedicated gate remains reachable so they can repair
+  // pre-existing accounts on their next sign-in.
+  if (
+    user?.email_confirmed_at &&
+    authState &&
+    !authState.has_consent &&
+    isProtectedRoute &&
+    pathname !== '/consent'
+  ) {
+    const url = request.nextUrl.clone();
+    const next = `${pathname}${request.nextUrl.search}`;
+    url.pathname = '/consent';
+    url.search = '';
+    url.searchParams.set('next', next);
+    const redirectResponse = NextResponse.redirect(url);
+    addSecurityHeaders(redirectResponse, isDevelopment, csp);
+    return redirectResponse;
+  }
+
+  if (user?.email_confirmed_at && authState?.has_consent && pathname === '/consent') {
+    const url = request.nextUrl.clone();
+    url.pathname = getRedirectPath(authState);
+    url.search = '';
     const redirectResponse = NextResponse.redirect(url);
     addSecurityHeaders(redirectResponse, isDevelopment, csp);
     return redirectResponse;

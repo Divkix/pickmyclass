@@ -11,7 +11,14 @@ import {
  * `.from(...).select(...).eq(...).maybeSingle()`. Records how many times a query
  * ran and returns whatever `result` is set to.
  */
-function createFakeClient(result: { data: AuthorizationState | null }) {
+interface ProfileAuthorizationRow {
+  is_admin: boolean;
+  is_disabled: boolean;
+  age_verified_at: string | null;
+  agreed_to_terms_at: string | null;
+}
+
+function createFakeClient(result: { data: ProfileAuthorizationRow | null }) {
   const maybeSingle = vi.fn().mockResolvedValue(result);
   const eq = vi.fn().mockReturnValue({ maybeSingle });
   const select = vi.fn().mockReturnValue({ eq });
@@ -21,8 +28,24 @@ function createFakeClient(result: { data: AuthorizationState | null }) {
   return { client, from, select, eq, maybeSingle };
 }
 
-const adminState: AuthorizationState = { is_admin: true, is_disabled: false };
-const regularState: AuthorizationState = { is_admin: false, is_disabled: false };
+const consentTimestamp = '2026-07-12T00:00:00.000Z';
+const adminProfile: ProfileAuthorizationRow = {
+  is_admin: true,
+  is_disabled: false,
+  age_verified_at: consentTimestamp,
+  agreed_to_terms_at: consentTimestamp,
+};
+const regularProfile: ProfileAuthorizationRow = {
+  is_admin: false,
+  is_disabled: false,
+  age_verified_at: consentTimestamp,
+  agreed_to_terms_at: consentTimestamp,
+};
+const adminState: AuthorizationState = {
+  is_admin: true,
+  is_disabled: false,
+  has_consent: true,
+};
 
 describe('readAuthorizationState', () => {
   beforeEach(() => {
@@ -33,22 +56,34 @@ describe('readAuthorizationState', () => {
     clearAuthorizationStateCache();
   });
 
-  it('returns the { is_admin, is_disabled } shape from the profile row', async () => {
-    const { client } = createFakeClient({ data: adminState });
+  it('returns authorization and consent state from the profile row', async () => {
+    const { client } = createFakeClient({ data: adminProfile });
 
     const state = await readAuthorizationState(client, 'user-1', { cache: false });
 
-    expect(state).toEqual({ is_admin: true, is_disabled: false });
+    expect(state).toEqual(adminState);
   });
 
   it('selects only the authorization columns filtered by user_id', async () => {
-    const { client, from, select, eq } = createFakeClient({ data: regularState });
+    const { client, from, select, eq } = createFakeClient({ data: regularProfile });
 
     await readAuthorizationState(client, 'user-1', { cache: false });
 
     expect(from).toHaveBeenCalledWith('user_profiles');
-    expect(select).toHaveBeenCalledWith('is_admin, is_disabled');
+    expect(select).toHaveBeenCalledWith(
+      'is_admin, is_disabled, age_verified_at, agreed_to_terms_at'
+    );
     expect(eq).toHaveBeenCalledWith('user_id', 'user-1');
+  });
+
+  it('requires both age verification and terms agreement for consent', async () => {
+    const { client } = createFakeClient({
+      data: { ...regularProfile, agreed_to_terms_at: null },
+    });
+
+    const state = await readAuthorizationState(client, 'user-1', { cache: false });
+
+    expect(state?.has_consent).toBe(false);
   });
 
   it('returns null when the profile row is missing', async () => {
@@ -77,7 +112,7 @@ describe('readAuthorizationState', () => {
 
   describe('cached read', () => {
     it('serves a cached hit without re-querying', async () => {
-      const { client, maybeSingle } = createFakeClient({ data: adminState });
+      const { client, maybeSingle } = createFakeClient({ data: adminProfile });
 
       await readAuthorizationState(client, 'user-1', { cache: true });
       const second = await readAuthorizationState(client, 'user-1', { cache: true });
@@ -98,7 +133,7 @@ describe('readAuthorizationState', () => {
 
   describe('fresh read', () => {
     it('always queries even after a value was cached', async () => {
-      const { client, maybeSingle } = createFakeClient({ data: adminState });
+      const { client, maybeSingle } = createFakeClient({ data: adminProfile });
 
       await readAuthorizationState(client, 'user-1', { cache: true });
       await readAuthorizationState(client, 'user-1', { cache: false });
@@ -107,7 +142,7 @@ describe('readAuthorizationState', () => {
     });
 
     it('does not populate the cache, so a later cached read still queries', async () => {
-      const { client, maybeSingle } = createFakeClient({ data: adminState });
+      const { client, maybeSingle } = createFakeClient({ data: adminProfile });
 
       await readAuthorizationState(client, 'user-1', { cache: false });
       await readAuthorizationState(client, 'user-1', { cache: true });
@@ -118,7 +153,7 @@ describe('readAuthorizationState', () => {
 
   describe('invalidateAuthorizationState', () => {
     it('forces the next cached read to re-query', async () => {
-      const { client, maybeSingle } = createFakeClient({ data: adminState });
+      const { client, maybeSingle } = createFakeClient({ data: adminProfile });
 
       await readAuthorizationState(client, 'user-1', { cache: true });
       const removed = invalidateAuthorizationState('user-1');

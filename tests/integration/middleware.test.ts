@@ -68,16 +68,28 @@ const mockUnverifiedUser = {
 const mockRegularProfile = {
   is_admin: false,
   is_disabled: false,
+  age_verified_at: '2026-07-12T00:00:00.000Z',
+  agreed_to_terms_at: '2026-07-12T00:00:00.000Z',
 };
 
 const mockAdminProfile = {
   is_admin: true,
   is_disabled: false,
+  age_verified_at: '2026-07-12T00:00:00.000Z',
+  agreed_to_terms_at: '2026-07-12T00:00:00.000Z',
 };
 
 const mockDisabledProfile = {
   is_admin: false,
   is_disabled: true,
+  age_verified_at: '2026-07-12T00:00:00.000Z',
+  agreed_to_terms_at: '2026-07-12T00:00:00.000Z',
+};
+
+const mockMissingConsentProfile = {
+  ...mockRegularProfile,
+  age_verified_at: null,
+  agreed_to_terms_at: null,
 };
 
 describe('proxy', () => {
@@ -347,6 +359,30 @@ describe('proxy', () => {
       const response = await proxy(request);
 
       expect(response.status).toBe(200);
+    });
+
+    it('redirects a verified user missing consent to the consent gate', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockMissingConsentProfile, error: null });
+
+      const response = await proxy(createAuthenticatedRequest('/dashboard'));
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe(
+        'http://localhost:3000/consent?next=%2Fdashboard'
+      );
+    });
+
+    it('protects the consent page from unauthenticated access', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+      const response = await proxy(createRequest('/consent'));
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe('http://localhost:3000/login');
     });
   });
 
