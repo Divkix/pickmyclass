@@ -233,10 +233,7 @@ const userRows = [
     is_admin: true,
     seat_emails: 4,
     instructor_emails: 1,
-    engagement_emails_sent: 5,
-    engagement_emails_opened: 3,
-    engagement_rate: 60,
-    engagement_status: 'healthy' as const,
+    notification_status: 'active' as const,
   },
   {
     id: 'user-2',
@@ -248,10 +245,7 @@ const userRows = [
     is_admin: false,
     seat_emails: 0,
     instructor_emails: 0,
-    engagement_emails_sent: 0,
-    engagement_emails_opened: 0,
-    engagement_rate: null,
-    engagement_status: 'new' as const,
+    notification_status: 'unsubscribed' as const,
   },
 ];
 

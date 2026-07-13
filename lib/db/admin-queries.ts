@@ -25,10 +25,7 @@ export interface ClassWithWatchers extends Tables<'class_states'> {
   instructor_emails: number;
 }
 
-/**
- * Engagement status for a user
- */
-type EngagementStatus = 'healthy' | 'low' | 'disabled' | 'new';
+type NotificationStatus = 'active' | 'unsubscribed' | 'bounced' | 'spam' | 'disabled';
 
 /**
  * User information with watch count
@@ -43,11 +40,7 @@ export interface UserWithWatchCount {
   is_admin: boolean;
   seat_emails: number;
   instructor_emails: number;
-  // Engagement tracking
-  engagement_emails_sent: number;
-  engagement_emails_opened: number;
-  engagement_rate: number | null;
-  engagement_status: EngagementStatus;
+  notification_status: NotificationStatus;
 }
 
 /**
@@ -188,8 +181,7 @@ export type UserSortField =
   | 'last_sign_in_at'
   | 'watch_count'
   | 'seat_emails'
-  | 'instructor_emails'
-  | 'engagement_rate';
+  | 'instructor_emails';
 
 export type ClassSortField =
   | 'class_nbr'
@@ -285,10 +277,7 @@ export async function getUsersPage(params: GetUsersPageParams = {}): Promise<Use
     is_admin: row.is_admin,
     seat_emails: Number(row.seat_emails),
     instructor_emails: Number(row.instructor_emails),
-    engagement_emails_sent: row.engagement_emails_sent,
-    engagement_emails_opened: row.engagement_emails_opened,
-    engagement_rate: row.engagement_rate !== null ? Number(row.engagement_rate) : null,
-    engagement_status: row.engagement_status as 'healthy' | 'low' | 'disabled' | 'new',
+    notification_status: row.notification_status as NotificationStatus,
   }));
 
   const total = data && data.length > 0 ? Number(data[0].total_count) : 0;

@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -184,11 +179,6 @@ export type Database = {
           disabled_at: string | null
           email_bounced: boolean
           email_bounced_at: string | null
-          engagement_disabled_at: string | null
-          engagement_emails_opened: number
-          engagement_emails_sent: number
-          engagement_last_opened_at: string | null
-          engagement_window_start: string | null
           id: string
           is_admin: boolean
           is_disabled: boolean
@@ -208,11 +198,6 @@ export type Database = {
           disabled_at?: string | null
           email_bounced?: boolean
           email_bounced_at?: string | null
-          engagement_disabled_at?: string | null
-          engagement_emails_opened?: number
-          engagement_emails_sent?: number
-          engagement_last_opened_at?: string | null
-          engagement_window_start?: string | null
           id?: string
           is_admin?: boolean
           is_disabled?: boolean
@@ -232,11 +217,6 @@ export type Database = {
           disabled_at?: string | null
           email_bounced?: boolean
           email_bounced_at?: string | null
-          engagement_disabled_at?: string | null
-          engagement_emails_opened?: number
-          engagement_emails_sent?: number
-          engagement_last_opened_at?: string | null
-          engagement_window_start?: string | null
           id?: string
           is_admin?: boolean
           is_disabled?: boolean
@@ -344,22 +324,6 @@ export type Database = {
           term: string
         }[]
       }
-      get_notification_counts_by_class: {
-        Args: never
-        Returns: {
-          class_nbr: string
-          instructor_emails: number
-          seat_emails: number
-        }[]
-      }
-      get_notification_counts_by_user: {
-        Args: never
-        Returns: {
-          instructor_emails: number
-          seat_emails: number
-          user_id: string
-        }[]
-      }
       get_recent_activity: {
         Args: { p_limit?: number }
         Returns: {
@@ -379,16 +343,6 @@ export type Database = {
           term: string
         }[]
       }
-      get_user_engagement_stats: {
-        Args: never
-        Returns: {
-          engagement_emails_opened: number
-          engagement_emails_sent: number
-          engagement_rate: number
-          engagement_status: string
-          user_id: string
-        }[]
-      }
       get_users_page: {
         Args: {
           p_dir?: string
@@ -404,14 +358,11 @@ export type Database = {
           created_at: string
           email: string
           email_confirmed_at: string
-          engagement_emails_opened: number
-          engagement_emails_sent: number
-          engagement_rate: number
-          engagement_status: string
           id: string
           instructor_emails: number
           is_admin: boolean
           last_sign_in_at: string
+          notification_status: string
           seat_emails: number
           total_count: number
           watch_count: number
@@ -437,29 +388,12 @@ export type Database = {
           locked: boolean
         }[]
       }
-      record_engagement_open: {
-        Args: { p_user_id: string }
-        Returns: undefined
-      }
-      record_engagement_send: { Args: { p_user_id: string }; Returns: boolean }
-      record_engagement_send_batch: {
-        Args: { p_user_ids: string[] }
-        Returns: undefined
-      }
       skip_onboarding: {
         Args: never
         Returns: {
           onboarding_completed_at: string
           onboarding_skipped_at: string
         }[]
-      }
-      try_record_notification: {
-        Args: {
-          p_class_watch_id: string
-          p_expires_hours?: number
-          p_notification_type: string
-        }
-        Returns: boolean
       }
       try_record_notifications_batch: {
         Args: {
@@ -469,7 +403,6 @@ export type Database = {
         }
         Returns: string[]
       }
-      user_owns_class_watch: { Args: { watch_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

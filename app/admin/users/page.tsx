@@ -6,12 +6,26 @@ import { getUsersPage } from '@/lib/db/admin-queries';
 import type { UserSortField } from '@/lib/db/admin-queries';
 
 const PAGE_SIZE = 25;
+const USER_SORT_FIELDS: readonly UserSortField[] = [
+  'email',
+  'created_at',
+  'last_sign_in_at',
+  'watch_count',
+  'seat_emails',
+  'instructor_emails',
+];
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function param(searchParams: Record<string, string | string[] | undefined>, key: string): string {
   const v = searchParams[key];
   return typeof v === 'string' ? v : '';
+}
+
+function userSort(value: string): UserSortField {
+  return USER_SORT_FIELDS.includes(value as UserSortField)
+    ? (value as UserSortField)
+    : 'created_at';
 }
 
 /**
@@ -28,7 +42,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
   const sp = await (searchParams ?? Promise.resolve({}));
 
   const page = Math.max(1, Number(param(sp, 'page') || '1'));
-  const sort = (param(sp, 'sort') || 'created_at') as UserSortField;
+  const sort = userSort(param(sp, 'sort'));
   const dir = (param(sp, 'dir') === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
   const search = param(sp, 'search');
   const role = (param(sp, 'role') || 'all') as 'all' | 'admin' | 'user';

@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(6);
+SELECT plan(12);
 
 INSERT INTO auth.users (
   id,
@@ -107,6 +107,46 @@ SELECT is(
   ),
   1,
   'exactly one active claim remains'
+);
+
+UPDATE public.user_profiles
+SET email_bounced = TRUE
+WHERE user_id = '10000000-0000-0000-0000-000000000001';
+
+SELECT is(
+  (
+    SELECT notification_status
+    FROM public.get_users_page(p_search => 'database-functions@example.test')
+    LIMIT 1
+  ),
+  'bounced',
+  'the admin user page reports authoritative notification status'
+);
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'user_profiles'
+      AND column_name LIKE 'engagement_%'
+  ),
+  'the incomplete engagement columns are removed'
+);
+SELECT ok(
+  to_regprocedure('public.record_engagement_send_batch(uuid[])') IS NULL,
+  'the dead batch engagement RPC is removed'
+);
+SELECT ok(
+  to_regprocedure('public.record_engagement_open(uuid)') IS NULL,
+  'the dead email-open RPC is removed'
+);
+SELECT ok(
+  to_regprocedure('public.try_record_notification(uuid,text,integer)') IS NULL,
+  'the superseded single notification claim RPC is removed'
+);
+SELECT ok(
+  to_regprocedure('public.user_owns_class_watch(uuid)') IS NULL,
+  'the unused ownership helper is removed'
 );
 
 SELECT * FROM finish();

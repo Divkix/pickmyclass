@@ -37,7 +37,7 @@ export default async function AdminDashboardPage() {
     getRecentActivity(10),
   ]);
 
-  // Calculate engagement metrics
+  // Calculate aggregate delivery metrics
   const avgWatchesPerUser = totalUsers > 0 ? (totalClasses / totalUsers).toFixed(1) : '0';
   const avgEmailsPerUser = totalUsers > 0 ? (totalEmails / totalUsers).toFixed(1) : '0';
 

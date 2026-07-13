@@ -163,10 +163,7 @@ const users: UserWithWatchCount[] = [
     is_admin: true,
     seat_emails: 0,
     instructor_emails: 0,
-    engagement_emails_sent: 0,
-    engagement_emails_opened: 0,
-    engagement_rate: null,
-    engagement_status: 'new',
+    notification_status: 'active',
   },
   {
     id: 'user-1',
@@ -178,10 +175,7 @@ const users: UserWithWatchCount[] = [
     is_admin: false,
     seat_emails: 4,
     instructor_emails: 1,
-    engagement_emails_sent: 10,
-    engagement_emails_opened: 1,
-    engagement_rate: 10,
-    engagement_status: 'low',
+    notification_status: 'bounced',
   },
 ];
 
@@ -295,9 +289,9 @@ describe('admin table components (server-driven)', () => {
     expect(screen.getByText('Admin')).toBeInTheDocument();
   });
 
-  it('shows Low Engagement badge for low-engagement users', () => {
+  it('shows the notification delivery status', () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
-    expect(screen.getByText('Low Engagement')).toBeInTheDocument();
+    expect(screen.getByText('Bounced')).toBeInTheDocument();
   });
 
   it('filter component onNavigate triggers router.push', () => {

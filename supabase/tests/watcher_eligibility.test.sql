@@ -2,42 +2,36 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(11);
+SELECT plan(10);
 
 SELECT ok(
-  private.is_watcher_eligible(NULL, NULL, NULL, NULL, NULL),
+  private.is_watcher_eligible(NULL, NULL, NULL, NULL),
   'a missing profile keeps the existing eligible-by-default behavior'
 );
 SELECT ok(
-  private.is_watcher_eligible(TRUE, FALSE, FALSE, FALSE, NULL),
+  private.is_watcher_eligible(TRUE, FALSE, FALSE, FALSE),
   'an active profile is eligible'
 );
 SELECT isnt(
-  private.is_watcher_eligible(FALSE, FALSE, FALSE, FALSE, NULL),
+  private.is_watcher_eligible(FALSE, FALSE, FALSE, FALSE),
   TRUE,
   'disabled notifications make a watcher ineligible'
 );
 SELECT isnt(
-  private.is_watcher_eligible(TRUE, TRUE, FALSE, FALSE, NULL),
+  private.is_watcher_eligible(TRUE, TRUE, FALSE, FALSE),
   TRUE,
   'a bounced email makes a watcher ineligible'
 );
 SELECT isnt(
-  private.is_watcher_eligible(TRUE, FALSE, TRUE, FALSE, NULL),
+  private.is_watcher_eligible(TRUE, FALSE, TRUE, FALSE),
   TRUE,
   'a spam complaint makes a watcher ineligible'
 );
 SELECT isnt(
-  private.is_watcher_eligible(TRUE, FALSE, FALSE, TRUE, NULL),
+  private.is_watcher_eligible(TRUE, FALSE, FALSE, TRUE),
   TRUE,
   'a disabled account makes a watcher ineligible'
 );
-SELECT isnt(
-  private.is_watcher_eligible(TRUE, FALSE, FALSE, FALSE, NOW()),
-  TRUE,
-  'engagement disablement makes a watcher ineligible'
-);
-
 SELECT ok(
   pg_get_functiondef('public.get_sections_to_check(text)'::regprocedure)
     LIKE '%private.is_watcher_eligible%',

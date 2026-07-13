@@ -19,7 +19,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Notification Dedup** — Ensuring each watcher receives at most one notification per change type per cycle. Implemented atomically via the `try_record_notifications_batch` DB RPC, with stale-record cleanup and rollback on email failure.
 
-- **Engagement** — Tracking of how many notification emails a user receives and opens. Used by the admin dashboard to identify healthy, low-engagement, and at-risk users.
+- **Notification Eligibility** — Whether a watcher may receive email, based only on explicit notification preference, bounce/spam state, and account status. Delivery success is not treated as evidence that a user opened or engaged with an email.
 
 ## Processing Pipeline
 
@@ -42,8 +42,8 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 ## Auth & Security
 
-- **Authorization State** — A user's `{ is_admin, is_disabled }` pair from `user_profiles` — the two flags every server-side gate (edge proxy, admin verification, login) reads to decide access. Owned by one module (`lib/auth/authorization-state.ts`) that exposes a cached read (edge, 30s-stale OK) and a fresh read (authoritative backstop) plus cache invalidation. The browser `AuthContext`'s `is_admin` is a UI affordance only, not part of this security-side concept.
-  _Avoid_: "profile" when you mean only these two flags.
+- **Authorization State** — A user's `{ is_admin, is_disabled, has_consent }` state derived from `user_profiles`. Server-side gates use it for admin access, disabled-account enforcement, and the legal-consent gate. Owned by `lib/auth/authorization-state.ts`, which exposes a cached edge read, fresh authoritative reads, and cache invalidation. The browser `AuthContext`'s `is_admin` is a UI affordance only.
+  _Avoid_: "profile" when you mean only authorization state.
 
 - **Lockout** — Account lockout protection after 5 failed login attempts. Prevents brute-force attacks.
 - **Disposable Email Domain** — A temporary email service domain blocked during registration. Blocklist synced daily from GitHub.

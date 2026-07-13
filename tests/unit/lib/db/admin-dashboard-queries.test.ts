@@ -216,10 +216,7 @@ describe('admin dashboard query helpers', () => {
         is_admin: false,
         seat_emails: 1,
         instructor_emails: 0,
-        engagement_emails_sent: 0,
-        engagement_emails_opened: 0,
-        engagement_rate: null,
-        engagement_status: 'new',
+        notification_status: 'active',
         total_count: 42,
       },
     ];
