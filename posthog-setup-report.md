@@ -29,6 +29,7 @@ We've built some insights and a dashboard for you to keep an eye on user behavio
 ## Verification
 
 - The browser and server SDKs use the public token and direct API host from `lib/posthog/config.ts`; no build-time environment variables are required.
+- The browser uses PostHog's `no-external` build with the exception-autocapture extension bundled explicitly, so exception capture stays enabled without runtime extension scripts.
 - The CSP permits browser connections to `https://us.i.posthog.com`.
 - Production builds and the full test suite exercise the integration, including returning-user identification.
-- Browser smoke testing confirms PostHog assets load and the feature-flags request succeeds against the direct API host.
+- Browser smoke testing confirms the feature-flags request succeeds against the direct API host.
