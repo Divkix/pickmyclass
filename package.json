@@ -16,7 +16,7 @@
     "knip": "knip",
     "preview": "vinext build && wrangler dev",
     "deploy": "vinext build && wrangler deploy && wrangler triggers deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv lib/cloudflare-env.d.ts",
+    "cf-typegen": "wrangler types --config wrangler.jsonc --env-file /dev/null --env-interface CloudflareEnv lib/cloudflare-env.d.ts",
     "test": "vp test",
     "test:run": "vp test run",
     "test:coverage": "vp test run --coverage",
