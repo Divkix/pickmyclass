@@ -541,6 +541,7 @@ describe('proxy', () => {
       // External script domains must still be present
       expect(csp).toContain('https://static.cloudflareinsights.com');
       expect(csp).toContain('https://analytics.divkix.me');
+      expect(csp).toContain('https://us.i.posthog.com');
     });
 
     it('should use a different nonce on each request', async () => {
