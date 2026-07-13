@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { createClient } from '@/lib/supabase/client';
+import { log } from '@/lib/log';
 
 export default function VerifyEmailPage() {
   const [loading, setLoading] = useState(false);
@@ -59,7 +60,7 @@ export default function VerifyEmailPage() {
       }
     } catch (err) {
       setError('Failed to send verification email again');
-      console.error(err);
+      log('VerifyEmail').error('Verification resend failed:', err);
     } finally {
       setLoading(false);
     }

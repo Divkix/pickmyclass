@@ -14,6 +14,12 @@ import type { Env } from './lib/types/env';
 import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';
 import { createCronLockLifecycle } from './lib/worker/cron-lock';
 import { edgeHtmlCache } from './lib/worker/edge-html-cache';
+import { log } from './lib/log';
+
+const workerLog = log('Worker');
+const scheduledLog = log('Scheduled');
+const queueLog = log('Queue');
+const dlqLog = log('Queue/DLQ');
 
 /**
  * Durable Object for distributed cron job locking
@@ -143,8 +149,8 @@ export default {
     const hasBody = request.body !== null;
 
     if (isGetOrHead && hasBody) {
-      console.log(
-        `[Worker] Sanitizing ${request.method} request with body from ${request.headers.get('cf-connecting-ip') || 'unknown'} to ${request.url}`
+      workerLog.info(
+        `Sanitizing ${request.method} request with body from ${request.headers.get('cf-connecting-ip') || 'unknown'} to ${request.url}`
       );
       request = new Request(request, { body: null });
     }
@@ -177,8 +183,8 @@ export default {
    */
   async scheduled(event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
     const startTime = Date.now();
-    console.log('[Scheduled] Cron triggered at:', new Date(event.scheduledTime).toISOString());
-    console.log('[Scheduled] Cron pattern:', event.cron);
+    scheduledLog.info('Cron triggered at:', new Date(event.scheduledTime).toISOString());
+    scheduledLog.info('Cron pattern:', event.cron);
 
     const cronRoute =
       event.cron === '0 4 * * *' ? '/api/cron/update-disposable-domains' : '/api/cron';
@@ -203,19 +209,19 @@ export default {
       const body = await response.text();
       const duration = Date.now() - startTime;
 
-      console.log('[Scheduled] Cron completed in', duration, 'ms');
-      console.log('[Scheduled] Response:', body);
+      scheduledLog.info('Cron completed in', duration, 'ms');
+      scheduledLog.info('Response:', body);
 
       if (!response.ok || response.status === 207) {
         // Surface partial or full enqueue failures with a greppable tag so they appear
         // in `wrangler tail` logs. Cloudflare cron has no auto-retry, so the goal is
         // visibility rather than recovery — we log rather than throw to avoid marking
         // the entire cron invocation as failed for partial batch failures.
-        console.error('[Scheduled] CRON_PARTIAL_FAILURE status:', response.status, 'body:', body);
+        scheduledLog.error('CRON_PARTIAL_FAILURE status:', response.status, 'body:', body);
       }
     } catch (error) {
       const duration = Date.now() - startTime;
-      console.error('[Scheduled] Fatal error after', duration, 'ms:', error);
+      scheduledLog.error('Fatal error after', duration, 'ms:', error);
     }
   },
 
@@ -232,8 +238,8 @@ export default {
   ): Promise<void> {
     const startTime = Date.now();
     const isDLQ = batch.queue === 'pickmyclass-dlq';
-    console.log(
-      `[Queue] Processing batch of ${batch.messages.length} messages from queue: ${batch.queue}`
+    queueLog.info(
+      `Processing batch of ${batch.messages.length} messages from queue: ${batch.queue}`
     );
 
     // Route DLQ messages to dedicated handler — always ack, never retry
@@ -244,16 +250,11 @@ export default {
             fromEmail: env.NOTIFICATION_FROM_EMAIL,
           });
         } catch (error) {
-          console.error(
-            `[Queue/DLQ] Unexpected error processing ${message.body.class_nbr}:`,
-            error
-          );
+          dlqLog.error(`Unexpected error processing ${message.body.class_nbr}:`, error);
         }
         message.ack();
       }
-      console.log(
-        `[Queue/DLQ] Processed ${batch.messages.length} DLQ messages in ${Date.now() - startTime}ms`
-      );
+      dlqLog.info(`Processed ${batch.messages.length} DLQ messages in ${Date.now() - startTime}ms`);
       return;
     }
 
@@ -269,14 +270,14 @@ export default {
           const disposition = classifyDisposition(result);
 
           if (disposition === 'ack') {
-            console.log(`[Queue] Processed ${message.body.class_nbr} in ${duration}ms:`, result);
+            queueLog.info(`Processed ${message.body.class_nbr} in ${duration}ms:`, result);
             message.ack();
             return { success: true, class_nbr: message.body.class_nbr, duration };
           }
 
           // DB upsert error — transient, retry
-          console.error(
-            `[Queue] DB failure for ${message.body.class_nbr} in ${duration}ms:`,
+          queueLog.error(
+            `DB failure for ${message.body.class_nbr} in ${duration}ms:`,
             result.error
           );
           message.retry();
@@ -287,8 +288,8 @@ export default {
 
           if (disposition === 'ack') {
             // Non-retryable: ASU auth failure or section no longer exists
-            console.error(
-              `[Queue] Non-retryable error for ${message.body.class_nbr} in ${duration}ms:`,
+            queueLog.error(
+              `Non-retryable error for ${message.body.class_nbr} in ${duration}ms:`,
               error
             );
             message.ack();
@@ -296,10 +297,7 @@ export default {
           }
 
           // Retryable: upstream transient (rate limit / API error) or unknown — retry
-          console.error(
-            `[Queue] Retryable error for ${message.body.class_nbr} in ${duration}ms:`,
-            error
-          );
+          queueLog.error(`Retryable error for ${message.body.class_nbr} in ${duration}ms:`, error);
           message.retry();
           return { success: false, class_nbr: message.body.class_nbr, duration, error };
         }
@@ -311,8 +309,8 @@ export default {
     const failed = results.length - successful;
     const totalDuration = Date.now() - startTime;
 
-    console.log(
-      `[Queue] Batch complete in ${totalDuration}ms: ${successful} successful, ${failed} failed`
+    queueLog.info(
+      `Batch complete in ${totalDuration}ms: ${successful} successful, ${failed} failed`
     );
   },
 

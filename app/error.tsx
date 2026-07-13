@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
+import { log } from '@/lib/log';
 
 export default function ErrorPage({
   error,
@@ -12,7 +13,7 @@ export default function ErrorPage({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('Unhandled error:', error);
+    log('ErrorBoundary').error('Unhandled error:', error);
   }, [error]);
 
   return (

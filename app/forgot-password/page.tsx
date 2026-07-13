@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { log } from '@/lib/log';
 import { createClient } from '@/lib/supabase/client';
 
 export default function ForgotPasswordPage() {
@@ -58,7 +59,7 @@ export default function ForgotPasswordPage() {
       setSuccess(true);
     } catch (err) {
       setError('An unexpected error occurred');
-      console.error(err);
+      log('ForgotPassword').error('Password-reset request failed:', err);
     } finally {
       setLoading(false);
     }

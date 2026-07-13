@@ -315,7 +315,8 @@ describe('processSection', () => {
 
     // non-PGRST116 errors log but don't stop processing
     expect(console.error).toHaveBeenCalledWith(
-      '[ProcessSection] Error fetching old state for 42737:',
+      '[ProcessSection]',
+      'Error fetching old state for 42737:',
       expect.any(Object)
     );
     // Should continue with null old state

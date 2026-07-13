@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getUserWatches } from '@/lib/db/admin-queries';
+import { log } from '@/lib/log';
 import { getServiceClient } from '@/lib/supabase/service';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 
@@ -50,7 +51,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
   const { data: authData, error: authError } = await supabase.auth.admin.getUserById(userId);
 
   if (authError || !authData?.user) {
-    console.error(`[Admin] User ${userId} not found:`, authError);
+    log('Admin').error(`User ${userId} not found:`, authError);
     notFound();
   }
 

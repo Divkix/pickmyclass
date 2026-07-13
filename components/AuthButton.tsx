@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { log } from '@/lib/log';
 
 export function AuthButton() {
   const { user, loading } = useAuth();
@@ -16,7 +17,7 @@ export function AuthButton() {
       await fetch('/api/auth/signout', { method: 'POST' });
       window.location.href = '/login';
     } catch (error) {
-      console.error('Error signing out:', error);
+      log('AuthButton').error('Sign-out failed:', error);
     } finally {
       setSigningOut(false);
     }

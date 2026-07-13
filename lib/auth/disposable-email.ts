@@ -7,6 +7,7 @@
  */
 
 import { DISPOSABLE_EMAIL_CACHE_TTL_MS } from '@/lib/config';
+import { log } from '@/lib/log';
 
 export interface DisposableCheckResult {
   disposable: boolean;
@@ -121,7 +122,7 @@ export async function isDisposableEmail(
 
     return { disposable: cachedDomains.has(domain) };
   } catch (error) {
-    console.error('[DisposableCheck] KV lookup failed, failing open:', error);
+    log('DisposableCheck').error('KV lookup failed, failing open:', error);
     return { disposable: false };
   }
 }

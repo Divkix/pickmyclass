@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { log } from '@/lib/log';
 
 export interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void>;
@@ -95,7 +96,7 @@ export function usePullToRefresh({
       try {
         await onRefresh();
       } catch (error) {
-        console.error('Refresh failed:', error);
+        log('PullToRefresh').error('Refresh failed:', error);
       } finally {
         // Animate back to 0
         setIsRefreshing(false);
