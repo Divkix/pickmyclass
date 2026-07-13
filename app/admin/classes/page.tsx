@@ -7,12 +7,27 @@ import { getClassesPage, getDistinctSubjects } from '@/lib/db/admin-queries';
 import type { ClassSortField } from '@/lib/db/admin-queries';
 
 const PAGE_SIZE = 25;
+const CLASS_SORT_FIELDS: readonly ClassSortField[] = [
+  'class_nbr',
+  'subject',
+  'seats_available',
+  'watcher_count',
+  'seat_emails',
+  'instructor_emails',
+  'last_checked_at',
+];
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function param(searchParams: Record<string, string | string[] | undefined>, key: string): string {
   const v = searchParams[key];
   return typeof v === 'string' ? v : '';
+}
+
+function classSort(value: string): ClassSortField {
+  return CLASS_SORT_FIELDS.includes(value as ClassSortField)
+    ? (value as ClassSortField)
+    : 'watcher_count';
 }
 
 /**
@@ -31,7 +46,7 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
   const sp = await (searchParams ?? Promise.resolve({}));
 
   const page = Math.max(1, Number(param(sp, 'page') || '1'));
-  const sort = (param(sp, 'sort') || 'watcher_count') as ClassSortField;
+  const sort = classSort(param(sp, 'sort'));
   const dir = (param(sp, 'dir') === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
   const search = param(sp, 'search');
   const subject = param(sp, 'subject') || 'all';

@@ -450,4 +450,14 @@ describe('admin pages', () => {
       })
     );
   });
+
+  it('falls back from an invalid class sort field', async () => {
+    await AdminClassesPage({
+      searchParams: Promise.resolve({ sort: 'DROP TABLE class_states' }),
+    });
+
+    expect(mockGetClassesPage).toHaveBeenCalledWith(
+      expect.objectContaining({ sort: 'watcher_count' })
+    );
+  });
 });
