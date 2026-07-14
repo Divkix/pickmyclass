@@ -26,13 +26,13 @@ export default defineConfig({
     jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }],
     rules: {
       'vite-plus/prefer-vite-plus-imports': 'error',
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-console': 'error',
     },
     overrides: [
       {
         files: ['lib/log.ts', 'tests/**'],
         rules: {
-          'no-console': ['warn', { allow: ['info', 'warn', 'error'] }],
+          'no-console': 'off',
         },
       },
     ],

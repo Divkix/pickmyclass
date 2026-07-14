@@ -25,10 +25,7 @@ export interface ClassWithWatchers extends Tables<'class_states'> {
   instructor_emails: number;
 }
 
-/**
- * Engagement status for a user
- */
-type EngagementStatus = 'healthy' | 'low' | 'disabled' | 'new';
+type NotificationStatus = 'active' | 'unsubscribed' | 'bounced' | 'spam' | 'disabled';
 
 /**
  * User information with watch count
@@ -43,11 +40,7 @@ export interface UserWithWatchCount {
   is_admin: boolean;
   seat_emails: number;
   instructor_emails: number;
-  // Engagement tracking
-  engagement_emails_sent: number;
-  engagement_emails_opened: number;
-  engagement_rate: number | null;
-  engagement_status: EngagementStatus;
+  notification_status: NotificationStatus;
 }
 
 /**
@@ -78,7 +71,7 @@ export async function getTotalEmailsSent(): Promise<number> {
     .select('*', { count: 'exact', head: true });
 
   if (error) {
-    console.error('[Admin] Error fetching total emails sent:', error);
+    log('Admin').error('Error fetching total emails sent:', error);
     throw new Error(`Failed to fetch email count: ${error.message}`);
   }
 
@@ -108,7 +101,7 @@ export async function getTotalUsers(): Promise<number> {
   const { data, error } = await supabase.rpc('count_all_users');
 
   if (error) {
-    console.error('[Admin] Error counting users:', error);
+    log('Admin').error('Error counting users:', error);
     throw new Error(`Failed to count users: ${error.message}`);
   }
 
@@ -139,7 +132,7 @@ export async function getAdminCount(): Promise<number> {
     .eq('is_admin', true);
 
   if (error) {
-    console.error('[Admin] Error fetching admin count:', error);
+    log('Admin').error('Error fetching admin count:', error);
     throw new Error(`Failed to fetch admin count: ${error.message}`);
   }
 
@@ -168,7 +161,7 @@ export async function getTotalClassesWatched(): Promise<number> {
   const { data, error } = await supabase.rpc('count_distinct_classes_watched');
 
   if (error) {
-    console.error('[Admin] Error counting distinct classes watched:', error);
+    log('Admin').error('Error counting distinct classes watched:', error);
     throw new Error(`Failed to fetch class count: ${error.message}`);
   }
 
@@ -188,8 +181,7 @@ export type UserSortField =
   | 'last_sign_in_at'
   | 'watch_count'
   | 'seat_emails'
-  | 'instructor_emails'
-  | 'engagement_rate';
+  | 'instructor_emails';
 
 export type ClassSortField =
   | 'class_nbr'
@@ -271,7 +263,7 @@ export async function getUsersPage(params: GetUsersPageParams = {}): Promise<Use
   });
 
   if (error) {
-    console.error('[Admin] Error fetching users page:', error);
+    log('Admin').error('Error fetching users page:', error);
     throw new Error(`Failed to fetch users page: ${error.message}`);
   }
 
@@ -285,10 +277,7 @@ export async function getUsersPage(params: GetUsersPageParams = {}): Promise<Use
     is_admin: row.is_admin,
     seat_emails: Number(row.seat_emails),
     instructor_emails: Number(row.instructor_emails),
-    engagement_emails_sent: row.engagement_emails_sent,
-    engagement_emails_opened: row.engagement_emails_opened,
-    engagement_rate: row.engagement_rate !== null ? Number(row.engagement_rate) : null,
-    engagement_status: row.engagement_status as 'healthy' | 'low' | 'disabled' | 'new',
+    notification_status: row.notification_status as NotificationStatus,
   }));
 
   const total = data && data.length > 0 ? Number(data[0].total_count) : 0;
@@ -335,7 +324,7 @@ export async function getClassesPage(params: GetClassesPageParams = {}): Promise
   });
 
   if (error) {
-    console.error('[Admin] Error fetching classes page:', error);
+    log('Admin').error('Error fetching classes page:', error);
     throw new Error(`Failed to fetch classes page: ${error.message}`);
   }
 
@@ -383,7 +372,7 @@ export async function getDistinctSubjects(): Promise<string[]> {
   const { data, error } = await supabase.rpc('get_distinct_subjects');
 
   if (error) {
-    console.error('[Admin] Error fetching distinct subjects:', error);
+    log('Admin').error('Error fetching distinct subjects:', error);
     throw new Error(`Failed to fetch subjects: ${error.message}`);
   }
 
@@ -443,12 +432,12 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
   if (error) {
     if (isMissingRecentActivityRpcError(error)) {
       const fallback: RecentActivityItem[] = [];
-      console.warn('[Admin] Recent activity RPC is unavailable; rendering an empty activity feed');
+      log('Admin').warn('Recent activity RPC is unavailable; rendering an empty activity feed');
       adminCache.set(cacheKey, fallback);
       return fallback;
     }
 
-    console.error('[Admin] Error fetching recent activity:', error);
+    log('Admin').error('Error fetching recent activity:', error);
     throw new Error(`Failed to fetch recent activity: ${error.message}`);
   }
 
@@ -489,7 +478,7 @@ export async function getUserWatches(userId: string): Promise<WatchWithClass[]> 
     .order('created_at', { ascending: false });
 
   if (watchError) {
-    console.error(`[Admin] Error fetching watches for user ${userId}:`, watchError);
+    log('Admin').error(`Error fetching watches for user ${userId}:`, watchError);
     throw new Error(`Failed to fetch user watches: ${watchError.message}`);
   }
 
@@ -505,7 +494,7 @@ export async function getUserWatches(userId: string): Promise<WatchWithClass[]> 
     .in('class_nbr', classNumbers);
 
   if (classError) {
-    console.error(`[Admin] Error fetching class states for user ${userId}:`, classError);
+    log('Admin').error(`Error fetching class states for user ${userId}:`, classError);
     throw new Error(`Failed to fetch class states: ${classError.message}`);
   }
 

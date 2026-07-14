@@ -5,7 +5,6 @@ import {
   formatTermOption,
   getPastTermCodes,
   getSelectableTerms,
-  isTermPast,
   isTermSelectable,
 } from '@/lib/asu/terms';
 
@@ -125,35 +124,6 @@ describe('createClassWatchSchema term validation', () => {
     if (!result.success) {
       expect(result.error.issues[0]?.message).toContain('no longer available');
     }
-  });
-});
-
-describe('isTermPast', () => {
-  it('returns true after a term has ended', () => {
-    // Spring 2026 (2261) sessionEnd = 2026-05-09
-    expect(isTermPast('2261', phoenixDate(2026, 6, 1))).toBe(true);
-  });
-
-  it('returns false on the sessionEnd day itself (boundary not yet past)', () => {
-    expect(isTermPast('2261', phoenixDate(2026, 5, 9))).toBe(false);
-  });
-
-  it('returns true the day after sessionEnd', () => {
-    expect(isTermPast('2261', phoenixDate(2026, 5, 10))).toBe(true);
-  });
-
-  it('returns false for a current/in-session term', () => {
-    // Summer 2026 (2264) sessionEnd = 2026-08-14
-    expect(isTermPast('2264', phoenixDate(2026, 6, 1))).toBe(false);
-  });
-
-  it('returns false for a future term', () => {
-    // Spring 2027 (2271) sessionEnd = 2027-05-08
-    expect(isTermPast('2271', phoenixDate(2026, 6, 1))).toBe(false);
-  });
-
-  it('returns false for an unknown term code (fail-safe: keep)', () => {
-    expect(isTermPast('9999', phoenixDate(2026, 6, 1))).toBe(false);
   });
 });
 

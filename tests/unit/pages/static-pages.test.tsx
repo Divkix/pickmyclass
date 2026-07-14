@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vite-plus/test';
 import AboutPage from '@/app/about/page';
@@ -110,6 +110,25 @@ describe('static marketing and legal pages', () => {
       screen.getByRole('heading', { name: /your dashboard, ready to go/i })
     ).toBeInTheDocument();
     expect(screen.getByText(/see all frequently asked questions/i)).toHaveAttribute('href', '/faq');
+  });
+
+  it('moves authentication actions into the mobile menu below the desktop breakpoint', async () => {
+    render(await Home());
+
+    const header = screen.getByRole('banner');
+    const headerLogin = within(header).getByRole('link', { name: 'Sign in' });
+    expect(headerLogin.closest('.hidden')).toHaveClass('md:block');
+
+    fireEvent.click(within(header).getByRole('button', { name: 'Open menu' }));
+    const mobileNav = within(header).getByRole('navigation', { name: 'Mobile navigation' });
+    expect(within(mobileNav).getByRole('link', { name: 'Sign in' })).toHaveAttribute(
+      'href',
+      '/login'
+    );
+    expect(within(mobileNav).getByRole('link', { name: 'Sign up' })).toHaveAttribute(
+      'href',
+      '/register'
+    );
   });
 
   it('renders the about page story, trust stats, and open-source link', async () => {

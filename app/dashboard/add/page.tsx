@@ -10,10 +10,8 @@ import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/lib/contexts/AuthContext';
-
-interface ErrorResponse {
-  error: string;
-}
+import type { ClassWatchCreationInput } from '@/lib/class-watches/class-watch-creation';
+import type { ClassWatchRow } from '@/lib/types/class-watch';
 
 export default function AddClassPage() {
   const { user, loading: authLoading } = useAuth();
@@ -26,19 +24,7 @@ export default function AddClassPage() {
     }
   }, [user, authLoading, router]);
 
-  // Handle adding a new watch
-  const handleAddWatch = async (watchData: { term: string; class_nbr: string }) => {
-    const response = await fetch('/api/class-watches', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(watchData),
-    });
-
-    if (!response.ok) {
-      const data = (await response.json()) as ErrorResponse;
-      throw new Error(data.error || 'Failed to add class watch');
-    }
-
+  const handleWatchCreated = (_watch: ClassWatchRow, watchData: ClassWatchCreationInput) => {
     posthog.capture('class_watch_added', {
       term: watchData.term,
       class_nbr: watchData.class_nbr,
@@ -86,7 +72,7 @@ export default function AddClassPage() {
           </p>
         </div>
 
-        <AddClassWatch onAdd={handleAddWatch} />
+        <AddClassWatch onCreated={handleWatchCreated} />
       </div>
     </div>
   );

@@ -16,21 +16,10 @@ interface LoginResponse {
       };
 }
 
-// Mock the lockout module
-const mockCheckLockoutStatus = vi.fn();
-const mockIncrementFailedAttempts = vi.fn();
-const mockClearFailedAttempts = vi.fn();
+const { mockAttempt } = vi.hoisted(() => ({ mockAttempt: vi.fn() }));
 
-vi.mock('@/lib/auth/lockout', () => ({
-  checkLockoutStatus: () => mockCheckLockoutStatus(),
-  incrementFailedAttempts: () => mockIncrementFailedAttempts(),
-  clearFailedAttempts: () => mockClearFailedAttempts(),
-  getRemainingLockoutTime: vi.fn((date) => {
-    if (!date) return 0;
-    const diff = date.getTime() - Date.now();
-    return Math.ceil(diff / 1000 / 60);
-  }),
-  MAX_FAILED_ATTEMPTS: 5,
+vi.mock('@/lib/auth/login-attempt-policy', () => ({
+  loginAttemptPolicy: { attempt: mockAttempt },
 }));
 
 // Mock the Supabase server client
@@ -82,11 +71,16 @@ describe('POST /api/auth/login', () => {
     vi.setSystemTime(new Date('2024-06-15T12:00:00Z'));
     vi.clearAllMocks();
 
-    // Default mocks
-    mockCheckLockoutStatus.mockResolvedValue({
-      isLocked: false,
-      attempts: 0,
-      lockedUntil: null,
+    mockAttempt.mockImplementation(async (email, authenticate) => {
+      const result = await authenticate(email.toLowerCase());
+
+      return result.kind === 'rejected'
+        ? {
+            kind: 'rejected',
+            message: result.message ?? 'Invalid email or password',
+            remainingAttempts: 4,
+          }
+        : result;
     });
 
     // Reset profile query mock to return non-disabled user by default
@@ -155,11 +149,10 @@ describe('POST /api/auth/login', () => {
 
   describe('account lockout', () => {
     it('should return 423 when account is locked', async () => {
-      const lockedUntil = new Date('2024-06-15T12:15:00Z');
-      mockCheckLockoutStatus.mockResolvedValue({
-        isLocked: true,
-        attempts: 5,
-        lockedUntil,
+      mockAttempt.mockResolvedValue({
+        kind: 'locked',
+        reason: 'preexisting',
+        remainingMinutes: 15,
       });
 
       const request = createRequest({ email: 'test@example.com', password: 'password123' });
@@ -171,9 +164,10 @@ describe('POST /api/auth/login', () => {
       const details = data.details as { isLocked?: boolean; remainingMinutes?: number };
       expect(details.isLocked).toBe(true);
       expect(details.remainingMinutes).toBe(15);
+      expect(mockSignInWithPassword).not.toHaveBeenCalled();
     });
 
-    it('should normalize email to lowercase before checking lockout', async () => {
+    it('should normalize email to lowercase before authentication', async () => {
       mockSignInWithPassword.mockResolvedValue({
         data: { user: { id: 'user-1' } },
         error: null,
@@ -182,7 +176,10 @@ describe('POST /api/auth/login', () => {
       const request = createRequest({ email: 'TEST@EXAMPLE.COM', password: 'password123' });
       await POST(request);
 
-      expect(mockCheckLockoutStatus).toHaveBeenCalled();
+      expect(mockSignInWithPassword).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'password123',
+      });
     });
   });
 
@@ -200,18 +197,6 @@ describe('POST /api/auth/login', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
     });
-
-    it('should clear failed attempts on successful login', async () => {
-      mockSignInWithPassword.mockResolvedValue({
-        data: { user: { id: 'user-1' } },
-        error: null,
-      });
-
-      const request = createRequest({ email: 'test@example.com', password: 'password123' });
-      await POST(request);
-
-      expect(mockClearFailedAttempts).toHaveBeenCalled();
-    });
   });
 
   describe('failed login', () => {
@@ -219,16 +204,6 @@ describe('POST /api/auth/login', () => {
       mockSignInWithPassword.mockResolvedValue({
         data: null,
         error: { message: 'Invalid login credentials' },
-      });
-      mockCheckLockoutStatus.mockResolvedValueOnce({
-        isLocked: false,
-        attempts: 0,
-        lockedUntil: null,
-      });
-      mockCheckLockoutStatus.mockResolvedValueOnce({
-        isLocked: false,
-        attempts: 1,
-        lockedUntil: null,
       });
 
       const request = createRequest({ email: 'test@example.com', password: 'wrongpassword' });
@@ -239,37 +214,11 @@ describe('POST /api/auth/login', () => {
       expect(data.error).toBe('Invalid login credentials');
     });
 
-    it('should increment failed attempts on failed login', async () => {
-      mockSignInWithPassword.mockResolvedValue({
-        data: null,
-        error: { message: 'Invalid login credentials' },
-      });
-      mockCheckLockoutStatus.mockResolvedValue({
-        isLocked: false,
-        attempts: 1,
-        lockedUntil: null,
-      });
-
-      const request = createRequest({ email: 'test@example.com', password: 'wrongpassword' });
-      await POST(request);
-
-      expect(mockIncrementFailedAttempts).toHaveBeenCalled();
-    });
-
     it('should include remaining attempts in response', async () => {
-      mockSignInWithPassword.mockResolvedValue({
-        data: null,
-        error: { message: 'Invalid login credentials' },
-      });
-      mockCheckLockoutStatus.mockResolvedValueOnce({
-        isLocked: false,
-        attempts: 0,
-        lockedUntil: null,
-      });
-      mockCheckLockoutStatus.mockResolvedValueOnce({
-        isLocked: false,
-        attempts: 3,
-        lockedUntil: null,
+      mockAttempt.mockResolvedValue({
+        kind: 'rejected',
+        message: 'Invalid login credentials',
+        remainingAttempts: 2,
       });
 
       const request = createRequest({ email: 'test@example.com', password: 'wrongpassword' });
@@ -277,23 +226,14 @@ describe('POST /api/auth/login', () => {
       const data = await parseResponse(response);
 
       const details = data.details as { remainingAttempts?: number };
-      expect(details.remainingAttempts).toBe(2); // MAX_FAILED_ATTEMPTS (5) - attempts (3)
+      expect(details.remainingAttempts).toBe(2);
     });
 
     it('should return 423 when account becomes locked after failed attempt', async () => {
-      mockSignInWithPassword.mockResolvedValue({
-        data: null,
-        error: { message: 'Invalid login credentials' },
-      });
-      mockCheckLockoutStatus.mockResolvedValueOnce({
-        isLocked: false,
-        attempts: 4,
-        lockedUntil: null,
-      });
-      mockCheckLockoutStatus.mockResolvedValueOnce({
-        isLocked: true,
-        attempts: 5,
-        lockedUntil: new Date('2024-06-15T12:15:00Z'),
+      mockAttempt.mockResolvedValue({
+        kind: 'locked',
+        reason: 'newly_locked',
+        remainingMinutes: 15,
       });
 
       const request = createRequest({ email: 'test@example.com', password: 'wrongpassword' });

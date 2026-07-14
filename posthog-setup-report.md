@@ -1,6 +1,6 @@
 # PostHog post-wizard report
 
-The wizard has completed a deep integration of PostHog analytics into PickMyClass. It installed `posthog-js` (client-side) and `posthog-node` (server-side), initialized PostHog via `instrumentation-client.ts` with a reverse proxy, added user identification in `AuthContext`, and instrumented 10 events across 9 files covering the full user lifecycle: registration, login/logout, class watching, unsubscribes, account deletion, and data export.
+The wizard completed a deep integration of PostHog analytics into PickMyClass. It installed `posthog-js` (client-side) and `posthog-node` (server-side), initialized PostHog via `instrumentation-client.ts` with the direct PostHog API host, added user identification in `AuthContext`, and instrumented the full user lifecycle: registration, login/logout, class watching, unsubscribes, account deletion, data export, and onboarding.
 
 | Event name | Description | File |
 |---|---|---|
@@ -26,14 +26,10 @@ We've built some insights and a dashboard for you to keep an eye on user behavio
 - [Churn signals: unsubscribes and deletions (wizard)](https://us.posthog.com/project/506803/insights/2PKhvkCb)
 - [Weekly active users (wizard)](https://us.posthog.com/project/506803/insights/G4V1cKxT)
 
-## Verify before merging
+## Verification
 
-- [ ] Run a full production build (the wizard only verified the files it touched) and fix any lint or type errors introduced by the generated code.
-- [ ] Run the test suite — call sites that were rewritten or instrumented may need updated mocks or fixtures.
-- [ ] Add `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NEXT_PUBLIC_POSTHOG_HOST` to `.env.example` and any onboarding scripts so collaborators know what to set.
-- [ ] Wire source-map upload (`posthog-cli sourcemap` or your bundler's upload step) into CI so production stack traces de-minify.
-- [ ] Confirm the returning-visitor path also calls `identify` — the `initializeAuth` function in `AuthContext.tsx` calls `posthog.identify` when a user is already logged in on page load, but verify this fires correctly in your local environment.
-
-### Agent skill
-
-We've left an agent skill folder in your project. You can use this context for further agent development when using Claude Code. This will help ensure the model provides the most up-to-date approaches for integrating PostHog.
+- The browser and server SDKs use the public token and direct API host from `lib/posthog/config.ts`; no build-time environment variables are required.
+- The browser uses PostHog's `no-external` build with the exception-autocapture extension bundled explicitly, so exception capture stays enabled without runtime extension scripts.
+- The CSP permits browser connections to `https://us.i.posthog.com`.
+- Production builds and the full test suite exercise the integration, including returning-user identification.
+- Browser smoke testing confirms the feature-flags request succeeds against the direct API host.

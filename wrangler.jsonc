@@ -99,9 +99,6 @@
     // UPDATE THESE VALUES for your deployment:
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
     "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app",
-    // PostHog analytics (public project token and API host)
-    "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN": "phc_rRbMvons2ERXqNoArYFrmJYAwTX5YnWmLsnqPgk58Wwo",
-    "NEXT_PUBLIC_POSTHOG_HOST": "https://us.i.posthog.com",
   },
   // Email sending via Cloudflare Email Service
   "send_email": [

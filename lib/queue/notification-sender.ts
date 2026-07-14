@@ -3,7 +3,7 @@
  *
  * Sends batched email notifications for section changes.
  * Handles: fetch watchers → claim notification slots (atomic dedup) →
- * construct payloads → send emails → rollback on failure → record engagement.
+ * construct payloads → send emails → rollback failed notification claims.
  */
 
 import { deleteNotificationRecords, tryRecordNotificationsBatch } from '@/lib/db/queries';
@@ -161,21 +161,6 @@ export async function sendSectionNotifications(
         rollbackError
       );
       throw rollbackError;
-    }
-  }
-
-  // Step 6: Record engagement for successful sends
-  const successfulEmails = results
-    .map((r, i) => ({ ...r, email: emailsToSend[i] }))
-    .filter((r) => r.success);
-
-  const uniqueUserIds = [...new Set(successfulEmails.map((e) => e.email.userId))];
-  if (uniqueUserIds.length > 0) {
-    const { error: engagementError } = await serviceClient.rpc('record_engagement_send_batch', {
-      p_user_ids: uniqueUserIds,
-    });
-    if (engagementError) {
-      log('NotificationSender').warn('Failed to record batch engagement:', engagementError);
     }
   }
 

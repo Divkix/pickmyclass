@@ -1,10 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import AddClassPage from '@/app/dashboard/add/page';
 
-const mockReplace = vi.fn();
-const mockPush = vi.fn();
+const { mockCapture, mockPush, mockReplace } = vi.hoisted(() => ({
+  mockCapture: vi.fn(),
+  mockPush: vi.fn(),
+  mockReplace: vi.fn(),
+}));
+
+vi.mock('posthog-js', () => ({ default: { capture: mockCapture } }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -45,27 +49,17 @@ vi.mock('@/components/ui/skeleton', () => ({
 
 vi.mock('@/components/AddClassWatch', () => ({
   AddClassWatch: ({
-    onAdd,
+    onCreated,
   }: {
-    onAdd: (watch: { term: string; class_nbr: string }) => Promise<void>;
-  }) => {
-    const [error, setError] = useState<string | null>(null);
-    return (
-      <div>
-        <button
-          type="button"
-          onClick={() =>
-            void onAdd({ term: '2267', class_nbr: '12345' }).catch((err: unknown) => {
-              setError(err instanceof Error ? err.message : 'unknown error');
-            })
-          }
-        >
-          Submit watch
-        </button>
-        {error && <p role="alert">{error}</p>}
-      </div>
-    );
-  },
+    onCreated: (watch: { id: string }, input: { term: string; class_nbr: string }) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onCreated({ id: 'watch-1' }, { term: '2267', class_nbr: '12345' })}
+    >
+      Submit watch
+    </button>
+  ),
 }));
 
 describe('AddClassPage', () => {
@@ -109,7 +103,7 @@ describe('AddClassPage', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('posts the new watch and returns to dashboard', async () => {
+  it('captures the created watch and returns to dashboard', async () => {
     render(<AddClassPage />);
 
     expect(screen.getByRole('link', { name: /back to dashboard/i })).toHaveAttribute(
@@ -119,38 +113,12 @@ describe('AddClassPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /submit watch/i }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/class-watches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ term: '2267', class_nbr: '12345' }),
+      expect(mockCapture).toHaveBeenCalledWith('class_watch_added', {
+        term: '2267',
+        class_nbr: '12345',
       });
       expect(mockPush).toHaveBeenCalledWith('/dashboard');
     });
-  });
-
-  it('surfaces API errors from the add-watch request', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({ error: 'Class already watched' }),
-    });
-
-    render(<AddClassPage />);
-    fireEvent.click(screen.getByRole('button', { name: /submit watch/i }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Class already watched');
-    expect(mockPush).not.toHaveBeenCalled();
-  });
-
-  it('uses the fallback add-watch error when the response has no message', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({}),
-    });
-
-    render(<AddClassPage />);
-    fireEvent.click(screen.getByRole('button', { name: /submit watch/i }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to add class watch');
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

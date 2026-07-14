@@ -7,6 +7,7 @@
 
 import { createHmac } from 'node:crypto';
 import { DEFAULT_SITE_URL, UNSUBSCRIBE_TOKEN_EXPIRY_DAYS } from '@/lib/config';
+import { log } from '@/lib/log';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
 /**
@@ -60,7 +61,7 @@ export function verifyUnsubscribeToken(token: string): string | null {
     const parts = decoded.split(':');
 
     if (parts.length !== 3) {
-      console.warn('[UnsubscribeToken] Invalid token format');
+      log('UnsubscribeToken').warn('Invalid token format');
       return null;
     }
 
@@ -69,7 +70,7 @@ export function verifyUnsubscribeToken(token: string): string | null {
 
     // Check expiration
     if (Date.now() > expiresAt) {
-      console.warn('[UnsubscribeToken] Token expired');
+      log('UnsubscribeToken').warn('Token expired');
       return null;
     }
 
@@ -79,13 +80,13 @@ export function verifyUnsubscribeToken(token: string): string | null {
     const expectedSignature = createHmac('sha256', secret).update(payload).digest('hex');
 
     if (!timingSafeCompare(providedSignature, expectedSignature)) {
-      console.warn('[UnsubscribeToken] Invalid signature');
+      log('UnsubscribeToken').warn('Invalid signature');
       return null;
     }
 
     return userId;
   } catch (error) {
-    console.error('[UnsubscribeToken] Error verifying token:', error);
+    log('UnsubscribeToken').error('Error verifying token:', error);
     return null;
   }
 }

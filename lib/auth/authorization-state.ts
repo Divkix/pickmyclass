@@ -1,8 +1,8 @@
 /**
- * Authorization State — the `{ is_admin, is_disabled }` pair that gates the app.
+ * Authorization State — the profile fields that gate access to the app.
  *
- * This pair is read by four callers (edge proxy, `verifyAdmin`, the login route,
- * and the browser `AuthContext`). The three **server** readers used to
+ * The server state is read by the edge proxy, `verifyAdmin`, and the login route.
+ * Those readers used to
  * re-implement the query with divergent column sets and error handling, and only
  * the edge proxy cached it. This module owns the server read, its 30s per-isolate
  * cache, and its invalidation, exposing a **cached** read (edge) and a **fresh**
@@ -22,10 +22,11 @@ import { log } from '@/lib/log';
 import type { Database } from '@/lib/supabase/database.types';
 
 /**
- * The authorization decision for a user: whether they are an admin and whether
- * their account is disabled. Every server reader uses exactly this column set.
+ * The authorization decision for a user: role, disabled state, and whether both
+ * required legal-consent timestamps exist.
  */
 export interface AuthorizationState {
+  has_consent: boolean;
   is_admin: boolean;
   is_disabled: boolean;
 }
@@ -41,9 +42,9 @@ export function clearAuthorizationStateCache(): void {
 
 /**
  * Invalidate the cached authorization state for a specific user. Call after
- * mutating an authorization field (`is_admin` / `is_disabled`) so the next cached
- * read re-queries instead of serving a stale decision. Returns `true` if an entry
- * existed.
+ * mutating an authorization field (`is_admin` / `is_disabled`) or recording
+ * consent so the next cached read re-queries instead of serving a stale decision.
+ * Returns `true` if an entry existed.
  */
 export function invalidateAuthorizationState(userId: string): boolean {
   return authorizationStateCache.delete(userId);
@@ -83,13 +84,14 @@ export async function readAuthorizationState(
   try {
     const { data } = await client
       .from('user_profiles')
-      .select('is_admin, is_disabled')
+      .select('is_admin, is_disabled, age_verified_at, agreed_to_terms_at')
       .eq('user_id', userId)
       .maybeSingle();
 
     if (!data) return null;
 
     const state: AuthorizationState = {
+      has_consent: Boolean(data.age_verified_at && data.agreed_to_terms_at),
       is_admin: data.is_admin,
       is_disabled: data.is_disabled,
     };

@@ -70,7 +70,7 @@ export async function processSection(
 
     // PGRST116 = no rows found — not an error for first observation
     if (stateError && stateError.code !== 'PGRST116') {
-      console.error(`[ProcessSection] Error fetching old state for ${classNbr}:`, stateError);
+      log('ProcessSection').error(`Error fetching old state for ${classNbr}:`, stateError);
     }
 
     // Step 2: Fetch from ASU API
@@ -117,7 +117,7 @@ export async function processSection(
 
     if (upsertError) {
       // Return before sending any emails so a retry re-attempts cleanly with no emails sent yet.
-      console.error(`[ProcessSection] Database error for ${classNbr}:`, upsertError);
+      log('ProcessSection').error(`Database error for ${classNbr}:`, upsertError);
       return {
         success: false,
         classNbr,
@@ -168,7 +168,7 @@ export async function processSection(
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[ProcessSection] Error processing ${classNbr}:`, errorMessage);
+    log('ProcessSection').error(`Error processing ${classNbr}:`, errorMessage);
 
     // Let caller apply retry / non-retry semantics for known upstream errors
     if (

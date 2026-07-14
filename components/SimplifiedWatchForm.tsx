@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { formatTermOption, getSelectableTerms } from '@/lib/asu/terms';
+import { formatTermOption } from '@/lib/asu/terms';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,10 +13,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  classWatchCreation,
+  type ClassWatchCreationInput,
+} from '@/lib/class-watches/class-watch-creation';
+import type { ClassWatchRow } from '@/lib/types/class-watch';
 
 interface SimplifiedWatchFormProps {
-  /** Performs the watch-creation request; should throw on failure. */
-  onSubmit: (data: { term: string; class_nbr: string }) => Promise<void>;
+  /** Runs caller-specific state/analytics after the watch is created. */
+  onCreated: (watch: ClassWatchRow, input: ClassWatchCreationInput) => void | Promise<void>;
+  /** Exposes the complete request lifecycle to containers that gate other actions. */
+  onSubmittingChange?: (submitting: boolean) => void;
   /** Optional pre-filled class number (e.g. from a "Track this class" shortcut). */
   defaultClassNbr?: string;
   submitLabel?: string;
@@ -30,13 +37,16 @@ interface SimplifiedWatchFormProps {
  * onboarding cannot create a broken watch.
  */
 export function SimplifiedWatchForm({
-  onSubmit,
+  onCreated,
+  onSubmittingChange,
   defaultClassNbr = '',
   submitLabel = 'Start Watching',
   submittingLabel = "Checking ASU's class search... hang tight",
 }: SimplifiedWatchFormProps) {
-  const selectableTerms = useMemo(() => getSelectableTerms(), []);
-  const defaultTerm = selectableTerms[0]?.code ?? '';
+  const { terms: selectableTerms, defaultTerm } = useMemo(
+    () => classWatchCreation.getOptions(),
+    []
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,23 +57,17 @@ export function SimplifiedWatchForm({
     e.preventDefault();
     setError(null);
 
-    if (!term || !classNbr) {
-      setError('Please select a term and enter a class number');
-      return;
-    }
-
-    if (classNbr.length !== 5 || !/^\d{5}$/.test(classNbr)) {
-      setError('Class number must be exactly 5 digits');
-      return;
-    }
-
     setIsSubmitting(true);
+    onSubmittingChange?.(true);
     try {
-      await onSubmit({ term, class_nbr: classNbr });
+      const input = { term, class_nbr: classNbr };
+      const watch = await classWatchCreation.create(input);
+      await onCreated(watch, input);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add class watch');
     } finally {
       setIsSubmitting(false);
+      onSubmittingChange?.(false);
     }
   };
 

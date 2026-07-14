@@ -1,5 +1,6 @@
 'use client';
 
+import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCallback, useTransition } from 'react';
@@ -31,6 +32,14 @@ interface UsersTableProps {
   verified: 'all' | 'verified' | 'unverified';
   watchCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
 }
+
+const notificationStatusDisplay = {
+  active: { label: 'Active', variant: 'default' },
+  unsubscribed: { label: 'Unsubscribed', variant: 'warning' },
+  bounced: { label: 'Bounced', variant: 'destructive' },
+  spam: { label: 'Spam complaint', variant: 'destructive' },
+  disabled: { label: 'Disabled', variant: 'destructive' },
+} as const;
 
 /**
  * Format date to readable format with relative time
@@ -110,8 +119,6 @@ export function UsersTable({
 
   /** Icon renderer that reads URL state rather than hook-internal state */
   const renderSortIconFromUrl = (field: UserSortField) => {
-    const { ChevronDown, ChevronUp, ChevronsUpDown } =
-      require('lucide-react') as typeof import('lucide-react');
     if (sort !== field) return <ChevronsUpDown className="size-4 ml-1 text-muted-foreground" />;
     if (dir === 'asc') return <ChevronUp className="size-4 ml-1" />;
     return <ChevronDown className="size-4 ml-1" />;
@@ -188,21 +195,13 @@ export function UsersTable({
                 align="center"
                 className="text-center"
               />
-              <SortableHeader
-                field="engagement_rate"
-                label="Engagement"
-                toggleSort={handleSortClick}
-                renderSortIcon={renderSortIconFromUrl}
-                align="center"
-                className="text-center"
-              />
-              <TableHead>Status</TableHead>
+              <TableHead>Notifications</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No users found
                 </TableCell>
               </TableRow>
@@ -258,37 +257,13 @@ export function UsersTable({
                         {user.instructor_emails}
                       </span>
                     </TableCell>
-                    <TableCell className="text-center">
-                      {user.engagement_status === 'new' ? (
-                        <span className="text-muted-foreground text-sm">New</span>
-                      ) : (
-                        <span
-                          className={`font-semibold ${
-                            user.engagement_status === 'disabled'
-                              ? 'text-destructive'
-                              : user.engagement_status === 'low'
-                                ? 'text-warning'
-                                : 'text-foreground'
-                          }`}
-                        >
-                          {user.engagement_rate !== null ? `${user.engagement_rate}%` : '-'}
-                        </span>
-                      )}
-                    </TableCell>
                     <TableCell>
-                      {user.engagement_status === 'disabled' ? (
-                        <Badge variant="destructive" size="sm">
-                          Disabled
-                        </Badge>
-                      ) : user.engagement_status === 'low' ? (
-                        <Badge variant="warning" size="sm">
-                          Low Engagement
-                        </Badge>
-                      ) : (
-                        <Badge variant="default" size="sm">
-                          Active
-                        </Badge>
-                      )}
+                      <Badge
+                        variant={notificationStatusDisplay[user.notification_status].variant}
+                        size="sm"
+                      >
+                        {notificationStatusDisplay[user.notification_status].label}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 );

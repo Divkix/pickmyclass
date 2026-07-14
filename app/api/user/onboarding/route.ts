@@ -2,7 +2,7 @@ import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
 import { log } from '@/lib/log';
 import { fail, ok } from '@/lib/api/response';
 import { toOnboardingState, type OnboardingRow } from '@/lib/onboarding';
-import { getPostHogClient } from '@/lib/posthog-server';
+import { captureServerEvent } from '@/lib/posthog-server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -66,9 +66,7 @@ export async function POST() {
 
     const row = (data as OnboardingRow[] | null)?.[0] ?? null;
 
-    const posthog = getPostHogClient();
-    posthog.capture({ distinctId: user.id, event: 'onboarding_skipped' });
-    await posthog.shutdown();
+    await captureServerEvent({ distinctId: user.id, event: 'onboarding_skipped' });
 
     return ok(toOnboardingState(row));
   } catch (error) {

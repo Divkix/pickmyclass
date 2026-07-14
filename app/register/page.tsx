@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { log } from '@/lib/log';
 import { createClient } from '@/lib/supabase/client';
 
 /**
@@ -177,7 +178,7 @@ export default function RegisterPage() {
       router.push('/verify-email');
     } catch (err) {
       setError('An unexpected error occurred');
-      console.error(err);
+      log('Register').error('Email registration failed:', err);
     } finally {
       setLoading(false);
     }
@@ -202,7 +203,7 @@ export default function RegisterPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?consent=confirmed&next=/dashboard`,
         },
       });
 
@@ -213,7 +214,7 @@ export default function RegisterPage() {
       // Note: we don't reset loading on success because browser will navigate away
     } catch (err) {
       setError('Failed to initiate Google sign-up');
-      console.error(err);
+      log('Register').error('Google registration failed:', err);
       setGoogleLoading(false);
     }
   };

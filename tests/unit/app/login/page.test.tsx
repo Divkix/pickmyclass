@@ -63,7 +63,12 @@ describe('LoginPage - Google OAuth loading state', () => {
 
     // Wait for loading state to be set
     await waitFor(() => {
-      expect(mockSignInWithOAuth).toHaveBeenCalled();
+      expect(mockSignInWithOAuth).toHaveBeenCalledWith({
+        provider: 'google',
+        options: {
+          redirectTo: 'http://localhost:3000/auth/callback?next=/dashboard',
+        },
+      });
     });
 
     // The button should still be in loading state because

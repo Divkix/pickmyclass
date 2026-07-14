@@ -20,6 +20,7 @@ import { getPastTermCodes } from '@/lib/asu/terms';
 import { log } from '@/lib/log';
 import type { Env } from '@/lib/types/env';
 import type { ClassCheckMessage } from '@/lib/types/queue';
+import { createCronLockClient, type CronLockLease } from '@/lib/worker/cron-lock';
 
 /**
  * Main cron handler with staggered checking
@@ -27,7 +28,7 @@ import type { ClassCheckMessage } from '@/lib/types/queue';
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
   const lockHolder = `cron-${Date.now()}-${crypto.randomUUID()}`;
-  let lockAcquired = false;
+  let lockLease: CronLockLease | null = null;
 
   try {
     const cfEnv = env as unknown as Env;
@@ -42,31 +43,19 @@ export async function GET(request: NextRequest) {
       return fail('Unauthorized - this endpoint requires authentication', 401);
     }
 
-    if (cfEnv.PICKMYCLASS_CRON_LOCK_DO) {
-      const lockId = cfEnv.PICKMYCLASS_CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
-      const lockStub = cfEnv.PICKMYCLASS_CRON_LOCK_DO.get(lockId);
-
-      const lockResponse = await lockStub.fetch(`http://do/acquire?holder=${lockHolder}`, {
-        method: 'POST',
-      });
-      const lockResult = (await lockResponse.json()) as {
-        acquired: boolean;
-        message: string;
-        lockHolder?: string;
-      };
-
-      if (!lockResult.acquired) {
-        log('Cron').warn('Lock acquisition failed:', lockResult.message);
+    const lockClient = createCronLockClient(cfEnv.PICKMYCLASS_CRON_LOCK_DO);
+    lockLease = await lockClient.acquire(lockHolder);
+    if (!lockLease.configured) {
+      log('Cron').warn('PICKMYCLASS_CRON_LOCK_DO not available - proceeding without lock');
+    } else {
+      if (!lockLease.acquired) {
+        log('Cron').warn('Lock acquisition failed:', lockLease.message);
         return fail('Another cron job is already running', 409, {
-          message: lockResult.message,
-          current_holder: lockResult.lockHolder,
+          message: lockLease.message,
+          current_holder: lockLease.currentHolder,
         });
       }
-
-      lockAcquired = true;
       log('Cron').info('Lock acquired successfully');
-    } else {
-      log('Cron').warn('PICKMYCLASS_CRON_LOCK_DO not available - proceeding without lock');
     }
 
     // Use modulo calculation to properly handle both :00 and :30 minute triggers
@@ -208,20 +197,10 @@ export async function GET(request: NextRequest) {
 
     return fail(errorMessage, 500, { duration: Date.now() - startTime });
   } finally {
-    // Release lock if it was acquired
-    if (lockAcquired) {
+    if (lockLease?.acquired) {
       try {
-        const cfEnv = env as unknown as Env;
-
-        if (cfEnv.PICKMYCLASS_CRON_LOCK_DO) {
-          const lockId = cfEnv.PICKMYCLASS_CRON_LOCK_DO.idFromName('pickmyclass-cron-lock');
-          const lockStub = cfEnv.PICKMYCLASS_CRON_LOCK_DO.get(lockId);
-
-          await lockStub.fetch(`http://do/release?holder=${lockHolder}`, {
-            method: 'POST',
-          });
-          log('Cron').info('Lock released');
-        }
+        await lockLease.release();
+        if (lockLease.configured) log('Cron').info('Lock released');
       } catch (error) {
         log('Cron').error('Error releasing lock:', error);
         // Don't throw - lock will auto-expire after 25 minutes

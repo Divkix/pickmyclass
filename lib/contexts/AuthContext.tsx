@@ -4,6 +4,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import posthog from 'posthog-js';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { log } from '@/lib/log';
 
 interface AuthContextType {
   user: User | null;
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(user);
         posthog.identify(user.id, { email: user.email });
       } catch (error) {
-        console.error('Error getting session:', error);
+        log('AuthContext').error('Session initialization failed:', error);
       } finally {
         setLoading(false);
       }
@@ -101,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsAdmin(profile?.is_admin ?? false);
       } catch (error) {
         if (cancelled) return;
-        console.error('Error checking admin status:', error);
+        log('AuthContext').error('Admin-status lookup failed:', error);
         setIsAdmin(false);
       } finally {
         if (!cancelled) setCheckingAdmin(false);
@@ -123,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setSession(null);
     } catch (error) {
-      console.error('Error signing out:', error);
+      log('AuthContext').error('Sign-out failed:', error);
       throw error;
     }
   };

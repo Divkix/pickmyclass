@@ -5,7 +5,7 @@ import { log } from '@/lib/log';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
 import { isDisposableEmail } from '@/lib/auth/disposable-email';
-import { getPostHogClient } from '@/lib/posthog-server';
+import { captureServerEvent } from '@/lib/posthog-server';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
@@ -63,17 +63,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (data.user) {
-      const posthog = getPostHogClient();
-      posthog.capture({
+      await captureServerEvent({
         distinctId: data.user.id,
         event: 'user_registered',
         properties: { auth_provider: 'email' },
+        identify: { email },
       });
-      posthog.identify({
-        distinctId: data.user.id,
-        properties: { email },
-      });
-      await posthog.shutdown();
     }
 
     return ok(null);

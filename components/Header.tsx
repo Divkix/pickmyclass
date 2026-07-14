@@ -62,7 +62,9 @@ export function Header() {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <AuthButton />
+          <div className="hidden md:block">
+            <AuthButton />
+          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -96,6 +98,9 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          <div className="mt-2 border-t border-border/40 px-3 py-3">
+            <AuthButton />
+          </div>
         </nav>
       )}
     </header>

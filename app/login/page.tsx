@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { log } from '@/lib/log';
 import { createClient } from '@/lib/supabase/client';
 
 function LoginForm() {
@@ -116,7 +117,7 @@ function LoginForm() {
       window.location.href = '/';
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
-      console.error('[Login Error]', err);
+      log('Login').error('Password login failed:', err);
     } finally {
       setLoading(false);
     }
@@ -131,7 +132,7 @@ function LoginForm() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
         },
       });
 
@@ -142,7 +143,7 @@ function LoginForm() {
       // Note: we don't reset loading on success because browser will navigate away
     } catch (err) {
       setError('Failed to initiate Google sign-in');
-      console.error(err);
+      log('Login').error('Google login failed:', err);
       setGoogleLoading(false);
     }
   };

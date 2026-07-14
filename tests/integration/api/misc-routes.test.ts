@@ -2,24 +2,25 @@ import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 const {
-  mockCheckLockoutStatus,
+  mockGetPublicLockoutStatus,
   mockCreateClient,
   mockCreateServerClient,
   mockExchangeCodeForSession,
-  mockGetRemainingLockoutTime,
+  mockProfileMaybeSingle,
+  mockRpc,
   mockSignOut,
 } = vi.hoisted(() => ({
-  mockCheckLockoutStatus: vi.fn(),
+  mockGetPublicLockoutStatus: vi.fn(),
   mockCreateClient: vi.fn(),
   mockCreateServerClient: vi.fn(),
   mockExchangeCodeForSession: vi.fn(),
-  mockGetRemainingLockoutTime: vi.fn(),
+  mockProfileMaybeSingle: vi.fn(),
+  mockRpc: vi.fn(),
   mockSignOut: vi.fn(),
 }));
 
-vi.mock('@/lib/auth/lockout', () => ({
-  checkLockoutStatus: mockCheckLockoutStatus,
-  getRemainingLockoutTime: mockGetRemainingLockoutTime,
+vi.mock('@/lib/auth/login-attempt-policy', () => ({
+  loginAttemptPolicy: { getPublicStatus: mockGetPublicLockoutStatus },
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -66,12 +67,10 @@ describe('misc API routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockCheckLockoutStatus.mockResolvedValue({
+    mockGetPublicLockoutStatus.mockResolvedValue({
       isLocked: true,
-      attempts: 5,
-      lockedUntil: new Date('2026-05-19T12:30:00Z'),
+      remainingMinutes: 14,
     });
-    mockGetRemainingLockoutTime.mockReturnValue(14);
     mockCreateClient.mockResolvedValue({
       auth: {
         signOut: mockSignOut,
@@ -79,10 +78,24 @@ describe('misc API routes', () => {
     });
     mockSignOut.mockResolvedValue({ error: null });
     mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    mockProfileMaybeSingle.mockResolvedValue({
+      data: {
+        age_verified_at: '2026-07-12T00:00:00.000Z',
+        agreed_to_terms_at: '2026-07-12T00:00:00.000Z',
+      },
+      error: null,
+    });
+    mockRpc.mockResolvedValue({ error: null });
     mockCreateServerClient.mockReturnValue({
       auth: {
         exchangeCodeForSession: mockExchangeCodeForSession,
       },
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          maybeSingle: mockProfileMaybeSingle,
+        })),
+      })),
+      rpc: mockRpc,
     });
   });
 
@@ -111,11 +124,11 @@ describe('misc API routes', () => {
     expect(response.status).toBe(200);
     // `attempts` is intentionally excluded from the response (SEC-02 — reduces disclosure)
     expect(data).toEqual({ success: true, isLocked: true, remainingMinutes: 14 });
-    expect(mockCheckLockoutStatus).toHaveBeenCalledWith('student@example.com');
+    expect(mockGetPublicLockoutStatus).toHaveBeenCalledWith('student@example.com');
   });
 
   it('returns a lockout error when status lookup throws', async () => {
-    mockCheckLockoutStatus.mockRejectedValueOnce(new Error('kv unavailable'));
+    mockGetPublicLockoutStatus.mockRejectedValueOnce(new Error('database unavailable'));
 
     const response = await postCheckLockout(
       post('https://pickmyclass.app/api/auth/check-lockout', {
@@ -147,6 +160,48 @@ describe('misc API routes', () => {
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe('https://pickmyclass.app/dashboard');
     expect(mockExchangeCodeForSession).toHaveBeenCalledWith('abc');
+    expect(mockProfileMaybeSingle).toHaveBeenCalledOnce();
+  });
+
+  it('records confirmed Google signup consent before redirecting', async () => {
+    const response = await authCallback(
+      new Request(
+        'https://pickmyclass.app/auth/callback?code=abc&consent=confirmed&next=/dashboard'
+      )
+    );
+
+    expect(response.headers.get('location')).toBe('https://pickmyclass.app/dashboard');
+    expect(mockRpc).toHaveBeenCalledWith('accept_terms_and_verify_age');
+    expect(mockProfileMaybeSingle).not.toHaveBeenCalled();
+  });
+
+  it('gates OAuth accounts that have not recorded consent', async () => {
+    mockProfileMaybeSingle.mockResolvedValueOnce({
+      data: { age_verified_at: null, agreed_to_terms_at: null },
+      error: null,
+    });
+
+    const response = await authCallback(
+      new Request('https://pickmyclass.app/auth/callback?code=abc&next=/dashboard')
+    );
+
+    expect(response.headers.get('location')).toBe(
+      'https://pickmyclass.app/consent?next=%2Fdashboard'
+    );
+  });
+
+  it('keeps users on the consent gate when persistence fails', async () => {
+    mockRpc.mockResolvedValueOnce({ error: { message: 'database unavailable' } });
+
+    const response = await authCallback(
+      new Request(
+        'https://pickmyclass.app/auth/callback?code=abc&consent=confirmed&next=/dashboard'
+      )
+    );
+
+    expect(response.headers.get('location')).toBe(
+      'https://pickmyclass.app/consent?error=save_failed&next=%2Fdashboard'
+    );
   });
 
   it('falls back to login when callback exchange fails or code is missing', async () => {

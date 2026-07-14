@@ -13,14 +13,8 @@
 /** PostHog project API token (public) */
 export const POSTHOG_PROJECT_TOKEN = 'phc_rRbMvons2ERXqNoArYFrmJYAwTX5YnWmLsnqPgk58Wwo';
 
-/**
- * Server-side API host for posthog-node (direct; no reverse proxy needed).
- * Client uses same-origin `/ingest` (see next.config.ts rewrites).
- */
+/** Direct API host for browser and server analytics. */
 export const POSTHOG_API_HOST = 'https://us.i.posthog.com';
 
 /** PostHog app UI host (toolbar / session replay links) */
 export const POSTHOG_UI_HOST = 'https://us.posthog.com';
-
-/** Browser reverse-proxy path (rewritten to PostHog; avoids ad blockers) */
-export const POSTHOG_BROWSER_API_HOST = '/ingest';

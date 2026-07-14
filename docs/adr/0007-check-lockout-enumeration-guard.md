@@ -10,4 +10,5 @@ The unauthenticated `/api/auth/check-lockout` route **deliberately omits the raw
 ## Consequences
 
 - **Don't add `attempts` back** to the response, and **don't remove the Cloudflare WAF rate-limit rule** — the two decisions are load-bearing together.
-- Lockout itself lives in `failed_login_attempts` (RLS enabled, zero policies ⇒ service-role only), **5 attempts / 15 min**, via the atomic `increment_failed_attempts` RPC (granted to `service_role` only).
+- `loginAttemptPolicy.getPublicStatus()` is the route's only query seam and returns exactly `isLocked` plus `remainingMinutes`; the raw persistence record stays internal.
+- Lockout itself lives in `failed_login_attempts` (RLS enabled, zero policies ⇒ service-role only), **5 attempts / 15 min**. The policy owns the complete check/authenticate/increment/re-check/clear lifecycle, and its internal Supabase adapter uses the atomic `increment_failed_attempts` RPC (granted to `service_role` only).

@@ -4,12 +4,21 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { ClassWatchCard } from '@/components/ClassWatchCard';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 
-// Mock sonner toast
+const { mockCreateWatch, mockToastError, mockToastSuccess } = vi.hoisted(() => ({
+  mockCreateWatch: vi.fn(),
+  mockToastError: vi.fn(),
+  mockToastSuccess: vi.fn(),
+}));
+
 vi.mock('sonner', () => ({
   toast: {
-    success: vi.fn(),
-    error: vi.fn(),
+    success: mockToastSuccess,
+    error: mockToastError,
   },
+}));
+
+vi.mock('@/lib/class-watches/class-watch-creation', () => ({
+  classWatchCreation: { create: mockCreateWatch },
 }));
 
 // Mock framer-motion
@@ -62,6 +71,7 @@ const mockClassState: ClassStateRow = {
 describe('ClassWatchCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCreateWatch.mockResolvedValue(mockWatch);
   });
 
   describe('delete functionality', () => {
@@ -156,6 +166,32 @@ describe('ClassWatchCard', () => {
       await waitFor(() => {
         expect(dialogDeleteButton).not.toBeDisabled();
       });
+    });
+
+    it('restores a deleted watch through the shared creation module', async () => {
+      const user = userEvent.setup();
+      const onRestore = vi.fn();
+
+      render(
+        <ClassWatchCard
+          watch={mockWatch}
+          classState={mockClassState}
+          onDelete={vi.fn().mockResolvedValue(undefined)}
+          onRestore={onRestore}
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /stop watching/i }));
+      await user.click(screen.getByRole('button', { name: /stop watching/i }));
+
+      const removedToast = mockToastSuccess.mock.calls.find(
+        ([message]) => message === 'Class watch removed'
+      );
+      await removedToast?.[1].action.onClick();
+
+      expect(mockCreateWatch).toHaveBeenCalledWith({ term: '2241', class_nbr: '12345' });
+      expect(mockToastSuccess).toHaveBeenCalledWith('Class watch restored');
+      expect(onRestore).toHaveBeenCalledOnce();
     });
   });
 });

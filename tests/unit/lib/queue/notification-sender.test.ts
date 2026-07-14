@@ -233,29 +233,13 @@ describe('sendSectionNotifications', () => {
     expect(result[1].error).toBe('Send failed');
   });
 
-  it('records engagement for successful sends', async () => {
+  it('does not infer email engagement from successful delivery', async () => {
     await sendSectionNotifications(defaultParams());
 
     const rpcMock = (getServiceClient() as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc;
-    // Should call record_engagement_send_batch once with all unique successful user IDs
-    expect(rpcMock).toHaveBeenCalledWith('record_engagement_send_batch', {
-      p_user_ids: ['u1', 'u2'],
-    });
-    // Single batch call, not one per user
     expect(
       rpcMock.mock.calls.filter((c: unknown[]) => c[0] === 'record_engagement_send_batch')
-    ).toHaveLength(1);
-  });
-
-  it('handles engagement recording failure gracefully', async () => {
-    const rpcMock = mockRpc(mockWatchers);
-    // Make the batch engagement call fail with error response
-    rpcMock
-      .mockResolvedValueOnce({ data: mockWatchers, error: null }) // get_watchers_for_sections
-      .mockResolvedValueOnce({ data: null, error: { message: 'Engagement error' } }); // record_engagement_send_batch
-
-    await expect(sendSectionNotifications(defaultParams())).resolves.not.toThrow();
-    expect(console.warn).toHaveBeenCalled();
+    ).toHaveLength(0);
   });
 
   it('uses fromEmail when provided', async () => {

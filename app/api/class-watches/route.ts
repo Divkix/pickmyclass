@@ -7,7 +7,7 @@ import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '
 import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
 import { upsertClassState } from '@/lib/db/queries';
 import { log } from '@/lib/log';
-import { getPostHogClient } from '@/lib/posthog-server';
+import { captureServerEvent } from '@/lib/posthog-server';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassStateRow } from '@/lib/types/class-watch';
@@ -225,8 +225,7 @@ export async function POST(request: NextRequest) {
       // Non-fatal - watch was created successfully
     }
 
-    const posthog = getPostHogClient();
-    posthog.capture({
+    await captureServerEvent({
       distinctId: user.id,
       event: 'class_watch_created',
       properties: {
@@ -236,7 +235,6 @@ export async function POST(request: NextRequest) {
         catalog_nbr: classDetails.catalog_nbr,
       },
     });
-    await posthog.shutdown();
 
     return ok({ watch: watchDataRaw }, { status: 201 });
   } catch (error) {
@@ -282,13 +280,11 @@ export async function DELETE(request: NextRequest) {
       throw error;
     }
 
-    const posthog = getPostHogClient();
-    posthog.capture({
+    await captureServerEvent({
       distinctId: user.id,
       event: 'class_watch_deleted',
       properties: { watch_id: validation.data.id },
     });
-    await posthog.shutdown();
 
     return ok(undefined);
   } catch (error) {

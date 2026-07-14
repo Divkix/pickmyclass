@@ -61,7 +61,8 @@ const classWatchFieldsSchema = z.object({
 /**
  * Schema for queue/cron messages — format only (no term-selectability refinement) so an
  * in-flight message for a term ending mid-flight still processes. Past-term watches are
- * excluded earlier, at cron enqueue (isTermPast) and by the daily sweep, not here.
+ * excluded earlier, from the getPastTermCodes set at cron enqueue and by the daily sweep,
+ * not here.
  */
 export const classCheckMessageSchema = classWatchFieldsSchema;
 
@@ -110,6 +111,14 @@ export const registerSchema = z.object({
   agreedToTerms: z
     .boolean()
     .refine((v) => v === true, 'You must agree to the Terms of Service and Privacy Policy'),
+});
+
+/**
+ * Schema for recording consent after an OAuth account has authenticated.
+ */
+export const consentSchema = registerSchema.pick({
+  ageVerified: true,
+  agreedToTerms: true,
 });
 
 /**

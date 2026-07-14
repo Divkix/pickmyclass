@@ -82,6 +82,8 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | Component | Purpose |
 |-----------|---------|
 | `worker.ts` | Custom Cloudflare Worker with cron, queue handlers, and Durable Objects |
+| `lib/worker/cron-lock.ts` | Cron lock lifecycle, status semantics, and Durable Object client |
+| `lib/worker/edge-html-cache.ts` | Edge HTML cache eligibility, keying, lookup, and storage rules |
 | `app/api/cron/route.ts` | Cron job entry point - enqueues sections to queue |
 | `app/api/queue/process-section/route.ts` | HTTP mirror of the queue consumer (tests/HTTP dispatch; not the production path) |
 | `lib/db/queries.ts` | Database query helpers with atomic deduplication |
@@ -91,10 +93,11 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/queue/change-detector.ts` | Change detection logic |
 | `lib/queue/notification-sender.ts` | Notification sending with atomic deduplication |
 | `lib/email/send.ts` | Cloudflare Email Service batch sender |
+| `lib/class-watches/class-watch-creation.ts` | Browser-side watch creation policy and transport |
 | `lib/cache/ttl-cache.ts` | TTL cache for ASU API responses |
 | `lib/api/schemas.ts` | Queue message validation schemas |
 | `proxy.ts` | vinext middleware — auth gate, redirects, security headers + CSP |
-| `lib/auth/lockout.ts` | Brute-force lockout protection |
+| `lib/auth/login-attempt-policy.ts` | Brute-force lockout policy and persistence adapter |
 | `lib/auth/disposable-email.ts` | Disposable email validation |
 
 ### API Routes

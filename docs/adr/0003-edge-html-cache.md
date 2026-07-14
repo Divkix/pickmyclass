@@ -2,7 +2,7 @@
 
 > **Superseded by [0009-edge-html-cache-rsc-exclusion](./0009-edge-html-cache-rsc-exclusion.md)** — the cache now excludes RSC requests and stores only `text/html`. The rationale below still applies.
 
-`worker.ts fetch()` keeps an **edge HTML cache** (Cache API `caches.default`) for anonymous GETs to `/`, `/faq`, `/about`, `/blog`, `/blog/*`, `/legal`, `/legal/*`. A HIT skips `proxy.ts` **and** the RSC render entirely. It is the outermost of three cache layers (this HTML cache, `public/_headers` for static assets, and the Cloudflare edge).
+`lib/worker/edge-html-cache.ts` owns an **edge HTML cache** (Cache API `caches.default`) for anonymous GETs to `/`, `/faq`, `/about`, `/blog`, `/blog/*`, `/legal`, `/legal/*`; `worker.ts fetch()` is its vinext/Cloudflare adapter. A HIT skips `proxy.ts` **and** the RSC render entirely. It is the outermost of three cache layers (this HTML cache, `public/_headers` for static assets, and the Cloudflare edge).
 
 ## Why
 

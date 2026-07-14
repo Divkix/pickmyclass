@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, Mail, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronsUpDown, Clock, Mail, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCallback, useTransition } from 'react';
@@ -99,8 +99,6 @@ export function ClassesTable({
 
   /** Icon renderer that reads URL state rather than hook-internal state */
   const renderSortIconFromUrl = (field: ClassSortField) => {
-    const { ChevronDown, ChevronUp, ChevronsUpDown } =
-      require('lucide-react') as typeof import('lucide-react');
     if (sort !== field) return <ChevronsUpDown className="size-4 ml-1 text-muted-foreground" />;
     if (dir === 'asc') return <ChevronUp className="size-4 ml-1" />;
     return <ChevronDown className="size-4 ml-1" />;

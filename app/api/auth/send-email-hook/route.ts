@@ -6,6 +6,7 @@ import {
   type SupabaseSendEmailHookPayload,
 } from '@/lib/email/auth-templates';
 import { SUPABASE_URL } from '@/lib/supabase/config';
+import { log } from '@/lib/log';
 
 function getHeaderRecord(headers: Headers): Record<string, string> {
   const record: Record<string, string> = {};
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   const fromEmail = cfEnv.NOTIFICATION_FROM_EMAIL || 'notifications@pickmyclass.app';
 
   if (!hookSecret || !emailBinding) {
-    console.error('[Auth Email Hook] Missing required email hook configuration');
+    log('AuthEmailHook').error('Missing required email hook configuration');
     return NextResponse.json({ error: 'Email hook is not configured' }, { status: 500 });
   }
 
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
       getHeaderRecord(request.headers)
     ) as SupabaseSendEmailHookPayload;
   } catch (error) {
-    console.warn('[Auth Email Hook] Invalid webhook signature:', error);
+    log('AuthEmailHook').warn('Invalid webhook signature:', error);
     return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
   }
 
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
   });
 
   if (messages.length === 0) {
-    console.error('[Auth Email Hook] Hook payload did not produce any email messages');
+    log('AuthEmailHook').error('Hook payload did not produce any email messages');
     return NextResponse.json({ error: 'No email recipient found' }, { status: 400 });
   }
 
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
       await emailBinding.send(message);
     }
   } catch (error) {
-    console.error('[Auth Email Hook] Cloudflare Email Sending failed:', error);
+    log('AuthEmailHook').error('Cloudflare Email Sending failed:', error);
     return NextResponse.json({ error: 'Failed to send auth email' }, { status: 502 });
   }
 

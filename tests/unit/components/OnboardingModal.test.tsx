@@ -10,12 +10,23 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-const { mockCapture } = vi.hoisted(() => ({
+const { mockCapture, mockCreateWatch } = vi.hoisted(() => ({
   mockCapture: vi.fn(),
+  mockCreateWatch: vi.fn(),
 }));
 
 vi.mock('posthog-js', () => ({
   default: { capture: mockCapture },
+}));
+
+vi.mock('@/lib/class-watches/class-watch-creation', () => ({
+  classWatchCreation: {
+    create: mockCreateWatch,
+    getOptions: () => ({
+      terms: [{ code: '2267', label: 'Fall 2026' }],
+      defaultTerm: '2267',
+    }),
+  },
 }));
 
 // Mock Radix Dialog portal so content renders in the jsdom document body.
@@ -63,14 +74,13 @@ describe('OnboardingModal', () => {
   // Configurable responses per endpoint so `mockResolvedValueOnce` ordering
   // (broken by the open-time popular-class GET) doesn't bleed across tests.
   let popularClassResponse: { popularClass?: typeof popularClassPayload | null };
-  let classWatchesResponse: { watch?: ClassWatchRow; error?: string };
   let skipResponse: Partial<OnboardingState> & { error?: string };
   let skipOk: boolean;
 
   beforeEach(() => {
     vi.clearAllMocks();
     popularClassResponse = { popularClass: null };
-    classWatchesResponse = { watch: createdWatch };
+    mockCreateWatch.mockResolvedValue(createdWatch);
     skipResponse = { ...skippedState };
     skipOk = true;
     fetchMock = vi.fn((url: string) => {
@@ -78,12 +88,6 @@ describe('OnboardingModal', () => {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve(popularClassResponse),
-        });
-      }
-      if (url === '/api/class-watches') {
-        return Promise.resolve({
-          ok: classWatchesResponse.watch ? true : false,
-          json: () => Promise.resolve(classWatchesResponse),
         });
       }
       // /api/user/onboarding (skip POST)
@@ -234,8 +238,6 @@ describe('OnboardingModal', () => {
       const user = userEvent.setup();
       const onCompleted = vi.fn();
 
-      classWatchesResponse = { watch: createdWatch };
-
       render(<OnboardingModal open={true} onSkipped={vi.fn()} onCompleted={onCompleted} />);
 
       // Step 1 -> Step 2
@@ -251,10 +253,7 @@ describe('OnboardingModal', () => {
 
       // Step 3 confirmation
       expect(await screen.findByText("You're all set!")).toBeInTheDocument();
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/class-watches',
-        expect.objectContaining({ method: 'POST' })
-      );
+      expect(mockCreateWatch).toHaveBeenCalledWith({ term: '2267', class_nbr: '12345' });
 
       // Closing the confirmation calls onCompleted with the new watch.
       await user.click(screen.getByRole('button', { name: /Done/i }));
@@ -263,8 +262,6 @@ describe('OnboardingModal', () => {
 
     it('captures onboarding_completed exactly once when a watch is created', async () => {
       const user = userEvent.setup();
-      classWatchesResponse = { watch: createdWatch };
-
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
       await user.click(screen.getByRole('button', { name: /I have my class number/i }));
@@ -325,8 +322,6 @@ describe('OnboardingModal', () => {
       const user = userEvent.setup();
       const onCompleted = vi.fn();
 
-      classWatchesResponse = { watch: createdWatch };
-
       render(<OnboardingModal open={true} onSkipped={vi.fn()} onCompleted={onCompleted} />);
 
       await user.click(screen.getByRole('button', { name: /I have my class number/i }));
@@ -344,7 +339,7 @@ describe('OnboardingModal', () => {
       const user = userEvent.setup();
       const onCompleted = vi.fn();
 
-      classWatchesResponse = { error: 'Class section not found' };
+      mockCreateWatch.mockRejectedValueOnce(new Error('Class section not found'));
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} onCompleted={onCompleted} />);
 
@@ -361,8 +356,6 @@ describe('OnboardingModal', () => {
       const user = userEvent.setup();
       const onCompleted = vi.fn();
       const onSkipped = vi.fn();
-
-      classWatchesResponse = { watch: createdWatch };
 
       render(<OnboardingModal open={true} onSkipped={onSkipped} onCompleted={onCompleted} />);
 

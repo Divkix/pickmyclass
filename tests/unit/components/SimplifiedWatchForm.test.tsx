@@ -1,51 +1,63 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { SimplifiedWatchForm } from '@/components/SimplifiedWatchForm';
+import type { ClassWatchCreationInput } from '@/lib/class-watches/class-watch-creation';
+import type { ClassWatchRow } from '@/lib/types/class-watch';
+
+const { mockCreateWatch, mockGetOptions } = vi.hoisted(() => ({
+  mockCreateWatch: vi.fn(),
+  mockGetOptions: vi.fn(),
+}));
+
+vi.mock('@/lib/class-watches/class-watch-creation', () => ({
+  classWatchCreation: {
+    create: mockCreateWatch,
+    getOptions: mockGetOptions,
+  },
+}));
 
 describe('SimplifiedWatchForm', () => {
-  let onSubmit: ReturnType<
-    typeof vi.fn<(data: { term: string; class_nbr: string }) => Promise<void>>
+  let onCreated: ReturnType<
+    typeof vi.fn<(watch: ClassWatchRow, input: ClassWatchCreationInput) => Promise<void>>
   >;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    onSubmit = vi.fn().mockResolvedValue(undefined);
+    onCreated = vi.fn().mockResolvedValue(undefined);
+    mockCreateWatch.mockResolvedValue({ id: 'watch-1' } as ClassWatchRow);
+    mockGetOptions.mockReturnValue({
+      terms: [{ code: '2264', label: 'Summer 2026' }],
+      defaultTerm: '2264',
+    });
   });
 
   it('renders the term and class number inputs', () => {
-    render(<SimplifiedWatchForm onSubmit={onSubmit} />);
+    render(<SimplifiedWatchForm onCreated={onCreated} />);
 
     expect(screen.getByLabelText(/term/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/class number/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start Watching' })).toBeDisabled();
   });
 
-  it('rejects a class number that is not exactly 5 digits and does not call onSubmit', async () => {
-    render(<SimplifiedWatchForm onSubmit={onSubmit} />);
-
-    fireEvent.change(screen.getByLabelText(/class number/i), { target: { value: '1234' } });
-    fireEvent.submit(screen.getByRole('button', { name: 'Start Watching' }).closest('form')!);
-
-    expect(await screen.findByText(/must be exactly 5 digits/i)).toBeInTheDocument();
-    expect(onSubmit).not.toHaveBeenCalled();
-  });
-
-  it('submits term + class_nbr when valid and clears no error', async () => {
-    render(<SimplifiedWatchForm onSubmit={onSubmit} />);
+  it('submits through the creation module and reports the created watch', async () => {
+    render(<SimplifiedWatchForm onCreated={onCreated} />);
 
     fireEvent.change(screen.getByLabelText(/class number/i), { target: { value: '12345' } });
     fireEvent.submit(screen.getByRole('button', { name: 'Start Watching' }).closest('form')!);
 
     await waitFor(() => {
-      expect(onSubmit).toHaveBeenCalledTimes(1);
+      expect(mockCreateWatch).toHaveBeenCalledWith({ term: '2264', class_nbr: '12345' });
+      expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 'watch-1' }), {
+        term: '2264',
+        class_nbr: '12345',
+      });
     });
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ class_nbr: '12345' }));
   });
 
-  it('surfaces the error message thrown by onSubmit', async () => {
-    onSubmit.mockRejectedValue(new Error('Class section not found'));
+  it('surfaces the error message thrown by the creation module', async () => {
+    mockCreateWatch.mockRejectedValue(new Error('Class section not found'));
 
-    render(<SimplifiedWatchForm onSubmit={onSubmit} />);
+    render(<SimplifiedWatchForm onCreated={onCreated} />);
 
     fireEvent.change(screen.getByLabelText(/class number/i), { target: { value: '99999' } });
     fireEvent.submit(screen.getByRole('button', { name: 'Start Watching' }).closest('form')!);
@@ -53,18 +65,30 @@ describe('SimplifiedWatchForm', () => {
     expect(await screen.findByText('Class section not found')).toBeInTheDocument();
   });
 
-  it('shows the no-terms message and disables submission when no terms are selectable', async () => {
-    vi.resetModules();
-    vi.doMock('@/lib/asu/terms', () => ({
-      getSelectableTerms: () => [],
-      formatTermOption: () => '',
-    }));
-    const { SimplifiedWatchForm: NoTermsForm } = await import('@/components/SimplifiedWatchForm');
+  it('reports the complete creation lifecycle to its container', async () => {
+    let resolveCreate!: (watch: ClassWatchRow) => void;
+    mockCreateWatch.mockReturnValue(
+      new Promise<ClassWatchRow>((resolve) => {
+        resolveCreate = resolve;
+      })
+    );
+    const onSubmittingChange = vi.fn();
 
-    render(<NoTermsForm onSubmit={onSubmit} />);
+    render(<SimplifiedWatchForm onCreated={onCreated} onSubmittingChange={onSubmittingChange} />);
+    fireEvent.change(screen.getByLabelText(/class number/i), { target: { value: '12345' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Start Watching' }).closest('form')!);
+
+    expect(onSubmittingChange).toHaveBeenCalledWith(true);
+    resolveCreate({ id: 'watch-1' } as ClassWatchRow);
+    await waitFor(() => expect(onSubmittingChange).toHaveBeenLastCalledWith(false));
+  });
+
+  it('shows the no-terms message and disables submission when no terms are selectable', () => {
+    mockGetOptions.mockReturnValue({ terms: [], defaultTerm: '' });
+
+    render(<SimplifiedWatchForm onCreated={onCreated} />);
 
     expect(screen.getByText(/No terms are currently available/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Start Watching' })).toBeDisabled();
-    vi.doUnmock('@/lib/asu/terms');
   });
 });

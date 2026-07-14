@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { log } from '@/lib/log';
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -53,7 +54,7 @@ export default function SettingsPage() {
       posthog.capture('data_exported');
       setMessage({ type: 'success', text: 'Data exported successfully!' });
     } catch (error) {
-      console.error('Export error:', error);
+      log('Settings').error('Data export failed:', error);
       setMessage({ type: 'error', text: 'Failed to export data. Please try again.' });
     } finally {
       setExportLoading(false);

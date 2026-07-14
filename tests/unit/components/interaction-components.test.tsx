@@ -5,8 +5,10 @@ import { AddClassWatch } from '@/components/AddClassWatch';
 import { BottomNav } from '@/components/BottomNav';
 import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator';
+import type { ClassWatchRow } from '@/lib/types/class-watch';
 
-const { mockPathname, mockPush } = vi.hoisted(() => ({
+const { mockCreateWatch, mockPathname, mockPush } = vi.hoisted(() => ({
+  mockCreateWatch: vi.fn(),
   mockPathname: vi.fn(),
   mockPush: vi.fn(),
 }));
@@ -35,6 +37,13 @@ const mockSelectableTerms = vi.hoisted(() => [
 vi.mock('@/lib/asu/terms', () => ({
   getSelectableTerms: () => mockSelectableTerms,
   formatTermOption: (term: { label: string; code: string }) => `${term.label} (${term.code})`,
+}));
+
+vi.mock('@/lib/class-watches/class-watch-creation', () => ({
+  classWatchCreation: {
+    create: mockCreateWatch,
+    getOptions: () => ({ terms: mockSelectableTerms, defaultTerm: '2264' }),
+  },
 }));
 
 vi.mock('next/link', () => ({
@@ -134,6 +143,7 @@ describe('interactive components', () => {
     vi.clearAllMocks();
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockPathname.mockReturnValue('/dashboard');
+    mockCreateWatch.mockResolvedValue({ id: 'watch-1' } as ClassWatchRow);
     global.fetch = vi.fn().mockResolvedValue({ ok: true });
   });
 
@@ -180,22 +190,24 @@ describe('interactive components', () => {
     );
   });
 
-  it('validates and submits add-class watch requests', async () => {
-    const onAdd = vi.fn().mockResolvedValue(undefined);
-    render(<AddClassWatch onAdd={onAdd} />);
-
-    fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: '123' } });
-    fireEvent.submit(screen.getByRole('button', { name: /start watching/i }).closest('form')!);
-    expect(await screen.findByText('Section number must be exactly 5 digits')).toBeInTheDocument();
+  it('submits through the creation module and reports the created watch', async () => {
+    const onCreated = vi.fn().mockResolvedValue(undefined);
+    render(<AddClassWatch onCreated={onCreated} />);
 
     fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: '12345' } });
     fireEvent.submit(screen.getByRole('button', { name: /start watching/i }).closest('form')!);
-    await waitFor(() => expect(onAdd).toHaveBeenCalledWith({ term: '2264', class_nbr: '12345' }));
+    await waitFor(() => {
+      expect(mockCreateWatch).toHaveBeenCalledWith({ term: '2264', class_nbr: '12345' });
+      expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 'watch-1' }), {
+        term: '2264',
+        class_nbr: '12345',
+      });
+    });
   });
 
   it('shows add-class submission errors', async () => {
-    const onAdd = vi.fn().mockRejectedValue(new Error('Class already watched'));
-    render(<AddClassWatch onAdd={onAdd} />);
+    mockCreateWatch.mockRejectedValue(new Error('Class already watched'));
+    render(<AddClassWatch onCreated={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: '12345' } });
     fireEvent.submit(screen.getByRole('button', { name: /start watching/i }).closest('form')!);

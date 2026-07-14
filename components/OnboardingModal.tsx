@@ -157,29 +157,12 @@ export function OnboardingModal({
     }
   };
 
-  const handleCreateWatch = async (data: { term: string; class_nbr: string }) => {
-    setCreating(true);
-    try {
-      const response = await fetch('/api/class-watches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = (await response.json()) as { watch?: ClassWatchRow; error?: string };
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to add class watch');
-      }
-      if (!result.watch) {
-        throw new Error('Failed to add class watch');
-      }
-      setCreatedWatch(result.watch);
-      posthog.capture('onboarding_completed');
-      // Only advance if the user hasn't navigated away from step 2 (e.g. via
-      // Back) while the request was in flight.
-      setStep((current) => (current === 2 ? 3 : current));
-    } finally {
-      setCreating(false);
-    }
+  const handleWatchCreated = (watch: ClassWatchRow) => {
+    setCreatedWatch(watch);
+    posthog.capture('onboarding_completed');
+    // Only advance if the user hasn't navigated away from step 2 (e.g. via
+    // Back) while the request was in flight.
+    setStep((current) => (current === 2 ? 3 : current));
   };
 
   const handleConfirmClose = () => {
@@ -356,7 +339,8 @@ export function OnboardingModal({
 
             <div className="py-2">
               <SimplifiedWatchForm
-                onSubmit={handleCreateWatch}
+                onCreated={handleWatchCreated}
+                onSubmittingChange={setCreating}
                 defaultClassNbr={prefillClassNbr}
                 submitLabel="Add class"
                 submittingLabel="Adding your class..."
