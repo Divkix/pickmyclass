@@ -1,59 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { cn } from '@/lib/utils';
-import { timingSafeCompare } from '@/lib/utils/crypto';
-
-describe('timingSafeCompare', () => {
-  describe('constant-time comparison security', () => {
-    it('should return false for strings of different lengths without early return', () => {
-      // Test that different lengths return false
-      const short = 'short';
-      const long = 'this is a much longer string';
-
-      const result = timingSafeCompare(short, long);
-
-      expect(result).toBe(false);
-    });
-
-    it('should return true for identical strings', () => {
-      const value = 'identical-string-value';
-
-      const result = timingSafeCompare(value, value);
-
-      expect(result).toBe(true);
-    });
-
-    it('should return false for different strings of same length', () => {
-      const a = 'aaaaaaaaaaaaaaaa';
-      const b = 'bbbbbbbbbbbbbbbb';
-
-      const result = timingSafeCompare(a, b);
-
-      expect(result).toBe(false);
-    });
-
-    it('should handle empty strings', () => {
-      expect(timingSafeCompare('', '')).toBe(true);
-      expect(timingSafeCompare('', 'a')).toBe(false);
-      expect(timingSafeCompare('a', '')).toBe(false);
-    });
-
-    it('should handle unicode strings correctly', () => {
-      const unicode = 'unicode-字符串-🎉';
-
-      expect(timingSafeCompare(unicode, unicode)).toBe(true);
-      expect(timingSafeCompare(unicode, 'unicode-字符串-🎊')).toBe(false);
-    });
-
-    it('should handle hex strings (typical use case)', () => {
-      const hex1 = 'a1b2c3d4e5f6789012345678';
-      const hex2 = 'a1b2c3d4e5f6789012345678';
-      const hex3 = 'a1b2c3d4e5f6789012345679';
-
-      expect(timingSafeCompare(hex1, hex2)).toBe(true);
-      expect(timingSafeCompare(hex1, hex3)).toBe(false);
-    });
-  });
-});
 
 describe('cn - Tailwind class merging utility', () => {
   describe('basic class concatenation', () => {

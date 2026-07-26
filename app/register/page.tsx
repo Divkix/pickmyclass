@@ -60,7 +60,6 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState<{
     score: number;
     feedback: { warning?: string; suggestions?: string[] };
@@ -68,31 +67,12 @@ export default function RegisterPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   // Redirect already-authenticated users away from the register page.
   useEffect(() => {
     if (!authLoading && user?.email_confirmed_at) {
       router.replace('/dashboard');
     }
   }, [authLoading, user, router]);
-
-  if (!mounted) {
-    return (
-      <div className="flex min-h-screen flex-col bg-background">
-        <Header />
-        <div className="flex flex-1 items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <CardTitle className="text-3xl">Loading...</CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const pwd = e.target.value;

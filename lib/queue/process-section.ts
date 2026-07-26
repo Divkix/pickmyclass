@@ -5,17 +5,10 @@
  * fetch old state → fetch new data → detect changes → upsert state → send notifications.
  */
 
-import {
-  ApiError,
-  AuthError,
-  fetchClassFromASU,
-  NotFoundError,
-  RateLimitError,
-} from '@/lib/asu/api';
+import { ApiError, fetchClassFromASU } from '@/lib/asu/api';
 import { log } from '@/lib/log';
 import { resetNotificationsForSection } from '@/lib/db/queries';
 import { applySectionRef, type SectionRef } from '@/lib/section-ref';
-import type { ClassInfo } from '@/lib/types/class';
 import { type ChangeResult, detectChanges } from '@/lib/queue/change-detector';
 import { type SentNotification, sendSectionNotifications } from '@/lib/queue/notification-sender';
 import { getServiceClient } from '@/lib/supabase/service';
@@ -53,7 +46,7 @@ export async function processSection(
   ref: SectionRef,
   env: Pick<Env, 'ASU_API_BASE_URL' | 'ASU_API_TOKEN' | 'EMAIL' | 'NOTIFICATION_FROM_EMAIL'>
 ): Promise<ProcessingResult> {
-  const { class_nbr: classNbr, term } = ref;
+  const { class_nbr: classNbr } = ref;
   const startTime = Date.now();
   const serviceClient = getServiceClient();
 
@@ -97,17 +90,8 @@ export async function processSection(
     // Persisting the new baseline first means a retried message reads the *new* state, so
     // detectChanges no longer re-fires the same transition and no duplicate emails are sent.
     const newState = {
-      term,
-      subject: newData.subject,
-      catalog_nbr: newData.catalog_nbr,
-      class_nbr: classNbr,
-      title: newData.title,
-      instructor_name: newData.instructor_name,
-      seats_available: newData.seats_available ?? 0,
-      seats_capacity: newData.seats_capacity ?? 0,
-      non_reserved_seats: newData.non_reserved_seats ?? null,
-      location: newData.location,
-      meeting_times: newData.meeting_times,
+      ...newData,
+      ...ref,
       last_checked_at: new Date().toISOString(),
     };
 
@@ -130,23 +114,9 @@ export async function processSection(
 
     // Step 6: Send notifications if changes detected (baseline is now persisted)
     if (changes.seatBecameAvailable || changes.instructorAssigned) {
-      const classInfo: ClassInfo = {
-        term,
-        subject: newData.subject,
-        catalog_nbr: newData.catalog_nbr,
-        class_nbr: classNbr,
-        title: newData.title,
-        instructor_name: newData.instructor_name,
-        seats_available: newData.seats_available ?? 0,
-        seats_capacity: newData.seats_capacity ?? 0,
-        non_reserved_seats: newData.non_reserved_seats ?? null,
-        location: newData.location,
-        meeting_times: newData.meeting_times,
-      };
-
       const sentResults = await sendSectionNotifications({
         ref,
-        classInfo,
+        classInfo: { ...newData, ...ref },
         changes,
         emailBinding: env.EMAIL,
         fromEmail: env.NOTIFICATION_FROM_EMAIL,
@@ -171,12 +141,7 @@ export async function processSection(
     log('ProcessSection').error(`Error processing ${classNbr}:`, errorMessage);
 
     // Let caller apply retry / non-retry semantics for known upstream errors
-    if (
-      error instanceof AuthError ||
-      error instanceof NotFoundError ||
-      error instanceof RateLimitError ||
-      error instanceof ApiError
-    ) {
+    if (error instanceof ApiError) {
       throw error;
     }
 

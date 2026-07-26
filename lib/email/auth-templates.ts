@@ -84,17 +84,9 @@ const contentByAction: Record<SupabaseAuthEmailAction, MessageContent> = {
 };
 
 function getActionType(actionType: string): SupabaseAuthEmailAction {
-  if (
-    actionType === 'signup' ||
-    actionType === 'recovery' ||
-    actionType === 'email_change' ||
-    actionType === 'invite' ||
-    actionType === 'magiclink'
-  ) {
-    return actionType;
-  }
-
-  return 'magiclink';
+  return Object.hasOwn(contentByAction, actionType)
+    ? (actionType as SupabaseAuthEmailAction)
+    : 'magiclink';
 }
 
 export function buildSupabaseActionLink({

@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
+import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'sonner';
-import { BottomNavWrapper } from '@/components/BottomNavWrapper';
+import { BottomNav } from '@/components/BottomNav';
 import { Footer } from '@/components/Footer';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
-import { ThemeProvider } from '@/lib/contexts/ThemeContext';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -89,11 +89,16 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head />
       <body className="font-sans antialiased flex flex-col min-h-screen">
-        <ThemeProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           <AuthProvider>
             <div className="flex-1 pb-20 md:pb-0">{children}</div>
             <Footer />
-            <BottomNavWrapper />
+            <BottomNav />
             <Toaster position="top-center" richColors />
           </AuthProvider>
         </ThemeProvider>

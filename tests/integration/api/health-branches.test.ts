@@ -93,6 +93,7 @@ function request(auth = 'Bearer test-cron-secret') {
 
 describe('GET /api/monitoring/health branch coverage', () => {
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.resetModules();
     vi.doUnmock('cloudflare:workers');
     vi.doUnmock('@/lib/asu/api');
@@ -112,18 +113,27 @@ describe('GET /api/monitoring/health branch coverage', () => {
   });
 
   it('reports healthy detailed checks with a configured cron lock durable object', async () => {
+    vi.stubEnv('CRON_SECRET', '');
     const { GET, createCronLockClient, doBinding, lockStatus } = await loadHealthRoute();
 
     const response = await GET(request());
     const data = (await response.json()) as {
       status: string;
       checks: {
+        database: { status: string };
+        asu_api: { status: string };
+        configuration: { status: string };
+        email: { status: string; configured: boolean };
         cron_lock: { status: string; locked: boolean; lock_holder: string };
       };
     };
 
     expect(response.status).toBe(200);
     expect(data.status).toBe('healthy');
+    expect(data.checks.database.status).toBe('healthy');
+    expect(data.checks.asu_api.status).toBe('healthy');
+    expect(data.checks.configuration.status).toBe('healthy');
+    expect(data.checks.email).toEqual({ status: 'healthy', configured: true });
     expect(data.checks.cron_lock).toMatchObject({
       status: 'healthy',
       locked: true,

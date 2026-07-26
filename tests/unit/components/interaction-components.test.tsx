@@ -73,6 +73,10 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
+vi.mock('@/lib/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 'user-1' }, loading: false }),
+}));
+
 vi.mock('@/components/ui/dialog', () => ({
   Dialog: ({
     open,
@@ -167,26 +171,16 @@ describe('interactive components', () => {
     expect(screen.getByText('Refreshing...')).toBeInTheDocument();
   });
 
-  it('renders bottom navigation as links or a callback-driven add button', () => {
-    const onAddClass = vi.fn();
+  it('renders bottom navigation links and marks the current page', () => {
     mockPathname.mockReturnValue('/dashboard/add');
 
-    render(<BottomNav onAddClass={onAddClass} />);
+    render(<BottomNav />);
 
     expect(screen.getByRole('link', { name: /dashboard/i })).toHaveAttribute('href', '/dashboard');
     expect(screen.getByRole('link', { name: /settings/i })).toHaveAttribute('href', '/settings');
-    const addButton = screen.getByRole('button', { name: /add class/i });
-    expect(addButton).toHaveAttribute('aria-current', 'page');
-    fireEvent.click(addButton);
-    expect(onAddClass).toHaveBeenCalled();
-  });
-
-  it('renders bottom navigation add action as a link when no callback is supplied', () => {
-    render(<BottomNav />);
-
     expect(screen.getByRole('link', { name: /add class/i })).toHaveAttribute(
-      'href',
-      '/dashboard/add'
+      'aria-current',
+      'page'
     );
   });
 

@@ -31,12 +31,7 @@ export async function POST(request: NextRequest) {
     const { term, class_nbr } = validation.data;
 
     const supabase = await createClient();
-    try {
-      await requireUser(supabase);
-    } catch (e) {
-      if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
-      throw e;
-    }
+    await requireUser(supabase);
 
     // Get ASU API env vars (Cloudflare secrets)
     const asuEnv = env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
@@ -71,6 +66,7 @@ export async function POST(request: NextRequest) {
 
     return ok(response);
   } catch (error) {
+    if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('API').error('Error fetching class details:', error);
     return fail('Failed to fetch class details', 500);
   }

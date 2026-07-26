@@ -2,7 +2,7 @@
 
 import { ExternalLink } from 'lucide-react';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
-import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor';
+import { getRateMyProfessorUrl } from '@/lib/utils/ratemyprofessor';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -84,7 +84,7 @@ export function ClassDetailsDialog({
             <h3 className="font-semibold text-foreground">Instructor</h3>
             <div className="bg-muted rounded-md p-4">
               <p className="text-lg text-foreground">{classState?.instructor_name || 'TBA'}</p>
-              {isValidProfessorName(classState?.instructor_name) && rmpUrl && (
+              {rmpUrl && (
                 <Button variant="outline" className="mt-3" asChild>
                   <a
                     href={rmpUrl}

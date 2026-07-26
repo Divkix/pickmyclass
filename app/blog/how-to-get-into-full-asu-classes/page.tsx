@@ -5,8 +5,8 @@ import {
   BlogCTA,
   BlogFAQ,
   ComparisonTable,
-  FAQSchema,
   KeyTakeaways,
+  RelatedArticles,
   ShortAnswer,
   TableOfContents,
 } from '@/components/blog';
@@ -449,7 +449,6 @@ export default async function HowToGetIntoFullClassesPost() {
             Frequently Asked Questions
           </h2>
           <BlogFAQ items={faqItems} />
-          <FAQSchema items={faqItems} />
 
           <BlogAuthor
             name="PickMyClass Team"
@@ -457,43 +456,26 @@ export default async function HowToGetIntoFullClassesPost() {
             bio="Built PickMyClass after experiencing the frustration of missing registration for a required class. Now helping thousands of Sun Devils get the classes they need."
           />
 
-          <div className="not-prose mt-8 border-t border-border pt-6">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Related Articles</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link
-                  href="/blog/asu-class-seat-tracker"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  ASU Class Seat Tracker: How to Get Notified When Seats Open
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/blog/asu-registration-tips"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  ASU Registration Tips: Build Your Perfect Schedule
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/blog/asu-waitlist-guide"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  How to Add a Full ASU Class to the Waitlist
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/blog/best-asu-class-seat-tracker"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  Best ASU Class Seat Tracker in 2026 (Free vs Paid)
-                </Link>
-              </li>
-            </ul>
-          </div>
+          <RelatedArticles
+            articles={[
+              {
+                href: '/blog/asu-class-seat-tracker',
+                title: 'ASU Class Seat Tracker: How to Get Notified When Seats Open',
+              },
+              {
+                href: '/blog/asu-registration-tips',
+                title: 'ASU Registration Tips: Build Your Perfect Schedule',
+              },
+              {
+                href: '/blog/asu-waitlist-guide',
+                title: 'How to Add a Full ASU Class to the Waitlist',
+              },
+              {
+                href: '/blog/best-asu-class-seat-tracker',
+                title: 'Best ASU Class Seat Tracker in 2026 (Free vs Paid)',
+              },
+            ]}
+          />
         </article>
       </main>
 

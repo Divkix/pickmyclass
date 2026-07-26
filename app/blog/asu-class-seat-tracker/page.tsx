@@ -5,8 +5,8 @@ import {
   BlogCTA,
   BlogFAQ,
   ComparisonTable,
-  FAQSchema,
   KeyTakeaways,
+  RelatedArticles,
   ShortAnswer,
 } from '@/components/blog';
 import { Header } from '@/components/Header';
@@ -366,7 +366,6 @@ export default async function ASUClassSeatTrackerPost() {
             Frequently Asked Questions
           </h2>
           <BlogFAQ items={faqItems} />
-          <FAQSchema items={faqItems} />
 
           <BlogCTA
             heading="Stop refreshing. Start tracking."
@@ -379,43 +378,26 @@ export default async function ASUClassSeatTrackerPost() {
             bio="Built PickMyClass after missing registration for a required class. Now helping thousands of Sun Devils get the classes they need."
           />
 
-          <div className="not-prose mt-8 border-t border-border pt-6">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Related Articles</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link
-                  href="/blog/how-to-get-into-full-asu-classes"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  How to Get Into Full Classes at ASU: 7 Strategies That Work
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/blog/asu-registration-tips"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  ASU Registration Tips: Build Your Perfect Schedule
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/blog/best-asu-class-seat-tracker"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  Best ASU Class Seat Tracker in 2026 (Free vs Paid)
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/blog/asu-class-search"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  ASU Class Search: How to Find Open Classes Fast
-                </Link>
-              </li>
-            </ul>
-          </div>
+          <RelatedArticles
+            articles={[
+              {
+                href: '/blog/how-to-get-into-full-asu-classes',
+                title: 'How to Get Into Full Classes at ASU: 7 Strategies That Work',
+              },
+              {
+                href: '/blog/asu-registration-tips',
+                title: 'ASU Registration Tips: Build Your Perfect Schedule',
+              },
+              {
+                href: '/blog/best-asu-class-seat-tracker',
+                title: 'Best ASU Class Seat Tracker in 2026 (Free vs Paid)',
+              },
+              {
+                href: '/blog/asu-class-search',
+                title: 'ASU Class Search: How to Find Open Classes Fast',
+              },
+            ]}
+          />
         </article>
       </main>
 

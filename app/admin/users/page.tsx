@@ -39,11 +39,11 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
   // Verify admin access
   await verifyAdmin();
 
-  const sp = await (searchParams ?? Promise.resolve({}));
+  const sp = (await searchParams) ?? {};
 
   const page = Math.max(1, Number(param(sp, 'page') || '1'));
   const sort = userSort(param(sp, 'sort'));
-  const dir = (param(sp, 'dir') === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
+  const dir = param(sp, 'dir') === 'asc' ? 'asc' : 'desc';
   const search = param(sp, 'search');
   const role = (param(sp, 'role') || 'all') as 'all' | 'admin' | 'user';
   const verified = (param(sp, 'verified') || 'all') as 'all' | 'verified' | 'unverified';

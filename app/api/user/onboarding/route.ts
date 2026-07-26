@@ -13,14 +13,7 @@ import { createClient } from '@/lib/supabase/server';
 export async function GET() {
   try {
     const supabase = await createClient();
-
-    let user: Awaited<ReturnType<typeof requireUser>>['user'];
-    try {
-      ({ user } = await requireUser(supabase));
-    } catch (e) {
-      if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
-      throw e;
-    }
+    const { user } = await requireUser(supabase);
 
     const { data, error } = await supabase
       .from('user_profiles')
@@ -35,6 +28,7 @@ export async function GET() {
 
     return ok(toOnboardingState(data as OnboardingRow | null));
   } catch (error) {
+    if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('Onboarding').error('Get onboarding state error:', error);
     return fail('Failed to load onboarding state', 500);
   }
@@ -48,14 +42,7 @@ export async function GET() {
 export async function POST() {
   try {
     const supabase = await createClient();
-
-    let user: Awaited<ReturnType<typeof requireUser>>['user'];
-    try {
-      ({ user } = await requireUser(supabase));
-    } catch (e) {
-      if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
-      throw e;
-    }
+    const { user } = await requireUser(supabase);
 
     const { data, error } = await supabase.rpc('skip_onboarding');
 
@@ -70,6 +57,7 @@ export async function POST() {
 
     return ok(toOnboardingState(row));
   } catch (error) {
+    if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('Onboarding').error('Skip onboarding error:', error);
     return fail('Failed to skip onboarding', 500);
   }

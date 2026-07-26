@@ -11,7 +11,7 @@ import { classifyDisposition } from './lib/queue/disposition';
 import { handleDLQMessage } from './lib/queue/dlq-consumer';
 import { processSection } from './lib/queue/process-section';
 import type { Env } from './lib/types/env';
-import type { ClassCheckMessage, QueueMessageBatch } from './lib/types/queue';
+import type { ClassCheckMessage } from './lib/types/queue';
 import { createCronLockLifecycle } from './lib/worker/cron-lock';
 import { edgeHtmlCache } from './lib/worker/edge-html-cache';
 import { log } from './lib/log';
@@ -181,7 +181,11 @@ export default {
    * - Every 30 minutes: class check cron
    * - Daily at 4 AM UTC: disposable domain list update
    */
-  async scheduled(event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
+  async scheduled(
+    event: Pick<ScheduledController, 'cron' | 'scheduledTime'>,
+    env: Env,
+    _ctx: ExecutionContext
+  ): Promise<void> {
     const startTime = Date.now();
     scheduledLog.info('Cron triggered at:', new Date(event.scheduledTime).toISOString());
     scheduledLog.info('Cron pattern:', event.cron);
@@ -232,7 +236,7 @@ export default {
    * Each message represents a single section to check for changes.
    */
   async queue(
-    batch: QueueMessageBatch<ClassCheckMessage>,
+    batch: MessageBatch<ClassCheckMessage>,
     env: Env,
     _ctx: ExecutionContext
   ): Promise<void> {
@@ -319,24 +323,4 @@ export default {
    * Must be included in the default export AND exported as named exports (see class definitions above)
    */
   CronLockDO,
-} satisfies ExportedHandler<Env>;
-
-/**
- * Cloudflare Workers cron event type
- */
-interface ScheduledEvent {
-  /** Unix timestamp (milliseconds) when the cron was scheduled to run */
-  scheduledTime: number;
-  /** The cron pattern that triggered this event (e.g., "0 * * * *") */
-  cron: string;
-}
-
-/**
- * Cloudflare Workers exported handler type
- */
-interface ExportedHandler<Env = unknown> {
-  fetch?: (request: Request, env: Env, ctx: ExecutionContext) => Response | Promise<Response>;
-  scheduled?: (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => void | Promise<void>;
-  queue?: (batch: QueueMessageBatch, env: Env, ctx: ExecutionContext) => void | Promise<void>;
-  CronLockDO?: typeof CronLockDO;
-}
+} satisfies ExportedHandler<Env, ClassCheckMessage> & { CronLockDO: typeof CronLockDO };
