@@ -29,22 +29,3 @@ export interface ClassCheckMessage {
    */
   stagger_group: 'even' | 'odd';
 }
-
-/**
- * Queue message batch received by consumer
- */
-export interface QueueMessageBatch<T = ClassCheckMessage> {
-  readonly queue: string;
-  readonly messages: Array<QueueMessage<T>>;
-}
-
-/**
- * Individual queue message
- */
-interface QueueMessage<T = ClassCheckMessage> {
-  readonly id: string;
-  readonly timestamp: Date;
-  readonly body: T;
-  retry(): void;
-  ack(): void;
-}

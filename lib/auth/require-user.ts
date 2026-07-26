@@ -2,7 +2,6 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
 export class UnauthorizedError extends Error {
-  readonly status = 401;
   constructor(message = 'Unauthorized') {
     super(message);
     this.name = 'UnauthorizedError';

@@ -13,10 +13,7 @@ const badgeVariants = cva(
         destructive: 'border-transparent bg-destructive text-white shadow',
         success: 'border-transparent bg-success text-white shadow',
         warning: 'border-transparent bg-warning text-foreground shadow',
-        accent: 'border-transparent bg-accent text-accent-foreground shadow',
         outline: 'text-foreground border-border',
-        asu: 'border-transparent bg-asu-maroon text-white shadow',
-        asuGold: 'border-transparent bg-asu-gold text-foreground shadow',
       },
       size: {
         sm: 'px-2 py-0.5 text-[10px]',
@@ -31,26 +28,10 @@ const badgeVariants = cva(
   }
 );
 
-export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {
-  icon?: React.ReactNode;
-  dot?: boolean;
-  dotColor?: string;
-}
+export type BadgeProps = React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof badgeVariants>;
 
-function Badge({ className, variant, size, icon, dot, dotColor, children, ...props }: BadgeProps) {
-  return (
-    <div className={cn(badgeVariants({ variant, size }), className)} {...props}>
-      {dot && (
-        <span
-          className={cn('size-1.5 rounded-full', dotColor || 'bg-current')}
-          style={dotColor ? { backgroundColor: dotColor } : undefined}
-        />
-      )}
-      {icon && <span className="shrink-0">{icon}</span>}
-      {children}
-    </div>
-  );
+function Badge({ className, variant, size, ...props }: BadgeProps) {
+  return <div className={cn(badgeVariants({ variant, size }), className)} {...props} />;
 }
 
 export { Badge, badgeVariants };

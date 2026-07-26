@@ -4,8 +4,8 @@ import {
   BlogAuthor,
   BlogCTA,
   BlogFAQ,
-  FAQSchema,
   KeyTakeaways,
+  RelatedArticles,
   ShortAnswer,
   TableOfContents,
 } from '@/components/blog';
@@ -319,7 +319,6 @@ export default async function HowToRegisterAtASUPost() {
             Frequently Asked Questions
           </h2>
           <BlogFAQ items={faqItems} />
-          <FAQSchema items={faqItems} />
 
           <BlogAuthor
             name="PickMyClass Team"
@@ -327,35 +326,22 @@ export default async function HowToRegisterAtASUPost() {
             bio="Built PickMyClass after missing registration for a required class. Now helping thousands of Sun Devils get the classes they need."
           />
 
-          <div className="not-prose mt-8 border-t border-border pt-6">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Related Articles</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link
-                  href="/blog/asu-registration-tips"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  ASU Registration Tips: Build Your Perfect Schedule
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/blog/asu-class-search"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  ASU Class Search: How to Find Open Classes Fast
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/blog/how-to-get-into-full-asu-classes"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  How to Get Into Full Classes at ASU: 7 Strategies That Work
-                </Link>
-              </li>
-            </ul>
-          </div>
+          <RelatedArticles
+            articles={[
+              {
+                href: '/blog/asu-registration-tips',
+                title: 'ASU Registration Tips: Build Your Perfect Schedule',
+              },
+              {
+                href: '/blog/asu-class-search',
+                title: 'ASU Class Search: How to Find Open Classes Fast',
+              },
+              {
+                href: '/blog/how-to-get-into-full-asu-classes',
+                title: 'How to Get Into Full Classes at ASU: 7 Strategies That Work',
+              },
+            ]}
+          />
         </article>
       </main>
 

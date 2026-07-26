@@ -23,6 +23,60 @@ function redactIdentifier(userId: string): string {
   return createHash('sha256').update(userId).digest('hex');
 }
 
+function htmlPage(title: string, content: string, status: number): NextResponse {
+  const linkStyles =
+    status === 200
+      ? `
+    a { color: #8C1D40; text-decoration: none; }
+    a:hover { text-decoration: underline; }`
+      : '';
+
+  return new NextResponse(
+    `<!DOCTYPE html>
+<html>
+<head>
+  <title>${title}</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      text-align: center;
+    }
+    .error { color: #dc2626; }
+    .success { color: #059669; }${linkStyles}
+  </style>
+</head>
+<body>
+${content}
+</body>
+</html>`,
+    { status, headers: { 'Content-Type': 'text/html' } }
+  );
+}
+
+async function unsubscribeUser(userId: string, method: 'GET' | 'POST'): Promise<void> {
+  const { error } = await getServiceClient()
+    .from('user_profiles')
+    .update({
+      notifications_enabled: false,
+      unsubscribed_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId);
+
+  if (error) {
+    log('Unsubscribe').error('Database error:', error);
+    throw error;
+  }
+
+  const suffix = method === 'POST' ? 'via POST' : 'successfully';
+  log('Unsubscribe').info(`User ${redactIdentifier(userId)} unsubscribed ${suffix}`);
+  await captureServerEvent({ distinctId: userId, event: 'user_unsubscribed' });
+}
+
 /**
  * GET handler for web-based unsubscribe
  * Renders an HTML page with unsubscribe confirmation
@@ -37,36 +91,12 @@ export async function GET(request: NextRequest) {
   const validation = unsubscribeTokenSchema.safeParse({ token });
 
   if (!validation.success) {
-    return new NextResponse(
-      `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Invalid Unsubscribe Link</title>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      max-width: 600px;
-      margin: 50px auto;
-      padding: 20px;
-      text-align: center;
-    }
-    .error { color: #dc2626; }
-  </style>
-</head>
-<body>
-  <h1 class="error">Invalid Unsubscribe Link</h1>
+    return htmlPage(
+      'Invalid Unsubscribe Link',
+      `  <h1 class="error">Invalid Unsubscribe Link</h1>
   <p>This unsubscribe link is invalid or missing required information.</p>
-  <p><a href="/">Return to PickMyClass</a></p>
-</body>
-</html>
-      `.trim(),
-      {
-        status: 400,
-        headers: { 'Content-Type': 'text/html' },
-      }
+  <p><a href="/">Return to PickMyClass</a></p>`,
+      400
     );
   }
 
@@ -74,134 +104,36 @@ export async function GET(request: NextRequest) {
   const userId = verifyUnsubscribeToken(validation.data.token);
 
   if (!userId) {
-    return new NextResponse(
-      `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Invalid Unsubscribe Token</title>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      max-width: 600px;
-      margin: 50px auto;
-      padding: 20px;
-      text-align: center;
-    }
-    .error { color: #dc2626; }
-  </style>
-</head>
-<body>
-  <h1 class="error">Invalid or Expired Token</h1>
+    return htmlPage(
+      'Invalid Unsubscribe Token',
+      `  <h1 class="error">Invalid or Expired Token</h1>
   <p>This unsubscribe link is invalid or has expired.</p>
   <p>You can manage your notification preferences from your account settings.</p>
-  <p><a href="/">Return to PickMyClass</a></p>
-</body>
-</html>
-      `.trim(),
-      {
-        status: 400,
-        headers: { 'Content-Type': 'text/html' },
-      }
+  <p><a href="/">Return to PickMyClass</a></p>`,
+      400
     );
   }
 
   // Unsubscribe user
   try {
-    const supabase = getServiceClient();
-
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({
-        notifications_enabled: false,
-        unsubscribed_at: new Date().toISOString(),
-      })
-      .eq('user_id', userId);
-
-    if (error) {
-      log('Unsubscribe').error('Database error:', error);
-      throw error;
-    }
-
-    log('Unsubscribe').info(`User ${redactIdentifier(userId)} unsubscribed successfully`);
-
-    await captureServerEvent({ distinctId: userId, event: 'user_unsubscribed' });
-
-    return new NextResponse(
-      `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Unsubscribed Successfully</title>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      max-width: 600px;
-      margin: 50px auto;
-      padding: 20px;
-      text-align: center;
-    }
-    .success { color: #059669; }
-    a {
-      color: #8C1D40;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-  <h1 class="success">✓ Unsubscribed Successfully</h1>
+    await unsubscribeUser(userId, 'GET');
+    return htmlPage(
+      'Unsubscribed Successfully',
+      `  <h1 class="success">✓ Unsubscribed Successfully</h1>
   <p>You've been unsubscribed from all PickMyClass email notifications.</p>
   <p>You can re-enable notifications anytime from your account settings.</p>
-  <p><a href="/">Return to PickMyClass</a></p>
-</body>
-</html>
-      `.trim(),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'text/html' },
-      }
+  <p><a href="/">Return to PickMyClass</a></p>`,
+      200
     );
   } catch (error) {
     log('Unsubscribe').error('Error processing unsubscribe:', error);
-
-    return new NextResponse(
-      `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Unsubscribe Error</title>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      max-width: 600px;
-      margin: 50px auto;
-      padding: 20px;
-      text-align: center;
-    }
-    .error { color: #dc2626; }
-  </style>
-</head>
-<body>
-  <h1 class="error">Error Processing Unsubscribe</h1>
+    return htmlPage(
+      'Unsubscribe Error',
+      `  <h1 class="error">Error Processing Unsubscribe</h1>
   <p>We encountered an error while processing your request.</p>
   <p>Please try again later or contact support.</p>
-  <p><a href="/">Return to PickMyClass</a></p>
-</body>
-</html>
-      `.trim(),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'text/html' },
-      }
+  <p><a href="/">Return to PickMyClass</a></p>`,
+      500
     );
   }
 }
@@ -230,25 +162,7 @@ export async function POST(request: NextRequest) {
 
   // Unsubscribe user
   try {
-    const supabase = getServiceClient();
-
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({
-        notifications_enabled: false,
-        unsubscribed_at: new Date().toISOString(),
-      })
-      .eq('user_id', userId);
-
-    if (error) {
-      log('Unsubscribe').error('Database error:', error);
-      throw error;
-    }
-
-    log('Unsubscribe').info(`User ${redactIdentifier(userId)} unsubscribed via POST`);
-
-    await captureServerEvent({ distinctId: userId, event: 'user_unsubscribed' });
-
+    await unsubscribeUser(userId, 'POST');
     return ok(null);
   } catch (error) {
     log('Unsubscribe').error('Error processing unsubscribe:', error);

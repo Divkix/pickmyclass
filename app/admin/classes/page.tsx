@@ -43,11 +43,11 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
   // Verify admin authentication (redirects if unauthorized)
   await verifyAdmin();
 
-  const sp = await (searchParams ?? Promise.resolve({}));
+  const sp = (await searchParams) ?? {};
 
   const page = Math.max(1, Number(param(sp, 'page') || '1'));
   const sort = classSort(param(sp, 'sort'));
-  const dir = (param(sp, 'dir') === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
+  const dir = param(sp, 'dir') === 'asc' ? 'asc' : 'desc';
   const search = param(sp, 'search');
   const subject = param(sp, 'subject') || 'all';
   const seatStatus = (param(sp, 'seatStatus') || 'all') as 'all' | 'full' | 'limited' | 'available';

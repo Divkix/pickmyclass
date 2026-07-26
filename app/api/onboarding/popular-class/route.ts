@@ -30,13 +30,7 @@ export interface PopularClass {
 export async function GET() {
   try {
     const supabase = await createClient();
-
-    try {
-      await requireUser(supabase);
-    } catch (e) {
-      if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
-      throw e;
-    }
+    await requireUser(supabase);
 
     const selectableTerms = getSelectableTerms();
     const currentTerm = selectableTerms[0]?.code;
@@ -66,6 +60,7 @@ export async function GET() {
 
     return ok({ popularClass: { class_nbr: popular.class_nbr, term: popular.term, details } });
   } catch (error) {
+    if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('Onboarding').error('Popular class error:', error);
     // Fail open on unexpected errors so onboarding never blocks.
     return ok({ popularClass: null });

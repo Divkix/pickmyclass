@@ -14,7 +14,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import type { ClassCheckMessage, QueueMessageBatch } from '@/lib/types/queue';
+import type { ClassCheckMessage } from '@/lib/types/queue';
 import type { Env } from '@/lib/types/env';
 
 // ── Module mocks (must be hoisted above imports) ──────────────────────────────
@@ -75,11 +75,11 @@ function makeMessage(
 function makeBatch(
   messages: ReturnType<typeof makeMessage>[],
   queue = 'pickmyclass-queue'
-): QueueMessageBatch {
+): MessageBatch<ClassCheckMessage> {
   return {
     queue,
-    messages: messages as unknown as QueueMessageBatch['messages'],
-  };
+    messages,
+  } as unknown as MessageBatch<ClassCheckMessage>;
 }
 
 const successResult = (classNbr: string) => ({

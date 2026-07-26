@@ -5,7 +5,6 @@ import type { Variants } from 'framer-motion';
  * exiting motion eases in. Keeps the whole site on one motion rhythm.
  */
 const easeOutExpo = [0.16, 1, 0.3, 1] as const;
-const easeOutQuart = [0.25, 1, 0.5, 1] as const;
 
 /**
  * Utility to respect the user's motion preferences. When reduced motion is
@@ -71,16 +70,6 @@ export const staggerItem: Variants = reduceMotion({
     opacity: 1,
     y: 0,
     transition: { duration: 0.5, ease: easeOutExpo },
-  },
-});
-
-// Card hover animations
-export const cardHover: Variants = reduceMotion({
-  rest: { scale: 1, y: 0 },
-  hover: {
-    scale: 1.02,
-    y: -4,
-    transition: { duration: 0.25, ease: easeOutQuart },
   },
 });
 

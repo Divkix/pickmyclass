@@ -13,14 +13,7 @@ import { createClient } from '@/lib/supabase/server';
 export async function GET() {
   try {
     const supabase = await createClient();
-
-    let user: Awaited<ReturnType<typeof requireUser>>['user'];
-    try {
-      ({ user } = await requireUser(supabase));
-    } catch (e) {
-      if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
-      throw e;
-    }
+    const { user } = await requireUser(supabase);
 
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -85,7 +78,7 @@ export async function GET() {
       summary: {
         total_watches: watches?.length || 0,
         total_notifications: notifications?.length || 0,
-        active_watches: watches?.filter(() => !profile?.is_disabled).length || 0,
+        active_watches: profile?.is_disabled ? 0 : watches?.length || 0,
       },
     };
 
@@ -101,6 +94,7 @@ export async function GET() {
       },
     });
   } catch (error) {
+    if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('User').error('Export error:', error);
     return fail('Failed to export data', 500);
   }

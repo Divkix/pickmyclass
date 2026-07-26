@@ -8,14 +8,6 @@ import {
 import { SUPABASE_URL } from '@/lib/supabase/config';
 import { log } from '@/lib/log';
 
-function getHeaderRecord(headers: Headers): Record<string, string> {
-  const record: Record<string, string> = {};
-  headers.forEach((value, key) => {
-    record[key] = value;
-  });
-  return record;
-}
-
 function normalizeHookSecret(secret: string): string {
   return secret.startsWith('v1,') ? secret.slice(3) : secret;
 }
@@ -44,7 +36,7 @@ export async function POST(request: Request) {
     const webhook = new Webhook(normalizeHookSecret(hookSecret));
     payload = webhook.verify(
       payloadText,
-      getHeaderRecord(request.headers)
+      Object.fromEntries(request.headers)
     ) as SupabaseSendEmailHookPayload;
   } catch (error) {
     log('AuthEmailHook').warn('Invalid webhook signature:', error);

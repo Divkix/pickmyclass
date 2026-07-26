@@ -18,14 +18,7 @@ import { getServiceClient } from '@/lib/supabase/service';
 export async function DELETE() {
   try {
     const supabase = await createClient();
-
-    let user: Awaited<ReturnType<typeof requireUser>>['user'];
-    try {
-      ({ user } = await requireUser(supabase));
-    } catch (e) {
-      if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
-      throw e;
-    }
+    const { user } = await requireUser(supabase);
 
     const deletionTimestamp = new Date().toISOString();
 
@@ -66,6 +59,7 @@ export async function DELETE() {
       permanent_deletion_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     });
   } catch (error) {
+    if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('User').error('Delete account error:', error);
     return fail('Failed to delete account', 500);
   }

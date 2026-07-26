@@ -1,12 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import {
-  buttonTap,
-  cardHover,
-  fadeInUp,
-  reduceMotion,
-  staggerContainer,
-  staggerItem,
-} from '@/lib/animations';
+import { buttonTap, fadeInUp, reduceMotion, staggerContainer, staggerItem } from '@/lib/animations';
 
 describe('Animation variants', () => {
   describe('fadeInUp', () => {
@@ -31,18 +24,6 @@ describe('Animation variants', () => {
       expect(staggerItem.hidden).toHaveProperty('y', 20);
       expect(staggerItem.visible).toHaveProperty('opacity', 1);
       expect(staggerItem.visible).toHaveProperty('y', 0);
-    });
-  });
-
-  describe('cardHover variant', () => {
-    it('should have rest and hover states', () => {
-      expect(cardHover).toHaveProperty('rest');
-      expect(cardHover).toHaveProperty('hover');
-    });
-
-    it('should scale up and move up on hover', () => {
-      expect(cardHover.hover).toHaveProperty('scale', 1.02);
-      expect(cardHover.hover).toHaveProperty('y', -4);
     });
   });
 

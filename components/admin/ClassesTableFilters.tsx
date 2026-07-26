@@ -12,7 +12,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-// Keep the legacy interface for backwards compatibility with any existing imports.
 interface ClassesTableFiltersProps {
   subjects: string[];
   /** Current filter values (from URL searchParams via parent) */

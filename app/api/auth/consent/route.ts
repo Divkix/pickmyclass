@@ -15,13 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient();
-    let user: Awaited<ReturnType<typeof requireUser>>['user'];
-    try {
-      ({ user } = await requireUser(supabase));
-    } catch (error) {
-      if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
-      throw error;
-    }
+    const { user } = await requireUser(supabase);
 
     const { error } = await supabase.rpc('accept_terms_and_verify_age');
     if (error) {
@@ -32,6 +26,7 @@ export async function POST(request: NextRequest) {
     invalidateAuthorizationState(user.id);
     return ok(null);
   } catch (error) {
+    if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('Consent').error('Unexpected consent error:', error);
     return fail('Could not save consent', 500);
   }

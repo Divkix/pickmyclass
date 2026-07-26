@@ -1,7 +1,7 @@
 import { CheckCircle, Clock, ExternalLink, XCircle } from 'lucide-react';
 import type { ClassStateRow } from '@/lib/types/class-watch';
 import { cn } from '@/lib/utils';
-import { getRateMyProfessorUrl, isValidProfessorName } from '@/lib/utils/ratemyprofessor';
+import { getRateMyProfessorUrl } from '@/lib/utils/ratemyprofessor';
 
 interface ClassStateIndicatorProps {
   classState: ClassStateRow | null;
@@ -19,6 +19,7 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
 
   const { seats_available, seats_capacity, instructor_name } = classState;
   const hasInstructor = instructor_name && instructor_name !== 'Staff';
+  const rmpUrl = getRateMyProfessorUrl(instructor_name);
 
   // Determine seat availability state: open or full
   let seatColor: string;
@@ -61,9 +62,9 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
           className={`size-2 rounded-full ${hasInstructor ? 'bg-primary' : 'bg-muted-foreground'}`}
         />
         <span>Instructor: {instructor_name || 'TBA'}</span>
-        {isValidProfessorName(instructor_name) && (
+        {rmpUrl && (
           <a
-            href={getRateMyProfessorUrl(instructor_name) || '#'}
+            href={rmpUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="ml-1 inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"

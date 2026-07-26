@@ -5,32 +5,9 @@ vi.mock('@/lib/supabase/service', () => ({
   getServiceClient: vi.fn(),
 }));
 
-vi.mock('@/lib/asu/api', () => ({
+vi.mock('@/lib/asu/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/asu/api')>()),
   fetchClassFromASU: vi.fn(),
-  AuthError: class AuthError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = 'AuthError';
-    }
-  },
-  NotFoundError: class NotFoundError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = 'NotFoundError';
-    }
-  },
-  RateLimitError: class RateLimitError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = 'RateLimitError';
-    }
-  },
-  ApiError: class ApiError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = 'ApiError';
-    }
-  },
 }));
 
 vi.mock('@/lib/db/queries', () => ({

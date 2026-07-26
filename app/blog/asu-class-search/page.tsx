@@ -4,8 +4,8 @@ import {
   BlogAuthor,
   BlogCTA,
   BlogFAQ,
-  FAQSchema,
   KeyTakeaways,
+  RelatedArticles,
   ShortAnswer,
   TableOfContents,
 } from '@/components/blog';
@@ -290,7 +290,6 @@ export default async function ASUClassSearchPost() {
             Frequently Asked Questions
           </h2>
           <BlogFAQ items={faqItems} />
-          <FAQSchema items={faqItems} />
 
           <BlogAuthor
             name="PickMyClass Team"
@@ -298,35 +297,22 @@ export default async function ASUClassSearchPost() {
             bio="Built PickMyClass after missing registration for a required class. Now helping thousands of Sun Devils find and get the classes they need."
           />
 
-          <div className="not-prose mt-8 border-t border-border pt-6">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Related Articles</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link
-                  href="/blog/myasu-search-tips"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  MyASU Class Search: 10 Hidden Features Most Students Don&apos;t Know
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/blog/asu-class-seat-tracker"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  ASU Class Seat Tracker: How to Get Notified When Seats Open
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/blog/how-to-register-for-classes-at-asu"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
-                  How to Register for Classes at ASU: Step-by-Step
-                </Link>
-              </li>
-            </ul>
-          </div>
+          <RelatedArticles
+            articles={[
+              {
+                href: '/blog/myasu-search-tips',
+                title: "MyASU Class Search: 10 Hidden Features Most Students Don't Know",
+              },
+              {
+                href: '/blog/asu-class-seat-tracker',
+                title: 'ASU Class Seat Tracker: How to Get Notified When Seats Open',
+              },
+              {
+                href: '/blog/how-to-register-for-classes-at-asu',
+                title: 'How to Register for Classes at ASU: Step-by-Step',
+              },
+            ]}
+          />
         </article>
       </main>
 
