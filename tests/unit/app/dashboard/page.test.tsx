@@ -636,8 +636,8 @@ describe('DashboardPage', () => {
 
       render(<DashboardPage />);
 
-      const modal = await screen.findByTestId('onboarding-modal');
-      expect(modal).toHaveAttribute('data-open', 'true');
+      const modal = screen.getByTestId('onboarding-modal');
+      await waitFor(() => expect(modal).toHaveAttribute('data-open', 'true'));
       expect(screen.queryByTestId('finish-setup-card')).not.toBeInTheDocument();
     });
 
