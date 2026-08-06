@@ -77,6 +77,11 @@ export default function SettingsPage() {
     );
   }
 
+  // User is not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />

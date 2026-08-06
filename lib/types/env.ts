@@ -15,7 +15,8 @@ import type { ClassCheckMessage } from './queue';
  * - Queue processing (PICKMYCLASS_QUEUE)
  * - Durable Objects (PICKMYCLASS_CRON_LOCK_DO)
  * - KV storage (PICKMYCLASS_DISPOSABLE_DOMAINS)
- * - Supabase configuration
+ * - Supabase configuration (service-role key; public URL/anon key are
+ *   hardcoded constants in lib/supabase/config.ts, not env vars)
  * - ASU API credentials
  * - Email/notification settings
  */
@@ -41,8 +42,6 @@ export interface Env extends Record<string, unknown> {
   PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
 
   // Supabase configuration
-  NEXT_PUBLIC_SUPABASE_URL: string;
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
 
   // ASU API credentials

@@ -12,44 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { log } from '@/lib/log';
+import { calculatePasswordStrength } from '@/lib/utils/password-strength';
 import { createClient } from '@/lib/supabase/client';
-
-/**
- * Simple client-side password strength checker
- * Returns score 0-4 based on password characteristics
- */
-function calculatePasswordStrength(password: string): {
-  score: number;
-  feedback: { warning?: string; suggestions?: string[] };
-} {
-  if (!password) return { score: 0, feedback: {} };
-
-  let score = 0;
-  const feedback: string[] = [];
-
-  // Length check
-  if (password.length >= 8) score++;
-  if (password.length >= 12) score++;
-  else if (password.length < 8) feedback.push('Use at least 8 characters');
-
-  // Character variety checks
-  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
-  else feedback.push('Use both uppercase and lowercase letters');
-
-  if (/\d/.test(password)) score++;
-  else feedback.push('Add numbers');
-
-  if (/[^a-zA-Z0-9]/.test(password)) score++;
-  else feedback.push('Add special characters');
-
-  // Cap at 4
-  score = Math.min(score, 4);
-
-  return {
-    score,
-    feedback: { suggestions: feedback.length > 0 ? feedback : undefined },
-  };
-}
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -138,17 +102,10 @@ export default function RegisterPage() {
       const data = (await response.json()) as {
         success?: boolean;
         error?: string;
-        details?: { duplicate?: boolean };
       };
 
       if (!response.ok) {
         setError(data.error || 'Registration failed');
-        setLoading(false);
-        return;
-      }
-
-      if (data.details?.duplicate) {
-        setError('This email is already registered. Please sign in.');
         setLoading(false);
         return;
       }

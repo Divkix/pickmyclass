@@ -279,9 +279,9 @@ export default {
             return { success: true, class_nbr: message.body.class_nbr, duration };
           }
 
-          // DB upsert error — transient, retry
+          // Non-ack disposition — transient (DB upsert or email/claim failure), retry
           queueLog.error(
-            `DB failure for ${message.body.class_nbr} in ${duration}ms:`,
+            `Failed to process ${message.body.class_nbr} in ${duration}ms:`,
             result.error
           );
           message.retry();

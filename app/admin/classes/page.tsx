@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getClassesPage, getDistinctSubjects } from '@/lib/db/admin-queries';
 import type { ClassSortField } from '@/lib/db/admin-queries';
+import { param, parsePageParam } from '@/lib/utils/page-params';
 
 const PAGE_SIZE = 25;
 const CLASS_SORT_FIELDS: readonly ClassSortField[] = [
@@ -18,11 +19,6 @@ const CLASS_SORT_FIELDS: readonly ClassSortField[] = [
 ];
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-function param(searchParams: Record<string, string | string[] | undefined>, key: string): string {
-  const v = searchParams[key];
-  return typeof v === 'string' ? v : '';
-}
 
 function classSort(value: string): ClassSortField {
   return CLASS_SORT_FIELDS.includes(value as ClassSortField)
@@ -45,7 +41,7 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
 
   const sp = (await searchParams) ?? {};
 
-  const page = Math.max(1, Number(param(sp, 'page') || '1'));
+  const page = parsePageParam(param(sp, 'page'));
   const sort = classSort(param(sp, 'sort'));
   const dir = param(sp, 'dir') === 'asc' ? 'asc' : 'desc';
   const search = param(sp, 'search');
@@ -59,7 +55,7 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
     | '6-10'
     | '10+';
 
-  const [{ rows, total }, subjects] = await Promise.all([
+  const [{ rows, total, totalWatchers, fullClasses }, subjects] = await Promise.all([
     getClassesPage({
       page,
       pageSize: PAGE_SIZE,
@@ -107,9 +103,7 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {rows.reduce((sum, c) => sum + c.watcher_count, 0)}
-            </div>
+            <div className="text-2xl font-bold">{totalWatchers}</div>
           </CardContent>
         </Card>
 
@@ -120,9 +114,7 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {rows.filter((c) => c.seats_available === 0).length}
-            </div>
+            <div className="text-2xl font-bold text-destructive">{fullClasses}</div>
           </CardContent>
         </Card>
       </div>

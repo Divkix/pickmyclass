@@ -293,6 +293,7 @@ export type Database = {
         Returns: {
           catalog_nbr: string
           class_nbr: string
+          full_classes: number
           id: string
           instructor_emails: number
           instructor_name: string
@@ -308,6 +309,7 @@ export type Database = {
           term: string
           title: string
           total_count: number
+          total_watchers: number
           watcher_count: number
         }[]
       }

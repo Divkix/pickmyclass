@@ -83,10 +83,10 @@ const contentByAction: Record<SupabaseAuthEmailAction, MessageContent> = {
   },
 };
 
-function getActionType(actionType: string): SupabaseAuthEmailAction {
+function getActionType(actionType: string): SupabaseAuthEmailAction | null {
   return Object.hasOwn(contentByAction, actionType)
     ? (actionType as SupabaseAuthEmailAction)
-    : 'magiclink';
+    : null;
 }
 
 export function buildSupabaseActionLink({
@@ -162,6 +162,12 @@ export function buildAuthEmailMessages(
 ): AuthEmailMessage[] {
   const actionType = getActionType(payload.email_data.email_action_type);
 
+  // Unknown action types (e.g. Supabase `*_notification` variants) are not
+  // mapped to a template — never fall back to a bogus magiclink email.
+  if (!actionType) {
+    return [];
+  }
+
   if (actionType === 'email_change') {
     const messages: AuthEmailMessage[] = [];
 
@@ -182,7 +188,7 @@ export function buildAuthEmailMessages(
       );
     }
 
-    const newEmail = payload.user.new_email || payload.email_data.old_email;
+    const newEmail = payload.user.new_email;
     if (newEmail && payload.email_data.token_hash) {
       messages.push(
         buildMessage({

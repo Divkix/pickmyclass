@@ -223,9 +223,12 @@ describe('RegisterPage - Google OAuth loading state', () => {
     fireEvent.submit(registerForm());
     expect(await screen.findByText('Disposable email not accepted')).toBeInTheDocument();
 
+    // The register API returns 409 for duplicates (never 200 + details.duplicate),
+    // so the client surfaces the server-provided error message via the non-ok branch.
     vi.mocked(global.fetch).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ success: true, details: { duplicate: true } }),
+      ok: false,
+      status: 409,
+      json: () => Promise.resolve({ error: 'This email is already registered. Please sign in.' }),
     } as Response);
     fireEvent.submit(registerForm());
     expect(

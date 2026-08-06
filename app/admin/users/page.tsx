@@ -4,6 +4,7 @@ import { UsersTable } from '@/components/admin/UsersTable';
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getUsersPage } from '@/lib/db/admin-queries';
 import type { UserSortField } from '@/lib/db/admin-queries';
+import { param, parsePageParam } from '@/lib/utils/page-params';
 
 const PAGE_SIZE = 25;
 const USER_SORT_FIELDS: readonly UserSortField[] = [
@@ -16,11 +17,6 @@ const USER_SORT_FIELDS: readonly UserSortField[] = [
 ];
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-function param(searchParams: Record<string, string | string[] | undefined>, key: string): string {
-  const v = searchParams[key];
-  return typeof v === 'string' ? v : '';
-}
 
 function userSort(value: string): UserSortField {
   return USER_SORT_FIELDS.includes(value as UserSortField)
@@ -41,7 +37,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
 
   const sp = (await searchParams) ?? {};
 
-  const page = Math.max(1, Number(param(sp, 'page') || '1'));
+  const page = parsePageParam(param(sp, 'page'));
   const sort = userSort(param(sp, 'sort'));
   const dir = param(sp, 'dir') === 'asc' ? 'asc' : 'desc';
   const search = param(sp, 'search');

@@ -11,6 +11,13 @@ describe('supabase auth cookie helpers', () => {
     expect(isSupabaseAuthCookieName('sb-project-ref-other-cookie')).toBe(false);
   });
 
+  it('detects chunked Supabase auth cookies', () => {
+    expect(isSupabaseAuthCookieName('sb-proj-ref-auth-token.0')).toBe(true);
+    expect(isSupabaseAuthCookieName('sb-proj-ref-auth-token.1')).toBe(true);
+    expect(hasSupabaseAuthCookies(['foo', 'sb-test-auth-token.0'])).toBe(true);
+    expect(hasSupabaseAuthCookiesInHeader('foo=1; sb-test-auth-token.0=value')).toBe(true);
+  });
+
   it('detects auth cookies from iterables and headers', () => {
     expect(hasSupabaseAuthCookies(['foo', 'sb-test-auth-token'])).toBe(true);
     expect(hasSupabaseAuthCookies(['foo', 'bar'])).toBe(false);

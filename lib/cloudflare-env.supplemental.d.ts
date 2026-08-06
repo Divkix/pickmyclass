@@ -7,9 +7,9 @@ declare namespace Cloudflare {
     CRON_SECRET: string;
     UNSUBSCRIBE_SIGNING_SECRET?: string;
     SUPABASE_SEND_EMAIL_HOOK_SECRET: string;
+    SUPABASE_SERVICE_ROLE_KEY: string;
     ASU_API_BASE_URL: string;
     ASU_API_TOKEN: string;
-    PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
   }
 }
 
@@ -18,6 +18,7 @@ declare namespace NodeJS {
     CRON_SECRET: string;
     UNSUBSCRIBE_SIGNING_SECRET?: string;
     SUPABASE_SEND_EMAIL_HOOK_SECRET: string;
+    SUPABASE_SERVICE_ROLE_KEY: string;
     ASU_API_BASE_URL: string;
     ASU_API_TOKEN: string;
   }

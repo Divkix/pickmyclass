@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
+import { fail } from '@/lib/api/response';
 import { type AuthorizationState, readAuthorizationState } from '@/lib/auth/authorization-state';
 import { hasSupabaseAuthCookies } from '@/lib/auth/supabase-auth-cookies';
 import type { Database } from './lib/supabase/database.types';
@@ -205,6 +206,14 @@ export async function proxy(request: NextRequest) {
       url.pathname = '/login';
       url.searchParams.set('error', 'account_disabled');
       const redirectResponse = NextResponse.redirect(url);
+      // supabase.auth.signOut() writes its cookie deletions through the setAll
+      // adapter onto supabaseResponse. Copy every cookie onto the redirect so
+      // the browser actually drops the auth session — otherwise the next
+      // request 307s again (ERR_TOO_MANY_REDIRECTS). Passing the ResponseCookie
+      // wholesale keeps all current (and future) attributes.
+      for (const cookie of supabaseResponse.cookies.getAll()) {
+        redirectResponse.cookies.set(cookie);
+      }
       addSecurityHeaders(redirectResponse, isDevelopment, csp);
       return redirectResponse;
     }
@@ -257,6 +266,24 @@ export async function proxy(request: NextRequest) {
     const redirectResponse = NextResponse.redirect(url);
     addSecurityHeaders(redirectResponse, isDevelopment, csp);
     return redirectResponse;
+  }
+
+  // Authenticated + verified users without consent are blocked from API routes
+  // with a 403. The consent gate is a page, not an API, so it must not be
+  // reachable only through the page redirect above. `/api/auth/consent` and
+  // `/api/auth/signout` stay allowlisted so users can record consent or end
+  // their session.
+  if (
+    user?.email_confirmed_at &&
+    authState &&
+    !authState.has_consent &&
+    pathname.startsWith('/api/') &&
+    pathname !== '/api/auth/consent' &&
+    pathname !== '/api/auth/signout'
+  ) {
+    const response = fail('Consent required', 403);
+    addSecurityHeaders(response, isDevelopment, csp);
+    return response;
   }
 
   if (user?.email_confirmed_at && authState?.has_consent && pathname === '/consent') {

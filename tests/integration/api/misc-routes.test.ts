@@ -150,17 +150,29 @@ describe('misc API routes', () => {
     expect(mockSignOut).toHaveBeenCalled();
   });
 
-  it('exchanges callback codes and redirects to safe forwarded hosts', async () => {
+  it('exchanges callback codes and redirects to the request origin', async () => {
     const response = await authCallback(
-      new Request('https://pickmyclass.app/auth/callback?code=abc&next=/dashboard', {
-        headers: { 'x-forwarded-host': 'pickmyclass.app' },
-      })
+      new Request('https://pickmyclass.app/auth/callback?code=abc&next=/dashboard')
     );
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe('https://pickmyclass.app/dashboard');
     expect(mockExchangeCodeForSession).toHaveBeenCalledWith('abc');
     expect(mockProfileMaybeSingle).toHaveBeenCalledOnce();
+  });
+
+  it('ignores client-controlled x-forwarded-host when redirecting', async () => {
+    const response = await authCallback(
+      new Request('https://pickmyclass.app/auth/callback?code=abc&next=/dashboard', {
+        headers: { 'x-forwarded-host': 'evil.example.com' },
+      })
+    );
+
+    // The callback must never redirect to a host from the request headers —
+    // that would be an open redirect (host-header injection).
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://pickmyclass.app/dashboard');
+    expect(mockExchangeCodeForSession).toHaveBeenCalledWith('abc');
   });
 
   it('records confirmed Google signup consent before redirecting', async () => {

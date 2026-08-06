@@ -226,6 +226,8 @@ export interface UsersPage {
 export interface ClassesPage {
   rows: ClassWithWatchers[];
   total: number;
+  totalWatchers: number;
+  fullClasses: number;
 }
 
 /**
@@ -349,10 +351,15 @@ export async function getClassesPage(params: GetClassesPageParams = {}): Promise
   }));
 
   const total = data && data.length > 0 ? Number(data[0].total_count) : 0;
+  // Page-independent global aggregates computed by the RPC over the full
+  // filtered result set (not the page window). `?? 0` guards the short
+  // function-version-skew window so a missing column renders 0, never NaN.
+  const totalWatchers = data && data.length > 0 ? Number(data[0].total_watchers ?? 0) : 0;
+  const fullClasses = data && data.length > 0 ? Number(data[0].full_classes ?? 0) : 0;
 
   log('Admin').info(`Fetched ${rows.length} classes (page ${page}, total ${total})`);
 
-  return { rows, total };
+  return { rows, total, totalWatchers, fullClasses };
 }
 
 /**

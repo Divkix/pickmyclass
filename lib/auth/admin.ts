@@ -9,8 +9,10 @@ import { createClient } from '@/lib/supabase/server';
  * Verifies that the current user has admin privileges by checking:
  * 1. User is authenticated (has valid session)
  * 2. User has is_admin flag set to true in user_profiles table
+ * 3. User's account is not disabled
  *
  * @throws {never} Redirects to /login if not authenticated
+ * @throws {never} Redirects to /login if the account is disabled
  * @throws {never} Redirects to /dashboard if authenticated but not admin
  * @returns {Promise<User>} The authenticated admin user object
  *
@@ -41,6 +43,11 @@ export async function verifyAdmin(): Promise<User> {
   // Check admin privileges via a FRESH authorization read (never cached), so a
   // demoted or disabled admin is enforced immediately on admin pages.
   const authState = await readAuthorizationState(supabase, user.id, { cache: false });
+
+  if (authState?.is_disabled) {
+    // Disabled account — force to login regardless of admin role.
+    redirect('/login');
+  }
 
   if (!authState?.is_admin) {
     // Not admin, profile missing, or read error — treat as non-admin.

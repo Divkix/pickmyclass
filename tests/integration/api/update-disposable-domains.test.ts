@@ -27,6 +27,7 @@ vi.mock('@/lib/db/queries', () => ({
 
 vi.mock('cloudflare:workers', () => ({
   env: {
+    CRON_SECRET: 'test-cron-secret',
     PICKMYCLASS_DISPOSABLE_DOMAINS: {
       put: mockKvPut,
       get: vi.fn(),
@@ -64,7 +65,6 @@ describe('GET /api/cron/update-disposable-domains', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    process.env.CRON_SECRET = 'test-cron-secret';
     mockKvPut.mockResolvedValue(undefined);
     mockRpc.mockResolvedValue({ data: 0, error: null });
     mockDeletePastTermWatches.mockResolvedValue(0);
@@ -92,6 +92,19 @@ describe('GET /api/cron/update-disposable-domains', () => {
 
       expect(response.status).toBe(401);
     });
+
+    it('reads CRON_SECRET from the env binding, not process.env', async () => {
+      const domains = Array.from({ length: 1500 }, (_, i) => `domain${i}.com`);
+      globalThis.fetch = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(domains.join('\n')) });
+      // process.env holds a different secret — only the env-binding value should work.
+      process.env.CRON_SECRET = 'process-env-secret';
+
+      const response = await GET(createRequest('test-cron-secret'));
+
+      expect(response.status).toBe(200);
+    });
   });
 
   describe('fetch failures', () => {
@@ -106,6 +119,27 @@ describe('GET /api/cron/update-disposable-domains', () => {
       const response = await GET(request);
 
       expect(response.status).toBe(502);
+    });
+
+    it('still runs the notification-expiry sweeps when the blocklist fetch fails', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-09-01T19:00:00Z'));
+      try {
+        globalThis.fetch = vi.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+        });
+        mockRpc.mockResolvedValue({ data: 7, error: null });
+
+        const response = await GET(createRequest('test-cron-secret'));
+
+        expect(response.status).toBe(502);
+        expect(mockRpc).toHaveBeenCalledWith('expire_stale_notifications');
+        expect(mockDeletePastTermWatches).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('should return 502 when fetch throws network error', async () => {
@@ -157,6 +191,35 @@ describe('GET /api/cron/update-disposable-domains', () => {
 
       expect(response.status).toBe(200);
       expect(mockRpc).toHaveBeenCalledWith('expire_stale_notifications');
+    });
+
+    it('still completes the blocklist sync when the expiry sweep throws', async () => {
+      const domains = Array.from({ length: 1500 }, (_, i) => `domain${i}.com`);
+      globalThis.fetch = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(domains.join('\n')) });
+      mockRpc.mockRejectedValue(new Error('db down'));
+
+      const response = await GET(createRequest('test-cron-secret'));
+      const data = await parseResponse(response);
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(mockKvPut).toHaveBeenCalledTimes(1);
+      expect(mockKvPut).toHaveBeenCalledWith('disposable-domains', expect.any(String));
+    });
+
+    it('still completes the blocklist sync when the expiry sweep returns an RPC error', async () => {
+      const domains = Array.from({ length: 1500 }, (_, i) => `domain${i}.com`);
+      globalThis.fetch = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(domains.join('\n')) });
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'rpc failed' } });
+
+      const response = await GET(createRequest('test-cron-secret'));
+
+      expect(response.status).toBe(200);
+      expect(mockKvPut).toHaveBeenCalledTimes(1);
     });
 
     it('should normalize domains to lowercase and filter empty lines', async () => {
@@ -222,6 +285,26 @@ describe('GET /api/cron/update-disposable-domains', () => {
 
       expect(response.status).toBe(502);
       expect(mockKvPut).not.toHaveBeenCalled();
+    });
+
+    it('still runs the notification-expiry sweeps when the sanity check fails', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-09-01T19:00:00Z'));
+      try {
+        globalThis.fetch = vi.fn().mockResolvedValueOnce({
+          ok: true,
+          text: () => Promise.resolve('only-one.com\ntwo.com\nthree.com'),
+        });
+
+        const response = await GET(createRequest('test-cron-secret'));
+
+        expect(response.status).toBe(502);
+        expect(mockRpc).toHaveBeenCalledWith('expire_stale_notifications');
+        expect(mockDeletePastTermWatches).toHaveBeenCalledTimes(1);
+        expect(mockKvPut).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

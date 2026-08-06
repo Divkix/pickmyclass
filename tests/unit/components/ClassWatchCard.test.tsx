@@ -4,10 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { ClassWatchCard } from '@/components/ClassWatchCard';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 
-const { mockCreateWatch, mockToastError, mockToastSuccess } = vi.hoisted(() => ({
+const { mockCreateWatch, mockToastError, mockToastSuccess, motionDivProps } = vi.hoisted(() => ({
   mockCreateWatch: vi.fn(),
   mockToastError: vi.fn(),
   mockToastSuccess: vi.fn(),
+  // Captures the latest props passed to the motion.div mock so tests can drive
+  // the real useSwipe handlers and inspect the animate prop.
+  motionDivProps: { current: {} } as { current: Record<string, unknown> },
 }));
 
 vi.mock('sonner', () => ({
@@ -32,9 +35,10 @@ vi.mock('framer-motion', () => ({
     ),
   },
   motion: {
-    div: ({ children, ...props }: { children: React.ReactNode }) => (
-      <div {...props}>{children}</div>
-    ),
+    div: (props: { children?: React.ReactNode }) => {
+      motionDivProps.current = props;
+      return <div {...props}>{props.children}</div>;
+    },
     button: ({ children, ...props }: { children: React.ReactNode }) => (
       <button {...props}>{children}</button>
     ),
@@ -192,6 +196,53 @@ describe('ClassWatchCard', () => {
       expect(mockCreateWatch).toHaveBeenCalledWith({ term: '2241', class_nbr: '12345' });
       expect(mockToastSuccess).toHaveBeenCalledWith('Class watch restored');
       expect(onRestore).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('swipe-to-delete', () => {
+    it('keeps the slide-out open after a swipe-left delete instead of snapping back', async () => {
+      vi.useFakeTimers();
+      try {
+        const onDelete = vi.fn().mockResolvedValue(undefined);
+        render(
+          <ClassWatchCard watch={mockWatch} classState={mockClassState} onDelete={onDelete} />
+        );
+
+        // The real useSwipe handlers are spread onto the motion.div mock.
+        // Re-read them after each act: useSwipe's onTouchMove/onTouchEnd are
+        // useCallback closures over its internal isSwiping state, so only the
+        // latest render's handlers see the updated state.
+        const handlers = () =>
+          motionDivProps.current as unknown as {
+            onTouchStart: (e: React.TouchEvent) => void;
+            onTouchMove: (e: React.TouchEvent) => void;
+            onTouchEnd: () => void;
+          };
+
+        // Swipe left past the 100px threshold.
+        act(() => {
+          handlers().onTouchStart({ touches: [{ clientX: 200 }] } as unknown as React.TouchEvent);
+        });
+        act(() => {
+          handlers().onTouchMove({ touches: [{ clientX: 80 }] } as unknown as React.TouchEvent);
+        });
+        act(() => {
+          handlers().onTouchEnd();
+        });
+
+        // onSwipeEnd runs in the same tick as onSwipeLeft: it must not reset the
+        // slide-out to 0 (the stale-closure bug) — the card stays slid out.
+        expect((motionDivProps.current.animate as { x: number }).x).toBe(-500);
+
+        // After the 300ms slide-out the delete proceeds and the card resets.
+        await act(async () => {
+          vi.advanceTimersByTime(300);
+        });
+        expect(onDelete).toHaveBeenCalledWith('watch-123');
+        expect((motionDivProps.current.animate as { x: number }).x).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

@@ -111,4 +111,54 @@ describe('buildAuthEmailMessages', () => {
     expect(messages[1].to).toBe('new@example.com');
     expect(messages[1].text).toContain('token_hash=new-address-hash');
   });
+
+  it('returns no messages for unknown email action types', () => {
+    const messages = buildAuthEmailMessages(
+      {
+        ...basePayload,
+        email_data: {
+          ...basePayload.email_data,
+          email_action_type: 'signup_notification',
+        },
+      },
+      {
+        supabaseUrl: 'https://project.supabase.co',
+        from: 'notifications@pickmyclass.app',
+      }
+    );
+
+    expect(messages).toEqual([]);
+  });
+
+  it('does not fall back to the old address when user.new_email is absent (email_change)', () => {
+    const messages = buildAuthEmailMessages(
+      {
+        ...basePayload,
+        user: {
+          id: 'user-123',
+          email: 'current@example.com',
+        },
+        email_data: {
+          ...basePayload.email_data,
+          email_action_type: 'email_change',
+          token: '111111',
+          token_hash: 'new-address-hash',
+          token_new: '222222',
+          token_hash_new: 'current-address-hash',
+          old_email: 'old@example.com',
+          redirect_to: 'https://pickmyclass.app/settings',
+        },
+      },
+      {
+        supabaseUrl: 'https://project.supabase.co',
+        from: 'notifications@pickmyclass.app',
+      }
+    );
+
+    // Only the confirmation to the current address is sent; the old_email
+    // fallback must never deliver a second message to the old address.
+    expect(messages).toHaveLength(1);
+    expect(messages[0].to).toBe('current@example.com');
+    expect(messages[0].text).toContain('token_hash=current-address-hash');
+  });
 });

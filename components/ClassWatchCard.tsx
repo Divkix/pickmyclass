@@ -26,9 +26,12 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwipeDeleting, setIsSwipeDeleting] = useState(false);
   const deletedWatchRef = useRef<ClassWatchRow | null>(null);
   const swipeDeleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks swipe-delete in progress. Kept in a ref (not state) because onSwipeEnd
+  // runs in the same touch-end tick as onSwipeLeft, before React re-renders, so
+  // reading a state value there would see a stale false and cancel the slide-out.
+  const isSwipeDeletingRef = useRef(false);
 
   const classTitle = `${watch.subject} ${watch.catalog_nbr}${classState?.title ? ` - ${classState.title}` : ''}`;
 
@@ -45,8 +48,10 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
       void handleSwipeDelete();
     },
     onSwipeEnd: () => {
-      // Reset if not deleted
-      if (!isSwipeDeleting) {
+      // Reset if not deleted. Read the ref, not the isSwipeDeleting state: this
+      // runs synchronously after onSwipeLeft in the same touch-end tick, before
+      // React re-renders, so the state closure would still be a stale false.
+      if (!isSwipeDeletingRef.current) {
         setSwipeOffset(0);
       }
     },
@@ -65,7 +70,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   };
 
   const handleSwipeDelete = async () => {
-    setIsSwipeDeleting(true);
+    isSwipeDeletingRef.current = true;
     setSwipeOffset(-500); // Slide out animation
     deletedWatchRef.current = watch;
 
@@ -74,12 +79,12 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
       try {
         await onDelete(watch.id);
         showRemovedToast();
-        setIsSwipeDeleting(false);
+        isSwipeDeletingRef.current = false;
         setSwipeOffset(0);
       } catch (error) {
         log('ClassWatchCard').error('Swipe delete failed:', error);
         toast.error('Failed to delete watch. Please try again.');
-        setIsSwipeDeleting(false);
+        isSwipeDeletingRef.current = false;
         setSwipeOffset(0);
       }
     }, 300);

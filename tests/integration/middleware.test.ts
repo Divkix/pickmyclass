@@ -9,14 +9,26 @@ const mockEq = vi.fn();
 const mockSingle = vi.fn();
 const mockSignOut = vi.fn();
 
+// Captures the cookies adapter passed to createServerClient so tests can
+// simulate @supabase/ssr writing cookies through it (e.g. signOut deletions).
+type MockCookieAdapter = {
+  getAll: () => { name: string; value: string; options?: Record<string, unknown> }[];
+  setAll: (cookies: { name: string; value: string; options?: Record<string, unknown> }[]) => void;
+};
+let mockCookiesAdapter: MockCookieAdapter | null = null;
+
 vi.mock('@supabase/ssr', () => ({
-  createServerClient: vi.fn(() => ({
-    auth: {
-      getUser: mockGetUser,
-      signOut: mockSignOut,
-    },
-    from: mockFrom,
-  })),
+  createServerClient: vi.fn((...args: unknown[]) => {
+    const options = args[2] as { cookies?: MockCookieAdapter } | undefined;
+    mockCookiesAdapter = options?.cookies ?? null;
+    return {
+      auth: {
+        getUser: mockGetUser,
+        signOut: mockSignOut,
+      },
+      from: mockFrom,
+    };
+  }),
 }));
 
 // Setup mock chain
@@ -97,6 +109,15 @@ describe('proxy', () => {
     vi.clearAllMocks();
     clearAuthorizationStateCache();
     setupMockChain();
+    mockCookiesAdapter = null;
+    // Simulate @supabase/ssr: signOut writes deletion cookies through the
+    // cookie adapter passed to createServerClient.
+    mockSignOut.mockImplementation(async () => {
+      mockCookiesAdapter?.setAll([
+        { name: 'sb-test-auth-token', value: '', options: { expires: new Date(0) } },
+      ]);
+      return { error: null };
+    });
   });
 
   describe('public routes', () => {
@@ -458,6 +479,93 @@ describe('proxy', () => {
       expect(response.headers.get('location')).toBe(
         'http://localhost:3000/login?error=account_disabled'
       );
+    });
+
+    it('carries signOut cookie deletions on the disabled-account redirect', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockDisabledProfile, error: null });
+
+      const request = createAuthenticatedRequest('/dashboard');
+      const response = await proxy(request);
+
+      expect(mockSignOut).toHaveBeenCalled();
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe(
+        'http://localhost:3000/login?error=account_disabled'
+      );
+      // signOut must delete the auth cookie on the redirect, otherwise the
+      // browser keeps a valid session and every request 307s again
+      // (ERR_TOO_MANY_REDIRECTS).
+      const deletedCookie = response.cookies.get('sb-test-auth-token');
+      expect(deletedCookie).toBeDefined();
+      expect(deletedCookie?.value).toBe('');
+      expect(deletedCookie?.expires).toBeDefined();
+      const expiresAt =
+        typeof deletedCookie?.expires === 'number'
+          ? deletedCookie.expires
+          : deletedCookie?.expires?.getTime();
+      expect(expiresAt).toBe(0);
+    });
+  });
+
+  describe('consent gate for API routes', () => {
+    it('blocks verified users without consent from /api/* with 403', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockMissingConsentProfile, error: null });
+
+      const request = createAuthenticatedRequest('/api/class-watches');
+      const response = await proxy(request);
+
+      expect(response.status).toBe(403);
+      await expect(response.json()).resolves.toEqual({
+        success: false,
+        error: 'Consent required',
+      });
+    });
+
+    it('does not block /api/auth/consent for users without consent', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockMissingConsentProfile, error: null });
+
+      const request = createAuthenticatedRequest('/api/auth/consent');
+      const response = await proxy(request);
+
+      expect(response.status).not.toBe(403);
+    });
+
+    it('does not block /api/auth/signout for users without consent', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockMissingConsentProfile, error: null });
+
+      const request = createAuthenticatedRequest('/api/auth/signout');
+      const response = await proxy(request);
+
+      expect(response.status).not.toBe(403);
+    });
+
+    it('does not block /api/* for users who have consent', async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: mockAuthenticatedUser },
+        error: null,
+      });
+      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+
+      const request = createAuthenticatedRequest('/api/class-watches');
+      const response = await proxy(request);
+
+      expect(response.status).not.toBe(403);
     });
   });
 

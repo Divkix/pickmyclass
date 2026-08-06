@@ -104,6 +104,9 @@ export function useRealtimeClassStates({
                 [sectionRefKey(newState)]: newState,
               }));
             } else if (payload.eventType === 'DELETE') {
+              // Deleting relies on `payload.old` (the deleted row), which is only
+              // delivered when `class_states` has REPLICA IDENTITY FULL. Latent
+              // today — nothing deletes class_states rows.
               const oldState = payload.old as ClassStateRow;
               setClassStates((prev) => {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars

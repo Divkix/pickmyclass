@@ -4,14 +4,9 @@ import { NextResponse } from 'next/server';
 import { safeInternalPath } from '@/lib/auth/safe-redirect';
 import type { Database } from '@/lib/supabase/database.types';
 
-function redirectBase(request: Request, origin: string): string {
-  const forwardedHost = request.headers.get('x-forwarded-host');
-  if (process.env.NODE_ENV !== 'development' && forwardedHost) {
-    return `https://${forwardedHost}`;
-  }
-  return origin;
-}
-
+// Redirects always resolve against the request origin. `x-forwarded-host` is
+// client-controllable (host-header injection / open redirect), so it must never
+// influence where OAuth callbacks send the user.
 function consentRedirect(base: string, next: string, saveFailed = false): NextResponse {
   const url = new URL('/consent', base);
   if (saveFailed) url.searchParams.set('error', 'save_failed');
@@ -56,7 +51,7 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      const base = redirectBase(request, origin);
+      const base = origin;
 
       if (consentConfirmed) {
         const { error: consentError } = await supabase.rpc('accept_terms_and_verify_age');

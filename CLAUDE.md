@@ -94,7 +94,7 @@ Files: `worker.ts`, `app/api/cron/route.ts`, `lib/queue/*`, `lib/asu/api.ts`, `l
 
 **Dedup lifecycle (critical):** `notifications_sent` dedups via a **partial unique index `unique_notification_active WHERE is_active=TRUE`** + `try_record_notifications_batch` + the **daily 4 AM `expire_stale_notifications()` RPC** (the only thing that frees expired dedup slots; also hard-deletes past-term watches via `getPastTermCodes → delete class_watches`). Load-bearing: if the sweep stops, users never get re-notified after the 24h window. Why (issue #157, no volatile `NOW()` in a partial-index predicate): `docs/adr/0004-notification-dedup-lifecycle.md`.
 
-**`non_reserved_seats` is a dormant safeguard, not dead code** — always NULL in prod (migration `20260212000125`), so `detectChanges` falls back to `seats_available`. Don't remove it; don't build on it. Why: `docs/adr/0005-non-reserved-seats-dormant-column.md` (memory `asu-no-waitlist-data`).
+**`non_reserved_seats` is populated, not dormant** — since issue #198 the ASU client computes it (`Math.max(0, enrlCap - enrlTot - waitTot)` in `lib/asu/api.ts`) and `upsertClassState` persists it (`lib/db/queries.ts`); migration `20260212000125` only NULLed pre-existing rows during the transition. When it's NULL (no waitlist data), `detectChanges` still falls back to `seats_available` via `non_reserved_seats ?? seats_available` — keep the column and that fallback. (`docs/adr/0005-non-reserved-seats-dormant-column.md` and memory `asu-no-waitlist-data` predate #198 and are stale on this point.)
 
 ---
 
@@ -289,7 +289,7 @@ If you see `as unknown as` casts on `.rpc()` with a "not yet in generated types"
 - **`class_states` is keyed on `(class_nbr, term)`** — always include `term`.
 - **`proxy.ts` is the auth gate** (the sole vinext middleware file). Supabase URL/anon-key are duplicated in 3 files. Authorization State (`{is_admin,is_disabled,has_consent}`) is owned by `lib/auth/authorization-state.ts` (cached edge read / fresh admin+login read); its 30s cache — invalidate via `invalidateAuthorizationState` after authorization or consent changes.
 - **First-observation guard** (`!oldState`) prevents false "seat available" emails — keep it; note it triggers on row *existence*, not content.
-- **`non_reserved_seats` is dormant (always NULL in prod), not removable.** Don't build on it.
+- **`non_reserved_seats` is populated since issue #198** (ASU client computes `Math.max(0, enrlCap - enrlTot - waitTot)`, `upsertClassState` persists it); when NULL, `detectChanges` falls back to `seats_available`. Keep the column and the `?? seats_available` fallback.
 - **`lib/asu/terms.ts` needs yearly (August) maintenance**; lapsing silently blocks new watches.
 - **Never add a dynamic API to `app/layout.tsx`** (static pages 500). Pages reading `useSearchParams` must be `<Suspense>`-wrapped.
 - **`MAX_WATCHES_PER_USER`** is enforced atomically in the `create_class_watch_with_limit` RPC (advisory lock), not just the app pre-count.
