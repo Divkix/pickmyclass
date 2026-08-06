@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
 import { fail } from '@/lib/api/response';
-import { type AuthorizationState, readAuthorizationState } from '@/lib/auth/authorization-state';
+import { readAuthorizationState } from '@/lib/auth/authorization-state';
+import { decideGate, isPublicRoute } from '@/lib/auth/decide-gate';
 import { hasSupabaseAuthCookies } from '@/lib/auth/supabase-auth-cookies';
 import type { Database } from './lib/supabase/database.types';
 
@@ -49,34 +50,6 @@ const DEV_CSP = [
 ].join('; ');
 
 /**
- * Public routes that don't require authentication
- */
-const PUBLIC_ROUTES = [
-  '/login',
-  '/register',
-  '/forgot-password',
-  '/reset-password',
-  '/legal',
-  '/auth/callback',
-  '/go',
-  '/faq',
-  '/blog',
-];
-
-/**
- * Auth pages that authenticated users should be redirected away from
- * NOTE: /reset-password is NOT included because users authenticate via recovery token
- * and need to access this page while authenticated to set their new password
- */
-const AUTH_PAGES = ['/login', '/register', '/forgot-password'];
-
-/**
- * Protected route prefixes that require authentication.
- * Unknown routes outside these prefixes pass through to the app (which returns 404).
- */
-const PROTECTED_ROUTE_PREFIXES = ['/dashboard', '/admin', '/settings', '/verify-email', '/consent'];
-
-/**
  * Add security headers to a response.
  *
  * @param csp - The fully-formed CSP string to set. In production this is
@@ -96,31 +69,15 @@ function addSecurityHeaders(response: NextResponse, isDevelopment: boolean, csp:
   response.headers.set('Content-Security-Policy', csp);
 }
 
-/**
- * Check if a pathname matches public routes
- */
-function isPublicRoute(pathname: string): boolean {
-  return (
-    pathname === '/' ||
-    PUBLIC_ROUTES.some((route) => pathname.startsWith(route)) ||
-    pathname === '/sitemap.xml' ||
-    pathname === '/robots.txt' ||
-    pathname.startsWith('/api/auth/') ||
-    pathname.startsWith('/api/cron') ||
-    pathname.startsWith('/api/queue/') ||
-    pathname.startsWith('/api/webhooks/') ||
-    pathname.startsWith('/api/monitoring/') ||
-    pathname.startsWith('/api/unsubscribe')
-  );
-}
-
-/**
- * Helper function to determine redirect path based on user's admin status.
- * Defaults to /dashboard if user is not admin.
- */
-function getRedirectPath(authState: AuthorizationState | null): string {
-  if (authState && !authState.has_consent) return '/consent';
-  return authState?.is_admin ? '/admin' : '/dashboard';
+function toRedirectUrl(request: NextRequest, to: string): URL {
+  const url = request.nextUrl.clone();
+  // `to` is a same-origin path that may include a query string (e.g. "/consent?next=%2Fdashboard").
+  // Use URL parsing against the request origin so we correctly separate pathname/search
+  // even when the query value itself contains encoded '?'/'&' characters.
+  const target = new URL(to, request.url);
+  url.pathname = target.pathname;
+  url.search = target.search;
+  return url;
 }
 
 export async function proxy(request: NextRequest) {
@@ -195,140 +152,46 @@ export async function proxy(request: NextRequest) {
 
   // Read the cached authorization decision. The edge gate deliberately serves a
   // (up to 30s) stale decision as a CPU saver; verifyAdmin and login read fresh.
-  let authState: AuthorizationState | null = null;
-  if (user) {
-    authState = await readAuthorizationState(supabase, user.id, { cache: true });
+  const authState = user ? await readAuthorizationState(supabase, user.id, { cache: true }) : null;
 
-    // If account is disabled, sign out and redirect to login
-    if (authState?.is_disabled) {
-      await supabase.auth.signOut();
-      const url = request.nextUrl.clone();
-      url.pathname = '/login';
-      url.searchParams.set('error', 'account_disabled');
-      const redirectResponse = NextResponse.redirect(url);
-      // supabase.auth.signOut() writes its cookie deletions through the setAll
-      // adapter onto supabaseResponse. Copy every cookie onto the redirect so
-      // the browser actually drops the auth session — otherwise the next
-      // request 307s again (ERR_TOO_MANY_REDIRECTS). Passing the ResponseCookie
-      // wholesale keeps all current (and future) attributes.
-      for (const cookie of supabaseResponse.cookies.getAll()) {
-        redirectResponse.cookies.set(cookie);
+  const decision = decideGate({
+    pathname,
+    search: request.nextUrl.search,
+    user: user ? { email_confirmed_at: user.email_confirmed_at ?? null } : null,
+    authState,
+  });
+
+  // signout-and-redirect requires an async signOut before building the redirect
+  if (decision.kind === 'signout-and-redirect') {
+    await supabase.auth.signOut();
+  }
+
+  let response: NextResponse;
+
+  switch (decision.kind) {
+    case 'signout-and-redirect':
+    case 'redirect': {
+      const url = toRedirectUrl(request, decision.to);
+      response = NextResponse.redirect(url);
+      if (decision.kind === 'signout-and-redirect') {
+        for (const cookie of supabaseResponse.cookies.getAll()) {
+          response.cookies.set(cookie);
+        }
       }
-      addSecurityHeaders(redirectResponse, isDevelopment, csp);
-      return redirectResponse;
+      break;
+    }
+    case 'forbidden': {
+      response = fail(decision.message, 403);
+      break;
+    }
+    case 'allow': {
+      response = supabaseResponse;
+      break;
     }
   }
 
-  // Check email verification status
-  if (user && !user.email_confirmed_at) {
-    // Allow access to verification page, auth callback, and password reset
-    // Password reset is allowed because the recovery flow itself verifies email access
-    const allowedPaths = ['/verify-email', '/auth/callback', '/reset-password'];
-    const isAllowedPath = allowedPaths.some((path) => pathname.startsWith(path));
-
-    if (!isAllowedPath && pathname !== '/') {
-      const url = request.nextUrl.clone();
-      url.pathname = '/verify-email';
-      const redirectResponse = NextResponse.redirect(url);
-      addSecurityHeaders(redirectResponse, isDevelopment, csp);
-      return redirectResponse;
-    }
-  }
-
-  // Redirect to login if accessing protected route while not authenticated
-  // This includes admin routes - unauthenticated users cannot access admin pages
-  const isProtectedRoute = PROTECTED_ROUTE_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
-  );
-  if (!user && isProtectedRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    const redirectResponse = NextResponse.redirect(url);
-    addSecurityHeaders(redirectResponse, isDevelopment, csp);
-    return redirectResponse;
-  }
-
-  // OAuth accounts without a complete consent record cannot enter protected
-  // application pages. The dedicated gate remains reachable so they can repair
-  // pre-existing accounts on their next sign-in.
-  if (
-    user?.email_confirmed_at &&
-    authState &&
-    !authState.has_consent &&
-    isProtectedRoute &&
-    pathname !== '/consent'
-  ) {
-    const url = request.nextUrl.clone();
-    const next = `${pathname}${request.nextUrl.search}`;
-    url.pathname = '/consent';
-    url.search = '';
-    url.searchParams.set('next', next);
-    const redirectResponse = NextResponse.redirect(url);
-    addSecurityHeaders(redirectResponse, isDevelopment, csp);
-    return redirectResponse;
-  }
-
-  // Authenticated + verified users without consent are blocked from API routes
-  // with a 403. The consent gate is a page, not an API, so it must not be
-  // reachable only through the page redirect above. `/api/auth/consent` and
-  // `/api/auth/signout` stay allowlisted so users can record consent or end
-  // their session.
-  if (
-    user?.email_confirmed_at &&
-    authState &&
-    !authState.has_consent &&
-    pathname.startsWith('/api/') &&
-    pathname !== '/api/auth/consent' &&
-    pathname !== '/api/auth/signout'
-  ) {
-    const response = fail('Consent required', 403);
-    addSecurityHeaders(response, isDevelopment, csp);
-    return response;
-  }
-
-  if (user?.email_confirmed_at && authState?.has_consent && pathname === '/consent') {
-    const url = request.nextUrl.clone();
-    url.pathname = getRedirectPath(authState);
-    url.search = '';
-    const redirectResponse = NextResponse.redirect(url);
-    addSecurityHeaders(redirectResponse, isDevelopment, csp);
-    return redirectResponse;
-  }
-
-  // Redirect authenticated users from auth pages to their dashboard
-  // Only redirect from specific auth pages to avoid loops with next-themes
-  const isAuthPage = AUTH_PAGES.some((route) => pathname.startsWith(route));
-
-  if (user?.email_confirmed_at && isAuthPage) {
-    const redirectPath = getRedirectPath(authState);
-    // Only redirect if not already on the target path to prevent loops
-    if (pathname !== redirectPath) {
-      const url = request.nextUrl.clone();
-      url.pathname = redirectPath;
-      const redirectResponse = NextResponse.redirect(url);
-      addSecurityHeaders(redirectResponse, isDevelopment, csp);
-      return redirectResponse;
-    }
-  }
-
-  // Homepage redirect moved to client-side for better performance
-  // Authenticated users will be redirected by the homepage component itself
-
-  // Redirect admin users from /dashboard to /admin
-  // Regular users can access /dashboard, but admins should use /admin exclusively
-  if (user?.email_confirmed_at && pathname.startsWith('/dashboard')) {
-    if (authState?.is_admin) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/admin';
-      const redirectResponse = NextResponse.redirect(url);
-      addSecurityHeaders(redirectResponse, isDevelopment, csp);
-      return redirectResponse;
-    }
-  }
-
-  // Add security headers to all responses
-  addSecurityHeaders(supabaseResponse, isDevelopment, csp);
-  return supabaseResponse;
+  addSecurityHeaders(response, isDevelopment, csp);
+  return response;
 }
 
 export const middleware = proxy;

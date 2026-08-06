@@ -7,7 +7,6 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import handler from 'vinext/server/app-router-entry';
-import { classifyDisposition } from './lib/queue/disposition';
 import { handleDLQMessage } from './lib/queue/dlq-consumer';
 import { processSection } from './lib/queue/process-section';
 import type { Env } from './lib/types/env';
@@ -263,44 +262,45 @@ export default {
     }
 
     // Process all messages in the batch concurrently — direct call, no HTTP indirection.
-    // classifyDisposition owns the ack/retry decision; this handler only translates
-    // the verdict to the queue transport (ack → message.ack(), retry → message.retry()).
+    // processSection owns the ack/retry decision; this handler only translates
+    // outcome.disposition to the queue transport (ack → message.ack(), retry → message.retry()).
     const results = await Promise.allSettled(
       batch.messages.map(async (message) => {
         const msgStartTime = Date.now();
         try {
-          const result = await processSection(message.body, env);
+          const outcome = await processSection(message.body, env);
           const duration = Date.now() - msgStartTime;
-          const disposition = classifyDisposition(result);
 
-          if (disposition === 'ack') {
-            queueLog.info(`Processed ${message.body.class_nbr} in ${duration}ms:`, result);
+          if (outcome.disposition === 'ack') {
+            if (!outcome.result.success) {
+              queueLog.error(
+                `Non-retryable error for ${message.body.class_nbr} in ${duration}ms:`,
+                outcome.result.error
+              );
+            } else {
+              queueLog.info(
+                `Processed ${message.body.class_nbr} in ${duration}ms:`,
+                outcome.result
+              );
+            }
             message.ack();
-            return { success: true, class_nbr: message.body.class_nbr, duration };
+            return {
+              success: outcome.result.success,
+              class_nbr: message.body.class_nbr,
+              duration,
+            };
           }
 
-          // Non-ack disposition — transient (DB upsert or email/claim failure), retry
           queueLog.error(
             `Failed to process ${message.body.class_nbr} in ${duration}ms:`,
-            result.error
+            outcome.result.error
           );
           message.retry();
           return { success: false, class_nbr: message.body.class_nbr, duration };
         } catch (error) {
           const duration = Date.now() - msgStartTime;
-          const disposition = classifyDisposition(error);
-
-          if (disposition === 'ack') {
-            // Non-retryable: ASU auth failure or section no longer exists
-            queueLog.error(
-              `Non-retryable error for ${message.body.class_nbr} in ${duration}ms:`,
-              error
-            );
-            message.ack();
-            return { success: false, class_nbr: message.body.class_nbr, duration, acked: true };
-          }
-
-          // Retryable: upstream transient (rate limit / API error) or unknown — retry
+          // Defensive: processSection should not throw ApiError, but if it does bubble
+          // an unexpected error, retry.
           queueLog.error(`Retryable error for ${message.body.class_nbr} in ${duration}ms:`, error);
           message.retry();
           return { success: false, class_nbr: message.body.class_nbr, duration, error };

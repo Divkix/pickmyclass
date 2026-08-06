@@ -22,7 +22,13 @@ vi.mock('@/lib/queue/notification-sender', () => ({
   sendSectionNotifications: vi.fn(),
 }));
 
-import { fetchClassFromASU } from '@/lib/asu/api';
+import {
+  ApiError,
+  AuthError,
+  NotFoundError,
+  RateLimitError,
+  fetchClassFromASU,
+} from '@/lib/asu/api';
 import { resetNotificationsForSection } from '@/lib/db/queries';
 import type { ChangeResult } from '@/lib/queue/change-detector';
 import { detectChanges } from '@/lib/queue/change-detector';
@@ -128,7 +134,7 @@ describe('processSection', () => {
 
   it('successful full flow: fetches, detects, notifies, and persists', async () => {
     const env = buildEnv();
-    const result = await processSection({ class_nbr: '42737', term: '2261' }, env);
+    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
 
     // Should have fetched old state with correct chaining (includes term)
     const db = getServiceClient() as unknown as ReturnType<typeof buildMockDb>;
@@ -166,7 +172,10 @@ describe('processSection', () => {
       { onConflict: 'class_nbr,term' }
     );
 
-    expect(result).toMatchObject({
+    expect(outcome.disposition).toBe('ack');
+    expect(outcome.httpStatus).toBe(200);
+    expect(outcome.retryable).toBe(false);
+    expect(outcome.result).toMatchObject({
       success: true,
       classNbr: '42737',
       changes: expect.objectContaining({ seatBecameAvailable: true }),
@@ -178,12 +187,13 @@ describe('processSection', () => {
   it('no changes detected: only persists, no notifications', async () => {
     (detectChanges as ReturnType<typeof vi.fn>).mockReturnValue(buildChangeResult());
 
-    const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
     expect(sendSectionNotifications).not.toHaveBeenCalled();
     expect(resetNotificationsForSection).not.toHaveBeenCalled();
-    expect(result.success).toBe(true);
-    expect(result.emailsSent).toBe(0);
+    expect(outcome.disposition).toBe('ack');
+    expect(outcome.result.success).toBe(true);
+    expect(outcome.result.emailsSent).toBe(0);
   });
 
   it('seats filled: resets notifications and persists', async () => {
@@ -191,43 +201,49 @@ describe('processSection', () => {
       buildChangeResult({ seatsFilled: true, newOpenSeats: 0 })
     );
 
-    const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
     expect(resetNotificationsForSection).toHaveBeenCalledWith(
       { class_nbr: '42737', term: '2261' },
       'seat_available'
     );
     expect(sendSectionNotifications).not.toHaveBeenCalled();
-    expect(result.success).toBe(true);
+    expect(outcome.result.success).toBe(true);
+    expect(outcome.disposition).toBe('ack');
   });
 
-  it('ASU API throws NotFoundError: rethrows for caller retry semantics', async () => {
-    const { NotFoundError } = await import('@/lib/asu/api');
+  it('ASU API throws NotFoundError: returns ack outcome (non-retryable)', async () => {
     (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
       new NotFoundError('Section 42737 not found')
     );
 
-    await expect(processSection({ class_nbr: '42737', term: '2261' }, buildEnv())).rejects.toThrow(
-      'Section 42737 not found'
-    );
+    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+
+    expect(outcome.disposition).toBe('ack');
+    expect(outcome.httpStatus).toBe(200);
+    expect(outcome.retryable).toBe(false);
+    expect(outcome.result.success).toBe(false);
+    expect(outcome.result.error).toBe('Section 42737 not found');
     // Should NOT have tried to persist or notify
     const db = getServiceClient() as unknown as ReturnType<typeof buildMockDb>;
     expect(db.upsert).not.toHaveBeenCalled();
     expect(sendSectionNotifications).not.toHaveBeenCalled();
   });
 
-  it('ASU API throws RateLimitError: rethrows for caller retry semantics', async () => {
-    const { RateLimitError } = await import('@/lib/asu/api');
+  it('ASU API throws RateLimitError: returns retry outcome (429)', async () => {
     (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
       new RateLimitError('Rate limit hit')
     );
 
-    await expect(processSection({ class_nbr: '42737', term: '2261' }, buildEnv())).rejects.toThrow(
-      'Rate limit hit'
-    );
+    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+
+    expect(outcome.disposition).toBe('retry');
+    expect(outcome.httpStatus).toBe(429);
+    expect(outcome.retryable).toBe(true);
+    expect(outcome.result.error).toBe('Rate limit hit');
   });
 
-  it('DB upsert fails: returns error result', async () => {
+  it('DB upsert fails: returns retry outcome (500)', async () => {
     const mockDb = buildMockDb({
       data: { non_reserved_seats: 0, seats_available: 0, instructor_name: 'Staff' },
       error: null,
@@ -235,9 +251,12 @@ describe('processSection', () => {
     mockDb.upsert.mockResolvedValue({ error: { message: 'Constraint violation' } });
     (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
-    const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
-    expect(result).toMatchObject({
+    expect(outcome.disposition).toBe('retry');
+    expect(outcome.httpStatus).toBe(500);
+    expect(outcome.retryable).toBe(true);
+    expect(outcome.result).toMatchObject({
       success: false,
       error: expect.stringContaining('Constraint violation'),
     });
@@ -261,7 +280,7 @@ describe('processSection', () => {
       buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 3 })
     );
 
-    const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
     // detectChanges should have been called with null oldState (PGRST116 returns data: null)
     expect(detectChanges).toHaveBeenCalledWith(
@@ -276,9 +295,10 @@ describe('processSection', () => {
       expect.objectContaining({ class_nbr: '42737', term: '2261', seats_available: 5 }),
       { onConflict: 'class_nbr,term' }
     );
-    expect(result.success).toBe(true);
-    expect(result.changes.seatBecameAvailable).toBe(false);
-    expect(result.emailsSent).toBe(0);
+    expect(outcome.result.success).toBe(true);
+    expect(outcome.disposition).toBe('ack');
+    expect(outcome.result.changes.seatBecameAvailable).toBe(false);
+    expect(outcome.result.emailsSent).toBe(0);
   });
 
   it('handles non-PGRST116 DB error gracefully and continues processing', async () => {
@@ -288,7 +308,7 @@ describe('processSection', () => {
     });
     (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
-    const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
     // non-PGRST116 errors log but don't stop processing
     expect(console.error).toHaveBeenCalledWith(
@@ -298,7 +318,8 @@ describe('processSection', () => {
     );
     // Should continue with null old state
     expect(detectChanges).toHaveBeenCalledWith(null, expect.any(Object));
-    expect(result.success).toBe(true);
+    expect(outcome.result.success).toBe(true);
+    expect(outcome.disposition).toBe('ack');
   });
 
   describe('send/persist ordering', () => {
@@ -319,16 +340,120 @@ describe('processSection', () => {
         buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 5 })
       );
 
-      const result = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
       // Persist-before-send: a failed upsert must short-circuit BEFORE any emails go out,
       // so a retry re-attempts cleanly with no duplicate emails.
       expect(sendSectionNotifications).not.toHaveBeenCalled();
       // The upsert failure still surfaces as an unsuccessful result.
-      expect(result).toMatchObject({
-        success: false,
-        error: expect.stringContaining('upsert exploded'),
+      expect(outcome).toMatchObject({
+        disposition: 'retry',
+        result: expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('upsert exploded'),
+        }),
       });
+    });
+  });
+
+  // Merged disposition cases — previously in disposition.test.ts
+  describe('disposition via processSection', () => {
+    it('acks a successful outcome', async () => {
+      // default mocks already produce success
+      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      expect(outcome.disposition).toBe('ack');
+      expect(outcome.httpStatus).toBe(200);
+      expect(outcome.retryable).toBe(false);
+    });
+
+    it('retries a failed outcome (DB upsert error)', async () => {
+      const mockDb = buildMockDb({
+        data: { non_reserved_seats: 0, seats_available: 0, instructor_name: 'Staff' },
+        error: null,
+      });
+      mockDb.upsert.mockResolvedValue({ error: { message: 'upsert fail' } });
+      (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
+
+      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      expect(outcome.disposition).toBe('retry');
+      expect(outcome.httpStatus).toBe(500);
+      expect(outcome.retryable).toBe(true);
+    });
+
+    it('acks a thrown AuthError (non-retryable: bad token)', async () => {
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new AuthError('401 Unauthorized from ASU')
+      );
+      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      expect(outcome.disposition).toBe('ack');
+      expect(outcome.httpStatus).toBe(200);
+      expect(outcome.retryable).toBe(false);
+    });
+
+    it('acks a thrown NotFoundError (non-retryable: section gone)', async () => {
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new NotFoundError('Section 99999 not found')
+      );
+      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      expect(outcome.disposition).toBe('ack');
+      expect(outcome.httpStatus).toBe(200);
+      expect(outcome.retryable).toBe(false);
+    });
+
+    it('retries a thrown RateLimitError (transient upstream)', async () => {
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new RateLimitError('Rate limit exceeded')
+      );
+      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      expect(outcome.disposition).toBe('retry');
+      expect(outcome.httpStatus).toBe(429);
+      expect(outcome.retryable).toBe(true);
+    });
+
+    it('retries a thrown ApiError (upstream failure)', async () => {
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new ApiError('ASU API 502 Bad Gateway', 502)
+      );
+      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      expect(outcome.disposition).toBe('retry');
+      expect(outcome.httpStatus).toBe(502);
+      expect(outcome.retryable).toBe(true);
+    });
+
+    it('retries an unknown thrown Error (defensive)', async () => {
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('Unexpected internal error')
+      );
+      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      expect(outcome.disposition).toBe('retry');
+      expect(outcome.httpStatus).toBe(500);
+      expect(outcome.retryable).toBe(true);
+    });
+
+    it('retries an unknown thrown non-Error value (defensive)', async () => {
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue('boom' as unknown as Error);
+      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      expect(outcome.disposition).toBe('retry');
+      expect(outcome.httpStatus).toBe(500);
+      expect(outcome.retryable).toBe(true);
+
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+        undefined as unknown as Error
+      );
+      const outcome2 = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      expect(outcome2.disposition).toBe('retry');
+
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(null as unknown as Error);
+      const outcome3 = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      expect(outcome3.disposition).toBe('retry');
+    });
+
+    it('AuthError is acked even though it extends ApiError (subclass ordering)', async () => {
+      // Ensures AuthError/NotFound check wins before ApiError base
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(new AuthError('401'));
+      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      expect(outcome.disposition).toBe('ack');
+      expect(outcome.httpStatus).toBe(200);
     });
   });
 });

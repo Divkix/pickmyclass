@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import type { ProcessingResult } from '@/lib/queue/process-section';
+import type { SectionCheckOutcome } from '@/lib/queue/process-section';
 
 const mockProcessSection = vi.hoisted(() => vi.fn());
 
@@ -13,20 +13,50 @@ vi.mock('@/lib/queue/process-section', () => ({
 }));
 
 import { POST } from '@/app/api/queue/process-section/route';
-import { ApiError, AuthError, NotFoundError, RateLimitError } from '@/lib/asu/api';
 
-const successResult: ProcessingResult = {
-  success: true,
-  classNbr: '12345',
-  changes: {
-    seatBecameAvailable: true,
-    instructorAssigned: false,
-    seatsFilled: false,
-    newOpenSeats: 3,
+const successOutcome: SectionCheckOutcome = {
+  disposition: 'ack',
+  result: {
+    success: true,
+    classNbr: '12345',
+    changes: {
+      seatBecameAvailable: true,
+      instructorAssigned: false,
+      seatsFilled: false,
+      newOpenSeats: 3,
+    },
+    emailsSent: 2,
+    processingTimeMs: 15,
   },
-  emailsSent: 2,
-  processingTimeMs: 15,
+  httpStatus: 200,
+  retryable: false,
 };
+
+function makeOutcome(
+  disposition: 'ack' | 'retry',
+  httpStatus: 200 | 429 | 502 | 500,
+  retryable: boolean,
+  error: string
+): SectionCheckOutcome {
+  return {
+    disposition,
+    result: {
+      success: false,
+      classNbr: '12345',
+      changes: {
+        seatBecameAvailable: false,
+        seatsFilled: false,
+        instructorAssigned: false,
+        newOpenSeats: 0,
+      },
+      emailsSent: 0,
+      processingTimeMs: 15,
+      error,
+    },
+    httpStatus,
+    retryable,
+  };
+}
 
 function createRequest(body: string, authorized = true): NextRequest {
   return new NextRequest('http://localhost/api/queue/process-section', {
@@ -74,7 +104,7 @@ describe('POST /api/queue/process-section', () => {
   });
 
   it('maps a successful processing result to the HTTP response', async () => {
-    mockProcessSection.mockResolvedValue(successResult);
+    mockProcessSection.mockResolvedValue(successOutcome);
 
     const response = await POST(validRequest());
 
@@ -97,11 +127,7 @@ describe('POST /api/queue/process-section', () => {
   });
 
   it('returns 500 for a failed processing result', async () => {
-    mockProcessSection.mockResolvedValue({
-      ...successResult,
-      success: false,
-      error: 'Database unavailable',
-    });
+    mockProcessSection.mockResolvedValue(makeOutcome('retry', 500, true, 'Database unavailable'));
 
     const response = await POST(validRequest());
 
@@ -110,42 +136,58 @@ describe('POST /api/queue/process-section', () => {
       success: false,
       error: 'Database unavailable',
       class_nbr: '12345',
+      retryable: true,
     });
   });
 
   it.each([
-    ['authentication failure', new AuthError('Unauthorized upstream')],
-    ['missing section', new NotFoundError('Section not found')],
-  ])('acks a non-retryable %s', async (_label, error) => {
-    mockProcessSection.mockRejectedValue(error);
+    ['authentication failure', makeOutcome('ack', 200, false, 'Unauthorized upstream')],
+    ['missing section', makeOutcome('ack', 200, false, 'Section not found')],
+  ])('acks a non-retryable %s', async (_label, outcome) => {
+    mockProcessSection.mockResolvedValue(outcome);
 
     const response = await POST(validRequest());
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       success: false,
-      error: error.message,
+      error: outcome.result.error,
       retryable: false,
     });
   });
 
   it.each([
-    ['rate limit', new RateLimitError('Slow down'), 429],
-    ['API failure', new ApiError('Bad gateway', 502), 502],
-  ])('marks a %s as retryable', async (_label, error, status) => {
-    mockProcessSection.mockRejectedValue(error);
+    ['rate limit', makeOutcome('retry', 429, true, 'Slow down'), 429],
+    ['API failure', makeOutcome('retry', 502, true, 'Bad gateway'), 502],
+  ])('marks a %s as retryable', async (_label, outcome, status) => {
+    mockProcessSection.mockResolvedValue(outcome);
 
     const response = await POST(validRequest());
 
     expect(response.status).toBe(status);
     await expect(response.json()).resolves.toEqual({
       success: false,
-      error: error.message,
+      error: outcome.result.error,
+      class_nbr: '12345',
       retryable: true,
     });
   });
 
-  it('returns 500 for unknown failures', async () => {
+  it('returns 500 for unknown failures via outcome', async () => {
+    mockProcessSection.mockResolvedValue(makeOutcome('retry', 500, true, 'Unexpected failure'));
+
+    const response = await POST(validRequest());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      error: 'Unexpected failure',
+      class_nbr: '12345',
+      retryable: true,
+    });
+  });
+
+  it('returns 500 for unexpected thrown error (defensive)', async () => {
     mockProcessSection.mockRejectedValue(new Error('Unexpected failure'));
 
     const response = await POST(validRequest());

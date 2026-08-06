@@ -1,14 +1,13 @@
 /**
  * Integration tests for worker.ts queue handler and scheduled handler.
  *
- * Queue handler tests (plan 004) — direct-call ack/retry mapping:
- * - processSection returns { success: true }  → message.ack()
- * - processSection returns { success: false } → message.retry() (DB upsert error)
- * - processSection throws AuthError           → message.ack()  (non-retryable)
- * - processSection throws NotFoundError       → message.ack()  (non-retryable)
- * - processSection throws RateLimitError      → message.retry()
- * - processSection throws ApiError            → message.retry()
- * - processSection throws unknown Error       → message.retry()
+ * Queue handler tests — ack/retry mapping via SectionCheckOutcome:
+ * - processSection returns { disposition: 'ack', result: { success: true } }  → message.ack()
+ * - processSection returns { disposition: 'retry', result: { success: false } } → message.retry() (DB upsert error)
+ * - processSection returns { disposition: 'ack', httpStatus: 200 } (AuthError/NotFound) → message.ack()
+ * - processSection returns { disposition: 'retry', httpStatus: 429 } (RateLimit) → message.retry()
+ * - processSection returns { disposition: 'retry', httpStatus: 502 } (ApiError) → message.retry()
+ * - processSection throws unknown Error → message.retry() (defensive)
  *
  * Scheduled handler tests — cron routing, headers, no-throw, and 207 logging.
  */
@@ -36,15 +35,13 @@ vi.mock('@/lib/queue/dlq-consumer', () => ({
   handleDLQMessage: (...args: unknown[]) => mockHandleDLQMessage(...args),
 }));
 
-// Mock processSection — core of plan 004's queue handler tests
+// Mock processSection — core of queue handler tests
 const mockProcessSection = vi.fn();
 vi.mock('@/lib/queue/process-section', () => ({
   processSection: (...args: unknown[]) => mockProcessSection(...args),
 }));
 
 // ── Imports ───────────────────────────────────────────────────────────────────
-
-import { ApiError, AuthError, NotFoundError, RateLimitError } from '@/lib/asu/api';
 
 // Import worker default export for scheduled handler tests
 // (queue handler tests re-import inside beforeEach so vi.mock hoisting applies cleanly)
@@ -82,31 +79,117 @@ function makeBatch(
   } as unknown as MessageBatch<ClassCheckMessage>;
 }
 
-const successResult = (classNbr: string) => ({
-  success: true,
-  classNbr,
-  changes: {
-    seatBecameAvailable: false,
-    seatsFilled: false,
-    instructorAssigned: false,
-    newOpenSeats: 0,
+const successOutcome = (classNbr: string) => ({
+  disposition: 'ack' as const,
+  result: {
+    success: true,
+    classNbr,
+    changes: {
+      seatBecameAvailable: false,
+      seatsFilled: false,
+      instructorAssigned: false,
+      newOpenSeats: 0,
+    },
+    emailsSent: 0,
+    processingTimeMs: 10,
   },
-  emailsSent: 0,
-  processingTimeMs: 10,
+  httpStatus: 200 as const,
+  retryable: false as const,
 });
 
-const dbFailResult = (classNbr: string) => ({
-  success: false,
-  classNbr,
-  changes: {
-    seatBecameAvailable: false,
-    seatsFilled: false,
-    instructorAssigned: false,
-    newOpenSeats: 0,
+const dbFailOutcome = (classNbr: string) => ({
+  disposition: 'retry' as const,
+  result: {
+    success: false,
+    classNbr,
+    changes: {
+      seatBecameAvailable: false,
+      seatsFilled: false,
+      instructorAssigned: false,
+      newOpenSeats: 0,
+    },
+    emailsSent: 0,
+    processingTimeMs: 10,
+    error: 'duplicate key value violates unique constraint',
   },
-  emailsSent: 0,
-  processingTimeMs: 10,
-  error: 'duplicate key value violates unique constraint',
+  httpStatus: 500 as const,
+  retryable: true as const,
+});
+
+const authErrorOutcome = (classNbr: string) => ({
+  disposition: 'ack' as const,
+  result: {
+    success: false,
+    classNbr,
+    changes: {
+      seatBecameAvailable: false,
+      seatsFilled: false,
+      instructorAssigned: false,
+      newOpenSeats: 0,
+    },
+    emailsSent: 0,
+    processingTimeMs: 10,
+    error: '401 Unauthorized from ASU',
+  },
+  httpStatus: 200 as const,
+  retryable: false as const,
+});
+
+const notFoundOutcome = (classNbr: string) => ({
+  disposition: 'ack' as const,
+  result: {
+    success: false,
+    classNbr,
+    changes: {
+      seatBecameAvailable: false,
+      seatsFilled: false,
+      instructorAssigned: false,
+      newOpenSeats: 0,
+    },
+    emailsSent: 0,
+    processingTimeMs: 10,
+    error: 'Section 99999 not found',
+  },
+  httpStatus: 200 as const,
+  retryable: false as const,
+});
+
+const rateLimitOutcome = (classNbr: string) => ({
+  disposition: 'retry' as const,
+  result: {
+    success: false,
+    classNbr,
+    changes: {
+      seatBecameAvailable: false,
+      seatsFilled: false,
+      instructorAssigned: false,
+      newOpenSeats: 0,
+    },
+    emailsSent: 0,
+    processingTimeMs: 10,
+    error: 'Rate limit exceeded',
+  },
+  httpStatus: 429 as const,
+  retryable: true as const,
+});
+
+const apiErrorOutcome = (classNbr: string) => ({
+  disposition: 'retry' as const,
+  result: {
+    success: false,
+    classNbr,
+    changes: {
+      seatBecameAvailable: false,
+      seatsFilled: false,
+      instructorAssigned: false,
+      newOpenSeats: 0,
+    },
+    emailsSent: 0,
+    processingTimeMs: 10,
+    error: 'ASU API 502 Bad Gateway',
+  },
+  httpStatus: 502 as const,
+  retryable: true as const,
 });
 
 // Minimal env stub for queue handler tests
@@ -124,7 +207,7 @@ const testCtx = {
   passThroughOnException: vi.fn(),
 } as unknown as ExecutionContext;
 
-// ── Queue handler tests (plan 004) ────────────────────────────────────────────
+// ── Queue handler tests ──────────────────────────────────────────────────────
 
 describe('worker queue handler — direct processSection call ack/retry mapping', () => {
   let worker: (typeof import('@/worker'))['default'];
@@ -140,8 +223,8 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     vi.clearAllMocks();
   });
 
-  it('acks message when processSection returns success:true', async () => {
-    mockProcessSection.mockResolvedValue(successResult('12345'));
+  it('acks message when processSection returns ack (success:true)', async () => {
+    mockProcessSection.mockResolvedValue(successOutcome('12345'));
 
     const msg = makeMessage('12345');
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
@@ -154,8 +237,8 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     );
   });
 
-  it('retries message when processSection returns success:false (DB upsert error)', async () => {
-    mockProcessSection.mockResolvedValue(dbFailResult('12345'));
+  it('retries message when processSection returns retry (DB upsert error)', async () => {
+    mockProcessSection.mockResolvedValue(dbFailOutcome('12345'));
 
     const msg = makeMessage('12345');
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
@@ -164,8 +247,8 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     expect(msg.ack).not.toHaveBeenCalled();
   });
 
-  it('acks message when processSection throws AuthError (non-retryable)', async () => {
-    mockProcessSection.mockRejectedValue(new AuthError('401 Unauthorized from ASU'));
+  it('acks message when processSection returns ack for AuthError (non-retryable)', async () => {
+    mockProcessSection.mockResolvedValue(authErrorOutcome('12345'));
 
     const msg = makeMessage('12345');
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
@@ -174,8 +257,8 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     expect(msg.retry).not.toHaveBeenCalled();
   });
 
-  it('acks message when processSection throws NotFoundError (non-retryable)', async () => {
-    mockProcessSection.mockRejectedValue(new NotFoundError('Section 99999 not found'));
+  it('acks message when processSection returns ack for NotFoundError (non-retryable)', async () => {
+    mockProcessSection.mockResolvedValue(notFoundOutcome('99999'));
 
     const msg = makeMessage('99999');
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
@@ -184,8 +267,8 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     expect(msg.retry).not.toHaveBeenCalled();
   });
 
-  it('retries message when processSection throws RateLimitError', async () => {
-    mockProcessSection.mockRejectedValue(new RateLimitError('Rate limit exceeded'));
+  it('retries message when processSection returns retry for RateLimitError', async () => {
+    mockProcessSection.mockResolvedValue(rateLimitOutcome('12345'));
 
     const msg = makeMessage('12345');
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
@@ -194,8 +277,8 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     expect(msg.ack).not.toHaveBeenCalled();
   });
 
-  it('retries message when processSection throws ApiError (upstream failure)', async () => {
-    mockProcessSection.mockRejectedValue(new ApiError('ASU API 502 Bad Gateway', 502));
+  it('retries message when processSection returns retry for ApiError (upstream failure)', async () => {
+    mockProcessSection.mockResolvedValue(apiErrorOutcome('12345'));
 
     const msg = makeMessage('12345');
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
@@ -216,9 +299,9 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
 
   it('processes multiple messages concurrently with independent ack/retry per message', async () => {
     mockProcessSection
-      .mockResolvedValueOnce(successResult('11111'))
-      .mockRejectedValueOnce(new RateLimitError('Rate limited'))
-      .mockResolvedValueOnce(dbFailResult('33333'));
+      .mockResolvedValueOnce(successOutcome('11111'))
+      .mockResolvedValueOnce(rateLimitOutcome('22222'))
+      .mockResolvedValueOnce(dbFailOutcome('33333'));
 
     const msg1 = makeMessage('11111');
     const msg2 = makeMessage('22222');
