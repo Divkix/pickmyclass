@@ -36,8 +36,6 @@ export default defineConfig({
       'anti-slop/no-object-parameters': 'error',
       'anti-slop/no-reflect-apply': 'error',
       'anti-slop/no-reflect-get': 'error',
-      'anti-slop/no-runtime-typeof': 'off',
-      'anti-slop/no-shape-in-symbol-names': 'off',
       'anti-slop/no-unknown-parameters': 'error',
       'anti-slop/no-unknown-returns': 'error',
       'anti-slop/no-unknown-type-aliases': 'error',
