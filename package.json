@@ -51,6 +51,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.51.1",
+    "@oxlint/plugins": "1.78.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.0",
@@ -64,6 +65,7 @@
     "@vitest/coverage-v8": "4.1.10",
     "jsdom": "^30.0.1",
     "knip": "^6.32.0",
+    "oxlint": "1.78.0",
     "satori": "^0.29.0",
     "supabase": "^2.113.0",
     "tailwindcss": "^4.3.3",
