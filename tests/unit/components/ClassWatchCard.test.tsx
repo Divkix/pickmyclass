@@ -4,13 +4,18 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { ClassWatchCard } from '@/components/ClassWatchCard';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+type MotionValue = JsonValue | React.ReactNode | ((e: React.TouchEvent) => void) | (() => void);
+type MotionDivState = { current: Record<string, MotionValue> };
+
 const { mockCreateWatch, mockToastError, mockToastSuccess, motionDivProps } = vi.hoisted(() => ({
   mockCreateWatch: vi.fn(),
   mockToastError: vi.fn(),
   mockToastSuccess: vi.fn(),
   // Captures the latest props passed to the motion.div mock so tests can drive
   // the real useSwipe handlers and inspect the animate prop.
-  motionDivProps: { current: {} } as { current: Record<string, unknown> },
+  // SAFETY: test mock captures motion props; handlers and animate are asserted via typed access
+  motionDivProps: { current: {} } as MotionDivState,
 }));
 
 vi.mock('sonner', () => ({
@@ -36,7 +41,8 @@ vi.mock('framer-motion', () => ({
   },
   motion: {
     div: (props: { children?: React.ReactNode }) => {
-      motionDivProps.current = props;
+      // SAFETY: test mock captures motion props; shape matches framer-motion contract for inspection
+      motionDivProps.current = props as Record<string, MotionValue>;
       return <div {...props}>{props.children}</div>;
     },
     button: ({ children, ...props }: { children: React.ReactNode }) => (
@@ -213,7 +219,8 @@ describe('ClassWatchCard', () => {
         // useCallback closures over its internal isSwiping state, so only the
         // latest render's handlers see the updated state.
         const handlers = () =>
-          motionDivProps.current as unknown as {
+          // SAFETY: test double for motion props; handlers shape matches useSwipe contract asserted in test
+          motionDivProps.current as {
             onTouchStart: (e: React.TouchEvent) => void;
             onTouchMove: (e: React.TouchEvent) => void;
             onTouchEnd: () => void;
@@ -221,9 +228,11 @@ describe('ClassWatchCard', () => {
 
         // Swipe left past the 100px threshold.
         act(() => {
+          // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because minimal mock not overlapping TouchEvent
           handlers().onTouchStart({ touches: [{ clientX: 200 }] } as unknown as React.TouchEvent);
         });
         act(() => {
+          // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because minimal mock not overlapping TouchEvent
           handlers().onTouchMove({ touches: [{ clientX: 80 }] } as unknown as React.TouchEvent);
         });
         act(() => {
@@ -232,6 +241,7 @@ describe('ClassWatchCard', () => {
 
         // onSwipeEnd runs in the same tick as onSwipeLeft: it must not reset the
         // slide-out to 0 (the stale-closure bug) — the card stays slid out.
+        // SAFETY: test inspects motion animate prop; shape matches framer-motion animate contract
         expect((motionDivProps.current.animate as { x: number }).x).toBe(-500);
 
         // After the 300ms slide-out the delete proceeds and the card resets.
@@ -239,6 +249,7 @@ describe('ClassWatchCard', () => {
           vi.advanceTimersByTime(300);
         });
         expect(onDelete).toHaveBeenCalledWith('watch-123');
+        // SAFETY: test inspects motion animate prop; shape matches framer-motion animate contract
         expect((motionDivProps.current.animate as { x: number }).x).toBe(0);
       } finally {
         vi.useRealTimers();

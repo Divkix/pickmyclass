@@ -28,6 +28,7 @@ export interface ClassInfo {
  * Used in lib/asu/api.ts for raw API response shape.
  */
 export interface ClassDetails {
+  [key: string]: string | number | null;
   subject: string;
   catalog_nbr: string;
   title: string;

@@ -59,16 +59,15 @@ function makeOutcome(
 }
 
 function createRequest(body: string, authorized = true): NextRequest {
+  // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: headers needs index signature for dynamic Authorization
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (authorized) headers.Authorization = 'Bearer test-cron-secret';
   return new NextRequest('http://localhost/api/queue/process-section', {
     method: 'POST',
     body,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(authorized ? { Authorization: 'Bearer test-cron-secret' } : {}),
-    },
+    headers,
   });
 }
-
 function validRequest(): NextRequest {
   return createRequest(JSON.stringify({ class_nbr: '12345', term: '2261' }));
 }

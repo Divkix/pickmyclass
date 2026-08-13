@@ -6,9 +6,10 @@ vi.mock('@/lib/db/queries', () => ({
 }));
 
 const mockSend = vi.fn();
+// SAFETY: test double constructs minimal SendEmail shape; only send is accessed
 const mockEmailBinding: SendEmail = {
   send: mockSend,
-} as unknown as SendEmail;
+} as SendEmail;
 
 import { getClassWatchers } from '@/lib/db/queries';
 import { handleDLQMessage } from '@/lib/queue/dlq-consumer';

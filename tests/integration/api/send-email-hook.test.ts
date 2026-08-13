@@ -16,7 +16,12 @@ vi.mock('cloudflare:workers', () => ({
 
 import { POST } from '@/app/api/auth/send-email-hook/route';
 
-function signedRequest(payload: unknown, secret = 'whsec_dGVzdC1zZWNyZXQ='): NextRequest {
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+function signedRequest(
+  payload: Record<string, JsonValue>,
+  secret = 'whsec_dGVzdC1zZWNyZXQ='
+): NextRequest {
   const body = JSON.stringify(payload);
   const webhook = new Webhook(secret);
   const id = 'msg_test_123';

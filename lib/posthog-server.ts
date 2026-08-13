@@ -2,11 +2,13 @@ import { PostHog } from 'posthog-node';
 import { POSTHOG_API_HOST, POSTHOG_PROJECT_TOKEN } from '@/lib/posthog/config';
 import { log } from '@/lib/log';
 
+type PostHogProperties = Record<string, string | number | boolean | null | undefined>;
+
 interface ServerEvent {
   distinctId: string;
   event: string;
-  properties?: Record<string, unknown>;
-  identify?: Record<string, unknown>;
+  properties?: PostHogProperties;
+  identify?: PostHogProperties;
 }
 
 let client: PostHog | null = null;

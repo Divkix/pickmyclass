@@ -35,6 +35,7 @@ function ConsentForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ageVerified, agreedToTerms }),
       });
+      // SAFETY: /api/auth/consent returns JSON with optional error string; shape asserted from API contract validated by server
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
         setError(data.error || 'Could not save consent');

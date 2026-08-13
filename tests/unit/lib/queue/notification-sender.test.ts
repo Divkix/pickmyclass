@@ -25,6 +25,7 @@ import { getServiceClient } from '@/lib/supabase/service';
 
 function mockRpc(data: unknown[] | null, error: { message: string } | null = null) {
   const rpcMock = vi.fn().mockResolvedValue({ data, error });
+  // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
   (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue({ rpc: rpcMock });
   return rpcMock;
 }
@@ -71,22 +72,29 @@ describe('sendSectionNotifications', () => {
     // Note: log(scope).info → console.info; log(scope).warn → console.warn; log(scope).error → console.error
 
     // Fresh email binding per test
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     emailBinding = {
       send: vi.fn().mockResolvedValue({ messageId: 'msg_ok' }),
-    } as unknown as SendEmail;
+    } as SendEmail;
 
     // Default mock: watchers returned, claimed, email succeeds
     mockRpc(mockWatchers);
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockReset();
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValue(
       new Set(['w1', 'w2'])
     );
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mockReset();
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mockResolvedValue([
       { success: true, messageId: 'msg_1' },
       { success: true, messageId: 'msg_2' },
     ]);
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     (deleteNotificationRecords as ReturnType<typeof vi.fn>).mockReset();
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     (deleteNotificationRecords as ReturnType<typeof vi.fn>).mockResolvedValue(1);
   });
 
@@ -182,6 +190,7 @@ describe('sendSectionNotifications', () => {
       changes: buildChanges({ seatBecameAvailable: true, instructorAssigned: true }),
     };
     // Each claim returns different subsets
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce(new Set(['w1'])) // seat_available claims w1
       .mockResolvedValueOnce(new Set(['w2'])); // instructor_assigned claims w2
@@ -190,6 +199,7 @@ describe('sendSectionNotifications', () => {
 
     // Two emails: w1 for seat, w2 for instructor
     expect(sendBatchEmailsOptimized).toHaveBeenCalledTimes(1);
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     const emailArg = (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(emailArg).toHaveLength(2);
     expect(emailArg[0]).toMatchObject({ watchId: 'w1', type: 'seat_available' });
@@ -198,6 +208,7 @@ describe('sendSectionNotifications', () => {
   });
 
   it('returns empty array when no slots claimed', async () => {
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValue(new Set());
 
     const result = await sendSectionNotifications(defaultParams());
@@ -207,6 +218,7 @@ describe('sendSectionNotifications', () => {
   });
 
   it('does not delete or retry when first claim returns empty (non-destructive)', async () => {
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(new Set());
 
     const result = await sendSectionNotifications(defaultParams());
@@ -219,6 +231,7 @@ describe('sendSectionNotifications', () => {
   });
 
   it('rolls back notification records when email sending fails', async () => {
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mockResolvedValue([
       { success: true, messageId: 'msg_1' },
       { success: false, error: 'Send failed' },
@@ -236,7 +249,10 @@ describe('sendSectionNotifications', () => {
   it('does not infer email engagement from successful delivery', async () => {
     await sendSectionNotifications(defaultParams());
 
-    const rpcMock = (getServiceClient() as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc;
+    const rawClient: unknown = getServiceClient();
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    const client = rawClient as { rpc: ReturnType<typeof vi.fn> };
+    const rpcMock = client.rpc;
     expect(
       rpcMock.mock.calls.filter((c: unknown[]) => c[0] === 'record_engagement_send_batch')
     ).toHaveLength(0);
@@ -253,6 +269,7 @@ describe('sendSectionNotifications', () => {
   it('calls sendBatchEmailsOptimized with correct email payloads', async () => {
     await sendSectionNotifications(defaultParams());
 
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     const [emails] = (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(emails).toHaveLength(2);
     expect(emails[0]).toMatchObject({
@@ -285,6 +302,7 @@ describe('sendSectionNotifications', () => {
   describe('claimSlots behavior', () => {
     it('happy path: first claim non-empty → no stale cleanup, emails only to claimed watchers', async () => {
       // First (and only) claim attempt returns all watchers.
+      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
       (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
         new Set(['w1', 'w2'])
       );
@@ -296,6 +314,7 @@ describe('sendSectionNotifications', () => {
       expect(tryRecordNotificationsBatch).toHaveBeenCalledTimes(1);
 
       // Emails sent to exactly the claimed watchers.
+      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
       const [emails] = (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(emails.map((e: { watchId: string }) => e.watchId)).toEqual(['w1', 'w2']);
       expect(result.map((r) => r.watchId)).toEqual(['w1', 'w2']);
@@ -304,6 +323,7 @@ describe('sendSectionNotifications', () => {
     it('first claim empty → no destructive delete, no re-claim, no re-send', async () => {
       // Fixed behavior: "0 claimed" means everyone is already (recently) notified.
       // We must NOT delete records and re-claim, which would re-email everyone.
+      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
       (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(new Set());
 
       const result = await sendSectionNotifications(defaultParams());

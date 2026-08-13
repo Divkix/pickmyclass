@@ -43,6 +43,14 @@ type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   href: LinkHref;
   children: ReactNode;
 };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ReactNode
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: LinkProps) => (
@@ -113,11 +121,12 @@ vi.mock('@/lib/db/queries', () => ({
 }));
 
 beforeAll(() => {
+  // SAFETY: test double constructs minimal ResizeObserver shape for layout; only observe/unobserve/disconnect are accessed
   global.ResizeObserver = class ResizeObserver {
     observe = vi.fn();
     unobserve = vi.fn();
     disconnect = vi.fn();
-  } as unknown as typeof ResizeObserver;
+  } as typeof ResizeObserver;
 });
 
 function createMotionElements() {
@@ -125,7 +134,7 @@ function createMotionElements() {
     as: Component,
     children,
     ...props
-  }: { as: 'div' | 'button'; children?: ReactNode } & Record<string, unknown>) => {
+  }: { as: 'div' | 'button'; children?: ReactNode } & Record<string, JsonValue>) => {
     const {
       initial: _initial,
       animate: _animate,
@@ -140,10 +149,10 @@ function createMotionElements() {
   };
 
   return {
-    div: (props: { children?: ReactNode } & Record<string, unknown>) => (
+    div: (props: { children?: ReactNode } & Record<string, JsonValue>) => (
       <MotionElement as="div" {...props} />
     ),
-    button: (props: { children?: ReactNode } & Record<string, unknown>) => (
+    button: (props: { children?: ReactNode } & Record<string, JsonValue>) => (
       <MotionElement as="button" {...props} />
     ),
   };
@@ -194,7 +203,7 @@ const classRows = [
  * class_states rows the service-client mock filters over. Reset to `classRows`
  * before each test; individual tests reassign it (e.g. the two-term case).
  */
-let classStateFixtures: Array<Record<string, unknown>> = classRows;
+let classStateFixtures: Array<Record<string, JsonValue>> = classRows;
 
 /**
  * Minimal term-aware `class_states` query builder: records the `.eq` filters
@@ -250,6 +259,7 @@ const userRows = [
 ];
 
 /** Default empty searchParams */
+// SAFETY: test constructs minimal searchParams shape for Next.js page contract
 const emptySearchParams = Promise.resolve({} as Record<string, string | undefined>);
 
 describe('admin pages', () => {
@@ -334,6 +344,7 @@ describe('admin pages', () => {
     expect(mockGetDistinctSubjects).toHaveBeenCalled();
 
     fireEvent.click(screen.getByText('Class #'));
+    // SAFETY: test double navigates table row; closest('tr') is guaranteed by rendered markup in this test
     fireEvent.click(screen.getByText('67890').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/classes/2261/67890');
   });
@@ -394,8 +405,8 @@ describe('admin pages', () => {
 
     // Verify paginated query was called (not the whole-table function)
     expect(mockGetUsersPage).toHaveBeenCalled();
-
     fireEvent.click(screen.getByText('Email'));
+    // SAFETY: test double navigates table row; closest('tr') is guaranteed by rendered markup in this test
     fireEvent.click(screen.getByText('student@example.com').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/users/user-2');
   });
@@ -415,8 +426,7 @@ describe('admin pages', () => {
       sort: 'email',
       dir: 'asc',
       role: 'admin',
-    } as Record<string, string | undefined>);
-
+    } satisfies Record<string, string | undefined>);
     await AdminUsersPage({ searchParams: sp });
 
     expect(mockGetUsersPage).toHaveBeenCalledWith(
@@ -436,8 +446,7 @@ describe('admin pages', () => {
       dir: 'asc',
       subject: 'CSE',
       seatStatus: 'full',
-    } as Record<string, string | undefined>);
-
+    } satisfies Record<string, string | undefined>);
     await AdminClassesPage({ searchParams: sp });
 
     expect(mockGetClassesPage).toHaveBeenCalledWith(

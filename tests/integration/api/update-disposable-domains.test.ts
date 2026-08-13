@@ -43,6 +43,7 @@ const originalFetch = globalThis.fetch;
 
 // Helper to create NextRequest with auth
 function createRequest(cronSecret?: string): NextRequest {
+  // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: headers needs index signature for dynamic Authorization
   const headers: Record<string, string> = {
     'User-Agent': 'Cloudflare-Workers-Cron',
   };
@@ -54,8 +55,6 @@ function createRequest(cronSecret?: string): NextRequest {
     headers,
   });
 }
-
-// Helper to parse response
 async function parseResponse(response: Response): Promise<SyncResponse> {
   return (await response.json()) as SyncResponse;
 }

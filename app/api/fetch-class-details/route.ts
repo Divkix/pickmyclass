@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     await requireUser(supabase);
 
-    // Get ASU API env vars (Cloudflare secrets)
-    const asuEnv = env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
+    // SAFETY: ASU API credentials are required Cloudflare secrets validated at deploy time; shape matches wrangler.jsonc env contract.
+    const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
 
     let classDetails: ClassDetails;
 

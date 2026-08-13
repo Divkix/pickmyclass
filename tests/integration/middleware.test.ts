@@ -11,14 +11,18 @@ const mockSignOut = vi.fn();
 
 // Captures the cookies adapter passed to createServerClient so tests can
 // simulate @supabase/ssr writing cookies through it (e.g. signOut deletions).
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 type MockCookieAdapter = {
-  getAll: () => { name: string; value: string; options?: Record<string, unknown> }[];
-  setAll: (cookies: { name: string; value: string; options?: Record<string, unknown> }[]) => void;
+  getAll: () => { name: string; value: string; options?: Record<string, JsonValue | Date> }[];
+  setAll: (
+    cookies: { name: string; value: string; options?: Record<string, JsonValue | Date> }[]
+  ) => void;
 };
 let mockCookiesAdapter: MockCookieAdapter | null = null;
 
 vi.mock('@supabase/ssr', () => ({
   createServerClient: vi.fn((...args: unknown[]) => {
+    // SAFETY: test double narrows mock args to known position; shape validated by test harness
     const options = args[2] as { cookies?: MockCookieAdapter } | undefined;
     mockCookiesAdapter = options?.cookies ?? null;
     return {

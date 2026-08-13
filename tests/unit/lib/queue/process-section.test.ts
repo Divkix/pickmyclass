@@ -38,6 +38,8 @@ import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassDetails } from '@/lib/types/class';
 import type { Env, SendEmail } from '@/lib/types/env';
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 function mockClassDetails(overrides: Partial<ClassDetails> = {}): ClassDetails {
   return {
     subject: 'CSE',
@@ -70,7 +72,8 @@ function buildEnv(): Pick<
   return {
     ASU_API_BASE_URL: 'https://api.example.com',
     ASU_API_TOKEN: 'test-token',
-    EMAIL: { send: vi.fn() } as unknown as SendEmail,
+    // SAFETY: test double constructs minimal SendEmail shape for queue processing; only send is accessed
+    EMAIL: { send: vi.fn() } as SendEmail,
     NOTIFICATION_FROM_EMAIL: 'notifications@pickmyclass.app',
   };
 }
@@ -79,7 +82,7 @@ function buildEnv(): Pick<
  * Build a mock DB client with chained methods that return `this` for fluent API.
  */
 function buildMockDb(singleResolvedValue: {
-  data: Record<string, unknown> | null;
+  data: Record<string, JsonValue> | null;
   error: { code?: string; message: string } | null;
 }) {
   const singleFn = vi.fn().mockResolvedValue(singleResolvedValue);
@@ -111,20 +114,25 @@ describe('processSection', () => {
       },
       error: null,
     });
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (fetchClassFromASU as ReturnType<typeof vi.fn>).mockResolvedValue(
       mockClassDetails({ seats_available: 5, non_reserved_seats: 3, instructor_name: 'Dr. Smith' })
     );
 
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (detectChanges as ReturnType<typeof vi.fn>).mockReturnValue(
       buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 3 })
     );
 
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (sendSectionNotifications as ReturnType<typeof vi.fn>).mockResolvedValue([
       { success: true, watchId: 'w1', type: 'seat_available' },
     ]);
 
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (resetNotificationsForSection as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
   });
 
@@ -137,6 +145,7 @@ describe('processSection', () => {
     const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
 
     // Should have fetched old state with correct chaining (includes term)
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because SupabaseClient not overlapping mock type
     const db = getServiceClient() as unknown as ReturnType<typeof buildMockDb>;
     expect(db.from).toHaveBeenCalledWith('class_states');
     expect(db.select).toHaveBeenCalledWith('*');
@@ -185,6 +194,7 @@ describe('processSection', () => {
   });
 
   it('no changes detected: only persists, no notifications', async () => {
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (detectChanges as ReturnType<typeof vi.fn>).mockReturnValue(buildChangeResult());
 
     const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
@@ -197,6 +207,7 @@ describe('processSection', () => {
   });
 
   it('seats filled: resets notifications and persists', async () => {
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (detectChanges as ReturnType<typeof vi.fn>).mockReturnValue(
       buildChangeResult({ seatsFilled: true, newOpenSeats: 0 })
     );
@@ -213,6 +224,7 @@ describe('processSection', () => {
   });
 
   it('ASU API throws NotFoundError: returns ack outcome (non-retryable)', async () => {
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
       new NotFoundError('Section 42737 not found')
     );
@@ -225,12 +237,14 @@ describe('processSection', () => {
     expect(outcome.result.success).toBe(false);
     expect(outcome.result.error).toBe('Section 42737 not found');
     // Should NOT have tried to persist or notify
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because SupabaseClient not overlapping mock type
     const db = getServiceClient() as unknown as ReturnType<typeof buildMockDb>;
     expect(db.upsert).not.toHaveBeenCalled();
     expect(sendSectionNotifications).not.toHaveBeenCalled();
   });
 
   it('ASU API throws RateLimitError: returns retry outcome (429)', async () => {
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
       new RateLimitError('Rate limit hit')
     );
@@ -249,6 +263,7 @@ describe('processSection', () => {
       error: null,
     });
     mockDb.upsert.mockResolvedValue({ error: { message: 'Constraint violation' } });
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
     const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
@@ -268,14 +283,17 @@ describe('processSection', () => {
       data: null,
       error: { code: 'PGRST116', message: 'No rows found' },
     });
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (fetchClassFromASU as ReturnType<typeof vi.fn>).mockResolvedValue(
       mockClassDetails({ seats_available: 5, non_reserved_seats: 3 })
     );
 
     // detectChanges would report a seat became available, but with no baseline (oldState null)
     // this is a false positive that must be suppressed.
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (detectChanges as ReturnType<typeof vi.fn>).mockReturnValue(
       buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 3 })
     );
@@ -306,6 +324,7 @@ describe('processSection', () => {
       data: null,
       error: { code: 'OTHER_ERR', message: 'Connection timeout' },
     });
+    // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
     (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
     const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
@@ -331,11 +350,14 @@ describe('processSection', () => {
       });
       // The class_states upsert (Step 5, now before send) fails.
       mockDb.upsert.mockResolvedValue({ error: { message: 'upsert exploded' } });
+      // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
       (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
+      // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
       (fetchClassFromASU as ReturnType<typeof vi.fn>).mockResolvedValue(
         mockClassDetails({ seats_available: 5, non_reserved_seats: 5 })
       );
+      // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
       (detectChanges as ReturnType<typeof vi.fn>).mockReturnValue(
         buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 5 })
       );
@@ -372,6 +394,7 @@ describe('processSection', () => {
         error: null,
       });
       mockDb.upsert.mockResolvedValue({ error: { message: 'upsert fail' } });
+      // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
       (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
       const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
@@ -381,6 +404,7 @@ describe('processSection', () => {
     });
 
     it('acks a thrown AuthError (non-retryable: bad token)', async () => {
+      // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
       (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
         new AuthError('401 Unauthorized from ASU')
       );
@@ -391,6 +415,7 @@ describe('processSection', () => {
     });
 
     it('acks a thrown NotFoundError (non-retryable: section gone)', async () => {
+      // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
       (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
         new NotFoundError('Section 99999 not found')
       );
@@ -401,6 +426,7 @@ describe('processSection', () => {
     });
 
     it('retries a thrown RateLimitError (transient upstream)', async () => {
+      // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
       (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
         new RateLimitError('Rate limit exceeded')
       );
@@ -411,6 +437,7 @@ describe('processSection', () => {
     });
 
     it('retries a thrown ApiError (upstream failure)', async () => {
+      // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
       (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
         new ApiError('ASU API 502 Bad Gateway', 502)
       );
@@ -421,6 +448,7 @@ describe('processSection', () => {
     });
 
     it('retries an unknown thrown Error (defensive)', async () => {
+      // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
       (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Unexpected internal error')
       );
@@ -431,18 +459,22 @@ describe('processSection', () => {
     });
 
     it('retries an unknown thrown non-Error value (defensive)', async () => {
+      // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test verifies defensive handling of non-Error throw values; needs unknown intermediate because string not overlapping Error
       (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue('boom' as unknown as Error);
       const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('retry');
       expect(outcome.httpStatus).toBe(500);
       expect(outcome.retryable).toBe(true);
 
+      // SAFETY: test double mocks service client; vi.fn shape matches expected contract
       (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+        // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test verifies defensive handling of non-Error throw values; needs unknown intermediate because undefined not overlapping Error
         undefined as unknown as Error
       );
       const outcome2 = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome2.disposition).toBe('retry');
 
+      // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test verifies defensive handling of non-Error throw values; needs unknown intermediate because null not overlapping Error
       (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(null as unknown as Error);
       const outcome3 = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome3.disposition).toBe('retry');
@@ -450,6 +482,7 @@ describe('processSection', () => {
 
     it('AuthError is acked even though it extends ApiError (subclass ordering)', async () => {
       // Ensures AuthError/NotFound check wins before ApiError base
+      // SAFETY: test double constructs minimal shape for the SDK contract; only accessed fields are asserted
       (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(new AuthError('401'));
       const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('ack');

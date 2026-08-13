@@ -6,6 +6,13 @@ import { fail, ok } from '@/lib/api/response';
 import { readAuthorizationState } from '@/lib/auth/authorization-state';
 import { loginAttemptPolicy } from '@/lib/auth/login-attempt-policy';
 import { createClient } from '@/lib/supabase/server';
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue | undefined };
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,17 +64,22 @@ export async function POST(request: NextRequest) {
         remainingAttempts: decision.remainingAttempts,
       });
     }
-
+    const details = {
+      isLocked: true as const,
+      remainingMinutes: decision.remainingMinutes,
+    } satisfies {
+      isLocked: true;
+      remainingMinutes: number;
+      remainingAttempts?: number;
+      [key: string]: JsonValue | undefined;
+    };
+    if (decision.reason === 'newly_locked') Object.assign(details, { remainingAttempts: 0 });
     return fail(
       decision.reason === 'preexisting'
         ? 'Account locked due to too many failed login attempts. Please try again later.'
         : 'Too many failed login attempts. Your account has been locked for 15 minutes.',
       423,
-      {
-        isLocked: true,
-        ...(decision.reason === 'newly_locked' ? { remainingAttempts: 0 } : {}),
-        remainingMinutes: decision.remainingMinutes,
-      }
+      details
     );
   } catch (err) {
     log('Auth').error('Unexpected error:', err);

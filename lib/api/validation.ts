@@ -1,6 +1,7 @@
 import type { ZodError } from 'zod';
 
 export interface ValidationIssueDetail {
+  [key: string]: string;
   field: string;
   message: string;
 }

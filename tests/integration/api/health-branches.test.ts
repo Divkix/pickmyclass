@@ -1,15 +1,23 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 type HealthRouteOptions = {
-  envOverrides?: Record<string, unknown>;
-  dbResult?: { error: { message: string } | null };
+  envOverrides?: Record<string, JsonValue>;
   dbThrows?: boolean;
+  dbResult?: { error: { message: string } | null } | null;
   asuError?: Error;
   doThrows?: boolean;
   lockTimestamps?: { acquiredAt: number; expiresAt: number };
 };
-
 const baseEnv = {
   ASU_API_BASE_URL: 'https://classes.example.test',
   ASU_API_TOKEN: 'test-token',

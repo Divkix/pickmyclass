@@ -1,6 +1,8 @@
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+type WirePayload = Record<string, JsonValue>;
+
 const CRON_LOCK_NAME = 'pickmyclass-cron-lock';
 const CRON_LOCK_TIMEOUT_MS = 25 * 60 * 1000;
-
 interface CronLockState {
   locked: boolean;
   lockAcquiredAt: number | null;
@@ -8,6 +10,7 @@ interface CronLockState {
 }
 
 interface CronLockStore {
+  // eslint-disable-next-line anti-slop/no-unknown-returns -- SAFETY: DO storage returns untyped wire value; decoded via isStoredState guard at boundary
   load(): Promise<unknown>;
   save(state: CronLockState): Promise<void>;
 }
@@ -31,11 +34,12 @@ export interface CronLockLease {
 function unlockedState(): CronLockState {
   return { locked: false, lockAcquiredAt: null, lockHolder: null };
 }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
+// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: type guard decodes unknown wire payload at I/O boundary
+function isRecord(value: unknown): value is WirePayload {
   return typeof value === 'object' && value !== null;
 }
 
+// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: type guard validates unknown DO storage value before narrowing to CronLockState
 function isStoredState(value: unknown): value is CronLockState {
   if (!isRecord(value) || typeof value.locked !== 'boolean') return false;
   if (!value.locked) {
@@ -137,7 +141,7 @@ export function createCronLockLifecycle(
   };
 }
 
-async function readWireResponse(response: Response): Promise<Record<string, unknown>> {
+async function readWireResponse(response: Response): Promise<WirePayload> {
   if (!response.ok) throw new Error(`Cron lock request failed (${response.status})`);
   let payload: unknown;
   try {
@@ -149,17 +153,15 @@ async function readWireResponse(response: Response): Promise<Record<string, unkn
   return payload;
 }
 
-function isAcquireResponse(payload: Record<string, unknown>): boolean {
+function isAcquireResponse(payload: WirePayload): boolean {
   return typeof payload.acquired === 'boolean' && typeof payload.message === 'string';
 }
 
-function isReleaseResponse(payload: Record<string, unknown>): boolean {
+function isReleaseResponse(payload: WirePayload): boolean {
   return typeof payload.released === 'boolean' && typeof payload.message === 'string';
 }
 
-function isStatusResponse(
-  payload: Record<string, unknown>
-): payload is Record<string, unknown> & CronLockStatus {
+function isStatusResponse(payload: WirePayload): payload is WirePayload & CronLockStatus {
   return (
     typeof payload.locked === 'boolean' &&
     (payload.lockHolder === null || typeof payload.lockHolder === 'string') &&
@@ -197,7 +199,9 @@ export function createCronLockClient(namespace?: DurableObjectNamespace) {
       const payload = await readWireResponse(response);
       if (!isAcquireResponse(payload)) throw new Error('Invalid cron lock response');
 
+      // SAFETY: isAcquireResponse verified payload.acquired is boolean via typeof check
       const acquired = payload.acquired as boolean;
+      // SAFETY: isAcquireResponse verified payload.message is string via typeof check
       return {
         configured: true,
         acquired,

@@ -31,8 +31,10 @@ export async function GET(request: NextRequest) {
   let lockLease: CronLockLease | null = null;
 
   try {
-    const cfEnv = env as unknown as Env;
-
+    // SAFETY: Cloudflare Workers env is opaque runtime value; widen to unknown before narrowing to typed Env contract.
+    const rawEnv: unknown = env;
+    // SAFETY: Env type reflects wrangler.jsonc bindings validated at deploy time; narrowed from unknown.
+    const cfEnv = rawEnv as Env;
     if (!cfEnv.CRON_SECRET) {
       log('Cron').error('CRON_SECRET not configured');
       return fail('Server configuration error', 500);

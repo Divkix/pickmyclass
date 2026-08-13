@@ -50,7 +50,9 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 // Helper to create NextRequest
-function createRequest(body: Record<string, unknown>): NextRequest {
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+function createRequest(body: Record<string, JsonValue>): NextRequest {
   return new NextRequest('http://localhost:3000/api/auth/login', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -59,7 +61,6 @@ function createRequest(body: Record<string, unknown>): NextRequest {
     },
   });
 }
-
 // Helper to parse response
 async function parseResponse(response: Response): Promise<LoginResponse> {
   return (await response.json()) as LoginResponse;

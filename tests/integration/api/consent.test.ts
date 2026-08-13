@@ -20,14 +20,15 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import { POST } from '@/app/api/auth/consent/route';
 
-function request(body: unknown): NextRequest {
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+function request(body: Record<string, JsonValue>): NextRequest {
   return new NextRequest('https://pickmyclass.app/api/auth/consent', {
     method: 'POST',
     body: JSON.stringify(body),
     headers: { 'content-type': 'application/json' },
   });
 }
-
 describe('POST /api/auth/consent', () => {
   beforeEach(() => {
     vi.clearAllMocks();

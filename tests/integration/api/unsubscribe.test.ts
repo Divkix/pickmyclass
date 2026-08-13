@@ -24,10 +24,12 @@ function request(url: string, method = 'GET'): NextRequest {
   return new NextRequest(url, { method });
 }
 
-async function json(response: Response) {
-  return response.json() as Promise<Record<string, unknown>>;
-}
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
+async function json(response: Response) {
+  // SAFETY: test helper parses JSON response; shape asserted per test case via property access
+  return response.json() as Promise<Record<string, JsonValue>>;
+}
 describe('/api/unsubscribe', () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
   let logSpy: ReturnType<typeof vi.spyOn>;

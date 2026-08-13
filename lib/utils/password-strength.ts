@@ -6,11 +6,13 @@
  * low-variety passphrase can still clear the minimum-strength gate (the
  * register API only requires 8 characters).
  */
-export function calculatePasswordStrength(password: string): {
+type PasswordStrengthResult = {
   score: number;
   feedback: { warning?: string; suggestions?: string[] };
-} {
-  if (!password) return { score: 0, feedback: {} };
+};
+
+export function calculatePasswordStrength(password: string) {
+  if (!password) return { score: 0, feedback: {} } satisfies PasswordStrengthResult;
 
   let score = 0;
   const feedback: string[] = [];
@@ -37,5 +39,5 @@ export function calculatePasswordStrength(password: string): {
   return {
     score,
     feedback: { suggestions: feedback.length > 0 ? feedback : undefined },
-  };
+  } satisfies PasswordStrengthResult;
 }

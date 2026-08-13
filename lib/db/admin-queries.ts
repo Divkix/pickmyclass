@@ -61,6 +61,7 @@ interface WatchWithClass extends Tables<'class_watches'> {
  * const total = await getTotalEmailsSent()
  */
 export async function getTotalEmailsSent(): Promise<number> {
+  // SAFETY: adminCache only stores numbers written by getTotalEmailsSent; miss returns undefined
   const cached = adminCache.get('total-emails-sent') as number | undefined;
   if (cached !== undefined) return cached;
 
@@ -93,6 +94,7 @@ export async function getTotalEmailsSent(): Promise<number> {
  * const total = await getTotalUsers()
  */
 export async function getTotalUsers(): Promise<number> {
+  // SAFETY: adminCache only stores numbers written by getTotalUsers; miss returns undefined
   const cached = adminCache.get('total-users') as number | undefined;
   if (cached !== undefined) return cached;
 
@@ -121,6 +123,7 @@ export async function getTotalUsers(): Promise<number> {
  * const total = await getAdminCount()
  */
 export async function getAdminCount(): Promise<number> {
+  // SAFETY: adminCache only stores numbers written by getAdminCount; miss returns undefined
   const cached = adminCache.get('admin-count') as number | undefined;
   if (cached !== undefined) return cached;
 
@@ -153,6 +156,7 @@ export async function getAdminCount(): Promise<number> {
  * const total = await getTotalClassesWatched()
  */
 export async function getTotalClassesWatched(): Promise<number> {
+  // SAFETY: adminCache only stores numbers written by getTotalClassesWatched; miss returns undefined
   const cached = adminCache.get('total-classes-watched') as number | undefined;
   if (cached !== undefined) return cached;
 
@@ -279,6 +283,7 @@ export async function getUsersPage(params: GetUsersPageParams = {}): Promise<Use
     is_admin: row.is_admin,
     seat_emails: Number(row.seat_emails),
     instructor_emails: Number(row.instructor_emails),
+    // SAFETY: get_users_page RPC constrains notification_status to NotificationStatus via DB check constraint
     notification_status: row.notification_status as NotificationStatus,
   }));
 
@@ -371,6 +376,7 @@ export async function getClassesPage(params: GetClassesPageParams = {}): Promise
  * @returns Sorted array of subject codes
  */
 export async function getDistinctSubjects(): Promise<string[]> {
+  // SAFETY: adminCache only stores string arrays written by getDistinctSubjects; miss returns undefined
   const cached = adminCache.get('distinct-subjects') as string[] | undefined;
   if (cached !== undefined) return cached;
 
@@ -417,7 +423,9 @@ export interface RecentActivityItem {
  * @param limit - Maximum number of items to return (default: 50)
  * @returns Array of unified activity items ordered by `activityAt` descending
  */
+// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: boundary helper narrows unknown catch error via code property check
 function isMissingRecentActivityRpcError(error: unknown): boolean {
+  // SAFETY: Supabase PostgREST error shape always includes optional code; narrowing caught error at boundary
   const maybeError = error as { code?: string };
   return maybeError.code === 'PGRST202' || maybeError.code === '42883';
 }
@@ -429,6 +437,7 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
   const sanitizedLimit = Math.min(500, Math.max(1, Math.floor(limit)));
 
   const cacheKey = `recent-activity-${sanitizedLimit}`;
+  // SAFETY: adminCache only stores RecentActivityItem arrays written by getRecentActivity; miss returns undefined
   const cached = adminCache.get(cacheKey) as RecentActivityItem[] | undefined;
   if (cached !== undefined) return cached;
 
@@ -449,12 +458,14 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
   }
 
   const items: RecentActivityItem[] = (data || []).map((row) => ({
+    // SAFETY: get_recent_activity RPC constrains activity_type to ActivityType union via DB check constraint
     type: row.activity_type as ActivityType,
     activityAt: row.activity_at,
     userEmail: row.user_email,
     classNbr: row.class_nbr,
     subject: row.subject,
     catalogNbr: row.catalog_nbr,
+    // SAFETY: get_recent_activity RPC constrains notification_type to allowed union or null via DB check constraint
     notificationType: row.notification_type as 'seat_available' | 'instructor_assigned' | null,
   }));
 

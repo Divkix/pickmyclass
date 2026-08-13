@@ -79,6 +79,7 @@ export default function DashboardPage() {
         throw new Error('Failed to fetch class watches');
       }
 
+      // SAFETY: /api/class-watches returns JSON shaped as GetClassWatchesResponse per API contract validated by server
       const data = (await response.json()) as GetClassWatchesResponse;
       setWatches(data.watches || []);
       setMaxWatches(data.maxWatches || 10);

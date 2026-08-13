@@ -5,6 +5,7 @@ const mockFrom = vi.fn();
 
 vi.mock('@/lib/supabase/service', () => ({
   getServiceClient: vi.fn(() => ({
+    // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: mock mirrors Supabase rpc which accepts unknown params decoded at boundary
     rpc: (name: string, params: unknown) => mockRpc(name, params),
     from: (table: string) => mockFrom(table),
   })),

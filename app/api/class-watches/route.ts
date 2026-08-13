@@ -55,6 +55,7 @@ export async function GET() {
       classStates = states || [];
     }
 
+    // SAFETY: statesMap is indexed by `${term}:${class_nbr}` derived from ClassStateRow entries; Record type models the validated composite key
     const statesMap = classStates.reduce(
       (acc, state) => {
         acc[`${state.term}:${state.class_nbr}`] = state;
@@ -81,6 +82,7 @@ export async function GET() {
       log('API').warn('Onboarding state read failed; failing open:', profileError);
     }
 
+    // SAFETY: profile is the result of maybeSingle() selecting onboarding columns; null or shape matches OnboardingRow by DB contract
     return ok({
       watches: watchesWithStates,
       maxWatches: MAX_WATCHES_PER_USER,
@@ -140,10 +142,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { term, class_nbr } = validation.data;
-
-    // Get ASU API env vars (Cloudflare secrets)
-    const asuEnv = env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
-
+    // SAFETY: env is Cloudflare Workers bindings; ASU_API_BASE_URL and ASU_API_TOKEN are required secrets validated at deploy
+    const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
     let classDetails: ClassDetails;
     try {
       classDetails = await fetchClassFromASU({ class_nbr, term }, asuEnv);

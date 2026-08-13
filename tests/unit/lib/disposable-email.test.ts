@@ -101,16 +101,19 @@ describe('isDisposableEmail', () => {
   });
 
   function createMockKV(domains: string[]) {
+    const get = vi.fn();
+    get.mockImplementation(async (key: string) => {
+      if (key === 'disposable-domains') return JSON.stringify(domains);
+      return null;
+    });
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     return {
-      get: vi.fn(async (key: string) => {
-        if (key === 'disposable-domains') return JSON.stringify(domains);
-        return null;
-      }),
+      get,
       put: vi.fn(),
       delete: vi.fn(),
       list: vi.fn(),
       getWithMetadata: vi.fn(),
-    } as unknown as KVNamespace;
+    } as KVNamespace;
   }
 
   it('should detect disposable email domain', async () => {
@@ -139,17 +142,26 @@ describe('isDisposableEmail', () => {
   });
 
   it('should fail open when KV throws', async () => {
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     const kv = {
       get: vi.fn().mockRejectedValue(new Error('KV unavailable')),
-    } as unknown as KVNamespace;
+      put: vi.fn(),
+      delete: vi.fn(),
+      list: vi.fn(),
+      getWithMetadata: vi.fn(),
+    } as KVNamespace;
     const result = await isDisposableEmail('user@mailinator.com', kv);
     expect(result.disposable).toBe(false);
   });
-
   it('should fail open when KV returns null (empty store)', async () => {
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     const kv = {
       get: vi.fn().mockResolvedValue(null),
-    } as unknown as KVNamespace;
+      put: vi.fn(),
+      delete: vi.fn(),
+      list: vi.fn(),
+      getWithMetadata: vi.fn(),
+    } as KVNamespace;
     const result = await isDisposableEmail('user@mailinator.com', kv);
     expect(result.disposable).toBe(false);
   });

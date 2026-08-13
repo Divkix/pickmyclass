@@ -22,7 +22,9 @@ import type { Env } from '@/lib/types/env';
 vi.mock('cloudflare:workers', () => ({
   DurableObject: class DurableObject {
     constructor(
+      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock mirrors DurableObject constructor which accepts unknown at I/O boundary
       protected ctx: unknown,
+      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock mirrors DurableObject constructor which accepts unknown at I/O boundary
       protected env: unknown
     ) {}
   },
@@ -53,10 +55,7 @@ const handlerMock = await import('vinext/server/app-router-entry');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeMessage(
-  class_nbr: string,
-  term = '2261'
-): { body: ClassCheckMessage; ack: ReturnType<typeof vi.fn>; retry: ReturnType<typeof vi.fn> } {
+function makeMessage(class_nbr: string, term = '2261') {
   return {
     body: {
       class_nbr,
@@ -66,6 +65,10 @@ function makeMessage(
     },
     ack: vi.fn(),
     retry: vi.fn(),
+  } satisfies {
+    body: ClassCheckMessage;
+    ack: ReturnType<typeof vi.fn>;
+    retry: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -73,10 +76,13 @@ function makeBatch(
   messages: ReturnType<typeof makeMessage>[],
   queue = 'pickmyclass-queue'
 ): MessageBatch<ClassCheckMessage> {
-  return {
+  // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal MessageBatch mock
+  const raw: unknown = {
     queue,
     messages,
-  } as unknown as MessageBatch<ClassCheckMessage>;
+  };
+  // eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+  return raw as MessageBatch<ClassCheckMessage>;
 }
 
 const successOutcome = (classNbr: string) => ({
@@ -192,22 +198,22 @@ const apiErrorOutcome = (classNbr: string) => ({
   retryable: true as const,
 });
 
-// Minimal env stub for queue handler tests
+// SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
 const mockEnv = {
   CRON_SECRET: 'test-secret',
   ASU_API_BASE_URL: 'https://api.asu.edu',
   ASU_API_TOKEN: 'test-token',
   EMAIL: {},
   NOTIFICATION_FROM_EMAIL: 'no-reply@test.com',
-} as unknown as Parameters<(typeof import('@/worker'))['default']['queue']>[1];
+} as Parameters<(typeof import('@/worker'))['default']['queue']>[1];
 
-// Minimal ExecutionContext stub
-const testCtx = {
+// eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal ExecutionContext mock
+const rawTestCtx: unknown = {
   waitUntil: vi.fn(),
   passThroughOnException: vi.fn(),
-} as unknown as ExecutionContext;
-
-// ── Queue handler tests ──────────────────────────────────────────────────────
+};
+// eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+const testCtx = rawTestCtx as ExecutionContext;
 
 describe('worker queue handler — direct processSection call ack/retry mapping', () => {
   let worker: (typeof import('@/worker'))['default'];
@@ -227,6 +233,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(successOutcome('12345'));
 
     const msg = makeMessage('12345');
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.ack).toHaveBeenCalledOnce();
@@ -241,6 +248,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(dbFailOutcome('12345'));
 
     const msg = makeMessage('12345');
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.retry).toHaveBeenCalledOnce();
@@ -251,6 +259,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(authErrorOutcome('12345'));
 
     const msg = makeMessage('12345');
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.ack).toHaveBeenCalledOnce();
@@ -261,6 +270,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(notFoundOutcome('99999'));
 
     const msg = makeMessage('99999');
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.ack).toHaveBeenCalledOnce();
@@ -271,6 +281,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(rateLimitOutcome('12345'));
 
     const msg = makeMessage('12345');
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.retry).toHaveBeenCalledOnce();
@@ -281,6 +292,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(apiErrorOutcome('12345'));
 
     const msg = makeMessage('12345');
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.retry).toHaveBeenCalledOnce();
@@ -291,6 +303,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockRejectedValue(new Error('Unexpected internal error'));
 
     const msg = makeMessage('12345');
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.retry).toHaveBeenCalledOnce();
@@ -307,6 +320,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     const msg2 = makeMessage('22222');
     const msg3 = makeMessage('33333');
 
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg1, msg2, msg3]), mockEnv, {} as ExecutionContext);
 
     // msg1: success → ack
@@ -326,6 +340,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockHandleDLQMessage.mockResolvedValue(undefined);
 
     const msg = makeMessage('12345');
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg], 'pickmyclass-dlq'), mockEnv, {} as ExecutionContext);
 
     // processSection should NOT be called for DLQ messages
@@ -355,6 +370,7 @@ describe('worker.ts scheduled handler', () => {
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));
 
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await workerDefault.scheduled(
       { cron: '0 4 * * *', scheduledTime: Date.now() },
       scheduledEnv as Env,
@@ -362,6 +378,7 @@ describe('worker.ts scheduled handler', () => {
     );
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     const calledRequest = fetchSpy.mock.calls[0]![0] as Request;
     expect(calledRequest.url).toContain('/api/cron/update-disposable-domains');
     expect(calledRequest.headers.get('Authorization')).toBe('Bearer test-cron-secret');
@@ -372,6 +389,7 @@ describe('worker.ts scheduled handler', () => {
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));
 
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await workerDefault.scheduled(
       { cron: '0,30 * * * *', scheduledTime: Date.now() },
       scheduledEnv as Env,
@@ -379,6 +397,7 @@ describe('worker.ts scheduled handler', () => {
     );
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     const calledRequest = fetchSpy.mock.calls[0]![0] as Request;
     expect(calledRequest.url).toBe('http://localhost/api/cron');
   });
@@ -389,12 +408,14 @@ describe('worker.ts scheduled handler', () => {
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));
 
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await workerDefault.scheduled(
       { cron: '0,30 * * * *', scheduledTime },
       scheduledEnv as Env,
       testCtx
     );
 
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     const calledRequest = fetchSpy.mock.calls[0]![0] as Request;
     expect(calledRequest.headers.get('X-Cron-Scheduled-Time')).toBe(String(scheduledTime));
   });
@@ -405,6 +426,7 @@ describe('worker.ts scheduled handler', () => {
     );
 
     await expect(
+      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
       workerDefault.scheduled(
         { cron: '0,30 * * * *', scheduledTime: Date.now() },
         scheduledEnv as Env,
@@ -417,6 +439,7 @@ describe('worker.ts scheduled handler', () => {
     vi.spyOn(handlerMock.default, 'fetch').mockRejectedValueOnce(new Error('Handler crashed'));
 
     await expect(
+      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
       workerDefault.scheduled(
         { cron: '0,30 * * * *', scheduledTime: Date.now() },
         scheduledEnv as Env,
@@ -432,6 +455,7 @@ describe('worker.ts scheduled handler', () => {
       new Response('partial', { status: 207 })
     );
 
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await workerDefault.scheduled(
       { cron: '0,30 * * * *', scheduledTime: Date.now() },
       scheduledEnv as Env,

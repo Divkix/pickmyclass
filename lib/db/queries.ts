@@ -96,6 +96,7 @@ export async function getMostWatchedClass(term: string): Promise<SectionRef | nu
     throw new Error(`Failed to fetch most watched class: ${error.message}`);
   }
 
+  // SAFETY: get_most_watched_class RPC returns SectionRef rows; narrow generic Json array at boundary
   const row = (data as SectionRef[] | null)?.[0];
   if (!row) return null;
   return { class_nbr: row.class_nbr, term: row.term };
@@ -231,6 +232,7 @@ export async function tryRecordNotificationsBatch(
     throw new Error(`Failed to batch record notifications: ${error.message}`);
   }
 
+  // SAFETY: try_record_notifications_batch RPC returns text[] of recorded watch IDs per contract
   const recordedIds = new Set<string>(data as string[]);
   log('DB').info(`Batch ${notificationType}: ${recordedIds.size}/${watchIds.length} recorded`);
   return recordedIds;

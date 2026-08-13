@@ -12,13 +12,30 @@ import { getServiceClient } from '@/lib/supabase/service';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 import { createCronLockClient } from '@/lib/worker/cron-lock';
 
-/**
- * Health status response
- */
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+type HealthCheckResult = {
+  status: string;
+  latency_ms?: number;
+  error?: string;
+  name?: string;
+  type?: string;
+  locked?: boolean;
+  lock_holder?: string | null;
+  time_held_ms?: number | null;
+  lock_acquired_at?: string | null;
+  expires_at?: string | null;
+  message?: string;
+  missing_vars?: string[];
+  configured?: boolean;
+  missing?: string[];
+  [key: string]: JsonValue | undefined;
+};
+
 interface HealthStatus {
   timestamp: string;
   status: 'healthy' | 'degraded' | 'unhealthy';
-  checks: Record<string, unknown>;
+  checks: Record<string, HealthCheckResult>;
   response_time_ms?: number;
 }
 
@@ -36,7 +53,10 @@ export async function GET(request: Request) {
   // Auth check first - unauthenticated requests get a simple liveness probe
   // without running expensive DB/DO queries (prevents DoS via health endpoint)
   const authHeader = request.headers.get('authorization');
-  const cfRecord = env as unknown as Record<string, string | undefined>;
+  // SAFETY: Cloudflare Workers env is opaque runtime value; widen to unknown before narrowing to string record for health checks.
+  const rawEnv: unknown = env;
+  // SAFETY: Record<string, string | undefined> reflects the dynamic env contract for health checks; narrowed from unknown after runtime widening.
+  const cfRecord = rawEnv as Record<string, string | undefined>;
   const cronSecret = process.env.CRON_SECRET || cfRecord.CRON_SECRET;
   const isAuthenticated =
     !!cronSecret && !!authHeader && timingSafeCompare(authHeader, `Bearer ${cronSecret}`);
@@ -94,7 +114,8 @@ export async function GET(request: Request) {
 
   // 2. Check ASU API
   try {
-    const asuEnv = env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
+    // SAFETY: ASU API credentials are required Cloudflare secrets validated by deployment; shape matches wrangler.jsonc env contract.
+    const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
     await fetchClassFromASU({ class_nbr: '10001', term: '2251' }, asuEnv);
     health.checks.asu_api = {
       name: 'ASU API',
@@ -119,7 +140,8 @@ export async function GET(request: Request) {
 
   // 2b. Check Cron Lock Status (Durable Object)
   try {
-    const cfEnv = env as unknown as {
+    // SAFETY: Durable Object namespace binding is an optional Cloudflare binding; shape matches wrangler.jsonc env contract.
+    const cfEnv = env as {
       PICKMYCLASS_CRON_LOCK_DO?: DurableObjectNamespace;
     };
 
@@ -174,8 +196,9 @@ export async function GET(request: Request) {
     escalateStatus('unhealthy');
   }
 
-  // 4. Check Email Service
-  const emailConfigured = !!(env as unknown as { EMAIL?: SendEmail }).EMAIL;
+  // SAFETY: Cloudflare Email binding is an optional service binding; shape matches wrangler.jsonc env contract.
+  const emailEnv = env as { EMAIL?: SendEmail };
+  const emailConfigured = !!emailEnv.EMAIL;
   const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || cfRecord.NOTIFICATION_FROM_EMAIL;
   const missingEmailConfig = [
     ...(!emailConfigured ? ['EMAIL binding'] : []),

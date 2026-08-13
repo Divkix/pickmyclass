@@ -25,10 +25,10 @@ export interface OnboardingState {
   onboarding_skipped_at: string | null;
   needs_onboarding: boolean;
 }
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 /** ok()-compatible payload (spreads into the response envelope). */
-export type OnboardingPayload = OnboardingState & Record<string, unknown>;
-
+export type OnboardingPayload = OnboardingState & Record<string, JsonValue>;
 /** The three lifecycle states a user can be in. */
 export type OnboardingStatus = 'pending' | 'skipped' | 'completed';
 

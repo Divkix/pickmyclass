@@ -45,7 +45,9 @@ import { POST as postSignout } from '@/app/api/auth/signout/route';
 import { GET as authCallback } from '@/app/auth/callback/route';
 import { GET as redirectToUniversity } from '@/app/go/[uni]/route';
 
-function post(url: string, body: unknown): NextRequest {
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+function post(url: string, body: Record<string, JsonValue>): NextRequest {
   return new NextRequest(url, {
     method: 'POST',
     body: JSON.stringify(body),
@@ -58,7 +60,8 @@ function get(url: string): NextRequest {
 }
 
 async function json(response: Response) {
-  return response.json() as Promise<Record<string, unknown>>;
+  // SAFETY: test helper parses JSON response; shape asserted per test case via property access
+  return response.json() as Promise<Record<string, JsonValue>>;
 }
 
 describe('misc API routes', () => {

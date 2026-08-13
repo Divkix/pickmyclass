@@ -15,7 +15,8 @@ function normalizeHookSecret(secret: string): string {
 // Intentional exception: response shape is dictated by the Supabase Send Email Hook
 // (standardwebhooks protocol) — not the ok()/fail() envelope.
 export async function POST(request: Request) {
-  const cfEnv = env as unknown as {
+  // SAFETY: Cloudflare Workers env provides optional email and secret bindings at deploy time; shape matches wrangler.jsonc env contract.
+  const cfEnv = env as {
     EMAIL?: SendEmail;
     NOTIFICATION_FROM_EMAIL?: string;
     SUPABASE_SEND_EMAIL_HOOK_SECRET?: string;
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
 
   try {
     const webhook = new Webhook(normalizeHookSecret(hookSecret));
+    // SAFETY: Webhook.verify cryptographically validates the Standard Webhooks signature and returns parsed JSON; shape matches Supabase Send Email Hook contract validated by buildAuthEmailMessages.
     payload = webhook.verify(
       payloadText,
       Object.fromEntries(request.headers)

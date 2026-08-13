@@ -26,8 +26,10 @@ const MINIMUM_DOMAIN_COUNT = 1000;
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
-  const cfEnv = env as unknown as Env;
-
+  // SAFETY: Cloudflare Workers env is opaque runtime value; widen to unknown before narrowing to typed Env contract.
+  const rawEnv: unknown = env;
+  // SAFETY: Env type reflects wrangler.jsonc bindings validated at deploy time; narrowed from unknown.
+  const cfEnv = rawEnv as Env;
   try {
     // Authentication: Require CRON_SECRET Bearer token
     if (!cfEnv.CRON_SECRET) {

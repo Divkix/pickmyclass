@@ -41,7 +41,9 @@ vi.mock('@/lib/supabase/server', () => ({
 
 // Helper to create NextRequest. Consent flags default to true (required by the
 // schema) but can be overridden/omitted by spreading a partial body.
-function createRequest(body: Record<string, unknown>): NextRequest {
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+function createRequest(body: Record<string, JsonValue>): NextRequest {
   return new NextRequest('http://localhost:3000/api/auth/register', {
     method: 'POST',
     body: JSON.stringify({ ageVerified: true, agreedToTerms: true, ...body }),

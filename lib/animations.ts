@@ -16,6 +16,7 @@ export const reduceMotion = (variants: Variants): Variants => {
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
   ) {
+    // SAFETY: empty object is initial Variants accumulator; reduce populates valid variant entries
     return Object.keys(variants).reduce((acc, key) => {
       acc[key] = {
         // oxlint-disable-next-line typescript/no-misused-spread

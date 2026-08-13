@@ -19,11 +19,11 @@ export type { OnboardingState };
 
 type Step = 1 | 2 | 3;
 
-const stepTitles: Record<Step, string> = {
+const stepTitles = {
   1: 'Welcome to PickMyClass',
   2: 'Add your first class',
   3: "You're all set",
-};
+} as const satisfies Record<Step, string>;
 
 /** Display details for the popular-class shortcut (mirrors the API payload). */
 interface PopularClassDetails {
@@ -111,6 +111,7 @@ export function OnboardingModal({
       fetch('/api/onboarding/popular-class')
         .then((response) => response.json())
         .then((data) => {
+          // SAFETY: /api/onboarding/popular-class returns { popularClass?: PopularClass | null } per API contract; narrow JSON
           setPopularClass((data as { popularClass?: PopularClass | null }).popularClass ?? null);
         })
         .catch(() => {
@@ -139,6 +140,7 @@ export function OnboardingModal({
     setSkipping(true);
     try {
       const response = await fetch('/api/user/onboarding', { method: 'POST' });
+      // SAFETY: response.json() validated by API contract; shape matches Partial<OnboardingState> with optional error
       const data = (await response.json()) as Partial<OnboardingState> & { error?: string };
       if (!response.ok) {
         throw new Error(data.error || 'Failed to skip onboarding');

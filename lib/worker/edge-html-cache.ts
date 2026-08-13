@@ -22,7 +22,11 @@ function cacheKey(request: Request, versionId?: string): Request {
 }
 
 function defaultCache(): EdgeCacheStore {
-  return (caches as unknown as { default: EdgeCacheStore }).default;
+  // SAFETY: Cloudflare Cache API exposes caches.default per Workers runtime; lib.dom CacheStorage type lacks default — verified via runtime contract
+  const rawCaches: unknown = caches;
+  // SAFETY: rawCaches is CacheStorage with default property per Cloudflare runtime; shaped as EdgeCacheStore by contract
+  const cacheWithDefault = rawCaches as { default: EdgeCacheStore };
+  return cacheWithDefault.default;
 }
 
 export function createEdgeHtmlCache(resolveCache: () => EdgeCacheStore) {

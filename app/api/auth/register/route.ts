@@ -22,9 +22,9 @@ export async function POST(request: NextRequest) {
     const { ageVerified, agreedToTerms } = validation.data;
 
     try {
-      const kv =
-        (env as unknown as { PICKMYCLASS_DISPOSABLE_DOMAINS?: KVNamespace })
-          .PICKMYCLASS_DISPOSABLE_DOMAINS ?? null;
+      // SAFETY: KVNamespace binding is an optional Cloudflare KV binding; shape matches wrangler.jsonc env contract. Nullish fallback handles unbound env in local dev.
+      const disposableEnv = env as { PICKMYCLASS_DISPOSABLE_DOMAINS?: KVNamespace };
+      const kv = disposableEnv.PICKMYCLASS_DISPOSABLE_DOMAINS ?? null;
       const result = await isDisposableEmail(email, kv);
       if (result.disposable) {
         return fail(

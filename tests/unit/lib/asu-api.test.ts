@@ -95,6 +95,7 @@ describe('fetchClassFromASU', () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0];
+    // SAFETY: fetchSpy mock returns string url from fetch call; validated by test setup
     const parsedUrl = new URL(url as string);
 
     expect(parsedUrl.pathname).toBe('/catalog-microservices/api/v1/search/classes');
@@ -129,6 +130,7 @@ describe('fetchClassFromASU', () => {
     );
 
     const [url, init] = fetchSpy.mock.calls[0];
+    // SAFETY: fetchSpy mock returns string url from fetch call; validated by test setup
     const parsedUrl = new URL(url as string);
 
     expect(parsedUrl.pathname).toBe('/catalog-microservices/api/v1/search/classes');
@@ -142,6 +144,7 @@ describe('fetchClassFromASU', () => {
     ['token', { ASU_API_BASE_URL: 'https://example.com/api/v1', ASU_API_TOKEN: '' }],
   ])('should reject when the ASU API %s is missing', async (_field, env) => {
     await expect(fetchClassFromASU({ class_nbr: '42737', term: '2264' }, env)).rejects.toSatisfy(
+      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown error at boundary
       (error: unknown) => {
         return error instanceof ApiError && error.message.includes('not configured');
       }
@@ -178,6 +181,7 @@ describe('fetchClassFromASU', () => {
           ASU_API_TOKEN: 'test-token',
         }
       )
+      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown error at boundary
     ).rejects.toSatisfy((error: unknown) => {
       return error instanceof ApiError && error.status === 408;
     });
@@ -232,6 +236,7 @@ describe('fetchClassFromASU', () => {
           ASU_API_TOKEN: 'test-token',
         }
       )
+      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown error at boundary
     ).rejects.toSatisfy((error: unknown) => {
       return error instanceof ErrorClass && error.message.includes(message);
     });
@@ -464,6 +469,7 @@ describe('fetchClassFromASU', () => {
           ASU_API_TOKEN: 'test-token',
         }
       )
+      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown error at boundary
     ).rejects.toSatisfy((error: unknown) => {
       return error instanceof Error && error.message.includes('Section 99999 not found');
     });

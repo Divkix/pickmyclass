@@ -25,7 +25,7 @@ export async function GET() {
       log('Onboarding').error('Error reading onboarding state:', error);
       return fail('Failed to load onboarding state', 500);
     }
-
+    // SAFETY: data is the result of maybeSingle() selecting onboarding columns; null or shape matches OnboardingRow by DB contract
     return ok(toOnboardingState(data as OnboardingRow | null));
   } catch (error) {
     if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
@@ -51,8 +51,8 @@ export async function POST() {
       return fail('Failed to skip onboarding', 500);
     }
 
+    // SAFETY: data is the array returned by skip_onboarding RPC; null or first element matches OnboardingRow by DB contract
     const row = (data as OnboardingRow[] | null)?.[0] ?? null;
-
     await captureServerEvent({ distinctId: user.id, event: 'onboarding_skipped' });
 
     return ok(toOnboardingState(row));

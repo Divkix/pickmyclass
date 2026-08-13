@@ -21,6 +21,14 @@ type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   href: LinkHref;
   children: ReactNode;
 };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ReactNode
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: LinkProps) => (
@@ -56,6 +64,7 @@ vi.mock('framer-motion', () => ({
 }));
 
 beforeAll(() => {
+  // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because minimal mock not overlapping IntersectionObserver class
   global.IntersectionObserver = class IntersectionObserver {
     observe = vi.fn();
     unobserve = vi.fn();
@@ -70,7 +79,7 @@ function createMotionElements() {
     as: Component,
     children,
     ...props
-  }: { as: MotionTag; children?: ReactNode } & Record<string, unknown>) => {
+  }: { as: MotionTag; children?: ReactNode } & Record<string, JsonValue>) => {
     const {
       initial: _initial,
       animate: _animate,
@@ -91,7 +100,7 @@ function createMotionElements() {
   return Object.fromEntries(
     tags.map((tag) => [
       tag,
-      (props: { children?: ReactNode } & Record<string, unknown>) => (
+      (props: { children?: ReactNode } & Record<string, JsonValue>) => (
         <MotionElement as={tag} {...props} />
       ),
     ])

@@ -49,6 +49,8 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import { POST } from '@/app/api/fetch-class-details/route';
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 const classDetails = {
   subject: 'CSE',
   catalog_nbr: '240',
@@ -61,7 +63,7 @@ const classDetails = {
   meeting_times: 'MWF 9:00 AM-9:50 AM',
 };
 
-function request(body: unknown): NextRequest {
+function request(body: Record<string, JsonValue>): NextRequest {
   return new NextRequest('https://pickmyclass.app/api/fetch-class-details', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -70,9 +72,9 @@ function request(body: unknown): NextRequest {
 }
 
 async function json(response: Response) {
-  return response.json() as Promise<Record<string, unknown>>;
+  // SAFETY: test helper parses JSON response; shape asserted per test case via property access
+  return response.json() as Promise<Record<string, JsonValue>>;
 }
-
 describe('/api/fetch-class-details', () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
   let logSpy: ReturnType<typeof vi.spyOn>;

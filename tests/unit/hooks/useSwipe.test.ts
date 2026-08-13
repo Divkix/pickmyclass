@@ -4,6 +4,7 @@ import { useSwipe } from '@/lib/hooks/useSwipe';
 
 // Helper to create mock touch events
 const createTouchEvent = (clientX: number): React.TouchEvent => {
+  // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because minimal mock not overlapping TouchEvent
   return {
     touches: [{ clientX }],
   } as unknown as React.TouchEvent;

@@ -50,7 +50,7 @@ const classDetails = {
   subject: 'CSE',
   catalog_nbr: '240',
   title: 'Intro to Programming',
-  instructor_name: 'John Doe',
+  instructor_name: 'Dr. Smith',
   seats_available: 10,
   seats_capacity: 50,
   non_reserved_seats: null,
@@ -58,10 +58,12 @@ const classDetails = {
   meeting_times: 'MWF 9:00 AM-9:50 AM',
 };
 
-async function json(response: Response) {
-  return response.json() as Promise<Record<string, unknown>>;
-}
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
+async function json(response: Response) {
+  // SAFETY: test helper parses JSON response; shape asserted per test case via property access
+  return response.json() as Promise<Record<string, JsonValue>>;
+}
 describe('/api/onboarding/popular-class', () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
 

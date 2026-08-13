@@ -90,6 +90,7 @@ export async function sendBatchEmailsOptimized(
         messageId: response.messageId,
       });
     } catch (error) {
+      // SAFETY: email binding throws object with code/message per Cloudflare Email contract; narrow thrown error
       const errorObj = error as { code?: string; message?: string };
       const errorMessage = errorObj.message || 'Email send failed';
       const errorCode = errorObj.code || 'UNKNOWN';

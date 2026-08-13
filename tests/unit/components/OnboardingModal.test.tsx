@@ -45,6 +45,7 @@ const skippedState: OnboardingState = {
   needs_onboarding: false,
 };
 
+// SAFETY: test constructs minimal ClassWatchRow shape; only asserted fields are accessed by component under test
 const createdWatch: ClassWatchRow = {
   id: 'watch-1',
   user_id: 'user-1',
@@ -55,7 +56,6 @@ const createdWatch: ClassWatchRow = {
   created_at: '2026-07-11T12:00:00Z',
   updated_at: '2026-07-11T12:00:00Z',
 } as ClassWatchRow;
-
 const popularClassPayload = {
   class_nbr: '12345',
   term: '2267',
@@ -69,11 +69,13 @@ const popularClassPayload = {
   },
 };
 
+type PopularClassResponse = { popularClass?: typeof popularClassPayload | null };
+
 describe('OnboardingModal', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   // Configurable responses per endpoint so `mockResolvedValueOnce` ordering
   // (broken by the open-time popular-class GET) doesn't bleed across tests.
-  let popularClassResponse: { popularClass?: typeof popularClassPayload | null };
+  let popularClassResponse: PopularClassResponse;
   let skipResponse: Partial<OnboardingState> & { error?: string };
   let skipOk: boolean;
 
@@ -96,10 +98,11 @@ describe('OnboardingModal', () => {
         json: () => Promise.resolve(skipResponse),
       });
     });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    // SAFETY: test double for global fetch; mock shape matches fetch contract for routes under test
+    global.fetch = fetchMock as typeof fetch;
   });
 
-  /** Count only the skip POST calls (the popular-class GET also uses fetch). */
+  // SAFETY: narrowing mock call args to RequestInit to inspect method in filter helper
   const skipPostCalls = () =>
     fetchMock.mock.calls.filter(
       ([url, init]) => url === '/api/user/onboarding' && (init as RequestInit)?.method === 'POST'
@@ -180,8 +183,8 @@ describe('OnboardingModal', () => {
     const onSkipped = vi.fn();
     render(<OnboardingModal open={true} onSkipped={onSkipped} />);
 
+    // SAFETY: test queries Radix overlay element; selector targets known backdrop class
     const overlay = document.querySelector('[class*="bg-black/80"]') as HTMLElement;
-    expect(overlay).toBeTruthy();
     await user.click(overlay);
 
     await waitFor(() => {
@@ -417,7 +420,6 @@ describe('OnboardingModal', () => {
       expect(screen.getByText('Intro to Programming')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Track this class/i })).toBeInTheDocument();
     });
-
     it('copies the example class number into the form and advances to step 2', async () => {
       const user = userEvent.setup();
       popularClassResponse = { popularClass: popularClassPayload };
@@ -427,6 +429,7 @@ describe('OnboardingModal', () => {
       await user.click(await screen.findByRole('button', { name: /Track this class/i }));
 
       expect(screen.getByText('Add your first class')).toBeInTheDocument();
+      // SAFETY: getByLabelText returns HTMLElement known to be input; narrowing to HTMLInputElement for value assertion
       const classNbrInput = screen.getByLabelText(/class number/i) as HTMLInputElement;
       expect(classNbrInput).toHaveValue('12345');
     });

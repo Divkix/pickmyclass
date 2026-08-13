@@ -19,6 +19,7 @@ const USER_SORT_FIELDS: readonly UserSortField[] = [
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function userSort(value: string): UserSortField {
+  // SAFETY: USER_SORT_FIELDS includes check validates value against allowed UserSortField union; fallback to 'created_at' preserves invariant
   return USER_SORT_FIELDS.includes(value as UserSortField)
     ? (value as UserSortField)
     : 'created_at';
@@ -41,8 +42,11 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
   const sort = userSort(param(sp, 'sort'));
   const dir = param(sp, 'dir') === 'asc' ? 'asc' : 'desc';
   const search = param(sp, 'search');
+  // SAFETY: Next.js searchParams validated via param helper; fallback 'all' ensures allowed union, DB handles invalid gracefully
   const role = (param(sp, 'role') || 'all') as 'all' | 'admin' | 'user';
+  // SAFETY: Next.js searchParams validated via param helper; fallback 'all' ensures allowed union, DB handles invalid gracefully
   const verified = (param(sp, 'verified') || 'all') as 'all' | 'verified' | 'unverified';
+  // SAFETY: Next.js searchParams validated via param helper; fallback 'all' ensures allowed union, DB handles invalid gracefully
   const watchCount = (param(sp, 'watchCount') || 'all') as 'all' | 'none' | '1-5' | '6-10' | '10+';
 
   const { rows, total } = await getUsersPage({

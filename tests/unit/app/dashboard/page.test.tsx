@@ -3,6 +3,15 @@ import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import DashboardPage from '@/app/dashboard/page';
 
+type RealtimeOpts = { classNumbers: string[]; enabled?: boolean };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 // Mock Next.js hooks
 const mockReplace = vi.fn();
 const mockRouter = {
@@ -59,7 +68,7 @@ const mockUseRealtimeClassStates = vi.fn();
 const mockRefetchClassStates = vi.fn();
 
 vi.mock('@/lib/hooks/useRealtimeClassStates', () => ({
-  useRealtimeClassStates: (opts: unknown) => mockUseRealtimeClassStates(opts),
+  useRealtimeClassStates: (opts: RealtimeOpts) => mockUseRealtimeClassStates(opts),
 }));
 
 // Mock pull-to-refresh hook
@@ -129,7 +138,7 @@ vi.mock('@/components/ClassWatchCard', () => ({
     watch: { id: string; class_nbr: string; subject?: string; catalog_nbr?: string };
     classState?: { title?: string } | null;
     onDelete: (watchId: string) => Promise<void>;
-    onRestore: () => Promise<unknown>;
+    onRestore: () => Promise<void>;
   }) => (
     <div data-testid="class-watch-card">
       <span>{watch.class_nbr}</span>
@@ -172,7 +181,7 @@ vi.mock('@/components/FinishSetupCard', () => ({
   FinishSetupCard: () => <div data-testid="finish-setup-card" />,
 }));
 
-const makeWatch = (overrides: Record<string, unknown> = {}) => ({
+const makeWatch = (overrides: Record<string, JsonValue> = {}) => ({
   id: 'watch-1',
   user_id: 'user-1',
   term: '2267',

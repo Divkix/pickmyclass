@@ -24,6 +24,7 @@ vi.mock('@/lib/cache/ttl-cache', () => ({
     get(_key: string) {
       return undefined;
     }
+    // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: mock mirrors TTL cache which stores unknown decoded at boundary
     set(_key: string, _data: unknown) {}
     clear() {}
     delete(_key: string) {
@@ -48,6 +49,7 @@ function countQuery(count: number, error: Error | null = null) {
   };
 }
 
+// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper wraps unknown fixture data for Supabase mock at I/O boundary
 function dataQuery(data: unknown, error: Error | null = null) {
   const result = Promise.resolve({ data, error });
   const builder = {
@@ -65,6 +67,7 @@ function dataQuery(data: unknown, error: Error | null = null) {
   };
 }
 
+// SAFETY: test constructs minimal User shape; only email/id fields asserted per test case
 const users = [
   {
     id: 'user-1',
@@ -158,7 +161,7 @@ describe('admin dashboard query helpers', () => {
       if (table === 'class_states') return dataQuery(classStates);
       throw new Error(`Unexpected table ${table}`);
     });
-
+    // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: mock mirrors Supabase rpc which accepts unknown args decoded at boundary
     mockServiceClient.rpc.mockImplementation((name: string, _args?: unknown) => {
       // New scalar RPCs
       if (name === 'count_all_users') {
@@ -181,6 +184,7 @@ describe('admin dashboard query helpers', () => {
     // getTotalClassesWatched now uses count_distinct_classes_watched RPC
     await expect(getTotalClassesWatched()).resolves.toBe(2);
     // Confirm it does NOT call from('class_watches').select('class_nbr')
+    // SAFETY: narrowing mock call args to string tuple for filtering; shape matches Supabase mock
     const classWatchCalls = (mockServiceClient.from.mock.calls as string[][]).filter(
       (c) => c[0] === 'class_watches'
     );

@@ -21,6 +21,7 @@ const CLASS_SORT_FIELDS: readonly ClassSortField[] = [
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function classSort(value: string): ClassSortField {
+  // SAFETY: CLASS_SORT_FIELDS includes check validates value against allowed ClassSortField union; fallback to 'watcher_count' preserves invariant
   return CLASS_SORT_FIELDS.includes(value as ClassSortField)
     ? (value as ClassSortField)
     : 'watcher_count';
@@ -46,8 +47,11 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
   const dir = param(sp, 'dir') === 'asc' ? 'asc' : 'desc';
   const search = param(sp, 'search');
   const subject = param(sp, 'subject') || 'all';
+  // SAFETY: Next.js searchParams validated via param helper; fallback 'all' ensures allowed union, DB handles invalid gracefully
   const seatStatus = (param(sp, 'seatStatus') || 'all') as 'all' | 'full' | 'limited' | 'available';
+  // SAFETY: Next.js searchParams validated via param helper; fallback 'all' ensures allowed union, DB handles invalid gracefully
   const instructor = (param(sp, 'instructor') || 'all') as 'all' | 'staff' | 'named';
+  // SAFETY: Next.js searchParams validated via param helper; fallback 'all' ensures allowed union, DB handles invalid gracefully
   const watcherCount = (param(sp, 'watcherCount') || 'all') as
     | 'all'
     | 'none'

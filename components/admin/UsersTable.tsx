@@ -125,6 +125,7 @@ export function UsersTable({
   };
 
   const handleRowClick = (userId: string, event: React.MouseEvent) => {
+    // SAFETY: row click target is HTMLElement per table cell DOM contract; narrow EventTarget
     const target = event.target as HTMLElement;
     if (target.tagName === 'A' || target.closest('a')) return;
     router.push(`/admin/users/${userId}`);

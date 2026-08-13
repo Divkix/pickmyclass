@@ -39,6 +39,8 @@ vi.mock('@/lib/auth/authorization-state', () => ({
 import { DELETE } from '@/app/api/user/delete/route';
 import { GET } from '@/app/api/user/export/route';
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 const user = {
   id: 'user-123',
   email: 'student@example.com',
@@ -97,9 +99,9 @@ function createTableClient() {
 }
 
 async function json(response: Response) {
-  return response.json() as Promise<Record<string, unknown>>;
+  // SAFETY: test helper parses JSON response; shape asserted per test case via property access
+  return response.json() as Promise<Record<string, JsonValue>>;
 }
-
 describe('user data rights APIs', () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
 

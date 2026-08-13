@@ -17,11 +17,11 @@ import { createClient } from '@/lib/supabase/server';
  * surface a stale or unvalidated section to the user.
  */
 export interface PopularClass {
+  [key: string]: string | ClassDetails;
   class_nbr: string;
   term: string;
   details: ClassDetails;
 }
-
 /**
  * GET /api/onboarding/popular-class
  * Returns the most-watched class for the current selectable term, validated
@@ -43,7 +43,8 @@ export async function GET() {
       return ok({ popularClass: null });
     }
 
-    const asuEnv = env as unknown as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
+    // SAFETY: env is Cloudflare Workers bindings; ASU_API_BASE_URL and ASU_API_TOKEN are required secrets validated at deploy
+    const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
 
     let details: ClassDetails;
     try {

@@ -4,7 +4,8 @@ const mockRpc = vi.fn();
 
 vi.mock('@/lib/supabase/service', () => ({
   getServiceClient: vi.fn(() => ({
-    rpc: (name: string, params: unknown) => mockRpc(name, params),
+    rpc: (name: string, params: Record<string, string | number | boolean | null | undefined>) =>
+      mockRpc(name, params),
     from: () => {
       throw new Error('from() should not be called by getClassesPage');
     },
@@ -14,7 +15,9 @@ vi.mock('@/lib/supabase/service', () => ({
 // Import after mocks are registered
 import { getClassesPage } from '@/lib/db/admin-queries';
 
-function classPageRow(overrides: Record<string, unknown> = {}) {
+function classPageRow(
+  overrides: Record<string, string | number | boolean | null | undefined> = {}
+) {
   return {
     id: 'state-1',
     class_nbr: '12345',
@@ -113,7 +116,8 @@ describe('getClassesPage', () => {
     // Old function definition shape: rows carry total_count but no
     // total_watchers / full_classes yet. Cast through an index signature so the
     // keys can be deleted (they are required on the generated row type).
-    const row = classPageRow() as Record<string, unknown>;
+    // SAFETY: test widens row to generic dictionary to simulate missing columns for version-skew guard
+    const row = classPageRow() as Record<string, string | number | boolean | null | undefined>;
     delete row.total_watchers;
     delete row.full_classes;
     mockRpc.mockResolvedValue({ data: [row], error: null });

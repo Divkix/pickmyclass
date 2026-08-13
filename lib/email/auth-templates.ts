@@ -50,7 +50,7 @@ interface MessageContent {
   subject: string;
 }
 
-const contentByAction: Record<SupabaseAuthEmailAction, MessageContent> = {
+const contentByAction = {
   signup: {
     subject: 'Verify your PickMyClass email',
     title: 'Verify your email',
@@ -81,9 +81,10 @@ const contentByAction: Record<SupabaseAuthEmailAction, MessageContent> = {
     intro: 'Use this secure link to sign in to your PickMyClass account.',
     button: 'Sign in',
   },
-};
+} satisfies Record<SupabaseAuthEmailAction, MessageContent>;
 
 function getActionType(actionType: string): SupabaseAuthEmailAction | null {
+  // SAFETY: Object.hasOwn verified actionType is key of contentByAction; narrow to union
   return Object.hasOwn(contentByAction, actionType)
     ? (actionType as SupabaseAuthEmailAction)
     : null;

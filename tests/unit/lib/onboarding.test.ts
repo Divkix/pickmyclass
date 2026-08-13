@@ -112,10 +112,12 @@ describe('lib/onboarding', () => {
 
   describe('applyFirstWatchGuard', () => {
     it('guards only on onboarding_completed_at IS NULL (not skipped_at)', () => {
-      const is = vi.fn(function (this: unknown) {
+      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown at I/O boundary
+      const is = vi.fn(function (this: OnboardingState) {
         return this;
       });
-      const builder = { is } as unknown as Parameters<typeof applyFirstWatchGuard>[0];
+      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+      const builder = { is } as Parameters<typeof applyFirstWatchGuard>[0];
 
       applyFirstWatchGuard(builder);
 
@@ -125,12 +127,13 @@ describe('lib/onboarding', () => {
 
     it('never guards on onboarding_skipped_at (skipped users still complete)', () => {
       const calls: Array<[string, null]> = [];
+      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
       const builder = {
         is(column: string, value: null) {
           calls.push([column, value]);
           return this;
         },
-      } as unknown as Parameters<typeof applyFirstWatchGuard>[0];
+      } as Parameters<typeof applyFirstWatchGuard>[0];
 
       applyFirstWatchGuard(builder);
 
@@ -139,7 +142,8 @@ describe('lib/onboarding', () => {
 
     it('returns the guarded builder so the call is awaitable', () => {
       const sentinel = { is: () => sentinel };
-      const builder = sentinel as unknown as Parameters<typeof applyFirstWatchGuard>[0];
+      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+      const builder = sentinel as Parameters<typeof applyFirstWatchGuard>[0];
       expect(applyFirstWatchGuard(builder)).toBe(sentinel);
     });
   });

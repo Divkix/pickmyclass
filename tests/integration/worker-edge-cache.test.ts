@@ -12,7 +12,9 @@ const { cacheGet, cacheIsEligible, cachePut } = vi.hoisted(() => ({
 vi.mock('cloudflare:workers', () => ({
   DurableObject: class DurableObject {
     constructor(
+      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock mirrors DurableObject constructor which accepts unknown at I/O boundary
       protected ctx: unknown,
+      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock mirrors DurableObject constructor which accepts unknown at I/O boundary
       protected env: unknown
     ) {}
   },
@@ -33,10 +35,12 @@ const worker = (await import('@/worker')).default;
 const handler = (await import('vinext/server/app-router-entry')).default;
 
 const waitUntil = vi.fn();
+// eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because minimal mock not overlapping ExecutionContext
 const ctx = {
   waitUntil,
   passThroughOnException: vi.fn(),
 } as unknown as ExecutionContext;
+// eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because minimal mock not overlapping Env
 const env = {
   CF_VERSION_METADATA: { id: 'version-1', tag: 'tag', timestamp: 'timestamp' },
 } as unknown as Env;

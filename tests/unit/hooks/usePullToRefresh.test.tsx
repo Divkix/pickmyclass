@@ -36,6 +36,8 @@ const createTouchEvent = (type: string, clientY: number): TouchEvent => {
     pageY: clientY,
     screenX: 0,
     screenY: clientY,
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because null not overlapping EventTarget
     target: null as unknown as EventTarget,
     radiusX: 0,
     radiusY: 0,
@@ -44,19 +46,22 @@ const createTouchEvent = (type: string, clientY: number): TouchEvent => {
   };
 
   return new TouchEvent(type, {
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     touches: type === 'touchend' || type === 'touchcancel' ? [] : [touch as Touch],
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     targetTouches: type === 'touchend' || type === 'touchcancel' ? [] : [touch as Touch],
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     changedTouches: [touch as Touch],
     bubbles: true,
     cancelable: true,
   });
 };
-
 // Create properly typed mock
 const createMockRefresh = (): (() => Promise<void>) => {
   const fn = vi.fn();
   fn.mockResolvedValue(undefined);
-  return fn as unknown as () => Promise<void>;
+  // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+  return fn as () => Promise<void>;
 };
 
 describe('usePullToRefresh hook', () => {

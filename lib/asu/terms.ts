@@ -29,17 +29,17 @@ export interface AsuTerm {
 
 const ASU_TIMEZONE = 'America/Phoenix';
 
-const SEASON_SUFFIX: Record<AsuSeason, number> = {
+const SEASON_SUFFIX = {
   spring: 1,
   summer: 4,
   fall: 7,
-};
+} as const satisfies Record<AsuSeason, number>;
 
-const SEASON_LABEL: Record<AsuSeason, string> = {
+const SEASON_LABEL = {
   spring: 'Spring',
   summer: 'Summer',
   fall: 'Fall',
-};
+} as const satisfies Record<AsuSeason, string>;
 
 /**
  * ASU academic calendar dates sourced from registrar.asu.edu/academic-calendar.
@@ -203,14 +203,14 @@ function isSelectable(term: AsuTerm, today: DateParts): boolean {
   return isOnOrAfter(today, term.catalogAvailable) && isOnOrBefore(today, term.sessionEnd);
 }
 
-function getNextSeason(season: AsuSeason, year: number): { season: AsuSeason; year: number } {
+function getNextSeason(season: AsuSeason, year: number) {
   switch (season) {
     case 'fall':
-      return { season: 'spring', year: year + 1 };
+      return { season: 'spring', year: year + 1 } satisfies { season: AsuSeason; year: number };
     case 'spring':
-      return { season: 'summer', year };
+      return { season: 'summer', year } satisfies { season: AsuSeason; year: number };
     case 'summer':
-      return { season: 'fall', year };
+      return { season: 'fall', year } satisfies { season: AsuSeason; year: number };
   }
 }
 

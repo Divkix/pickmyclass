@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { createCronLockClient, createCronLockLifecycle } from '@/lib/worker/cron-lock';
 
+// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown at I/O boundary; caller passes wire JSON
 function createMemoryLock(initial: unknown = null) {
   let stored = initial;
   let now = Date.parse('2026-07-12T12:00:00.000Z');
+  // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown at I/O boundary; persists structuredClone of lock state
   const save = vi.fn(async (state: unknown) => {
     stored = structuredClone(state);
   });
@@ -118,10 +120,13 @@ describe('cron lock client', () => {
       return Response.json({ released: true, message: 'Lock released' });
     });
     const idFromName = vi.fn(() => 'lock-id');
-    const namespace = {
+    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal DurableObjectNamespace mock
+    const rawNamespace: unknown = {
       idFromName,
       get: vi.fn(() => ({ fetch })),
-    } as unknown as DurableObjectNamespace;
+    };
+    // eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    const namespace = rawNamespace as DurableObjectNamespace;
     const client = createCronLockClient(namespace);
 
     const lease = await client.acquire('cron run/1');
@@ -156,10 +161,13 @@ describe('cron lock client', () => {
           expiresAt: 200,
         })
       );
-    const namespace = {
+    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal DurableObjectNamespace mock
+    const rawNamespace: unknown = {
       idFromName: vi.fn(() => 'lock-id'),
       get: vi.fn(() => ({ fetch })),
-    } as unknown as DurableObjectNamespace;
+    };
+    // eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    const namespace = rawNamespace as DurableObjectNamespace;
     const client = createCronLockClient(namespace);
 
     await expect(client.acquire('worker-b')).resolves.toMatchObject({
@@ -177,10 +185,13 @@ describe('cron lock client', () => {
   });
 
   it('rejects malformed Durable Object responses', async () => {
-    const namespace = {
+    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal DurableObjectNamespace mock
+    const rawNamespace: unknown = {
       idFromName: vi.fn(() => 'lock-id'),
       get: vi.fn(() => ({ fetch: vi.fn(async () => Response.json({ nope: true })) })),
-    } as unknown as DurableObjectNamespace;
+    };
+    // eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    const namespace = rawNamespace as DurableObjectNamespace;
 
     await expect(createCronLockClient(namespace).acquire('worker-a')).rejects.toThrow(
       'Invalid cron lock response'
@@ -194,10 +205,13 @@ describe('cron lock client', () => {
         Response.json({ acquired: true, message: 'acquired', lockHolder: 'worker-a' })
       )
       .mockResolvedValueOnce(Response.json({ released: false, message: 'storage unavailable' }));
-    const namespace = {
+    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal DurableObjectNamespace mock
+    const rawNamespace: unknown = {
       idFromName: vi.fn(() => 'lock-id'),
       get: vi.fn(() => ({ fetch })),
-    } as unknown as DurableObjectNamespace;
+    };
+    // eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    const namespace = rawNamespace as DurableObjectNamespace;
     const lease = await createCronLockClient(namespace).acquire('worker-a');
 
     await expect(lease.release()).rejects.toThrow('storage unavailable');

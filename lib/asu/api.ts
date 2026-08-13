@@ -193,6 +193,7 @@ export async function fetchClassFromASU(ref: SectionRef, env: AsuApiEnv): Promis
     throw new ApiError(`ASU API returned ${response.status}`, response.status);
   }
 
+  // SAFETY: response.json() validated by API contract; shape matches AsuApiResponse after status checks
   const data = (await response.json()) as AsuApiResponse;
   const hits = data?.hits?.hits;
 

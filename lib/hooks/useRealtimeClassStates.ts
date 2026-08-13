@@ -59,6 +59,7 @@ export function useRealtimeClassStates({
 
       // Convert array to object keyed by sectionRefKey so states for the same
       // class_nbr in different terms don't collide.
+      // SAFETY: Supabase select('*') returns ClassStateRow array per table contract; reduce builds keyed map
       const statesMap = (data || []).reduce(
         (acc, state) => {
           acc[sectionRefKey(state)] = state;
@@ -98,6 +99,7 @@ export function useRealtimeClassStates({
           },
           (payload) => {
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              // SAFETY: Realtime payload shape matches class_states row by Supabase contract
               const newState = payload.new as ClassStateRow;
               setClassStates((prev) => ({
                 ...prev,
@@ -107,6 +109,7 @@ export function useRealtimeClassStates({
               // Deleting relies on `payload.old` (the deleted row), which is only
               // delivered when `class_states` has REPLICA IDENTITY FULL. Latent
               // today — nothing deletes class_states rows.
+              // SAFETY: Realtime payload shape matches class_states row by Supabase contract
               const oldState = payload.old as ClassStateRow;
               setClassStates((prev) => {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars

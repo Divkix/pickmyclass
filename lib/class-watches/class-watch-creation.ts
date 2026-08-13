@@ -11,10 +11,14 @@ export type ClassWatchCreationInput = {
 
 type Request = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+type WirePayload = Record<string, JsonValue>;
+
+// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: type guard decodes unknown wire payload at I/O boundary
+function isRecord(value: unknown): value is WirePayload {
   return typeof value === 'object' && value !== null;
 }
-
+// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: type guard validates unknown payload shape for ClassWatchRow before narrowing
 function isClassWatchRow(value: unknown): value is ClassWatchRow {
   return (
     isRecord(value) &&
@@ -28,7 +32,7 @@ function isClassWatchRow(value: unknown): value is ClassWatchRow {
   );
 }
 
-async function readPayload(response: Response): Promise<Record<string, unknown> | null> {
+async function readPayload(response: Response): Promise<WirePayload | null> {
   try {
     const payload: unknown = await response.json();
     return isRecord(payload) ? payload : null;

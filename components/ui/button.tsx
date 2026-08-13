@@ -64,12 +64,13 @@ function Button({
     );
   }
 
+  // SAFETY: Radix Slot polymorphism; props matches MotionButtonProps by component contract excluding drag handlers
   return (
     <motion.button
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       whileTap={!props.disabled ? buttonTap : undefined}
-      {...(props as unknown as MotionButtonProps)}
+      {...(props as MotionButtonProps)}
     />
   );
 }

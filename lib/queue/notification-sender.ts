@@ -100,7 +100,7 @@ export async function sendSectionNotifications(
 
   // Step 3: Construct email payloads
   const emailsToSend: Array<OutboundEmail & { watchId: string }> = [];
-
+  // SAFETY: get_watchers_for_sections RPC returns Watcher rows per contract; narrow generic Json array at boundary
   for (const watcher of watchers as Watcher[]) {
     if (claimedSeatIds.has(watcher.watch_id)) {
       emailsToSend.push({

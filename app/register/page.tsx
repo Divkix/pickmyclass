@@ -99,6 +99,7 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, ageVerified, agreedToTerms }),
       });
+      // SAFETY: /api/auth/register returns JSON with optional success/error per API contract validated by server
       const data = (await response.json()) as {
         success?: boolean;
         error?: string;

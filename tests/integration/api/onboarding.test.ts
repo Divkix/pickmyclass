@@ -30,6 +30,8 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import { GET, POST } from '@/app/api/user/onboarding/route';
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 const user = { id: 'user-123', email: 'student@example.com' };
 
 function createServerClient() {
@@ -41,7 +43,8 @@ function createServerClient() {
 }
 
 async function json(response: Response) {
-  return response.json() as Promise<Record<string, unknown>>;
+  // SAFETY: test helper parses JSON response; shape asserted per test case via property access
+  return response.json() as Promise<Record<string, JsonValue>>;
 }
 
 describe('/api/user/onboarding', () => {

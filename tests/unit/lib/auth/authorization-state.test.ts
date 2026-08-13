@@ -23,7 +23,7 @@ function createFakeClient(result: { data: ProfileAuthorizationRow | null }) {
   const eq = vi.fn().mockReturnValue({ maybeSingle });
   const select = vi.fn().mockReturnValue({ eq });
   const from = vi.fn().mockReturnValue({ select });
-  // Cast through unknown — the fake only implements the narrow slice used here.
+  // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test fake implements only narrow Supabase slice; needs unknown intermediate because types don't overlap
   const client = { from } as unknown as Parameters<typeof readAuthorizationState>[0];
   return { client, from, select, eq, maybeSingle };
 }
@@ -97,6 +97,7 @@ describe('readAuthorizationState', () => {
   it('returns null and logs when the query throws', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const maybeSingle = vi.fn().mockRejectedValue(new Error('db down'));
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test fake implements only narrow Supabase slice; needs unknown intermediate because types don't overlap
     const client = {
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle }) }),

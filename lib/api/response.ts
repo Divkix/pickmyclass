@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
 
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue | undefined };
+type ApiData = Record<string, JsonValue>;
 /**
  * Standard API response envelope helpers.
  *
@@ -18,22 +26,26 @@ import { NextResponse } from 'next/server';
  * Spreads data at the top level for backward compatibility with consumers
  * that read fields directly (e.g. `data.watches`).
  */
-export function ok<T extends (Record<string, unknown> & { success?: never }) | null | undefined>(
+export function ok<T extends (ApiData & { success?: never }) | null | undefined>(
   data: T,
   init?: ResponseInit
 ): NextResponse {
   if (data == null) {
     return NextResponse.json({ success: true }, init);
   }
-  const responseData: Record<string, unknown> = { ...data, success: true };
+  const responseData = { ...data, success: true as const } satisfies ApiData;
   return NextResponse.json(responseData, init);
 }
 
 /**
  * Return a failure JSON response envelope: { success: false, error, details? }
  */
-export function fail(error: string, status: number, details?: unknown): NextResponse {
-  const body: { success: false; error: string; details?: unknown } = { success: false, error };
-  if (details !== undefined) body.details = details;
+export function fail(error: string, status: number, details?: JsonValue): NextResponse {
+  const body = { success: false as const, error } satisfies {
+    success: false;
+    error: string;
+    details?: JsonValue;
+  };
+  if (details !== undefined) Object.assign(body, { details });
   return NextResponse.json(body, { status });
 }

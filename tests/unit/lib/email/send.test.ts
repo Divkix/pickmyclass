@@ -21,6 +21,7 @@ function createMockSendEmail() {
 }
 
 function buildClassInfo(overrides: Partial<ClassInfo> = {}): ClassInfo {
+  // SAFETY: test constructs minimal ClassInfo shape; only required fields asserted per test case
   return {
     class_nbr: '12345',
     subject: 'CSE',
@@ -43,7 +44,8 @@ describe('sendBatchEmailsOptimized', () => {
 
   it('returns empty array for empty batch', async () => {
     const sendEmail = createMockSendEmail();
-    const results = await sendBatchEmailsOptimized([], sendEmail as unknown as SendEmail);
+    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    const results = await sendBatchEmailsOptimized([], sendEmail as SendEmail);
     expect(results).toEqual([]);
     expect(sendEmail.send).not.toHaveBeenCalled();
   });
@@ -65,7 +67,8 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    const results = await sendBatchEmailsOptimized(emails, sendEmail as unknown as SendEmail);
+    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    const results = await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
 
     expect(results).toHaveLength(2);
     expect(results[0]).toEqual({ success: true, messageId: 'msg_test123' });
@@ -76,6 +79,7 @@ describe('sendBatchEmailsOptimized', () => {
   it('uses the configured sender address when provided', async () => {
     const sendEmail = createMockSendEmail();
 
+    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
     await sendBatchEmailsOptimized(
       [
         {
@@ -85,7 +89,7 @@ describe('sendBatchEmailsOptimized', () => {
           type: 'seat_available',
         },
       ],
-      sendEmail as unknown as SendEmail,
+      sendEmail as SendEmail,
       { fromEmail: 'alerts@pickmyclass.app' }
     );
 
@@ -119,7 +123,8 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    const results = await sendBatchEmailsOptimized(emails, sendEmail as unknown as SendEmail);
+    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    const results = await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
 
     expect(results).toHaveLength(2);
     expect(results[0].success).toBe(false);
@@ -148,7 +153,8 @@ describe('sendBatchEmailsOptimized', () => {
       { to: 'c@t.com', userId: 'u3', classInfo: buildClassInfo(), type: 'seat_available' as const },
     ];
 
-    const results = await sendBatchEmailsOptimized(emails, sendEmail as unknown as SendEmail);
+    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    const results = await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
 
     expect(results).toHaveLength(3);
     expect(results[0].success).toBe(true);
@@ -170,7 +176,8 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    await sendBatchEmailsOptimized(emails, sendEmail as unknown as SendEmail);
+    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
 
     expect(sendEmail.send).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -193,7 +200,8 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    await sendBatchEmailsOptimized(emails, sendEmail as unknown as SendEmail);
+    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
 
     expect(sendEmail.send).toHaveBeenCalledWith(
       expect.objectContaining({

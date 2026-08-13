@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { DELETE, GET, POST } from '@/app/api/class-watches/route';
 import type { ValidationIssueDetail } from '@/lib/api/validation';
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 // Response types
 interface ClassWatch {
   id: string;
@@ -283,9 +284,8 @@ describe('/api/class-watches', () => {
       expect(data.error).toBe('Failed to fetch class watches');
     });
   });
-
   describe('POST /api/class-watches', () => {
-    const createRequest = (body: Record<string, unknown>): NextRequest => {
+    const createRequest = (body: Record<string, JsonValue>): NextRequest => {
       return new NextRequest('http://localhost:3000/api/class-watches', {
         method: 'POST',
         body: JSON.stringify(body),

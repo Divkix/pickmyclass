@@ -135,12 +135,14 @@ describe('useRealtimeClassStates hook', () => {
   describe('per-term keying (issue #279)', () => {
     // Two Class States sharing a class_nbr across terms; keyed by class_nbr
     // alone they would collide, one overwriting the other.
-    const spring: ClassStateRow = {
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    const spring = {
       class_nbr: '12345',
       term: '2261',
       seats_available: 5,
     } as ClassStateRow;
-    const fall: ClassStateRow = {
+    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    const fall = {
       class_nbr: '12345',
       term: '2267',
       seats_available: 0,
@@ -160,14 +162,16 @@ describe('useRealtimeClassStates hook', () => {
         | undefined;
 
       const mockChannel = {
-        on: vi.fn((_event: string, _config: unknown, cb: typeof capturedHandler) => {
-          capturedHandler = cb;
-          return mockChannel;
-        }),
+        on: vi.fn(
+          // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: mock type guard decodes unknown at I/O boundary
+          (_event: string, _config: Record<string, string>, cb: typeof capturedHandler) => {
+            capturedHandler = cb;
+            return mockChannel;
+          }
+        ),
         subscribe: vi.fn(() => mockChannel),
         unsubscribe: vi.fn(),
       };
-
       mockSupabase.channel.mockReturnValue(mockChannel);
       mockSupabase.from.mockReturnValue({
         select: vi.fn().mockReturnValue({

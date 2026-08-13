@@ -164,6 +164,7 @@ describe('detectChanges', () => {
     const oldState = mockOldState({ instructor_name: 'Staff' });
     const result = detectChanges(
       oldState,
+      // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test verifies guard handles undefined instructor despite string type; needs unknown intermediate because types don't overlap
       mockClassDetails({ instructor_name: undefined as unknown as string })
     );
 

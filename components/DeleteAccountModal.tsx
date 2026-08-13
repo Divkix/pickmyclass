@@ -42,6 +42,7 @@ export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalPro
       });
 
       if (!response.ok) {
+        // SAFETY: /api/user/delete returns { error?: string } on failure per API contract
         const data = (await response.json()) as { error?: string };
         throw new Error(data.error || 'Failed to delete account');
       }
