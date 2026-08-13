@@ -24,7 +24,7 @@ import type { Env } from '@/lib/types/env';
 /**
  * Result of processing a single section.
  */
-export interface ProcessingResult {
+interface ProcessingResult {
   success: boolean;
   classNbr: string;
   changes: ChangeResult;
@@ -34,7 +34,7 @@ export interface ProcessingResult {
 }
 
 /** The two terminal verdicts for a Section Check message. */
-export type Disposition = 'ack' | 'retry';
+type Disposition = 'ack' | 'retry';
 
 export type SectionCheckOutcome = {
   disposition: Disposition;

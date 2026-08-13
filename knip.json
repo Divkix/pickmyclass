@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": ["**/*.{ts,tsx}"],
   "ignore": ["lib/supabase/database.types.ts", "components/ui/**", "tests/mocks/**"],
-  "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css", "cloudflare"],
+  "ignoreDependencies": ["supabase", "tailwindcss", "tw-animate-css", "cloudflare", "oxlint"],
   "ignoreExportsUsedInFile": false,
   "includeEntryExports": false
 }
