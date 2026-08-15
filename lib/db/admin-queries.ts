@@ -44,7 +44,6 @@ function assertPaginatedRpcName(value: string): asserts value is PaginatedRpcNam
   }
 }
 
-
 const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS, 100);
 
 async function cachedQuery<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
