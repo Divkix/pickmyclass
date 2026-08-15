@@ -1,24 +1,17 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Header } from '@/components/Header';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { useRedirectIfAuthenticated } from '@/lib/hooks/useRedirectIfAuthenticated';
 
 export function AuthRedirect({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  const router = useRouter();
   const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    if (mounted && !loading && user?.email_confirmed_at) {
-      router.replace('/dashboard');
-    }
-  }, [user, loading, router, mounted]);
+  useRedirectIfAuthenticated();
 
   // During SSR and before hydration, always render full content (for crawlers)
   if (!mounted) {

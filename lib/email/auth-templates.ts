@@ -1,3 +1,4 @@
+import { buildUrl } from '@/lib/utils/url';
 import { escapeHtml } from '@/lib/utils/escape-html';
 
 type SupabaseAuthEmailAction = 'signup' | 'recovery' | 'email_change' | 'invite' | 'magiclink';
@@ -89,18 +90,17 @@ function getActionType(actionType: string): SupabaseAuthEmailAction | null {
     ? (actionType as SupabaseAuthEmailAction)
     : null;
 }
-
 export function buildSupabaseActionLink({
   supabaseUrl,
   tokenHash,
   actionType,
   redirectTo,
 }: BuildActionLinkOptions): string {
-  const url = new URL('/auth/v1/verify', supabaseUrl);
-  url.searchParams.set('token_hash', tokenHash);
-  url.searchParams.set('type', actionType);
-  url.searchParams.set('redirect_to', redirectTo);
-  return url.toString();
+  return buildUrl(supabaseUrl, '/auth/v1/verify', {
+    token_hash: tokenHash,
+    type: actionType,
+    redirect_to: redirectTo,
+  });
 }
 
 function buildMessage({

@@ -1,16 +1,9 @@
-/**
- * Email Service using Cloudflare Email Service Workers Binding
- *
- * Handles sending notification emails for class seat availability
- * and instructor assignment changes via env.EMAIL.send().
- */
-
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from './templates';
 import type { ClassInfo } from '@/lib/types/class';
 import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE, NOTIFICATION_FROM_EMAIL } from '@/lib/config';
 import { log } from '@/lib/log';
+import type { NotificationType } from '@/lib/types/notification';
 import { generateUnsubscribeUrl } from './unsubscribe-token';
-
 export type { ClassInfo } from '@/lib/types/class';
 
 function stripHtml(html: string): string {
@@ -37,7 +30,7 @@ export interface OutboundEmail {
   to: string;
   userId: string;
   classInfo: ClassInfo;
-  type: 'seat_available' | 'instructor_assigned';
+  type: NotificationType;
 }
 
 /**
@@ -117,9 +110,21 @@ export async function sendBatchEmailsOptimized(
       results.push({ success: false, error: `${errorCode}: ${errorMessage}` });
     }
 
-    // Small delay between sends when batch is large (avoid rate limits)
-    if (emails.length > EMAIL_BATCH_SIZE && i < emails.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, EMAIL_BATCH_DELAY_MS));
+    // Throttle: pause EMAIL_BATCH_DELAY_MS (75ms) between batches of EMAIL_BATCH_SIZE (10)
+    // only when the total exceeds one batch. Intentionally per-batch, not per-email:
+    // old code delayed after every email when total > 10 (19 delays for 20 emails);
+    // this does 1 delay per 20 emails (~10× throughput). At this volume the 75ms
+    // inter-batch pacing plus sequential sends stays well within Cloudflare Email
+    // rate limits; if limits are hit anyway the E_RATE_LIMIT_EXCEEDED /
+    // E_DAILY_LIMIT_EXCEEDED / E_SENDER_NOT_VERIFIED abort above hard-stops the
+    // batch immediately, so throttling is best-effort pacing, not a correctness guard.
+    // No delay for batches of EMAIL_BATCH_SIZE or fewer.
+    if (
+      emails.length > EMAIL_BATCH_SIZE &&
+      (i + 1) % EMAIL_BATCH_SIZE === 0 &&
+      i < emails.length - 1
+    ) {
+      await new Promise<void>((resolve) => setTimeout(resolve, EMAIL_BATCH_DELAY_MS));
     }
   }
 

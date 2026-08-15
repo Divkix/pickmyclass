@@ -1,8 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import posthog from 'posthog-js';
 import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { Header } from '@/components/Header';
@@ -13,19 +12,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { log } from '@/lib/log';
-
+import { formatAbsoluteDate } from '@/lib/utils/time-format';
+import { useRequireAuth } from '@/lib/hooks/useRequireAuth';
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth();
+  useRequireAuth();
   const [exportLoading, setExportLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace('/login');
-    }
-  }, [user, authLoading, router]);
 
   const handleExportData = async () => {
     setExportLoading(true);
@@ -125,7 +119,7 @@ export default function SettingsPage() {
                       Account Created
                     </span>
                     <p className="text-lg">
-                      {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                      {user?.created_at ? formatAbsoluteDate(user.created_at) : 'N/A'}
                     </p>
                   </div>
 

@@ -14,9 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { UserSortField } from '@/lib/db/admin-queries';
-import type { UserWithWatchCount } from '@/lib/db/admin-queries';
-import { formatRelativeDate } from '@/lib/utils/time-format';
+import type { UserSortField, UserWithWatchCount } from '@/lib/db/admin-queries';
+import { formatAbsoluteDate, formatRelativeDate } from '@/lib/utils/time-format';
 import { SortableHeader } from './SortableHeader';
 import { UsersTableFiltersComponent } from './UsersTableFilters';
 
@@ -50,12 +49,7 @@ function formatDate(dateString: string | null): string {
   const relative = formatRelativeDate(dateString);
   if (relative) return relative;
 
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  return formatAbsoluteDate(dateString);
 }
 
 /**

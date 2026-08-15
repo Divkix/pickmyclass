@@ -19,7 +19,7 @@ import { getUserWatches } from '@/lib/db/admin-queries';
 import { log } from '@/lib/log';
 import { getServiceClient } from '@/lib/supabase/service';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
-
+import { formatAbsoluteDate } from '@/lib/utils/time-format';
 interface AdminUserDetailPageProps {
   params: Promise<{
     userId: string;
@@ -65,7 +65,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
    */
   const formatDate = (timestamp: string | null | undefined): string => {
     if (!timestamp) return 'Never';
-    return new Date(timestamp).toLocaleDateString('en-US', {
+    return formatAbsoluteDate(timestamp, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -73,7 +73,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
       minute: '2-digit',
     });
   };
-
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Breadcrumb Navigation */}
@@ -260,11 +259,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                         )}
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">
-                        {new Date(watch.created_at).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                        {formatAbsoluteDate(watch.created_at)}
                       </TableCell>
                     </TableRow>
                   );

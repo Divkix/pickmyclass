@@ -1,18 +1,10 @@
-/**
- * Notification Sender
- *
- * Sends batched email notifications for section changes.
- * Handles: fetch watchers → claim notification slots (atomic dedup) →
- * construct payloads → send emails → rollback failed notification claims.
- */
-
 import { deleteNotificationRecords, tryRecordNotificationsBatch } from '@/lib/db/queries';
 import { type ClassInfo, type OutboundEmail, sendBatchEmailsOptimized } from '@/lib/email/send';
 import { log } from '@/lib/log';
 import type { ChangeResult } from '@/lib/queue/change-detector';
 import { type SectionRef, sectionRefKey } from '@/lib/section-ref';
 import { getServiceClient } from '@/lib/supabase/service';
-
+import type { NotificationType } from '@/lib/types/notification';
 /**
  * A single watcher returned from the DB RPC.
  */
@@ -44,7 +36,7 @@ export interface SendSectionNotificationsParams {
 export interface SentNotification {
   success: boolean;
   watchId: string;
-  type: 'seat_available' | 'instructor_assigned';
+  type: NotificationType;
   error?: string;
 }
 
@@ -83,20 +75,50 @@ export async function sendSectionNotifications(
   const allWatchIds = watchers.map((w: Watcher) => w.watch_id);
 
   // Step 2: Claim notification slots for each change type
-  async function claimSlots(type: 'seat_available' | 'instructor_assigned'): Promise<Set<string>> {
+  async function claimSlots(type: NotificationType): Promise<Set<string>> {
     // A record only exists if a notification was already sent and hasn't expired.
     // "0 claimed" means everyone is already (recently) notified — do not resend.
     // Expired records are freed by the scheduled expiry sweep (migration), not by deleting here.
     return tryRecordNotificationsBatch(allWatchIds, type);
   }
 
-  // Claim sequentially to preserve deterministic call order
-  const claimedSeatIds = changes.seatBecameAvailable
-    ? await claimSlots('seat_available')
-    : new Set<string>();
-  const claimedInstructorIds = changes.instructorAssigned
-    ? await claimSlots('instructor_assigned')
-    : new Set<string>();
+  // Claim in parallel; rollback any fulfilled claim if the other rejects (allSettled ensures no leak).
+  const seatClaim = changes.seatBecameAvailable
+    ? claimSlots('seat_available')
+    : Promise.resolve(new Set<string>());
+  const instructorClaim = changes.instructorAssigned
+    ? claimSlots('instructor_assigned')
+    : Promise.resolve(new Set<string>());
+  const [seatResult, instructorResult] = await Promise.allSettled([seatClaim, instructorClaim]);
+
+  if (seatResult.status === 'rejected' || instructorResult.status === 'rejected') {
+    // Deterministic rollback order: seat then instructor — only rollback real, non-empty claims.
+    if (
+      seatResult.status === 'fulfilled' &&
+      seatResult.value.size > 0 &&
+      changes.seatBecameAvailable
+    ) {
+      await deleteNotificationRecords([...seatResult.value], 'seat_available');
+    }
+    if (
+      instructorResult.status === 'fulfilled' &&
+      instructorResult.value.size > 0 &&
+      changes.instructorAssigned
+    ) {
+      await deleteNotificationRecords([...instructorResult.value], 'instructor_assigned');
+    }
+    // SAFETY: re-narrowing after status check; instructorResult is the rejected branch when seat fulfilled
+    const firstRejection =
+      seatResult.status === 'rejected'
+        ? seatResult.reason
+        : (instructorResult as PromiseRejectedResult).reason;
+    // SAFETY: firstRejection is the rejected reason from allSettled; narrow to Error for throw contract
+    throw firstRejection instanceof Error ? firstRejection : new Error(String(firstRejection));
+  }
+  // SAFETY: branch above threw if either rejected; both are fulfilled here per control flow narrowing
+  const claimedSeatIds = (seatResult as PromiseFulfilledResult<Set<string>>).value;
+  // SAFETY: same narrowing as above — fulfilled branch only
+  const claimedInstructorIds = (instructorResult as PromiseFulfilledResult<Set<string>>).value;
 
   // Step 3: Construct email payloads
   const emailsToSend: Array<OutboundEmail & { watchId: string }> = [];

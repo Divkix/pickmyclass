@@ -20,8 +20,8 @@ import { getPastTermCodes } from '@/lib/asu/terms';
 import { log } from '@/lib/log';
 import type { Env } from '@/lib/types/env';
 import type { ClassCheckMessage } from '@/lib/types/queue';
+import type { StaggerGroup } from '@/lib/types/stagger';
 import { createCronLockClient, type CronLockLease } from '@/lib/worker/cron-lock';
-
 /**
  * Main cron handler with staggered checking
  */
@@ -69,8 +69,7 @@ export async function GET(request: NextRequest) {
     const scheduledTimeHeader = request.headers.get('X-Cron-Scheduled-Time');
     const now = scheduledTimeHeader ? new Date(Number(scheduledTimeHeader)) : new Date();
     const currentMinute = now.getMinutes();
-    const staggerGroup = Math.floor(currentMinute / 30) % 2 === 0 ? 'even' : 'odd';
-
+    const staggerGroup: StaggerGroup = Math.floor(currentMinute / 30) % 2 === 0 ? 'even' : 'odd';
     log('Cron').info(
       `Starting 30-minute class check (stagger: ${staggerGroup}, time: ${now.toISOString()})`
     );

@@ -1,22 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { formatTermOption } from '@/lib/asu/terms';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  classWatchCreation,
-  type ClassWatchCreationInput,
-} from '@/lib/class-watches/class-watch-creation';
+import { TermSelect } from '@/components/TermSelect';
+import { useClassWatchForm } from '@/lib/class-watches/useClassWatchForm';
+import type { ClassWatchCreationInput } from '@/lib/class-watches/class-watch-creation';
 import type { ClassWatchRow } from '@/lib/types/class-watch';
 
 interface SimplifiedWatchFormProps {
@@ -43,33 +33,12 @@ export function SimplifiedWatchForm({
   submitLabel = 'Start Watching',
   submittingLabel = "Checking ASU's class search... hang tight",
 }: SimplifiedWatchFormProps) {
-  const { terms: selectableTerms, defaultTerm } = useMemo(
-    () => classWatchCreation.getOptions(),
-    []
-  );
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [term, setTerm] = useState(defaultTerm);
-  const [classNbr, setClassNbr] = useState(defaultClassNbr);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    setIsSubmitting(true);
-    onSubmittingChange?.(true);
-    try {
-      const input = { term, class_nbr: classNbr };
-      const watch = await classWatchCreation.create(input);
-      await onCreated(watch, input);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add class watch');
-    } finally {
-      setIsSubmitting(false);
-      onSubmittingChange?.(false);
-    }
-  };
+  const { terms, term, setTerm, classNbr, setClassNbr, error, isSubmitting, handleSubmit } =
+    useClassWatchForm({
+      defaultClassNbr,
+      onCreated,
+      onSubmittingChange,
+    });
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -77,28 +46,7 @@ export function SimplifiedWatchForm({
         <Alert className="bg-destructive/10 text-destructive border-destructive/30">{error}</Alert>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="onboarding-term">Term *</Label>
-        {selectableTerms.length === 0 ? (
-          <Alert className="bg-destructive/10 text-destructive border-destructive/30">
-            No terms are currently available. Please check back later or contact support.
-          </Alert>
-        ) : (
-          <Select value={term} onValueChange={setTerm} required>
-            <SelectTrigger id="onboarding-term">
-              <SelectValue placeholder="Select term" />
-            </SelectTrigger>
-            <SelectContent>
-              {selectableTerms.map((termOption) => (
-                <SelectItem key={termOption.code} value={termOption.code}>
-                  {formatTermOption(termOption)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <p className="text-xs text-muted-foreground">Select the term to monitor</p>
-      </div>
+      <TermSelect value={term} onValueChange={setTerm} terms={terms} id="onboarding-term" />
 
       <div className="space-y-2">
         <Label htmlFor="onboarding-class-nbr">Class Number *</Label>
@@ -121,7 +69,7 @@ export function SimplifiedWatchForm({
       <Button
         type="submit"
         variant="gradient"
-        disabled={isSubmitting || !term || !classNbr || selectableTerms.length === 0}
+        disabled={isSubmitting || !term || !classNbr || terms.length === 0}
         className="w-full"
       >
         {isSubmitting ? submittingLabel : submitLabel}

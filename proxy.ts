@@ -4,8 +4,8 @@ import { fail } from '@/lib/api/response';
 import { readAuthorizationState } from '@/lib/auth/authorization-state';
 import { decideGate, isPublicRoute } from '@/lib/auth/decide-gate';
 import { hasSupabaseAuthCookies } from '@/lib/auth/supabase-auth-cookies';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/supabase/config';
 import type { Database } from './lib/supabase/database.types';
-
 /**
  * Build a per-request production CSP that replaces 'unsafe-inline' in
  * script-src with a cryptographic nonce. The nonce is generated fresh for
@@ -20,33 +20,44 @@ import type { Database } from './lib/supabase/database.types';
  * components can read it via next/headers and attach it to their own inline
  * scripts (e.g. the JSON-LD blocks in app/layout.tsx).
  */
+const PERMISSIONS_POLICY =
+  'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()';
+
+const CSP_DEFAULT_SRC = "default-src 'self'";
+const CSP_STYLE_SRC = "style-src 'self' 'unsafe-inline'";
+const CSP_IMG_SRC = "img-src 'self' data: https:";
+const CSP_FONT_SRC = "font-src 'self' data:";
+const CSP_CONNECT_SRC =
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://analytics.divkix.me https://us.i.posthog.com";
+const CSP_FRAME_ANCESTORS = "frame-ancestors 'none'";
+const CSP_BASE_URI = "base-uri 'self'";
+const CSP_FORM_ACTION = "form-action 'self'";
+const CSP_NEXT_THEMES_HASH = "'sha256-jGCia7LAT8V5tk83CgiiU5FMqw9uEVddMT+0ZQDzVAM='";
+
 function buildProductionCsp(nonce: string): string {
   return [
-    "default-src 'self'",
-    // The sha256 hash whitelists next-themes' inline no-flash theme script,
-    // which runs before hydration and cannot receive the per-request nonce
-    // (the root layout intentionally avoids headers() to stay static).
-    `script-src 'self' 'nonce-${nonce}' 'sha256-jGCia7LAT8V5tk83CgiiU5FMqw9uEVddMT+0ZQDzVAM=' https://static.cloudflareinsights.com https://analytics.divkix.me`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
-    "font-src 'self' data:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://analytics.divkix.me https://us.i.posthog.com",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
+    CSP_DEFAULT_SRC,
+    `script-src 'self' 'nonce-${nonce}' ${CSP_NEXT_THEMES_HASH} https://static.cloudflareinsights.com https://analytics.divkix.me`,
+    CSP_STYLE_SRC,
+    CSP_IMG_SRC,
+    CSP_FONT_SRC,
+    CSP_CONNECT_SRC,
+    CSP_FRAME_ANCESTORS,
+    CSP_BASE_URI,
+    CSP_FORM_ACTION,
   ].join('; ');
 }
 
 const DEV_CSP = [
-  "default-src 'self'",
+  CSP_DEFAULT_SRC,
   "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https:",
-  "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://analytics.divkix.me https://us.i.posthog.com",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
+  CSP_STYLE_SRC,
+  CSP_IMG_SRC,
+  CSP_FONT_SRC,
+  CSP_CONNECT_SRC,
+  CSP_FRAME_ANCESTORS,
+  CSP_BASE_URI,
+  CSP_FORM_ACTION,
 ].join('; ');
 
 /**
@@ -59,10 +70,7 @@ function addSecurityHeaders(response: NextResponse, isDevelopment: boolean, csp:
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set(
-    'Permissions-Policy',
-    'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()'
-  );
+  response.headers.set('Permissions-Policy', PERMISSIONS_POLICY);
   if (!isDevelopment) {
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
@@ -83,6 +91,19 @@ function toRedirectUrl(request: NextRequest, to: string): URL {
 export async function proxy(request: NextRequest) {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const pathname = request.nextUrl.pathname;
+  // Early exit for public routes WITHOUT auth cookies — before nonce allocation.
+  // This fast-path skips crypto.randomUUID(), buildProductionCsp string building,
+  // and the expensive getUser() call for anonymous GET to /, /faq, /about, /blog/*, /legal/*.
+  const routeIsPublic = isPublicRoute(pathname);
+  if (
+    routeIsPublic &&
+    !hasSupabaseAuthCookies(request.cookies.getAll().map((cookie) => cookie.name))
+  ) {
+    const csp = isDevelopment ? DEV_CSP : buildProductionCsp('');
+    const response = NextResponse.next();
+    addSecurityHeaders(response, isDevelopment, csp);
+    return response;
+  }
 
   // Generate a per-request nonce for the production CSP.
   // crypto.randomUUID() is available in both Node.js 19+ and Cloudflare Workers.
@@ -101,43 +122,27 @@ export async function proxy(request: NextRequest) {
     requestHeadersWithNonce.set('x-nonce', nonce);
   }
 
-  // Early exit for public routes WITHOUT auth cookies
-  // This skips the expensive getUser() call for unauthenticated visitors
-  const routeIsPublic = isPublicRoute(pathname);
-  if (
-    routeIsPublic &&
-    !hasSupabaseAuthCookies(request.cookies.getAll().map((cookie) => cookie.name))
-  ) {
-    const response = NextResponse.next({ request: { headers: requestHeadersWithNonce } });
-    addSecurityHeaders(response, isDevelopment, csp);
-    return response;
-  }
-
   // For routes that need auth checking, create Supabase client
   let supabaseResponse = NextResponse.next({
     request: { headers: requestHeadersWithNonce },
   });
 
-  const supabase = createServerClient<Database>(
-    'https://osopxwuebsefhoxgeojh.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zb3B4d3VlYnNlZmhveGdlb2poIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMDQ4NzEsImV4cCI6MjA3NjY4MDg3MX0.23x_oMXkh6ELZ78aR1SqroM_X3Hbud8KlTS3RX32tpU',
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({
-            request: { headers: requestHeadersWithNonce },
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
+  const supabase = createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
       },
-    }
-  );
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        supabaseResponse = NextResponse.next({
+          request: { headers: requestHeadersWithNonce },
+        });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        );
+      },
+    },
+  });
 
   // Refresh session if expired - only called when auth cookies exist
   const {

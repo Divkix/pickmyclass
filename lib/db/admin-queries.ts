@@ -11,10 +11,112 @@ import { TtlCache } from '@/lib/cache/ttl-cache';
 import { ADMIN_CACHE_TTL_MS } from '@/lib/config';
 import { log } from '@/lib/log';
 import { sectionRefKey } from '@/lib/section-ref';
-import type { Tables } from '@/lib/supabase/database.types';
+import type { Database, Tables } from '@/lib/supabase/database.types';
 import { getServiceClient } from '@/lib/supabase/service';
+import type { NotificationType } from '@/lib/types/notification';
 
-const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS);
+type PaginatedRpcMap = {
+  get_users_page: {
+    Args: Database['public']['Functions']['get_users_page']['Args'];
+    Row: Database['public']['Functions']['get_users_page']['Returns'][number];
+  };
+  get_classes_page: {
+    Args: Database['public']['Functions']['get_classes_page']['Args'];
+    Row: Database['public']['Functions']['get_classes_page']['Returns'][number];
+  };
+};
+
+type PaginatedRpcName = keyof PaginatedRpcMap;
+
+type PaginatedMeta = {
+  total_count: number;
+  total_watchers?: number | null;
+  full_classes?: number | null;
+};
+
+function isPaginatedRpcName(value: string): value is PaginatedRpcName {
+  return value === 'get_users_page' || value === 'get_classes_page';
+}
+
+function assertPaginatedRpcName(value: string): asserts value is PaginatedRpcName {
+  if (!isPaginatedRpcName(value)) {
+    throw new Error(`Unsupported paginated RPC: ${value}`);
+  }
+}
+
+
+const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS, 100);
+
+async function cachedQuery<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  // SAFETY: cache get returns unknown, narrowing via generic fetched value
+  const cached = adminCache.get(key) as T | undefined;
+  if (cached !== undefined) return cached;
+  const result = await fetcher();
+  adminCache.set(key, result);
+  return result;
+}
+
+async function fetchPaginatedPage<N extends PaginatedRpcName, T>(
+  rpcName: N,
+  params: PaginatedRpcMap[N]['Args'],
+  mapper: (row: PaginatedRpcMap[N]['Row']) => T
+): Promise<{ data: T[]; total: number; totalWatchers?: number; fullClasses?: number }> {
+  // SAFETY: runtime guard narrows rpcName to known union; ensures misspelled name throws even if compile-time check is bypassed via assertion
+  assertPaginatedRpcName(rpcName);
+  const supabase = getServiceClient();
+
+  let rawData: PaginatedRpcMap[N]['Row'][] | null = null;
+  let rpcError: { message: string } | null = null;
+
+  if (rpcName === 'get_users_page') {
+    // SAFETY: branch narrows rpcName; params correlates to GetUsersPageRpcArgs via generic constraint
+    const { data, error } = await supabase.rpc(
+      'get_users_page',
+      // SAFETY: params type correlates via N generic and branch narrowing
+      params as PaginatedRpcMap['get_users_page']['Args']
+    );
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: data typed per Database; cast to generic row array for unified handling via unknown intermediate (unavoidable generic correlation)
+    rawData = data as unknown as PaginatedRpcMap[N]['Row'][] | null;
+    rpcError = error;
+  } else if (rpcName === 'get_classes_page') {
+    // SAFETY: branch narrows rpcName; params correlates to GetClassesPageRpcArgs via generic constraint
+    const { data, error } = await supabase.rpc(
+      'get_classes_page',
+      // SAFETY: params type correlates via N generic and branch narrowing
+      params as PaginatedRpcMap['get_classes_page']['Args']
+    );
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: data typed per Database; cast to generic row array for unified handling via unknown intermediate (unavoidable generic correlation)
+    rawData = data as unknown as PaginatedRpcMap[N]['Row'][] | null;
+    rpcError = error;
+  } else {
+    const _exhaustive: never = rpcName;
+    // SAFETY: never narrowed to string for error message; exhaustiveness check ensures no runtime value reaches here
+    throw new Error(`Unsupported paginated RPC: ${_exhaustive as string}`);
+  }
+
+  if (rpcError) {
+    log('Admin').error(`Error fetching ${rpcName}:`, rpcError);
+    const friendly = rpcName === 'get_classes_page' ? 'classes page' : 'users page';
+    throw new Error(`Failed to fetch ${friendly}: ${rpcError.message}`);
+  }
+  // SAFETY: rawData and mapper correlate via N; centralize mapping without per-field any
+  const rows: T[] = (rawData ?? []).map((row) => mapper(row));
+  // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: centralize pagination meta extraction via PaginatedMeta; handles empty data and missing columns with ??0
+  const meta = rawData?.[0] as unknown as PaginatedMeta | undefined;
+  const total = meta ? Number(meta.total_count ?? 0) : 0;
+  const totalWatchers = meta?.total_watchers != null ? Number(meta.total_watchers) : undefined;
+  const fullClasses = meta?.full_classes != null ? Number(meta.full_classes) : undefined;
+  if (totalWatchers !== undefined && fullClasses !== undefined) {
+    return { data: rows, total, totalWatchers, fullClasses };
+  }
+  if (totalWatchers !== undefined) {
+    return { data: rows, total, totalWatchers };
+  }
+  if (fullClasses !== undefined) {
+    return { data: rows, total, fullClasses };
+  }
+  return { data: rows, total };
+}
 
 /**
  * Class state with aggregated watcher count
@@ -61,24 +163,17 @@ interface WatchWithClass extends Tables<'class_watches'> {
  * const total = await getTotalEmailsSent()
  */
 export async function getTotalEmailsSent(): Promise<number> {
-  // SAFETY: adminCache only stores numbers written by getTotalEmailsSent; miss returns undefined
-  const cached = adminCache.get('total-emails-sent') as number | undefined;
-  if (cached !== undefined) return cached;
-
-  const supabase = getServiceClient();
-
-  const { count, error } = await supabase
-    .from('notifications_sent')
-    .select('*', { count: 'exact', head: true });
-
-  if (error) {
-    log('Admin').error('Error fetching total emails sent:', error);
-    throw new Error(`Failed to fetch email count: ${error.message}`);
-  }
-
-  const result = count || 0;
-  adminCache.set('total-emails-sent', result);
-  return result;
+  return cachedQuery<number>('total-emails-sent', async () => {
+    const supabase = getServiceClient();
+    const { count, error } = await supabase
+      .from('notifications_sent')
+      .select('*', { count: 'exact', head: true });
+    if (error) {
+      log('Admin').error('Error fetching total emails sent:', error);
+      throw new Error(`Failed to fetch email count: ${error.message}`);
+    }
+    return count || 0;
+  });
 }
 
 /**
@@ -94,24 +189,16 @@ export async function getTotalEmailsSent(): Promise<number> {
  * const total = await getTotalUsers()
  */
 export async function getTotalUsers(): Promise<number> {
-  // SAFETY: adminCache only stores numbers written by getTotalUsers; miss returns undefined
-  const cached = adminCache.get('total-users') as number | undefined;
-  if (cached !== undefined) return cached;
-
-  const supabase = getServiceClient();
-
-  const { data, error } = await supabase.rpc('count_all_users');
-
-  if (error) {
-    log('Admin').error('Error counting users:', error);
-    throw new Error(`Failed to count users: ${error.message}`);
-  }
-
-  const result = Number(data ?? 0);
-  adminCache.set('total-users', result);
-  return result;
+  return cachedQuery<number>('total-users', async () => {
+    const supabase = getServiceClient();
+    const { data, error } = await supabase.rpc('count_all_users');
+    if (error) {
+      log('Admin').error('Error counting users:', error);
+      throw new Error(`Failed to count users: ${error.message}`);
+    }
+    return Number(data ?? 0);
+  });
 }
-
 /**
  * Get total number of admin users
  *
@@ -123,25 +210,18 @@ export async function getTotalUsers(): Promise<number> {
  * const total = await getAdminCount()
  */
 export async function getAdminCount(): Promise<number> {
-  // SAFETY: adminCache only stores numbers written by getAdminCount; miss returns undefined
-  const cached = adminCache.get('admin-count') as number | undefined;
-  if (cached !== undefined) return cached;
-
-  const supabase = getServiceClient();
-
-  const { count, error } = await supabase
-    .from('user_profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('is_admin', true);
-
-  if (error) {
-    log('Admin').error('Error fetching admin count:', error);
-    throw new Error(`Failed to fetch admin count: ${error.message}`);
-  }
-
-  const result = count || 0;
-  adminCache.set('admin-count', result);
-  return result;
+  return cachedQuery<number>('admin-count', async () => {
+    const supabase = getServiceClient();
+    const { count, error } = await supabase
+      .from('user_profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_admin', true);
+    if (error) {
+      log('Admin').error('Error fetching admin count:', error);
+      throw new Error(`Failed to fetch admin count: ${error.message}`);
+    }
+    return count || 0;
+  });
 }
 
 /**
@@ -156,27 +236,18 @@ export async function getAdminCount(): Promise<number> {
  * const total = await getTotalClassesWatched()
  */
 export async function getTotalClassesWatched(): Promise<number> {
-  // SAFETY: adminCache only stores numbers written by getTotalClassesWatched; miss returns undefined
-  const cached = adminCache.get('total-classes-watched') as number | undefined;
-  if (cached !== undefined) return cached;
-
-  const supabase = getServiceClient();
-
-  const { data, error } = await supabase.rpc('count_distinct_classes_watched');
-
-  if (error) {
-    log('Admin').error('Error counting distinct classes watched:', error);
-    throw new Error(`Failed to fetch class count: ${error.message}`);
-  }
-
-  const result = Number(data ?? 0);
-
-  log('Admin').info(`Counted ${result} unique classes being watched`);
-
-  adminCache.set('total-classes-watched', result);
-  return result;
+  return cachedQuery<number>('total-classes-watched', async () => {
+    const supabase = getServiceClient();
+    const { data, error } = await supabase.rpc('count_distinct_classes_watched');
+    if (error) {
+      log('Admin').error('Error counting distinct classes watched:', error);
+      throw new Error(`Failed to fetch class count: ${error.message}`);
+    }
+    const result = Number(data ?? 0);
+    log('Admin').info(`Counted ${result} unique classes being watched`);
+    return result;
+  });
 }
-
 // ─── Paginated query parameters ─────────────────────────────────────────────
 
 export type UserSortField =
@@ -255,39 +326,32 @@ export async function getUsersPage(params: GetUsersPageParams = {}): Promise<Use
     dir = 'desc',
   } = params;
 
-  const supabase = getServiceClient();
-
-  const { data, error } = await supabase.rpc('get_users_page', {
-    p_page: page,
-    p_page_size: pageSize,
-    p_search: search,
-    p_role: role,
-    p_verified: verified,
-    p_watch_count: watchCount,
-    p_sort: sort,
-    p_dir: dir,
-  });
-
-  if (error) {
-    log('Admin').error('Error fetching users page:', error);
-    throw new Error(`Failed to fetch users page: ${error.message}`);
-  }
-
-  const rows: UserWithWatchCount[] = (data ?? []).map((row) => ({
-    id: row.id,
-    email: row.email,
-    created_at: row.created_at,
-    last_sign_in_at: row.last_sign_in_at ?? null,
-    email_confirmed_at: row.email_confirmed_at ?? null,
-    watch_count: Number(row.watch_count),
-    is_admin: row.is_admin,
-    seat_emails: Number(row.seat_emails),
-    instructor_emails: Number(row.instructor_emails),
-    // SAFETY: get_users_page RPC constrains notification_status to NotificationStatus via DB check constraint
-    notification_status: row.notification_status as NotificationStatus,
-  }));
-
-  const total = data && data.length > 0 ? Number(data[0].total_count) : 0;
+  const { data: rows, total } = await fetchPaginatedPage(
+    'get_users_page',
+    {
+      p_page: page,
+      p_page_size: pageSize,
+      p_search: search,
+      p_role: role,
+      p_verified: verified,
+      p_watch_count: watchCount,
+      p_sort: sort,
+      p_dir: dir,
+    },
+    (row) => ({
+      id: row.id,
+      email: row.email,
+      created_at: row.created_at,
+      last_sign_in_at: row.last_sign_in_at ?? null,
+      email_confirmed_at: row.email_confirmed_at ?? null,
+      watch_count: Number(row.watch_count),
+      is_admin: row.is_admin,
+      seat_emails: Number(row.seat_emails),
+      instructor_emails: Number(row.instructor_emails),
+      // SAFETY: get_users_page RPC constrains notification_status to NotificationStatus via DB check constraint
+      notification_status: row.notification_status as NotificationStatus,
+    })
+  );
 
   log('Admin').info(`Fetched ${rows.length} users (page ${page}, total ${total})`);
 
@@ -316,51 +380,44 @@ export async function getClassesPage(params: GetClassesPageParams = {}): Promise
     dir = 'desc',
   } = params;
 
-  const supabase = getServiceClient();
-
-  const { data, error } = await supabase.rpc('get_classes_page', {
-    p_page: page,
-    p_page_size: pageSize,
-    p_search: search,
-    p_subject: subject,
-    p_seat_status: seatStatus,
-    p_instructor: instructor,
-    p_watcher_count: watcherCount,
-    p_sort: sort,
-    p_dir: dir,
-  });
-
-  if (error) {
-    log('Admin').error('Error fetching classes page:', error);
-    throw new Error(`Failed to fetch classes page: ${error.message}`);
-  }
-
-  const rows: ClassWithWatchers[] = (data ?? []).map((row) => ({
-    id: row.id,
-    class_nbr: row.class_nbr,
-    term: row.term,
-    subject: row.subject,
-    catalog_nbr: row.catalog_nbr,
-    title: row.title ?? null,
-    instructor_name: row.instructor_name ?? null,
-    seats_available: row.seats_available,
-    seats_capacity: row.seats_capacity,
-    non_reserved_seats: row.non_reserved_seats ?? null,
-    location: row.location ?? null,
-    meeting_times: row.meeting_times ?? null,
-    last_checked_at: row.last_checked_at,
-    last_changed_at: row.last_changed_at,
-    watcher_count: Number(row.watcher_count),
-    seat_emails: Number(row.seat_emails),
-    instructor_emails: Number(row.instructor_emails),
-  }));
-
-  const total = data && data.length > 0 ? Number(data[0].total_count) : 0;
-  // Page-independent global aggregates computed by the RPC over the full
-  // filtered result set (not the page window). `?? 0` guards the short
-  // function-version-skew window so a missing column renders 0, never NaN.
-  const totalWatchers = data && data.length > 0 ? Number(data[0].total_watchers ?? 0) : 0;
-  const fullClasses = data && data.length > 0 ? Number(data[0].full_classes ?? 0) : 0;
+  const {
+    data: rows,
+    total,
+    totalWatchers = 0,
+    fullClasses = 0,
+  } = await fetchPaginatedPage(
+    'get_classes_page',
+    {
+      p_page: page,
+      p_page_size: pageSize,
+      p_search: search,
+      p_subject: subject,
+      p_seat_status: seatStatus,
+      p_instructor: instructor,
+      p_watcher_count: watcherCount,
+      p_sort: sort,
+      p_dir: dir,
+    },
+    (row) => ({
+      id: row.id,
+      class_nbr: row.class_nbr,
+      term: row.term,
+      subject: row.subject,
+      catalog_nbr: row.catalog_nbr,
+      title: row.title ?? null,
+      instructor_name: row.instructor_name ?? null,
+      seats_available: row.seats_available,
+      seats_capacity: row.seats_capacity,
+      non_reserved_seats: row.non_reserved_seats ?? null,
+      location: row.location ?? null,
+      meeting_times: row.meeting_times ?? null,
+      last_checked_at: row.last_checked_at,
+      last_changed_at: row.last_changed_at,
+      watcher_count: Number(row.watcher_count),
+      seat_emails: Number(row.seat_emails),
+      instructor_emails: Number(row.instructor_emails),
+    })
+  );
 
   log('Admin').info(`Fetched ${rows.length} classes (page ${page}, total ${total})`);
 
@@ -407,7 +464,7 @@ export interface RecentActivityItem {
   classNbr: string | null;
   subject: string | null;
   catalogNbr: string | null;
-  notificationType: 'seat_available' | 'instructor_assigned' | null;
+  notificationType: NotificationType | null;
 }
 
 /**
@@ -466,7 +523,7 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
     subject: row.subject,
     catalogNbr: row.catalog_nbr,
     // SAFETY: get_recent_activity RPC constrains notification_type to allowed union or null via DB check constraint
-    notificationType: row.notification_type as 'seat_available' | 'instructor_assigned' | null,
+    notificationType: row.notification_type as NotificationType | null,
   }));
 
   adminCache.set(cacheKey, items);
@@ -491,7 +548,7 @@ export async function getUserWatches(userId: string): Promise<WatchWithClass[]> 
   // Fetch user's class watches
   const { data: watches, error: watchError } = await supabase
     .from('class_watches')
-    .select('*')
+    .select('id, user_id, class_nbr, term, subject, catalog_nbr, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
@@ -508,7 +565,9 @@ export async function getUserWatches(userId: string): Promise<WatchWithClass[]> 
   const classNumbers = watches.map((w) => w.class_nbr);
   const { data: classStates, error: classError } = await supabase
     .from('class_states')
-    .select('*')
+    .select(
+      'id, class_nbr, term, subject, catalog_nbr, title, instructor_name, seats_available, seats_capacity, non_reserved_seats, location, meeting_times, last_checked_at, last_changed_at'
+    )
     .in('class_nbr', classNumbers);
 
   if (classError) {

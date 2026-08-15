@@ -39,7 +39,7 @@ interface HealthStatus {
   response_time_ms?: number;
 }
 
-const healthCache = new TtlCache<{ body: HealthStatus; statusCode: number }>(30_000);
+const healthCache = new TtlCache<{ body: HealthStatus; statusCode: number }>(60_000, 50);
 
 /**
  * GET /api/monitoring/health
@@ -87,91 +87,120 @@ export async function GET(request: Request) {
     }
   };
 
-  // 1. Check Database Connection
-  try {
-    const supabase = getServiceClient();
-    const { error } = await supabase.from('class_watches').select('id').limit(1);
+  // Parallelize independent probes via Promise.allSettled (health stays tolerant: one failure doesn't mask others)
+  const [dbResult, asuResult, cronResult] = await Promise.allSettled([
+    (async () => {
+      const supabase = getServiceClient();
+      const { error } = await supabase.from('class_watches').select('id').limit(1);
+      if (error) return { kind: 'db_error' as const, message: error.message };
+      return { kind: 'db_ok' as const, latency_ms: Date.now() - startTime };
+    })(),
+    (async () => {
+      try {
+        // SAFETY: ASU API credentials are required Cloudflare secrets validated by deployment; shape matches wrangler.jsonc env contract.
+        const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
+        await fetchClassFromASU({ class_nbr: '10001', term: '2251' }, asuEnv);
+        return { kind: 'asu_ok' as const };
+      } catch (error) {
+        if (error instanceof NotFoundError) return { kind: 'asu_ok' as const };
+        return {
+          kind: 'asu_error' as const,
+          message: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    })(),
+    (async () => {
+      try {
+        // SAFETY: Durable Object namespace binding is an optional Cloudflare binding; shape matches wrangler.jsonc env contract.
+        const cfEnv = env as {
+          PICKMYCLASS_CRON_LOCK_DO?: DurableObjectNamespace;
+        };
+        const lockStatus = await createCronLockClient(cfEnv?.PICKMYCLASS_CRON_LOCK_DO).status();
+        return { kind: 'cron_ok' as const, lockStatus };
+      } catch (error) {
+        return {
+          kind: 'cron_error' as const,
+          message: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    })(),
+  ]);
 
-    if (error) {
-      health.checks.database = {
-        status: 'unhealthy',
-        error: error.message,
-      };
-      escalateStatus('degraded');
+  // Database check
+  if (dbResult.status === 'fulfilled') {
+    const v = dbResult.value;
+    if (v.kind === 'db_ok') {
+      health.checks.database = { status: 'healthy', latency_ms: v.latency_ms };
     } else {
-      health.checks.database = {
-        status: 'healthy',
-        latency_ms: Date.now() - startTime,
-      };
+      health.checks.database = { status: 'unhealthy', error: v.message };
+      escalateStatus('degraded');
     }
-  } catch (error) {
+  } else {
     health.checks.database = {
       status: 'unhealthy',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: dbResult.reason instanceof Error ? dbResult.reason.message : 'Unknown error',
     };
     escalateStatus('unhealthy');
   }
 
-  // 2. Check ASU API
-  try {
-    // SAFETY: ASU API credentials are required Cloudflare secrets validated by deployment; shape matches wrangler.jsonc env contract.
-    const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
-    await fetchClassFromASU({ class_nbr: '10001', term: '2251' }, asuEnv);
-    health.checks.asu_api = {
-      name: 'ASU API',
-      status: 'healthy',
-    };
-  } catch (error) {
-    // NotFoundError means the API is reachable but section doesn't exist - that's healthy
-    if (error instanceof NotFoundError) {
-      health.checks.asu_api = {
-        name: 'ASU API',
-        status: 'healthy',
-      };
+  // ASU API check
+  if (asuResult.status === 'fulfilled') {
+    const v = asuResult.value;
+    if (v.kind === 'asu_ok') {
+      health.checks.asu_api = { name: 'ASU API', status: 'healthy' };
     } else {
-      health.checks.asu_api = {
-        name: 'ASU API',
-        status: 'unhealthy',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      health.checks.asu_api = { name: 'ASU API', status: 'unhealthy', error: v.message };
+      escalateStatus('degraded');
+    }
+  } else {
+    const msg = asuResult.reason instanceof Error ? asuResult.reason.message : 'Unknown error';
+    if (asuResult.reason instanceof NotFoundError) {
+      health.checks.asu_api = { name: 'ASU API', status: 'healthy' };
+    } else {
+      health.checks.asu_api = { name: 'ASU API', status: 'unhealthy', error: msg };
       escalateStatus('degraded');
     }
   }
 
-  // 2b. Check Cron Lock Status (Durable Object)
-  try {
-    // SAFETY: Durable Object namespace binding is an optional Cloudflare binding; shape matches wrangler.jsonc env contract.
-    const cfEnv = env as {
-      PICKMYCLASS_CRON_LOCK_DO?: DurableObjectNamespace;
-    };
-
-    const lockStatus = await createCronLockClient(cfEnv?.PICKMYCLASS_CRON_LOCK_DO).status();
-    if (lockStatus) {
-      health.checks.cron_lock = {
-        status: 'healthy',
-        type: 'durable_object',
-        locked: lockStatus.locked,
-        lock_holder: lockStatus.lockHolder,
-        time_held_ms: lockStatus.timeHeldMs,
-        lock_acquired_at:
-          lockStatus.lockAcquiredAt !== null
-            ? new Date(lockStatus.lockAcquiredAt).toISOString()
-            : null,
-        expires_at:
-          lockStatus.expiresAt !== null ? new Date(lockStatus.expiresAt).toISOString() : null,
-      };
+  // Cron lock check
+  if (cronResult.status === 'fulfilled') {
+    const v = cronResult.value;
+    if (v.kind === 'cron_ok') {
+      const lockStatus = v.lockStatus;
+      if (lockStatus) {
+        health.checks.cron_lock = {
+          status: 'healthy',
+          type: 'durable_object',
+          locked: lockStatus.locked,
+          lock_holder: lockStatus.lockHolder,
+          time_held_ms: lockStatus.timeHeldMs,
+          lock_acquired_at:
+            lockStatus.lockAcquiredAt !== null
+              ? new Date(lockStatus.lockAcquiredAt).toISOString()
+              : null,
+          expires_at:
+            lockStatus.expiresAt !== null ? new Date(lockStatus.expiresAt).toISOString() : null,
+        };
+      } else {
+        health.checks.cron_lock = {
+          status: 'not_configured',
+          type: 'durable_object',
+          message: 'PICKMYCLASS_CRON_LOCK_DO binding not available',
+        };
+      }
     } else {
       health.checks.cron_lock = {
-        status: 'not_configured',
+        status: 'unhealthy',
         type: 'durable_object',
-        message: 'PICKMYCLASS_CRON_LOCK_DO binding not available',
+        error: v.message,
       };
+      escalateStatus('degraded');
     }
-  } catch (error) {
+  } else {
     health.checks.cron_lock = {
       status: 'unhealthy',
       type: 'durable_object',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: cronResult.reason instanceof Error ? cronResult.reason.message : 'Unknown error',
     };
     escalateStatus('degraded');
   }

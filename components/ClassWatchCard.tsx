@@ -8,6 +8,7 @@ import { classWatchCreation } from '@/lib/class-watches/class-watch-creation';
 import { useSwipe } from '@/lib/hooks/useSwipe';
 import { log } from '@/lib/log';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
+import { formatAbsoluteDate } from '@/lib/utils/time-format';
 import { ClassDetailsDialog } from '@/components/ClassDetailsDialog';
 import { ClassStateIndicator } from '@/components/ClassStateIndicator';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
@@ -229,7 +230,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
               <ClassStateIndicator classState={classState} />
               {classState?.last_checked_at && (
                 <p className="text-xs text-muted-foreground mt-3">
-                  Last checked: {new Date(classState.last_checked_at).toLocaleString()}
+                  Last checked: {formatAbsoluteDate(classState.last_checked_at)}
                 </p>
               )}
             </CardContent>

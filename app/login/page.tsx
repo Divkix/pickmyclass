@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { Header } from '@/components/Header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -10,9 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/lib/contexts/AuthContext';
 import { log } from '@/lib/log';
 import { createClient } from '@/lib/supabase/client';
+import { useRedirectIfAuthenticated } from '@/lib/hooks/useRedirectIfAuthenticated';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -22,15 +22,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
-
-  // Redirect already-authenticated users away from the login page.
-  useEffect(() => {
-    if (!authLoading && user?.email_confirmed_at) {
-      router.replace('/dashboard');
-    }
-  }, [authLoading, user, router]);
+  useRedirectIfAuthenticated();
 
   useEffect(() => {
     // Check if user just registered

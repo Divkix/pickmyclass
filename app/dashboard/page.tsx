@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion';
 import { Calendar, CheckCircle2, Eye, Plus, Search, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import posthog from 'posthog-js';
 import { toast } from 'sonner';
@@ -21,6 +20,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { completeOnFirstWatch } from '@/lib/onboarding';
 import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh';
 import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates';
+import { useRequireAuth } from '@/lib/hooks/useRequireAuth';
 import { sectionRefKey } from '@/lib/section-ref';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 
@@ -36,7 +36,7 @@ interface GetClassWatchesResponse {
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  useRequireAuth();
   const [watches, setWatches] = useState<ClassWatch[]>([]);
   const [maxWatches, setMaxWatches] = useState<number>(10);
   const [isLoadingWatches, setIsLoadingWatches] = useState(true);
@@ -60,13 +60,6 @@ export default function DashboardPage() {
     classNumbers,
     enabled: classNumbers.length > 0,
   });
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace('/login');
-    }
-  }, [user, authLoading, router]);
 
   // Fetch user's class watches
   const fetchWatches = useCallback(async (): Promise<GetClassWatchesResponse> => {

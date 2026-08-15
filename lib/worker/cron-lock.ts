@@ -1,5 +1,4 @@
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-type WirePayload = Record<string, JsonValue>;
+import { isRecord, type WirePayload } from '@/lib/api/wire';
 
 const CRON_LOCK_NAME = 'pickmyclass-cron-lock';
 const CRON_LOCK_TIMEOUT_MS = 25 * 60 * 1000;
@@ -33,10 +32,6 @@ export interface CronLockLease {
 
 function unlockedState(): CronLockState {
   return { locked: false, lockAcquiredAt: null, lockHolder: null };
-}
-// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: type guard decodes unknown wire payload at I/O boundary
-function isRecord(value: unknown): value is WirePayload {
-  return typeof value === 'object' && value !== null;
 }
 
 // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: type guard validates unknown DO storage value before narrowing to CronLockState

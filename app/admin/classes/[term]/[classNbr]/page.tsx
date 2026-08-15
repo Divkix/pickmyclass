@@ -15,11 +15,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { verifyAdmin } from '@/lib/auth/admin';
-import { getClassWatchers } from '@/lib/db/queries';
+import { getClassWatchers, type ClassWatcher } from '@/lib/db/queries';
 import { applySectionRef } from '@/lib/section-ref';
 import { getServiceClient } from '@/lib/supabase/service';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
-import { formatRelativeTime } from '@/lib/utils/time-format';
+import { formatAbsoluteDate, formatRelativeTime } from '@/lib/utils/time-format';
 
 interface AdminClassDetailPageProps {
   params: Promise<{
@@ -52,23 +52,27 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
   // terms resolves to one row instead of tripping .single()'s multi-row error.
   const supabase = getServiceClient();
   const { data: classState, error: classError } = await applySectionRef(
-    supabase.from('class_states').select('*'),
+    supabase
+      .from('class_states')
+      .select(
+        'id, class_nbr, term, subject, catalog_nbr, title, instructor_name, seats_available, seats_capacity, non_reserved_seats, location, meeting_times, last_checked_at, last_changed_at'
+      ),
     { class_nbr: classNbr, term }
   ).single();
 
-  // Handle case where class not found
+  // Handle case where class not found — guard before any other RPCs so 404 never
+  // triggers (or is masked by) a watchers fetch.
   if (classError || !classState) {
     notFound();
   }
 
-  // Fetch watchers for this exact section (SectionRef: class_nbr + term).
-  const watchers = await getClassWatchers({ class_nbr: classNbr, term });
+  const watchers: ClassWatcher[] = await getClassWatchers({ class_nbr: classNbr, term });
 
   /**
    * Format timestamp to readable date/time string
    */
   const formatDateTime = (timestamp: string): string => {
-    return new Date(timestamp).toLocaleString('en-US', {
+    return formatAbsoluteDate(timestamp, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',

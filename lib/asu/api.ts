@@ -4,9 +4,9 @@
  * Direct API client replacing the Puppeteer scraper service.
  * Fetches class details from ASU's class search API.
  */
-
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import { ASU_CACHE_TTL_MS } from '@/lib/config';
+import { buildUrl } from '@/lib/utils/url';
 
 // --- Error Classes ---
 
@@ -81,9 +81,9 @@ interface AsuApiResponse {
 
 // --- Helpers ---
 
-const CLASS_SEARCH_ENDPOINT_PATH = '/search/classes';
+const CLASS_SEARCH_ENDPOINT_PATH = 'search/classes';
 
-const asuApiCache = new TtlCache<ClassDetails>(ASU_CACHE_TTL_MS);
+const asuApiCache = new TtlCache<ClassDetails>(ASU_CACHE_TTL_MS, 1000);
 
 /** Clear the in-memory ASU API cache. Exposed for test isolation. */
 export function clearAsuApiCache(): void {
@@ -134,17 +134,7 @@ function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
 }
 
 function buildClassSearchUrl(baseUrl: string, classNbr: string, term: string): string {
-  const url = new URL(baseUrl);
-  const trimmedPath = url.pathname.replace(/\/+$/, '');
-  const endpointPath = trimmedPath.endsWith(CLASS_SEARCH_ENDPOINT_PATH)
-    ? trimmedPath
-    : `${trimmedPath}${CLASS_SEARCH_ENDPOINT_PATH}`;
-
-  url.pathname = endpointPath;
-  url.searchParams.set('classNbr', classNbr);
-  url.searchParams.set('term', term);
-
-  return url.toString();
+  return buildUrl(baseUrl, CLASS_SEARCH_ENDPOINT_PATH, { classNbr, term });
 }
 
 function normalizeAuthHeader(token: string): string {

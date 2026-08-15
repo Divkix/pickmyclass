@@ -341,9 +341,10 @@ describe('/api/class-watches', () => {
 
     it('should return 429 when max watches limit reached', async () => {
       mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      // Mock select to return count: 10 (at limit)
-      mockSelect.mockReturnValueOnce({
-        eq: vi.fn().mockResolvedValue({ count: 10, error: null }),
+      mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
+      mockRpc.mockResolvedValue({
+        data: null,
+        error: { code: 'P0001', message: 'MAX_WATCHES_EXCEEDED: user has 10 watches' },
       });
 
       const request = createRequest({ term: '2264', class_nbr: '12345' });

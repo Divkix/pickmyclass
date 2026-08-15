@@ -37,10 +37,12 @@ export function useRealtimeClassStates({
   // Memoize the class numbers key for stable dependency tracking
   const classNumbersKey = useMemo(() => classNumbers.join(','), [classNumbers]);
 
-  // Fetch initial data
-  const fetchClassStates = useCallback(async () => {
+  // Fetch initial data — takes the memoized key string so the callback identity
+  // stays stable and the effect does not re-subscribe when the function
+  // reference would otherwise change.
+  const fetchClassStates = useCallback(async (key: string) => {
     const supabase = createClient();
-    if (classNumbers.length === 0) {
+    if (!key) {
       setClassStates({});
       setLoading(false);
       return;
@@ -50,16 +52,20 @@ export function useRealtimeClassStates({
       setLoading(true);
       setError(null);
 
+      const numbers = key.split(',').filter(Boolean);
+
       const { data, error: fetchError } = await supabase
         .from('class_states')
-        .select('*')
-        .in('class_nbr', classNumbers);
+        .select(
+          'id, class_nbr, term, subject, catalog_nbr, title, instructor_name, seats_available, seats_capacity, non_reserved_seats, location, meeting_times, last_checked_at, last_changed_at'
+        )
+        .in('class_nbr', numbers);
 
       if (fetchError) throw fetchError;
 
       // Convert array to object keyed by sectionRefKey so states for the same
       // class_nbr in different terms don't collide.
-      // SAFETY: Supabase select('*') returns ClassStateRow array per table contract; reduce builds keyed map
+      // SAFETY: Supabase select returns ClassStateRow array per table contract; reduce builds keyed map
       const statesMap = (data || []).reduce(
         (acc, state) => {
           acc[sectionRefKey(state)] = state;
@@ -74,13 +80,13 @@ export function useRealtimeClassStates({
     } finally {
       setLoading(false);
     }
-  }, [classNumbers]);
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;
 
-    // Initial fetch
-    void fetchClassStates();
+    // Initial fetch — single network call on mount; no second fetch on SUBSCRIBED
+    void fetchClassStates(classNumbersKey);
 
     // Set up real-time subscription
     const supabase = createClient();
@@ -101,27 +107,39 @@ export function useRealtimeClassStates({
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
               // SAFETY: Realtime payload shape matches class_states row by Supabase contract
               const newState = payload.new as ClassStateRow;
-              setClassStates((prev) => ({
-                ...prev,
-                [sectionRefKey(newState)]: newState,
-              }));
+              const key = sectionRefKey(newState);
+              setClassStates((prev) => {
+                const existing = prev[key];
+                if (
+                  existing &&
+                  existing.seats_available === newState.seats_available &&
+                  existing.non_reserved_seats === newState.non_reserved_seats &&
+                  existing.instructor_name === newState.instructor_name
+                ) {
+                  return prev;
+                }
+                return {
+                  ...prev,
+                  [key]: newState,
+                };
+              });
             } else if (payload.eventType === 'DELETE') {
               // Deleting relies on `payload.old` (the deleted row), which is only
               // delivered when `class_states` has REPLICA IDENTITY FULL. Latent
               // today — nothing deletes class_states rows.
               // SAFETY: Realtime payload shape matches class_states row by Supabase contract
               const oldState = payload.old as ClassStateRow;
+              const key = sectionRefKey(oldState);
               setClassStates((prev) => {
+                if (!(key in prev)) return prev;
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { [sectionRefKey(oldState)]: _deleted, ...rest } = prev;
+                const { [key]: _deleted, ...rest } = prev;
                 return rest;
               });
             }
           }
         )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') void fetchClassStates();
-        });
+        .subscribe();
     }
 
     // Cleanup subscription on unmount or when dependencies change
@@ -131,12 +149,17 @@ export function useRealtimeClassStates({
         void supabase.removeChannel(channel);
       }
     };
-  }, [enabled, classNumbersKey, fetchClassStates]);
+  }, [enabled, classNumbersKey]);
+
+  const refetch = useCallback(
+    () => fetchClassStates(classNumbersKey),
+    [classNumbersKey, fetchClassStates]
+  );
 
   return {
     classStates,
     loading,
     error,
-    refetch: fetchClassStates,
+    refetch,
   };
 }

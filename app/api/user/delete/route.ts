@@ -1,7 +1,7 @@
 import { invalidateAuthorizationState } from '@/lib/auth/authorization-state';
-import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
 import { log } from '@/lib/log';
 import { fail, ok } from '@/lib/api/response';
+import { withAuth } from '@/lib/api/withAuth';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceClient } from '@/lib/supabase/service';
@@ -18,48 +18,52 @@ import { getServiceClient } from '@/lib/supabase/service';
 export async function DELETE() {
   try {
     const supabase = await createClient();
-    const { user } = await requireUser(supabase);
+    return await withAuth(supabase, async (user) => {
+      try {
+        const deletionTimestamp = new Date().toISOString();
 
-    const deletionTimestamp = new Date().toISOString();
+        // Soft delete: Use service client since is_disabled/disabled_at are restricted columns
+        const serviceClient = getServiceClient();
+        const { error: updateError } = await serviceClient
+          .from('user_profiles')
+          .update({
+            is_disabled: true,
+            disabled_at: deletionTimestamp,
+            notifications_enabled: false,
+            unsubscribed_at: deletionTimestamp,
+          })
+          .eq('user_id', user.id);
 
-    // Soft delete: Use service client since is_disabled/disabled_at are restricted columns
-    const serviceClient = getServiceClient();
-    const { error: updateError } = await serviceClient
-      .from('user_profiles')
-      .update({
-        is_disabled: true,
-        disabled_at: deletionTimestamp,
-        notifications_enabled: false,
-        unsubscribed_at: deletionTimestamp,
-      })
-      .eq('user_id', user.id);
+        if (updateError) {
+          log('User').error('Error disabling account:', updateError);
+          return fail('Failed to delete account', 500);
+        }
 
-    if (updateError) {
-      log('User').error('Error disabling account:', updateError);
-      return fail('Failed to delete account', 500);
-    }
+        // Invalidate the cached authorization state to ensure immediate effect
+        invalidateAuthorizationState(user.id);
 
-    // Invalidate the cached authorization state to ensure immediate effect
-    invalidateAuthorizationState(user.id);
+        await captureServerEvent({ distinctId: user.id, event: 'account_deleted' });
 
-    await captureServerEvent({ distinctId: user.id, event: 'account_deleted' });
+        // Sign out the user (invalidate session)
+        const { error: signOutError } = await supabase.auth.signOut();
 
-    // Sign out the user (invalidate session)
-    const { error: signOutError } = await supabase.auth.signOut();
+        if (signOutError) {
+          log('User').error('Error signing out:', signOutError);
+          // Don't fail the request if sign out fails
+        }
 
-    if (signOutError) {
-      log('User').error('Error signing out:', signOutError);
-      // Don't fail the request if sign out fails
-    }
-
-    return ok({
-      message:
-        'Account disabled successfully. Your data will be permanently deleted after 30 days.',
-      disabled_at: deletionTimestamp,
-      permanent_deletion_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        return ok({
+          message:
+            'Account disabled successfully. Your data will be permanently deleted after 30 days.',
+          disabled_at: deletionTimestamp,
+          permanent_deletion_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+      } catch (error) {
+        log('User').error('Delete account error:', error);
+        return fail('Failed to delete account', 500);
+      }
     });
   } catch (error) {
-    if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('User').error('Delete account error:', error);
     return fail('Failed to delete account', 500);
   }

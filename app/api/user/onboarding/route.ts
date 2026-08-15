@@ -1,6 +1,6 @@
-import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
 import { log } from '@/lib/log';
 import { fail, ok } from '@/lib/api/response';
+import { withAuth } from '@/lib/api/withAuth';
 import { toOnboardingState, type OnboardingRow } from '@/lib/onboarding';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { createClient } from '@/lib/supabase/server';
@@ -13,22 +13,26 @@ import { createClient } from '@/lib/supabase/server';
 export async function GET() {
   try {
     const supabase = await createClient();
-    const { user } = await requireUser(supabase);
+    return await withAuth(supabase, async (user) => {
+      try {
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('onboarding_completed_at, onboarding_skipped_at')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('onboarding_completed_at, onboarding_skipped_at')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (error) {
-      log('Onboarding').error('Error reading onboarding state:', error);
-      return fail('Failed to load onboarding state', 500);
-    }
-    // SAFETY: data is the result of maybeSingle() selecting onboarding columns; null or shape matches OnboardingRow by DB contract
-    return ok(toOnboardingState(data as OnboardingRow | null));
+        if (error) {
+          log('Onboarding').error('Error reading onboarding state:', error);
+          return fail('Failed to load onboarding state', 500);
+        }
+        // SAFETY: data is the result of maybeSingle() selecting onboarding columns; null or shape matches OnboardingRow by DB contract
+        return ok(toOnboardingState(data as OnboardingRow | null));
+      } catch (error) {
+        log('Onboarding').error('Get onboarding state error:', error);
+        return fail('Failed to load onboarding state', 500);
+      }
+    });
   } catch (error) {
-    if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('Onboarding').error('Get onboarding state error:', error);
     return fail('Failed to load onboarding state', 500);
   }
@@ -42,22 +46,26 @@ export async function GET() {
 export async function POST() {
   try {
     const supabase = await createClient();
-    const { user } = await requireUser(supabase);
+    return await withAuth(supabase, async (user) => {
+      try {
+        const { data, error } = await supabase.rpc('skip_onboarding');
 
-    const { data, error } = await supabase.rpc('skip_onboarding');
+        if (error) {
+          log('Onboarding').error('Error skipping onboarding:', error);
+          return fail('Failed to skip onboarding', 500);
+        }
 
-    if (error) {
-      log('Onboarding').error('Error skipping onboarding:', error);
-      return fail('Failed to skip onboarding', 500);
-    }
+        // SAFETY: data is the array returned by skip_onboarding RPC; null or first element matches OnboardingRow by DB contract
+        const row = (data as OnboardingRow[] | null)?.[0] ?? null;
+        await captureServerEvent({ distinctId: user.id, event: 'onboarding_skipped' });
 
-    // SAFETY: data is the array returned by skip_onboarding RPC; null or first element matches OnboardingRow by DB contract
-    const row = (data as OnboardingRow[] | null)?.[0] ?? null;
-    await captureServerEvent({ distinctId: user.id, event: 'onboarding_skipped' });
-
-    return ok(toOnboardingState(row));
+        return ok(toOnboardingState(row));
+      } catch (error) {
+        log('Onboarding').error('Skip onboarding error:', error);
+        return fail('Failed to skip onboarding', 500);
+      }
+    });
   } catch (error) {
-    if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('Onboarding').error('Skip onboarding error:', error);
     return fail('Failed to skip onboarding', 500);
   }

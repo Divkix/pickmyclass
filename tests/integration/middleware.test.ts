@@ -638,9 +638,12 @@ describe('proxy', () => {
     it('should use a per-request nonce in production script-src instead of unsafe-inline', async () => {
       // Tests run with NODE_ENV=test (not 'development'), so proxy uses the
       // production CSP path with a nonce generated via crypto.randomUUID().
+      // Non-public routes always generate a per-request nonce. Public anonymous
+      // GETs (e.g. /login) early-exit before nonce allocation for edge-cache
+      // efficiency and therefore have an empty nonce — test a non-public route.
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/login');
+      const request = createRequest('/dashboard');
       const response = await proxy(request);
 
       const csp = response.headers.get('Content-Security-Policy');
@@ -657,10 +660,13 @@ describe('proxy', () => {
     });
 
     it('should use a different nonce on each request', async () => {
+      // Non-public routes generate a fresh nonce per request. Public anonymous
+      // fast-path returns before nonce allocation (empty nonce), so nonces would
+      // be identical — verify rotation on a non-public route instead.
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const response1 = await proxy(createRequest('/login'));
-      const response2 = await proxy(createRequest('/login'));
+      const response1 = await proxy(createRequest('/dashboard'));
+      const response2 = await proxy(createRequest('/dashboard'));
 
       const csp1 = response1.headers.get('Content-Security-Policy');
       const csp2 = response2.headers.get('Content-Security-Policy');

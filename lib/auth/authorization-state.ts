@@ -33,7 +33,7 @@ export interface AuthorizationState {
 
 /** Per-isolate authorization cache with a 30-second TTL. */
 const CACHE_TTL_MS = 30 * 1000;
-const authorizationStateCache = new TtlCache<AuthorizationState>(CACHE_TTL_MS);
+const authorizationStateCache = new TtlCache<AuthorizationState>(CACHE_TTL_MS, 100);
 
 /** Clear the entire authorization cache. Exposed for test isolation. */
 export function clearAuthorizationStateCache(): void {

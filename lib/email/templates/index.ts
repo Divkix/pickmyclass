@@ -8,6 +8,7 @@
 import type { ClassInfo } from '@/lib/types/class';
 import { DEFAULT_SITE_URL } from '@/lib/config';
 import { escapeHtml } from '@/lib/utils/escape-html';
+import { buildUrl } from '@/lib/utils/url';
 
 /**
  * Sanitize class information for use in email templates
@@ -42,8 +43,7 @@ function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
 
   // Use internal redirect URL to match sending domain (improves email deliverability)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
-  const catalogUrl = `${siteUrl}/go/asu?classNbr=${safeClassNbrUrl}&term=${safeTerm}`;
-
+  const catalogUrl = buildUrl(siteUrl, '/go/asu', { classNbr: safeClassNbrUrl, term: safeTerm });
   return {
     subject: safeSubject,
     catalogNbr: safeCatalogNbr,
@@ -87,6 +87,59 @@ function getEmailFooter(unsubscribeUrl?: string): string {
   `.trim();
 }
 
+// invariant: both SeatAvailableEmailTemplate and InstructorAssignedEmailTemplate produce HTML
+// containing getEmailFooter output and safe.catalogUrl (via buildUrl); see bodyHtml construction below.
+
+/**
+ * Shared outer HTML shell for class notification emails.
+ * Owns doctype, <html>/<head>/<body>, container, gradient header, footer, and unsubscribe.
+ * Callers supply only variant-specific bodyHtml and preheader; gradient + heading derive from variant.
+ */
+function buildClassEmailShell(opts: {
+  variant: 'seat' | 'instructor';
+  classInfo: SanitizedClassInfo;
+  unsubscribeUrl?: string;
+  bodyHtml: string;
+  preheader: string;
+}): string {
+  const isSeat = opts.variant === 'seat';
+  const gradientFrom = isSeat ? '#8C1D40' : '#f59e0b';
+  const gradientTo = isSeat ? '#6E1733' : '#ea580c';
+  const heading = isSeat ? '🎉 Seat Available!' : '👨‍🏫 Instructor Assigned!';
+  const titlePrefix = isSeat ? 'Seat Available' : 'Instructor Assigned';
+  // classInfo fields are already escaped via sanitizeClassInfo
+  const title = `${titlePrefix} - ${opts.classInfo.subject} ${opts.classInfo.catalogNbr}`;
+
+  const preheaderHtml = opts.preheader
+    ? `<span style="display:none!important;visibility:hidden;mso-hide:all;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${escapeHtml(opts.preheader)}</span>`
+    : '';
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  ${preheaderHtml}
+  <div style="background: linear-gradient(135deg, ${gradientFrom} 0%, ${gradientTo} 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+    <h1 style="color: white; margin: 0; font-size: 24px;">${heading}</h1>
+  </div>
+
+  <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
+    ${opts.bodyHtml}
+
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+    ${getEmailFooter(opts.unsubscribeUrl)}
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
 /**
  * Seat Available Email Template
  *
@@ -95,21 +148,9 @@ function getEmailFooter(unsubscribeUrl?: string): string {
 export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?: string): string {
   // Sanitize all class information
   const safe = sanitizeClassInfo(classInfo);
+  const preheader = `Seat available in ${classInfo.subject} ${classInfo.catalog_nbr} — ${classInfo.title}`;
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Seat Available - ${safe.subject} ${safe.catalogNbr}</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #8C1D40 0%, #6E1733 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">🎉 Seat Available!</h1>
-  </div>
-
-  <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
+  const bodyHtml = `
     <p style="font-size: 16px; margin-top: 0;">
       Great news! A seat just became available in a class you're watching:
     </p>
@@ -148,14 +189,15 @@ export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?
         View Class on ASU Catalog
       </a>
     </div>
-
-    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-
-    ${getEmailFooter(unsubscribeUrl)}
-  </div>
-</body>
-</html>
   `.trim();
+
+  return buildClassEmailShell({
+    variant: 'seat',
+    classInfo: safe,
+    unsubscribeUrl,
+    bodyHtml,
+    preheader,
+  });
 }
 
 /**
@@ -170,20 +212,9 @@ export function InstructorAssignedEmailTemplate(
   // Sanitize all class information
   const safe = sanitizeClassInfo(classInfo);
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Instructor Assigned - ${safe.subject} ${safe.catalogNbr}</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">👨‍🏫 Instructor Assigned!</h1>
-  </div>
+  const preheader = `Instructor assigned for ${classInfo.subject} ${classInfo.catalog_nbr} — ${classInfo.instructor_name}`;
 
-  <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
+  const bodyHtml = `
     <p style="font-size: 16px; margin-top: 0;">
       An instructor has been assigned to a class you're watching:
     </p>
@@ -222,12 +253,13 @@ export function InstructorAssignedEmailTemplate(
         View Class on ASU Catalog
       </a>
     </div>
-
-    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-
-    ${getEmailFooter(unsubscribeUrl)}
-  </div>
-</body>
-</html>
   `.trim();
+
+  return buildClassEmailShell({
+    variant: 'instructor',
+    classInfo: safe,
+    unsubscribeUrl,
+    bodyHtml,
+    preheader,
+  });
 }

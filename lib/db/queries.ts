@@ -1,14 +1,10 @@
-/**
- * Database Query Helpers
- *
- * Reusable database queries for common operations.
- */
-
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { log } from '@/lib/log';
 import { applySectionRef, type SectionRef } from '@/lib/section-ref';
 import type { Database } from '@/lib/supabase/database.types';
 import type { ClassDetails } from '@/lib/types/class';
+import type { NotificationType } from '@/lib/types/notification';
+import type { StaggerGroup } from '@/lib/types/stagger';
 import { getServiceClient } from '@/lib/supabase/service';
 
 /**
@@ -59,9 +55,7 @@ export async function getClassWatchers(ref: SectionRef): Promise<ClassWatcher[]>
  * @param staggerType - 'even', 'odd', or 'all'
  * @returns Array of unique sections to check
  */
-export async function getSectionsToCheck(
-  staggerType: 'even' | 'odd' | 'all' = 'all'
-): Promise<SectionRef[]> {
+export async function getSectionsToCheck(staggerType: StaggerGroup = 'all'): Promise<SectionRef[]> {
   const supabase = getServiceClient();
 
   const { data, error } = await supabase.rpc('get_sections_to_check', {
@@ -112,7 +106,7 @@ export async function getMostWatchedClass(term: string): Promise<SectionRef | nu
  */
 export async function resetNotificationsForSection(
   ref: SectionRef,
-  notificationType: 'seat_available' | 'instructor_assigned' = 'seat_available'
+  notificationType: NotificationType = 'seat_available'
 ): Promise<void> {
   const supabase = getServiceClient();
 
@@ -159,7 +153,7 @@ export async function resetNotificationsForSection(
  */
 export async function deleteNotificationRecords(
   watchIds: string[],
-  notificationType: 'seat_available' | 'instructor_assigned'
+  notificationType: NotificationType
 ): Promise<number> {
   if (watchIds.length === 0) return 0;
   const supabase = getServiceClient();
@@ -215,7 +209,7 @@ export async function deletePastTermWatches(termCodes: string[]): Promise<number
  */
 export async function tryRecordNotificationsBatch(
   watchIds: string[],
-  notificationType: 'seat_available' | 'instructor_assigned',
+  notificationType: NotificationType,
   expiresHours: number = 24
 ): Promise<Set<string>> {
   if (watchIds.length === 0) return new Set();

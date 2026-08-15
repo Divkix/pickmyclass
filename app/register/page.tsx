@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Header } from '@/components/Header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/lib/contexts/AuthContext';
+import { useRedirectIfAuthenticated } from '@/lib/hooks/useRedirectIfAuthenticated';
 import { log } from '@/lib/log';
 import { calculatePasswordStrength } from '@/lib/utils/password-strength';
 import { createClient } from '@/lib/supabase/client';
@@ -29,14 +29,7 @@ export default function RegisterPage() {
     feedback: { warning?: string; suggestions?: string[] };
   } | null>(null);
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
-
-  // Redirect already-authenticated users away from the register page.
-  useEffect(() => {
-    if (!authLoading && user?.email_confirmed_at) {
-      router.replace('/dashboard');
-    }
-  }, [authLoading, user, router]);
+  useRedirectIfAuthenticated();
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const pwd = e.target.value;

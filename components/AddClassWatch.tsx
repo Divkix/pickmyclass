@@ -1,8 +1,7 @@
 'use client';
 
 import { Lightbulb, Lock } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { formatTermOption } from '@/lib/asu/terms';
+import { useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,10 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  classWatchCreation,
-  type ClassWatchCreationInput,
-} from '@/lib/class-watches/class-watch-creation';
+import { TermSelect } from '@/components/TermSelect';
+import { useClassWatchForm } from '@/lib/class-watches/useClassWatchForm';
+import type { ClassWatchCreationInput } from '@/lib/class-watches/class-watch-creation';
 import type { ClassWatchRow } from '@/lib/types/class-watch';
 
 interface AddClassWatchProps {
@@ -26,40 +24,13 @@ interface AddClassWatchProps {
 }
 
 export function AddClassWatch({ onCreated }: AddClassWatchProps) {
-  const { terms: selectableTerms, defaultTerm } = useMemo(
-    () => classWatchCreation.getOptions(),
-    []
-  );
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const [university] = useState('asu');
-  const [term, setTerm] = useState(defaultTerm);
-  const [classNbr, setClassNbr] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    setIsSubmitting(true);
-
-    try {
-      const input = {
-        term,
-        class_nbr: classNbr,
-      };
-      const watch = await classWatchCreation.create(input);
-      await onCreated(watch, input);
-      // Reset form on success
-      setTerm(defaultTerm);
-      setClassNbr('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add class watch');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const { terms, term, setTerm, classNbr, setClassNbr, error, isSubmitting, handleSubmit } =
+    useClassWatchForm({
+      onCreated,
+      resetOnSuccess: true,
+    });
 
   return (
     <Card>
@@ -94,29 +65,7 @@ export function AddClassWatch({ onCreated }: AddClassWatchProps) {
             <p className="text-xs text-muted-foreground">More universities coming soon</p>
           </div>
 
-          {/* Term Dropdown */}
-          <div className="space-y-2">
-            <Label htmlFor="term">Term *</Label>
-            {selectableTerms.length === 0 ? (
-              <Alert className="bg-destructive/10 text-destructive border-destructive/30">
-                No terms are currently available. Please check back later or contact support.
-              </Alert>
-            ) : (
-              <Select value={term} onValueChange={setTerm} required>
-                <SelectTrigger id="term">
-                  <SelectValue placeholder="Select term" />
-                </SelectTrigger>
-                <SelectContent>
-                  {selectableTerms.map((termOption) => (
-                    <SelectItem key={termOption.code} value={termOption.code}>
-                      {formatTermOption(termOption)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <p className="text-xs text-muted-foreground">Select the term to monitor</p>
-          </div>
+          <TermSelect value={term} onValueChange={setTerm} terms={terms} id="term" />
 
           {/* Section Number */}
           <div className="space-y-2">
@@ -153,7 +102,7 @@ export function AddClassWatch({ onCreated }: AddClassWatchProps) {
           <Button
             type="submit"
             variant="gradient"
-            disabled={isSubmitting || !term || !classNbr || selectableTerms.length === 0}
+            disabled={isSubmitting || !term || !classNbr || terms.length === 0}
             className="w-full"
           >
             {isSubmitting ? "Checking ASU's class search... hang tight" : 'Start Watching'}

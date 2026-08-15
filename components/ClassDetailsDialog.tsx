@@ -1,8 +1,9 @@
 'use client';
 
-import { ExternalLink } from 'lucide-react';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 import { getRateMyProfessorUrl } from '@/lib/utils/ratemyprofessor';
+import { formatAbsoluteDate } from '@/lib/utils/time-format';
+import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -131,7 +132,7 @@ export function ClassDetailsDialog({
           {/* Last Checked */}
           {classState?.last_checked_at && (
             <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border">
-              Last checked: {new Date(classState.last_checked_at).toLocaleString()}
+              Last checked: {formatAbsoluteDate(classState.last_checked_at)}
             </div>
           )}
         </div>

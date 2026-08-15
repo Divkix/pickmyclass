@@ -1,10 +1,10 @@
 import { env } from 'cloudflare:workers';
 import { type NextRequest } from 'next/server';
 import { ok, fail } from '@/lib/api/response';
+import { withAuth } from '@/lib/api/withAuth';
 import { createClassWatchSchema, deleteClassWatchSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
-import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
 import { upsertClassState } from '@/lib/db/queries';
 import { log } from '@/lib/log';
 import { captureServerEvent } from '@/lib/posthog-server';
@@ -21,72 +21,79 @@ const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 
  * Fetch all class watches for the authenticated user with joined class_states data
  */
 export async function GET() {
-  const supabase = await createClient();
-
-  let user: Awaited<ReturnType<typeof requireUser>>['user'];
   try {
-    ({ user } = await requireUser(supabase));
-  } catch (e) {
-    if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
-    throw e;
-  }
+    const supabase = await createClient();
+    return await withAuth(supabase, async (user) => {
+      try {
+        const { data: watches, error: watchesError } = await supabase
+          .from('class_watches')
+          .select('id, class_nbr, term, subject, catalog_nbr, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
-  try {
-    const { data: watches, error: watchesError } = await supabase
-      .from('class_watches')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+        if (watchesError) throw watchesError;
 
-    if (watchesError) throw watchesError;
+        const classNumbers = watches?.map((w) => w.class_nbr) || [];
+        const terms = Array.from(new Set(watches?.map((w) => w.term) || []));
 
-    const classNumbers = watches?.map((w) => w.class_nbr) || [];
-    const terms = Array.from(new Set(watches?.map((w) => w.term) || []));
+        // SAFETY: Empty array fallback when no watches; typed as ClassStateRow[] to match Supabase response shape for zero-watches case (no DB query runs)
+        // ponytail: cross-product .in() over-fetches m×n rows; tuple RPC if watches scale beyond 10
+        const statesPromise =
+          classNumbers.length > 0
+            ? supabase
+                .from('class_states')
+                .select(
+                  'class_nbr, term, seats_available, seats_capacity, non_reserved_seats, instructor_name, title'
+                )
+                .in('class_nbr', classNumbers)
+                .in('term', terms)
+            : Promise.resolve({ data: [] as ClassStateRow[], error: null } as const);
 
-    let classStates: ClassStateRow[] = [];
-    if (classNumbers.length > 0) {
-      const { data: states, error: statesError } = await supabase
-        .from('class_states')
-        .select('*')
-        .in('class_nbr', classNumbers)
-        .in('term', terms);
+        const profilePromise = supabase
+          .from('user_profiles')
+          .select('onboarding_completed_at, onboarding_skipped_at')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-      if (statesError) throw statesError;
-      classStates = states || [];
-    }
+        const [profileResult, statesResult] = await Promise.all([profilePromise, statesPromise]);
 
-    // SAFETY: statesMap is indexed by `${term}:${class_nbr}` derived from ClassStateRow entries; Record type models the validated composite key
-    const statesMap = classStates.reduce(
-      (acc, state) => {
-        acc[`${state.term}:${state.class_nbr}`] = state;
-        return acc;
-      },
-      {} as Record<string, ClassStateRow>
-    );
+        if (statesResult.error) throw statesResult.error;
+        // SAFETY: Supabase select projects explicit columns matching ClassStateRow; cast narrows unknown response data to typed rows with fallback to empty array
+        const classStates: ClassStateRow[] = (statesResult.data as ClassStateRow[]) || [];
 
-    const watchesWithStates = watches?.map((watch) => ({
-      ...watch,
-      class_state: statesMap[`${watch.term}:${watch.class_nbr}`] || null,
-    }));
+        // SAFETY: statesMap is indexed by `${term}:${class_nbr}` derived from ClassStateRow entries; Record type models the validated composite key
+        const statesMap = classStates.reduce(
+          (acc, state) => {
+            acc[`${state.term}:${state.class_nbr}`] = state;
+            return acc;
+          },
+          {} as Record<string, ClassStateRow>
+        );
 
-    // Expose onboarding state so the dashboard can render the first-time modal
-    // / finish-setup card without an extra round trip. Fails open: a profile-read
-    // error defaults to "not needed" rather than failing the whole watches fetch.
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('onboarding_completed_at, onboarding_skipped_at')
-      .eq('user_id', user.id)
-      .maybeSingle();
+        const watchesWithStates = watches?.map((watch) => ({
+          ...watch,
+          class_state: statesMap[`${watch.term}:${watch.class_nbr}`] || null,
+        }));
 
-    if (profileError) {
-      log('API').warn('Onboarding state read failed; failing open:', profileError);
-    }
+        // Expose onboarding state so the dashboard can render the first-time modal
+        // / finish-setup card without an extra round trip. Fails open: a profile-read
+        // error defaults to "not needed" rather than failing the whole watches fetch.
+        const { data: profile, error: profileError } = profileResult;
 
-    // SAFETY: profile is the result of maybeSingle() selecting onboarding columns; null or shape matches OnboardingRow by DB contract
-    return ok({
-      watches: watchesWithStates,
-      maxWatches: MAX_WATCHES_PER_USER,
-      onboarding: toOnboardingState(profile as OnboardingRow | null),
+        if (profileError) {
+          log('API').warn('Onboarding state read failed; failing open:', profileError);
+        }
+
+        // SAFETY: profile is the result of maybeSingle() selecting onboarding columns; null or shape matches OnboardingRow by DB contract
+        return ok({
+          watches: watchesWithStates,
+          maxWatches: MAX_WATCHES_PER_USER,
+          onboarding: toOnboardingState(profile as OnboardingRow | null),
+        });
+      } catch (error) {
+        log('API').error('Error fetching class watches:', error);
+        return fail('Failed to fetch class watches', 500);
+      }
     });
   } catch (error) {
     log('API').error('Error fetching class watches:', error);
@@ -106,137 +113,118 @@ export async function GET() {
  * Body: { term, class_nbr }
  */
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-
-  let user: Awaited<ReturnType<typeof requireUser>>['user'];
   try {
-    ({ user } = await requireUser(supabase));
-  } catch (e) {
-    if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
-    throw e;
-  }
+    const supabase = await createClient();
+    return await withAuth(supabase, async (user) => {
+      try {
+        const body = await request.json();
+        const validation = createClassWatchSchema.safeParse(body);
 
-  try {
-    const { count: watchCount, error: countError } = await supabase
-      .from('class_watches')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id);
+        if (!validation.success) {
+          return fail('Invalid input', 400, mapValidationIssues(validation.error));
+        }
 
-    if (countError) {
-      log('API').error('Error counting user watches:', countError);
-      throw countError;
-    }
+        const { term, class_nbr } = validation.data;
+        // SAFETY: env is Cloudflare Workers bindings; ASU_API_BASE_URL and ASU_API_TOKEN are required secrets validated at deploy
+        const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
+        let classDetails: ClassDetails;
+        try {
+          classDetails = await fetchClassFromASU({ class_nbr, term }, asuEnv);
+        } catch (error) {
+          if (error instanceof NotFoundError) {
+            return fail('Class section not found', 404);
+          }
+          if (error instanceof AuthError) {
+            log('API').error('ASU API auth error:', error instanceof Error ? error.message : error);
+            return fail('Service temporarily unavailable', 503);
+          }
+          log('API').error('Failed to fetch class details:', error);
+          return fail('Failed to fetch class details', 500);
+        }
 
-    if (watchCount !== null && watchCount >= MAX_WATCHES_PER_USER) {
-      return fail(
-        `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
-        429
-      );
-    }
+        // Use service role for atomic insert RPC so clients cannot bypass limit checks by calling it directly.
+        const supabaseServiceRole = getServiceClient();
 
-    const body = await request.json();
-    const validation = createClassWatchSchema.safeParse(body);
-
-    if (!validation.success) {
-      return fail('Invalid input', 400, mapValidationIssues(validation.error));
-    }
-
-    const { term, class_nbr } = validation.data;
-    // SAFETY: env is Cloudflare Workers bindings; ASU_API_BASE_URL and ASU_API_TOKEN are required secrets validated at deploy
-    const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
-    let classDetails: ClassDetails;
-    try {
-      classDetails = await fetchClassFromASU({ class_nbr, term }, asuEnv);
-    } catch (error) {
-      if (error instanceof NotFoundError) {
-        return fail('Class section not found', 404);
-      }
-      if (error instanceof AuthError) {
-        log('API').error('ASU API auth error:', error instanceof Error ? error.message : error);
-        return fail('Service temporarily unavailable', 503);
-      }
-      log('API').error('Failed to fetch class details:', error);
-      return fail('Failed to fetch class details', 500);
-    }
-
-    // Use service role for atomic insert RPC so clients cannot bypass limit checks by calling it directly.
-    const supabaseServiceRole = getServiceClient();
-
-    // Step 2: Create class watch atomically (prevents concurrent limit bypass).
-    const { data: watchDataRaw, error: insertError } = await supabaseServiceRole.rpc(
-      'create_class_watch_with_limit',
-      {
-        p_user_id: user.id,
-        p_term: term,
-        p_subject: classDetails.subject.toUpperCase(),
-        p_catalog_nbr: classDetails.catalog_nbr,
-        p_class_nbr: class_nbr,
-        p_max_watches: MAX_WATCHES_PER_USER,
-      }
-    );
-
-    if (insertError) {
-      // Handle unique constraint violation
-      if (insertError.code === '23505') {
-        return fail('You are already watching this class', 409);
-      }
-
-      // Handle atomic limit-enforcement function error.
-      if (
-        insertError.code === 'P0001' &&
-        typeof insertError.message === 'string' &&
-        insertError.message.includes('MAX_WATCHES_EXCEEDED')
-      ) {
-        return fail(
-          `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
-          429
+        // Step 2: Create class watch atomically (prevents concurrent limit bypass).
+        const { data: watchDataRaw, error: insertError } = await supabaseServiceRole.rpc(
+          'create_class_watch_with_limit',
+          {
+            p_user_id: user.id,
+            p_term: term,
+            p_subject: classDetails.subject.toUpperCase(),
+            p_catalog_nbr: classDetails.catalog_nbr,
+            p_class_nbr: class_nbr,
+            p_max_watches: MAX_WATCHES_PER_USER,
+          }
         );
+
+        if (insertError) {
+          // Handle unique constraint violation
+          if (insertError.code === '23505') {
+            return fail('You are already watching this class', 409);
+          }
+
+          // Handle atomic limit-enforcement function error.
+          if (
+            insertError.code === 'P0001' &&
+            typeof insertError.message === 'string' &&
+            insertError.message.includes('MAX_WATCHES_EXCEEDED')
+          ) {
+            return fail(
+              `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
+              429
+            );
+          }
+
+          throw insertError;
+        }
+
+        if (!watchDataRaw) {
+          throw new Error('Failed to create class watch');
+        }
+
+        // Step 3: Persist class state
+        try {
+          await upsertClassState(supabaseServiceRole, { class_nbr, term }, classDetails);
+        } catch (dbError) {
+          log('API').error('Failed to persist class state:', dbError);
+          // Continue anyway - watch was created successfully
+        }
+
+        // Step 4: Mark onboarding complete on the user's first class watch so the
+        // finish-setup card stops reappearing. Service role bypasses the escalation
+        // trigger. The guard only checks `onboarding_completed_at IS NULL`, so a
+        // user who skipped onboarding still transitions to completed on their first
+        // watch (ADR 0010). See `applyFirstWatchGuard` in `lib/onboarding.ts`.
+        try {
+          await applyFirstWatchGuard(
+            supabaseServiceRole
+              .from('user_profiles')
+              .update({ onboarding_completed_at: new Date().toISOString() })
+              .eq('user_id', user.id)
+          );
+        } catch (dbError) {
+          log('API').error('Failed to mark onboarding complete:', dbError);
+          // Non-fatal - watch was created successfully
+        }
+
+        await captureServerEvent({
+          distinctId: user.id,
+          event: 'class_watch_created',
+          properties: {
+            term,
+            class_nbr,
+            subject: classDetails.subject.toUpperCase(),
+            catalog_nbr: classDetails.catalog_nbr,
+          },
+        });
+
+        return ok({ watch: watchDataRaw }, { status: 201 });
+      } catch (error) {
+        log('API').error('Error creating class watch:', error);
+        return fail('Failed to create class watch', 500);
       }
-
-      throw insertError;
-    }
-
-    if (!watchDataRaw) {
-      throw new Error('Failed to create class watch');
-    }
-
-    // Step 3: Persist class state
-    try {
-      await upsertClassState(supabaseServiceRole, { class_nbr, term }, classDetails);
-    } catch (dbError) {
-      log('API').error('Failed to persist class state:', dbError);
-      // Continue anyway - watch was created successfully
-    }
-
-    // Step 4: Mark onboarding complete on the user's first class watch so the
-    // finish-setup card stops reappearing. Service role bypasses the escalation
-    // trigger. The guard only checks `onboarding_completed_at IS NULL`, so a
-    // user who skipped onboarding still transitions to completed on their first
-    // watch (ADR 0010). See `applyFirstWatchGuard` in `lib/onboarding.ts`.
-    try {
-      await applyFirstWatchGuard(
-        supabaseServiceRole
-          .from('user_profiles')
-          .update({ onboarding_completed_at: new Date().toISOString() })
-          .eq('user_id', user.id)
-      );
-    } catch (dbError) {
-      log('API').error('Failed to mark onboarding complete:', dbError);
-      // Non-fatal - watch was created successfully
-    }
-
-    await captureServerEvent({
-      distinctId: user.id,
-      event: 'class_watch_created',
-      properties: {
-        term,
-        class_nbr,
-        subject: classDetails.subject.toUpperCase(),
-        catalog_nbr: classDetails.catalog_nbr,
-      },
     });
-
-    return ok({ watch: watchDataRaw }, { status: 201 });
   } catch (error) {
     log('API').error('Error creating class watch:', error);
     return fail('Failed to create class watch', 500);
@@ -248,45 +236,43 @@ export async function POST(request: NextRequest) {
  * Delete a class watch for the authenticated user
  */
 export async function DELETE(request: NextRequest) {
-  const supabase = await createClient();
-
-  let user: Awaited<ReturnType<typeof requireUser>>['user'];
   try {
-    ({ user } = await requireUser(supabase));
-  } catch (e) {
-    if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
-    throw e;
-  }
+    const supabase = await createClient();
+    return await withAuth(supabase, async (user) => {
+      try {
+        const { searchParams } = new URL(request.url);
+        const watchId = searchParams.get('id');
 
-  try {
-    const { searchParams } = new URL(request.url);
-    const watchId = searchParams.get('id');
+        // Validate watch ID
+        const validation = deleteClassWatchSchema.safeParse({ id: watchId });
 
-    // Validate watch ID
-    const validation = deleteClassWatchSchema.safeParse({ id: watchId });
+        if (!validation.success) {
+          return fail('Invalid input', 400, mapValidationIssues(validation.error));
+        }
 
-    if (!validation.success) {
-      return fail('Invalid input', 400, mapValidationIssues(validation.error));
-    }
+        // Delete the watch (RLS ensures user can only delete their own)
+        const { error } = await supabase
+          .from('class_watches')
+          .delete()
+          .eq('id', validation.data.id)
+          .eq('user_id', user.id);
 
-    // Delete the watch (RLS ensures user can only delete their own)
-    const { error } = await supabase
-      .from('class_watches')
-      .delete()
-      .eq('id', validation.data.id)
-      .eq('user_id', user.id);
+        if (error) {
+          throw error;
+        }
 
-    if (error) {
-      throw error;
-    }
+        await captureServerEvent({
+          distinctId: user.id,
+          event: 'class_watch_deleted',
+          properties: { watch_id: validation.data.id },
+        });
 
-    await captureServerEvent({
-      distinctId: user.id,
-      event: 'class_watch_deleted',
-      properties: { watch_id: validation.data.id },
+        return ok(undefined);
+      } catch (error) {
+        log('API').error('Error deleting class watch:', error);
+        return fail('Failed to delete class watch', 500);
+      }
     });
-
-    return ok(undefined);
   } catch (error) {
     log('API').error('Error deleting class watch:', error);
     return fail('Failed to delete class watch', 500);

@@ -107,7 +107,9 @@ export async function processSection(
   try {
     // Step 1: Fetch old state from DB by its SectionRef identity (class_nbr + term).
     const { data: oldState, error: stateError } = await applySectionRef(
-      serviceClient.from('class_states').select('*'),
+      serviceClient
+        .from('class_states')
+        .select('class_nbr, term, seats_available, non_reserved_seats, instructor_name'),
       ref
     ).single();
 

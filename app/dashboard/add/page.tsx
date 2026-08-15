@@ -3,7 +3,6 @@
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import posthog from 'posthog-js';
 import { AddClassWatch } from '@/components/AddClassWatch';
 import { Header } from '@/components/Header';
@@ -12,17 +11,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import type { ClassWatchCreationInput } from '@/lib/class-watches/class-watch-creation';
 import type { ClassWatchRow } from '@/lib/types/class-watch';
+import { useRequireAuth } from '@/lib/hooks/useRequireAuth';
 
 export default function AddClassPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace('/login');
-    }
-  }, [user, authLoading, router]);
+  useRequireAuth();
 
   const handleWatchCreated = (_watch: ClassWatchRow, watchData: ClassWatchCreationInput) => {
     posthog.capture('class_watch_added', {

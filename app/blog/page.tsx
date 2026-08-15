@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 import { blogPosts } from '@/lib/blog/posts';
+import { formatAbsoluteDate } from '@/lib/utils/time-format';
 
 export const metadata: Metadata = {
   title: 'ASU Registration Tips & Guides: Class Search, Waitlists & Open Seats',
@@ -74,7 +75,7 @@ export default async function BlogIndexPage() {
                   <div className="flex items-center gap-1.5">
                     <Calendar className="size-3.5" />
                     <time dateTime={post.publishedAt}>
-                      {new Date(post.publishedAt).toLocaleDateString('en-US', {
+                      {formatAbsoluteDate(post.publishedAt, {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',

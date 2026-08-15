@@ -63,3 +63,24 @@ export function formatRelativeDate(dateString: string | null): string | null {
 
   return null;
 }
+/**
+ * Format a date as an absolute locale string.
+ *
+ * Wraps `new Date(d).toLocaleString('en-US', ...)` with a sensible default
+ * (`year:'numeric', month:'short', day:'numeric', timeZone:'UTC'`). Pass `opts`
+ * to override or extend the formatting (e.g. include `hour`/`minute`). Caller
+ * `timeZone` wins over the UTC default.
+ *
+ * @param d - ISO string or Date
+ * @param opts - Intl.DateTimeFormatOptions to override the default
+ * @returns Formatted date string
+ */
+export function formatAbsoluteDate(d: string | Date, opts?: Intl.DateTimeFormatOptions): string {
+  return new Date(d).toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+    ...opts,
+  });
+}

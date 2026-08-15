@@ -1,7 +1,7 @@
 'use client';
 
 import { Search, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useDebouncedSearchParam } from '@/lib/hooks/useDebouncedSearchParam';
 
 interface UsersTableFiltersProps {
   /** Current filter values (from URL searchParams via parent) */
@@ -25,8 +26,6 @@ interface UsersTableFiltersProps {
   onNavigate: (updates: Record<string, string>) => void;
 }
 
-const SEARCH_DEBOUNCE_MS = 350;
-
 /**
  * Users Table Filters Component
  *
@@ -40,25 +39,8 @@ export function UsersTableFiltersComponent({
   watchCount,
   onNavigate,
 }: UsersTableFiltersProps) {
-  // Local state for search input so it feels responsive while debouncing
-  const [localSearch, setLocalSearch] = useState(search);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Sync local state when the URL-driven value changes (e.g. clear button)
-  useEffect(() => {
-    setLocalSearch(search);
-  }, [search]);
-
-  const handleSearchChange = useCallback(
-    (value: string) => {
-      setLocalSearch(value);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        onNavigate({ search: value });
-      }, SEARCH_DEBOUNCE_MS);
-    },
-    [onNavigate]
-  );
+  const onSearchChange = useCallback((v: string) => onNavigate({ search: v }), [onNavigate]);
+  const [localSearch, handleSearchChange] = useDebouncedSearchParam(search, onSearchChange, 350);
 
   const clearFilters = () => {
     onNavigate({ search: '', role: 'all', verified: 'all', watchCount: 'all' });

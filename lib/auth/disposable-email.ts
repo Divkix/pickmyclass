@@ -6,9 +6,9 @@
  * Fails open on any infrastructure failure — email verification is the safety net.
  */
 
+import { TtlCache } from '@/lib/cache/ttl-cache';
 import { DISPOSABLE_EMAIL_CACHE_TTL_MS } from '@/lib/config';
 import { log } from '@/lib/log';
-
 export interface DisposableCheckResult {
   disposable: boolean;
 }
@@ -68,18 +68,16 @@ export function isTrustedDomain(domain: string): boolean {
   return TRUSTED_DOMAINS.has(domain);
 }
 
-// Module-level cache for domain blocklist
-let cachedDomains: Set<string> | null = null;
-let cacheTimestamp = 0;
-const CACHE_TTL_MS = DISPOSABLE_EMAIL_CACHE_TTL_MS;
+// Module-level cache for domain blocklist (reuses shared TtlCache)
+const disposableDomainsCache = new TtlCache<Set<string>>(DISPOSABLE_EMAIL_CACHE_TTL_MS);
+const DISPOSABLE_CACHE_KEY = 'blocklist';
 
 /**
  * Reset the module-level domain cache.
  * Exposed for testing only.
  */
 export function _resetCache(): void {
-  cachedDomains = null;
-  cacheTimestamp = 0;
+  disposableDomainsCache.clear();
 }
 
 /**
@@ -108,19 +106,17 @@ export async function isDisposableEmail(
   if (!kv) return { disposable: false };
 
   try {
-    const now = Date.now();
-
-    // Refresh cache if expired or missing
-    if (!cachedDomains || now - cacheTimestamp > CACHE_TTL_MS) {
+    let domains = disposableDomainsCache.get(DISPOSABLE_CACHE_KEY);
+    if (!domains) {
       const raw = await kv.get('disposable-domains');
       if (!raw) return { disposable: false };
 
-      const domains: string[] = JSON.parse(raw);
-      cachedDomains = new Set(domains);
-      cacheTimestamp = now;
+      const domainsList: string[] = JSON.parse(raw);
+      domains = new Set(domainsList);
+      disposableDomainsCache.set(DISPOSABLE_CACHE_KEY, domains);
     }
 
-    return { disposable: cachedDomains.has(domain) };
+    return { disposable: domains.has(domain) };
   } catch (error) {
     log('DisposableCheck').error('KV lookup failed, failing open:', error);
     return { disposable: false };

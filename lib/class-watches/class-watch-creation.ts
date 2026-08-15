@@ -1,7 +1,7 @@
 import { createClassWatchSchema } from '@/lib/api/schemas';
+import { isRecord, type WirePayload } from '@/lib/api/wire';
 import { getSelectableTerms } from '@/lib/asu/terms';
 import type { ClassWatchRow } from '@/lib/types/class-watch';
-
 const CREATE_CLASS_WATCH_ERROR = 'Failed to add class watch';
 
 export type ClassWatchCreationInput = {
@@ -10,14 +10,6 @@ export type ClassWatchCreationInput = {
 };
 
 type Request = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-type WirePayload = Record<string, JsonValue>;
-
-// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: type guard decodes unknown wire payload at I/O boundary
-function isRecord(value: unknown): value is WirePayload {
-  return typeof value === 'object' && value !== null;
-}
 // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: type guard validates unknown payload shape for ClassWatchRow before narrowing
 function isClassWatchRow(value: unknown): value is ClassWatchRow {
   return (

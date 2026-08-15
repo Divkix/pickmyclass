@@ -53,6 +53,7 @@ export function createEdgeHtmlCache(resolveCache: () => EdgeCacheStore) {
         return null;
       }
 
+      // ponytail: clones full HTML for cache; accept bounded pages (<100KB)
       const toStore = new Response(response.clone().body, response);
       toStore.headers.set('Cache-Control', `public, s-maxage=${EDGE_HTML_CACHE_TTL_S}`);
       return resolveCache().put(cacheKey(request, versionId), toStore);

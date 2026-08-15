@@ -148,7 +148,9 @@ describe('processSection', () => {
     // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because SupabaseClient not overlapping mock type
     const db = getServiceClient() as unknown as ReturnType<typeof buildMockDb>;
     expect(db.from).toHaveBeenCalledWith('class_states');
-    expect(db.select).toHaveBeenCalledWith('*');
+    expect(db.select).toHaveBeenCalledWith(
+      'class_nbr, term, seats_available, non_reserved_seats, instructor_name'
+    );
     expect(db.eq).toHaveBeenCalledWith('class_nbr', '42737');
     expect(db.eq).toHaveBeenCalledWith('term', '2261');
     expect(db.single).toHaveBeenCalled();

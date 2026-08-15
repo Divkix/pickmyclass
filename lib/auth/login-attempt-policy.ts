@@ -130,7 +130,7 @@ const supabaseLoginAttemptStore: LoginAttemptStore = {
     const supabase = getServiceClient();
     const { data, error } = await supabase
       .from('failed_login_attempts')
-      .select('*')
+      .select('attempts, locked_until')
       .eq('email', email)
       .maybeSingle();
 
