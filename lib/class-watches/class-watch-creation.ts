@@ -1,4 +1,5 @@
 import { createClassWatchSchema } from '@/lib/api/schemas';
+import { parseOrThrow } from '@/lib/api/validation';
 import { isRecord, type WirePayload } from '@/lib/api/wire';
 import { getSelectableTerms } from '@/lib/asu/terms';
 import type { ClassWatchRow } from '@/lib/types/class-watch';
@@ -44,9 +45,11 @@ export function createClassWatchClient(request?: Request) {
     },
 
     async create(input: ClassWatchCreationInput): Promise<ClassWatchRow> {
-      const validation = createClassWatchSchema.safeParse(input);
-      if (!validation.success) {
-        throw new Error(validation.error.issues[0]?.message ?? CREATE_CLASS_WATCH_ERROR);
+      let validated: ClassWatchCreationInput;
+      try {
+        validated = parseOrThrow(createClassWatchSchema, input);
+      } catch (error) {
+        throw new Error(error instanceof Error ? error.message : CREATE_CLASS_WATCH_ERROR);
       }
 
       let response: Response;
@@ -54,7 +57,7 @@ export function createClassWatchClient(request?: Request) {
         response = await (request ?? globalThis.fetch)('/api/class-watches', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(validation.data),
+          body: JSON.stringify(validated),
         });
       } catch {
         throw new Error(CREATE_CLASS_WATCH_ERROR);
@@ -67,8 +70,8 @@ export function createClassWatchClient(request?: Request) {
       }
       if (
         !isClassWatchRow(payload?.watch) ||
-        payload.watch.term !== validation.data.term ||
-        payload.watch.class_nbr !== validation.data.class_nbr
+        payload.watch.term !== validated.term ||
+        payload.watch.class_nbr !== validated.class_nbr
       ) {
         throw new Error(CREATE_CLASS_WATCH_ERROR);
       }

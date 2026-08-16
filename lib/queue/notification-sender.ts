@@ -178,11 +178,14 @@ export async function sendSectionNotifications(
         await deleteNotificationRecords(failedInstructorWatchIds, 'instructor_assigned');
       }
     } catch (rollbackError) {
-      log('NotificationSender').error(
+      log('NotificationSender').warn(
         `Failed to rollback notification records for ${scope}:`,
         rollbackError
       );
-      throw rollbackError;
+      // do not throw — caller processSection already upserted baseline, so retry
+      // would find no change and notification suppression would discard the retry
+      // anyway. Throwing here would cause a useless retry + 24h suppression window
+      // while losing the successful sends. Fail open and return partial results.
     }
   }
 

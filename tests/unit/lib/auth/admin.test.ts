@@ -60,8 +60,8 @@ describe('verifyAdmin', () => {
   it('redirects users whose admin profile lookup fails', async () => {
     mockSingle.mockResolvedValueOnce({ data: null, error: { message: 'not found' } });
 
-    await expect(verifyAdmin()).rejects.toThrow('redirect:/dashboard');
-    expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
+    await expect(verifyAdmin()).rejects.toThrow('redirect:/login');
+    expect(mockRedirect).toHaveBeenCalledWith('/login');
   });
 
   it('redirects authenticated non-admin users', async () => {

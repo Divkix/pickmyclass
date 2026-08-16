@@ -162,10 +162,14 @@ export async function GET(request: NextRequest) {
     }
 
     const successfulBatches = batchResults.filter((r) => r.status === 'fulfilled').length;
+    const successfullyEnqueuedCount = batchResults.reduce(
+      (count, result, idx) => count + (result.status === 'fulfilled' ? batches[idx].length : 0),
+      0
+    );
 
     const duration = Date.now() - startTime;
     log('Cron').info(
-      `Enqueued ${sections.length} sections in ${duration}ms (${successfulBatches}/${batches.length} batches succeeded)`
+      `Enqueued ${successfullyEnqueuedCount} sections in ${duration}ms (${successfulBatches}/${batches.length} batches succeeded)`
     );
 
     // Return success:false if any batches failed
@@ -176,7 +180,7 @@ export async function GET(request: NextRequest) {
         'Some batches failed to enqueue',
         207, // 207 Multi-Status for partial failures
         {
-          sections_enqueued: sections.length,
+          sections_enqueued: successfullyEnqueuedCount,
           batches_total: batches.length,
           batches_failed: failedBatches.length,
           stagger_group: staggerGroup,
@@ -186,7 +190,7 @@ export async function GET(request: NextRequest) {
     }
 
     return ok({
-      sections_enqueued: sections.length,
+      sections_enqueued: successfullyEnqueuedCount,
       batches_total: batches.length,
       batches_failed: 0,
       stagger_group: staggerGroup,

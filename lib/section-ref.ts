@@ -51,8 +51,3 @@ export function applySectionRef<Q extends SectionRefFilter>(query: Q, ref: Secti
 export function sectionRefKey(ref: SectionRef): string {
   return `${ref.term}:${ref.class_nbr}`;
 }
-
-/** Whether two SectionRefs identify the same Class Section (both fields equal). */
-export function sectionRefEquals(a: SectionRef, b: SectionRef): boolean {
-  return a.class_nbr === b.class_nbr && a.term === b.term;
-}

@@ -331,16 +331,17 @@ describe('processSection', () => {
 
     const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
-    // non-PGRST116 errors log but don't stop processing
-    expect(console.error).toHaveBeenCalledWith(
-      '[ProcessSection]',
-      'Error fetching old state for 42737:',
-      expect.any(Object)
-    );
-    // Should continue with null old state
-    expect(detectChanges).toHaveBeenCalledWith(null, expect.any(Object));
-    expect(outcome.result.success).toBe(true);
-    expect(outcome.disposition).toBe('ack');
+    expect(detectChanges).not.toHaveBeenCalled();
+    expect(fetchClassFromASU).not.toHaveBeenCalled();
+    expect(sendSectionNotifications).not.toHaveBeenCalled();
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because SupabaseClient not overlapping mock type
+    const db = getServiceClient() as unknown as ReturnType<typeof buildMockDb>;
+    expect(db.upsert).not.toHaveBeenCalled();
+    expect(outcome.disposition).toBe('retry');
+    expect(outcome.httpStatus).toBe(500);
+    expect(outcome.retryable).toBe(true);
+    expect(outcome.result.success).toBe(false);
+    expect(outcome.result.error).toEqual(expect.stringContaining('Connection timeout'));
   });
 
   describe('send/persist ordering', () => {

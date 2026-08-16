@@ -116,8 +116,18 @@ export async function processSection(
     // PGRST116 = no rows found — not an error for first observation
     if (stateError && stateError.code !== 'PGRST116') {
       log('ProcessSection').error(`Error fetching old state for ${classNbr}:`, stateError);
+      return retryOutcome(
+        {
+          success: false,
+          classNbr,
+          changes: emptyChanges(),
+          emailsSent: 0,
+          processingTimeMs: Date.now() - startTime,
+          error: stateError.message,
+        },
+        500
+      );
     }
-
     // Step 2: Fetch from ASU API
     newData = await fetchClassFromASU(ref, env);
 
@@ -139,8 +149,23 @@ export async function processSection(
     }
 
     // Step 5: Upsert new class state BEFORE sending notifications.
-    // Persisting the new baseline first means a retried message reads the *new* state, so
-    // detectChanges no longer re-fires the same transition and no duplicate emails are sent.
+    // TRADEOFF — upsert-before-notify / at-least-once vs at-most-once:
+    // Persisting the new baseline first guarantees idempotency on retry: a
+    // retried message reads the *new* state, so detectChanges no longer re-fires
+    // the same transition and duplicate emails are impossible. The cost is a
+    // crash window — if the Worker crashes after the upsert but before
+    // tryRecordNotificationsBatch claims the notification slots, the baseline
+    // has advanced yet no email was sent, so the notification is lost for that
+    // transition. This is intentionally preferred over double-send: a lost
+    // notification is a single-cycle delay until the next state flip, whereas
+    // double-send is user-visible spam. A stronger guarantee would require a
+    // transactional RPC (claim_and_upsert) or claim-before-upsert with rollback
+    // on upsert failure, but that adds cross-table atomicity complexity without
+    // changing the disposition contract (ack vs retry) exposed to callers.
+    // Mitigations retained: (1) rollback failure in notification-sender is
+    // fail-open (F7) so a partial send still acks, and (2) detectChanges is
+    // always computed against the persisted oldState so a retry correctly
+    // suppresses re-notification.
     const newState = {
       ...newData,
       ...ref,

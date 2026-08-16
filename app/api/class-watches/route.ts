@@ -3,7 +3,7 @@ import { type NextRequest } from 'next/server';
 import { ok, fail } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
 import { createClassWatchSchema, deleteClassWatchSchema } from '@/lib/api/schemas';
-import { mapValidationIssues } from '@/lib/api/validation';
+import { parseOrFail } from '@/lib/api/validation';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
 import { upsertClassState } from '@/lib/db/queries';
 import { log } from '@/lib/log';
@@ -118,13 +118,13 @@ export async function POST(request: NextRequest) {
     return await withAuth(supabase, async (user) => {
       try {
         const body = await request.json();
-        const validation = createClassWatchSchema.safeParse(body);
+        const parsed = parseOrFail(createClassWatchSchema, body);
 
-        if (!validation.success) {
-          return fail('Invalid input', 400, mapValidationIssues(validation.error));
+        if (!parsed.success) {
+          return parsed.response;
         }
 
-        const { term, class_nbr } = validation.data;
+        const { term, class_nbr } = parsed.data;
         // SAFETY: env is Cloudflare Workers bindings; ASU_API_BASE_URL and ASU_API_TOKEN are required secrets validated at deploy
         const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
         let classDetails: ClassDetails;
@@ -244,17 +244,17 @@ export async function DELETE(request: NextRequest) {
         const watchId = searchParams.get('id');
 
         // Validate watch ID
-        const validation = deleteClassWatchSchema.safeParse({ id: watchId });
+        const parsed = parseOrFail(deleteClassWatchSchema, { id: watchId });
 
-        if (!validation.success) {
-          return fail('Invalid input', 400, mapValidationIssues(validation.error));
+        if (!parsed.success) {
+          return parsed.response;
         }
 
         // Delete the watch (RLS ensures user can only delete their own)
         const { error } = await supabase
           .from('class_watches')
           .delete()
-          .eq('id', validation.data.id)
+          .eq('id', parsed.data.id)
           .eq('user_id', user.id);
 
         if (error) {
@@ -264,7 +264,7 @@ export async function DELETE(request: NextRequest) {
         await captureServerEvent({
           distinctId: user.id,
           event: 'class_watch_deleted',
-          properties: { watch_id: validation.data.id },
+          properties: { watch_id: parsed.data.id },
         });
 
         return ok(undefined);

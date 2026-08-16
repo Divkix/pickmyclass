@@ -1,6 +1,6 @@
 import { type NextRequest } from 'next/server';
 import { checkLockoutSchema } from '@/lib/api/schemas';
-import { mapValidationIssues } from '@/lib/api/validation';
+import { parseOrFail } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
 import { loginAttemptPolicy } from '@/lib/auth/login-attempt-policy';
 import { log } from '@/lib/log';
@@ -8,13 +8,13 @@ import { log } from '@/lib/log';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const validation = checkLockoutSchema.safeParse(body);
+    const parsed = parseOrFail(checkLockoutSchema, body);
 
-    if (!validation.success) {
-      return fail('Invalid input', 400, mapValidationIssues(validation.error));
+    if (!parsed.success) {
+      return parsed.response;
     }
 
-    const status = await loginAttemptPolicy.getPublicStatus(validation.data.email);
+    const status = await loginAttemptPolicy.getPublicStatus(parsed.data.email);
 
     // NOTE: `attempts` is intentionally omitted from the response.
     // Returning exact per-email failure counts turns this unauthenticated

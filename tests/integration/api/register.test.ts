@@ -200,11 +200,8 @@ describe('POST /api/auth/register', () => {
       const response = await POST(request);
       const data = await parseResponse(response);
 
-      expect(response.status).toBe(409);
-      expect(data.success).toBe(false);
-      const details = data.details as { duplicate?: boolean };
-      expect(details.duplicate).toBe(true);
-      expect(data.error).toContain('already registered');
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
     });
 
     it('should return 400 when Supabase returns an error', async () => {

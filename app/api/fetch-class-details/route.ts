@@ -4,7 +4,7 @@ import { ok, fail } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
 import { fetchClassDetailsSchema } from '@/lib/api/schemas';
 import { mapAsuErrorToResponse } from '@/lib/api/asu-response';
-import { mapValidationIssues } from '@/lib/api/validation';
+import { parseOrFail } from '@/lib/api/validation';
 import { type ClassDetails, fetchClassFromASU } from '@/lib/asu/api';
 import { upsertClassState } from '@/lib/db/queries';
 import { log } from '@/lib/log';
@@ -24,11 +24,11 @@ export async function POST(request: NextRequest) {
   let class_nbr: string;
   try {
     const body = await request.json();
-    const validation = fetchClassDetailsSchema.safeParse(body);
-    if (!validation.success) {
-      return fail('Invalid input', 400, mapValidationIssues(validation.error));
+    const parsed = parseOrFail(fetchClassDetailsSchema, body);
+    if (!parsed.success) {
+      return parsed.response;
     }
-    ({ term, class_nbr } = validation.data);
+    ({ term, class_nbr } = parsed.data);
   } catch (error) {
     log('API').error('Error fetching class details:', error);
     return fail('Failed to fetch class details', 500);

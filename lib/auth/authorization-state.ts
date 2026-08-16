@@ -68,8 +68,10 @@ interface ReadAuthorizationStateOptions {
  * and bypasses the cache entirely (`verifyAdmin` and the login route), so a
  * disabled or demoted account is enforced immediately on those gates.
  *
- * Returns `null` when the user has no profile row or the query errors — every
- * caller treats a `null` state as "not admin, not disabled".
+ * Returns `null` when the user has no profile row. On DB/RLS/network errors it
+ * fail-closes to `{ is_admin:false, is_disabled:true, has_consent:false }` so
+ * callers that check `authState?.is_disabled` block the user instead of treating
+ * the error as "not disabled". Error results are never cached.
  */
 export async function readAuthorizationState(
   client: SupabaseClient<Database>,
@@ -82,11 +84,16 @@ export async function readAuthorizationState(
   }
 
   try {
-    const { data } = await client
+    const { data, error } = await client
       .from('user_profiles')
       .select('is_admin, is_disabled, age_verified_at, agreed_to_terms_at')
       .eq('user_id', userId)
       .maybeSingle();
+
+    if (error) {
+      log('Auth').error('Error reading authorization state:', error);
+      return { is_admin: false, is_disabled: true, has_consent: false };
+    }
 
     if (!data) return null;
 
@@ -103,6 +110,6 @@ export async function readAuthorizationState(
     return state;
   } catch (error) {
     log('Auth').error('Error reading authorization state:', error);
-    return null;
+    return { is_admin: false, is_disabled: true, has_consent: false };
   }
 }

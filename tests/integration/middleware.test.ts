@@ -785,8 +785,10 @@ describe('proxy', () => {
       const request = createRequest('/dashboard');
       const response = await proxy(request);
 
-      // Should still allow access (profile is null, not admin)
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe(
+        'http://localhost:3000/login?error=account_disabled'
+      );
 
       consoleSpy.mockRestore();
     });

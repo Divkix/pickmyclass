@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import {
-  applySectionRef,
-  type SectionRef,
-  sectionRefEquals,
-  sectionRefKey,
-} from '@/lib/section-ref';
+import { applySectionRef, type SectionRef, sectionRefKey } from '@/lib/section-ref';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 import type { ClassCheckMessage } from '@/lib/types/queue';
 
@@ -56,26 +51,6 @@ describe('sectionRefKey', () => {
   });
 });
 
-describe('sectionRefEquals', () => {
-  it('is true when both fields match', () => {
-    expect(
-      sectionRefEquals({ class_nbr: '12431', term: '2261' }, { class_nbr: '12431', term: '2261' })
-    ).toBe(true);
-  });
-
-  it('is false when the class_nbr differs', () => {
-    expect(
-      sectionRefEquals({ class_nbr: '12431', term: '2261' }, { class_nbr: '99999', term: '2261' })
-    ).toBe(false);
-  });
-
-  it('is false when the term differs', () => {
-    expect(
-      sectionRefEquals({ class_nbr: '12431', term: '2261' }, { class_nbr: '12431', term: '2267' })
-    ).toBe(false);
-  });
-});
-
 describe('structural compatibility', () => {
   it('existing rows and ClassCheckMessage satisfy SectionRef with no wrapping', () => {
     // Compile-time proof: each shape is assignable to SectionRef directly.
@@ -89,7 +64,9 @@ describe('structural compatibility', () => {
     const fromState: SectionRef = { class_nbr: '1', term: '2261' } as ClassStateRow;
     const fromWatch: SectionRef = { class_nbr: '1', term: '2261' } as ClassWatchRow;
 
-    expect(sectionRefEquals(fromMessage, fromState)).toBe(true);
-    expect(sectionRefEquals(fromState, fromWatch)).toBe(true);
+    expect(fromMessage.class_nbr).toBe(fromState.class_nbr);
+    expect(fromMessage.term).toBe(fromState.term);
+    expect(fromState.class_nbr).toBe(fromWatch.class_nbr);
+    expect(fromState.term).toBe(fromWatch.term);
   });
 });

@@ -1,7 +1,7 @@
 import { type NextRequest } from 'next/server';
 import { loginSchema } from '@/lib/api/schemas';
 import { log } from '@/lib/log';
-import { mapValidationIssues } from '@/lib/api/validation';
+import { parseOrFail } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
 import { readAuthorizationState } from '@/lib/auth/authorization-state';
 import { loginAttemptPolicy } from '@/lib/auth/login-attempt-policy';
@@ -17,15 +17,15 @@ type JsonValue =
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const validation = loginSchema.safeParse(body);
+    const parsed = parseOrFail(loginSchema, body);
 
-    if (!validation.success) {
-      return fail('Invalid input', 400, mapValidationIssues(validation.error));
+    if (!parsed.success) {
+      return parsed.response;
     }
 
-    const password = validation.data.password;
+    const password = parsed.data.password;
     const decision = await loginAttemptPolicy.attempt(
-      validation.data.email,
+      parsed.data.email,
       async (normalizedEmail) => {
         const supabase = await createClient();
         const { data, error } = await supabase.auth.signInWithPassword({

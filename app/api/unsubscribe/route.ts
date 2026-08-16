@@ -8,7 +8,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { unsubscribeTokenSchema } from '@/lib/api/schemas';
-import { mapValidationIssues } from '@/lib/api/validation';
+import { parseOrFail } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
 import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token';
 import { log } from '@/lib/log';
@@ -58,6 +58,15 @@ ${content}
   );
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 async function unsubscribeUser(userId: string, method: 'GET' | 'POST'): Promise<void> {
   const { error } = await getServiceClient()
     .from('user_profiles')
@@ -79,18 +88,17 @@ async function unsubscribeUser(userId: string, method: 'GET' | 'POST'): Promise<
 
 /**
  * GET handler for web-based unsubscribe
- * Renders an HTML page with unsubscribe confirmation
+ * Renders a confirmation page with a POST form — no mutation occurs on GET
+ * so prefetch / AV preview does not unsubscribe.
  */
-// One-click unsubscribe requires GET per RFC 8058 / CAN-SPAM standards
-// eslint-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const token = searchParams.get('token');
 
   // Validate token parameter
-  const validation = unsubscribeTokenSchema.safeParse({ token });
+  const parsed = parseOrFail(unsubscribeTokenSchema, { token });
 
-  if (!validation.success) {
+  if (!parsed.success) {
     return htmlPage(
       'Invalid Unsubscribe Link',
       `  <h1 class="error">Invalid Unsubscribe Link</h1>
@@ -101,7 +109,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Verify token
-  const userId = verifyUnsubscribeToken(validation.data.token);
+  const userId = verifyUnsubscribeToken(parsed.data.token);
 
   if (!userId) {
     return htmlPage(
@@ -114,28 +122,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Unsubscribe user
-  try {
-    await unsubscribeUser(userId, 'GET');
-    return htmlPage(
-      'Unsubscribed Successfully',
-      `  <h1 class="success">✓ Unsubscribed Successfully</h1>
-  <p>You've been unsubscribed from all PickMyClass email notifications.</p>
-  <p>You can re-enable notifications anytime from your account settings.</p>
+  // Render confirmation form — mutation only on POST
+  const encodedToken = encodeURIComponent(parsed.data.token);
+  const escapedAction = escapeHtml(`/api/unsubscribe?token=${encodedToken}`);
+  return htmlPage(
+    'Confirm Unsubscribe',
+    `  <h1>Confirm Unsubscribe</h1>
+  <p>You are about to unsubscribe from all PickMyClass email notifications.</p>
+  <p>Click the button below to confirm.</p>
+  <form method="POST" action="${escapedAction}">
+    <button type="submit" style="background:#8C1D40;color:#fff;border:none;padding:12px 24px;font-size:16px;border-radius:6px;cursor:pointer;">Confirm Unsubscribe</button>
+  </form>
   <p><a href="/">Return to PickMyClass</a></p>`,
-      200
-    );
-  } catch (error) {
-    log('Unsubscribe').error('Error processing unsubscribe:', error);
-    return htmlPage(
-      'Unsubscribe Error',
-      `  <h1 class="error">Error Processing Unsubscribe</h1>
-  <p>We encountered an error while processing your request.</p>
-  <p>Please try again later or contact support.</p>
-  <p><a href="/">Return to PickMyClass</a></p>`,
-      500
-    );
-  }
+    200
+  );
 }
 
 /**
@@ -147,14 +147,14 @@ export async function POST(request: NextRequest) {
   const token = searchParams.get('token');
 
   // Validate token parameter
-  const validation = unsubscribeTokenSchema.safeParse({ token });
+  const parsed = parseOrFail(unsubscribeTokenSchema, { token });
 
-  if (!validation.success) {
-    return fail('Invalid input', 400, mapValidationIssues(validation.error));
+  if (!parsed.success) {
+    return parsed.response;
   }
 
   // Verify token
-  const userId = verifyUnsubscribeToken(validation.data.token);
+  const userId = verifyUnsubscribeToken(parsed.data.token);
 
   if (!userId) {
     return fail('Invalid or expired token', 400);

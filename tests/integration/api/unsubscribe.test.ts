@@ -74,24 +74,8 @@ describe('/api/unsubscribe', () => {
     const body = await response.text();
 
     expect(response.status).toBe(200);
-    expect(body).toContain('Unsubscribed Successfully');
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        notifications_enabled: false,
-        unsubscribed_at: expect.any(String),
-      })
-    );
-    expect(mockEq).toHaveBeenCalledWith('user_id', 'user-123');
-  });
-
-  it('returns an HTML error page when GET unsubscribe persistence fails', async () => {
-    mockEq.mockResolvedValueOnce({ error: { message: 'database down' } });
-
-    const response = await GET(request('https://pickmyclass.app/api/unsubscribe?token=good'));
-    const body = await response.text();
-
-    expect(response.status).toBe(500);
-    expect(body).toContain('Error Processing Unsubscribe');
+    expect(body).toContain('Confirm Unsubscribe');
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('validates one-click POST requests', async () => {

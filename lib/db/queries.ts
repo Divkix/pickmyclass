@@ -201,6 +201,11 @@ export async function deletePastTermWatches(termCodes: string[]): Promise<number
 /**
  * Batch check-and-record notifications atomically.
  * Returns the set of watch IDs that were successfully recorded (safe to send email).
+ * Called *after* upsertClassState / direct upsert in the queue pipeline
+ * (see process-section.ts Step 5 TRADEOFF comment) — the upsert-before-claim
+ * ordering avoids double-send on retry at the cost of a small crash window
+ * where a notification can be lost. Fail-open rollback handling in
+ * notification-sender mitigates the window without adding a cross-table RPC.
  *
  * @param watchIds - Array of class watch UUIDs to check
  * @param notificationType - Type of notification

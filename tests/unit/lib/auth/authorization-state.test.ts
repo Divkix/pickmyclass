@@ -106,7 +106,7 @@ describe('readAuthorizationState', () => {
 
     const state = await readAuthorizationState(client, 'user-1', { cache: false });
 
-    expect(state).toBeNull();
+    expect(state).toEqual({ is_admin: false, is_disabled: true, has_consent: false });
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });

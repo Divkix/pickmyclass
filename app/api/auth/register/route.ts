@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { type NextRequest } from 'next/server';
 import { registerSchema } from '@/lib/api/schemas';
 import { log } from '@/lib/log';
-import { mapValidationIssues } from '@/lib/api/validation';
+import { parseOrFail } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
 import { isDisposableEmail } from '@/lib/auth/disposable-email';
 import { captureServerEvent } from '@/lib/posthog-server';
@@ -11,15 +11,15 @@ import { createClient } from '@/lib/supabase/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const validation = registerSchema.safeParse(body);
+    const parsed = parseOrFail(registerSchema, body);
 
-    if (!validation.success) {
-      return fail('Invalid input', 400, mapValidationIssues(validation.error));
+    if (!parsed.success) {
+      return parsed.response;
     }
 
-    const email = validation.data.email.toLowerCase();
-    const password = validation.data.password;
-    const { ageVerified, agreedToTerms } = validation.data;
+    const email = parsed.data.email.toLowerCase();
+    const password = parsed.data.password;
+    const { ageVerified, agreedToTerms } = parsed.data;
 
     try {
       // SAFETY: KVNamespace binding is an optional Cloudflare KV binding; shape matches wrangler.jsonc env contract. Nullish fallback handles unbound env in local dev.
@@ -57,9 +57,12 @@ export async function POST(request: NextRequest) {
       return fail(error.message, 400);
     }
 
-    // Check for duplicate email (Supabase returns user with empty identities)
+    // Prevent account-enumeration oracle: duplicate and new registrations
+    // return the same generic success response. Supabase signals a duplicate
+    // via an empty identities array.
     if (data.user?.identities?.length === 0) {
-      return fail('This email is already registered. Please sign in.', 409, { duplicate: true });
+      log('Register').info('Duplicate registration attempt suppressed');
+      return ok(null);
     }
 
     if (data.user) {
