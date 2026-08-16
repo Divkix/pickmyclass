@@ -80,6 +80,8 @@ describe('/api/fetch-class-details', () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
     vi.clearAllMocks();
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -99,6 +101,7 @@ describe('/api/fetch-class-details', () => {
   afterEach(() => {
     errorSpy.mockRestore();
     logSpy.mockRestore();
+    vi.useRealTimers();
   });
 
   it('rejects invalid class detail requests', async () => {
