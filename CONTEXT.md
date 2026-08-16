@@ -25,7 +25,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Section Check** — One complete cycle of: fetch current state from DB → fetch latest data from ASU API → detect changes → send notifications → persist state. Each section check processes a single `class_nbr`.
 
-- **Change Detection** — The algorithm that compares old and new section data to determine if seats became available, seats filled, or an instructor was assigned. The seat signal is `non_reserved_seats ?? seats_available`; since ASU exposes no waitlist data, `non_reserved_seats` is NULL in production and `seats_available` is the value actually used (see `docs/adr/0005-non-reserved-seats-dormant-column.md`).
+- **Change Detection** — The algorithm that compares old and new section data to determine if seats became available, seats filled, or an instructor was assigned. The seat signal is `non_reserved_seats ?? seats_available`; `non_reserved_seats` is computed as `Math.max(0, enrlCap - enrlTot - waitTot)` in `lib/asu/api.ts` and persisted via `upsertClassState` (`lib/db/queries.ts`), with fallback `non_reserved_seats ?? seats_available` when `NULL` (no waitlist data) — see `docs/adr/0005-non-reserved-seats-dormant-column.md` (pre-#198 wording is historical).
 
 - **Cron Cycle** — The every-30-minute scheduled job (`/api/cron`) that enqueues Section Checks. Partitioned by Stagger Group.
 
@@ -33,7 +33,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Queue Message** — A `ClassCheckMessage` containing `class_nbr`, `term`, `enqueued_at`, and `stagger_group`. Sent to Cloudflare Queue for parallel processing.
 
-- **Disposition** — The retry-vs-give-up verdict for one Section Check: `ack` (done, drop the message) or `retry` (transient, try again). Decided once by `classifyDisposition`; the queue consumer and the HTTP mirror route each translate it to their own transport (queue `ack()`/`retry()` vs HTTP `200`/`429`/`502`).
+- **Disposition** — The retry-vs-give-up verdict for one Section Check: `ack` (done, drop the message) or `retry` (transient, try again). Decided inside `processSection` (returns `SectionCheckOutcome` with `disposition: 'ack'|'retry'`); the queue consumer and HTTP mirror each translate `outcome.disposition` to their transport (queue `ack()`/`retry()` vs HTTP `200`/`429`/`502`/`500`). See `docs/adr/0006-queue-ack-retry-contract.md`.
 
 ## Architecture
 
