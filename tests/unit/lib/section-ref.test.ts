@@ -61,7 +61,9 @@ describe('structural compatibility', () => {
       stagger_group: 'even',
     } as const;
     const fromMessage: SectionRef = message satisfies ClassCheckMessage;
+    // SAFETY: structural compatibility test with controlled literal; narrow mock to ClassStateRow is safe for SectionRef assignment check
     const fromState: SectionRef = { class_nbr: '1', term: '2261' } as ClassStateRow;
+    // SAFETY: structural compatibility test with controlled literal; narrow mock to ClassWatchRow is safe for SectionRef assignment check
     const fromWatch: SectionRef = { class_nbr: '1', term: '2261' } as ClassWatchRow;
 
     expect(fromMessage.class_nbr).toBe(fromState.class_nbr);

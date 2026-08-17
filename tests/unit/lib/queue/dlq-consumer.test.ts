@@ -24,9 +24,8 @@ function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMes
     ...overrides,
   };
 }
-
+// SAFETY: test mock narrows getClassWatchers to vi.fn shape to set mockResolvedValue
 const mockGetClassWatchers = getClassWatchers as ReturnType<typeof vi.fn>;
-
 function mockWatchers(watchers: unknown[]) {
   mockGetClassWatchers.mockResolvedValue(watchers);
 }

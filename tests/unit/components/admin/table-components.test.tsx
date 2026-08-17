@@ -202,6 +202,7 @@ describe('admin table components (server-driven)', () => {
   it('navigates to class detail page on row click', () => {
     render(<ClassesTable {...defaultClassProps} classes={classes} total={2} />);
 
+    // SAFETY: rendered fixture guarantees this text sits inside a <tr>; closest('tr') is non-null in this DOM tree
     fireEvent.click(screen.getByText('Calculus I').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/classes/2261/23456');
   });
@@ -212,6 +213,7 @@ describe('admin table components (server-driven)', () => {
     // Click 'Class #' header
     fireEvent.click(screen.getByText('Class #'));
     expect(mockPush).toHaveBeenCalled();
+    // SAFETY: mockPush is controlled test double; first call arg is the navigated URL string per router mock
     const callArg: string = mockPush.mock.calls[0][0] as string;
     expect(callArg).toContain('sort=class_nbr');
   });
@@ -237,6 +239,7 @@ describe('admin table components (server-driven)', () => {
 
     fireEvent.click(screen.getByText('subject mat'));
     expect(mockPush).toHaveBeenCalled();
+    // SAFETY: mockPush is controlled test double; first call arg is the navigated URL string per router mock
     const callArg: string = mockPush.mock.calls[0][0] as string;
     expect(callArg).toContain('subject=MAT');
   });
@@ -262,6 +265,7 @@ describe('admin table components (server-driven)', () => {
   it('navigates to user detail page on row click', () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
 
+    // SAFETY: rendered fixture guarantees this text sits inside a <tr>; closest('tr') is non-null in this DOM tree
     fireEvent.click(screen.getByText('student@example.com').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/users/user-1');
   });
@@ -280,6 +284,7 @@ describe('admin table components (server-driven)', () => {
 
     fireEvent.click(screen.getByText('Email'));
     expect(mockPush).toHaveBeenCalled();
+    // SAFETY: mockPush is controlled test double; first call arg is the navigated URL string per router mock
     const callArg: string = mockPush.mock.calls[0][0] as string;
     expect(callArg).toContain('sort=email');
   });
@@ -299,6 +304,7 @@ describe('admin table components (server-driven)', () => {
 
     fireEvent.click(screen.getByText('role admin'));
     expect(mockPush).toHaveBeenCalled();
+    // SAFETY: mockPush is controlled test double; first call arg is the navigated URL string per router mock
     const callArg: string = mockPush.mock.calls[0][0] as string;
     expect(callArg).toContain('role=admin');
   });

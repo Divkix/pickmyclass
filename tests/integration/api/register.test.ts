@@ -53,8 +53,8 @@ function createRequest(body: Record<string, JsonValue>): NextRequest {
   });
 }
 
-// Helper to parse response
 async function parseResponse(response: Response): Promise<RegisterResponse> {
+  // SAFETY: test helper parses controlled JSON fixture known to match RegisterResponse shape
   return (await response.json()) as RegisterResponse;
 }
 

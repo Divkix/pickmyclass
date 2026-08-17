@@ -56,6 +56,7 @@ function createRequest(cronSecret?: string): NextRequest {
   });
 }
 async function parseResponse(response: Response): Promise<SyncResponse> {
+  // SAFETY: response.json() returns SyncResponse shape from cron route — controlled API response
   return (await response.json()) as SyncResponse;
 }
 
@@ -74,6 +75,7 @@ describe('GET /api/cron/update-disposable-domains', () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    // SAFETY: process.env requires Record cast to delete dynamic CRON_SECRET key — no typed delete alternative
     delete (process.env as Record<string, string | undefined>).CRON_SECRET;
   });
 
@@ -171,6 +173,7 @@ describe('GET /api/cron/update-disposable-domains', () => {
       expect(mockKvPut).toHaveBeenCalledWith('disposable-domains', expect.any(String));
 
       // Verify the stored JSON is valid
+      // SAFETY: mockKvPut args are controlled stringified JSON; index 0,1 are test-defined strings
       const storedDomains = JSON.parse(mockKvPut.mock.calls[0][1] as string) as string[];
       expect(storedDomains).toHaveLength(1500);
       expect(storedDomains[0]).toBe('domain0.com');
@@ -236,6 +239,7 @@ describe('GET /api/cron/update-disposable-domains', () => {
       expect(response.status).toBe(200);
       expect(data.domainCount).toBe(1100);
 
+      // SAFETY: mockKvPut args are controlled stringified JSON; index 0,1 are test-defined strings
       const storedDomains = JSON.parse(mockKvPut.mock.calls[0][1] as string) as string[];
       expect(storedDomains[0]).toBe('domain0.com');
     });
@@ -326,6 +330,7 @@ describe('GET /api/cron/update-disposable-domains', () => {
         expect(response.status).toBe(200);
 
         expect(mockDeletePastTermWatches).toHaveBeenCalledTimes(1);
+        // SAFETY: mock.calls[0] is controlled test mock returning [string[]] of term codes
         const [codes] = mockDeletePastTermWatches.mock.calls[0] as [string[]];
         expect(codes).toContain('2261'); // Spring 2026 ended 2026-05-09
         expect(codes).toContain('2264'); // Summer 2026 ended 2026-08-14

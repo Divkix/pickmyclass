@@ -72,6 +72,7 @@ describe('GET /api/cron', () => {
     const data = await response.json();
 
     // Assert: Should return success:false when batches fail
+    // SAFETY: test controls route JSON; asserted shape matches mocked response structure
     const responseData = data as {
       success: boolean;
       details?: { batches_failed: number; batches_total: number };
@@ -92,6 +93,7 @@ describe('GET /api/cron', () => {
     // Arrange: Mock queue to succeed
     const { env } = await import('cloudflare:workers');
     // oxlint-disable-next-line typescript/unbound-method
+    // SAFETY: mock Queue response only needs metadata; remaining QueueSendBatchResponse fields unused in test
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue({
       metadata: {},
     } as QueueSendBatchResponse);
@@ -101,6 +103,7 @@ describe('GET /api/cron', () => {
     const data = await response.json();
 
     // Assert: Should return success:true when all batches succeed
+    // SAFETY: test controls route JSON; asserted shape matches mocked response with enqueued counts
     const responseData = data as {
       success: boolean;
       batches_failed: number;
@@ -129,6 +132,7 @@ describe('GET /api/cron', () => {
       if (callCount === 2) {
         return Promise.reject(new Error('Transient error'));
       }
+      // SAFETY: mock Queue response minimal shape sufficient for retry logic test
       return Promise.resolve({ metadata: {} } as QueueSendBatchResponse);
     });
 
@@ -137,6 +141,7 @@ describe('GET /api/cron', () => {
     const data = await response.json();
 
     // Assert: Retry recovered the failed batch → success:true, batches_failed:0
+    // SAFETY: test controls route JSON; asserted shape matches retry-success response structure
     const responseData = data as {
       success: boolean;
       batches_failed: number;
@@ -167,6 +172,7 @@ describe('GET /api/cron', () => {
         // call 1 (first pass batch 0) succeeds; calls 2 & 3 (batch 1 first + retry) fail
         return Promise.reject(new Error('Persistent error'));
       }
+      // SAFETY: mock Queue response minimal shape sufficient for partial-failure test
       return Promise.resolve({ metadata: {} } as QueueSendBatchResponse);
     });
 
@@ -175,6 +181,7 @@ describe('GET /api/cron', () => {
     const data = await response.json();
 
     // Assert: Retry also failed → success:false with batches_failed reported in details
+    // SAFETY: test controls route JSON; asserted shape matches failure details structure
     const responseData = data as {
       success: boolean;
       details?: { batches_failed: number; batches_total: number };
@@ -196,6 +203,7 @@ describe('GET /api/cron', () => {
 
     const { env } = await import('cloudflare:workers');
     // oxlint-disable-next-line typescript/unbound-method
+    // SAFETY: mock Queue response only needs metadata; remaining QueueSendBatchResponse fields unused in test
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue({
       metadata: {},
     } as QueueSendBatchResponse);
@@ -203,6 +211,7 @@ describe('GET /api/cron', () => {
     const response = await GET(createRequest('Bearer test-cron-secret'));
     // ok() spreads fields at the top level (see lib/api/response.ts); only fail()/207 nests
     // under `details`. The success path here exposes sections_enqueued at the top level.
+    // SAFETY: test controls route JSON; narrowed to sections_enqueued field asserted in this test
     const data = (await response.json()) as { sections_enqueued?: number };
 
     expect(data.sections_enqueued).toBe(1);
@@ -210,6 +219,7 @@ describe('GET /api/cron', () => {
     // oxlint-disable-next-line typescript/unbound-method
     const sendBatch = vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch);
     const enqueuedTerms = sendBatch.mock.calls.flatMap(([batch]) =>
+      // SAFETY: mock batch shape is controlled by test setup; body.term is the only accessed field
       (batch as { body: { term: string } }[]).map((m) => m.body.term)
     );
     expect(enqueuedTerms).toEqual(['2271']);
@@ -226,6 +236,7 @@ describe('GET /api/cron', () => {
     // Arrange: Mock queue to succeed
     const { env } = await import('cloudflare:workers');
     // oxlint-disable-next-line typescript/unbound-method
+    // SAFETY: mock Queue response only needs metadata; remaining QueueSendBatchResponse fields unused in test
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue({
       metadata: {},
     } as QueueSendBatchResponse);
@@ -258,6 +269,7 @@ describe('GET /api/cron', () => {
     });
 
     const response = await GET(createRequest('Bearer test-cron-secret'));
+    // SAFETY: test controls route JSON; narrowed to error field for 409 response assertion
     const data = (await response.json()) as { error?: string };
 
     expect(response.status).toBe(409);

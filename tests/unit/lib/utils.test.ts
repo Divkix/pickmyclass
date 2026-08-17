@@ -108,6 +108,7 @@ describe('cn - Tailwind class merging utility', () => {
 
     it('should handle complex real-world usage', () => {
       const isDisabled = false;
+      // SAFETY: test constrains variant to known union for deterministic branching
       const variant = 'primary' as 'primary' | 'secondary';
       const result = cn(
         'inline-flex items-center justify-center',

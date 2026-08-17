@@ -24,6 +24,7 @@ describe('SimplifiedWatchForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     onCreated = vi.fn().mockResolvedValue(undefined);
+    // SAFETY: test mock only needs partial ClassWatchRow shape with id; controlled stub return satisfies creation flow
     mockCreateWatch.mockResolvedValue({ id: 'watch-1' } as ClassWatchRow);
     mockGetOptions.mockReturnValue({
       terms: [{ code: '2264', label: 'Summer 2026' }],
@@ -79,6 +80,7 @@ describe('SimplifiedWatchForm', () => {
     fireEvent.submit(screen.getByRole('button', { name: 'Start Watching' }).closest('form')!);
 
     expect(onSubmittingChange).toHaveBeenCalledWith(true);
+    // SAFETY: test helper resolves with minimal ClassWatchRow shape; only id is asserted in lifecycle test
     resolveCreate({ id: 'watch-1' } as ClassWatchRow);
     await waitFor(() => expect(onSubmittingChange).toHaveBeenLastCalledWith(false));
   });

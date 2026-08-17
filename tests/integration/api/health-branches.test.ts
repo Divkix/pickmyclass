@@ -113,6 +113,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
     const { GET, getServiceClient } = await loadHealthRoute();
 
     const response = await GET(request(''));
+    // SAFETY: response.json() from mocked health route has known status shape in this branch
     const data = (await response.json()) as { status: string };
 
     expect(response.status).toBe(200);
@@ -125,6 +126,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
     const { GET, createCronLockClient, doBinding, lockStatus } = await loadHealthRoute();
 
     const response = await GET(request());
+    // SAFETY: mocked health route returns healthy detailed checks matching this typed shape
     const data = (await response.json()) as {
       status: string;
       checks: {
@@ -157,6 +159,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
     });
 
     const response = await GET(request());
+    // SAFETY: mocked health route returns cron_lock timestamps matching this typed shape
     const data = (await response.json()) as {
       checks: {
         cron_lock: { lock_acquired_at: string | null; expires_at: string | null };
@@ -184,6 +187,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
     });
 
     const response = await GET(request());
+    // SAFETY: mocked health route returns degraded checks matching this typed record shape
     const data = (await response.json()) as {
       status: string;
       checks: Record<string, { status?: string; error?: string }>;
@@ -214,6 +218,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
     });
 
     const response = await GET(request());
+    // SAFETY: mocked health route returns unhealthy checks matching this typed record shape
     const data = (await response.json()) as {
       status: string;
       checks: Record<string, { status?: string; missing_vars?: string[]; missing?: string[] }>;

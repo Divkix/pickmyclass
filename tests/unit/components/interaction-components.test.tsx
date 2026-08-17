@@ -147,6 +147,7 @@ describe('interactive components', () => {
     vi.clearAllMocks();
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockPathname.mockReturnValue('/dashboard');
+    // SAFETY: test mock only needs partial ClassWatchRow shape; controlled stub with id satisfies rendering flow
     mockCreateWatch.mockResolvedValue({ id: 'watch-1' } as ClassWatchRow);
     global.fetch = vi.fn().mockResolvedValue({ ok: true });
   });
@@ -226,6 +227,7 @@ describe('interactive components', () => {
   });
 
   it('surfaces account deletion errors and allows close after error', async () => {
+    // SAFETY: test fetch mock only needs ok and json; narrowed to Response for global.fetch stub shape
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       json: () => Promise.resolve({ error: 'Deletion failed' }),

@@ -29,6 +29,7 @@ describe('ConsentPage', () => {
   }
 
   it('requires both statements and records consent before continuing', async () => {
+    // SAFETY: test fetch mock only needs ok/json subset of Response
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ success: true }),
@@ -52,6 +53,7 @@ describe('ConsentPage', () => {
   });
 
   it('keeps the gate open and explains persistence failures', async () => {
+    // SAFETY: test fetch mock only needs ok/json subset of Response
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       json: () => Promise.resolve({ error: 'Could not save consent' }),
@@ -67,6 +69,7 @@ describe('ConsentPage', () => {
 
   it('does not follow an external next URL', async () => {
     mockUseSearchParams.mockReturnValue(new URLSearchParams('next=https://evil.test'));
+    // SAFETY: test fetch mock only needs ok/json subset of Response
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ success: true }),

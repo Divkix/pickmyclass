@@ -7,8 +7,8 @@ import {
 } from '@/lib/auth/decide-gate';
 
 const verifiedUser = { email_confirmed_at: '2024-01-01T00:00:00Z' };
+// SAFETY: test fixture narrows null union to exercise unverified branch; value is always string | null in prod
 const unverifiedUser = { email_confirmed_at: null as string | null };
-
 const adminConsent = { is_admin: true, is_disabled: false, has_consent: true };
 const regularConsent = { is_admin: false, is_disabled: false, has_consent: true };
 const missingConsent = { is_admin: false, is_disabled: false, has_consent: false };

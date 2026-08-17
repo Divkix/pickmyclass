@@ -54,6 +54,7 @@ describe('RegisterPage - Google OAuth loading state', () => {
   }
 
   function registerForm(): HTMLFormElement {
+    // SAFETY: rendered register page always contains create-account button inside a form
     return screen
       .getByRole('button', { name: /create account/i })
       .closest('form') as HTMLFormElement;
@@ -184,6 +185,7 @@ describe('RegisterPage - Google OAuth loading state', () => {
   });
 
   it('registers email users with consent metadata and routes to verification', async () => {
+    // SAFETY: test fetch mock only needs ok/json subset of Response
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ success: true }),
@@ -212,6 +214,7 @@ describe('RegisterPage - Google OAuth loading state', () => {
   });
 
   it('shows registration API and duplicate-account errors', async () => {
+    // SAFETY: test fetch mock only needs ok/json subset of Response
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       json: () => Promise.resolve({ error: 'Disposable email not accepted' }),
@@ -225,6 +228,7 @@ describe('RegisterPage - Google OAuth loading state', () => {
 
     // The register API returns 409 for duplicates (never 200 + details.duplicate),
     // so the client surfaces the server-provided error message via the non-ok branch.
+    // SAFETY: test fetch mock only needs ok/status/json subset of Response
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       status: 409,

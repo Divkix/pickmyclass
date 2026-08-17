@@ -130,6 +130,7 @@ const setupMockChain = () => {
     error: null,
   });
   mockIn.mockImplementation(() => {
+    // SAFETY: test mock only needs Promise shape with chained .in(); cast to any avoids typing dynamic mock chain
     const p = Promise.resolve({ data: [], error: null }) as any;
     p.in = () => p;
     return p;
@@ -146,6 +147,7 @@ const setupMockChain = () => {
   // .update(...).eq('user_id').is('onboarding_completed_at', null)
   // (issue #307: the guard only filters completed_at, NOT skipped_at, so a
   // skipped user still completes on their first watch.)
+  // SAFETY: test mock extends Promise with .is() for Supabase chain; any allows adding mock method without full type
   const onboardingIsChain = Promise.resolve({ error: null }) as any;
   onboardingIsChain.is = mockServiceOnboardingIs;
   mockServiceOnboardingIs.mockReturnValue(onboardingIsChain);
@@ -205,14 +207,17 @@ vi.mock('cloudflare:workers', () => ({
 
 // Response parsers
 async function parseGetResponse(response: Response): Promise<GetResponse> {
+  // SAFETY: test helper parses mocked fetch Response JSON; shape is GetResponse per route contract and test fixtures
   return (await response.json()) as GetResponse;
 }
 
 async function parsePostResponse(response: Response): Promise<PostResponse> {
+  // SAFETY: test helper parses mocked fetch Response JSON; shape is PostResponse per route contract and test fixtures
   return (await response.json()) as PostResponse;
 }
 
 async function parseDeleteResponse(response: Response): Promise<DeleteResponse> {
+  // SAFETY: test helper parses mocked fetch Response JSON; shape is DeleteResponse per route contract and test fixtures
   return (await response.json()) as DeleteResponse;
 }
 
@@ -260,6 +265,7 @@ describe('/api/class-watches', () => {
       mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
       mockOrder.mockResolvedValue({ data: [mockWatch], error: null });
       mockIn.mockImplementation(() => {
+        // SAFETY: test mock only needs Promise shape with chained .in(); cast to any avoids typing dynamic mock chain
         const p = Promise.resolve({ data: [mockClassState], error: null }) as any;
         p.in = () => p;
         return p;

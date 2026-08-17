@@ -46,6 +46,7 @@ describe('LoginPage - Google OAuth loading state', () => {
     const submitButton = screen
       .getAllByRole('button', { name: /^sign in$/i })
       .find((button) => button.getAttribute('type') === 'submit');
+    // SAFETY: rendered login page always contains submit button inside a form
     return submitButton?.closest('form') as HTMLFormElement;
   }
 
@@ -114,6 +115,7 @@ describe('LoginPage - Google OAuth loading state', () => {
       target: { value: 'wrong-password' },
     });
 
+    // SAFETY: test fetch mock only needs ok/status/json subset of Response
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       status: 423,
@@ -123,6 +125,7 @@ describe('LoginPage - Google OAuth loading state', () => {
     fireEvent.submit(loginForm());
     expect(await screen.findByText(/Please try again in 1 minute\./i)).toBeInTheDocument();
 
+    // SAFETY: test fetch mock only needs ok/status/json subset of Response
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -136,6 +139,7 @@ describe('LoginPage - Google OAuth loading state', () => {
     fireEvent.submit(loginForm());
     expect(await screen.findByText(/2 attempts remaining/i)).toBeInTheDocument();
 
+    // SAFETY: test fetch mock only needs ok/status/json subset of Response
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       status: 401,

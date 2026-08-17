@@ -63,6 +63,7 @@ function createRequest(body: Record<string, JsonValue>): NextRequest {
 }
 // Helper to parse response
 async function parseResponse(response: Response): Promise<LoginResponse> {
+  // SAFETY: test helper parses mocked fetch Response JSON; shape is LoginResponse per route contract and test fixtures
   return (await response.json()) as LoginResponse;
 }
 
@@ -162,6 +163,7 @@ describe('POST /api/auth/login', () => {
 
       expect(response.status).toBe(423);
       expect(data.success).toBe(false);
+      // SAFETY: test narrows LoginResponse details to lockout shape; mocked locked attempt guarantees this variant
       const details = data.details as { isLocked?: boolean; remainingMinutes?: number };
       expect(details.isLocked).toBe(true);
       expect(details.remainingMinutes).toBe(15);
@@ -226,6 +228,7 @@ describe('POST /api/auth/login', () => {
       const response = await POST(request);
       const data = await parseResponse(response);
 
+      // SAFETY: test narrows LoginResponse details to remainingAttempts shape; mocked rejected attempt guarantees this variant
       const details = data.details as { remainingAttempts?: number };
       expect(details.remainingAttempts).toBe(2);
     });
@@ -243,6 +246,7 @@ describe('POST /api/auth/login', () => {
 
       expect(response.status).toBe(423);
       expect(data.success).toBe(false);
+      // SAFETY: test narrows LoginResponse details to lockout shape; response status 423 guarantees this variant in fixture
       const details = data.details as { isLocked?: boolean };
       expect(details.isLocked).toBe(true);
     });
@@ -289,6 +293,7 @@ describe('POST /api/auth/login', () => {
 
       // Override the createClient mock for this test to include from() and signOut()
       const { createClient } = await import('@/lib/supabase/server');
+      // SAFETY: test mock provides only partial Supabase client shape required by route; cast via never is safe in test harness
       vi.mocked(createClient).mockResolvedValue({
         auth: {
           signInWithPassword: mockSignInWithPassword,
@@ -322,8 +327,8 @@ describe('POST /api/auth/login', () => {
       const mockEq = vi.fn().mockReturnValue({ single: mockSingle, maybeSingle: mockSingle });
       const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
       const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
-
       const { createClient } = await import('@/lib/supabase/server');
+      // SAFETY: test mock provides only partial Supabase client shape required by route; cast via never is safe in test harness
       vi.mocked(createClient).mockResolvedValue({
         auth: {
           signInWithPassword: mockSignInWithPassword,
