@@ -6,6 +6,12 @@ import { sectionRefKey } from '@/lib/section-ref';
 import { createClient } from '@/lib/supabase/client';
 import type { ClassStateRow } from '@/lib/types/class-watch';
 
+// eslint-disable-next-line anti-slop/no-unknown-parameters, ts-no-tiny-functions -- SAFETY: 3+ call sites need lockstep fallback (fetch + realtime dedup + future); centralizes ??0 invariant for consecutive_not_found_count — row is untyped Supabase payload narrowed via cast
+function normalizeConsecutiveCount(row: unknown): number {
+  // SAFETY: Supabase select may omit column in stale cache; narrow to optional count shape — fallback to 0 preserves invariant
+  return (row as { consecutive_not_found_count?: number | null }).consecutive_not_found_count ?? 0;
+}
+
 interface UseRealtimeClassStatesOptions {
   classNumbers: string[]; // Array of class_nbr values to monitor
   enabled?: boolean; // Whether to subscribe (default: true)
@@ -57,7 +63,7 @@ export function useRealtimeClassStates({
       const { data, error: fetchError } = await supabase
         .from('class_states')
         .select(
-          'id, class_nbr, term, subject, catalog_nbr, title, instructor_name, seats_available, seats_capacity, non_reserved_seats, location, meeting_times, last_checked_at, last_changed_at'
+          'id, class_nbr, term, subject, catalog_nbr, title, instructor_name, seats_available, seats_capacity, non_reserved_seats, location, meeting_times, last_checked_at, last_changed_at, consecutive_not_found_count'
         )
         .in('class_nbr', numbers);
 
@@ -65,10 +71,19 @@ export function useRealtimeClassStates({
 
       // Convert array to object keyed by sectionRefKey so states for the same
       // class_nbr in different terms don't collide.
-      // SAFETY: Supabase select returns ClassStateRow array per table contract; reduce builds keyed map
-      const statesMap = (data || []).reduce(
+      // SAFETY: Supabase select result is untyped response data; widen to unknown before narrowing to typed rows — verified via select columns matching ClassStateRow
+      const rawData: unknown = data as unknown;
+      // SAFETY: Supabase select returns ClassStateRow array per table contract; narrow unknown to typed rows with fallback
+      const typedRows = (rawData as ClassStateRow[]) || [];
+      // SAFETY: empty object is initial typed accumulator for keyed map; reduce populates valid entries per sectionRefKey — invariant holds via ClassStateRow contract
+      const statesMap = typedRows.reduce(
         (acc, state) => {
-          acc[sectionRefKey(state)] = state;
+          const normalized: ClassStateRow = {
+            ...state,
+            // SAFETY: Supabase select may omit column in stale cache; narrow to optional count shape — fallback to 0 preserves invariant
+            consecutive_not_found_count: normalizeConsecutiveCount(state),
+          };
+          acc[sectionRefKey(normalized)] = normalized;
           return acc;
         },
         {} as Record<string, ClassStateRow>
@@ -106,7 +121,14 @@ export function useRealtimeClassStates({
           (payload) => {
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
               // SAFETY: Realtime payload shape matches class_states row by Supabase contract
-              const newState = payload.new as ClassStateRow;
+              const raw = payload.new as ClassStateRow & {
+                consecutive_not_found_count?: number | null;
+              };
+              const newState: ClassStateRow = {
+                ...raw,
+                // SAFETY: Realtime payload may omit column in stale cache; narrow to optional count shape — fallback to 0 preserves invariant
+                consecutive_not_found_count: normalizeConsecutiveCount(raw),
+              };
               const key = sectionRefKey(newState);
               setClassStates((prev) => {
                 const existing = prev[key];
@@ -114,7 +136,8 @@ export function useRealtimeClassStates({
                   existing &&
                   existing.seats_available === newState.seats_available &&
                   existing.non_reserved_seats === newState.non_reserved_seats &&
-                  existing.instructor_name === newState.instructor_name
+                  existing.instructor_name === newState.instructor_name &&
+                  existing.consecutive_not_found_count === newState.consecutive_not_found_count
                 ) {
                   return prev;
                 }

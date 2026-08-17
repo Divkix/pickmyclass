@@ -263,3 +263,6 @@ export function InstructorAssignedEmailTemplate(
     preheader,
   });
 }
+
+export { buildAutoCleanupRemovedEmail, sendAutoCleanupRemovalEmails } from './auto-cleanup';
+export type { BuildAutoCleanupRemovedEmailParams, AutoCleanupRemovedEmail } from './auto-cleanup';

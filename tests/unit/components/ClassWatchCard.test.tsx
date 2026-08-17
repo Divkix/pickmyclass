@@ -70,6 +70,7 @@ const mockClassState: ClassStateRow = {
   seats_available: 5,
   seats_capacity: 30,
   non_reserved_seats: null,
+  consecutive_not_found_count: 0,
   title: 'Introduction to Programming',
   instructor_name: 'Dr. Smith',
   location: 'TBD',

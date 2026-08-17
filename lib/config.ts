@@ -33,3 +33,8 @@ export const EMAIL_BATCH_SIZE = 10;
 
 /** Delay between email batches in milliseconds */
 export const EMAIL_BATCH_DELAY_MS = 75;
+/** Auto-cleanup: consecutive NotFound threshold before deleting a section (3 strikes) */
+export const AUTO_CLEANUP_THRESHOLD = 3;
+
+/** Auto-cleanup circuit-breaker: max ratio of flagged/total class_states before suppression (20%) */
+export const AUTO_CLEANUP_BREAKER_RATIO = 0.2;

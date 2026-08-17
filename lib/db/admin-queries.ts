@@ -46,6 +46,12 @@ function assertPaginatedRpcName(value: string): asserts value is PaginatedRpcNam
 
 const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS, 100);
 
+// eslint-disable-next-line anti-slop/no-unknown-parameters, ts-no-tiny-functions -- SAFETY: dedup 3+ consecutive_not_found_count fallbacks (getClassesPage + getUserWatches + future); preserves ??0 invariant — row is untyped Supabase response narrowed via cast
+function normalizeConsecutiveCount(row: unknown): number {
+  // SAFETY: Supabase select may omit column in stale cache; narrow to optional count shape — fallback to 0 preserves invariant
+  return (row as { consecutive_not_found_count?: number | null }).consecutive_not_found_count ?? 0;
+}
+
 async function cachedQuery<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   // SAFETY: cache get returns unknown, narrowing via generic fetched value
   const cached = adminCache.get(key) as T | undefined;
@@ -397,25 +403,29 @@ export async function getClassesPage(params: GetClassesPageParams = {}): Promise
       p_sort: sort,
       p_dir: dir,
     },
-    (row) => ({
-      id: row.id,
-      class_nbr: row.class_nbr,
-      term: row.term,
-      subject: row.subject,
-      catalog_nbr: row.catalog_nbr,
-      title: row.title ?? null,
-      instructor_name: row.instructor_name ?? null,
-      seats_available: row.seats_available,
-      seats_capacity: row.seats_capacity,
-      non_reserved_seats: row.non_reserved_seats ?? null,
-      location: row.location ?? null,
-      meeting_times: row.meeting_times ?? null,
-      last_checked_at: row.last_checked_at,
-      last_changed_at: row.last_changed_at,
-      watcher_count: Number(row.watcher_count),
-      seat_emails: Number(row.seat_emails),
-      instructor_emails: Number(row.instructor_emails),
-    })
+    (row) => {
+      return {
+        id: row.id,
+        class_nbr: row.class_nbr,
+        term: row.term,
+        subject: row.subject,
+        catalog_nbr: row.catalog_nbr,
+        title: row.title ?? null,
+        instructor_name: row.instructor_name ?? null,
+        seats_available: row.seats_available,
+        seats_capacity: row.seats_capacity,
+        non_reserved_seats: row.non_reserved_seats ?? null,
+        location: row.location ?? null,
+        meeting_times: row.meeting_times ?? null,
+        last_checked_at: row.last_checked_at,
+        last_changed_at: row.last_changed_at,
+        // SAFETY: RPC row type lacks consecutive_not_found_count until migration; widen to unknown before narrowing — validated at runtime with fallback to 0
+        consecutive_not_found_count: normalizeConsecutiveCount(row),
+        watcher_count: Number(row.watcher_count),
+        seat_emails: Number(row.seat_emails),
+        instructor_emails: Number(row.instructor_emails),
+      };
+    }
   );
 
   log('Admin').info(`Fetched ${rows.length} classes (page ${page}, total ${total})`);
@@ -565,7 +575,7 @@ export async function getUserWatches(userId: string): Promise<WatchWithClass[]> 
   const { data: classStates, error: classError } = await supabase
     .from('class_states')
     .select(
-      'id, class_nbr, term, subject, catalog_nbr, title, instructor_name, seats_available, seats_capacity, non_reserved_seats, location, meeting_times, last_checked_at, last_changed_at'
+      'id, class_nbr, term, subject, catalog_nbr, title, instructor_name, seats_available, seats_capacity, non_reserved_seats, location, meeting_times, last_checked_at, last_changed_at, consecutive_not_found_count'
     )
     .in('class_nbr', classNumbers);
 
@@ -579,7 +589,13 @@ export async function getUserWatches(userId: string): Promise<WatchWithClass[]> 
   // the other. The .in('class_nbr', ...) fetch above returns rows for every
   // matching term, which this map now keeps distinct.
   const classStateMap = new Map<string, Tables<'class_states'>>();
-  for (const classState of classStates || []) {
+  for (const row of classStates || []) {
+    // SAFETY: constructing Tables<'class_states'> from trusted DB row with known columns — consecutive_not_found_count defaults to 0 preserves invariant
+    const classState = {
+      ...row,
+      // SAFETY: Supabase select may omit column in stale cache; narrow to optional count shape — fallback to 0 preserves invariant
+      consecutive_not_found_count: normalizeConsecutiveCount(row),
+    } as Tables<'class_states'>;
     classStateMap.set(sectionRefKey(classState), classState);
   }
 

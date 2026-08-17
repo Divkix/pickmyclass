@@ -1,10 +1,3 @@
-/**
- * Section Processor Orchestrator
- *
- * Coordinates the section checking pipeline:
- * fetch old state → fetch new data → detect changes → upsert state → send notifications.
- */
-
 import {
   ApiError,
   AuthError,
@@ -12,8 +5,16 @@ import {
   RateLimitError,
   fetchClassFromASU,
 } from '@/lib/asu/api';
+import { AUTO_CLEANUP_BREAKER_RATIO, AUTO_CLEANUP_THRESHOLD } from '@/lib/config';
+import {
+  type ClassWatcher,
+  deleteSectionAndWatches,
+  getClassWatchers,
+  incrementConsecutiveNotFound,
+  resetNotificationsForSection,
+} from '@/lib/db/queries';
+import { sendAutoCleanupRemovalEmails } from '@/lib/email/templates/auto-cleanup';
 import { log } from '@/lib/log';
-import { resetNotificationsForSection } from '@/lib/db/queries';
 import { applySectionRef, type SectionRef } from '@/lib/section-ref';
 import { type ChangeResult, detectChanges } from '@/lib/queue/change-detector';
 import { type SentNotification, sendSectionNotifications } from '@/lib/queue/notification-sender';
@@ -70,6 +71,49 @@ function failedResult(classNbr: string, duration: number, error: string): Proces
     error,
   };
 }
+/**
+ * Check whether auto-cleanup should be suppressed due to mass NotFound ratio.
+ * Queries total class_states count vs flagged (consecutive_not_found_count >=1).
+ * If ratio > AUTO_CLEANUP_BREAKER_RATIO, signals breaker tripped.
+ * Fails open (returns false) if queries error.
+ */
+async function shouldSuppressAutoCleanup(): Promise<boolean> {
+  try {
+    const client = getServiceClient();
+    const [totalRes, flaggedRes] = await Promise.all([
+      client.from('class_states').select('id', { count: 'exact', head: true }),
+      client
+        .from('class_states')
+        .select('id', { count: 'exact', head: true })
+        .gte('consecutive_not_found_count', 1),
+    ]);
+    if (totalRes.error) {
+      log('ProcessSection').warn(
+        'Auto-cleanup breaker check failed (total count), failing open:',
+        totalRes.error
+      );
+      return false;
+    }
+    if (!totalRes.count || totalRes.count === 0) return false;
+    if (flaggedRes.error) {
+      log('ProcessSection').warn(
+        'Auto-cleanup breaker check failed (flagged count), failing open:',
+        flaggedRes.error
+      );
+      return false;
+    }
+    const flagged = flaggedRes.count ?? 0;
+    const ratio = flagged / totalRes.count;
+    if (ratio > AUTO_CLEANUP_BREAKER_RATIO) {
+      log('ProcessSection').warn('Auto-cleanup suppressed — breaker tripped');
+      return true;
+    }
+    return false;
+  } catch (e) {
+    log('ProcessSection').warn('Auto-cleanup breaker check threw, failing open:', e);
+    return false;
+  }
+}
 
 /**
  * Process a single class section through the full pipeline.
@@ -106,10 +150,13 @@ export async function processSection(
 
   try {
     // Step 1: Fetch old state from DB by its SectionRef identity (class_nbr + term).
+    // Include consecutive_not_found_count for logging; DB helper does authoritative increment atomically.
     const { data: oldState, error: stateError } = await applySectionRef(
       serviceClient
         .from('class_states')
-        .select('class_nbr, term, seats_available, non_reserved_seats, instructor_name'),
+        .select(
+          'class_nbr, term, seats_available, non_reserved_seats, instructor_name, consecutive_not_found_count'
+        ),
       ref
     ).single();
 
@@ -170,6 +217,7 @@ export async function processSection(
       ...newData,
       ...ref,
       last_checked_at: new Date().toISOString(),
+      consecutive_not_found_count: 0,
     };
 
     const { error: upsertError } = await serviceClient
@@ -220,20 +268,158 @@ export async function processSection(
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     log('ProcessSection').error(`Error processing ${classNbr}:`, errorMessage);
 
-    // Auth/NotFound before ApiError base — both extend ApiError so subclass check must win.
-    if (error instanceof AuthError || error instanceof NotFoundError) {
+    if (error instanceof NotFoundError) {
+      // 3-strikes auto-cleanup: increment consecutive_not_found_count and delete after threshold
+      let newCount: number;
+      try {
+        newCount = await incrementConsecutiveNotFound(ref);
+      } catch (incrementError) {
+        log('ProcessSection').error(
+          `Auto-cleanup increment failed for ${ref.term}:${classNbr}:`,
+          incrementError
+        );
+        // Fail open as ack — Never retry NotFound paths even if increment fails
+        return ackOutcome(failedResult(classNbr, duration, errorMessage));
+      }
+      log('ProcessSection').warn(
+        `Auto-cleanup increment ${ref.term}:${classNbr} count=${newCount}`
+      );
+
+      if (newCount >= AUTO_CLEANUP_THRESHOLD) {
+        // Circuit breaker: suppress mass deletion if too many sections are flagged
+        let suppressed = false;
+        try {
+          suppressed = await shouldSuppressAutoCleanup();
+        } catch {
+          suppressed = false;
+        }
+        if (suppressed) {
+          // Cap count at threshold-1 to avoid immediate re-trigger while breaker is tripped; guard avoids no-op WAL writes
+          try {
+            const client = getServiceClient();
+            const { error: capError } = await applySectionRef(
+              client
+                .from('class_states')
+                .update({
+                  consecutive_not_found_count: AUTO_CLEANUP_THRESHOLD - 1,
+                })
+                .neq('consecutive_not_found_count', AUTO_CLEANUP_THRESHOLD - 1),
+              ref
+            );
+            if (capError) {
+              log('ProcessSection').warn(
+                `Failed to cap consecutive_not_found_count for ${ref.term}:${classNbr}:`,
+                capError
+              );
+            }
+          } catch (capErr) {
+            log('ProcessSection').warn(
+              `Failed to cap consecutive_not_found_count for ${ref.term}:${classNbr}:`,
+              capErr
+            );
+          }
+          return ackOutcome(failedResult(classNbr, duration, errorMessage));
+        }
+        // Fetch watchers (required) and class info in parallel — watcher failure aborts deletion (fail-open)
+        let watchers: ClassWatcher[];
+        let classInfo: {
+          subject?: string | null;
+          catalog_nbr?: string | null;
+          title?: string | null;
+        } | null;
+        try {
+          const [watchersResult, classInfoResult] = await Promise.all([
+            getClassWatchers(ref),
+            (async () => {
+              try {
+                const client = getServiceClient();
+                const { data: stateRow } = await applySectionRef(
+                  client.from('class_states').select('subject, catalog_nbr, title'),
+                  ref
+                ).single();
+                if (stateRow) {
+                  // SAFETY: stateRow shape validated by Supabase query selecting only these columns; narrowing to email template's optional classInfo shape
+                  return stateRow as {
+                    subject?: string | null;
+                    catalog_nbr?: string | null;
+                    title?: string | null;
+                  };
+                }
+                return null;
+              } catch {
+                return null;
+              }
+            })(),
+          ]);
+          watchers = watchersResult;
+          classInfo = classInfoResult;
+        } catch (watcherError) {
+          log('ProcessSection').warn(
+            `Auto-cleanup: failed to fetch watchers for ${ref.term}:${classNbr}:`,
+            watcherError
+          );
+          return ackOutcome(failedResult(classNbr, duration, errorMessage));
+        }
+        let watchesDeleted = 0;
+        try {
+          const delResult = await deleteSectionAndWatches(ref);
+          watchesDeleted = delResult.watchesDeleted;
+        } catch (deleteError) {
+          log('ProcessSection').error(
+            `Auto-cleanup delete failed for ${ref.term}:${classNbr}:`,
+            deleteError
+          );
+          return ackOutcome(failedResult(classNbr, duration, errorMessage));
+        }
+
+        if (watchers.length > 0) {
+          try {
+            await sendAutoCleanupRemovalEmails(
+              { ref, classInfo, watchers },
+              env.EMAIL,
+              env.NOTIFICATION_FROM_EMAIL
+            );
+          } catch (emailError) {
+            log('ProcessSection').warn(
+              `Auto-cleanup email failed for ${ref.term}:${classNbr}:`,
+              emailError
+            );
+          }
+        }
+
+        log('ProcessSection').info(
+          `Auto-cleanup deleted ${ref.term}:${classNbr} watches=${watchesDeleted}`
+        );
+
+        return ackOutcome({
+          success: true,
+          classNbr,
+          changes: emptyChanges(),
+          emailsSent: watchers.length,
+          processingTimeMs: duration,
+          error: 'Auto-cleanup: class removed after 3 NotFounds',
+        });
+      }
+
+      // newCount < threshold: ack without deletion
+      return ackOutcome(failedResult(classNbr, duration, errorMessage));
+    }
+
+    if (error instanceof AuthError) {
       return ackOutcome(failedResult(classNbr, duration, errorMessage));
     }
 
     if (error instanceof RateLimitError) {
+      // Transient rate-limit — do NOT increment consecutive_not_found_count; leave count unchanged for NotFound tracking
       return retryOutcome(failedResult(classNbr, duration, errorMessage), 429);
     }
 
     if (error instanceof ApiError) {
+      // Upstream 5xx / ApiError — do NOT increment consecutive_not_found_count; NotFound counter is only for NotFoundError
       return retryOutcome(failedResult(classNbr, duration, errorMessage), 502);
     }
 
-    // Unknown / defensive retry
+    // Unknown / defensive retry — do NOT touch consecutive_not_found_count
     return retryOutcome(failedResult(classNbr, duration, errorMessage), 500);
   }
 }

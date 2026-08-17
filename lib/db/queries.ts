@@ -273,3 +273,166 @@ export async function upsertClassState(
     throw new Error(`Failed to upsert class state: ${error.message}`);
   }
 }
+/**
+ * Increments `class_states.consecutive_not_found_count` for a SectionRef.
+ * SectionRef-scoped (class_nbr + term) — both columns are used in the WHERE clause.
+ * If the row does not exist (first observation with no class_states), creates it with
+ * count=1 via insert with minimal placeholder fields.
+ *
+ * @param ref - SectionRef identifying the section ({ class_nbr, term })
+ * @returns The new consecutive_not_found_count value
+ */
+export async function incrementConsecutiveNotFound(ref: SectionRef): Promise<number> {
+  // NOTE: read-modify-write, not atomic; concurrent increments for same SectionRef may lose one strike (low contention due to stagger, acceptable; future: rpc increment_consecutive_not_found)
+  const supabase = getServiceClient();
+
+  const { data, error } = await applySectionRef(
+    supabase.from('class_states').select('consecutive_not_found_count'),
+    ref
+  ).single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No existing row — insert with count=1 (no onConflict so concurrent real row triggers 23505 and does not clobber subject/catalog/seats)
+      const { error: insertError } = await supabase.from('class_states').insert({
+        class_nbr: ref.class_nbr,
+        term: ref.term,
+        subject: '',
+        catalog_nbr: '',
+        title: null,
+        instructor_name: null,
+        seats_available: 0,
+        seats_capacity: 0,
+        non_reserved_seats: null,
+        location: null,
+        meeting_times: null,
+        consecutive_not_found_count: 1,
+        last_checked_at: new Date().toISOString(),
+      });
+
+      if (insertError) {
+        // Race: row was created concurrently — fetch and increment instead
+        if (insertError.code === '23505') {
+          const { data: raced, error: racedError } = await applySectionRef(
+            supabase.from('class_states').select('consecutive_not_found_count'),
+            ref
+          ).single();
+          if (racedError) {
+            log('DB').error('Error fetching consecutive count after race:', racedError);
+            throw new Error(
+              `Failed to increment consecutive_not_found_count: ${racedError.message}`
+            );
+          }
+          const newCount = (raced.consecutive_not_found_count ?? 0) + 1;
+          const { error: updateError } = await applySectionRef(
+            supabase.from('class_states').update({ consecutive_not_found_count: newCount }),
+            ref
+          );
+          if (updateError) {
+            log('DB').error(
+              'Error incrementing consecutive_not_found_count after race:',
+              updateError
+            );
+            throw new Error(
+              `Failed to increment consecutive_not_found_count: ${updateError.message}`
+            );
+          }
+          log('DB').info(
+            `Incremented consecutive_not_found_count to ${newCount} for ${ref.class_nbr} (term ${ref.term}) after race`
+          );
+          return newCount;
+        }
+        log('DB').error('Error inserting consecutive_not_found_count:', insertError);
+        throw new Error(`Failed to increment consecutive_not_found_count: ${insertError.message}`);
+      }
+
+      log('DB').info(
+        `Initialized consecutive_not_found_count=1 for ${ref.class_nbr} (term ${ref.term})`
+      );
+      return 1;
+    }
+    log('DB').error('Error fetching consecutive_not_found_count:', error);
+    throw new Error(`Failed to fetch consecutive_not_found_count: ${error.message}`);
+  }
+
+  const newCount = (data.consecutive_not_found_count ?? 0) + 1;
+
+  const { error: updateError } = await applySectionRef(
+    supabase.from('class_states').update({ consecutive_not_found_count: newCount }),
+    ref
+  );
+  if (updateError) {
+    log('DB').error('Error incrementing consecutive_not_found_count:', updateError);
+    throw new Error(`Failed to increment consecutive_not_found_count: ${updateError.message}`);
+  }
+
+  log('DB').info(
+    `Incremented consecutive_not_found_count to ${newCount} for ${ref.class_nbr} (term ${ref.term})`
+  );
+  return newCount;
+}
+
+/**
+ * Resets `class_states.consecutive_not_found_count` to 0 for a SectionRef.
+ * No-op if the row does not exist or already 0 (guard avoids WAL bloat).
+ *
+ * @param ref - SectionRef identifying the section ({ class_nbr, term })
+ */
+export async function resetConsecutiveNotFound(ref: SectionRef): Promise<void> {
+  const supabase = getServiceClient();
+  const { error } = await applySectionRef(
+    supabase.from('class_states').update({ consecutive_not_found_count: 0 }),
+    ref
+  );
+
+  if (error) {
+    log('DB').error('Error resetting consecutive_not_found_count:', error);
+    throw new Error(`Failed to reset consecutive_not_found_count: ${error.message}`);
+  }
+
+  log('DB').info(`Reset consecutive_not_found_count to 0 for ${ref.class_nbr} (term ${ref.term})`);
+}
+
+/**
+ * Hard-deletes all watches and state for a SectionRef.
+ * Deletes `class_watches` rows first (cascades `notifications_sent` via FK),
+ * then deletes the `class_states` row. SectionRef-scoped — both `class_nbr`
+ * and `term` are used in the WHERE clause.
+ *
+ * @param ref - SectionRef identifying the section ({ class_nbr, term })
+ * @returns Object with number of watches deleted and whether the state row was deleted
+ */
+export async function deleteSectionAndWatches(
+  ref: SectionRef
+): Promise<{ watchesDeleted: number; stateDeleted: boolean }> {
+  const supabase = getServiceClient();
+
+  const { count: watchesCount, error: watchesError } = await applySectionRef(
+    supabase.from('class_watches').delete({ count: 'exact' }),
+    ref
+  );
+
+  if (watchesError) {
+    log('DB').error('Error deleting watches for section:', watchesError);
+    throw new Error(`Failed to delete watches: ${watchesError.message}`);
+  }
+
+  const { count: stateCount, error: stateError } = await applySectionRef(
+    supabase.from('class_states').delete({ count: 'exact' }),
+    ref
+  );
+
+  if (stateError) {
+    log('DB').error('Error deleting class state for section:', stateError);
+    throw new Error(`Failed to delete class state: ${stateError.message}`);
+  }
+
+  const watchesDeleted = watchesCount ?? 0;
+  const stateDeleted = (stateCount ?? 0) > 0;
+
+  log('DB').info(
+    `Deleted ${watchesDeleted} watches and ${stateDeleted ? 1 : 0} state row for ${ref.class_nbr} (term ${ref.term})`
+  );
+
+  return { watchesDeleted, stateDeleted };
+}

@@ -38,6 +38,7 @@ export type Database = {
         Row: {
           catalog_nbr: string
           class_nbr: string
+          consecutive_not_found_count: number
           id: string
           instructor_name: string | null
           last_changed_at: string
@@ -54,6 +55,7 @@ export type Database = {
         Insert: {
           catalog_nbr: string
           class_nbr: string
+          consecutive_not_found_count?: number
           id?: string
           instructor_name?: string | null
           last_changed_at?: string
@@ -70,6 +72,7 @@ export type Database = {
         Update: {
           catalog_nbr?: string
           class_nbr?: string
+          consecutive_not_found_count?: number
           id?: string
           instructor_name?: string | null
           last_changed_at?: string
