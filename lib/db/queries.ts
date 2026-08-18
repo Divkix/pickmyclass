@@ -279,97 +279,90 @@ export async function upsertClassState(
  * If the row does not exist (first observation with no class_states), creates it with
  * count=1 via insert with minimal placeholder fields.
  *
+ * Atomic via RPC `increment_consecutive_not_found` — prevents lost increments under
+ * concurrent workers for same SectionRef (read-modify-write race).
+ *
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @returns The new consecutive_not_found_count value
  */
+// Must use getServiceClient() — RPC is SECURITY DEFINER GRANTED to service_role only; anon 42501
 export async function incrementConsecutiveNotFound(ref: SectionRef): Promise<number> {
-  // NOTE: read-modify-write, not atomic; concurrent increments for same SectionRef may lose one strike (low contention due to stagger, acceptable; future: rpc increment_consecutive_not_found)
   const supabase = getServiceClient();
 
-  const { data, error } = await applySectionRef(
-    supabase.from('class_states').select('consecutive_not_found_count'),
-    ref
-  ).single();
+  // Atomic via RPC — prevents lost increments under concurrent workers
+  const { data, error } = await supabase.rpc('increment_consecutive_not_found', {
+    p_class_nbr: ref.class_nbr,
+    p_term: ref.term,
+  });
 
-  if (error) {
-    if (error.code === 'PGRST116') {
-      // No existing row — insert with count=1 (no onConflict so concurrent real row triggers 23505 and does not clobber subject/catalog/seats)
-      const { error: insertError } = await supabase.from('class_states').insert({
-        class_nbr: ref.class_nbr,
-        term: ref.term,
-        subject: '',
-        catalog_nbr: '',
-        title: null,
-        instructor_name: null,
-        seats_available: 0,
-        seats_capacity: 0,
-        non_reserved_seats: null,
-        location: null,
-        meeting_times: null,
-        consecutive_not_found_count: 1,
-        last_checked_at: new Date().toISOString(),
-      });
-
-      if (insertError) {
-        // Race: row was created concurrently — fetch and increment instead
-        if (insertError.code === '23505') {
-          const { data: raced, error: racedError } = await applySectionRef(
-            supabase.from('class_states').select('consecutive_not_found_count'),
-            ref
-          ).single();
-          if (racedError) {
-            log('DB').error('Error fetching consecutive count after race:', racedError);
-            throw new Error(
-              `Failed to increment consecutive_not_found_count: ${racedError.message}`
-            );
-          }
-          const newCount = (raced.consecutive_not_found_count ?? 0) + 1;
-          const { error: updateError } = await applySectionRef(
-            supabase.from('class_states').update({ consecutive_not_found_count: newCount }),
-            ref
-          );
-          if (updateError) {
-            log('DB').error(
-              'Error incrementing consecutive_not_found_count after race:',
-              updateError
-            );
-            throw new Error(
-              `Failed to increment consecutive_not_found_count: ${updateError.message}`
-            );
-          }
-          log('DB').info(
-            `Incremented consecutive_not_found_count to ${newCount} for ${ref.class_nbr} (term ${ref.term}) after race`
-          );
-          return newCount;
-        }
-        log('DB').error('Error inserting consecutive_not_found_count:', insertError);
-        throw new Error(`Failed to increment consecutive_not_found_count: ${insertError.message}`);
-      }
-
-      log('DB').info(
-        `Initialized consecutive_not_found_count=1 for ${ref.class_nbr} (term ${ref.term})`
-      );
-      return 1;
+  if (!error) {
+    const newCount = data;
+    if (typeof newCount !== 'number' || !Number.isFinite(newCount)) {
+      throw new Error(`Invalid increment result: ${String(newCount)}`);
     }
-    log('DB').error('Error fetching consecutive_not_found_count:', error);
-    throw new Error(`Failed to fetch consecutive_not_found_count: ${error.message}`);
+    log('DB').info(
+      `Incremented consecutive_not_found_count to ${newCount} for ${ref.class_nbr} (term ${ref.term}) via atomic RPC`
+    );
+    return newCount;
   }
 
-  const newCount = (data.consecutive_not_found_count ?? 0) + 1;
+  // Handle "Section not found" — no existing row, need to insert with count=1 (first observation)
+  // Supabase wraps RAISE EXCEPTION as error with message containing 'Section not found' and code P0001
+  const msg = error.message || '';
+  const isNotFound = typeof msg === 'string' && msg.includes('Section not found');
+  if (isNotFound) {
+    // No existing row — insert with count=1 (no onConflict so concurrent real row triggers 23505 and does not clobber subject/catalog/seats)
+    const { error: insertError } = await supabase.from('class_states').insert({
+      class_nbr: ref.class_nbr,
+      term: ref.term,
+      subject: '',
+      catalog_nbr: '',
+      title: null,
+      instructor_name: null,
+      seats_available: 0,
+      seats_capacity: 0,
+      non_reserved_seats: null,
+      location: null,
+      meeting_times: null,
+      consecutive_not_found_count: 1,
+      last_checked_at: new Date().toISOString(),
+    });
 
-  const { error: updateError } = await applySectionRef(
-    supabase.from('class_states').update({ consecutive_not_found_count: newCount }),
-    ref
-  );
-  if (updateError) {
-    log('DB').error('Error incrementing consecutive_not_found_count:', updateError);
-    throw new Error(`Failed to increment consecutive_not_found_count: ${updateError.message}`);
+    if (insertError) {
+      if (insertError.code === '23505') {
+        // Race: row was created concurrently — retry atomic increment via RPC
+        const { data: racedData, error: racedError } = await supabase.rpc(
+          'increment_consecutive_not_found',
+          {
+            p_class_nbr: ref.class_nbr,
+            p_term: ref.term,
+          }
+        );
+        if (racedError) {
+          log('DB').error('Error incrementing consecutive_not_found_count after race:', racedError);
+          throw new Error(`Failed to increment consecutive_not_found_count: ${racedError.message}`);
+        }
+        if (typeof racedData !== 'number' || !Number.isFinite(racedData)) {
+          throw new Error(`Invalid increment result: ${String(racedData)}`);
+        }
+        const newCount = racedData;
+        log('DB').info(
+          `Incremented consecutive_not_found_count to ${newCount} for ${ref.class_nbr} (term ${ref.term}) after race via atomic RPC (recovered from insert ${insertError.code}: ${insertError.message})`
+        );
+        return newCount;
+      }
+      log('DB').error('Error inserting consecutive_not_found_count:', insertError);
+      throw new Error(`Failed to increment consecutive_not_found_count: ${insertError.message}`);
+    }
+
+    log('DB').info(
+      `Initialized consecutive_not_found_count=1 for ${ref.class_nbr} (term ${ref.term})`
+    );
+    return 1;
   }
 
-  log('DB').info(
-    `Incremented consecutive_not_found_count to ${newCount} for ${ref.class_nbr} (term ${ref.term})`
-  );
-  return newCount;
+  log('DB').error('Error incrementing consecutive_not_found_count:', error);
+  throw new Error(`Failed to increment consecutive_not_found_count: ${error.message}`);
 }
 
 /**

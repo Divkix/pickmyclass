@@ -408,6 +408,10 @@ export type Database = {
         }
         Returns: string[]
       }
+      increment_consecutive_not_found: {
+        Args: { p_class_nbr: string; p_term: string }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

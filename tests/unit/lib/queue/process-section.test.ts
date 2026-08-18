@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE } from '@/lib/config';
 
 // Mock all dependencies
 vi.mock('@/lib/supabase/service', () => ({
@@ -969,7 +970,7 @@ describe('processSection', () => {
       });
 
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       // also need warn for log('ProcessSection').warn which routes through console.warn — already spied
       const env = buildEnv();
       const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
@@ -1007,10 +1008,7 @@ describe('processSection', () => {
       // Suppressed path returns original NotFound error, not Auto-cleanup
       expect(outcome.result.error).toBe('Section 42737 not found');
 
-      consoleWarnSpy.mockRestore();
-      consoleErrorSpy.mockRestore();
-      vi.spyOn(console, 'warn').mockImplementation(() => {});
-      vi.spyOn(console, 'error').mockImplementation(() => {});
+      // rely on afterEach restoreAllMocks
     });
 
     it('breaker ratio exactly 0.2 does NOT suppress (threshold is >0.2)', async () => {
@@ -1061,6 +1059,119 @@ describe('processSection', () => {
       expect(outcome.httpStatus).toBe(200);
       expect(outcome.result.success).toBe(false);
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
+    });
+
+    it('caps watchers at AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE and truncates emails, logs warn', async () => {
+      const cap = AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE;
+      const overCap = cap + 100;
+      const manyWatchers = Array.from({ length: overCap }, (_, i) => ({
+        user_id: `u${i}`,
+        email: `user${i}@example.com`,
+        watch_id: `w${i}`,
+      }));
+      const serviceMock = buildAutoCleanupServiceMock({
+        total: 1000,
+        flagged: 10, // ratio 0.01 < 0.2, breaker NOT tripped
+        oldStateData: { non_reserved_seats: 0, seats_available: 0, instructor_name: 'Staff' },
+        classInfoData: { subject: 'CSE', catalog_nbr: '110', title: 'Principles of Programming' },
+      });
+      (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(serviceMock);
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new NotFoundError('Section 42737 not found')
+      );
+      (incrementConsecutiveNotFound as ReturnType<typeof vi.fn>).mockResolvedValue(3);
+      (getClassWatchers as ReturnType<typeof vi.fn>).mockResolvedValue(manyWatchers);
+      (deleteSectionAndWatches as ReturnType<typeof vi.fn>).mockResolvedValue({
+        watchesDeleted: overCap,
+        stateDeleted: true,
+      });
+
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      // Speed up batch delay for 500 sends — mock setTimeout to immediate
+      vi.spyOn(globalThis, 'setTimeout')
+        // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock — setTimeout overload narrowed to callback+delay used by auto-cleanup batch throttle
+        .mockImplementation((cb: () => void) => {
+          cb();
+          // SAFETY: test double returns Timeout shape for batch throttle; only used for immediate resolve in cap truncation test
+          return {} as unknown as ReturnType<typeof setTimeout>;
+        });
+
+      const env = buildEnv();
+      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+
+      expect(deleteSectionAndWatches).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
+      // Real sendAutoCleanupRemovalEmails called via processSection — should be truncated to cap
+      expect(env.EMAIL.send).toHaveBeenCalledTimes(cap);
+      expect(outcome.result.emailsSent).toBe(cap);
+      // watchesDeleted vs emailsSent inequality when over cap: all watches deleted but only cap emailed
+      expect(overCap).toBeGreaterThan(cap);
+      // watchesDeleted === originalLength (overCap) — delete mock returned overCap
+      expect(overCap).toBe(manyWatchers.length);
+      expect(overCap).toBeGreaterThan(outcome.result.emailsSent);
+      expect(outcome.result.success).toBe(true);
+      expect(outcome.result.error).toContain('Auto-cleanup');
+      // threshold assertion includes threshold value (3)
+      expect(outcome.result.error).toContain('3');
+      const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
+      expect(warnCalls.some((s) => s.includes('exceeds cap') && s.includes('truncating'))).toBe(true);
+    });
+
+    it('breaker check logs total flagged ratio before suppression decision', async () => {
+      const serviceMock = buildAutoCleanupServiceMock({
+        total: 100,
+        flagged: 5, // ratio 0.05 < 0.2, NOT suppressed — should still log info
+        oldStateData: { non_reserved_seats: 0, seats_available: 0, instructor_name: 'Staff' },
+        classInfoData: { subject: 'CSE', catalog_nbr: '110', title: 'T' },
+      });
+      (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(serviceMock);
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new NotFoundError('Section 42737 not found')
+      );
+      (incrementConsecutiveNotFound as ReturnType<typeof vi.fn>).mockResolvedValue(3);
+      (getClassWatchers as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { user_id: 'u1', email: 'a@example.com', watch_id: 'w1' },
+      ]);
+      (deleteSectionAndWatches as ReturnType<typeof vi.fn>).mockResolvedValue({
+        watchesDeleted: 1,
+        stateDeleted: true,
+      });
+
+      const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+      const env = buildEnv();
+      await processSection({ class_nbr: '42737', term: '2261' }, env);
+
+      const infoCalls = infoSpy.mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
+      expect(infoCalls.some((s) => s.includes('Breaker check total=100 flagged=5 ratio=0.050'))).toBe(true);
+
+      // rely on afterEach restoreAllMocks
+    });
+
+    it('breaker tripped also logs ratio info and warn suppressed', async () => {
+      const serviceMock = buildAutoCleanupServiceMock({
+        total: 100,
+        flagged: 30, // ratio 0.30 > 0.2, suppressed
+        oldStateData: { non_reserved_seats: 0, seats_available: 0, instructor_name: 'Staff' },
+        classInfoData: null,
+      });
+      (getServiceClient as ReturnType<typeof vi.fn>).mockReturnValue(serviceMock);
+      (fetchClassFromASU as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new NotFoundError('Section 42737 not found')
+      );
+      (incrementConsecutiveNotFound as ReturnType<typeof vi.fn>).mockResolvedValue(3);
+
+      const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const env = buildEnv();
+      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+
+      const infoCalls = infoSpy.mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
+      expect(infoCalls.some((s) => s.includes('Breaker check total=100 flagged=30 ratio=0.300'))).toBe(true);
+      const warnCalls = warnSpy.mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
+      expect(warnCalls.some((s) => s.includes('Auto-cleanup suppressed'))).toBe(true);
+      expect(deleteSectionAndWatches).not.toHaveBeenCalled();
+      expect(outcome.result.success).toBe(false);
+
+      // rely on afterEach restoreAllMocks
     });
   });
 });

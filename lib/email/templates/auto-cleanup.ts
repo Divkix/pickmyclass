@@ -6,6 +6,7 @@
  */
 
 import {
+  AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
   DEFAULT_SITE_URL,
   EMAIL_BATCH_DELAY_MS,
   EMAIL_BATCH_SIZE,
@@ -225,12 +226,21 @@ export async function sendAutoCleanupRemovalEmails(
   emailBinding: SendEmail,
   fromEmail?: string
 ): Promise<Array<{ success: boolean; watchId: string; error?: string }>> {
-  const { ref, classInfo, watchers } = params;
+  const { ref, classInfo } = params;
+  let watchers = params.watchers;
   const from = fromEmail || NOTIFICATION_FROM_EMAIL;
 
   if (watchers.length === 0) {
     log('Email').info(`Auto-cleanup: no watchers to notify for ${ref.term}:${ref.class_nbr}`);
     return [];
+  }
+
+  // Intentionally emails truncated set while deleting all watches — 500 cap prevents blast, remaining 9500 are removed silently (one-shot section gone); accepted trade-off vs paging. Logs watchesDeleted vs emailsSent.
+  if (watchers.length > AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE) {
+    log('Email').warn(
+      `Auto-cleanup cap: ${watchers.length} watchers for ${ref.term}:${ref.class_nbr} exceeds cap ${AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE}, truncating`
+    );
+    watchers = watchers.slice(0, AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE);
   }
 
   log('Email').info(

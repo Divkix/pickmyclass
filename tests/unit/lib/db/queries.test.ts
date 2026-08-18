@@ -15,25 +15,13 @@ import {
   incrementConsecutiveNotFound,
   resetConsecutiveNotFound,
 } from '@/lib/db/queries';
-import { getServiceClient } from '@/lib/supabase/service';
+// getServiceClient mocked via vi.mock — no direct import needed
 
 beforeEach(() => {
   vi.spyOn(console, 'info').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.clearAllMocks();
 });
-
-// helper to build a select→eq→eq→single chain
-function mockSelectSingle(result: {
-  data: Record<string, unknown> | null;
-  error: { code?: string; message: string } | null;
-}) {
-  const single = vi.fn().mockResolvedValue(result);
-  const secondEq = vi.fn().mockReturnValue({ single });
-  const firstEq = vi.fn().mockReturnValue({ eq: secondEq });
-  const select = vi.fn().mockReturnValue({ eq: firstEq });
-  return { select, firstEq, secondEq, single };
-}
 
 // helper to build update→eq→eq chain that resolves to {error:null}
 function mockUpdateChain() {
@@ -52,51 +40,28 @@ function mockDeleteChain(count: number) {
 }
 
 describe('incrementConsecutiveNotFound', () => {
-  it('is SectionRef-scoped (both class_nbr and term) and returns new count', async () => {
-    const { select, firstEq, secondEq } = mockSelectSingle({
-      data: { consecutive_not_found_count: 2 },
-      error: null,
-    });
-    const { update, firstEq: updFirst, secondEq: updSecond } = mockUpdateChain();
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'class_states') {
-        // SAFETY: test mock — Supabase client stub with typed query builder
-        const stub = { select, update } as unknown;
-        // SAFETY: test mock — Supabase client stub with typed query builder
-        return stub as ReturnType<typeof getServiceClient> extends {
-          from: infer F;
-        }
-          ? F
-          : never;
-      }
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      const fallback = { select, update } as unknown;
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      return fallback as never;
-    });
+  it('atomic RPC success: calls increment_consecutive_not_found with SectionRef and returns new count', async () => {
+    mockRpc.mockResolvedValue({ data: 3, error: null });
 
     const newCount = await incrementConsecutiveNotFound({ class_nbr: '76337', term: '2261' });
 
     expect(newCount).toBe(3);
-    // verify select was scoped
-    expect(select).toHaveBeenCalledWith('consecutive_not_found_count');
-    expect(firstEq).toHaveBeenCalledWith('class_nbr', '76337');
-    expect(secondEq).toHaveBeenCalledWith('term', '2261');
-    // verify update was scoped with new count 3
-    expect(update).toHaveBeenCalledWith({ consecutive_not_found_count: 3 });
-    expect(updFirst).toHaveBeenCalledWith('class_nbr', '76337');
-    expect(updSecond).toHaveBeenCalledWith('term', '2261');
+    expect(mockRpc).toHaveBeenCalledWith('increment_consecutive_not_found', {
+      p_class_nbr: '76337',
+      p_term: '2261',
+    });
+    expect(mockRpc).toHaveBeenCalledTimes(1);
   });
 
-  it('when row does not exist (PGRST116) creates via insert with count=1 and SectionRef', async () => {
-    const { select, firstEq, secondEq } = mockSelectSingle({
+  it('when row does not exist (Section not found) creates via insert with count=1 and SectionRef', async () => {
+    mockRpc.mockResolvedValue({
       data: null,
-      error: { code: 'PGRST116', message: 'No rows found' },
+      error: { message: 'Section not found', code: 'P0001' },
     });
     const insert = vi.fn().mockResolvedValue({ error: null });
     mockFrom.mockImplementation(() => {
       // SAFETY: test mock — Supabase client stub with typed query builder
-      const stub = { select, insert } as unknown;
+      const stub = { insert } as unknown;
       // SAFETY: test mock — Supabase client stub with typed query builder
       return stub as never;
     });
@@ -104,8 +69,10 @@ describe('incrementConsecutiveNotFound', () => {
     const newCount = await incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' });
 
     expect(newCount).toBe(1);
-    expect(firstEq).toHaveBeenCalledWith('class_nbr', '42737');
-    expect(secondEq).toHaveBeenCalledWith('term', '2261');
+    expect(mockRpc).toHaveBeenCalledWith('increment_consecutive_not_found', {
+      p_class_nbr: '42737',
+      p_term: '2261',
+    });
     expect(insert).toHaveBeenCalledWith(
       expect.objectContaining({
         class_nbr: '42737',
@@ -115,42 +82,141 @@ describe('incrementConsecutiveNotFound', () => {
     );
   });
 
-  it('term scoping: different terms are independent (verify mock expects term param)', async () => {
-    const { select, firstEq, secondEq } = mockSelectSingle({
-      data: { consecutive_not_found_count: 5 },
-      error: null,
+  it('handles 23505 race after insert by retrying atomic RPC', async () => {
+    mockRpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Section not found', code: 'P0001' },
+      })
+      .mockResolvedValueOnce({ data: 2, error: null });
+    const insert = vi.fn().mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } });
+    mockFrom.mockImplementation(() => {
+      // SAFETY: test mock — Supabase client stub with typed query builder
+      const stub = { insert } as unknown;
+      // SAFETY: test mock — Supabase client stub with typed query builder
+      return stub as never;
     });
-    const { update } = mockUpdateChain();
-    // SAFETY: test mock — Supabase client stub with typed query builder
-    const stub1 = { select, update } as unknown;
-    // SAFETY: test mock — Supabase client stub with typed query builder
-    mockFrom.mockReturnValue(stub1 as never);
+
+    const newCount = await incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' });
+
+    expect(newCount).toBe(2);
+    expect(mockRpc).toHaveBeenCalledTimes(2);
+    expect(insert).toHaveBeenCalled();
+    expect(mockRpc.mock.calls[0][0]).toBe('increment_consecutive_not_found');
+    expect(mockRpc.mock.calls[1][0]).toBe('increment_consecutive_not_found');
+  });
+
+  it('term scoping: different terms use correct p_term param', async () => {
+    mockRpc.mockResolvedValue({ data: 1, error: null });
 
     await incrementConsecutiveNotFound({ class_nbr: '76337', term: '2261' });
-    expect(firstEq).toHaveBeenCalledWith('class_nbr', '76337');
-    expect(secondEq).toHaveBeenCalledWith('term', '2261');
+    expect(mockRpc).toHaveBeenCalledWith('increment_consecutive_not_found', {
+      p_class_nbr: '76337',
+      p_term: '2261',
+    });
 
     vi.clearAllMocks();
-    const {
-      select: sel2,
-      firstEq: fe2,
-      secondEq: se2,
-    } = mockSelectSingle({
-      data: { consecutive_not_found_count: 1 },
-      error: null,
-    });
-    const { update: upd2 } = mockUpdateChain();
-    // SAFETY: test mock — Supabase client stub with typed query builder
-    const stub2 = { select: sel2, update: upd2 } as unknown;
-    // SAFETY: test mock — Supabase client stub with typed query builder
-    mockFrom.mockReturnValue(stub2 as never);
+    mockRpc.mockResolvedValue({ data: 2, error: null });
     await incrementConsecutiveNotFound({ class_nbr: '76337', term: '2257' });
-    expect(fe2).toHaveBeenCalledWith('class_nbr', '76337');
-    expect(se2).toHaveBeenCalledWith('term', '2257');
-    // ensure second term call did NOT reuse previous term 2261
-    expect(se2).not.toHaveBeenCalledWith('term', '2261');
-    expect(fe2).toHaveBeenCalledTimes(1);
-    expect(sel2).toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledWith('increment_consecutive_not_found', {
+      p_class_nbr: '76337',
+      p_term: '2257',
+    });
+    // ensure not called with previous term 2261 in this call
+    expect(mockRpc).not.toHaveBeenCalledWith('increment_consecutive_not_found', {
+      p_class_nbr: '76337',
+      p_term: '2261',
+    });
+  });
+
+  it('throws on non-notFound RPC error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'deadlock', code: '40P01' } });
+
+    await expect(
+      incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
+    ).rejects.toThrow('Failed to increment consecutive_not_found_count');
+  });
+
+  it('generic insert failure (42501) throws', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'Section not found', code: 'P0001' },
+    });
+    const insert = vi.fn().mockResolvedValue({ error: { code: '42501', message: 'permission denied' } });
+    mockFrom.mockImplementation(() => {
+      // SAFETY: test mock — Supabase client stub with typed query builder
+      const stub = { insert } as unknown;
+      // SAFETY: test mock — Supabase client stub with typed query builder
+      return stub as never;
+    });
+
+    await expect(
+      incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
+    ).rejects.toThrow('Failed to increment consecutive_not_found_count');
+  });
+
+  it('RPC returns null throws validation', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await expect(
+      incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
+    ).rejects.toThrow('Invalid increment result');
+  });
+
+  it('RPC returns string throws validation', async () => {
+    // SAFETY: test mock — intentionally returns non-number to trigger validation branch
+    mockRpc.mockResolvedValue({ data: 'not-a-number' as unknown as number, error: null });
+
+    await expect(
+      incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
+    ).rejects.toThrow('Invalid increment result');
+  });
+
+  it('race retry RPC returns null throws validation', async () => {
+    mockRpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Section not found', code: 'P0001' },
+      })
+      .mockResolvedValueOnce({ data: null, error: null });
+    const insert = vi.fn().mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } });
+    mockFrom.mockImplementation(() => {
+      // SAFETY: test mock — Supabase client stub with typed query builder
+      const stub = { insert } as unknown;
+      // SAFETY: test mock — Supabase client stub with typed query builder
+      return stub as never;
+    });
+
+    await expect(
+      incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
+    ).rejects.toThrow('Invalid increment result');
+  });
+
+  it('generic P0001 without Section not found message throws (OR masking fixed)', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'some other error', code: 'P0001' } });
+
+    await expect(
+      incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
+    ).rejects.toThrow('Failed to increment consecutive_not_found_count');
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('handles Section not found via message without code (fallback)', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      // no code — message-only path must still trigger insert
+      error: { message: 'Section not found: 99999' } as { message: string; code?: string },
+    });
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    mockFrom.mockImplementation(() => {
+      // SAFETY: test mock — Supabase client stub with typed query builder
+      const stub = { insert } as unknown;
+      // SAFETY: test mock — Supabase client stub with typed query builder
+      return stub as never;
+    });
+
+    const newCount = await incrementConsecutiveNotFound({ class_nbr: '99999', term: '2261' });
+    expect(newCount).toBe(1);
   });
 });
 

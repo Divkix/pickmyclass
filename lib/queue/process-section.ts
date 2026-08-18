@@ -5,7 +5,11 @@ import {
   RateLimitError,
   fetchClassFromASU,
 } from '@/lib/asu/api';
-import { AUTO_CLEANUP_BREAKER_RATIO, AUTO_CLEANUP_THRESHOLD } from '@/lib/config';
+import {
+  AUTO_CLEANUP_BREAKER_RATIO,
+  AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
+  AUTO_CLEANUP_THRESHOLD,
+} from '@/lib/config';
 import {
   type ClassWatcher,
   deleteSectionAndWatches,
@@ -103,7 +107,11 @@ async function shouldSuppressAutoCleanup(): Promise<boolean> {
       return false;
     }
     const flagged = flaggedRes.count ?? 0;
-    const ratio = flagged / totalRes.count;
+    const total = totalRes.count;
+    const ratio = flagged / total;
+    log('ProcessSection').info(
+      `Breaker check total=${total} flagged=${flagged} ratio=${ratio.toFixed(3)} threshold=${AUTO_CLEANUP_BREAKER_RATIO}`
+    );
     if (ratio > AUTO_CLEANUP_BREAKER_RATIO) {
       log('ProcessSection').warn('Auto-cleanup suppressed — breaker tripped');
       return true;
@@ -353,6 +361,13 @@ export async function processSection(
           ]);
           watchers = watchersResult;
           classInfo = classInfoResult;
+          // Intentionally emails truncated set while deleting all watches — 500 cap prevents blast, remaining 9500 are removed silently (one-shot section gone); accepted trade-off vs paging. Logs watchesDeleted vs emailsSent.
+          if (watchers.length > AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE) {
+            log('ProcessSection').warn(
+              `Auto-cleanup cap: ${watchers.length} watchers for ${ref.term}:${ref.class_nbr} exceeds cap ${AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE}, truncating`
+            );
+            watchers = watchers.slice(0, AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE);
+          }
         } catch (watcherError) {
           log('ProcessSection').warn(
             `Auto-cleanup: failed to fetch watchers for ${ref.term}:${classNbr}:`,
@@ -388,7 +403,7 @@ export async function processSection(
         }
 
         log('ProcessSection').info(
-          `Auto-cleanup deleted ${ref.term}:${classNbr} watches=${watchesDeleted}`
+          `Auto-cleanup deleted ${ref.term}:${classNbr} watchesDeleted=${watchesDeleted} emailsSent=${watchers.length} (cap ${AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE} prevents blast; remaining ${Math.max(0, watchesDeleted - watchers.length)} silently removed — accepted trade-off vs paging)`
         );
 
         return ackOutcome({

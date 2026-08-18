@@ -1,5 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { buildAutoCleanupRemovedEmail } from '@/lib/email/templates/auto-cleanup';
+import { AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE } from '@/lib/config';
+import type { SendEmail } from '@/lib/types/env';
+vi.mock('@/lib/email/unsubscribe-token', () => ({
+  generateUnsubscribeUrl: vi.fn((userId: string) => `https://pickmyclass.app/unsubscribe?token=${userId}`),
+  generateUnsubscribeToken: vi.fn(() => 'mock-token'),
+  verifyUnsubscribeToken: vi.fn(() => null),
+}));
+
+import {
+  buildAutoCleanupRemovedEmail,
+  sendAutoCleanupRemovalEmails,
+} from '@/lib/email/templates/auto-cleanup';
 
 describe('buildAutoCleanupRemovedEmail', () => {
   const originalEnv = process.env.NEXT_PUBLIC_SITE_URL;
@@ -158,5 +169,101 @@ describe('buildAutoCleanupRemovedEmail', () => {
     });
     expect(email.html).toContain('https://pickmyclass.app/dashboard');
     expect(email.html).not.toContain('///dashboard');
+  });
+});
+
+describe('sendAutoCleanupRemovalEmails', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('defensively caps watchers at AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE and logs warn', async () => {
+    const cap = AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE;
+    const overCap = cap + 10;
+    const watchers = Array.from({ length: overCap }, (_, i) => ({
+      user_id: `u${i}`,
+      email: `user${i}@example.com`,
+      watch_id: `w${i}`,
+    }));
+
+    const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
+    const emailBinding = { send: sendMock } as unknown as SendEmail;
+
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(globalThis, 'setTimeout')
+      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock — setTimeout overload narrowed to callback+delay used by batch throttle
+      .mockImplementation((cb: () => void) => {
+        cb();
+        // SAFETY: test double returns Timeout shape for batch throttle; only used for immediate resolve in cap test
+        return {} as unknown as ReturnType<typeof setTimeout>;
+      });
+
+    const results = await sendAutoCleanupRemovalEmails(
+      {
+        ref: { class_nbr: '42737', term: '2261' },
+        classInfo: { subject: 'CSE', catalog_nbr: '110', title: 'Intro' },
+        watchers,
+      },
+      emailBinding
+    );
+
+    expect(sendMock).toHaveBeenCalledTimes(cap);
+    expect(results).toHaveLength(cap);
+    expect(results.every((r) => r.success)).toBe(true);
+    // identity: first watcher was emailed
+    expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({ to: watchers[0].email }));
+    // w501 (first truncated) not attempted — inequality of truncated vs deleted set
+    expect(sendMock).not.toHaveBeenCalledWith(expect.objectContaining({ to: watchers[cap].email }));
+    // also ensure the last truncated entry not sent
+    const sentEmails = sendMock.mock.calls.map((c) => (c[0] as { to: string }).to);
+    expect(sentEmails).not.toContain(watchers[cap].email);
+    expect(sentEmails).toContain(watchers[0].email);
+    expect(sentEmails).toContain(watchers[cap - 1].email);
+    const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
+    expect(warnCalls.some((s) => s.includes('exceeds cap') && s.includes('truncating'))).toBe(true);
+  });
+
+  it('sends all watchers when under cap without truncation', async () => {
+    const watchers = [
+      { user_id: 'u1', email: 'a@example.com', watch_id: 'w1' },
+      { user_id: 'u2', email: 'b@example.com', watch_id: 'w2' },
+    ];
+    const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
+    const emailBinding = { send: sendMock } as unknown as SendEmail;
+
+    const results = await sendAutoCleanupRemovalEmails(
+      {
+        ref: { class_nbr: '42737', term: '2261' },
+        classInfo: null,
+        watchers,
+      },
+      emailBinding
+    );
+
+    expect(sendMock).toHaveBeenCalledTimes(2);
+    expect(results).toHaveLength(2);
+  });
+
+  it('returns empty when no watchers', async () => {
+    const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
+    const emailBinding = { send: sendMock } as unknown as SendEmail;
+
+    const results = await sendAutoCleanupRemovalEmails(
+      {
+        ref: { class_nbr: '42737', term: '2261' },
+        classInfo: null,
+        watchers: [],
+      },
+      emailBinding
+    );
+
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(results).toEqual([]);
   });
 });
