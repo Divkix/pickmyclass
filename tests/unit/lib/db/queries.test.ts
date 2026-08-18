@@ -89,7 +89,9 @@ describe('incrementConsecutiveNotFound', () => {
         error: { message: 'Section not found', code: 'P0001' },
       })
       .mockResolvedValueOnce({ data: 2, error: null });
-    const insert = vi.fn().mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } });
+    const insert = vi
+      .fn()
+      .mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } });
     mockFrom.mockImplementation(() => {
       // SAFETY: test mock — Supabase client stub with typed query builder
       const stub = { insert } as unknown;
@@ -142,7 +144,9 @@ describe('incrementConsecutiveNotFound', () => {
       data: null,
       error: { message: 'Section not found', code: 'P0001' },
     });
-    const insert = vi.fn().mockResolvedValue({ error: { code: '42501', message: 'permission denied' } });
+    const insert = vi
+      .fn()
+      .mockResolvedValue({ error: { code: '42501', message: 'permission denied' } });
     mockFrom.mockImplementation(() => {
       // SAFETY: test mock — Supabase client stub with typed query builder
       const stub = { insert } as unknown;
@@ -164,9 +168,8 @@ describe('incrementConsecutiveNotFound', () => {
   });
 
   it('RPC returns string throws validation', async () => {
-    // SAFETY: test mock — intentionally returns non-number to trigger validation branch
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test intentionally returns wrong type to validate guard
     mockRpc.mockResolvedValue({ data: 'not-a-number' as unknown as number, error: null });
-
     await expect(
       incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
     ).rejects.toThrow('Invalid increment result');
@@ -179,7 +182,9 @@ describe('incrementConsecutiveNotFound', () => {
         error: { message: 'Section not found', code: 'P0001' },
       })
       .mockResolvedValueOnce({ data: null, error: null });
-    const insert = vi.fn().mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } });
+    const insert = vi
+      .fn()
+      .mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } });
     mockFrom.mockImplementation(() => {
       // SAFETY: test mock — Supabase client stub with typed query builder
       const stub = { insert } as unknown;
@@ -193,7 +198,10 @@ describe('incrementConsecutiveNotFound', () => {
   });
 
   it('generic P0001 without Section not found message throws (OR masking fixed)', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: { message: 'some other error', code: 'P0001' } });
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'some other error', code: 'P0001' },
+    });
 
     await expect(
       incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })

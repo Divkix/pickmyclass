@@ -1092,7 +1092,7 @@ describe('processSection', () => {
         // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock — setTimeout overload narrowed to callback+delay used by auto-cleanup batch throttle
         .mockImplementation((cb: () => void) => {
           cb();
-          // SAFETY: test double returns Timeout shape for batch throttle; only used for immediate resolve in cap truncation test
+          // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double returns Timeout shape for batch throttle; only used for immediate resolve in cap truncation test
           return {} as unknown as ReturnType<typeof setTimeout>;
         });
 
@@ -1112,8 +1112,11 @@ describe('processSection', () => {
       expect(outcome.result.error).toContain('Auto-cleanup');
       // threshold assertion includes threshold value (3)
       expect(outcome.result.error).toContain('3');
-      const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
-      expect(warnCalls.some((s) => s.includes('exceeds cap') && s.includes('truncating'))).toBe(true);
+      // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: console.warn mock narrowing requires ReturnType wrapper
+      const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map();
+      expect(warnCalls.some((s) => s.includes('exceeds cap') && s.includes('truncating'))).toBe(
+        true
+      );
     });
 
     it('breaker check logs total flagged ratio before suppression decision', async () => {
@@ -1141,7 +1144,9 @@ describe('processSection', () => {
       await processSection({ class_nbr: '42737', term: '2261' }, env);
 
       const infoCalls = infoSpy.mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
-      expect(infoCalls.some((s) => s.includes('Breaker check total=100 flagged=5 ratio=0.050'))).toBe(true);
+      expect(
+        infoCalls.some((s) => s.includes('Breaker check total=100 flagged=5 ratio=0.050'))
+      ).toBe(true);
 
       // rely on afterEach restoreAllMocks
     });
@@ -1165,7 +1170,9 @@ describe('processSection', () => {
       const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
 
       const infoCalls = infoSpy.mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
-      expect(infoCalls.some((s) => s.includes('Breaker check total=100 flagged=30 ratio=0.300'))).toBe(true);
+      expect(
+        infoCalls.some((s) => s.includes('Breaker check total=100 flagged=30 ratio=0.300'))
+      ).toBe(true);
       const warnCalls = warnSpy.mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
       expect(warnCalls.some((s) => s.includes('Auto-cleanup suppressed'))).toBe(true);
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();

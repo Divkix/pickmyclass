@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE } from '@/lib/config';
 import type { SendEmail } from '@/lib/types/env';
 vi.mock('@/lib/email/unsubscribe-token', () => ({
-  generateUnsubscribeUrl: vi.fn((userId: string) => `https://pickmyclass.app/unsubscribe?token=${userId}`),
+  generateUnsubscribeUrl: vi.fn(
+    (userId: string) => `https://pickmyclass.app/unsubscribe?token=${userId}`
+  ),
   generateUnsubscribeToken: vi.fn(() => 'mock-token'),
   verifyUnsubscribeToken: vi.fn(() => null),
 }));
@@ -157,9 +159,10 @@ describe('buildAutoCleanupRemovedEmail', () => {
   });
 
   it('handles trailing slash in site URL for dashboard link', () => {
+    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- SAFETY: test mutates process.env for site URL branching
     (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL =
+      // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- SAFETY: string literal for env, narrow to string for assignment
       'https://pickmyclass.app///' as string;
-
     const email = buildAutoCleanupRemovedEmail({
       classNbr: '42737',
       term: '2261',
@@ -193,14 +196,14 @@ describe('sendAutoCleanupRemovalEmails', () => {
     }));
 
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double for EMAIL binding; minimal shape exposes only send()
     const emailBinding = { send: sendMock } as unknown as SendEmail;
-
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(globalThis, 'setTimeout')
       // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock — setTimeout overload narrowed to callback+delay used by batch throttle
       .mockImplementation((cb: () => void) => {
         cb();
-        // SAFETY: test double returns Timeout shape for batch throttle; only used for immediate resolve in cap test
+        // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double returns Timeout shape for batch throttle; only used for immediate resolve in cap test
         return {} as unknown as ReturnType<typeof setTimeout>;
       });
 
@@ -221,11 +224,13 @@ describe('sendAutoCleanupRemovalEmails', () => {
     // w501 (first truncated) not attempted — inequality of truncated vs deleted set
     expect(sendMock).not.toHaveBeenCalledWith(expect.objectContaining({ to: watchers[cap].email }));
     // also ensure the last truncated entry not sent
+    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- SAFETY: mock call narrow to {to:string} for sentEmails extraction
     const sentEmails = sendMock.mock.calls.map((c) => (c[0] as { to: string }).to);
     expect(sentEmails).not.toContain(watchers[cap].email);
     expect(sentEmails).toContain(watchers[0].email);
     expect(sentEmails).toContain(watchers[cap - 1].email);
-    const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: console.warn mock narrowing requires ReturnType wrapper
+    const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map();
     expect(warnCalls.some((s) => s.includes('exceeds cap') && s.includes('truncating'))).toBe(true);
   });
 
@@ -235,8 +240,8 @@ describe('sendAutoCleanupRemovalEmails', () => {
       { user_id: 'u2', email: 'b@example.com', watch_id: 'w2' },
     ];
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double for EMAIL binding; minimal shape exposes only send()
     const emailBinding = { send: sendMock } as unknown as SendEmail;
-
     const results = await sendAutoCleanupRemovalEmails(
       {
         ref: { class_nbr: '42737', term: '2261' },
@@ -252,8 +257,8 @@ describe('sendAutoCleanupRemovalEmails', () => {
 
   it('returns empty when no watchers', async () => {
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double for EMAIL binding; minimal shape exposes only send()
     const emailBinding = { send: sendMock } as unknown as SendEmail;
-
     const results = await sendAutoCleanupRemovalEmails(
       {
         ref: { class_nbr: '42737', term: '2261' },
