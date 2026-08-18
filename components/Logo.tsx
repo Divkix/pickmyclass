@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 interface LogoProps {
@@ -10,14 +11,15 @@ const sizeClasses = {
   sm: 'h-8',
   md: 'h-10',
 };
-
 export function Logo({ variant = 'full', size = 'md', className }: LogoProps) {
   const iconContent = (
-    // eslint-disable-next-line @next/next/no-img-element -- SVG with dynamic Tailwind sizing requires native img
-    <img
+    <Image
       src="/favicon.svg"
       alt="PickMyClass Logo"
+      width={40}
+      height={40}
       className={cn(sizeClasses[size], 'w-auto', className)}
+      unoptimized
     />
   );
 

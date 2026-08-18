@@ -16,15 +16,11 @@ export const reduceMotion = (variants: Variants): Variants => {
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
   ) {
-    // SAFETY: empty object is initial Variants accumulator; reduce populates valid variant entries
-    return Object.keys(variants).reduce((acc, key) => {
-      acc[key] = {
-        // oxlint-disable-next-line typescript/no-misused-spread
-        ...variants[key],
-        transition: { duration: 0.01 },
-      };
-      return acc;
-    }, {} as Variants);
+    const reduced: Variants = {};
+    for (const [key, value] of Object.entries(variants)) {
+      reduced[key] = { ...value, transition: { duration: 0.01 } };
+    }
+    return reduced;
   }
   return variants;
 };

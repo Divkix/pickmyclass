@@ -155,8 +155,8 @@ export function useRealtimeClassStates({
               const key = sectionRefKey(oldState);
               setClassStates((prev) => {
                 if (!(key in prev)) return prev;
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { [key]: _deleted, ...rest } = prev;
+                void _deleted;
                 return rest;
               });
             }
