@@ -230,7 +230,9 @@ describe('sendAutoCleanupRemovalEmails', () => {
     expect(sentEmails).toContain(watchers[0].email);
     expect(sentEmails).toContain(watchers[cap - 1].email);
     // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: console.warn mock narrowing requires ReturnType wrapper
-    const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map();
+    const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => String(c[0]) + ' ' + String(c[1] ?? '')
+    );
     expect(warnCalls.some((s) => s.includes('exceeds cap') && s.includes('truncating'))).toBe(true);
   });
 

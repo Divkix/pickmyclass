@@ -1113,12 +1113,13 @@ describe('processSection', () => {
       // threshold assertion includes threshold value (3)
       expect(outcome.result.error).toContain('3');
       // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: console.warn mock narrowing requires ReturnType wrapper
-      const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map();
+      const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
+        (c) => String(c[0]) + ' ' + String(c[1] ?? '')
+      );
       expect(warnCalls.some((s) => s.includes('exceeds cap') && s.includes('truncating'))).toBe(
         true
       );
     });
-
     it('breaker check logs total flagged ratio before suppression decision', async () => {
       const serviceMock = buildAutoCleanupServiceMock({
         total: 100,
