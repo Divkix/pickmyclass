@@ -3,6 +3,7 @@ import Script from 'next/script';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
+import { ClerkClientProvider } from '@/components/ClerkClientProvider';
 import { Footer } from '@/components/Footer';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 import './globals.css';
@@ -95,12 +96,14 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <div className="flex-1 pb-20 md:pb-0">{children}</div>
-            <Footer />
-            <BottomNav />
-            <Toaster position="top-center" richColors />
-          </AuthProvider>
+          <ClerkClientProvider>
+            <AuthProvider>
+              <div className="flex-1 pb-20 md:pb-0">{children}</div>
+              <Footer />
+              <BottomNav />
+              <Toaster position="top-center" richColors />
+            </AuthProvider>
+          </ClerkClientProvider>
         </ThemeProvider>
         <Script
           src="https://analytics.divkix.me/s.js"

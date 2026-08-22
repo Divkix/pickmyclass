@@ -7,14 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useSignIn } from '@clerk/clerk-react';
 import { log } from '@/lib/log';
-import { createClient } from '@/lib/supabase/client';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { signIn, isLoaded } = useSignIn();
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,21 +28,24 @@ export default function ForgotPasswordPage() {
       return;
     }
 
+    if (!isLoaded || !signIn) {
+      setError('Authentication not ready — please try again');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const supabase = createClient();
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      // Clerk reset flow: create a sign-in attempt that triggers the email code.
+      await signIn.create({
+        strategy: 'reset_password_email_code',
+        identifier: email,
       });
-
-      if (resetError) {
-        setError(resetError.message);
-        setLoading(false);
-        return;
-      }
-
       setSuccess(true);
     } catch (err) {
-      setError('An unexpected error occurred');
+      // Clerk errors carry a ClerkAPIResponseError shape with errors[].longMessage,
+      // but we avoid chained assertions by falling back to the generic message.
+      const msg = err instanceof Error ? err.message : null;
+      setError(msg ?? 'An unexpected error occurred');
       log('ForgotPassword').error('Password-reset request failed:', err);
     } finally {
       setLoading(false);

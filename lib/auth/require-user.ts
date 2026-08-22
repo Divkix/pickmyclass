@@ -1,4 +1,4 @@
-import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { getSessionIdentity, type SessionIdentity } from '@/lib/auth/clerk-session';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
 export class UnauthorizedError extends Error {
@@ -9,15 +9,14 @@ export class UnauthorizedError extends Error {
 }
 
 /**
- * Require an authenticated user.
- * Throws UnauthorizedError if the session is missing or invalid.
+ * Require an authenticated user for an API route.
+ * Verifies the Clerk session on the incoming request (networkless) and
+ * returns the session identity. Throws UnauthorizedError if the session is
+ * missing or invalid.
  */
-export async function requireUser(supabase: SupabaseClient): Promise<{ user: User }> {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  if (error || !user) throw new UnauthorizedError();
+export async function requireUser(request: Request): Promise<{ user: SessionIdentity }> {
+  const user = await getSessionIdentity(request);
+  if (!user) throw new UnauthorizedError();
   return { user };
 }
 

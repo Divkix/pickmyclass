@@ -72,6 +72,8 @@ export interface UserProfileRow {
  */
 export interface UserMirrorRow {
   id: string;
+  /** Clerk's own user id; lets user.deleted webhooks resolve migrated rows. */
+  clerk_user_id: string | null;
   email: string;
   email_confirmed_at: string | null;
   created_at: string;

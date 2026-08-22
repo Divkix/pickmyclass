@@ -3,7 +3,6 @@ import { ok, fail } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
 import { query } from '@/lib/db/client';
 import type { ClassStateRow } from '@/lib/db/types';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/class-watches/states?classNumbers=12345,67890
@@ -20,8 +19,7 @@ import { createClient } from '@/lib/supabase/server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    return await withAuth(supabase, async (user) => {
+    return await withAuth(request, async (user) => {
       try {
         const { searchParams } = new URL(request.url);
         const classNumbersParam = searchParams.get('classNumbers') || '';
@@ -41,7 +39,7 @@ export async function GET(request: NextRequest) {
              AND cs.class_nbr IN (
                SELECT cw.class_nbr FROM class_watches cw WHERE cw.user_id = $2
              )`,
-          [classNumbers, user.id]
+          [classNumbers, user.userId]
         );
 
         return ok({ classStates: states });

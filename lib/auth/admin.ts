@@ -1,20 +1,29 @@
-import type { User } from '@supabase/supabase-js';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { readAuthorizationState } from '@/lib/auth/authorization-state';
-import { createClient } from '@/lib/supabase/server';
+import { getSessionIdentityFromHeaders } from '@/lib/auth/clerk-session';
+import { queryOne } from '@/lib/db/client';
+import type { UserMirrorRow } from '@/lib/db/types';
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  clerkUserId: string;
+  sessionId: string | null;
+}
 
 /**
- * Admin authentication verification layer.
+ * Admin authentication verification layer (Clerk edition).
  *
  * Verifies that the current user has admin privileges by checking:
- * 1. User is authenticated (has valid session)
+ * 1. User is authenticated (valid Clerk session via workerd header)
  * 2. User has is_admin flag set to true in user_profiles table
  * 3. User's account is not disabled
  *
  * @throws {never} Redirects to /login if not authenticated
  * @throws {never} Redirects to /login if the account is disabled
  * @throws {never} Redirects to /dashboard if authenticated but not admin
- * @returns {Promise<User>} The authenticated admin user object
+ * @returns {Promise<AdminUser>} The authenticated admin user (compat shape: id + email)
  *
  * @example
  * ```typescript
@@ -26,34 +35,38 @@ import { createClient } from '@/lib/supabase/server';
  * }
  * ```
  */
-export async function verifyAdmin(): Promise<User> {
-  const supabase = await createClient();
+export async function verifyAdmin(): Promise<AdminUser> {
+  const headerStore = await headers();
+  const identity = await getSessionIdentityFromHeaders(headerStore);
 
-  // Check if user is authenticated
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    // Not authenticated - redirect to login
+  if (!identity) {
     redirect('/login');
   }
 
   // Check admin privileges via a FRESH authorization read (never cached), so a
   // demoted or disabled admin is enforced immediately on admin pages.
-  const authState = await readAuthorizationState(user.id, { cache: false });
+  const authState = await readAuthorizationState(identity.userId, { cache: false });
 
   if (authState?.is_disabled) {
-    // Disabled account — force to login regardless of admin role.
     redirect('/login');
   }
 
   if (!authState?.is_admin) {
-    // Not admin, profile missing, or read error — treat as non-admin.
     redirect('/dashboard');
   }
 
-  // User is authenticated and verified as admin
-  return user;
+  // Resolve email from the users mirror for display purposes. The mirror is the
+  // Clerk-webhook-synced source of truth post-cutover; the Supabase auth email
+  // no longer exists.
+  const row = await queryOne<Pick<UserMirrorRow, 'email'>>(
+    'SELECT email FROM users WHERE id = $1',
+    [identity.userId]
+  );
+
+  return {
+    id: identity.userId,
+    email: row?.email ?? '',
+    clerkUserId: identity.clerkUserId,
+    sessionId: identity.sessionId,
+  };
 }

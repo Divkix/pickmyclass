@@ -48,7 +48,10 @@ This document defines domain terms used throughout the codebase. New modules sho
 - **Lockout** — Account lockout protection after 5 failed login attempts. Prevents brute-force attacks.
 - **Disposable Email Domain** — A temporary email service domain blocked during registration. Blocklist synced daily from GitHub.
 - **Admin Role** — Special user role for admin dashboard access. Checked via `lib/auth/admin.ts`.
-- **OAuth Callback** — Supabase OAuth redirect handler at `app/auth/callback/route.ts`.
+- **OAuth Callback** — Clerk OAuth handler at `app/auth/callback/page.tsx` (`AuthenticateWithRedirectCallback`) + `app/auth/post-oauth/route.ts` (consent + mirror).
+- **Clerk Session** — Edge JWT verification via `@clerk/backend` (`lib/auth/clerk-session.ts`, `ext_id` claim `{{user.external_id || user.id}}`, `jwtKey` PEM) and cookie fast-path (`lib/auth/clerk-cookies.ts`, `__session`); publishable key literal in `lib/clerk/config.ts`. See `docs/adr/0012-auth-plane-clerk.md`.
+- **Users Mirror** — Clerk users mirrored to `users` + `user_profiles` via Svix webhook `POST /api/webhooks/clerk` (`lib/db/users.ts`, `clerk_user_id` unique, `externalId` preserves old Supabase UUID).
+- **Polling** — Dashboard live states via polling `GET /api/class-watches/states` (`useRealtimeClassStates`), not Supabase Realtime (`docs/adr/0014-realtime-to-polling.md`).
 
 ## Compliance
 
@@ -69,7 +72,8 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Email Batch** — Batched email sending via Cloudflare Email Service. Max 5 messages per batch.
 - **Unsubscribe Token** — HMAC-signed token for one-click unsubscribe. Expires after 30 days.
-- **Auth Email Hook** — Supabase Send Email Hook that intercepts auth emails and sends via Cloudflare Email Service.
+- **Clerk Webhook** — Svix `verifyWebhook` at `POST /api/webhooks/clerk` for `user.created/updated/deleted` (secret `whsec_...`, 2xx fast; retries on 4xx/5xx).
+- **Data Plane** — PlanetScale Postgres via Hyperdrive (`pg` 8.23, `--caching-disabled`, 5-conn pool `lib/db/client.ts`, `docs/adr/0013-data-access-hyperdrive.md`), not Supabase PostgREST.
 
 ## Durable Objects
 
@@ -103,5 +107,5 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 ## Infrastructure
 
-- **Queue Consumer** — Cloudflare Queue consumer (`max_concurrency: 20`, `max_batch_size: 5`). `worker.ts queue()` calls `processSection()` directly (no HTTP); `app/api/queue/process-section/route.ts` is an HTTP mirror for tests/HTTP dispatch (see `docs/adr/0006-queue-ack-retry-contract.md`).
-- **Dead Letter Queue (DLQ)** — Queue for failed messages that exceeded max retries.
+- **Queue Consumer** — Cloudflare Queue consumer (`max_concurrency: 20`, `max_batch_size: 5`). `worker.ts queue()` calls `processSection()` directly (no HTTP); `app/api/queue/process-section/route.ts` is an HTTP mirror for tests/HTTP dispatch (`docs/adr/0006-queue-ack-retry-contract.md`). Data plane is PlanetScale via Hyperdrive (`lib/db/client.ts`), not Supabase; live dashboard is polling (`docs/adr/0014-realtime-to-polling.md`).
+- **Dead Letter Queue (DLQ)** — Queue for failed messages that exceeded max retries (always ack, admin alert to `ALERTS_FROM_EMAIL`).

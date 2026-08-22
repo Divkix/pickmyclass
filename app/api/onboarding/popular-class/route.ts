@@ -5,7 +5,6 @@ import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
 import { getMostWatchedClass } from '@/lib/db/queries';
 import { log } from '@/lib/log';
 import { getSelectableTerms } from '@/lib/asu/terms';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * Popular class example shown on the first step of the onboarding modal.
@@ -27,10 +26,9 @@ export interface PopularClass {
  * Returns the most-watched class for the current selectable term, validated
  * against the ASU API, or `popularClass: null` when unavailable.
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-    await requireUser(supabase);
+    await requireUser(request);
 
     const selectableTerms = getSelectableTerms();
     const currentTerm = selectableTerms[0]?.code;

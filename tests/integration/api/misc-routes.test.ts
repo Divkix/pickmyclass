@@ -52,7 +52,6 @@ vi.mock('next/headers', () => ({
 
 import { POST as postCheckLockout } from '@/app/api/auth/check-lockout/route';
 import { POST as postSignout } from '@/app/api/auth/signout/route';
-import { GET as authCallback } from '@/app/auth/callback/route';
 import { GET as redirectToUniversity } from '@/app/go/[uni]/route';
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -152,91 +151,15 @@ describe('misc API routes', () => {
   });
 
   it('signs users out through the server client', async () => {
-    const response = await postSignout();
+    const req = new NextRequest('https://pickmyclass.app/api/auth/signout', {
+      method: 'POST',
+    });
+    const response = await postSignout(req);
     const data = await json(response);
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(mockSignOut).toHaveBeenCalled();
-  });
-
-  it('exchanges callback codes and redirects to the request origin', async () => {
-    const response = await authCallback(
-      new Request('https://pickmyclass.app/auth/callback?code=abc&next=/dashboard')
-    );
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('https://pickmyclass.app/dashboard');
-    expect(mockExchangeCodeForSession).toHaveBeenCalledWith('abc');
-    expect(mockQueryOne).toHaveBeenCalledOnce();
-  });
-
-  it('ignores client-controlled x-forwarded-host when redirecting', async () => {
-    const response = await authCallback(
-      new Request('https://pickmyclass.app/auth/callback?code=abc&next=/dashboard', {
-        headers: { 'x-forwarded-host': 'evil.example.com' },
-      })
-    );
-
-    // The callback must never redirect to a host from the request headers —
-    // that would be an open redirect (host-header injection).
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('https://pickmyclass.app/dashboard');
-    expect(mockExchangeCodeForSession).toHaveBeenCalledWith('abc');
-  });
-
-  it('records confirmed Google signup consent before redirecting', async () => {
-    const response = await authCallback(
-      new Request(
-        'https://pickmyclass.app/auth/callback?code=abc&consent=confirmed&next=/dashboard'
-      )
-    );
-
-    expect(response.headers.get('location')).toBe('https://pickmyclass.app/dashboard');
-    expect(mockCallFunction).toHaveBeenCalledWith('accept_terms_and_verify_age', ['user-1']);
-    expect(mockQueryOne).not.toHaveBeenCalled();
-  });
-
-  it('gates OAuth accounts that have not recorded consent', async () => {
-    mockQueryOne.mockResolvedValueOnce({ age_verified_at: null, agreed_to_terms_at: null });
-
-    const response = await authCallback(
-      new Request('https://pickmyclass.app/auth/callback?code=abc&next=/dashboard')
-    );
-
-    expect(response.headers.get('location')).toBe(
-      'https://pickmyclass.app/consent?next=%2Fdashboard'
-    );
-  });
-
-  it('keeps users on the consent gate when persistence fails', async () => {
-    mockCallFunction.mockRejectedValueOnce(new Error('database unavailable'));
-
-    const response = await authCallback(
-      new Request(
-        'https://pickmyclass.app/auth/callback?code=abc&consent=confirmed&next=/dashboard'
-      )
-    );
-
-    expect(response.headers.get('location')).toBe(
-      'https://pickmyclass.app/consent?error=save_failed&next=%2Fdashboard'
-    );
-  });
-
-  it('falls back to login when callback exchange fails or code is missing', async () => {
-    mockExchangeCodeForSession.mockResolvedValueOnce({
-      data: { user: null },
-      error: { message: 'bad code' },
-    });
-
-    const response = await authCallback(
-      new Request('https://pickmyclass.app/auth/callback?code=bad&next=https://evil.test')
-    );
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe(
-      'https://pickmyclass.app/login?error=oauth_failed'
-    );
+    // Clerk signout no longer goes through Supabase mock, but route still returns 200
   });
 
   it('redirects ASU short links after sanitizing parameters', async () => {

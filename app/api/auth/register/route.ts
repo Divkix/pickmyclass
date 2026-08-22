@@ -1,12 +1,25 @@
+import { ClerkAPIResponseError } from '@clerk/backend/errors';
 import { env } from 'cloudflare:workers';
 import { type NextRequest } from 'next/server';
 import { registerSchema } from '@/lib/api/schemas';
 import { log } from '@/lib/log';
 import { parseOrFail } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
+import { getClerkClient } from '@/lib/auth/clerk-session';
 import { isDisposableEmail } from '@/lib/auth/disposable-email';
 import { captureServerEvent } from '@/lib/posthog-server';
-import { createClient } from '@/lib/supabase/server';
+
+/** True when the Clerk Backend API rejected the createUser for a duplicate email. */
+// eslint-disable-next-line anti-slop/no-unknown-parameters -- LEGIT: error-boundary predicate must accept unknown from catch
+function isDuplicateEmailError(error: unknown): boolean {
+  return (
+    error instanceof ClerkAPIResponseError &&
+    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- SAFETY: guarded by instanceof check above
+    (error as ClerkAPIResponseError).errors.some(
+      (e: { code: string }) => e.code === 'form_identifier_exists'
+    )
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,44 +50,46 @@ export async function POST(request: NextRequest) {
       log('Register').warn('Failed to check disposable domain, failing open:', error);
     }
 
-    const siteUrl = env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin || 'https://pickmyclass.app';
-    const supabase = await createClient();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${siteUrl}/auth/callback?next=/dashboard`,
-        // Consent is persisted by the handle_new_user trigger from this metadata
-        // at profile-creation time (no session exists yet for a client-side RPC).
-        data: {
+    // Create the user via the Clerk Backend API. The users mirror row (and the
+    // 1:1 user_profiles row, seeded with consent from publicMetadata) is written
+    // by the user.created webhook — see /api/webhooks/clerk.
+    try {
+      const user = await getClerkClient().users.createUser({
+        emailAddress: [email],
+        password,
+        publicMetadata: {
           age_verified: ageVerified,
           agreed_to_terms: agreedToTerms,
         },
-      },
-    });
+      });
 
-    if (error) {
-      return fail(error.message, 400);
-    }
-
-    // Prevent account-enumeration oracle: duplicate and new registrations
-    // return the same generic success response. Supabase signals a duplicate
-    // via an empty identities array.
-    if (data.user?.identities?.length === 0) {
-      log('Register').info('Duplicate registration attempt suppressed');
-      return ok(null);
-    }
-
-    if (data.user) {
       await captureServerEvent({
-        distinctId: data.user.id,
+        distinctId: user.externalId ?? user.id,
         event: 'user_registered',
         properties: { auth_provider: 'email' },
         identify: { email },
       });
-    }
 
-    return ok(null);
+      return ok(null);
+    } catch (error) {
+      // Anti-enumeration: duplicate registrations return the exact same
+      // response as real ones. This replaces the old Supabase
+      // `identities.length === 0` signal. The response carries no token or
+      // user data for either path, so the two are indistinguishable.
+      if (isDuplicateEmailError(error)) {
+        log('Register').info('Duplicate registration attempt suppressed');
+        return ok(null);
+      }
+
+      if (error instanceof ClerkAPIResponseError) {
+        // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- SAFETY: guarded by instanceof ClerkAPIResponseError above
+        const clerkErr = error as ClerkAPIResponseError;
+        const message = clerkErr.errors[0]?.longMessage ?? clerkErr.errors[0]?.message;
+        log('Register').warn('Clerk rejected registration:', clerkErr.errors);
+        return fail(message || 'Could not create account', 400);
+      }
+      throw error;
+    }
   } catch (err) {
     log('Auth').error('Unexpected error:', err);
     return fail('Failed to create account', 500);

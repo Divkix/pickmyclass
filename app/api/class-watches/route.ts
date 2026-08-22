@@ -10,7 +10,6 @@ import type { ClassStateRow, ClassWatchRow } from '@/lib/db/types';
 import { upsertClassState } from '@/lib/db/queries';
 import { log } from '@/lib/log';
 import { captureServerEvent } from '@/lib/posthog-server';
-import { createClient } from '@/lib/supabase/server';
 import type { ClassStateRow as ClassStateRowType } from '@/lib/types/class-watch';
 import { applyFirstWatchGuard, toOnboardingState, type OnboardingRow } from '@/lib/onboarding';
 
@@ -21,15 +20,14 @@ const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 
  * GET /api/class-watches
  * Fetch all class watches for the authenticated user with joined class_states data
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    return await withAuth(supabase, async (user) => {
+    return await withAuth(request, async (user) => {
       try {
         const watches = await query<ClassWatchRow>(
           `SELECT id, class_nbr, term, subject, catalog_nbr, created_at
            FROM class_watches WHERE user_id = $1 ORDER BY created_at DESC`,
-          [user.id]
+          [user.userId]
         );
 
         const classNumbers = watches.map((w) => w.class_nbr);
@@ -53,7 +51,7 @@ export async function GET() {
         }>(
           `SELECT onboarding_completed_at, onboarding_skipped_at
            FROM user_profiles WHERE user_id = $1`,
-          [user.id]
+          [user.userId]
         );
 
         const statesMap = classStates.reduce(
@@ -96,8 +94,7 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    return await withAuth(supabase, async (user) => {
+    return await withAuth(request, async (user) => {
       try {
         const body = await request.json();
         const parsed = parseOrFail(createClassWatchSchema, body);
@@ -129,7 +126,7 @@ export async function POST(request: NextRequest) {
         let watchDataRaw: ClassWatchRow | null = null;
         try {
           const rows = await callFunction<ClassWatchRow>('create_class_watch_with_limit', [
-            user.id,
+            user.userId,
             term,
             classDetails.subject.toUpperCase(),
             classDetails.catalog_nbr,
@@ -177,14 +174,14 @@ export async function POST(request: NextRequest) {
         // `onboarding_completed_at IS NULL`, so a user who skipped onboarding
         // still transitions to completed on their first watch (ADR 0010).
         try {
-          await applyFirstWatchGuard(user.id);
+          await applyFirstWatchGuard(user.userId);
         } catch (dbError) {
           log('API').error('Failed to mark onboarding complete:', dbError);
           // Non-fatal - watch was created successfully
         }
 
         await captureServerEvent({
-          distinctId: user.id,
+          distinctId: user.userId,
           event: 'class_watch_created',
           properties: {
             term,
@@ -212,8 +209,7 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    return await withAuth(supabase, async (user) => {
+    return await withAuth(request, async (user) => {
       try {
         const { searchParams } = new URL(request.url);
         const watchId = searchParams.get('id');
@@ -228,11 +224,11 @@ export async function DELETE(request: NextRequest) {
         // Delete the watch — app-layer authz ensures user can only delete their own
         await execute('DELETE FROM class_watches WHERE id = $1 AND user_id = $2', [
           parsed.data.id,
-          user.id,
+          user.userId,
         ]);
 
         await captureServerEvent({
-          distinctId: user.id,
+          distinctId: user.userId,
           event: 'class_watch_deleted',
           properties: { watch_id: parsed.data.id },
         });

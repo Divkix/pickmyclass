@@ -8,15 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useSignIn } from '@clerk/clerk-react';
 import { log } from '@/lib/log';
-import { createClient } from '@/lib/supabase/client';
 
 export default function ResetPasswordPage() {
+  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { signIn, isLoaded, setActive } = useSignIn();
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +26,7 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     // Validation
-    if (!password || !confirmPassword) {
+    if (!code || !password || !confirmPassword) {
       setError('All fields are required');
       setLoading(false);
       return;
@@ -42,22 +44,25 @@ export default function ResetPasswordPage() {
       return;
     }
 
+    if (!isLoaded || !signIn || !setActive) {
+      setError('Authentication not ready — please try again');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const supabase = createClient();
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
+      const result = await signIn.attemptFirstFactor({
+        strategy: 'reset_password_email_code',
+        code,
+        password,
       });
-
-      if (updateError) {
-        setError(updateError.message);
-        setLoading(false);
-        return;
+      if (result.status === 'complete' && result.createdSessionId) {
+        await setActive({ session: result.createdSessionId });
       }
-
-      // Successfully updated password
       router.push('/login?password_reset=true');
     } catch (err) {
-      setError('An unexpected error occurred');
+      const msg = err instanceof Error ? err.message : null;
+      setError(msg ?? 'An unexpected error occurred');
       log('ResetPassword').error('Password update failed:', err);
     } finally {
       setLoading(false);
@@ -76,6 +81,24 @@ export default function ResetPasswordPage() {
         <CardContent>
           <form onSubmit={handleResetPassword} className="space-y-6">
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="code">Verification code</Label>
+                <Input
+                  id="code"
+                  name="code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="123456"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter the 6-digit code sent to your email.
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="password">New Password</Label>
                 <Input

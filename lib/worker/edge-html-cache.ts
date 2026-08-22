@@ -1,4 +1,4 @@
-import { hasSupabaseAuthCookiesInHeader } from '@/lib/auth/supabase-auth-cookies';
+import { hasClerkSessionCookiesInHeader } from '@/lib/auth/clerk-cookies';
 import { EDGE_HTML_CACHE_TTL_S } from '@/lib/config';
 
 const EDGE_CACHE_EXACT_PATHS = new Set(['/', '/faq', '/about', '/blog', '/legal']);
@@ -39,7 +39,7 @@ export function createEdgeHtmlCache(resolveCache: () => EdgeCacheStore) {
         request.method === 'GET' &&
         !isRscRequest &&
         isCacheablePath(url.pathname) &&
-        !hasSupabaseAuthCookiesInHeader(request.headers.get('cookie'))
+        !hasClerkSessionCookiesInHeader(request.headers.get('cookie'))
       );
     },
 

@@ -16,6 +16,7 @@ async function loadServiceModule() {
 describe('supabase service client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://osopxwuebsefhoxgeojh.supabase.co');
     mockSupabaseCreateClient.mockImplementation((_url: string, key: string) => ({ key }));
   });
 

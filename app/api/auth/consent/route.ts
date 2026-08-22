@@ -4,9 +4,10 @@ import { consentSchema } from '@/lib/api/schemas';
 import { fail, ok } from '@/lib/api/response';
 import { parseOrFail } from '@/lib/api/validation';
 import { invalidateAuthorizationState } from '@/lib/auth/authorization-state';
+import { getClerkClient } from '@/lib/auth/clerk-session';
 import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
+import { ensureUserMirror, readUserVerification } from '@/lib/db/users';
 import { log } from '@/lib/log';
-import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,17 +16,33 @@ export async function POST(request: NextRequest) {
       return parsed.response;
     }
 
-    const supabase = await createClient();
-    const { user } = await requireUser(supabase);
+    const { user } = await requireUser(request);
 
     try {
-      await callFunction('accept_terms_and_verify_age', [user.id]);
+      // Repair the (short) race where a Google-OAuth user reaches consent
+      // before their user.created webhook has landed: accept_terms_and_verify_age
+      // raises 'User profile not found' without a profile row, so make sure the
+      // mirror + profile exist first. No-op once the webhook has synced.
+      const mirror = await readUserVerification(user.userId, { cache: false });
+      if (!mirror) {
+        const clerkUser = await getClerkClient().users.getUser(user.clerkUserId);
+        const email = clerkUser.emailAddresses
+          .find((e) => e.id === clerkUser.primaryEmailAddressId)
+          ?.emailAddress.toLowerCase();
+        if (!email) {
+          log('Consent').error(`No primary email on Clerk user ${user.clerkUserId}`);
+          return fail('Account setup incomplete — please try again in a moment', 409);
+        }
+        await ensureUserMirror(user.userId, user.clerkUserId, email);
+      }
+
+      await callFunction('accept_terms_and_verify_age', [user.userId]);
     } catch (error) {
       log('Consent').error('Failed to persist consent:', error);
       return fail('Could not save consent', 500);
     }
 
-    invalidateAuthorizationState(user.id);
+    invalidateAuthorizationState(user.userId);
     return ok(null);
   } catch (error) {
     if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);

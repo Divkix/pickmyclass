@@ -58,3 +58,8 @@ sentry.properties
 /dist/
 /worker/
 .env.local
+
+# Wrangler local secrets (Clerk keys, spike keypair)
+.dev.vars
+scripts/.clerk-spike-token.txt
+scripts/.clerk-spike-private.pem

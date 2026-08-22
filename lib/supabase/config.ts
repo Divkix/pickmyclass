@@ -1,17 +1,12 @@
 /**
- * Shared Supabase configuration constants.
+ * Shared Supabase configuration constants — DEPRECATED.
  *
- * These are PUBLIC values (not secrets). The anon key is designed to be
- * public-facing - it's rate-limited and protected by Row Level Security (RLS).
+ * Supabase Auth is replaced by Clerk (issue #351). This module is kept only
+ * for test compatibility and will be removed once all Supabase references are
+ * gone. New code must use `lib/db/client.ts` (Hyperdrive pg) and
+ * `lib/auth/clerk-session.ts` instead. The values are no longer hardcoded;
+ * they are read from env for any remaining legacy callers.
  */
+export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 
-/**
- * Supabase project URL
- */
-export const SUPABASE_URL = 'https://osopxwuebsefhoxgeojh.supabase.co';
-
-/**
- * Supabase anonymous/public API key
- */
-export const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zb3B4d3VlYnNlZmhveGdlb2poIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMDQ4NzEsImV4cCI6MjA3NjY4MDg3MX0.23x_oMXkh6ELZ78aR1SqroM_X3Hbud8KlTS3RX32tpU';
+export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';

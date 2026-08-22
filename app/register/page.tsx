@@ -10,10 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useSignIn } from '@clerk/clerk-react';
 import { useRedirectIfAuthenticated } from '@/lib/hooks/useRedirectIfAuthenticated';
 import { log } from '@/lib/log';
 import { calculatePasswordStrength } from '@/lib/utils/password-strength';
-import { createClient } from '@/lib/supabase/client';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -29,6 +29,7 @@ export default function RegisterPage() {
     feedback: { warning?: string; suggestions?: string[] };
   } | null>(null);
   const router = useRouter();
+  const { signIn, isLoaded: signInLoaded } = useSignIn();
   useRedirectIfAuthenticated();
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,19 +131,16 @@ export default function RegisterPage() {
     try {
       setError(null);
       setGoogleLoading(true);
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?consent=confirmed&next=/dashboard`,
-        },
-      });
-
-      if (error) {
-        setError(error.message);
+      if (!signInLoaded || !signIn) {
+        setError('Authentication not ready — please try again');
         setGoogleLoading(false);
+        return;
       }
-      // Note: we don't reset loading on success because browser will navigate away
+      await signIn.authenticateWithRedirect({
+        strategy: 'oauth_google',
+        redirectUrl: '/auth/callback',
+        redirectUrlComplete: '/auth/post-oauth?consent=confirmed&next=%2Fdashboard',
+      });
     } catch (err) {
       setError('Failed to initiate Google sign-up');
       log('Register').error('Google registration failed:', err);

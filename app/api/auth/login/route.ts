@@ -4,8 +4,12 @@ import { log } from '@/lib/log';
 import { parseOrFail } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
 import { readAuthorizationState } from '@/lib/auth/authorization-state';
+import {
+  createSignInTicket,
+  revokeAllUserSessions,
+  verifyEmailPassword,
+} from '@/lib/auth/clerk-session';
 import { loginAttemptPolicy } from '@/lib/auth/login-attempt-policy';
-import { createClient } from '@/lib/supabase/server';
 type JsonValue =
   | string
   | number
@@ -24,39 +28,53 @@ export async function POST(request: NextRequest) {
     }
 
     const password = parsed.data.password;
+    // Carried out of the policy closure on success — needed to mint the ticket.
+    let authenticatedClerkUserId: string | null = null;
+
     const decision = await loginAttemptPolicy.attempt(
       parsed.data.email,
       async (normalizedEmail) => {
-        const supabase = await createClient();
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
+        const verified = await verifyEmailPassword(normalizedEmail, password);
+        if (!verified) {
+          return { kind: 'rejected', message: 'Invalid email or password' } as const;
+        }
 
         // FRESH read so a just-disabled account cannot log back in.
-        if (data?.user) {
-          const authState = await readAuthorizationState(data.user.id, {
-            cache: false,
-          });
+        const appUserId = verified.externalId ?? verified.clerkUserId;
+        const authState = await readAuthorizationState(appUserId, { cache: false });
 
-          if (authState?.is_disabled) {
-            await supabase.auth.signOut();
-            return { kind: 'disabled' } as const;
+        if (authState?.is_disabled) {
+          // No session exists yet (password check is sessionless), but revoke
+          // any other live sessions for the account — the signOut equivalent.
+          try {
+            await revokeAllUserSessions(verified.clerkUserId);
+          } catch (error) {
+            log('Auth').warn('Failed to revoke sessions for disabled account:', error);
           }
+          return { kind: 'disabled' } as const;
         }
 
-        if (error || !data?.user) {
-          return {
-            kind: 'rejected',
-            message: error?.message || 'Invalid email or password',
-          } as const;
-        }
-
+        authenticatedClerkUserId = verified.clerkUserId;
         return { kind: 'authenticated' } as const;
       }
     );
 
-    if (decision.kind === 'authenticated') return ok(null);
+    if (decision.kind === 'authenticated') {
+      // Credentials are verified and lockout is cleared. Hand the browser a
+      // one-time sign-in token; the page redeems it via clerk-react
+      // (strategy: 'ticket'), binding the session to its own Clerk client.
+      if (!authenticatedClerkUserId) {
+        log('Auth').error('Authenticated decision without a captured Clerk user id');
+        return fail('Failed to sign in', 500);
+      }
+      try {
+        const ticket = await createSignInTicket(authenticatedClerkUserId);
+        return ok({ ticket });
+      } catch (error) {
+        log('Auth').error('Failed to mint sign-in ticket:', error);
+        return fail('Failed to sign in', 500);
+      }
+    }
     if (decision.kind === 'disabled') return fail('Account has been disabled', 403);
     if (decision.kind === 'rejected') {
       return fail(decision.message, 401, {

@@ -75,14 +75,18 @@ IS 'Authoritative watcher eligibility policy shared by all pipeline, admin, and 
 
 CREATE TABLE IF NOT EXISTS users (
   id                  TEXT PRIMARY KEY,
+  clerk_user_id       TEXT,
   email               TEXT NOT NULL,
   email_confirmed_at  TIMESTAMPTZ,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_sign_in_at     TIMESTAMPTZ
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_clerk_user_id ON users (clerk_user_id);
+
 COMMENT ON TABLE users IS 'Mirror of Clerk-managed user identities, synced via Clerk webhooks. Replaces Supabase auth.users.';
-COMMENT ON COLUMN users.id IS 'Clerk user id. Migrated rows keyed by old Supabase UUID via Clerk externalId.';
+COMMENT ON COLUMN users.id IS 'Stable app user id. Migrated rows keyed by old Supabase UUID via Clerk externalId; post-cutover users keyed by Clerk user id.';
+COMMENT ON COLUMN users.clerk_user_id IS 'Clerk user id (sub claim). Populated by webhook sync; lets user.deleted (which carries only the Clerk id) resolve migrated rows.';
 COMMENT ON COLUMN users.email_confirmed_at IS 'When the user confirmed their email address. NULL means unconfirmed.';
 COMMENT ON COLUMN users.last_sign_in_at IS 'Timestamp of the most recent sign-in. NULL if never signed in.';
 

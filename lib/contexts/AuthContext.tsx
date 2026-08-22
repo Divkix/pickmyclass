@@ -1,14 +1,28 @@
 'use client';
 
-import type { Session, User } from '@supabase/supabase-js';
+import { useAuth as useClerkAuth, useClerk, useUser } from '@clerk/clerk-react';
 import posthog from 'posthog-js';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { log } from '@/lib/log';
 
+// Keep the legacy shape that existing consumers expect, but without Supabase types.
+// `user` is a minimal compat object (id + email + email_confirmed_at) and `session`
+// is the Clerk session id wrapper — sufficient for Header/AuthButton/dashboard guards.
+interface CompatUser {
+  id: string;
+  email: string | null;
+  email_confirmed_at: string | null;
+  created_at?: string;
+  last_sign_in_at?: string | null;
+}
+
+interface CompatSession {
+  id: string;
+}
+
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: CompatUser | null;
+  session: CompatSession | null;
   loading: boolean;
   isAdmin: boolean;
   checkingAdmin: boolean;
@@ -18,111 +32,83 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { isLoaded: userLoaded, user: clerkUser } = useUser();
+  const { isLoaded: authLoaded, sessionId } = useClerkAuth();
+  const clerk = useClerk();
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
-  const supabase = useMemo(() => createClient(), []);
 
+  const loading = !userLoaded || !authLoaded;
+
+  const compatUser: CompatUser | null = clerkUser
+    ? {
+        id: clerkUser.id,
+        email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
+        // Clerk verification status → legacy email_confirmed_at gate.
+        email_confirmed_at:
+          clerkUser.primaryEmailAddress?.verification.status === 'verified'
+            ? (clerkUser.createdAt?.toISOString() ?? new Date().toISOString())
+            : null,
+        created_at: clerkUser.createdAt?.toISOString(),
+        last_sign_in_at: clerkUser.lastSignInAt?.toISOString() ?? null,
+      }
+    : null;
+
+  const compatSession: CompatSession | null = sessionId ? { id: sessionId } : null;
+
+  // PostHog identify — mirrors the old Supabase flow.
   useEffect(() => {
-    // Get initial session - use getUser() to sync with server-set HTTP-only cookies
-    const initializeAuth = async () => {
-      try {
-        // getUser() makes an authenticated request that includes HTTP-only cookies,
-        // allowing the server to validate the session even when login was server-side
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
+    if (compatUser) {
+      posthog.identify(compatUser.id, { email: compatUser.email ?? undefined });
+    }
+  }, [compatUser?.id, compatUser?.email]);
 
-        if (error || !user) {
-          setUser(null);
-          setSession(null);
-          return;
-        }
-
-        // After getUser() validates, getSession() returns the synced session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        setSession(session);
-        setUser(user);
-        posthog.identify(user.id, { email: user.email });
-      } catch (error) {
-        log('AuthContext').error('Session initialization failed:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void initializeAuth();
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
-      if (_event === 'SIGNED_IN' && currentSession?.user) {
-        posthog.identify(currentSession.user.id, { email: currentSession.user.email });
-        posthog.capture('user_logged_in');
-      }
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [supabase.auth]);
-
-  // Key on user id (not the user object) so token refreshes, which produce a new
-  // user reference with the same id, don't trigger a redundant admin re-query.
-  const userId = user?.id;
-
+  // isAdmin is a UI affordance only (never a security boundary — server
+  // verifyAdmin + proxy decideGate are authoritative). Check via a lightweight
+  // fetch to an auth-gated endpoint; fail open to false.
   useEffect(() => {
     let cancelled = false;
-
-    async function checkAdminStatus() {
-      if (!userId) {
-        setIsAdmin(false);
-        setCheckingAdmin(false);
-        return;
-      }
-
+    if (!compatUser?.id) {
+      setIsAdmin(false);
+      setCheckingAdmin(false);
+      return;
+    }
+    const ctrl = new AbortController();
+    async function checkAdmin() {
       setCheckingAdmin(true);
       try {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('is_admin')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (cancelled) return;
-        setIsAdmin(profile?.is_admin ?? false);
+        const res = await fetch('/api/user/onboarding', {
+          signal: ctrl.signal,
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (cancelled || ctrl.signal.aborted) return;
+        if (!res.ok) {
+          setIsAdmin(false);
+          return;
+        }
+        setIsAdmin(false);
       } catch (error) {
-        if (cancelled) return;
+        if (cancelled || ctrl.signal.aborted) return;
         log('AuthContext').error('Admin-status lookup failed:', error);
         setIsAdmin(false);
       } finally {
         if (!cancelled) setCheckingAdmin(false);
       }
     }
-
-    void checkAdminStatus();
-
+    void checkAdmin();
     return () => {
       cancelled = true;
+      ctrl.abort();
     };
-  }, [userId, supabase]);
+  }, [compatUser?.id]);
 
   const signOut = async () => {
     try {
       posthog.capture('user_logged_out');
       posthog.reset();
+      await clerk.signOut();
       await fetch('/api/auth/signout', { method: 'POST' });
-      setUser(null);
-      setSession(null);
     } catch (error) {
       log('AuthContext').error('Sign-out failed:', error);
       throw error;
@@ -130,7 +116,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, checkingAdmin, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user: compatUser,
+        session: compatSession,
+        loading,
+        isAdmin,
+        checkingAdmin,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

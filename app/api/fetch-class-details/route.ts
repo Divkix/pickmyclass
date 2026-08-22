@@ -8,7 +8,6 @@ import { parseOrFail } from '@/lib/api/validation';
 import { type ClassDetails, fetchClassFromASU } from '@/lib/asu/api';
 import { upsertClassState } from '@/lib/db/queries';
 import { log } from '@/lib/log';
-import { createClient } from '@/lib/supabase/server';
 import type { FetchClassDetailsResponse } from '@/lib/types/class';
 
 /**
@@ -34,8 +33,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
-    return await withAuth(supabase, async () => {
+    return await withAuth(request, async () => {
       try {
         // SAFETY: ASU API credentials are required Cloudflare secrets validated at deploy time; shape matches wrangler.jsonc env contract.
         const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };

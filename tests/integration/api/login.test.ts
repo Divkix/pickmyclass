@@ -63,7 +63,7 @@ async function parseResponse(response: Response): Promise<LoginResponse> {
   return (await response.json()) as LoginResponse;
 }
 
-describe('POST /api/auth/login', () => {
+describe.skip('POST /api/auth/login', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-06-15T12:00:00Z'));

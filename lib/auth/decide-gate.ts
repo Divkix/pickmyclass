@@ -10,6 +10,7 @@ const PUBLIC_ROUTES = [
   '/reset-password',
   '/legal',
   '/auth/callback',
+  '/auth/post-oauth',
   '/go',
   '/faq',
   '/blog',
@@ -94,7 +95,7 @@ export function decideGate(input: {
 
   // 2) unverified -> /verify-email (allowlist)
   if (user && !user.email_confirmed_at) {
-    const allowedPaths = ['/verify-email', '/auth/callback', '/reset-password'];
+    const allowedPaths = ['/verify-email', '/auth/callback', '/auth/post-oauth', '/reset-password'];
     const isAllowedPath = allowedPaths.some((p) => isPathPrefix(pathname, p));
     if (!isAllowedPath && pathname !== '/') {
       return { kind: 'redirect', to: '/verify-email' };

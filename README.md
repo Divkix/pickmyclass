@@ -2,16 +2,15 @@
 
 <img width="1440" height="900" alt="PickMyClass - free ASU class seat tracker with open-seat email alerts" src=".github/screenshot.png" />
 
-
 A high-performance, scalable class seat notification system for university students. Monitor class availability, get notified when seats open up, and track instructor assignments.
 
-Built with vinext (Vite-based Next.js), Supabase, and deployed on Cloudflare Workers for edge performance.
+Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hyperdrive + Clerk, and deployed on Cloudflare Workers for edge performance. See `CLAUDE.md` (authoritative map) and `docs/adr/0012-auth-plane-clerk.md` / `0013-data-access-hyperdrive.md` / `0014-realtime-to-polling.md`.
 
 ## Features
 
 - **Seat Monitoring** - Track when seats become available in full classes
 - **Instructor Tracking** - Get notified when "Staff" instructors are assigned to specific professors
-- **Real-time Updates** - Dashboard updates live via Supabase Realtime subscriptions
+- **Polling Live States** - Dashboard polls `GET /api/class-watches/states` every 30–60s (Realtime removed; data only changes on 30-min cron)
 - **Email Notifications** - Instant email alerts via Cloudflare Email Service when changes are detected
 - **Smart Deduplication** - Prevents duplicate notifications using atomic PostgreSQL operations
 - **Scalable Queue Processing** - Handles 10,000+ users with parallel Cloudflare Queues
@@ -19,33 +18,21 @@ Built with vinext (Vite-based Next.js), Supabase, and deployed on Cloudflare Wor
 
 ## Why Cloudflare Workers?
 
-We chose Cloudflare Workers as our deployment platform for several compelling reasons:
-
 ### Edge-First Architecture
-- **Global Distribution**: Code runs in 300+ data centers worldwide, ensuring low latency for all users
-- **No Cold Starts**: Workers are always warm, providing consistent sub-100ms response times
-- **Smart Placement**: Automatic routing to the nearest data center
+- **Global Distribution**: Code runs in 300+ data centers worldwide
+- **No Cold Starts**: Workers are always warm, sub-100ms
+- **Smart Placement**: Automatic routing to nearest data center
 
 ### Cost Efficiency
-- **Generous Free Tier**: 100,000 requests/day free, more than enough for most deployments
-- **Pay-Per-Use**: Only pay for actual compute time, not idle servers
-- **No Infrastructure Management**: Zero DevOps overhead
+- **Generous Free Tier**: 100,000 requests/day free
+- **Pay-Per-Use**: Only pay for actual compute time
 
 ### Native Primitives for Scalability
 - **Cloudflare Queues**: Reliable message queue for processing class checks at scale
-- **Durable Objects**: Distributed coordination for cron locks (CronLockDO) and future coordination features
-- **Workers KV**: Edge caching for fast data retrieval
-- **Supabase over HTTP**: Database and auth accessed via `@supabase/supabase-js` over HTTP (no Hyperdrive binding)
-
-### Reliability
-- **Automatic Failover**: Built-in redundancy across data centers
-- **DDoS Protection**: Enterprise-grade security by default
-- **99.99% Uptime SLA**: Production-grade reliability
-
-### Developer Experience
-- **vinext Compatibility**: Deploy apps on Cloudflare Workers via Vite-based build
-- **Instant Deployments**: Sub-second deployments via Wrangler CLI
-- **Integrated Monitoring**: Real-time logs and analytics
+- **Durable Objects**: Distributed coordination for cron locks (CronLockDO)
+- **Hyperdrive**: Postgres connection pooling to PlanetScale (`pg` 8.23, `--caching-disabled`, 5-conn pool in `lib/db/client.ts`)
+- **Clerk**: Edge JWT verification (`@clerk/backend` `authenticateRequest` with `jwtKey` PEM, `ext_id` claim) + webhook `user.created/updated/deleted` (`lib/auth/clerk-session.ts`, `lib/db/users.ts` mirror)
+- **Workers KV**: Edge caching for disposable-email blocklist (`PICKMYCLASS_DISPOSABLE_DOMAINS`)
 
 ## Architecture
 
@@ -53,10 +40,11 @@ We chose Cloudflare Workers as our deployment platform for several compelling re
 User Browser
       |
       v
-vinext App (Cloudflare Workers) <---> Supabase (Auth + PostgreSQL + Realtime)
-      |
-      v
-Cloudflare Cron (every 30 min + daily at 4 AM)
+vinext App (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (pg, polling)
+      |         |                               ^
+      |         | Clerk FAPI (clerk.*)          | polling GET /api/class-watches/states
+      v         v                               | (30–60s, sectionRefKey)
+Cloudflare Cron (every 30 min + daily at 4 AM)  |
       |
       v
 CronLockDO (Durable Object) - prevents duplicate executions
@@ -86,7 +74,12 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/worker/edge-html-cache.ts` | Edge HTML cache eligibility, keying, lookup, and storage rules |
 | `app/api/cron/route.ts` | Cron job entry point - enqueues sections to queue |
 | `app/api/queue/process-section/route.ts` | HTTP mirror of the queue consumer (tests/HTTP dispatch; not the production path) |
-| `lib/db/queries.ts` | Database query helpers with atomic deduplication |
+| `lib/db/client.ts` | Hyperdrive `pg` Pool + `setConnectionStringGetter` seam |
+| `lib/db/queries.ts` | Database query helpers (SECURITY DEFINER RPCs via `pg`) |
+| `lib/db/users.ts` | Clerk user mirror (`clerk_user_id`, `upsertUserFromClerkWebhook`) |
+| `lib/auth/clerk-session.ts` | Edge JWT verify (`getSessionIdentity`, `verifyEmailPassword`, `createSignInTicket`) |
+| `lib/auth/clerk-cookies.ts` | Clerk cookie prefix detection + `CLERK_COOKIES_TO_CLEAR` |
+| `lib/clerk/config.ts` | Committed `CLERK_PUBLISHABLE_KEY` literal + CSP |
 | `lib/asu/api.ts` | ASU Class Search API client (direct HTTP) |
 | `lib/queue/process-section.ts` | Section processing orchestrator |
 | `lib/queue/dlq-consumer.ts` | Dead Letter Queue consumer |
@@ -96,7 +89,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/class-watches/class-watch-creation.ts` | Browser-side watch creation policy and transport |
 | `lib/cache/ttl-cache.ts` | TTL cache for ASU API responses |
 | `lib/api/schemas.ts` | Queue message validation schemas |
-| `proxy.ts` | vinext middleware — auth gate, redirects, security headers + CSP |
+| `proxy.ts` | vinext middleware — auth gate (Clerk), redirects, security headers + CSP (see `lib/auth/decide-gate.ts`) |
 | `lib/auth/login-attempt-policy.ts` | Brute-force lockout policy and persistence adapter |
 | `lib/auth/disposable-email.ts` | Disposable email validation |
 
@@ -104,20 +97,26 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 
 | Route | Methods | Description |
 |-------|---------|-------------|
-| `app/api/auth/check-lockout/route.ts` | POST | Check account lockout status |
-| `app/api/auth/login/route.ts` | POST | User login with lockout protection |
-| `app/api/auth/register/route.ts` | POST | User registration with disposable email blocking |
-| `app/api/auth/send-email-hook/route.ts` | POST | Supabase auth email hook (custom email sending) |
-| `app/api/auth/signout/route.ts` | POST | Sign out and invalidate session |
+| `app/api/auth/check-lockout/route.ts` | POST | Check account lockout status (WAF rate-limited, omits `attempts`) |
+| `app/api/auth/login/route.ts` | POST | User login with lockout protection (Clerk `verifyEmailPassword` + ticket) |
+| `app/api/auth/register/route.ts` | POST | User registration (Clerk `createUser`, anti-enumeration, disposable-email fail-open) |
+| `app/api/auth/signout/route.ts` | POST | Sign out (`clerk.signOut` + `revokeSession` + clear `CLERK_COOKIES_TO_CLEAR`) |
+| `app/api/auth/consent/route.ts` | POST | Record `age_verified`/`agreed_to_terms` |
+| `app/api/auth/email-verified/route.ts` | POST | Mark email verified |
+| `app/api/webhooks/clerk/route.ts` | POST | Svix `verifyWebhook` (`whsec_...`) → `upsertUserFromClerkWebhook` (`user.created/updated/deleted`) |
+| `app/auth/post-oauth/route.ts` | GET | OAuth consent + `ensureUserMirror` |
 | `app/api/class-watches/route.ts` | GET, POST, DELETE | Create, read, and delete class watches (no update) |
+| `app/api/class-watches/states/route.ts` | GET | Polling endpoint for live class states |
 | `app/api/cron/route.ts` | GET | Cron job entry - enqueues sections with staggered groups and Durable Object lock |
 | `app/api/cron/update-disposable-domains/route.ts` | GET | Daily sync of disposable email domain blocklist |
 | `app/api/fetch-class-details/route.ts` | POST | Fetch class details from ASU API and persist state |
 | `app/api/monitoring/health/route.ts` | GET | System health check (DB, ASU API, Cron Lock, email, config) |
-| `app/api/queue/process-section/route.ts` | POST | HTTP mirror of the queue consumer (tests/HTTP dispatch); production path is `worker.ts queue()` calling `processSection()` directly |
+| `app/api/queue/process-section/route.ts` | POST | HTTP mirror of the queue consumer (tests/HTTP dispatch) |
 | `app/api/unsubscribe/route.ts` | GET, POST | CAN-SPAM/RFC 8058 compliant email unsubscribe |
-| `app/api/user/delete/route.ts` | DELETE | Soft-delete account (CCPA compliance, 30-day retention) |
-| `app/api/user/export/route.ts` | GET | Export all user data in JSON (CCPA compliance) |
+| `app/api/user/delete/route.ts` | DELETE | Soft-delete account (CCPA, 30-day retention) |
+| `app/api/user/export/route.ts` | GET | Export all user data in JSON (CCPA) |
+| `app/api/user/onboarding/route.ts` | GET, POST | Onboarding state (`pending→skipped→completed`) |
+| `app/api/onboarding/popular-class/route.ts` | GET | `get_most_watched_class` → ASU validate → `popularClass: null` fail-open |
 
 ### Durable Objects
 
@@ -129,10 +128,11 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 
 ### Prerequisites
 
-- [pnpm](https://pnpm.io/) (package manager)
-- [Supabase Account](https://supabase.com/) (free tier available)
-- [Cloudflare Account](https://cloudflare.com/) (free tier available)
-- ASU API access (configured via `ASU_API_BASE_URL` and `ASU_API_TOKEN`)
+- [pnpm](https://pnpm.io/) 11.10.0
+- [PlanetScale](https://planetscale.com/) Postgres (PS-5) + Cloudflare Hyperdrive (`--caching-disabled`)
+- [Clerk](https://clerk.com/) (Hobby free ≤50k MRU) — OAuth app for Google, custom domain `clerk.your-domain.com`
+- [Cloudflare Account](https://cloudflare.com/) (Workers, Queues, KV, Email Service)
+- ASU API access (`ASU_API_BASE_URL` + `ASU_API_TOKEN`)
 
 ### 1. Clone and Install
 
@@ -142,134 +142,89 @@ cd pickmyclass
 pnpm install
 ```
 
-### 2. Set Up Supabase
+### 2. Set Up PlanetScale + Hyperdrive
 
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Link your local project:
+1. Create PlanetScale database (`pickmyclass`) in your region.
+2. Apply migrations (`supabase/migrations/*.sql` — vanilla PG; last definition wins; `SET search_path=public` + `REVOKE/GRANT` for `SECURITY DEFINER` funcs).
+3. Create Hyperdrive:
    ```bash
-   pnpm exec supabase link --project-ref your-project-id
+   wrangler hyperdrive create HYPERDRIVE \
+     --connection-string="postgres://YOUR_PLANETSCALE_CONNECTION_STRING" \
+     --caching-disabled
    ```
-3. Push database migrations:
-   ```bash
-   pnpm exec supabase db push
-   ```
-4. Generate TypeScript types:
-   ```bash
-   pnpm exec supabase gen types typescript --project-id osopxwuebsefhoxgeojh > lib/supabase/database.types.ts
-   ```
+   Note `binding` `HYPERDRIVE`, id `4dd6f09...` in `wrangler.jsonc`. Local dev fallback: `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`.
 
-### 3. Configure Environment Variables
+### 3. Configure Clerk
 
-Copy `.env.example` to `.env.local`:
+1. Create Clerk production instance; set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (`pk_live_...`) literal in `lib/clerk/config.ts` (and `CLERK_CSP` if custom domain).
+2. Sessions → Customize token → `{"ext_id":"{{user.external_id || user.id}}"}` (short ID `ext_id` is the app’s `user_id`).
+3. Webhooks → Add Endpoint `https://your-domain.com/api/webhooks/clerk` (events `user.created/updated/deleted`, secret `whsec_...`).
+4. Social Connections → Google → Client ID/Secret (Cloud Console redirect `https://clerk.your-domain.com/v1/oauth_callback`, origins `https://your-domain.com` + `https://clerk.your-domain.com`).
+5. DNS: CNAME `clerk` → `frontend-api.clerk.services` (grey-cloud DNS-only) — verify `dig @1.1.1.1 clerk.your-domain.com CNAME` + `curl --resolve clerk...:443:IP https://clerk.your-domain.com/v1/client` → `405` with `x-clerk-trace-id`.
 
-```bash
-cp .env.example .env.local
-```
+### 4. Configure Environment Variables
 
-Required variables:
+Copy `.env.example` to `.env.local` (or `.dev.vars` for `wrangler dev`):
 
 | Variable | Description | Where to Get It |
 |----------|-------------|-----------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Supabase Dashboard -> Settings -> API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Supabase Dashboard -> Settings -> API |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (bypasses RLS) | Supabase Dashboard -> Settings -> API |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key (`pk_live_...`) | Clerk Dashboard → API Keys (also literal in `lib/clerk/config.ts`) |
+| `CLERK_SECRET_KEY` | Clerk secret key (`sk_live_...`) | Clerk Dashboard → API Keys |
+| `CLERK_JWT_KEY` | Clerk session PEM (`-----BEGIN PUBLIC KEY-----...`) | Clerk Dashboard → API Keys → bottom JWT public key/PEM |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Svix webhook secret (`whsec_...`) | Clerk Dashboard → Webhooks → Signing Secret |
 | `ASU_API_BASE_URL` | Base URL for ASU Class Search API | ASU API endpoint |
-| `ASU_API_TOKEN` | Auth token for ASU API | Obtained from ASU (external API credential) |
-| `CRON_SECRET` | Auth for cron endpoint | Generate: `openssl rand -hex 32` |
-| `NOTIFICATION_FROM_EMAIL` | Sender address for email notifications | A Cloudflare Email Service-enabled sender address |
-| `SUPABASE_SEND_EMAIL_HOOK_SECRET` | Secret for Supabase auth email hook | Supabase Dashboard -> Authentication -> Hooks -> Send Email |
-| `UNSUBSCRIBE_SIGNING_SECRET` | Signs unsubscribe tokens (CAN-SPAM) | Generate: `openssl rand -hex 32` |
-
-### 4. Update Cloudflare Configuration
-
-Edit `wrangler.jsonc` and update the placeholder values:
-
-```jsonc
-{
-  "vars": {
-    "NOTIFICATION_FROM_EMAIL": "notifications@your-domain.com",
-    "NEXT_PUBLIC_SITE_URL": "https://your-domain.com",
-    "NEXT_PUBLIC_SUPABASE_URL": "https://your-project-id.supabase.co"
-  }
-}
-```
-
-> **Note:** `ASU_API_BASE_URL` and `ASU_API_TOKEN` are configured as Cloudflare encrypted secrets (not vars) to avoid exposing the API endpoint in source code. Set them via `wrangler secret put` (see step 5 below).
-```
-
-Optionally configure a custom domain:
-
-```jsonc
-{
-  "routes": [
-    {
-      "pattern": "your-domain.com",
-      "custom_domain": true
-    }
-  ]
-}
-```
+| `ASU_API_TOKEN` | Auth token for ASU API | ASU (external) |
+| `CRON_SECRET` | Auth for cron endpoint | `openssl rand -hex 32` |
+| `NOTIFICATION_FROM_EMAIL` | Sender address for email notifications | Cloudflare Email Service-enabled sender |
+| `UNSUBSCRIBE_SIGNING_SECRET` | Signs unsubscribe tokens (CAN-SPAM, 90-day expiry) | `openssl rand -hex 32` |
 
 ### 5. Set Cloudflare Secrets
 
 ```bash
-# Authenticate with Cloudflare
-wrangler login
-
-# Set secrets (you'll be prompted for values)
-wrangler secret put NEXT_PUBLIC_SUPABASE_ANON_KEY
-wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+wrangler secret put CLERK_SECRET_KEY
+wrangler secret put CLERK_PUBLISHABLE_KEY
+wrangler secret put CLERK_JWT_KEY
+wrangler secret put CLERK_WEBHOOK_SIGNING_SECRET
 wrangler secret put ASU_API_BASE_URL
 wrangler secret put ASU_API_TOKEN
 wrangler secret put CRON_SECRET
-wrangler secret put SUPABASE_SEND_EMAIL_HOOK_SECRET
 wrangler secret put UNSUBSCRIBE_SIGNING_SECRET
 ```
 
 ### 6. Deploy
 
 ```bash
-pnpm run deploy
+pnpm run deploy   # vinext build + wrangler deploy + wrangler triggers deploy
 ```
 
-Your app will be live at `https://your-worker.workers.dev` or your custom domain.
+App live at `https://your-worker.workers.dev` or custom domain.
 
 ### 7. Set Up Cloudflare Queues
 
-Verify queues exist in Cloudflare Dashboard:
-
-1. Go to Workers & Pages -> Queues
-2. Confirm `pickmyclass-queue` and `pickmyclass-dlq` are present (created automatically by `wrangler deploy`)
+Queues `pickmyclass-queue` + `pickmyclass-dlq` are created by `wrangler deploy` (via `wrangler.jsonc` `queues`). Verify in Dashboard → Workers & Pages → Queues.
 
 ### 8. Customize Legal Pages (Optional)
 
-The `app/legal/` directory contains Terms of Service and Privacy Policy pages with ASU-specific content and hardcoded email addresses (`support@pickmyclass.app`). For your deployment:
-
-- Update contact email addresses in:
-  - `app/legal/page.tsx`
-  - `app/legal/terms/page.tsx`
-  - `app/legal/privacy/page.tsx`
-- Review and customize legal content for your institution/jurisdiction
-- Update the privacy policy to reflect your data practices
+The `app/legal/` directory contains Terms/Privacy with `support@pickmyclass.app`. Update contact emails in `app/legal/page.tsx`, `app/legal/terms/page.tsx`, `app/legal/privacy/page.tsx` for your jurisdiction.
 
 ### 9. Verify Deployment
 
-- Check the health endpoint: `https://your-domain.com/api/monitoring/health`
-- Verify cron triggers in Cloudflare Dashboard -> Workers -> Triggers
-- Test by adding a class watch in the dashboard
+- Health: `https://your-domain.com/api/monitoring/health`
+- Cron triggers: Dashboard → Workers → Triggers (`0,30 * * * *` + `0 4 * * *`)
+- Smoke (see `docs/runbooks/clerk-cutover.md`): register → duplicate anti-enum (200 anti-enum) → Clerk email verify → login → Google re-link → consent gate → watch create limit (`create_class_watch_with_limit` advisory lock) → cron→queue→processSection→email → unsubscribe HMAC → admin pages → polling
 
 ## Development
 
 ### Local Development
 
 ```bash
-pnpm run dev              # Start dev server (localhost:3000)
+pnpm run dev              # vinext dev server (localhost:3000, HYPERDRIVE local string required)
 ```
 
 ### Preview with Cloudflare
 
 ```bash
-pnpm run preview          # Build with vinext and preview locally
+pnpm run preview          # vinext build + wrangler dev (real Worker locally)
 ```
 
 ### Other Commands
@@ -279,90 +234,93 @@ pnpm run build            # Build application
 pnpm run lint             # Run Oxlint linter
 pnpm run lint:fix         # Fix lint issues
 pnpm run format           # Format code with Oxfmt
-pnpm run knip             # Find unused exports/dependencies
-pnpm run cf-typegen       # Generate TypeScript types for Cloudflare env
+pnpm run knip             # Find unused exports/dependencies (ignore @supabase/ssr/standardwebhooks, lib/supabase/*)
+pnpm run cf-typegen       # Generate TypeScript types for Cloudflare env (lib/cloudflare-env.d.ts)
+pnpm run type-check       # tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
 ```
 
 ### Database Commands
 
 ```bash
-pnpm exec supabase db push                # Push migrations to remote
-pnpm exec supabase db pull                # Pull remote schema changes
-pnpm exec supabase migration new <name>   # Create new migration
+# PlanetScale is vanilla PG: apply migrations via psql/pg client or Supabase CLI locally
+pnpm exec supabase db reset              # local (if using Supabase CLI locally for PG)
+pnpm exec supabase migration new <name>  # Create new migration (timestamp-prefixed)
 ```
 
 ## Tech Stack
 
-- **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4
-- **Backend**: Cloudflare Workers (via vinext), Supabase (PostgreSQL + Auth + Realtime)
+- **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4, `@clerk/clerk-react` 5.61.3 via `ClerkClientProvider`, `posthog-js` (public token in `lib/posthog/config.ts`)
+- **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (`pg` 8.23) via Hyperdrive, Clerk (`@clerk/backend` 3.16.10 edge JWT), Supabase Realtime **removed** (polling only)
 - **Data Source**: ASU Class Search API (direct HTTP)
-- **Email**: Cloudflare Email Service (transactional emails)
-- **Deployment**: Cloudflare Workers + Pages
+- **Email**: Cloudflare Email Service
+- **Deployment**: Cloudflare Workers + Queues + Durable Object (CronLockDO) + KV (disposable domains)
 
 ## Project Structure
 
 ```
 app/                         # App Router
   ├── about/                 # About page
-  ├── api/                   # API endpoints (14 routes)
-  ├── auth/callback/         # OAuth callback
+  ├── api/                   # API endpoints (see table above)
+  ├── auth/callback/         # Clerk AuthenticateWithRedirectCallback (page.tsx) + post-oauth (route.ts)
   ├── admin/                 # Admin panel (users, classes, dashboard)
   ├── blog/                  # Blog pages (9 posts + RSS feed)
-  ├── dashboard/             # Main dashboard with Realtime updates
+  ├── dashboard/             # Main dashboard with polling updates
   ├── dashboard/add/         # Add class watch page
   ├── faq/                   # FAQ page
-  ├── forgot-password/       # Forgot password flow
+  ├── forgot-password/       # Forgot password flow (Clerk ticket)
   ├── go/[uni]/              # University redirect links
   ├── legal/                 # Legal pages (terms, privacy)
-  ├── login/                 # Login page
-  ├── register/              # Registration page
-  ├── reset-password/        # Reset password flow
+  ├── login/                 # Login page (Clerk ticket OAuth)
+  ├── register/              # Registration page (Clerk createUser)
+  ├── reset-password/        # Reset password flow (Clerk reset_password_email_code)
   ├── settings/              # User settings
   ├── verify-email/          # Email verification
-  ├── layout.tsx             # Root layout
+  ├── layout.tsx             # Root layout (ClerkClientProvider)
   └── page.tsx               # Landing page
 
 lib/
   ├── api/                   # API schemas and validation
   ├── asu/                   # ASU Class Search API client
-  ├── auth/                  # Authentication utilities (lockout, disposable email, admin)
+  ├── auth/                  # authorization-state, decide-gate, clerk-session, clerk-cookies, require-user
   ├── blog/                  # Blog posts data
   ├── cache/                 # TTL cache utilities
-  ├── contexts/              # React contexts (Auth, Theme)
-  ├── db/                    # Database query helpers
+  ├── clerk/                 # Clerk publishable key literal + CSP
+  ├── class-watches/         # Browser-side watch creation seam
+  ├── contexts/              # React contexts (Auth compat, Theme)
+  ├── db/                    # Hyperdrive pg client + queries + admin-queries + users mirror
   ├── email/                 # Email templates + Cloudflare Email Service
-  ├── hooks/                 # React hooks (Realtime, pull-to-refresh, swipe)
+  ├── hooks/                 # React hooks (polling useRealtimeClassStates, pull-to-refresh, swipe)
   ├── queue/                 # Queue processing (change detection, notification sending, DLQ)
-  ├── supabase/              # Supabase clients (browser, server, service)
-  ├── types/                 # TypeScript type definitions (class, env, queue, watch)
+  ├── supabase/              # Deprecated (client/server kept for compat, knip-ignored)
+  ├── types/                 # TypeScript type definitions
   ├── utils/                 # Utility functions (crypto, rate-my-professor, seat badge, time format)
   └── utils.ts               # shadcn/ui utility (cn function)
 
 components/
-  ├── admin/                 # Admin panel components (tables, filters, sorting)
-  ├── blog/                  # Blog components (TOC, author, FAQ, comparison)
-  ├── landing/               # Landing page components (hero, features, how it works, CTA)
+  ├── admin/                 # Admin panel components
+  ├── blog/                  # Blog components
+  ├── landing/               # Landing page components
   ├── ui/                    # shadcn/ui components
-  └── ...                    # Feature components (header, footer, watch cards, dialogs)
+  └── ...                    # Feature components (ClerkClientProvider, AuthButton, watch cards)
 
 supabase/
-  └── migrations/            # Database migrations
+  └── migrations/            # Database migrations (PG history, timestamp-prefixed)
 
 worker.ts                    # Custom Cloudflare Worker
-wrangler.jsonc               # Cloudflare Workers config
+wrangler.jsonc               # Cloudflare Workers config (HYPERDRIVE, CLERK_* secrets, cron)
 ```
 
-> **Note:** `lib/utils.ts` is the shadcn/ui utility file (contains the `cn` function), while `lib/utils/` is a directory for custom utility functions (crypto, formatting, seat badge helpers). Both coexist by design.
+> **Note:** `lib/utils.ts` is the shadcn/ui utility file (contains the `cn` function), while `lib/utils/` is a directory for custom utility functions. Both coexist by design.
 
 ## How It Works
 
 1. **User adds class watch** - Student enters section number on dashboard
-2. **Every 30 minutes** - Cloudflare cron triggers enqueue all watched sections
+2. **Every 30 minutes** - Cloudflare cron triggers enqueue all watched sections (even/odd stagger)
 3. **Queue consumers process** - 20 concurrent Workers query ASU API in parallel
-4. **Change detection** - Compare new state with PostgreSQL cached state
+4. **Change detection** - Compare new state with PostgreSQL cached state (`non_reserved_seats ?? seats_available`)
 5. **Atomic deduplication** - a partial unique index (`is_active=TRUE`) + `try_record_notifications_batch` claims recipients; a daily `expire_stale_notifications()` sweep frees expired slots
 6. **Email notification** - Cloudflare Email Service sends alerts for available seats
-7. **Real-time update** - Dashboard reflects changes via Supabase Realtime
+7. **Dashboard polls** - `useRealtimeClassStates` polls `/api/class-watches/states` (not Realtime)
 
 ## Contributing
 
@@ -383,7 +341,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [vinext](https://github.com/cloudflare/vinext) - Vite-based Next.js reimplementation for Cloudflare Workers
-- [Supabase](https://supabase.com/) - Open source Firebase alternative
+- [vinext](https://github.com/cloudflare/vinext) - Vite-based Next.js for Cloudflare Workers
+- [PlanetScale](https://planetscale.com/) + [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) - Postgres + pooling
+- [Clerk](https://clerk.com/) - Auth (Backend + clerk-react, custom session claims + webhooks)
 - [Cloudflare Email Service](https://developers.cloudflare.com/email/) - Email sending from Workers
 - [shadcn/ui](https://ui.shadcn.com/) - UI component library

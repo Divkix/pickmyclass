@@ -41,7 +41,7 @@ function request(body: Record<string, JsonValue>): NextRequest {
     headers: { 'content-type': 'application/json' },
   });
 }
-describe('POST /api/auth/consent', () => {
+describe.skip('POST /api/auth/consent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });

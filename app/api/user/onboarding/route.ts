@@ -5,17 +5,15 @@ import { fail, ok } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
 import { toOnboardingState, type OnboardingRow } from '@/lib/onboarding';
 import { captureServerEvent } from '@/lib/posthog-server';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/user/onboarding
  * Exposes the authenticated user's onboarding state so the dashboard can
  * decide whether to render the first-time onboarding modal / finish-setup card.
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-    return await withAuth(supabase, async (user) => {
+    return await withAuth(request, async (user) => {
       try {
         const data = await queryOne<{
           onboarding_completed_at: string | null;
@@ -23,7 +21,7 @@ export async function GET() {
         }>(
           `SELECT onboarding_completed_at, onboarding_skipped_at
            FROM user_profiles WHERE user_id = $1`,
-          [user.id]
+          [user.userId]
         );
 
         // SAFETY: data is the result of queryOne selecting onboarding columns; null or shape matches OnboardingRow by DB contract
@@ -44,12 +42,11 @@ export async function GET() {
  * Marks onboarding as skipped (Escape / backdrop / Skip button). No-ops if the
  * user already completed or skipped onboarding. Returns the resulting state.
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    return await withAuth(supabase, async (user) => {
+    return await withAuth(request, async (user) => {
       try {
-        const rows = await callFunction<SkipOnboardingRpcRow>('skip_onboarding', [user.id]);
+        const rows = await callFunction<SkipOnboardingRpcRow>('skip_onboarding', [user.userId]);
 
         // SAFETY: rows is the array returned by skip_onboarding RPC; first element matches OnboardingRow by DB contract
         const row = rows[0] ?? null;
@@ -59,7 +56,7 @@ export async function POST() {
           return fail('Failed to skip onboarding', 500);
         }
 
-        await captureServerEvent({ distinctId: user.id, event: 'onboarding_skipped' });
+        await captureServerEvent({ distinctId: user.userId, event: 'onboarding_skipped' });
 
         // SAFETY: row is the first element returned by skip_onboarding RPC; shape matches OnboardingRow by DB contract
         return ok(toOnboardingState(row as OnboardingRow));

@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useSignIn } from '@clerk/clerk-react';
 import { log } from '@/lib/log';
-import { createClient } from '@/lib/supabase/client';
 import { useRedirectIfAuthenticated } from '@/lib/hooks/useRedirectIfAuthenticated';
 
 function LoginForm() {
@@ -22,6 +22,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const searchParams = useSearchParams();
+  const { signIn, isLoaded: signInLoaded, setActive } = useSignIn();
   useRedirectIfAuthenticated();
 
   useEffect(() => {
@@ -74,6 +75,7 @@ function LoginForm() {
 
       type LoginResponse = {
         success?: boolean;
+        ticket?: string;
         error?: string;
         details?: {
           isLocked?: boolean;
@@ -106,6 +108,27 @@ function LoginForm() {
         return;
       }
 
+      // Server-verified credentials → ticket flow: bind the session to the
+      // browser's own Clerk client (keeps clerk-js state + cookies coherent).
+      if (data.ticket) {
+        if (!signInLoaded || !signIn || !setActive) {
+          setError('Authentication not ready — please try again');
+          setLoading(false);
+          return;
+        }
+        try {
+          const attempt = await signIn.create({ strategy: 'ticket', ticket: data.ticket });
+          if (attempt.status === 'complete' && attempt.createdSessionId) {
+            await setActive({ session: attempt.createdSessionId });
+          }
+        } catch (err) {
+          log('Login').error('Ticket redemption failed:', err);
+          setError('Failed to complete sign-in. Please try again.');
+          setLoading(false);
+          return;
+        }
+      }
+
       window.location.href = '/';
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
@@ -120,19 +143,17 @@ function LoginForm() {
       setError(null);
       setSuccess(null);
       setGoogleLoading(true);
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
-        },
-      });
-
-      if (error) {
-        setError(error.message);
+      if (!signInLoaded || !signIn) {
+        setError('Authentication not ready — please try again');
         setGoogleLoading(false);
+        return;
       }
-      // Note: we don't reset loading on success because browser will navigate away
+      await signIn.authenticateWithRedirect({
+        strategy: 'oauth_google',
+        redirectUrl: '/auth/callback',
+        redirectUrlComplete: '/auth/post-oauth?next=%2Fdashboard',
+      });
+      // Browser navigates away — no reset needed.
     } catch (err) {
       setError('Failed to initiate Google sign-in');
       log('Login').error('Google login failed:', err);

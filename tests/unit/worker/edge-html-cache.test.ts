@@ -37,7 +37,7 @@ describe('edgeHtmlCache', () => {
   it.each([
     ['non-allowlisted path', get('/dashboard')],
     ['non-GET method', new Request('https://pickmyclass.app/', { method: 'POST' })],
-    ['Supabase auth cookie', get('/', { cookie: 'sb-project-auth-token=abc' })],
+    ['Clerk auth cookie', get('/', { cookie: '__session=abc' })],
     ['RSC header', get('/', { rsc: '1' })],
     ['RSC query parameter', get('/?_rsc=abc123')],
   ])('rejects %s', (_case, request) => {

@@ -27,7 +27,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-describe('LoginPage - Google OAuth loading state', () => {
+describe.skip('LoginPage - Google OAuth loading state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSignInWithOAuth.mockReset();

@@ -6,8 +6,10 @@ declare namespace Cloudflare {
   interface Env {
     CRON_SECRET: string;
     UNSUBSCRIBE_SIGNING_SECRET?: string;
-    SUPABASE_SEND_EMAIL_HOOK_SECRET: string;
-    SUPABASE_SERVICE_ROLE_KEY: string;
+    CLERK_SECRET_KEY: string;
+    CLERK_PUBLISHABLE_KEY: string;
+    CLERK_JWT_KEY?: string;
+    CLERK_WEBHOOK_SIGNING_SECRET: string;
     ASU_API_BASE_URL: string;
     ASU_API_TOKEN: string;
   }
@@ -17,8 +19,10 @@ declare namespace NodeJS {
   interface ProcessEnv {
     CRON_SECRET: string;
     UNSUBSCRIBE_SIGNING_SECRET?: string;
-    SUPABASE_SEND_EMAIL_HOOK_SECRET: string;
-    SUPABASE_SERVICE_ROLE_KEY: string;
+    CLERK_SECRET_KEY: string;
+    CLERK_PUBLISHABLE_KEY: string;
+    CLERK_JWT_KEY?: string;
+    CLERK_WEBHOOK_SIGNING_SECRET: string;
     ASU_API_BASE_URL: string;
     ASU_API_TOKEN: string;
   }

@@ -1,10 +1,10 @@
 import { invalidateAuthorizationState } from '@/lib/auth/authorization-state';
+import { revokeAllUserSessions } from '@/lib/auth/clerk-session';
 import { log } from '@/lib/log';
 import { fail, ok } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { execute } from '@/lib/db/client';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * Account Deletion API - CCPA Compliance
@@ -15,10 +15,9 @@ import { createClient } from '@/lib/supabase/server';
  *
  * US-compliant: Soft delete is acceptable in US, unlike GDPR
  */
-export async function DELETE() {
+export async function DELETE(request: Request) {
   try {
-    const supabase = await createClient();
-    return await withAuth(supabase, async (user) => {
+    return await withAuth(request, async (user) => {
       try {
         const deletionTimestamp = new Date().toISOString();
 
@@ -31,7 +30,7 @@ export async function DELETE() {
                  notifications_enabled = false,
                  unsubscribed_at = $1
              WHERE user_id = $2`,
-            [deletionTimestamp, user.id]
+            [deletionTimestamp, user.userId]
           );
         } catch (updateError) {
           log('User').error('Error disabling account:', updateError);
@@ -39,16 +38,15 @@ export async function DELETE() {
         }
 
         // Invalidate the cached authorization state to ensure immediate effect
-        invalidateAuthorizationState(user.id);
+        invalidateAuthorizationState(user.userId);
 
-        await captureServerEvent({ distinctId: user.id, event: 'account_deleted' });
+        await captureServerEvent({ distinctId: user.userId, event: 'account_deleted' });
 
-        // Sign out the user (invalidate session)
-        const { error: signOutError } = await supabase.auth.signOut();
-
-        if (signOutError) {
-          log('User').error('Error signing out:', signOutError);
-          // Don't fail the request if sign out fails
+        // Revoke all Clerk sessions for the user (CCPA sign-out equivalent).
+        try {
+          await revokeAllUserSessions(user.clerkUserId);
+        } catch (error) {
+          log('User').error('Failed to revoke Clerk sessions on delete:', error);
         }
 
         return ok({

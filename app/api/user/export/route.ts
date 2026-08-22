@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import { log } from '@/lib/log';
 import { fail } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
-import { query } from '@/lib/db/client';
+import { query, queryOne } from '@/lib/db/client';
 import type {
   ClassStateRow,
   ClassWatchRow,
   NotificationSentRow,
+  UserMirrorRow,
   UserProfileRow,
 } from '@/lib/db/types';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * Data Export API - CCPA Compliance
@@ -17,13 +17,16 @@ import { createClient } from '@/lib/supabase/server';
  * Allows users to download all their personal data in JSON format
  * California residents have the right to know what data is collected (CCPA)
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-    return await withAuth(supabase, async (user) => {
+    return await withAuth(request, async (user) => {
       try {
+        // Mirror is the source of truth for email + verification post-Clerk cutover.
+        const mirror = await queryOne<UserMirrorRow>('SELECT * FROM users WHERE id = $1', [
+          user.userId,
+        ]);
         const [profileRows, watches, notifications] = await Promise.all([
-          query<UserProfileRow>('SELECT * FROM user_profiles WHERE user_id = $1', [user.id]),
+          query<UserProfileRow>('SELECT * FROM user_profiles WHERE user_id = $1', [user.userId]),
           query<
             ClassWatchRow & {
               class_state: Pick<
@@ -46,7 +49,7 @@ export async function GET() {
              FROM class_watches w
              WHERE w.user_id = $1
              ORDER BY w.created_at DESC`,
-            [user.id]
+            [user.userId]
           ),
           query<
             NotificationSentRow & {
@@ -65,7 +68,7 @@ export async function GET() {
              INNER JOIN class_watches cw ON cw.id = n.class_watch_id
              WHERE cw.user_id = $1
              ORDER BY n.sent_at DESC`,
-            [user.id]
+            [user.userId]
           ),
         ]);
 
@@ -77,10 +80,10 @@ export async function GET() {
             service: 'PickMyClass',
           },
           user_account: {
-            email: user.email,
-            created_at: user.created_at,
-            last_sign_in_at: user.last_sign_in_at,
-            email_confirmed_at: user.email_confirmed_at,
+            email: mirror?.email ?? null,
+            created_at: mirror?.created_at ?? null,
+            last_sign_in_at: mirror?.last_sign_in_at ?? null,
+            email_confirmed_at: mirror?.email_confirmed_at ?? null,
           },
           profile: {
             age_verified_at: profile?.age_verified_at,

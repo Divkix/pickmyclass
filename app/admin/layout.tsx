@@ -6,7 +6,6 @@ import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { verifyAdmin } from '@/lib/auth/admin';
-import { createClient } from '@/lib/supabase/server';
 import { AdminNavigation } from './AdminNavigation';
 
 export const metadata: Metadata = {
@@ -30,15 +29,8 @@ interface AdminLayoutProps {
  */
 export default async function AdminLayout({ children }: AdminLayoutProps) {
   // Verify admin access - will redirect if not admin
-  await verifyAdmin();
-
-  // Get user email for display
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const userEmail = user?.email || 'Admin';
+  const adminUser = await verifyAdmin();
+  const userEmail = adminUser.email || 'Admin';
 
   return (
     <div className="flex min-h-screen bg-background">

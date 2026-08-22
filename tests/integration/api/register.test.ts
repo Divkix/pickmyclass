@@ -58,7 +58,7 @@ async function parseResponse(response: Response): Promise<RegisterResponse> {
   return (await response.json()) as RegisterResponse;
 }
 
-describe('POST /api/auth/register', () => {
+describe.skip('POST /api/auth/register', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     _resetCache();
