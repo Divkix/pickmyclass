@@ -9,6 +9,10 @@ vi.mock('@clerk/clerk-react', () => ({
   SignUp: mockSignUp,
 }));
 
+vi.mock('@/components/Header', () => ({
+  Header: () => <div data-testid="header" />,
+}));
+
 import SignUpPage from '@/app/sign-up/[[...sign-up]]/page';
 
 describe('sign-up page', () => {
