@@ -5,7 +5,7 @@
  * and queue consumer handlers for class seat checking.
  */
 
-import { DurableObject, env } from 'cloudflare:workers';
+import { DurableObject } from 'cloudflare:workers';
 import handler from 'vinext/server/app-router-entry';
 import { handleDLQMessage } from './lib/queue/dlq-consumer';
 import { processSection } from './lib/queue/process-section';
@@ -16,14 +16,18 @@ import { edgeHtmlCache } from './lib/worker/edge-html-cache';
 import { setConnectionStringGetter } from './lib/db/client';
 import { log } from './lib/log';
 
-// Register the Hyperdrive connection string getter. The env from cloudflare:workers
-// is available per-isolate; the getter is called lazily on first DB access (getPool()),
-// not at module load time, so it's safe even if env isn't populated during initial
-// module evaluation.
-setConnectionStringGetter(() => {
-  const hyperdrive = (env as unknown as Env).HYPERDRIVE;
-  return hyperdrive?.connectionString ?? '';
-});
+/**
+ * Register the Hyperdrive connection string getter with the given env.
+ * Called at the start of each handler (fetch/scheduled/queue) so the env
+ * parameter — which is guaranteed to be populated — is used instead of
+ * the module-level `cloudflare:workers` env import.
+ * Idempotent: re-registering just replaces the getter.
+ */
+function registerHyperdrive(env: Env): void {
+  setConnectionStringGetter(() => {
+    return env.HYPERDRIVE?.connectionString ?? '';
+  });
+}
 
 const workerLog = log('Worker');
 const scheduledLog = log('Scheduled');
@@ -152,6 +156,8 @@ export default {
    * return the stored response and skip proxy.ts + the RSC render entirely.
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    registerHyperdrive(env);
+
     // Sanitize GET/HEAD requests with bodies - bots sometimes send these
     // Web API spec forbids Request objects with GET/HEAD + body
     const isGetOrHead = request.method === 'GET' || request.method === 'HEAD';
@@ -195,6 +201,8 @@ export default {
     env: Env,
     _ctx: ExecutionContext
   ): Promise<void> {
+    registerHyperdrive(env);
+
     const startTime = Date.now();
     scheduledLog.info('Cron triggered at:', new Date(event.scheduledTime).toISOString());
     scheduledLog.info('Cron pattern:', event.cron);
@@ -249,6 +257,8 @@ export default {
     env: Env,
     _ctx: ExecutionContext
   ): Promise<void> {
+    registerHyperdrive(env);
+
     const startTime = Date.now();
     const isDLQ = batch.queue === 'pickmyclass-dlq';
     queueLog.info(
