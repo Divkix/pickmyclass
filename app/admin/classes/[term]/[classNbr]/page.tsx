@@ -16,8 +16,8 @@ import {
 } from '@/components/ui/table';
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getClassWatchers, type ClassWatcher } from '@/lib/db/queries';
-import { applySectionRef } from '@/lib/section-ref';
-import { getServiceClient } from '@/lib/supabase/service';
+import { queryOne } from '@/lib/db/client';
+import type { ClassStateRow } from '@/lib/db/types';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 import { formatAbsoluteDate, formatRelativeTime } from '@/lib/utils/time-format';
 
@@ -48,21 +48,18 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
   const { term, classNbr } = await params;
 
   // Fetch the exact class state by its SectionRef identity (class_nbr + term).
-  // applySectionRef filters on both fields, so a section number shared by two
-  // terms resolves to one row instead of tripping .single()'s multi-row error.
-  const supabase = getServiceClient();
-  const { data: classState, error: classError } = await applySectionRef(
-    supabase
-      .from('class_states')
-      .select(
-        'id, class_nbr, term, subject, catalog_nbr, title, instructor_name, seats_available, seats_capacity, non_reserved_seats, location, meeting_times, last_checked_at, last_changed_at'
-      ),
-    { class_nbr: classNbr, term }
-  ).single();
+  // Both fields are required to identify one section — a class_nbr repeats across terms.
+  const classState = await queryOne<ClassStateRow>(
+    `SELECT id, class_nbr, term, subject, catalog_nbr, title, instructor_name,
+            seats_available, seats_capacity, non_reserved_seats, location,
+            meeting_times, last_checked_at, last_changed_at, consecutive_not_found_count
+     FROM class_states WHERE class_nbr = $1 AND term = $2`,
+    [classNbr, term]
+  );
 
   // Handle case where class not found — guard before any other RPCs so 404 never
   // triggers (or is masked by) a watchers fetch.
-  if (classError || !classState) {
+  if (!classState) {
     notFound();
   }
 

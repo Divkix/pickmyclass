@@ -9,7 +9,6 @@ import { type ClassDetails, fetchClassFromASU } from '@/lib/asu/api';
 import { upsertClassState } from '@/lib/db/queries';
 import { log } from '@/lib/log';
 import { createClient } from '@/lib/supabase/server';
-import { getServiceClient } from '@/lib/supabase/service';
 import type { FetchClassDetailsResponse } from '@/lib/types/class';
 
 /**
@@ -51,7 +50,7 @@ export async function POST(request: NextRequest) {
 
         // Persist fetched data to class_states table for immediate dashboard display
         try {
-          await upsertClassState(getServiceClient(), { class_nbr, term }, classDetails);
+          await upsertClassState({ class_nbr, term }, classDetails);
         } catch (dbError) {
           log('API').error('Failed to persist class state:', dbError);
           // Continue anyway - graceful degradation

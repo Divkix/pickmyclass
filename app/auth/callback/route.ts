@@ -1,9 +1,9 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { callFunction, queryOne } from '@/lib/db/client';
 import { safeInternalPath } from '@/lib/auth/safe-redirect';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/supabase/config';
-import type { Database } from '@/lib/supabase/database.types';
 // Redirects always resolve against the request origin. `x-forwarded-host` is
 // client-controllable (host-header injection / open redirect), so it must never
 // influence where OAuth callbacks send the user.
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
 
   if (code) {
     const cookieStore = await cookies();
-    const supabase = createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -44,23 +44,27 @@ export async function GET(request: Request) {
       },
     });
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (!error) {
+    if (!error && sessionData?.user) {
       const base = origin;
+      const userId = sessionData.user.id;
 
       if (consentConfirmed) {
-        const { error: consentError } = await supabase.rpc('accept_terms_and_verify_age');
-        if (consentError) {
+        try {
+          await callFunction('accept_terms_and_verify_age', [userId]);
+        } catch {
           return consentRedirect(base, next, true);
         }
       } else {
-        const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('age_verified_at, agreed_to_terms_at')
-          .maybeSingle();
+        const profile = await queryOne<{
+          age_verified_at: string | null;
+          agreed_to_terms_at: string | null;
+        }>('SELECT age_verified_at, agreed_to_terms_at FROM user_profiles WHERE user_id = $1', [
+          userId,
+        ]);
 
-        if (profileError || !profile?.age_verified_at || !profile.agreed_to_terms_at) {
+        if (!profile?.age_verified_at || !profile.agreed_to_terms_at) {
           return consentRedirect(base, next);
         }
       }

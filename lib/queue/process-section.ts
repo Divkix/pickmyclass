@@ -10,19 +10,20 @@ import {
   AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
   AUTO_CLEANUP_THRESHOLD,
 } from '@/lib/config';
+import { execute, queryOne, queryScalar } from '@/lib/db/client';
 import {
   type ClassWatcher,
   deleteSectionAndWatches,
   getClassWatchers,
   incrementConsecutiveNotFound,
   resetNotificationsForSection,
+  upsertClassState,
 } from '@/lib/db/queries';
 import { sendAutoCleanupRemovalEmails } from '@/lib/email/templates/auto-cleanup';
 import { log } from '@/lib/log';
-import { applySectionRef, type SectionRef } from '@/lib/section-ref';
+import { type SectionRef } from '@/lib/section-ref';
 import { type ChangeResult, detectChanges } from '@/lib/queue/change-detector';
 import { type SentNotification, sendSectionNotifications } from '@/lib/queue/notification-sender';
-import { getServiceClient } from '@/lib/supabase/service';
 import type { ClassDetails } from '@/lib/types/class';
 import type { Env } from '@/lib/types/env';
 
@@ -75,6 +76,7 @@ function failedResult(classNbr: string, duration: number, error: string): Proces
     error,
   };
 }
+
 /**
  * Check whether auto-cleanup should be suppressed due to mass NotFound ratio.
  * Queries total class_states count vs flagged (consecutive_not_found_count >=1).
@@ -83,34 +85,21 @@ function failedResult(classNbr: string, duration: number, error: string): Proces
  */
 async function shouldSuppressAutoCleanup(): Promise<boolean> {
   try {
-    const client = getServiceClient();
-    const [totalRes, flaggedRes] = await Promise.all([
-      client.from('class_states').select('id', { count: 'exact', head: true }),
-      client
-        .from('class_states')
-        .select('id', { count: 'exact', head: true })
-        .gte('consecutive_not_found_count', 1),
+    const [total, flagged] = await Promise.all([
+      queryScalar<number>('SELECT COUNT(*)::int AS count FROM class_states'),
+      queryScalar<number>(
+        'SELECT COUNT(*)::int AS count FROM class_states WHERE consecutive_not_found_count >= 1'
+      ),
     ]);
-    if (totalRes.error) {
-      log('ProcessSection').warn(
-        'Auto-cleanup breaker check failed (total count), failing open:',
-        totalRes.error
-      );
-      return false;
-    }
-    if (!totalRes.count || totalRes.count === 0) return false;
-    if (flaggedRes.error) {
-      log('ProcessSection').warn(
-        'Auto-cleanup breaker check failed (flagged count), failing open:',
-        flaggedRes.error
-      );
-      return false;
-    }
-    const flagged = flaggedRes.count ?? 0;
-    const total = totalRes.count;
-    const ratio = flagged / total;
+
+    const totalNum = Number(total ?? 0);
+    const flaggedNum = Number(flagged ?? 0);
+
+    if (totalNum === 0) return false;
+
+    const ratio = flaggedNum / totalNum;
     log('ProcessSection').info(
-      `Breaker check total=${total} flagged=${flagged} ratio=${ratio.toFixed(3)} threshold=${AUTO_CLEANUP_BREAKER_RATIO}`
+      `Breaker check total=${totalNum} flagged=${flaggedNum} ratio=${ratio.toFixed(3)} threshold=${AUTO_CLEANUP_BREAKER_RATIO}`
     );
     if (ratio > AUTO_CLEANUP_BREAKER_RATIO) {
       log('ProcessSection').warn('Auto-cleanup suppressed — breaker tripped');
@@ -150,7 +139,6 @@ export async function processSection(
 ): Promise<SectionCheckOutcome> {
   const { class_nbr: classNbr } = ref;
   const startTime = Date.now();
-  const serviceClient = getServiceClient();
 
   let changes: ChangeResult;
   let newData: ClassDetails;
@@ -159,37 +147,28 @@ export async function processSection(
   try {
     // Step 1: Fetch old state from DB by its SectionRef identity (class_nbr + term).
     // Include consecutive_not_found_count for logging; DB helper does authoritative increment atomically.
-    const { data: oldState, error: stateError } = await applySectionRef(
-      serviceClient
-        .from('class_states')
-        .select(
-          'class_nbr, term, seats_available, non_reserved_seats, instructor_name, consecutive_not_found_count'
-        ),
-      ref
-    ).single();
+    const oldState = await queryOne<{
+      class_nbr: string;
+      term: string;
+      seats_available: number;
+      non_reserved_seats: number | null;
+      instructor_name: string | null;
+      consecutive_not_found_count: number;
+    }>(
+      `SELECT class_nbr, term, seats_available, non_reserved_seats, instructor_name,
+              consecutive_not_found_count
+       FROM class_states WHERE class_nbr = $1 AND term = $2`,
+      [ref.class_nbr, ref.term]
+    );
 
-    // PGRST116 = no rows found — not an error for first observation
-    if (stateError && stateError.code !== 'PGRST116') {
-      log('ProcessSection').error(`Error fetching old state for ${classNbr}:`, stateError);
-      return retryOutcome(
-        {
-          success: false,
-          classNbr,
-          changes: emptyChanges(),
-          emailsSent: 0,
-          processingTimeMs: Date.now() - startTime,
-          error: stateError.message,
-        },
-        500
-      );
-    }
+    // null = no rows found — not an error for first observation
     // Step 2: Fetch from ASU API
     newData = await fetchClassFromASU(ref, env);
 
     // Step 3: Detect changes
     changes = detectChanges(oldState, newData);
 
-    // First observation: when there is no persisted baseline (oldState falsy, e.g. PGRST116),
+    // First observation: when there is no persisted baseline (oldState null),
     // do not treat a currently-open seat / assigned instructor as a fresh transition. This
     // prevents a false "seat available" email on the first check when a watch's initial
     // state-seed failed silently — we only persist the baseline and send nothing this cycle.
@@ -221,18 +200,9 @@ export async function processSection(
     // fail-open (F7) so a partial send still acks, and (2) detectChanges is
     // always computed against the persisted oldState so a retry correctly
     // suppresses re-notification.
-    const newState = {
-      ...newData,
-      ...ref,
-      last_checked_at: new Date().toISOString(),
-      consecutive_not_found_count: 0,
-    };
-
-    const { error: upsertError } = await serviceClient
-      .from('class_states')
-      .upsert(newState, { onConflict: 'class_nbr,term' });
-
-    if (upsertError) {
+    try {
+      await upsertClassState(ref, newData);
+    } catch (upsertError) {
       // Return before sending any emails so a retry re-attempts cleanly with no emails sent yet.
       log('ProcessSection').error(`Database error for ${classNbr}:`, upsertError);
       return retryOutcome(
@@ -242,7 +212,7 @@ export async function processSection(
           changes,
           emailsSent,
           processingTimeMs: Date.now() - startTime,
-          error: upsertError.message,
+          error: upsertError instanceof Error ? upsertError.message : String(upsertError),
         },
         500
       );
@@ -304,22 +274,12 @@ export async function processSection(
         if (suppressed) {
           // Cap count at threshold-1 to avoid immediate re-trigger while breaker is tripped; guard avoids no-op WAL writes
           try {
-            const client = getServiceClient();
-            const { error: capError } = await applySectionRef(
-              client
-                .from('class_states')
-                .update({
-                  consecutive_not_found_count: AUTO_CLEANUP_THRESHOLD - 1,
-                })
-                .neq('consecutive_not_found_count', AUTO_CLEANUP_THRESHOLD - 1),
-              ref
+            await execute(
+              `UPDATE class_states SET consecutive_not_found_count = $1
+               WHERE class_nbr = $2 AND term = $3
+                 AND consecutive_not_found_count != $1`,
+              [AUTO_CLEANUP_THRESHOLD - 1, ref.class_nbr, ref.term]
             );
-            if (capError) {
-              log('ProcessSection').warn(
-                `Failed to cap consecutive_not_found_count for ${ref.term}:${classNbr}:`,
-                capError
-              );
-            }
           } catch (capErr) {
             log('ProcessSection').warn(
               `Failed to cap consecutive_not_found_count for ${ref.term}:${classNbr}:`,
@@ -340,20 +300,15 @@ export async function processSection(
             getClassWatchers(ref),
             (async () => {
               try {
-                const client = getServiceClient();
-                const { data: stateRow } = await applySectionRef(
-                  client.from('class_states').select('subject, catalog_nbr, title'),
-                  ref
-                ).single();
-                if (stateRow) {
-                  // SAFETY: stateRow shape validated by Supabase query selecting only these columns; narrowing to email template's optional classInfo shape
-                  return stateRow as {
-                    subject?: string | null;
-                    catalog_nbr?: string | null;
-                    title?: string | null;
-                  };
-                }
-                return null;
+                const stateRow = await queryOne<{
+                  subject: string | null;
+                  catalog_nbr: string | null;
+                  title: string | null;
+                }>(
+                  'SELECT subject, catalog_nbr, title FROM class_states WHERE class_nbr = $1 AND term = $2',
+                  [ref.class_nbr, ref.term]
+                );
+                return stateRow;
               } catch {
                 return null;
               }

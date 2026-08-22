@@ -16,8 +16,9 @@ import {
 } from '@/components/ui/table';
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getUserWatches } from '@/lib/db/admin-queries';
+import { queryOne } from '@/lib/db/client';
+import type { UserMirrorRow } from '@/lib/db/types';
 import { log } from '@/lib/log';
-import { getServiceClient } from '@/lib/supabase/service';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 import { formatAbsoluteDate } from '@/lib/utils/time-format';
 interface AdminUserDetailPageProps {
@@ -44,18 +45,17 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
   // Await params
   const { userId } = await params;
 
-  // Create service client for auth.users access
-  const supabase = getServiceClient();
+  // Fetch user information from the local users mirror table (synced by Clerk webhooks).
+  // Replaces the old auth.admin.getUserById call — no more dependency on Supabase Auth API.
+  const user = await queryOne<UserMirrorRow>(
+    'SELECT id, email, email_confirmed_at, created_at, last_sign_in_at FROM users WHERE id = $1',
+    [userId]
+  );
 
-  // Fetch user information from auth.users
-  const { data: authData, error: authError } = await supabase.auth.admin.getUserById(userId);
-
-  if (authError || !authData?.user) {
-    log('Admin').error(`User ${userId} not found:`, authError);
+  if (!user) {
+    log('Admin').error(`User ${userId} not found in mirror table`);
     notFound();
   }
-
-  const user = authData.user;
 
   // Fetch user's class watches
   const watches = await getUserWatches(userId);

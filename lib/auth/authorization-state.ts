@@ -2,11 +2,10 @@
  * Authorization State — the profile fields that gate access to the app.
  *
  * The server state is read by the edge proxy, `verifyAdmin`, and the login route.
- * Those readers used to
- * re-implement the query with divergent column sets and error handling, and only
- * the edge proxy cached it. This module owns the server read, its 30s per-isolate
- * cache, and its invalidation, exposing a **cached** read (edge) and a **fresh**
- * read (admin/login).
+ * Those readers used to re-implement the query with divergent column sets and
+ * error handling, and only the edge proxy cached it. This module owns the server
+ * read, its 30s per-isolate cache, and its invalidation, exposing a **cached**
+ * read (edge) and a **fresh** read (admin/login).
  *
  * The deliberate cached-vs-fresh split is preserved (see
  * `docs/adr/0001-authorization-state-boundary.md`): `proxy.ts` may serve a
@@ -16,10 +15,9 @@
  * cannot cross into the browser.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { queryOne } from '@/lib/db/client';
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import { log } from '@/lib/log';
-import type { Database } from '@/lib/supabase/database.types';
 
 /**
  * The authorization decision for a user: role, disabled state, and whether both
@@ -68,13 +66,12 @@ interface ReadAuthorizationStateOptions {
  * and bypasses the cache entirely (`verifyAdmin` and the login route), so a
  * disabled or demoted account is enforced immediately on those gates.
  *
- * Returns `null` when the user has no profile row. On DB/RLS/network errors it
+ * Returns `null` when the user has no profile row. On DB/network errors it
  * fail-closes to `{ is_admin:false, is_disabled:true, has_consent:false }` so
  * callers that check `authState?.is_disabled` block the user instead of treating
  * the error as "not disabled". Error results are never cached.
  */
 export async function readAuthorizationState(
-  client: SupabaseClient<Database>,
   userId: string,
   { cache }: ReadAuthorizationStateOptions
 ): Promise<AuthorizationState | null> {
@@ -84,16 +81,16 @@ export async function readAuthorizationState(
   }
 
   try {
-    const { data, error } = await client
-      .from('user_profiles')
-      .select('is_admin, is_disabled, age_verified_at, agreed_to_terms_at')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (error) {
-      log('Auth').error('Error reading authorization state:', error);
-      return { is_admin: false, is_disabled: true, has_consent: false };
-    }
+    const data = await queryOne<{
+      is_admin: boolean;
+      is_disabled: boolean;
+      age_verified_at: string | null;
+      agreed_to_terms_at: string | null;
+    }>(
+      `SELECT is_admin, is_disabled, age_verified_at, agreed_to_terms_at
+       FROM user_profiles WHERE user_id = $1`,
+      [userId]
+    );
 
     if (!data) return null;
 

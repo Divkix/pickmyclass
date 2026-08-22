@@ -15,8 +15,7 @@ import type { ClassCheckMessage } from './queue';
  * - Queue processing (PICKMYCLASS_QUEUE)
  * - Durable Objects (PICKMYCLASS_CRON_LOCK_DO)
  * - KV storage (PICKMYCLASS_DISPOSABLE_DOMAINS)
- * - Supabase configuration (service-role key; public URL/anon key are
- *   hardcoded constants in lib/supabase/config.ts, not env vars)
+ * - Database access via Hyperdrive (HYPERDRIVE — PlanetScale Postgres)
  * - ASU API credentials
  * - Email/notification settings
  */
@@ -24,6 +23,15 @@ import type { ClassCheckMessage } from './queue';
  * Cloudflare Workers SendEmail type (from generated types)
  */
 export type SendEmail = Cloudflare.Env['EMAIL'];
+
+/**
+ * Hyperdrive binding — provides a connectionString that points at the local
+ * Hyperdrive proxy inside the Workers runtime. Configured with
+ * `--caching-disabled` for correctness-critical read-modify-write paths.
+ */
+export interface HyperdriveBinding {
+  connectionString: string;
+}
 
 export interface Env extends Record<string, unknown> {
   // Asset serving
@@ -41,8 +49,8 @@ export interface Env extends Record<string, unknown> {
   // KV namespace bindings
   PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
 
-  // Supabase configuration
-  SUPABASE_SERVICE_ROLE_KEY: string;
+  // Database access via Cloudflare Hyperdrive (PlanetScale Postgres)
+  PICKMYCLASS_HYPERDRIVE: HyperdriveBinding;
 
   // ASU API credentials
   ASU_API_BASE_URL: string;
@@ -51,7 +59,6 @@ export interface Env extends Record<string, unknown> {
   // Email/notification settings (optional)
   EMAIL: SendEmail;
   NOTIFICATION_FROM_EMAIL?: string;
-  SUPABASE_SEND_EMAIL_HOOK_SECRET: string;
 
   // App configuration (optional)
   MAX_WATCHES_PER_USER?: string;

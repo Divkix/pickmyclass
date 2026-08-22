@@ -1,3 +1,5 @@
+import { callFunction, queryOne } from '@/lib/db/client';
+import type { SkipOnboardingRpcRow } from '@/lib/db/types';
 import { log } from '@/lib/log';
 import { fail, ok } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
@@ -15,17 +17,16 @@ export async function GET() {
     const supabase = await createClient();
     return await withAuth(supabase, async (user) => {
       try {
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('onboarding_completed_at, onboarding_skipped_at')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        const data = await queryOne<{
+          onboarding_completed_at: string | null;
+          onboarding_skipped_at: string | null;
+        }>(
+          `SELECT onboarding_completed_at, onboarding_skipped_at
+           FROM user_profiles WHERE user_id = $1`,
+          [user.id]
+        );
 
-        if (error) {
-          log('Onboarding').error('Error reading onboarding state:', error);
-          return fail('Failed to load onboarding state', 500);
-        }
-        // SAFETY: data is the result of maybeSingle() selecting onboarding columns; null or shape matches OnboardingRow by DB contract
+        // SAFETY: data is the result of queryOne selecting onboarding columns; null or shape matches OnboardingRow by DB contract
         return ok(toOnboardingState(data as OnboardingRow | null));
       } catch (error) {
         log('Onboarding').error('Get onboarding state error:', error);
@@ -48,18 +49,20 @@ export async function POST() {
     const supabase = await createClient();
     return await withAuth(supabase, async (user) => {
       try {
-        const { data, error } = await supabase.rpc('skip_onboarding');
+        const rows = await callFunction<SkipOnboardingRpcRow>('skip_onboarding', [user.id]);
 
-        if (error) {
-          log('Onboarding').error('Error skipping onboarding:', error);
+        // SAFETY: rows is the array returned by skip_onboarding RPC; first element matches OnboardingRow by DB contract
+        const row = rows[0] ?? null;
+
+        if (!row) {
+          log('Onboarding').error('Error skipping onboarding: no result returned');
           return fail('Failed to skip onboarding', 500);
         }
 
-        // SAFETY: data is the array returned by skip_onboarding RPC; null or first element matches OnboardingRow by DB contract
-        const row = (data as OnboardingRow[] | null)?.[0] ?? null;
         await captureServerEvent({ distinctId: user.id, event: 'onboarding_skipped' });
 
-        return ok(toOnboardingState(row));
+        // SAFETY: row is the first element returned by skip_onboarding RPC; shape matches OnboardingRow by DB contract
+        return ok(toOnboardingState(row as OnboardingRow));
       } catch (error) {
         log('Onboarding').error('Skip onboarding error:', error);
         return fail('Failed to skip onboarding', 500);

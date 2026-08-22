@@ -3,8 +3,8 @@ import { log } from '@/lib/log';
 import { fail, ok } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { execute } from '@/lib/db/client';
 import { createClient } from '@/lib/supabase/server';
-import { getServiceClient } from '@/lib/supabase/service';
 
 /**
  * Account Deletion API - CCPA Compliance
@@ -22,19 +22,18 @@ export async function DELETE() {
       try {
         const deletionTimestamp = new Date().toISOString();
 
-        // Soft delete: Use service client since is_disabled/disabled_at are restricted columns
-        const serviceClient = getServiceClient();
-        const { error: updateError } = await serviceClient
-          .from('user_profiles')
-          .update({
-            is_disabled: true,
-            disabled_at: deletionTimestamp,
-            notifications_enabled: false,
-            unsubscribed_at: deletionTimestamp,
-          })
-          .eq('user_id', user.id);
-
-        if (updateError) {
+        // Soft delete: update user_profiles directly (no RLS in PlanetScale — app-layer authz)
+        try {
+          await execute(
+            `UPDATE user_profiles
+             SET is_disabled = true,
+                 disabled_at = $1,
+                 notifications_enabled = false,
+                 unsubscribed_at = $1
+             WHERE user_id = $2`,
+            [deletionTimestamp, user.id]
+          );
+        } catch (updateError) {
           log('User').error('Error disabling account:', updateError);
           return fail('Failed to delete account', 500);
         }

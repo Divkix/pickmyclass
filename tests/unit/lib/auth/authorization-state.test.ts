@@ -1,4 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+
+vi.mock('@/lib/db/client', () => ({
+  queryOne: vi.fn(),
+  query: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: vi.fn(),
+  callFunction: vi.fn(),
+  callFunctionScalar: vi.fn(),
+  getClient: vi.fn(),
+  getPool: vi.fn(),
+  _resetPool: vi.fn(),
+}));
+
+import { queryOne } from '@/lib/db/client';
 import {
   type AuthorizationState,
   clearAuthorizationStateCache,
@@ -6,11 +20,6 @@ import {
   readAuthorizationState,
 } from '@/lib/auth/authorization-state';
 
-/**
- * Minimal fake of the Supabase query chain used by `readAuthorizationState`:
- * `.from(...).select(...).eq(...).maybeSingle()`. Records how many times a query
- * ran and returns whatever `result` is set to.
- */
 interface ProfileAuthorizationRow {
   is_admin: boolean;
   is_disabled: boolean;
@@ -18,14 +27,14 @@ interface ProfileAuthorizationRow {
   agreed_to_terms_at: string | null;
 }
 
-function createFakeClient(result: { data: ProfileAuthorizationRow | null }) {
-  const maybeSingle = vi.fn().mockResolvedValue(result);
-  const eq = vi.fn().mockReturnValue({ maybeSingle });
-  const select = vi.fn().mockReturnValue({ eq });
-  const from = vi.fn().mockReturnValue({ select });
-  // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test fake implements only narrow Supabase slice; needs unknown intermediate because types don't overlap
-  const client = { from } as unknown as Parameters<typeof readAuthorizationState>[0];
-  return { client, from, select, eq, maybeSingle };
+function mockProfileRow(row: ProfileAuthorizationRow | null) {
+  // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+  (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(row);
+}
+
+function mockQueryError(error: Error) {
+  // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+  (queryOne as ReturnType<typeof vi.fn>).mockRejectedValue(error);
 }
 
 const consentTimestamp = '2026-07-12T00:00:00.000Z';
@@ -50,118 +59,109 @@ const adminState: AuthorizationState = {
 describe('readAuthorizationState', () => {
   beforeEach(() => {
     clearAuthorizationStateCache();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
     clearAuthorizationStateCache();
+    vi.restoreAllMocks();
   });
 
   it('returns authorization and consent state from the profile row', async () => {
-    const { client } = createFakeClient({ data: adminProfile });
+    mockProfileRow(adminProfile);
 
-    const state = await readAuthorizationState(client, 'user-1', { cache: false });
+    const state = await readAuthorizationState('user-1', { cache: false });
 
     expect(state).toEqual(adminState);
   });
 
-  it('selects only the authorization columns filtered by user_id', async () => {
-    const { client, from, select, eq } = createFakeClient({ data: regularProfile });
+  it('queries user_profiles filtered by user_id', async () => {
+    mockProfileRow(regularProfile);
 
-    await readAuthorizationState(client, 'user-1', { cache: false });
+    await readAuthorizationState('user-1', { cache: false });
 
-    expect(from).toHaveBeenCalledWith('user_profiles');
-    expect(select).toHaveBeenCalledWith(
-      'is_admin, is_disabled, age_verified_at, agreed_to_terms_at'
+    expect(queryOne).toHaveBeenCalledWith(
+      expect.stringContaining('FROM user_profiles WHERE user_id = $1'),
+      ['user-1']
     );
-    expect(eq).toHaveBeenCalledWith('user_id', 'user-1');
   });
 
   it('requires both age verification and terms agreement for consent', async () => {
-    const { client } = createFakeClient({
-      data: { ...regularProfile, agreed_to_terms_at: null },
-    });
+    mockProfileRow({ ...regularProfile, agreed_to_terms_at: null });
 
-    const state = await readAuthorizationState(client, 'user-1', { cache: false });
+    const state = await readAuthorizationState('user-1', { cache: false });
 
     expect(state?.has_consent).toBe(false);
   });
 
   it('returns null when the profile row is missing', async () => {
-    const { client } = createFakeClient({ data: null });
+    mockProfileRow(null);
 
-    const state = await readAuthorizationState(client, 'user-1', { cache: false });
+    const state = await readAuthorizationState('user-1', { cache: false });
 
     expect(state).toBeNull();
   });
 
-  it('returns null and logs when the query throws', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const maybeSingle = vi.fn().mockRejectedValue(new Error('db down'));
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test fake implements only narrow Supabase slice; needs unknown intermediate because types don't overlap
-    const client = {
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle }) }),
-      }),
-    } as unknown as Parameters<typeof readAuthorizationState>[0];
+  it('returns fail-closed state and logs when the query throws', async () => {
+    mockQueryError(new Error('db down'));
 
-    const state = await readAuthorizationState(client, 'user-1', { cache: false });
+    const state = await readAuthorizationState('user-1', { cache: false });
 
     expect(state).toEqual({ is_admin: false, is_disabled: true, has_consent: false });
-    expect(errorSpy).toHaveBeenCalled();
-    errorSpy.mockRestore();
+    expect(console.error).toHaveBeenCalled();
   });
 
   describe('cached read', () => {
     it('serves a cached hit without re-querying', async () => {
-      const { client, maybeSingle } = createFakeClient({ data: adminProfile });
+      mockProfileRow(adminProfile);
 
-      await readAuthorizationState(client, 'user-1', { cache: true });
-      const second = await readAuthorizationState(client, 'user-1', { cache: true });
+      await readAuthorizationState('user-1', { cache: true });
+      const second = await readAuthorizationState('user-1', { cache: true });
 
       expect(second).toEqual(adminState);
-      expect(maybeSingle).toHaveBeenCalledTimes(1);
+      expect(queryOne).toHaveBeenCalledTimes(1);
     });
 
     it('does not cache a null (missing profile) result', async () => {
-      const { client, maybeSingle } = createFakeClient({ data: null });
+      mockProfileRow(null);
 
-      await readAuthorizationState(client, 'user-1', { cache: true });
-      await readAuthorizationState(client, 'user-1', { cache: true });
+      await readAuthorizationState('user-1', { cache: true });
+      await readAuthorizationState('user-1', { cache: true });
 
-      expect(maybeSingle).toHaveBeenCalledTimes(2);
+      expect(queryOne).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('fresh read', () => {
     it('always queries even after a value was cached', async () => {
-      const { client, maybeSingle } = createFakeClient({ data: adminProfile });
+      mockProfileRow(adminProfile);
 
-      await readAuthorizationState(client, 'user-1', { cache: true });
-      await readAuthorizationState(client, 'user-1', { cache: false });
+      await readAuthorizationState('user-1', { cache: true });
+      await readAuthorizationState('user-1', { cache: false });
 
-      expect(maybeSingle).toHaveBeenCalledTimes(2);
+      expect(queryOne).toHaveBeenCalledTimes(2);
     });
 
     it('does not populate the cache, so a later cached read still queries', async () => {
-      const { client, maybeSingle } = createFakeClient({ data: adminProfile });
+      mockProfileRow(adminProfile);
 
-      await readAuthorizationState(client, 'user-1', { cache: false });
-      await readAuthorizationState(client, 'user-1', { cache: true });
+      await readAuthorizationState('user-1', { cache: false });
+      await readAuthorizationState('user-1', { cache: true });
 
-      expect(maybeSingle).toHaveBeenCalledTimes(2);
+      expect(queryOne).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('invalidateAuthorizationState', () => {
     it('forces the next cached read to re-query', async () => {
-      const { client, maybeSingle } = createFakeClient({ data: adminProfile });
+      mockProfileRow(adminProfile);
 
-      await readAuthorizationState(client, 'user-1', { cache: true });
+      await readAuthorizationState('user-1', { cache: true });
       const removed = invalidateAuthorizationState('user-1');
-      await readAuthorizationState(client, 'user-1', { cache: true });
+      await readAuthorizationState('user-1', { cache: true });
 
       expect(removed).toBe(true);
-      expect(maybeSingle).toHaveBeenCalledTimes(2);
+      expect(queryOne).toHaveBeenCalledTimes(2);
     });
 
     it('returns false when nothing was cached for that user', () => {

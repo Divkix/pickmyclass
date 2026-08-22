@@ -5,12 +5,13 @@ import { withAuth } from '@/lib/api/withAuth';
 import { createClassWatchSchema, deleteClassWatchSchema } from '@/lib/api/schemas';
 import { parseOrFail } from '@/lib/api/validation';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
+import { callFunction, execute, query, queryOne } from '@/lib/db/client';
+import type { ClassStateRow, ClassWatchRow } from '@/lib/db/types';
 import { upsertClassState } from '@/lib/db/queries';
 import { log } from '@/lib/log';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { createClient } from '@/lib/supabase/server';
-import { getServiceClient } from '@/lib/supabase/service';
-import type { ClassStateRow } from '@/lib/types/class-watch';
+import type { ClassStateRow as ClassStateRowType } from '@/lib/types/class-watch';
 import { applyFirstWatchGuard, toOnboardingState, type OnboardingRow } from '@/lib/onboarding';
 
 // Get max watches per user from env (default: 10)
@@ -25,52 +26,46 @@ export async function GET() {
     const supabase = await createClient();
     return await withAuth(supabase, async (user) => {
       try {
-        const { data: watches, error: watchesError } = await supabase
-          .from('class_watches')
-          .select('id, class_nbr, term, subject, catalog_nbr, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+        const watches = await query<ClassWatchRow>(
+          `SELECT id, class_nbr, term, subject, catalog_nbr, created_at
+           FROM class_watches WHERE user_id = $1 ORDER BY created_at DESC`,
+          [user.id]
+        );
 
-        if (watchesError) throw watchesError;
+        const classNumbers = watches.map((w) => w.class_nbr);
+        const terms = Array.from(new Set(watches.map((w) => w.term)));
 
-        const classNumbers = watches?.map((w) => w.class_nbr) || [];
-        const terms = Array.from(new Set(watches?.map((w) => w.term) || []));
-
-        // SAFETY: Empty array fallback when no watches; typed as ClassStateRow[] to match Supabase response shape for zero-watches case (no DB query runs)
-        // ponytail: cross-product .in() over-fetches m×n rows; tuple RPC if watches scale beyond 10
-        const statesPromise =
+        // Fetch class states for the user's watches — scoped by both class_nbr AND term
+        // so a section number watched in two terms keeps separate states.
+        const classStates: ClassStateRowType[] =
           classNumbers.length > 0
-            ? supabase
-                .from('class_states')
-                .select(
-                  'class_nbr, term, seats_available, seats_capacity, non_reserved_seats, instructor_name, title'
-                )
-                .in('class_nbr', classNumbers)
-                .in('term', terms)
-            : Promise.resolve({ data: [] as ClassStateRow[], error: null } as const);
+            ? await query<ClassStateRow>(
+                `SELECT class_nbr, term, seats_available, seats_capacity, non_reserved_seats,
+                        instructor_name, title
+                 FROM class_states WHERE class_nbr = ANY($1::text[]) AND term = ANY($2::text[])`,
+                [classNumbers, terms]
+              )
+            : [];
 
-        const profilePromise = supabase
-          .from('user_profiles')
-          .select('onboarding_completed_at, onboarding_skipped_at')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        const profile = await queryOne<{
+          onboarding_completed_at: string | null;
+          onboarding_skipped_at: string | null;
+        }>(
+          `SELECT onboarding_completed_at, onboarding_skipped_at
+           FROM user_profiles WHERE user_id = $1`,
+          [user.id]
+        );
 
-        const [profileResult, statesResult] = await Promise.all([profilePromise, statesPromise]);
-
-        if (statesResult.error) throw statesResult.error;
-        // SAFETY: Supabase select projects explicit columns matching ClassStateRow; cast narrows unknown response data to typed rows with fallback to empty array
-        const classStates: ClassStateRow[] = (statesResult.data as ClassStateRow[]) || [];
-
-        // SAFETY: statesMap is indexed by `${term}:${class_nbr}` derived from ClassStateRow entries; Record type models the validated composite key
         const statesMap = classStates.reduce(
           (acc, state) => {
             acc[`${state.term}:${state.class_nbr}`] = state;
             return acc;
           },
-          {} as Record<string, ClassStateRow>
+          // SAFETY: empty object is the initial typed accumulator for the keyed map
+          {} as Record<string, ClassStateRowType>
         );
 
-        const watchesWithStates = watches?.map((watch) => ({
+        const watchesWithStates = watches.map((watch) => ({
           ...watch,
           class_state: statesMap[`${watch.term}:${watch.class_nbr}`] || null,
         }));
@@ -78,16 +73,10 @@ export async function GET() {
         // Expose onboarding state so the dashboard can render the first-time modal
         // / finish-setup card without an extra round trip. Fails open: a profile-read
         // error defaults to "not needed" rather than failing the whole watches fetch.
-        const { data: profile, error: profileError } = profileResult;
-
-        if (profileError) {
-          log('API').warn('Onboarding state read failed; failing open:', profileError);
-        }
-
-        // SAFETY: profile is the result of maybeSingle() selecting onboarding columns; null or shape matches OnboardingRow by DB contract
         return ok({
           watches: watchesWithStates,
           maxWatches: MAX_WATCHES_PER_USER,
+          // SAFETY: profile is the result of queryOne selecting onboarding columns; null or shape matches OnboardingRow by DB contract
           onboarding: toOnboardingState(profile as OnboardingRow | null),
         });
       } catch (error) {
@@ -104,13 +93,6 @@ export async function GET() {
 /**
  * POST /api/class-watches
  * Create a new class watch for the authenticated user
- *
- * This endpoint:
- * 1. Fetches class details from ASU API
- * 2. Creates the class watch with fetched data
- * 3. Persists class state to database
- *
- * Body: { term, class_nbr }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -142,33 +124,32 @@ export async function POST(request: NextRequest) {
           return fail('Failed to fetch class details', 500);
         }
 
-        // Use service role for atomic insert RPC so clients cannot bypass limit checks by calling it directly.
-        const supabaseServiceRole = getServiceClient();
-
         // Step 2: Create class watch atomically (prevents concurrent limit bypass).
-        const { data: watchDataRaw, error: insertError } = await supabaseServiceRole.rpc(
-          'create_class_watch_with_limit',
-          {
-            p_user_id: user.id,
-            p_term: term,
-            p_subject: classDetails.subject.toUpperCase(),
-            p_catalog_nbr: classDetails.catalog_nbr,
-            p_class_nbr: class_nbr,
-            p_max_watches: MAX_WATCHES_PER_USER,
-          }
-        );
-
-        if (insertError) {
+        // The RPC enforces the watch limit via an advisory lock.
+        let watchDataRaw: ClassWatchRow | null = null;
+        try {
+          const rows = await callFunction<ClassWatchRow>('create_class_watch_with_limit', [
+            user.id,
+            term,
+            classDetails.subject.toUpperCase(),
+            classDetails.catalog_nbr,
+            class_nbr,
+            MAX_WATCHES_PER_USER,
+          ]);
+          watchDataRaw = rows[0] ?? null;
+        } catch (insertError) {
+          // SAFETY: pg error has code and message properties for identifying constraint violations
+          const pgError = insertError as { code?: string; message?: string };
           // Handle unique constraint violation
-          if (insertError.code === '23505') {
+          if (pgError.code === '23505') {
             return fail('You are already watching this class', 409);
           }
 
           // Handle atomic limit-enforcement function error.
           if (
-            insertError.code === 'P0001' &&
-            typeof insertError.message === 'string' &&
-            insertError.message.includes('MAX_WATCHES_EXCEEDED')
+            pgError.code === 'P0001' &&
+            typeof pgError.message === 'string' &&
+            pgError.message.includes('MAX_WATCHES_EXCEEDED')
           ) {
             return fail(
               `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
@@ -185,24 +166,18 @@ export async function POST(request: NextRequest) {
 
         // Step 3: Persist class state
         try {
-          await upsertClassState(supabaseServiceRole, { class_nbr, term }, classDetails);
+          await upsertClassState({ class_nbr, term }, classDetails);
         } catch (dbError) {
           log('API').error('Failed to persist class state:', dbError);
           // Continue anyway - watch was created successfully
         }
 
         // Step 4: Mark onboarding complete on the user's first class watch so the
-        // finish-setup card stops reappearing. Service role bypasses the escalation
-        // trigger. The guard only checks `onboarding_completed_at IS NULL`, so a
-        // user who skipped onboarding still transitions to completed on their first
-        // watch (ADR 0010). See `applyFirstWatchGuard` in `lib/onboarding.ts`.
+        // finish-setup card stops reappearing. The guard only checks
+        // `onboarding_completed_at IS NULL`, so a user who skipped onboarding
+        // still transitions to completed on their first watch (ADR 0010).
         try {
-          await applyFirstWatchGuard(
-            supabaseServiceRole
-              .from('user_profiles')
-              .update({ onboarding_completed_at: new Date().toISOString() })
-              .eq('user_id', user.id)
-          );
+          await applyFirstWatchGuard(user.id);
         } catch (dbError) {
           log('API').error('Failed to mark onboarding complete:', dbError);
           // Non-fatal - watch was created successfully
@@ -250,16 +225,11 @@ export async function DELETE(request: NextRequest) {
           return parsed.response;
         }
 
-        // Delete the watch (RLS ensures user can only delete their own)
-        const { error } = await supabase
-          .from('class_watches')
-          .delete()
-          .eq('id', parsed.data.id)
-          .eq('user_id', user.id);
-
-        if (error) {
-          throw error;
-        }
+        // Delete the watch — app-layer authz ensures user can only delete their own
+        await execute('DELETE FROM class_watches WHERE id = $1 AND user_id = $2', [
+          parsed.data.id,
+          user.id,
+        ]);
 
         await captureServerEvent({
           distinctId: user.id,

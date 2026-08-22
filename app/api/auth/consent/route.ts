@@ -1,3 +1,4 @@
+import { callFunction } from '@/lib/db/client';
 import { type NextRequest } from 'next/server';
 import { consentSchema } from '@/lib/api/schemas';
 import { fail, ok } from '@/lib/api/response';
@@ -17,8 +18,9 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const { user } = await requireUser(supabase);
 
-    const { error } = await supabase.rpc('accept_terms_and_verify_age');
-    if (error) {
+    try {
+      await callFunction('accept_terms_and_verify_age', [user.id]);
+    } catch (error) {
       log('Consent').error('Failed to persist consent:', error);
       return fail('Could not save consent', 500);
     }

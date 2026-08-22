@@ -8,7 +8,7 @@ import { env } from 'cloudflare:workers';
 import { NextResponse } from 'next/server';
 import { fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
 import { TtlCache } from '@/lib/cache/ttl-cache';
-import { getServiceClient } from '@/lib/supabase/service';
+import { queryOne } from '@/lib/db/client';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 import { createCronLockClient } from '@/lib/worker/cron-lock';
 
@@ -90,10 +90,15 @@ export async function GET(request: Request) {
   // Parallelize independent probes via Promise.allSettled (health stays tolerant: one failure doesn't mask others)
   const [dbResult, asuResult, cronResult] = await Promise.allSettled([
     (async () => {
-      const supabase = getServiceClient();
-      const { error } = await supabase.from('class_watches').select('id').limit(1);
-      if (error) return { kind: 'db_error' as const, message: error.message };
-      return { kind: 'db_ok' as const, latency_ms: Date.now() - startTime };
+      try {
+        await queryOne('SELECT id FROM class_watches LIMIT 1');
+        return { kind: 'db_ok' as const, latency_ms: Date.now() - startTime };
+      } catch (error) {
+        return {
+          kind: 'db_error' as const,
+          message: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
     })(),
     (async () => {
       try {
@@ -206,13 +211,7 @@ export async function GET(request: Request) {
   }
 
   // 3. Check Environment Configuration
-  const requiredEnvVars = [
-    'SUPABASE_SERVICE_ROLE_KEY',
-    'ASU_API_BASE_URL',
-    'ASU_API_TOKEN',
-    'CRON_SECRET',
-    'SUPABASE_SEND_EMAIL_HOOK_SECRET',
-  ];
+  const requiredEnvVars = ['ASU_API_BASE_URL', 'ASU_API_TOKEN', 'CRON_SECRET'];
 
   const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key] && !cfRecord[key]);
 

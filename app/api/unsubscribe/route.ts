@@ -11,9 +11,9 @@ import { unsubscribeTokenSchema } from '@/lib/api/schemas';
 import { parseOrFail } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
 import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token';
+import { execute } from '@/lib/db/client';
 import { log } from '@/lib/log';
 import { captureServerEvent } from '@/lib/posthog-server';
-import { getServiceClient } from '@/lib/supabase/service';
 
 /**
  * Redacts a user identifier by hashing it to produce a consistent,
@@ -68,17 +68,16 @@ function escapeHtml(value: string): string {
 }
 
 async function unsubscribeUser(userId: string, method: 'GET' | 'POST'): Promise<void> {
-  const { error } = await getServiceClient()
-    .from('user_profiles')
-    .update({
-      notifications_enabled: false,
-      unsubscribed_at: new Date().toISOString(),
-    })
-    .eq('user_id', userId);
-
-  if (error) {
-    log('Unsubscribe').error('Database error:', error);
-    throw error;
+  try {
+    await execute(
+      `UPDATE user_profiles
+       SET notifications_enabled = false, unsubscribed_at = $1
+       WHERE user_id = $2`,
+      [new Date().toISOString(), userId]
+    );
+  } catch (dbError) {
+    log('Unsubscribe').error('Database error:', dbError);
+    throw dbError;
   }
 
   const suffix = method === 'POST' ? 'via POST' : 'successfully';

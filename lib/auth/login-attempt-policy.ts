@@ -1,4 +1,5 @@
-import { getServiceClient } from '@/lib/supabase/service';
+import { callFunction, execute, queryOne } from '@/lib/db/client';
+import type { IncrementFailedAttemptsRpcRow } from '@/lib/db/types';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 15;
@@ -127,35 +128,39 @@ export function createLoginAttemptPolicy(
 
 const supabaseLoginAttemptStore: LoginAttemptStore = {
   async read(email) {
-    const supabase = getServiceClient();
-    const { data, error } = await supabase
-      .from('failed_login_attempts')
-      .select('attempts, locked_until')
-      .eq('email', email)
-      .maybeSingle();
-
-    if (error) throw new Error('Failed to read login attempts');
-    if (!data) return null;
-    return {
-      attempts: data.attempts ?? 0,
-      lockedUntil: data.locked_until ? new Date(data.locked_until) : null,
-    };
+    try {
+      const data = await queryOne<{ attempts: number | null; locked_until: string | null }>(
+        'SELECT attempts, locked_until FROM failed_login_attempts WHERE email = $1',
+        [email]
+      );
+      if (!data) return null;
+      return {
+        attempts: data.attempts ?? 0,
+        lockedUntil: data.locked_until ? new Date(data.locked_until) : null,
+      };
+    } catch {
+      throw new Error('Failed to read login attempts');
+    }
   },
 
   async increment(email) {
-    const supabase = getServiceClient();
-    const { error } = await supabase.rpc('increment_failed_attempts', {
-      p_email: email,
-      p_max_attempts: MAX_FAILED_ATTEMPTS,
-      p_lockout_minutes: LOCKOUT_DURATION_MINUTES,
-    });
-
-    if (error) throw new Error('Failed to record login attempt');
+    try {
+      await callFunction<IncrementFailedAttemptsRpcRow>('increment_failed_attempts', [
+        email,
+        MAX_FAILED_ATTEMPTS,
+        LOCKOUT_DURATION_MINUTES,
+      ]);
+    } catch {
+      throw new Error('Failed to record login attempt');
+    }
   },
 
   async clear(email) {
-    const supabase = getServiceClient();
-    await supabase.from('failed_login_attempts').delete().eq('email', email);
+    try {
+      await execute('DELETE FROM failed_login_attempts WHERE email = $1', [email]);
+    } catch {
+      // Best-effort clear — a stale lock record will expire naturally
+    }
   },
 };
 

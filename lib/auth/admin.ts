@@ -42,7 +42,7 @@ export async function verifyAdmin(): Promise<User> {
 
   // Check admin privileges via a FRESH authorization read (never cached), so a
   // demoted or disabled admin is enforced immediately on admin pages.
-  const authState = await readAuthorizationState(supabase, user.id, { cache: false });
+  const authState = await readAuthorizationState(user.id, { cache: false });
 
   if (authState?.is_disabled) {
     // Disabled account — force to login regardless of admin role.

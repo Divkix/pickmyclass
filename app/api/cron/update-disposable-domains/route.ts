@@ -12,9 +12,9 @@
 import { env } from 'cloudflare:workers';
 import { type NextRequest } from 'next/server';
 import { verifyCronSecret } from '@/lib/auth/require-user';
+import { callFunctionScalar } from '@/lib/db/client';
 import { fail, ok } from '@/lib/api/response';
 import { log } from '@/lib/log';
-import { getServiceClient } from '@/lib/supabase/service';
 import { getPastTermCodes } from '@/lib/asu/terms';
 import { deletePastTermWatches } from '@/lib/db/queries';
 import type { Env } from '@/lib/types/env';
@@ -45,19 +45,8 @@ export async function GET(request: NextRequest) {
     // next cycle. Load-bearing — without it, users never get re-notified after 24h.
     // Independent of the blocklist sync: a failure here must not fail the job.
     try {
-      const { data: expiredCount, error: sweepError } = await getServiceClient().rpc(
-        'expire_stale_notifications'
-      );
-      if (sweepError) {
-        log('SyncDisposableDomains').warn(
-          'Failed to expire stale notifications:',
-          sweepError.message
-        );
-      } else {
-        log('SyncDisposableDomains').info(
-          `Expired ${expiredCount ?? 0} stale notification records`
-        );
-      }
+      const expiredCount = await callFunctionScalar<number>('expire_stale_notifications');
+      log('SyncDisposableDomains').info(`Expired ${expiredCount ?? 0} stale notification records`);
     } catch (error) {
       log('SyncDisposableDomains').warn(
         'Failed to expire stale notifications:',

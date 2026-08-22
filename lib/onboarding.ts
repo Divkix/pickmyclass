@@ -85,16 +85,21 @@ export function completeOnFirstWatch(
 }
 
 /**
- * DB-level enforcement of the first-watch completion rule, applied to a
- * Supabase `user_profiles` update chain (the builder after `.eq('user_id', ...)`).
+ * DB-level enforcement of the first-watch completion rule.
  *
- * Only `onboarding_completed_at IS NULL` is guarded, so a skipped user
- * (`skipped_at` set, `completed_at` null) still transitions to completed. This
- * is the persistence-side twin of `completeOnFirstWatch`: the row set matched by
- * `completed_at IS NULL` is exactly pending-or-skipped, i.e. "not completed".
+ * Executes an UPDATE that only matches rows where `onboarding_completed_at IS NULL`,
+ * so a skipped user (`skipped_at` set, `completed_at` null) still transitions to
+ * completed. This is the persistence-side twin of `completeOnFirstWatch`: the row
+ * set matched by `completed_at IS NULL` is exactly pending-or-skipped, i.e.
+ * "not completed".
+ *
+ * Call this after creating a user's first class watch to mark onboarding complete.
  */
-export function applyFirstWatchGuard<T extends { is: (column: string, value: null) => T }>(
-  query: T
-): T {
-  return query.is('onboarding_completed_at', null);
+export async function applyFirstWatchGuard(userId: string): Promise<void> {
+  const { execute } = await import('@/lib/db/client');
+  await execute(
+    `UPDATE user_profiles SET onboarding_completed_at = $1
+     WHERE user_id = $2 AND onboarding_completed_at IS NULL`,
+    [new Date().toISOString(), userId]
+  );
 }

@@ -1,35 +1,23 @@
 /**
- * Supabase Service Role Client
+ * Supabase Service Role Client (DEPRECATED)
  *
- * This client uses the service_role key which bypasses Row Level Security (RLS).
- * It should ONLY be used in server-side contexts like:
- * - Cloudflare Workers cron jobs
- * - API routes that need admin-level access
- * - Background jobs
+ * This module is kept only for test mock compatibility. Production code no longer
+ * uses it — all database access goes through the Hyperdrive-backed pg query seam
+ * in `lib/db/client.ts`. The auth sibling sub-issue will remove this file entirely
+ * once Supabase Auth is replaced by Clerk.
  *
  * NEVER expose this client or the service_role key to the browser.
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL } from './config';
-import type { Database } from './database.types';
 
-/**
- * Create a Supabase client with service role privileges
- *
- * This client bypasses RLS and can perform any operation on the database.
- * Use with caution and only in trusted server environments.
- *
- * @param serviceRoleKey - The service_role key from Supabase (required in production)
- * @returns Supabase client with service role privileges
- */
-
-export function createServiceClient(serviceRoleKey: string): SupabaseClient<Database> {
+export function createServiceClient(serviceRoleKey: string) {
   if (!serviceRoleKey) {
     throw new Error('Service role key is required');
   }
 
-  return createClient<Database>(SUPABASE_URL, serviceRoleKey, {
+  return createClient(SUPABASE_URL, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -37,23 +25,10 @@ export function createServiceClient(serviceRoleKey: string): SupabaseClient<Data
   });
 }
 
-/**
- * Get a service role client from environment variables
- *
- * Reads SUPABASE_SERVICE_ROLE_KEY from env and creates a client.
- * Throws if the key is not set.
- *
- * @returns Supabase client with service role privileges
- *
- * @example
- * // In a cron job
- * const supabase = getServiceClient()
- * await supabase.from('class_states').update({ ... })
- */
-let cachedClient: SupabaseClient<Database> | null = null;
+let cachedClient: ReturnType<typeof createServiceClient> | null = null;
 let cachedKey: string | null = null;
 
-export function getServiceClient(): SupabaseClient<Database> {
+export function getServiceClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!serviceRoleKey) {

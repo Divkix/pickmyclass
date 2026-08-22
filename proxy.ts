@@ -5,7 +5,6 @@ import { readAuthorizationState } from '@/lib/auth/authorization-state';
 import { decideGate, isPublicRoute } from '@/lib/auth/decide-gate';
 import { hasSupabaseAuthCookies } from '@/lib/auth/supabase-auth-cookies';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/supabase/config';
-import type { Database } from './lib/supabase/database.types';
 /**
  * Build a per-request production CSP that replaces 'unsafe-inline' in
  * script-src with a cryptographic nonce. The nonce is generated fresh for
@@ -28,7 +27,7 @@ const CSP_STYLE_SRC = "style-src 'self' 'unsafe-inline'";
 const CSP_IMG_SRC = "img-src 'self' data: https:";
 const CSP_FONT_SRC = "font-src 'self' data:";
 const CSP_CONNECT_SRC =
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://analytics.divkix.me https://us.i.posthog.com";
+  "connect-src 'self' https://*.supabase.co https://analytics.divkix.me https://us.i.posthog.com";
 const CSP_FRAME_ANCESTORS = "frame-ancestors 'none'";
 const CSP_BASE_URI = "base-uri 'self'";
 const CSP_FORM_ACTION = "form-action 'self'";
@@ -127,7 +126,7 @@ export async function proxy(request: NextRequest) {
     request: { headers: requestHeadersWithNonce },
   });
 
-  const supabase = createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -157,7 +156,7 @@ export async function proxy(request: NextRequest) {
 
   // Read the cached authorization decision. The edge gate deliberately serves a
   // (up to 30s) stale decision as a CPU saver; verifyAdmin and login read fresh.
-  const authState = user ? await readAuthorizationState(supabase, user.id, { cache: true }) : null;
+  const authState = user ? await readAuthorizationState(user.id, { cache: true }) : null;
 
   const decision = decideGate({
     pathname,

@@ -106,10 +106,20 @@
     },
   ],
   // IMPORTANT: Set these secrets via 'wrangler secret put <NAME>' or Cloudflare Dashboard:
-  // - SUPABASE_SERVICE_ROLE_KEY
   // - ASU_API_BASE_URL (https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes)
   // - ASU_API_TOKEN (Bearer <token>)
   // - CRON_SECRET (generate with: openssl rand -hex 32)
-  // - SUPABASE_SEND_EMAIL_HOOK_SECRET (from Supabase Auth Send Email Hook)
   // - UNSUBSCRIBE_SIGNING_SECRET (generate with: openssl rand -hex 32)
+  //
+  // Hyperdrive binding — PlanetScale Postgres connection.
+  // Create with: wrangler hyperdrive create PICKMYCLASS_HYPERDRIVE \
+  //   --connection-string="postgres://...planetscale..." --caching-disabled
+  // Then paste the generated ID below. For local dev, set
+  // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_PICKMYCLASS_HYPERDRIVE env var.
+  "hyperdrive": [
+    {
+      "binding": "PICKMYCLASS_HYPERDRIVE",
+      "id": "<HYPERDRIVE_ID>",
+    },
+  ],
 }

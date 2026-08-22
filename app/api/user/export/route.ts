@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 import { log } from '@/lib/log';
 import { fail } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
+import { query } from '@/lib/db/client';
+import type {
+  ClassStateRow,
+  ClassWatchRow,
+  NotificationSentRow,
+  UserProfileRow,
+} from '@/lib/db/types';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -15,45 +22,54 @@ export async function GET() {
     const supabase = await createClient();
     return await withAuth(supabase, async (user) => {
       try {
-        const [profileResult, watchesResult, notificationsResult] = await Promise.all([
-          supabase.from('user_profiles').select('*').eq('user_id', user.id).single(),
-          supabase
-            .from('class_watches')
-            .select(
-              `
-        *,
-        class_states (
-          title,
-          instructor_name,
-          seats_available,
-          seats_capacity,
-          location,
-          meeting_times,
-          last_checked_at
-        )
-      `
-            )
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('notifications_sent')
-            .select(
-              `
-        *,
-        class_watches (
-          term,
-          subject,
-          catalog_nbr,
-          class_nbr
-        )
-      `
-            )
-            .eq('class_watches.user_id', user.id)
-            .order('sent_at', { ascending: false }),
+        const [profileRows, watches, notifications] = await Promise.all([
+          query<UserProfileRow>('SELECT * FROM user_profiles WHERE user_id = $1', [user.id]),
+          query<
+            ClassWatchRow & {
+              class_state: Pick<
+                ClassStateRow,
+                | 'title'
+                | 'instructor_name'
+                | 'seats_available'
+                | 'seats_capacity'
+                | 'location'
+                | 'meeting_times'
+                | 'last_checked_at'
+              > | null;
+            }
+          >(
+            `SELECT w.*,
+                    (SELECT row_to_json(cs.*)::jsonb
+                     FROM class_states cs
+                     WHERE cs.class_nbr = w.class_nbr AND cs.term = w.term
+                     LIMIT 1) AS class_state
+             FROM class_watches w
+             WHERE w.user_id = $1
+             ORDER BY w.created_at DESC`,
+            [user.id]
+          ),
+          query<
+            NotificationSentRow & {
+              class_watch: Pick<
+                ClassWatchRow,
+                'term' | 'subject' | 'catalog_nbr' | 'class_nbr'
+              > | null;
+            }
+          >(
+            `SELECT n.*,
+                    (SELECT row_to_json(cw.*)::jsonb
+                     FROM class_watches cw
+                     WHERE cw.id = n.class_watch_id
+                     LIMIT 1) AS class_watch
+             FROM notifications_sent n
+             INNER JOIN class_watches cw ON cw.id = n.class_watch_id
+             WHERE cw.user_id = $1
+             ORDER BY n.sent_at DESC`,
+            [user.id]
+          ),
         ]);
-        const { data: profile } = profileResult;
-        const { data: watches } = watchesResult;
-        const { data: notifications } = notificationsResult;
+
+        const profile = profileRows[0] ?? null;
         const exportData = {
           export_info: {
             exported_at: new Date().toISOString(),

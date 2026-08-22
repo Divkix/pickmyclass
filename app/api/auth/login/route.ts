@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
         // FRESH read so a just-disabled account cannot log back in.
         if (data?.user) {
-          const authState = await readAuthorizationState(supabase, data.user.id, {
+          const authState = await readAuthorizationState(data.user.id, {
             cache: false,
           });
 

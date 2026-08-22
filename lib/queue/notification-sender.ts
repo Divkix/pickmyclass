@@ -1,19 +1,11 @@
+import { callFunction } from '@/lib/db/client';
+import type { WatcherForSectionsRpcRow } from '@/lib/db/types';
 import { deleteNotificationRecords, tryRecordNotificationsBatch } from '@/lib/db/queries';
 import { type ClassInfo, type OutboundEmail, sendBatchEmailsOptimized } from '@/lib/email/send';
 import { log } from '@/lib/log';
 import type { ChangeResult } from '@/lib/queue/change-detector';
 import { type SectionRef, sectionRefKey } from '@/lib/section-ref';
-import { getServiceClient } from '@/lib/supabase/service';
 import type { NotificationType } from '@/lib/types/notification';
-/**
- * A single watcher returned from the DB RPC.
- */
-interface Watcher {
-  user_id: string;
-  email: string;
-  watch_id: string;
-}
-
 /**
  * Parameters for sending section notifications.
  *
@@ -51,28 +43,30 @@ export async function sendSectionNotifications(
 ): Promise<SentNotification[]> {
   const { ref, classInfo, changes, emailBinding, fromEmail } = params;
   const scope = sectionRefKey(ref);
-  const serviceClient = getServiceClient();
 
   // Step 1: Fetch watchers — scoped to the full SectionRef (class_nbr + term).
   // A section number repeats across terms, so the term filter is what prevents
   // a transition in one term from selecting watchers in another.
-  const { data: watchers, error: watchersError } = await serviceClient.rpc(
-    'get_watchers_for_sections',
-    { section_numbers: [ref.class_nbr], p_term: ref.term }
-  );
-
-  if (watchersError) {
-    throw new Error(`Failed to fetch watchers for ${scope}: ${watchersError.message}`);
+  let watchers: WatcherForSectionsRpcRow[];
+  try {
+    watchers = await callFunction<WatcherForSectionsRpcRow>('get_watchers_for_sections', [
+      [ref.class_nbr],
+      ref.term,
+    ]);
+  } catch (watchersError) {
+    throw new Error(
+      `Failed to fetch watchers for ${scope}: ${watchersError instanceof Error ? watchersError.message : watchersError}`
+    );
   }
 
-  if (!watchers || watchers.length === 0) {
+  if (watchers.length === 0) {
     log('NotificationSender').info(`No watchers found for ${scope}`);
     return [];
   }
 
   log('NotificationSender').info(`Found ${watchers.length} watchers for ${scope}`);
 
-  const allWatchIds = watchers.map((w: Watcher) => w.watch_id);
+  const allWatchIds = watchers.map((w) => w.watch_id);
 
   // Step 2: Claim notification slots for each change type
   async function claimSlots(type: NotificationType): Promise<Set<string>> {
@@ -122,8 +116,7 @@ export async function sendSectionNotifications(
 
   // Step 3: Construct email payloads
   const emailsToSend: Array<OutboundEmail & { watchId: string }> = [];
-  // SAFETY: get_watchers_for_sections RPC returns Watcher rows per contract; narrow generic Json array at boundary
-  for (const watcher of watchers as Watcher[]) {
+  for (const watcher of watchers) {
     if (claimedSeatIds.has(watcher.watch_id)) {
       emailsToSend.push({
         to: watcher.email,

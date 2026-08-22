@@ -1,4 +1,18 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
+
+vi.mock('@/lib/db/client', () => ({
+  execute: vi.fn().mockResolvedValue(1),
+  queryOne: vi.fn(),
+  query: vi.fn(),
+  queryScalar: vi.fn(),
+  callFunction: vi.fn(),
+  callFunctionScalar: vi.fn(),
+  getClient: vi.fn(),
+  getPool: vi.fn(),
+  _resetPool: vi.fn(),
+}));
+
+import { execute } from '@/lib/db/client';
 import {
   applyFirstWatchGuard,
   completeOnFirstWatch,
@@ -111,40 +125,54 @@ describe('lib/onboarding', () => {
   });
 
   describe('applyFirstWatchGuard', () => {
-    it('guards only on onboarding_completed_at IS NULL (not skipped_at)', () => {
-      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown at I/O boundary
-      const is = vi.fn(function (this: OnboardingState) {
-        return this;
-      });
-      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
-      const builder = { is } as Parameters<typeof applyFirstWatchGuard>[0];
+    it('executes UPDATE with onboarding_completed_at IS NULL guard', async () => {
+      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+      (execute as ReturnType<typeof vi.fn>).mockClear();
+      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue(1);
 
-      applyFirstWatchGuard(builder);
+      await applyFirstWatchGuard('user-1');
 
-      expect(is).toHaveBeenCalledTimes(1);
-      expect(is).toHaveBeenCalledWith('onboarding_completed_at', null);
+      expect(execute).toHaveBeenCalledTimes(1);
+      const [sql, params] =
+        // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+        (execute as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(sql).toContain('onboarding_completed_at IS NULL');
+      expect(sql).toContain('WHERE user_id = $2');
+      expect(params[1]).toBe('user-1');
     });
 
-    it('never guards on onboarding_skipped_at (skipped users still complete)', () => {
-      const calls: Array<[string, null]> = [];
-      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
-      const builder = {
-        is(column: string, value: null) {
-          calls.push([column, value]);
-          return this;
-        },
-      } as Parameters<typeof applyFirstWatchGuard>[0];
+    it('never guards on onboarding_skipped_at (skipped users still complete)', async () => {
+      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+      (execute as ReturnType<typeof vi.fn>).mockClear();
+      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue(1);
 
-      applyFirstWatchGuard(builder);
+      await applyFirstWatchGuard('user-1');
 
-      expect(calls.find(([column]) => column === 'onboarding_skipped_at')).toBeUndefined();
+      const [sql] =
+        // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+        (execute as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(sql).not.toContain('onboarding_skipped_at');
     });
 
-    it('returns the guarded builder so the call is awaitable', () => {
-      const sentinel = { is: () => sentinel };
-      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
-      const builder = sentinel as Parameters<typeof applyFirstWatchGuard>[0];
-      expect(applyFirstWatchGuard(builder)).toBe(sentinel);
+    it('sets onboarding_completed_at to a current timestamp', async () => {
+      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+      (execute as ReturnType<typeof vi.fn>).mockClear();
+      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue(1);
+
+      const before = new Date().getTime();
+      await applyFirstWatchGuard('user-1');
+      const after = new Date().getTime();
+
+      const params =
+        // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+        (execute as ReturnType<typeof vi.fn>).mock.calls[0][1] as unknown[];
+      // SAFETY: params[0] is the ISO timestamp string passed to the UPDATE query
+      const timestamp = new Date(params[0] as string).getTime();
+      expect(timestamp).toBeGreaterThanOrEqual(before);
+      expect(timestamp).toBeLessThanOrEqual(after);
     });
   });
 

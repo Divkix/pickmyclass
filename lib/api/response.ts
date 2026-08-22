@@ -7,7 +7,7 @@ type JsonValue =
   | null
   | JsonValue[]
   | { [key: string]: JsonValue | undefined };
-type ApiData = Record<string, JsonValue>;
+type ApiData = Record<string, unknown>;
 /**
  * Standard API response envelope helpers.
  *
