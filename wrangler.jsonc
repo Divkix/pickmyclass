@@ -112,14 +112,13 @@
   // - UNSUBSCRIBE_SIGNING_SECRET (generate with: openssl rand -hex 32)
   //
   // Hyperdrive binding — PlanetScale Postgres connection.
-  // Create with: wrangler hyperdrive create PICKMYCLASS_HYPERDRIVE \
+  // Created with: wrangler hyperdrive create HYPERDRIVE \
   //   --connection-string="postgres://...planetscale..." --caching-disabled
-  // Then paste the generated ID below. For local dev, set
-  // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_PICKMYCLASS_HYPERDRIVE env var.
+  // For local dev, set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var.
   "hyperdrive": [
     {
-      "binding": "PICKMYCLASS_HYPERDRIVE",
-      "id": "<HYPERDRIVE_ID>",
+      "binding": "HYPERDRIVE",
+      "id": "4dd6f09232fe48e181099b2db23d889a",
     },
   ],
 }

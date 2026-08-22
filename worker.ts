@@ -21,7 +21,7 @@ import { log } from './lib/log';
 // not at module load time, so it's safe even if env isn't populated during initial
 // module evaluation.
 setConnectionStringGetter(() => {
-  const hyperdrive = (env as unknown as Env).PICKMYCLASS_HYPERDRIVE;
+  const hyperdrive = (env as unknown as Env).HYPERDRIVE;
   return hyperdrive?.connectionString ?? '';
 });
 

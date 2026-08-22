@@ -41,7 +41,7 @@ export interface Env extends Record<string, unknown> {
   PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
 
   // Database access via Cloudflare Hyperdrive (PlanetScale Postgres)
-  PICKMYCLASS_HYPERDRIVE: Hyperdrive;
+  HYPERDRIVE: Hyperdrive;
 
   // ASU API credentials
   ASU_API_BASE_URL: string;

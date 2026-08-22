@@ -13,11 +13,11 @@
  *   the pipeline's read-modify-write on `class_states` must never serve stale rows.
  *
  * Connection string registration: the worker entry point (worker.ts) calls
- * `setConnectionStringGetter()` with a function that reads `env.PICKMYCLASS_HYPERDRIVE.connectionString`.
+ * `setConnectionStringGetter()` with a function that reads `env.HYPERDRIVE.connectionString`.
  * This avoids importing `cloudflare:workers` at module level, which would break the
  * vinext client-side build (the virtual module only exists in the Workers runtime).
  *
- * Local dev: set `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_PICKMYCLASS_HYPERDRIVE` env var
+ * Local dev: set `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` env var
  * pointing at a local Postgres instance (e.g. docker).
  *
  * Tests: mock this module via `vi.mock('@/lib/db/client', ...)`.
@@ -54,7 +54,7 @@ function getConnectionString(): string {
 
   // Local dev: wrangler dev bypasses Hyperdrive; use the env var
   const localConnStr =
-    process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_PICKMYCLASS_HYPERDRIVE ||
+    process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE ||
     process.env.DATABASE_URL;
   if (localConnStr) {
     return localConnStr;
@@ -62,7 +62,7 @@ function getConnectionString(): string {
 
   throw new Error(
     'No database connection string available. Call setConnectionStringGetter() from ' +
-      'the worker entry point, or set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_PICKMYCLASS_HYPERDRIVE ' +
+      'the worker entry point, or set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE ' +
       'env var for local dev.'
   );
 }
