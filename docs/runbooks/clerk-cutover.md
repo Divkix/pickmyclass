@@ -8,7 +8,8 @@
 - [x] Clerk production instance (`clerk.pickmyclass.app`), custom domain CNAME `clerk → frontend-api.clerk.services` (grey-cloud), session claim `{"ext_id":"{{user.external_id || user.id}}"}` (Dashboard → Sessions → Customize token), `username OFF` (failed 175 imports otherwise).
 - [x] Clerk secrets via `wrangler secret put`: `CLERK_SECRET_KEY` (`sk_live_...`), `CLERK_PUBLISHABLE_KEY` (`pk_live_Y2xlcmsucGlja215Y2xhc3MuYXBwJA` literal also in `lib/clerk/config.ts`), `CLERK_JWT_KEY` (PEM 9 lines), `CLERK_WEBHOOK_SIGNING_SECRET` (`whsec_...` at `POST /api/webhooks/clerk` `user.created/updated/deleted`). Local `.dev.vars` (0600, gitignored) holds `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` alias.
 - [x] Google Cloud Console: existing OAuth client + redirect `https://clerk.pickmyclass.app/v1/oauth_callback` + origins `https://pickmyclass.app` + `https://clerk.pickmyclass.app` → paste Client ID/Secret into Dashboard → Social Connections → Google (scopes `openid email profile`).
-- [x] Supabase pooler URL (`postgresql://...pooler.supabase.com:5432/postgres`, no IPv4 add-on), kept read-only after cutover. PlanetScale schema `supabase/migrations/20260822000000_planetscale_schema.sql` already applied (includes `users.clerk_user_id TEXT UNIQUE`).
+- [x] Supabase pooler URL (`postgresql://...pooler.supabase.com:5432/postgres`, no IPv4 add-on), kept read-only after cutover. PlanetScale schema `db/migrations/20260822000000_planetscale_schema.sql` already applied (includes `users.clerk_user_id TEXT UNIQUE`).
+- [ ] Clerk Dashboard Paths (manual, set before/with deploy of #354): Sign-in path `/sign-in`, Sign-up path `/sign-up`, custom domain `clerk.pickmyclass.app`. The hosted components render at those routes with `routing="path"`.
 
 ## Pre-freeze (T-30 min, no downtime yet)
 
@@ -87,19 +88,13 @@ curl -I https://pickmyclass.app --resolve clerk... # 200 + CSP *.clerk.accounts.
 
 ## Smoke (all must 200/expected, <5 min)
 
-1. **Register** → Clerk `createUser` → `ok(null)` both duplicate & new (anti-enumeration), no `form_identifier_exists` leak.
-2. **Duplicate register** same email → still `200` `ok(null)`.
-3. **Email verify** → `/api/auth/email-verified` or Clerk email link → `user_profiles` marks verified + `invalidateAuthorizationState`.
-4. **Login** → `verifyEmailPassword` + ticket → dashboard. **Lockout** 5/15m → `423` on 6th, `check-lockout` omits `attempts`, WAF ~20/min/IP holds.
-5. **Google OAuth** → `https://clerk.pickmyclass.app/v1/oauth_callback` → `app/auth/post-oauth` → re-link by verified email (existing `chauhan.divanshu@gmail.com:Div2521#` + Google provider both map to `externalId 441c99ce...`, username `chauhan.divanshu_441c`).
-6. **Consent gate** → protected `/dashboard` redirects to `/consent` until `age_verified && agreed_to_terms`, then `invalidateAuthorizationState`.
-7. **Watch create** → `POST /api/class-watches` → `create_class_watch_with_limit` RPC advisory lock enforces `MAX_WATCHES_PER_USER` (10).
-8. **Cron → queue → processSection → Email:** `curl -H "Authorization: Bearer $CRON_SECRET" /api/cron` enqueues stagger groups; `worker.ts queue()` direct `processSection()` ordering (reset → upsert `(class_nbr,term)` **before** send; first-observation guard; `non_reserved_seats ?? seats_available`) → `tryRecordNotificationsBatch` claims + `sendBatchEmailsOptimized` + rollback failed. DLQ `pickmyclass-dlq` always ack.
-9. **Unsubscribe** → HMAC `UNSUBSCRIBE_SIGNING_SECRET` 90d `?token=` (`List-Unsubscribe` + `One-Click`) → updates `notifications_enabled`.
-10. **Admin** → `verifyAdmin()` fresh read on `app/admin/layout.tsx` + each admin page + RLS; demote → 30s cache invalidated.
-11. **Polling** → `useRealtimeClassStates` polls `GET /api/class-watches/states` with `useMemo`'d `classNumbers` (not Realtime channel); map keyed `sectionRefKey`.
+1. **Sign-up** → hosted `/sign-up` (Clerk `<SignUp>` component) creates the account; email verification completes inside the hosted flow; the `/api/webhooks/clerk` mirror writes `user_profiles` and the edge gate stops bouncing within its 30s cache TTL.
+2. **Duplicate sign-up** same email → Clerk's own "identifier already taken" error renders in the component (no server anti-enumeration route anymore).
+3. **Unverified resume** → signed-in but unverified user hitting a protected page bounces to `/sign-in`, where the hosted flow offers the verification step (`/sign-in` is allow-listed in `decideGate` rule ② to avoid a self-redirect loop).
+4. **Sign-in** → hosted `/sign-in` (`<SignIn>`), password checked by Clerk → dashboard. **Lockout** is Clerk Attack Protection's job now — no `/api/auth/login` ticket flow, no 423, no `check-lockout` endpoint.
+5. **Google OAuth** → hosted connection → lands on `/auth/post-oauth` via the SignUp fallback redirect → mirror-race repair + re-link by verified email (`externalId` mapping from the 2026-08-22 import still keys this).
 12. **Health** → `GET /api/monitoring/health` DB + ASU API + CronLock + email + config 200.
-13. **Sign-out** → `AuthButton` `await clerk.signOut()` (clears `__session` client) → `POST /api/auth/signout` (`revokeSession` + `CLERK_COOKIES_TO_CLEAR` 6 names) → `window.location.href='/login'` hard redirect (not bounce). Bug before 773b5d4e was only server revoke leaving client `__session` alive → decrypted blank render.
+13. **Sign-out** → `AuthButton` `await clerk.signOut()` (clears `__session` client) → `POST /api/auth/signout` (`revokeSession` + `CLERK_COOKIES_TO_CLEAR`) → `window.location.href='/sign-in'` hard redirect (not bounce; server-revoke-only used to leave client `__session` alive).
 
 ## Unfreeze
 
@@ -107,9 +102,8 @@ curl -I https://pickmyclass.app --resolve clerk... # 200 + CSP *.clerk.accounts.
 
 ## Rollback (data loss window = freeze-to-cutover writes, ∼5 min)
 
-- **Auth rollback:** `wrangler secret put` old `CLERK_*` → revert `lib/clerk/config.ts` literal, or repoint to Supabase GoTrue (requires re-enabling `auth` project). Imported Clerk rows have `externalId`; rollback keeps them but Supabase `auth.users` still readable — replays not needed.
-- **Data rollback:** repoint `HYPERDRIVE` binding to Supabase connection string (`wrangler hyperdrive update`) or revert `wrangler.jsonc` binding + `wrangler deploy`.
-- **Code rollback:** `git revert` Clerk commits (1a40540, 99cd5e6, a9f29eb) — Supabase code still in `lib/supabase/` deprecated but functional for 14 days.
+- **Data rollback (the only remaining path):** repoint `HYPERDRIVE` binding to Supabase connection string (`wrangler hyperdrive update`) or revert `wrangler.jsonc` binding + `wrangler deploy`.
+  Auth-plane rollback via code is gone: since #354 the `lib/supabase/*` shims and the custom login/register pages no longer exist, so `git revert` cannot restore a working Supabase auth stack — reverting auth means re-importing/re-enabling GoTrue at the Clerk/Supabase project level (ops task), not a code revert.
 - Document data-loss caveat in incident channel: any watches created during window on PlanetScale must be manually re-created or `pg_dump`'d and replayed.
 
 ## Known windows/risks

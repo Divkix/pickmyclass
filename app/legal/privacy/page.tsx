@@ -50,7 +50,7 @@ export default async function PrivacyPolicyPage() {
                   </li>
                   <li>
                     <strong>Password:</strong> Stored securely using industry-standard encryption
-                    (handled by Supabase Auth)
+                    (handled by Clerk Authentication)
                   </li>
                   <li>
                     <strong>Class Preferences:</strong> The class sections you choose to monitor
@@ -128,9 +128,9 @@ export default async function PrivacyPolicyPage() {
                     <strong>Service Providers:</strong> We use third-party services to operate:
                     <ul className="list-circle pl-6 mt-2 space-y-1">
                       <li>
-                        Supabase (database and authentication) - see{' '}
+                        Clerk (authentication and account management) - see{' '}
                         <a
-                          href="https://supabase.com/privacy"
+                          href="https://clerk.com/privacy"
                           className="text-primary underline"
                           target="_blank"
                           rel="noopener noreferrer"
@@ -192,10 +192,10 @@ export default async function PrivacyPolicyPage() {
                   <tbody>
                     <tr>
                       <td className="border border-border px-4 py-2 font-mono text-sm">
-                        sb-*-auth-token
+                        __session
                       </td>
                       <td className="border border-border px-4 py-2">
-                        Supabase authentication session
+                        Clerk authentication session
                       </td>
                       <td className="border border-border px-4 py-2">7 days (session)</td>
                     </tr>
@@ -333,8 +333,8 @@ export default async function PrivacyPolicyPage() {
                     <strong>Encryption:</strong> All data transmitted over HTTPS (TLS 1.3)
                   </li>
                   <li>
-                    <strong>Password Storage:</strong> Passwords are hashed using bcrypt (handled by
-                    Supabase)
+                    <strong>Password Storage:</strong> Passwords are hashed by Clerk and are never
+                    accessible to our servers
                   </li>
                   <li>
                     <strong>Database Security:</strong> Row Level Security (RLS) policies prevent

@@ -2,7 +2,7 @@
  * Hand-written row types for all database tables.
  *
  * Replaces the Supabase-generated `database.types.ts`. These types mirror the
- * vanilla-PG schema in `supabase/migrations/20260822000000_planetscale_schema.sql`
+ * vanilla-PG schema in `db/migrations/20260822000000_planetscale_schema.sql`
  * and are the single source of truth for row shapes across the app.
  */
 
@@ -99,11 +99,6 @@ export interface WatcherForSectionsRpcRow {
 export interface SectionRefRpcRow {
   class_nbr: string;
   term: string;
-}
-
-export interface IncrementFailedAttemptsRpcRow {
-  attempts: number;
-  locked: boolean;
 }
 
 export interface SkipOnboardingRpcRow {

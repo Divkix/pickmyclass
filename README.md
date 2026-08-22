@@ -77,7 +77,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/db/client.ts` | Hyperdrive `pg` Pool + `setConnectionStringGetter` seam |
 | `lib/db/queries.ts` | Database query helpers (SECURITY DEFINER RPCs via `pg`) |
 | `lib/db/users.ts` | Clerk user mirror (`clerk_user_id`, `upsertUserFromClerkWebhook`) |
-| `lib/auth/clerk-session.ts` | Edge JWT verify (`getSessionIdentity`, `verifyEmailPassword`, `createSignInTicket`) |
+| `lib/auth/clerk-session.ts` | Edge JWT verify (`getSessionIdentity`, `revokeSession`, `revokeAllUserSessions`) |
 | `lib/auth/clerk-cookies.ts` | Clerk cookie prefix detection + `CLERK_COOKIES_TO_CLEAR` |
 | `lib/clerk/config.ts` | Committed `CLERK_PUBLISHABLE_KEY` literal + CSP |
 | `lib/asu/api.ts` | ASU Class Search API client (direct HTTP) |
@@ -90,19 +90,15 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/cache/ttl-cache.ts` | TTL cache for ASU API responses |
 | `lib/api/schemas.ts` | Queue message validation schemas |
 | `proxy.ts` | vinext middleware — auth gate (Clerk), redirects, security headers + CSP (see `lib/auth/decide-gate.ts`) |
-| `lib/auth/login-attempt-policy.ts` | Brute-force lockout policy and persistence adapter |
 | `lib/auth/disposable-email.ts` | Disposable email validation |
+| `app/sign-in/[[...sign-in]]/page.tsx`, `app/sign-up/[[...sign-up]]/page.tsx` | Clerk hosted `<SignIn>`/`<SignUp>` components (`routing="path"`) |
 
 ### API Routes
 
 | Route | Methods | Description |
 |-------|---------|-------------|
-| `app/api/auth/check-lockout/route.ts` | POST | Check account lockout status (WAF rate-limited, omits `attempts`) |
-| `app/api/auth/login/route.ts` | POST | User login with lockout protection (Clerk `verifyEmailPassword` + ticket) |
-| `app/api/auth/register/route.ts` | POST | User registration (Clerk `createUser`, anti-enumeration, disposable-email fail-open) |
 | `app/api/auth/signout/route.ts` | POST | Sign out (`clerk.signOut` + `revokeSession` + clear `CLERK_COOKIES_TO_CLEAR`) |
 | `app/api/auth/consent/route.ts` | POST | Record `age_verified`/`agreed_to_terms` |
-| `app/api/auth/email-verified/route.ts` | POST | Mark email verified |
 | `app/api/webhooks/clerk/route.ts` | POST | Svix `verifyWebhook` (`whsec_...`) → `upsertUserFromClerkWebhook` (`user.created/updated/deleted`) |
 | `app/auth/post-oauth/route.ts` | GET | OAuth consent + `ensureUserMirror` |
 | `app/api/class-watches/route.ts` | GET, POST, DELETE | Create, read, and delete class watches (no update) |
@@ -144,8 +140,7 @@ pnpm install
 
 ### 2. Set Up PlanetScale + Hyperdrive
 
-1. Create PlanetScale database (`pickmyclass`) in your region.
-2. Apply migrations (`supabase/migrations/*.sql` — vanilla PG; last definition wins; `SET search_path=public` + `REVOKE/GRANT` for `SECURITY DEFINER` funcs).
+2. Apply migrations (`db/migrations/*.sql` — vanilla PG; last definition wins; `SET search_path=public` + `REVOKE/GRANT` for `SECURITY DEFINER` funcs).
 3. Create Hyperdrive:
    ```bash
    wrangler hyperdrive create HYPERDRIVE \
@@ -210,8 +205,7 @@ The `app/legal/` directory contains Terms/Privacy with `support@pickmyclass.app`
 ### 9. Verify Deployment
 
 - Health: `https://your-domain.com/api/monitoring/health`
-- Cron triggers: Dashboard → Workers → Triggers (`0,30 * * * *` + `0 4 * * *`)
-- Smoke (see `docs/runbooks/clerk-cutover.md`): register → duplicate anti-enum (200 anti-enum) → Clerk email verify → login → Google re-link → consent gate → watch create limit (`create_class_watch_with_limit` advisory lock) → cron→queue→processSection→email → unsubscribe HMAC → admin pages → polling
+- Smoke (see `docs/runbooks/clerk-cutover.md`): hosted `/sign-up` → email verify in flow → hosted `/sign-in` → Google OAuth lands `/auth/post-oauth` → consent gate → watch create limit (`create_class_watch_with_limit` advisory lock) → cron→queue→processSection→email → unsubscribe HMAC → admin pages → polling
 
 ## Development
 
@@ -234,7 +228,7 @@ pnpm run build            # Build application
 pnpm run lint             # Run Oxlint linter
 pnpm run lint:fix         # Fix lint issues
 pnpm run format           # Format code with Oxfmt
-pnpm run knip             # Find unused exports/dependencies (ignore @supabase/ssr/standardwebhooks, lib/supabase/*)
+pnpm run knip             # Find unused exports/dependencies
 pnpm run cf-typegen       # Generate TypeScript types for Cloudflare env (lib/cloudflare-env.d.ts)
 pnpm run type-check       # tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
 ```
@@ -242,9 +236,7 @@ pnpm run type-check       # tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
 ### Database Commands
 
 ```bash
-# PlanetScale is vanilla PG: apply migrations via psql/pg client or Supabase CLI locally
-pnpm exec supabase db reset              # local (if using Supabase CLI locally for PG)
-pnpm exec supabase migration new <name>  # Create new migration (timestamp-prefixed)
+# PlanetScale is vanilla PG: apply db/migrations/*.sql by hand via any Postgres client (psql) — no CLI workflow
 ```
 
 ## Tech Stack
@@ -261,20 +253,17 @@ pnpm exec supabase migration new <name>  # Create new migration (timestamp-prefi
 app/                         # App Router
   ├── about/                 # About page
   ├── api/                   # API endpoints (see table above)
-  ├── auth/callback/         # Clerk AuthenticateWithRedirectCallback (page.tsx) + post-oauth (route.ts)
   ├── admin/                 # Admin panel (users, classes, dashboard)
+  ├── auth/post-oauth/       # OAuth landing (route.ts: mirror repair + consent routing)
   ├── blog/                  # Blog pages (9 posts + RSS feed)
   ├── dashboard/             # Main dashboard with polling updates
   ├── dashboard/add/         # Add class watch page
   ├── faq/                   # FAQ page
-  ├── forgot-password/       # Forgot password flow (Clerk ticket)
   ├── go/[uni]/              # University redirect links
   ├── legal/                 # Legal pages (terms, privacy)
-  ├── login/                 # Login page (Clerk ticket OAuth)
-  ├── register/              # Registration page (Clerk createUser)
-  ├── reset-password/        # Reset password flow (Clerk reset_password_email_code)
+  ├── sign-in/[[...sign-in]]/ # Clerk hosted <SignIn> (path routing)
+  ├── sign-up/[[...sign-up]]/ # Clerk hosted <SignUp> (path routing)
   ├── settings/              # User settings
-  ├── verify-email/          # Email verification
   ├── layout.tsx             # Root layout (ClerkClientProvider)
   └── page.tsx               # Landing page
 
@@ -291,7 +280,6 @@ lib/
   ├── email/                 # Email templates + Cloudflare Email Service
   ├── hooks/                 # React hooks (polling useRealtimeClassStates, pull-to-refresh, swipe)
   ├── queue/                 # Queue processing (change detection, notification sending, DLQ)
-  ├── supabase/              # Deprecated (client/server kept for compat, knip-ignored)
   ├── types/                 # TypeScript type definitions
   ├── utils/                 # Utility functions (crypto, rate-my-professor, seat badge, time format)
   └── utils.ts               # shadcn/ui utility (cn function)
@@ -303,7 +291,7 @@ components/
   ├── ui/                    # shadcn/ui components
   └── ...                    # Feature components (ClerkClientProvider, AuthButton, watch cards)
 
-supabase/
+db/
   └── migrations/            # Database migrations (PG history, timestamp-prefixed)
 
 worker.ts                    # Custom Cloudflare Worker

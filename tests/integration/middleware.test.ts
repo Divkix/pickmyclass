@@ -7,31 +7,6 @@ const { mockGetUser, mockSignOut, mockQueryOne } = vi.hoisted(() => ({
   mockQueryOne: vi.fn(),
 }));
 
-// Captures the cookies adapter passed to createServerClient so tests can
-// simulate @supabase/ssr writing cookies through it (e.g. signOut deletions).
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-type MockCookieAdapter = {
-  getAll: () => { name: string; value: string; options?: Record<string, JsonValue | Date> }[];
-  setAll: (
-    cookies: { name: string; value: string; options?: Record<string, JsonValue | Date> }[]
-  ) => void;
-};
-let mockCookiesAdapter: MockCookieAdapter | null = null;
-
-vi.mock('@supabase/ssr', () => ({
-  createServerClient: vi.fn((...args: unknown[]) => {
-    // SAFETY: test double narrows mock args to known position; shape validated by test harness
-    const options = args[2] as { cookies?: MockCookieAdapter } | undefined;
-    mockCookiesAdapter = options?.cookies ?? null;
-    return {
-      auth: {
-        getUser: mockGetUser,
-        signOut: mockSignOut,
-      },
-    };
-  }),
-}));
-
 vi.mock('@/lib/db/client', () => ({
   queryOne: mockQueryOne,
   query: vi.fn(),
@@ -63,7 +38,7 @@ const createRequest = (pathname: string): NextRequest => {
 const createAuthenticatedRequest = (pathname: string): NextRequest => {
   return new NextRequest(new URL(pathname, 'http://localhost:3000'), {
     headers: new Headers({
-      cookie: 'sb-test-auth-token=fake-token',
+      cookie: '__session=test-clerk-jwt',
     }),
   });
 };
@@ -112,49 +87,23 @@ describe.skip('proxy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearAuthorizationStateCache();
-    mockCookiesAdapter = null;
-    // Simulate @supabase/ssr: signOut writes deletion cookies through the
-    // cookie adapter passed to createServerClient.
-    mockSignOut.mockImplementation(async () => {
-      mockCookiesAdapter?.setAll([
-        { name: 'sb-test-auth-token', value: '', options: { expires: new Date(0) } },
-      ]);
-      return { error: null };
-    });
+    mockSignOut.mockResolvedValue({ error: null });
   });
 
   describe('public routes', () => {
-    it('should allow access to /login without authentication', async () => {
+    it('should allow access to /sign-in without authentication', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/login');
+      const request = createRequest('/sign-in');
       const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
 
-    it('should allow access to /register without authentication', async () => {
+    it('should allow access to /sign-up without authentication', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/register');
-      const response = await proxy(request);
-
-      expect(response.status).toBe(200);
-    });
-
-    it('should allow access to /forgot-password without authentication', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-
-      const request = createRequest('/forgot-password');
-      const response = await proxy(request);
-
-      expect(response.status).toBe(200);
-    });
-
-    it('should allow access to /reset-password without authentication', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-
-      const request = createRequest('/reset-password');
+      const request = createRequest('/sign-up');
       const response = await proxy(request);
 
       expect(response.status).toBe(200);
@@ -164,15 +113,6 @@ describe.skip('proxy', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/legal/privacy');
-      const response = await proxy(request);
-
-      expect(response.status).toBe(200);
-    });
-
-    it('should allow access to /auth/callback without authentication', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-
-      const request = createRequest('/auth/callback');
       const response = await proxy(request);
 
       expect(response.status).toBe(200);
@@ -190,7 +130,7 @@ describe.skip('proxy', () => {
     it('should allow access to /api/auth routes without authentication', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/api/auth/login');
+      const request = createRequest('/api/auth/signout');
       const response = await proxy(request);
 
       expect(response.status).toBe(200);
@@ -209,15 +149,6 @@ describe.skip('proxy', () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/api/queue/process-section');
-      const response = await proxy(request);
-
-      expect(response.status).toBe(200);
-    });
-
-    it('should allow access to auth email hook without authentication', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-
-      const request = createRequest('/api/auth/send-email-hook');
       const response = await proxy(request);
 
       expect(response.status).toBe(200);
@@ -243,24 +174,24 @@ describe.skip('proxy', () => {
   });
 
   describe('protected routes - unauthenticated access', () => {
-    it('should redirect unauthenticated users from /dashboard to /login', async () => {
+    it('should redirect unauthenticated users from /dashboard to /sign-in', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/dashboard');
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/login');
+      expect(response.headers.get('location')).toBe('http://localhost:3000/sign-in');
     });
 
-    it('should redirect unauthenticated users from /admin to /login', async () => {
+    it('should redirect unauthenticated users from /admin to /sign-in', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/admin');
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/login');
+      expect(response.headers.get('location')).toBe('http://localhost:3000/sign-in');
     });
 
     it('should pass through unauthenticated requests to non-protected API routes', async () => {
@@ -282,24 +213,24 @@ describe.skip('proxy', () => {
       expect(response.status).toBe(200);
     });
 
-    it('should redirect unauthenticated users from /dashboard/settings to /login', async () => {
+    it('should redirect unauthenticated users from /dashboard/settings to /sign-in', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/dashboard/settings');
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/login');
+      expect(response.headers.get('location')).toBe('http://localhost:3000/sign-in');
     });
 
-    it('should redirect unauthenticated users from /settings to /login', async () => {
+    it('should redirect unauthenticated users from /settings to /sign-in', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
       const request = createRequest('/settings');
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/login');
+      expect(response.headers.get('location')).toBe('http://localhost:3000/sign-in');
     });
 
     it('should allow access to root path without authentication', async () => {
@@ -313,42 +244,42 @@ describe.skip('proxy', () => {
   });
 
   describe('authenticated user redirects', () => {
-    it('should redirect verified user from /login to /dashboard', async () => {
+    it('should redirect verified user from /sign-in to /dashboard', async () => {
       mockGetUser.mockResolvedValue({
         data: { user: mockAuthenticatedUser },
         error: null,
       });
       mockQueryOne.mockResolvedValue(mockRegularProfile);
 
-      const request = createAuthenticatedRequest('/login');
+      const request = createAuthenticatedRequest('/sign-in');
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');
     });
 
-    it('should redirect verified admin user from /login to /admin', async () => {
+    it('should redirect verified admin user from /sign-in to /admin', async () => {
       mockGetUser.mockResolvedValue({
         data: { user: mockAuthenticatedUser },
         error: null,
       });
       mockQueryOne.mockResolvedValue(mockAdminProfile);
 
-      const request = createAuthenticatedRequest('/login');
+      const request = createAuthenticatedRequest('/sign-in');
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/admin');
     });
 
-    it('should redirect verified user from /register to /dashboard', async () => {
+    it('should redirect verified user from /sign-up to /dashboard', async () => {
       mockGetUser.mockResolvedValue({
         data: { user: mockAuthenticatedUser },
         error: null,
       });
       mockQueryOne.mockResolvedValue(mockRegularProfile);
 
-      const request = createAuthenticatedRequest('/register');
+      const request = createAuthenticatedRequest('/sign-up');
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
@@ -406,12 +337,12 @@ describe.skip('proxy', () => {
       const response = await proxy(createRequest('/consent'));
 
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/login');
+      expect(response.headers.get('location')).toBe('http://localhost:3000/sign-in');
     });
   });
 
   describe('email verification', () => {
-    it('should redirect unverified user to /verify-email', async () => {
+    it('should redirect unverified user to /sign-in', async () => {
       mockGetUser.mockResolvedValue({
         data: { user: mockUnverifiedUser },
         error: null,
@@ -422,30 +353,30 @@ describe.skip('proxy', () => {
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/verify-email');
+      expect(response.headers.get('location')).toBe('http://localhost:3000/sign-in');
     });
 
-    it('should allow unverified user to access /verify-email', async () => {
+    it('should allow unverified user to access /sign-in', async () => {
       mockGetUser.mockResolvedValue({
         data: { user: mockUnverifiedUser },
         error: null,
       });
       mockQueryOne.mockResolvedValue(mockRegularProfile);
 
-      const request = createRequest('/verify-email');
+      const request = createRequest('/sign-in');
       const response = await proxy(request);
 
       expect(response.status).toBe(200);
     });
 
-    it('should allow unverified user to access /auth/callback', async () => {
+    it('should allow unverified user to access /auth/post-oauth', async () => {
       mockGetUser.mockResolvedValue({
         data: { user: mockUnverifiedUser },
         error: null,
       });
       mockQueryOne.mockResolvedValue(mockRegularProfile);
 
-      const request = createRequest('/auth/callback');
+      const request = createRequest('/auth/post-oauth');
       const response = await proxy(request);
 
       expect(response.status).toBe(200);
@@ -466,7 +397,7 @@ describe.skip('proxy', () => {
   });
 
   describe('disabled accounts', () => {
-    it('should sign out and redirect disabled user to /login with error', async () => {
+    it('should sign out and redirect disabled user to /sign-in with error', async () => {
       mockGetUser.mockResolvedValue({
         data: { user: mockAuthenticatedUser },
         error: null,
@@ -480,37 +411,8 @@ describe.skip('proxy', () => {
       expect(mockSignOut).toHaveBeenCalled();
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe(
-        'http://localhost:3000/login?error=account_disabled'
+        'http://localhost:3000/sign-in?error=account_disabled'
       );
-    });
-
-    it('carries signOut cookie deletions on the disabled-account redirect', async () => {
-      mockGetUser.mockResolvedValue({
-        data: { user: mockAuthenticatedUser },
-        error: null,
-      });
-      mockQueryOne.mockResolvedValue(mockDisabledProfile);
-
-      const request = createAuthenticatedRequest('/dashboard');
-      const response = await proxy(request);
-
-      expect(mockSignOut).toHaveBeenCalled();
-      expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe(
-        'http://localhost:3000/login?error=account_disabled'
-      );
-      // signOut must delete the auth cookie on the redirect, otherwise the
-      // browser keeps a valid session and every request 307s again
-      // (ERR_TOO_MANY_REDIRECTS).
-      const deletedCookie = response.cookies.get('sb-test-auth-token');
-      expect(deletedCookie).toBeDefined();
-      expect(deletedCookie?.value).toBe('');
-      expect(deletedCookie?.expires).toBeDefined();
-      const expiresAt =
-        typeof deletedCookie?.expires === 'number'
-          ? deletedCookie.expires
-          : deletedCookie?.expires?.getTime();
-      expect(expiresAt).toBe(0);
     });
   });
 
@@ -576,7 +478,7 @@ describe.skip('proxy', () => {
     it('should add X-Frame-Options header', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/login');
+      const request = createRequest('/sign-in');
       const response = await proxy(request);
 
       expect(response.headers.get('X-Frame-Options')).toBe('DENY');
@@ -585,7 +487,7 @@ describe.skip('proxy', () => {
     it('should add X-Content-Type-Options header', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/login');
+      const request = createRequest('/sign-in');
       const response = await proxy(request);
 
       expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
@@ -594,7 +496,7 @@ describe.skip('proxy', () => {
     it('should add Referrer-Policy header', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/login');
+      const request = createRequest('/sign-in');
       const response = await proxy(request);
 
       expect(response.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
@@ -603,7 +505,7 @@ describe.skip('proxy', () => {
     it('should add Permissions-Policy header', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/login');
+      const request = createRequest('/sign-in');
       const response = await proxy(request);
 
       const permissionsPolicy = response.headers.get('Permissions-Policy');
@@ -615,7 +517,7 @@ describe.skip('proxy', () => {
     it('should add Strict-Transport-Security header in production', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/login');
+      const request = createRequest('/sign-in');
       const response = await proxy(request);
 
       expect(response.headers.get('Strict-Transport-Security')).toBe(
@@ -626,7 +528,7 @@ describe.skip('proxy', () => {
     it('should add Content-Security-Policy header', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/login');
+      const request = createRequest('/sign-in');
       const response = await proxy(request);
 
       const csp = response.headers.get('Content-Security-Policy');
@@ -638,7 +540,7 @@ describe.skip('proxy', () => {
       // Tests run with NODE_ENV=test (not 'development'), so proxy uses the
       // production CSP path with a nonce generated via crypto.randomUUID().
       // Non-public routes always generate a per-request nonce. Public anonymous
-      // GETs (e.g. /login) early-exit before nonce allocation for edge-cache
+      // GETs (e.g. /sign-in) early-exit before nonce allocation for edge-cache
       // efficiency and therefore have an empty nonce — test a non-public route.
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
@@ -676,7 +578,7 @@ describe.skip('proxy', () => {
     it('should keep style-src unsafe-inline in production CSP', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-      const request = createRequest('/login');
+      const request = createRequest('/sign-in');
       const response = await proxy(request);
 
       const csp = response.headers.get('Content-Security-Policy');
@@ -690,7 +592,7 @@ describe.skip('proxy', () => {
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/login');
+      expect(response.headers.get('location')).toBe('http://localhost:3000/sign-in');
       // Security headers should be present on redirects
       expect(response.headers.get('X-Frame-Options')).toBe('DENY');
       expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
@@ -712,7 +614,7 @@ describe.skip('proxy', () => {
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toContain('/login');
+      expect(response.headers.get('location')).toContain('/sign-in');
       // Security headers should be present on redirects
       expect(response.headers.get('X-Frame-Options')).toBe('DENY');
       expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
@@ -729,7 +631,7 @@ describe.skip('proxy', () => {
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/verify-email');
+      expect(response.headers.get('location')).toBe('http://localhost:3000/sign-in');
       // Security headers should be present on redirects
       expect(response.headers.get('X-Frame-Options')).toBe('DENY');
       expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
@@ -742,7 +644,7 @@ describe.skip('proxy', () => {
       });
       mockQueryOne.mockResolvedValue(mockRegularProfile);
 
-      const request = createAuthenticatedRequest('/login');
+      const request = createAuthenticatedRequest('/sign-in');
       const response = await proxy(request);
 
       expect(response.status).toBe(307);
@@ -786,7 +688,7 @@ describe.skip('proxy', () => {
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe(
-        'http://localhost:3000/login?error=account_disabled'
+        'http://localhost:3000/sign-in?error=account_disabled'
       );
 
       consoleSpy.mockRestore();
@@ -799,7 +701,7 @@ describe.skip('proxy', () => {
       });
       mockQueryOne.mockResolvedValue(null);
 
-      const request = createAuthenticatedRequest('/login');
+      const request = createAuthenticatedRequest('/sign-in');
       const response = await proxy(request);
 
       // getRedirectPath returns '/dashboard' when profile is null
@@ -853,7 +755,7 @@ describe.skip('proxy', () => {
       expect(mockQueryOne).toHaveBeenCalledTimes(2);
     });
 
-    it('should redirect to login after disabled account cache invalidation', async () => {
+    it('should redirect to sign-in after disabled account cache invalidation', async () => {
       mockGetUser.mockResolvedValue({
         data: { user: mockAuthenticatedUser },
         error: null,
@@ -873,7 +775,7 @@ describe.skip('proxy', () => {
       // Second request - should detect disabled account
       const request2 = createRequest('/dashboard');
       const response2 = await proxy(request2);
-      expect(response2.headers.get('location')).toContain('/login?error=account_disabled');
+      expect(response2.headers.get('location')).toContain('/sign-in?error=account_disabled');
       expect(mockSignOut).toHaveBeenCalled();
     });
 

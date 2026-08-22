@@ -4,12 +4,9 @@ import type { AuthorizationState } from '@/lib/auth/authorization-state';
  * Public routes that don't require authentication
  */
 const PUBLIC_ROUTES = [
-  '/login',
-  '/register',
-  '/forgot-password',
-  '/reset-password',
+  '/sign-in',
+  '/sign-up',
   '/legal',
-  '/auth/callback',
   '/auth/post-oauth',
   '/go',
   '/faq',
@@ -18,16 +15,14 @@ const PUBLIC_ROUTES = [
 
 /**
  * Auth pages that authenticated users should be redirected away from
- * NOTE: /reset-password is NOT included because users authenticate via recovery token
- * and need to access this page while authenticated to set their new password
  */
-const AUTH_PAGES = ['/login', '/register', '/forgot-password'];
+const AUTH_PAGES = ['/sign-in', '/sign-up'];
 
 /**
  * Protected route prefixes that require authentication.
  * Unknown routes outside these prefixes pass through to the app (which returns 404).
  */
-const PROTECTED_ROUTE_PREFIXES = ['/dashboard', '/admin', '/settings', '/verify-email', '/consent'];
+const PROTECTED_ROUTE_PREFIXES = ['/dashboard', '/admin', '/settings', '/consent'];
 
 function isPathPrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
@@ -90,23 +85,23 @@ export function decideGate(input: {
 
   // 1) disabled -> signout-and-redirect
   if (user && authState?.is_disabled) {
-    return { kind: 'signout-and-redirect', to: '/login?error=account_disabled' };
+    return { kind: 'signout-and-redirect', to: '/sign-in?error=account_disabled' };
   }
 
-  // 2) unverified -> /verify-email (allowlist)
+  // 2) unverified -> hosted sign-in (verification resumes inside the Clerk flow)
   if (user && !user.email_confirmed_at) {
-    const allowedPaths = ['/verify-email', '/auth/callback', '/auth/post-oauth', '/reset-password'];
+    const allowedPaths = ['/auth/post-oauth', '/sign-in'];
     const isAllowedPath = allowedPaths.some((p) => isPathPrefix(pathname, p));
     if (!isAllowedPath && pathname !== '/') {
-      return { kind: 'redirect', to: '/verify-email' };
+      return { kind: 'redirect', to: '/sign-in' };
     }
   }
 
   const isProtected = isProtectedRoute(pathname);
 
-  // 3) !user + protected -> /login
+  // 3) !user + protected -> /sign-in
   if (!user && isProtected) {
-    return { kind: 'redirect', to: '/login' };
+    return { kind: 'redirect', to: '/sign-in' };
   }
 
   // 4) verified + lacksConsent + protected + !/consent -> /consent?next=...

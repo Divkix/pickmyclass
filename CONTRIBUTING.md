@@ -185,22 +185,9 @@ How did you test these changes?
 
 ### Database Changes
 
-1. Create migrations using Supabase CLI:
-   ```bash
-   pnpm exec supabase migration new <migration-name>
-   ```
-
-2. Test migrations locally before pushing:
-   ```bash
-   pnpm exec supabase db reset
-   ```
-
+1. Add a new timestamp-prefixed SQL file under `db/migrations/` (plain PG; **last definition wins** — to change an applied function, `CREATE OR REPLACE` it in a new file, never edit an applied one).
+2. Apply it by hand against PlanetScale with any Postgres client (`psql`) — there is no CLI push/reset workflow.
 3. Use Row Level Security (RLS) for all new tables
-
-4. Generate types after schema changes:
-   ```bash
-   pnpm exec supabase gen types typescript --linked > lib/supabase/database.types.ts
-   ```
 
 ### API Validation
 

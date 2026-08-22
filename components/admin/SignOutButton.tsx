@@ -18,7 +18,7 @@ export function SignOutButton({ variant = 'full', className }: SignOutButtonProp
     try {
       setIsLoading(true);
       await fetch('/api/auth/signout', { method: 'POST' });
-      window.location.href = '/login';
+      window.location.href = '/sign-in';
     } catch (error) {
       log('AdminSignOut').error('Sign-out failed:', error);
     } finally {

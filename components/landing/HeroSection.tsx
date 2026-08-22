@@ -48,13 +48,13 @@ export function HeroSection() {
             className="flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start"
             variants={staggerItem}
           >
-            <Link href="/register" className="w-full sm:w-auto">
+            <Link href="/sign-up" className="w-full sm:w-auto">
               <Button size="lg" variant="gradient" className="w-full text-base sm:w-auto">
                 <Mail className="size-5" aria-hidden="true" />
                 Get Started Free
               </Button>
             </Link>
-            <Link href="/login" className="w-full sm:w-auto">
+            <Link href="/sign-in" className="w-full sm:w-auto">
               <Button size="lg" variant="outline" className="w-full text-base sm:w-auto">
                 Sign In
               </Button>

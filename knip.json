@@ -2,25 +2,11 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": ["**/*.{ts,tsx}"],
   "entry": ["scripts/verify-migration.ts"],
-  "ignore": [
-    "components/ui/**",
-    "tests/mocks/**",
-    "lib/supabase/client.ts",
-    "lib/supabase/server.ts"
-  ],
-  "ignoreDependencies": [
-    "supabase",
-    "tailwindcss",
-    "tw-animate-css",
-    "cloudflare",
-    "oxlint",
-    "@supabase/ssr",
-    "standardwebhooks"
-  ],
+  "ignore": ["components/ui/**", "tests/mocks/**"],
+  "ignoreDependencies": ["tailwindcss", "tw-animate-css", "cloudflare", "oxlint"],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false,
   "ignoreIssues": {
-    "lib/db/users.ts": ["exports"],
-    "lib/supabase/config.ts": ["exports"]
+    "lib/db/users.ts": ["exports"]
   }
 }

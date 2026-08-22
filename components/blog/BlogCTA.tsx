@@ -11,7 +11,7 @@ export function BlogCTA({
   heading,
   description,
   ctaLabel = 'Start Tracking Free',
-  href = '/register',
+  href = '/sign-up',
 }: BlogCTAProps) {
   return (
     <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">

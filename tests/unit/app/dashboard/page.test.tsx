@@ -328,7 +328,7 @@ describe('DashboardPage', () => {
     const { container } = render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/login');
+      expect(mockReplace).toHaveBeenCalledWith('/sign-in');
     });
     expect(container).toBeEmptyDOMElement();
     expect(global.fetch).not.toHaveBeenCalled();

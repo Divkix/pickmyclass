@@ -25,13 +25,13 @@ describe('decideGate', () => {
         user: unverifiedUser,
         authState: disabledState,
       })
-    ).toEqual({ kind: 'signout-and-redirect', to: '/login?error=account_disabled' });
+    ).toEqual({ kind: 'signout-and-redirect', to: '/sign-in?error=account_disabled' });
   });
 
   it('disabled precedence even on public route', () => {
     expect(
-      decideGate({ pathname: '/login', search: '', user: verifiedUser, authState: disabledState })
-    ).toEqual({ kind: 'signout-and-redirect', to: '/login?error=account_disabled' });
+      decideGate({ pathname: '/sign-in', search: '', user: verifiedUser, authState: disabledState })
+    ).toEqual({ kind: 'signout-and-redirect', to: '/sign-in?error=account_disabled' });
   });
 
   it('disabled still wins with missing consent and api path', () => {
@@ -42,7 +42,7 @@ describe('decideGate', () => {
         user: verifiedUser,
         authState: disabledAdmin,
       })
-    ).toEqual({ kind: 'signout-and-redirect', to: '/login?error=account_disabled' });
+    ).toEqual({ kind: 'signout-and-redirect', to: '/sign-in?error=account_disabled' });
   });
 
   it('null authState with user not disabled allows (no crash)', () => {
@@ -52,7 +52,7 @@ describe('decideGate', () => {
   });
 
   // 2) unverified
-  it('unverified -> /verify-email for protected', () => {
+  it('unverified -> /sign-in for protected', () => {
     expect(
       decideGate({
         pathname: '/dashboard',
@@ -60,46 +60,24 @@ describe('decideGate', () => {
         user: unverifiedUser,
         authState: regularConsent,
       })
-    ).toEqual({ kind: 'redirect', to: '/verify-email' });
+    ).toEqual({ kind: 'redirect', to: '/sign-in' });
   });
 
-  it('unverified allowed /verify-email', () => {
+  it('unverified allowed /auth/post-oauth', () => {
     expect(
       decideGate({
-        pathname: '/verify-email',
-        search: '',
+        pathname: '/auth/post-oauth',
+        search: '?next=%2Fdashboard',
         user: unverifiedUser,
         authState: regularConsent,
       })
     ).toEqual({ kind: 'allow' });
   });
 
-  it('unverified allowed /verify-email/subpath (startsWith)', () => {
+  it('unverified allowed /sign-in (resumes verification in hosted flow)', () => {
     expect(
       decideGate({
-        pathname: '/verify-email/something',
-        search: '',
-        user: unverifiedUser,
-        authState: regularConsent,
-      })
-    ).toEqual({ kind: 'allow' });
-  });
-
-  it('unverified allowed /auth/callback', () => {
-    expect(
-      decideGate({
-        pathname: '/auth/callback',
-        search: '?code=123',
-        user: unverifiedUser,
-        authState: regularConsent,
-      })
-    ).toEqual({ kind: 'allow' });
-  });
-
-  it('unverified allowed /reset-password', () => {
-    expect(
-      decideGate({
-        pathname: '/reset-password',
+        pathname: '/sign-in',
         search: '',
         user: unverifiedUser,
         authState: regularConsent,
@@ -116,30 +94,30 @@ describe('decideGate', () => {
   it('unverified non-allowlisted other path -> redirect', () => {
     expect(
       decideGate({ pathname: '/faq', search: '', user: unverifiedUser, authState: regularConsent })
-    ).toEqual({ kind: 'redirect', to: '/verify-email' });
+    ).toEqual({ kind: 'redirect', to: '/sign-in' });
   });
 
-  // 3) !user + protected -> /login
-  it('unauthenticated protected /dashboard -> /login', () => {
+  // 3) !user + protected -> /sign-in
+  it('unauthenticated protected /dashboard -> /sign-in', () => {
     expect(decideGate({ pathname: '/dashboard', search: '', user: null, authState: null })).toEqual(
       {
         kind: 'redirect',
-        to: '/login',
+        to: '/sign-in',
       }
     );
   });
 
-  it('unauthenticated protected /admin -> /login', () => {
+  it('unauthenticated protected /admin -> /sign-in', () => {
     expect(decideGate({ pathname: '/admin', search: '', user: null, authState: null })).toEqual({
       kind: 'redirect',
-      to: '/login',
+      to: '/sign-in',
     });
   });
 
-  it('unauthenticated /consent -> /login (consent is protected)', () => {
+  it('unauthenticated /consent -> /sign-in (consent is protected)', () => {
     expect(decideGate({ pathname: '/consent', search: '', user: null, authState: null })).toEqual({
       kind: 'redirect',
-      to: '/login',
+      to: '/sign-in',
     });
   });
 
@@ -281,22 +259,27 @@ describe('decideGate', () => {
   });
 
   // 7) verified + AUTH_PAGES -> getRedirectPath
-  it('verified on /login as regular -> /dashboard', () => {
+  it('verified on /sign-in as regular -> /dashboard', () => {
     expect(
-      decideGate({ pathname: '/login', search: '', user: verifiedUser, authState: regularConsent })
+      decideGate({
+        pathname: '/sign-in',
+        search: '',
+        user: verifiedUser,
+        authState: regularConsent,
+      })
     ).toEqual({ kind: 'redirect', to: '/dashboard' });
   });
 
-  it('verified on /login as admin -> /admin', () => {
+  it('verified on /sign-in as admin -> /admin', () => {
     expect(
-      decideGate({ pathname: '/login', search: '', user: verifiedUser, authState: adminConsent })
+      decideGate({ pathname: '/sign-in', search: '', user: verifiedUser, authState: adminConsent })
     ).toEqual({ kind: 'redirect', to: '/admin' });
   });
 
-  it('verified on /register -> redirect', () => {
+  it('verified on /sign-up -> redirect', () => {
     expect(
       decideGate({
-        pathname: '/register',
+        pathname: '/sign-up',
         search: '',
         user: verifiedUser,
         authState: regularConsent,
@@ -304,27 +287,21 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'redirect', to: '/dashboard' });
   });
 
-  it('verified on /forgot-password -> redirect', () => {
+  it('verified on /sign-in with missing consent -> /consent', () => {
     expect(
       decideGate({
-        pathname: '/forgot-password',
+        pathname: '/sign-in',
         search: '',
         user: verifiedUser,
-        authState: regularConsent,
+        authState: missingConsent,
       })
-    ).toEqual({ kind: 'redirect', to: '/dashboard' });
-  });
-
-  it('verified on /login with missing consent -> /consent', () => {
-    expect(
-      decideGate({ pathname: '/login', search: '', user: verifiedUser, authState: missingConsent })
     ).toEqual({ kind: 'redirect', to: '/consent' });
   });
 
-  it('verified on /login with missing consent admin -> /consent (has_consent false precedes is_admin)', () => {
+  it('verified on /sign-in with missing consent admin -> /consent (has_consent false precedes is_admin)', () => {
     expect(
       decideGate({
-        pathname: '/login',
+        pathname: '/sign-in',
         search: '',
         user: verifiedUser,
         authState: missingConsentAdmin,
@@ -332,10 +309,10 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'redirect', to: '/consent' });
   });
 
-  it('AUTH_PAGES matching is startsWith - /login/foo redirects', () => {
+  it('AUTH_PAGES matching is startsWith - /sign-in/foo redirects', () => {
     expect(
       decideGate({
-        pathname: '/login/foo',
+        pathname: '/sign-in/foo',
         search: '',
         user: verifiedUser,
         authState: regularConsent,
@@ -343,26 +320,15 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'redirect', to: '/dashboard' });
   });
 
-  it('/reset-password NOT in AUTH_PAGES -> allow even when verified', () => {
+  it('unverified on /sign-up -> redirects to /sign-in (unverified takes precedence)', () => {
     expect(
       decideGate({
-        pathname: '/reset-password',
-        search: '',
-        user: verifiedUser,
-        authState: regularConsent,
-      })
-    ).toEqual({ kind: 'allow' });
-  });
-
-  it('unverified on AUTH_PAGES -> redirects to /verify-email (unverified takes precedence)', () => {
-    expect(
-      decideGate({
-        pathname: '/login',
+        pathname: '/sign-up',
         search: '',
         user: unverifiedUser,
         authState: regularConsent,
       })
-    ).toEqual({ kind: 'redirect', to: '/verify-email' });
+    ).toEqual({ kind: 'redirect', to: '/sign-in' });
   });
 
   // 8) verified + /dashboard + is_admin -> /admin
@@ -422,8 +388,8 @@ describe('decideGate', () => {
 describe('isPublicRoute', () => {
   it('matches exactly and via startsWith', () => {
     expect(isPublicRoute('/')).toBe(true);
-    expect(isPublicRoute('/login')).toBe(true);
-    expect(isPublicRoute('/login/foo')).toBe(true);
+    expect(isPublicRoute('/sign-in')).toBe(true);
+    expect(isPublicRoute('/sign-in/foo')).toBe(true);
     expect(isPublicRoute('/legal/privacy')).toBe(true);
     expect(isPublicRoute('/api/auth/login')).toBe(true);
     expect(isPublicRoute('/api/cron')).toBe(true);
@@ -445,9 +411,8 @@ describe('isProtectedRoute', () => {
     expect(isProtectedRoute('/admin')).toBe(true);
     expect(isProtectedRoute('/admin/users')).toBe(true);
     expect(isProtectedRoute('/consent')).toBe(true);
-    expect(isProtectedRoute('/verify-email')).toBe(true);
     expect(isProtectedRoute('/settings')).toBe(true);
-    expect(isProtectedRoute('/login')).toBe(false);
+    expect(isProtectedRoute('/sign-in')).toBe(false);
     expect(isProtectedRoute('/api/class-watches')).toBe(false);
     expect(isProtectedRoute('/')).toBe(false);
   });

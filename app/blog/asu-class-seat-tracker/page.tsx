@@ -262,7 +262,7 @@ export default async function ASUClassSeatTrackerPost() {
                 Step 1: Create a Free Account
               </h3>
               <p className="text-muted-foreground">
-                <Link href="/register" className="text-primary hover:text-primary/80 font-medium">
+                <Link href="/sign-up" className="text-primary hover:text-primary/80 font-medium">
                   Sign up for PickMyClass
                 </Link>{' '}
                 with your email. It takes like 30 seconds. No ASU credentials needed, we never ask

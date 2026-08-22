@@ -1,9 +1,8 @@
 /**
  * Hyperdrive-backed Postgres query seam.
  *
- * Replaces the three Supabase client flavors (`lib/supabase/{client,server,service}.ts`)
- * for all database access. Auth-specific Supabase calls (`supabase.auth.*`) remain in
- * `lib/supabase/{client,server}.ts` until the Clerk auth migration (sibling sub-issue).
+ * Replaced the three Supabase client flavors (`lib/supabase/{client,server,service}.ts`,
+ * deleted in #354) for all database access; auth is Clerk (`lib/auth/clerk-session.ts`).
  *
  * Architecture:
  * - `pg` (node-postgres) behind a connection string obtained from the Hyperdrive binding.

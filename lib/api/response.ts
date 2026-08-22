@@ -15,7 +15,6 @@ type ApiData = Record<string, unknown>;
  *
  * Documented exceptions (do NOT convert these):
  *   - app/api/monitoring/health/route.ts — external monitoring probe uses { status: 'ok' }
- *   - app/api/auth/send-email-hook/route.ts — Supabase standardwebhooks protocol dictates shape
  *   - app/api/queue/process-section/route.ts — queue consumer reads top-level `retryable` boolean
  *     and HTTP status codes (200/429/502) that cannot be expressed via fail()
  */

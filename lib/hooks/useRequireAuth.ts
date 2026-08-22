@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
 
-export function useRequireAuth(redirectTo = '/login') {
+export function useRequireAuth(redirectTo = '/sign-in') {
   const { user, loading } = useAuth();
   const router = useRouter();
 

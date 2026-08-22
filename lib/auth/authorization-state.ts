@@ -5,7 +5,7 @@
  * Those readers used to re-implement the query with divergent column sets and
  * error handling, and only the edge proxy cached it. This module owns the server
  * read, its 30s per-isolate cache, and its invalidation, exposing a **cached**
- * read (edge) and a **fresh** read (admin/login).
+ * read (edge) and a **fresh** read (admin).
  *
  * The deliberate cached-vs-fresh split is preserved (see
  * `docs/adr/0001-authorization-state-boundary.md`): `proxy.ts` may serve a
@@ -52,7 +52,7 @@ export function invalidateAuthorizationState(userId: string): boolean {
 interface ReadAuthorizationStateOptions {
   /**
    * `true` — the edge read: serve a cached decision (up to 30s stale) and cache a
-   * fresh one on a miss. `false` — the admin/login read: always query live and
+   * fresh one on a miss. `false` — the admin read: always query live and
    * never touch the cache.
    */
   cache: boolean;

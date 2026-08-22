@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
   const identity = await getSessionIdentity(request);
   if (!identity) {
-    return NextResponse.redirect(`${origin}/login?error=oauth_failed`);
+    return NextResponse.redirect(`${origin}/sign-in?error=oauth_failed`);
   }
 
   const base = origin;
@@ -83,6 +83,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${base}${next}`);
   } catch (error) {
     log('Auth').error('post-oauth handling failed:', error);
-    return NextResponse.redirect(`${origin}/login?error=oauth_failed`);
+    return NextResponse.redirect(`${origin}/sign-in?error=oauth_failed`);
   }
 }

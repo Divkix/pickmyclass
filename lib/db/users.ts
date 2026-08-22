@@ -31,15 +31,6 @@ export function clearUserVerificationCache(): void {
 }
 
 /**
- * Invalidate the cached verification row for a user. Call after writing
- * `email_confirmed_at` (e.g. the email-verified confirm route) so the next
- * edge-gate read re-queries instead of serving a stale unverified decision.
- */
-export function invalidateUserVerification(userId: string): boolean {
-  return verificationCache.delete(userId);
-}
-
-/**
  * Read a user's email + verification timestamp from the mirror.
  * `{ cache: true }` is the edge read (up to 30s stale); `{ cache: false }`
  * always queries live. Returns null when the mirror row does not exist yet
@@ -120,19 +111,6 @@ export async function upsertUserFromClerkWebhook(fields: ClerkWebhookUserFields)
      ON CONFLICT (user_id) DO NOTHING`,
     [fields.id, fields.ageVerified ? consentNow : null, fields.agreedToTerms ? consentNow : null]
   );
-}
-
-/**
- * Record a successful email verification directly (bypasses webhook latency).
- * Called by /api/auth/email-verified after the server confirms the verified
- * status with Clerk, so the edge gate stops bouncing the user to /verify-email.
- */
-export async function markEmailVerified(userId: string): Promise<void> {
-  await execute(
-    'UPDATE users SET email_confirmed_at = COALESCE(email_confirmed_at, NOW()) WHERE id = $1',
-    [userId]
-  );
-  invalidateUserVerification(userId);
 }
 
 /**

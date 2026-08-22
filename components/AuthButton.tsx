@@ -20,11 +20,11 @@ export function AuthButton() {
       // then revoke server-side session and expire cookies.
       await clerkSignOut();
       await fetch('/api/auth/signout', { method: 'POST' });
-      window.location.href = '/login';
+      window.location.href = '/sign-in';
     } catch (error) {
       log('AuthButton').error('Sign-out failed:', error);
-      // Fallback: force reload to /login even if one step failed
-      window.location.href = '/login';
+      // Fallback: force reload to /sign-in even if one step failed
+      window.location.href = '/sign-in';
     } finally {
       setSigningOut(false);
     }
@@ -41,12 +41,12 @@ export function AuthButton() {
   if (!user) {
     return (
       <div className="flex items-center gap-2 sm:gap-4">
-        <Link href="/login">
+        <Link href="/sign-in">
           <Button variant="ghost" className="min-h-11">
             Sign in
           </Button>
         </Link>
-        <Link href="/register">
+        <Link href="/sign-up">
           <Button className="min-h-11">Sign up</Button>
         </Link>
       </div>

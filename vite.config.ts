@@ -14,10 +14,9 @@ export default defineConfig({
     jsxSingleQuote: false,
     ignorePatterns: [
       '**/*.md',
-      'lib/supabase/database.types.ts',
       'lib/cloudflare-env.d.ts',
       'next-env.d.ts',
-      'supabase/migrations/*.sql',
+      'db/migrations/*.sql',
       '**/*.lock',
       '**/pnpm-lock.yaml',
       '.agent/**',
@@ -75,7 +74,6 @@ export default defineConfig({
     ],
     ignorePatterns: [
       '**/cloudflare-env.d.ts',
-      'lib/supabase/database.types.ts',
       'worker.ts',
       'scripts/**',
       'tools/**',

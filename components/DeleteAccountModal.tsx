@@ -47,8 +47,8 @@ export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalPro
         throw new Error(data.error || 'Failed to delete account');
       }
 
-      // Account deleted successfully, redirect to login
-      router.push('/login?message=Account deleted successfully');
+      // Account deleted successfully, redirect to sign-in
+      router.push('/sign-in?message=Account deleted successfully');
     } catch (err) {
       log('DeleteAccount').error('Account deletion failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete account');

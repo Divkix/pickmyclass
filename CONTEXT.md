@@ -45,10 +45,11 @@ This document defines domain terms used throughout the codebase. New modules sho
 - **Authorization State** — A user's `{ is_admin, is_disabled, has_consent }` state derived from `user_profiles`. Server-side gates use it for admin access, disabled-account enforcement, and the legal-consent gate. Owned by `lib/auth/authorization-state.ts`, which exposes a cached edge read, fresh authoritative reads, and cache invalidation. The browser `AuthContext`'s `is_admin` is a UI affordance only.
   _Avoid_: "profile" when you mean only authorization state.
 
-- **Lockout** — Account lockout protection after 5 failed login attempts. Prevents brute-force attacks.
-- **Disposable Email Domain** — A temporary email service domain blocked during registration. Blocklist synced daily from GitHub.
+- **Lockout** — Brute-force protection now owned by **Clerk Attack Protection** (the app-level `login-attempt-policy`/`failed_login_attempts` write path was removed in #354; the DB objects remain but are inert).
+- **Hosted Auth UI** — Clerk-hosted `<SignIn>`/`<SignUp>` components at `/sign-in` and `/sign-up` (`routing="path"`); email verification happens inside the hosted flow. No server register/login routes exist.
+- **Disposable Email Domain** — A temporary email service domain on a KV blocklist synced daily from GitHub; fails open. Its only reader (the register route) was removed in #354 — currently nothing consumes it.
 - **Admin Role** — Special user role for admin dashboard access. Checked via `lib/auth/admin.ts`.
-- **OAuth Callback** — Clerk OAuth handler at `app/auth/callback/page.tsx` (`AuthenticateWithRedirectCallback`) + `app/auth/post-oauth/route.ts` (consent + mirror).
+- **OAuth Landing** — `app/auth/post-oauth/route.ts`: repairs the webhook mirror race for first-time OAuth users, records consent when confirmed, and routes to `/consent` or the `next` path.
 - **Clerk Session** — Edge JWT verification via `@clerk/backend` (`lib/auth/clerk-session.ts`, `ext_id` claim `{{user.external_id || user.id}}`, `jwtKey` PEM) and cookie fast-path (`lib/auth/clerk-cookies.ts`, `__session`); publishable key literal in `lib/clerk/config.ts`. See `docs/adr/0012-auth-plane-clerk.md`.
 - **Users Mirror** — Clerk users mirrored to `users` + `user_profiles` via Svix webhook `POST /api/webhooks/clerk` (`lib/db/users.ts`, `clerk_user_id` unique, `externalId` preserves old Supabase UUID).
 - **Polling** — Dashboard live states via polling `GET /api/class-watches/states` (`useRealtimeClassStates`), not Supabase Realtime (`docs/adr/0014-realtime-to-polling.md`).

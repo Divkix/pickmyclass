@@ -23,21 +23,6 @@ const classNbrSchema = z
   .regex(/^\d{5}$/, 'Section number must be a 5-digit code (e.g., "12431")');
 
 /**
- * Email validation with required check.
- */
-const emailSchema = z.string().email('Invalid email address').min(1, 'Email is required');
-
-/**
- * Password validation for login (just required, no minimum length)
- */
-const loginPasswordSchema = z.string().min(1, 'Password is required');
-
-/**
- * Password validation for registration (minimum 8 characters)
- */
-const registerPasswordSchema = z.string().min(8, 'Password must be at least 8 characters');
-
-/**
  * UUID validation for record IDs
  */
 const uuidSchema = z.string().uuid('ID must be a valid UUID');
@@ -92,40 +77,15 @@ export const fetchClassDetailsSchema = z
   .refine((data) => isSelectableTermCode(data.term), selectableTermRefinement);
 
 /**
- * Schema for login requests
+ * Schema for recording consent after an OAuth account has authenticated.
  */
-export const loginSchema = z.object({
-  email: emailSchema,
-  password: loginPasswordSchema,
-});
-
-/**
- * Schema for registration requests
- */
-export const registerSchema = z.object({
-  email: emailSchema,
-  password: registerPasswordSchema,
+export const consentSchema = z.object({
   ageVerified: z
     .boolean()
     .refine((v) => v === true, 'You must be 18 years or older to use this service'),
   agreedToTerms: z
     .boolean()
     .refine((v) => v === true, 'You must agree to the Terms of Service and Privacy Policy'),
-});
-
-/**
- * Schema for recording consent after an OAuth account has authenticated.
- */
-export const consentSchema = registerSchema.pick({
-  ageVerified: true,
-  agreedToTerms: true,
-});
-
-/**
- * Schema for lockout status check
- */
-export const checkLockoutSchema = z.object({
-  email: emailSchema,
 });
 
 /** Schema for unsubscribe token query/body parameter */

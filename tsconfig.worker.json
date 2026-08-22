@@ -25,7 +25,6 @@
     "lib/types/queue.ts",
     "lib/types/notification.ts",
     "lib/types/stagger.ts",
-    "lib/supabase/config.ts",
     "lib/api/wire.ts",
     "lib/worker/cron-lock.ts",
     "lib/worker/edge-html-cache.ts",

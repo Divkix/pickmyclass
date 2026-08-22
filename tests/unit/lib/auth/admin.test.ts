@@ -63,11 +63,11 @@ describe('verifyAdmin', () => {
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
-  it('redirects unauthenticated users to login', async () => {
+  it('redirects unauthenticated users to sign-in', async () => {
     mockGetSessionIdentityFromHeaders.mockResolvedValueOnce(null);
 
-    await expect(verifyAdmin()).rejects.toThrow('redirect:/login');
-    expect(mockRedirect).toHaveBeenCalledWith('/login');
+    await expect(verifyAdmin()).rejects.toThrow('redirect:/sign-in');
+    expect(mockRedirect).toHaveBeenCalledWith('/sign-in');
   });
 
   it('redirects users whose admin profile lookup fails', async () => {
@@ -77,8 +77,8 @@ describe('verifyAdmin', () => {
       has_consent: false,
     });
 
-    await expect(verifyAdmin()).rejects.toThrow('redirect:/login');
-    expect(mockRedirect).toHaveBeenCalledWith('/login');
+    await expect(verifyAdmin()).rejects.toThrow('redirect:/sign-in');
+    expect(mockRedirect).toHaveBeenCalledWith('/sign-in');
   });
 
   it('redirects authenticated non-admin users', async () => {

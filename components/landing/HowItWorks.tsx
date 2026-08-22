@@ -75,7 +75,7 @@ export function HowItWorks() {
         </div>
 
         <motion.div className="mt-16 text-center" variants={staggerItem}>
-          <Link href="/register">
+          <Link href="/sign-up">
             <Button size="lg" variant="gradient" className="text-base">
               <Sparkles className="size-5" />
               Join 2,400+ Sun Devils

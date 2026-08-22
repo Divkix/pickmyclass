@@ -1,4 +1,4 @@
 version: 1
 ignore:
-  - 'supabase/migrations/**'
+  - 'db/migrations/**'
   - 'components/ui/**'

@@ -39,10 +39,7 @@ beforeAll(() => {
 });
 
 // Mock environment variables for tests
-vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-secret-key');
 vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://test.example.com');
-vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://test.supabase.co');
-vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key');
 vi.stubEnv('CLERK_SECRET_KEY', 'sk_test_dummy');
 vi.stubEnv('CLERK_PUBLISHABLE_KEY', 'pk_test_dummy');
 vi.stubEnv('CLERK_JWT_KEY', 'test-jwt-key');

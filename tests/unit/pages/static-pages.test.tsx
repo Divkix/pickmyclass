@@ -132,11 +132,11 @@ describe('static marketing and legal pages', () => {
     const mobileNav = within(header).getByRole('navigation', { name: 'Mobile navigation' });
     expect(within(mobileNav).getByRole('link', { name: 'Sign in' })).toHaveAttribute(
       'href',
-      '/login'
+      '/sign-in'
     );
     expect(within(mobileNav).getByRole('link', { name: 'Sign up' })).toHaveAttribute(
       'href',
-      '/register'
+      '/sign-up'
     );
   });
 
@@ -163,7 +163,7 @@ describe('static marketing and legal pages', () => {
     expect(screen.getByText(/supports all asu campuses/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /get started free/i })).toHaveAttribute(
       'href',
-      '/register'
+      '/sign-up'
     );
   });
 

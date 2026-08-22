@@ -223,7 +223,7 @@ describe('interactive components', () => {
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith('/api/user/delete', { method: 'DELETE' })
     );
-    expect(mockPush).toHaveBeenCalledWith('/login?message=Account deleted successfully');
+    expect(mockPush).toHaveBeenCalledWith('/sign-in?message=Account deleted successfully');
   });
 
   it('surfaces account deletion errors and allows close after error', async () => {

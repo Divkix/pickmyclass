@@ -20,8 +20,8 @@ export interface AdminUser {
  * 2. User has is_admin flag set to true in user_profiles table
  * 3. User's account is not disabled
  *
- * @throws {never} Redirects to /login if not authenticated
- * @throws {never} Redirects to /login if the account is disabled
+ * @throws {never} Redirects to /sign-in if not authenticated
+ * @throws {never} Redirects to /sign-in if the account is disabled
  * @throws {never} Redirects to /dashboard if authenticated but not admin
  * @returns {Promise<AdminUser>} The authenticated admin user (compat shape: id + email)
  *
@@ -40,7 +40,7 @@ export async function verifyAdmin(): Promise<AdminUser> {
   const identity = await getSessionIdentityFromHeaders(headerStore);
 
   if (!identity) {
-    redirect('/login');
+    redirect('/sign-in');
   }
 
   // Check admin privileges via a FRESH authorization read (never cached), so a
@@ -48,7 +48,7 @@ export async function verifyAdmin(): Promise<AdminUser> {
   const authState = await readAuthorizationState(identity.userId, { cache: false });
 
   if (authState?.is_disabled) {
-    redirect('/login');
+    redirect('/sign-in');
   }
 
   if (!authState?.is_admin) {
