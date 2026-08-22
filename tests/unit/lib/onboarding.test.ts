@@ -8,8 +8,6 @@ vi.mock('@/lib/db/client', () => ({
   callFunction: vi.fn(),
   callFunctionScalar: vi.fn(),
   getClient: vi.fn(),
-  getPool: vi.fn(),
-  _resetPool: vi.fn(),
 }));
 
 import { execute } from '@/lib/db/client';

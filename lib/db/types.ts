@@ -65,13 +65,6 @@ export interface UserProfileRow {
   updated_at: string;
 }
 
-export interface FailedLoginAttemptRow {
-  email: string;
-  attempts: number | null;
-  last_attempt_at: string | null;
-  locked_until: string | null;
-}
-
 /**
  * Local `users` mirror table — synced by Clerk webhooks (auth sibling sub-issue).
  * PK is text (Clerk user id); migrated rows are keyed by the old Supabase UUID
@@ -104,10 +97,6 @@ export interface WatcherForSectionsRpcRow {
 export interface SectionRefRpcRow {
   class_nbr: string;
   term: string;
-}
-
-export interface DistinctSubjectRpcRow {
-  subject: string;
 }
 
 export interface IncrementFailedAttemptsRpcRow {
@@ -172,9 +161,4 @@ export interface RecentActivityRpcRow {
 export type ClassStateInsert = Omit<ClassStateRow, 'id' | 'last_changed_at'> & {
   id?: string;
   last_changed_at?: string;
-};
-
-export type ClassWatchInsert = Omit<ClassWatchRow, 'id' | 'created_at'> & {
-  id?: string;
-  created_at?: string;
 };

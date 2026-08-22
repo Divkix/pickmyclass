@@ -2,38 +2,47 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
 const {
   mockCreateClient,
-  mockGetServiceClient,
   mockGetUser,
+  mockQuery,
+  mockExecute,
   mockInvalidateAuthorizationState,
-  mockProfileSingle,
-  mockServiceEq,
-  mockServiceUpdate,
   mockSignOut,
-  mockWatchesOrder,
-  mockNotificationsOrder,
+  mockCaptureServerEvent,
 } = vi.hoisted(() => ({
   mockCreateClient: vi.fn(),
-  mockGetServiceClient: vi.fn(),
   mockGetUser: vi.fn(),
+  mockQuery: vi.fn(),
+  mockExecute: vi.fn(),
   mockInvalidateAuthorizationState: vi.fn(),
-  mockProfileSingle: vi.fn(),
-  mockServiceEq: vi.fn(),
-  mockServiceUpdate: vi.fn(),
   mockSignOut: vi.fn(),
-  mockWatchesOrder: vi.fn(),
-  mockNotificationsOrder: vi.fn(),
+  mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Auth stays on Supabase (supabase.auth.getUser / signOut) — keep the server
+// client mock but strip the old .from() data-access surface.
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mockCreateClient,
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: mockGetServiceClient,
+// Data plane now goes through lib/db/client (query/execute replace .from()).
+vi.mock('@/lib/db/client', () => ({
+  query: mockQuery,
+  queryOne: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: mockExecute,
+  callFunction: vi.fn(),
+  callFunctionScalar: vi.fn(),
+  getClient: vi.fn(),
+  setConnectionStringGetter: vi.fn(),
 }));
 
 vi.mock('@/lib/auth/authorization-state', () => ({
   invalidateAuthorizationState: mockInvalidateAuthorizationState,
+}));
+
+// PostHog server events fail open — stub so no network calls happen in tests.
+vi.mock('@/lib/posthog-server', () => ({
+  captureServerEvent: mockCaptureServerEvent,
 }));
 
 import { DELETE } from '@/app/api/user/delete/route';
@@ -56,47 +65,14 @@ const profile = {
   disabled_at: null,
 };
 
-function createTableClient() {
-  return {
-    auth: {
-      getUser: mockGetUser,
-      signOut: mockSignOut,
-    },
-    from: vi.fn((table: string) => {
-      if (table === 'user_profiles') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              single: mockProfileSingle,
-            })),
-          })),
-        };
-      }
-
-      if (table === 'class_watches') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              order: mockWatchesOrder,
-            })),
-          })),
-        };
-      }
-
-      if (table === 'notifications_sent') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              order: mockNotificationsOrder,
-            })),
-          })),
-        };
-      }
-
-      throw new Error(`Unexpected table queried in test mock: ${table}`);
-    }),
-  };
-}
+// Per-test mutable result sets for the export's three `query` calls. The mock
+// dispatches on SQL text (user_profiles / class_watches / notifications_sent).
+// SAFETY: test fixtures are controlled row shapes matching the route's typed SELECT contracts
+let profileRows: Record<string, JsonValue>[] = [];
+// SAFETY: test fixtures are controlled row shapes matching the route's typed SELECT contracts
+let watchesRows: Record<string, JsonValue>[] = [];
+// SAFETY: test fixtures are controlled row shapes matching the route's typed SELECT contracts
+let notificationsRows: Record<string, JsonValue>[] = [];
 
 async function json(response: Response) {
   // SAFETY: test helper parses JSON response; shape asserted per test case via property access
@@ -108,24 +84,29 @@ describe('user data rights APIs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockCreateClient.mockResolvedValue(createTableClient());
+
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double widens profile to JSON-compatible record for export response
+    profileRows = [profile as unknown as Record<string, JsonValue>];
+    watchesRows = [{ id: 'watch-1', class_nbr: '12345', created_at: '2026-05-10T00:00:00Z' }];
+    notificationsRows = [{ id: 'notification-1', sent_at: '2026-05-11T00:00:00Z' }];
+
+    mockCreateClient.mockResolvedValue({
+      auth: {
+        getUser: mockGetUser,
+        signOut: mockSignOut,
+      },
+    });
     mockGetUser.mockResolvedValue({ data: { user }, error: null });
-    mockProfileSingle.mockResolvedValue({ data: profile, error: null });
-    mockWatchesOrder.mockResolvedValue({
-      data: [{ id: 'watch-1', class_nbr: '12345', created_at: '2026-05-10T00:00:00Z' }],
-      error: null,
+
+    // Dispatch `query` by SQL text to the three export queries.
+    mockQuery.mockImplementation(async (text: string) => {
+      if (text.includes('FROM user_profiles')) return profileRows;
+      if (text.includes('FROM class_watches w')) return watchesRows;
+      if (text.includes('FROM notifications_sent n')) return notificationsRows;
+      return [];
     });
-    mockNotificationsOrder.mockResolvedValue({
-      data: [{ id: 'notification-1', sent_at: '2026-05-11T00:00:00Z' }],
-      error: null,
-    });
-    mockServiceUpdate.mockReturnValue({ eq: mockServiceEq });
-    mockServiceEq.mockResolvedValue({ error: null });
-    mockGetServiceClient.mockReturnValue({
-      from: vi.fn(() => ({
-        update: mockServiceUpdate,
-      })),
-    });
+
+    mockExecute.mockResolvedValue(1);
     mockSignOut.mockResolvedValue({ error: null });
   });
 
@@ -188,19 +169,22 @@ describe('user data rights APIs', () => {
     expect(data.success).toBe(true);
     expect(data.disabled_at).toEqual(expect.any(String));
     expect(data.permanent_deletion_date).toEqual(expect.any(String));
-    expect(mockServiceUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        is_disabled: true,
-        notifications_enabled: false,
-      })
-    );
-    expect(mockServiceEq).toHaveBeenCalledWith('user_id', 'user-123');
+
+    // The soft-delete is now a parameterized UPDATE via execute() instead of the
+    // old service .update().eq() chain. Assert the SQL carries the disabled +
+    // notifications flags and the user_id param.
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    // SAFETY: mockExecute is controlled by the test; calls[0] is the single soft-delete UPDATE
+    const [sql, params] = mockExecute.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain('is_disabled = true');
+    expect(sql).toContain('notifications_enabled = false');
+    expect(params).toContain('user-123');
     expect(mockInvalidateAuthorizationState).toHaveBeenCalledWith('user-123');
     expect(mockSignOut).toHaveBeenCalled();
   });
 
   it('fails account deletion when the soft delete update fails', async () => {
-    mockServiceEq.mockResolvedValueOnce({ error: { message: 'update failed' } });
+    mockExecute.mockRejectedValueOnce(new Error('update failed'));
 
     const response = await DELETE();
     const data = await json(response);
@@ -221,7 +205,7 @@ describe('user data rights APIs', () => {
   });
 
   it('returns a 500 response when account deletion throws', async () => {
-    mockGetServiceClient.mockImplementationOnce(() => {
+    mockExecute.mockImplementationOnce(() => {
       throw new Error('service unavailable');
     });
 

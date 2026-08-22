@@ -43,6 +43,12 @@ vi.mock('@/lib/queue/process-section', () => ({
   processSection: (...args: unknown[]) => mockProcessSection(...args),
 }));
 
+// Mock the DB client so worker.ts module-level setConnectionStringGetter call
+// doesn't import the real `pg` driver (which would attempt a real pool).
+vi.mock('@/lib/db/client', () => ({
+  setConnectionStringGetter: vi.fn(),
+}));
+
 // ── Imports ───────────────────────────────────────────────────────────────────
 
 // Import worker default export for scheduled handler tests

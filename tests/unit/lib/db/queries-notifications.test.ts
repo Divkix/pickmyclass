@@ -1,15 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { deleteNotificationRecords, resetNotificationsForSection } from '@/lib/db/queries';
 
-// Mock Supabase service client
-const mockRpc = vi.fn();
-const mockFrom = vi.fn();
+// Mock the Hyperdrive-backed db client seam (replaces the former Supabase service client)
+const { mockCallFunctionScalar, mockQuery, mockExecute } = vi.hoisted(() => ({
+  mockCallFunctionScalar: vi.fn(),
+  mockQuery: vi.fn(),
+  mockExecute: vi.fn(),
+}));
 
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: vi.fn(() => ({
-    rpc: mockRpc,
-    from: mockFrom,
-  })),
+vi.mock('@/lib/db/client', () => ({
+  callFunction: vi.fn(),
+  callFunctionScalar: mockCallFunctionScalar,
+  query: mockQuery,
+  queryOne: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: mockExecute,
+  getClient: vi.fn(),
+  setConnectionStringGetter: vi.fn(),
 }));
 
 beforeEach(() => {
@@ -22,59 +29,30 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/**
- * Build a mock `from('class_watches').select(...).eq(...).eq(...)` chain that resolves
- * with the given watch-fetch result when the second `.eq('term', ...)` call happens.
- */
-function mockWatchFetch(result: {
-  data: Array<{ id: string }> | null;
-  error: { message: string } | null;
-}) {
-  const selectQuery = { eq: vi.fn() };
-  selectQuery.eq.mockImplementation((key: string) => {
-    if (key === 'term') {
-      return Promise.resolve(result);
-    }
-    return selectQuery;
-  });
-  return selectQuery;
-}
-
 describe('resetNotificationsForSection (characterization)', () => {
   it('no watches found → early return, no delete call', async () => {
-    const selectQuery = mockWatchFetch({ data: [], error: null });
-    mockFrom.mockReturnValue({ select: vi.fn(() => selectQuery) });
+    mockQuery.mockResolvedValue([]);
 
     await expect(
       resetNotificationsForSection({ class_nbr: '12345', term: '2261' }, 'seat_available')
     ).resolves.toBeUndefined();
 
-    // Only the class_watches fetch happens; no delete chain is invoked.
-    expect(mockFrom).toHaveBeenCalledTimes(1);
-    expect(mockFrom).toHaveBeenCalledWith('class_watches');
+    // Only the class_watches fetch happens; no delete is invoked.
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
-  it('watch-fetch error → throws "Failed to fetch watches"', async () => {
-    const selectQuery = mockWatchFetch({ data: null, error: { message: 'Connection error' } });
-    mockFrom.mockReturnValue({ select: vi.fn(() => selectQuery) });
+  it('watch-fetch error → throws "Failed to reset notifications"', async () => {
+    mockQuery.mockRejectedValue(new Error('Connection error'));
 
     await expect(
       resetNotificationsForSection({ class_nbr: '12345', term: '2261' })
-    ).rejects.toThrow('Failed to fetch watches: Connection error');
+    ).rejects.toThrow('Failed to reset notifications: Connection error');
   });
 
   it('delete error → throws "Failed to reset notifications"', async () => {
-    const selectQuery = mockWatchFetch({
-      data: [{ id: 'watch-1' }, { id: 'watch-2' }],
-      error: null,
-    });
-    const deleteEq = vi.fn().mockResolvedValue({ error: { message: 'delete blew up' } });
-    mockFrom.mockReturnValue({
-      select: vi.fn(() => selectQuery),
-      delete: vi.fn(() => ({
-        in: vi.fn(() => ({ eq: deleteEq })),
-      })),
-    });
+    mockQuery.mockResolvedValue([{ id: 'watch-1' }, { id: 'watch-2' }]);
+    mockExecute.mockRejectedValue(new Error('delete blew up'));
 
     await expect(
       resetNotificationsForSection({ class_nbr: '12345', term: '2261' }, 'seat_available')
@@ -87,19 +65,19 @@ describe('deleteNotificationRecords (characterization)', () => {
     const result = await deleteNotificationRecords([], 'seat_available');
 
     expect(result).toBe(0);
-    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockCallFunctionScalar).not.toHaveBeenCalled();
   });
 
   it('rpc error → throws "Failed to delete notification records"', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: { message: 'rpc failed' } });
+    mockCallFunctionScalar.mockRejectedValue(new Error('rpc failed'));
 
     await expect(
       deleteNotificationRecords(['watch-1', 'watch-2'], 'seat_available')
     ).rejects.toThrow('Failed to delete notification records: rpc failed');
 
-    expect(mockRpc).toHaveBeenCalledWith('delete_notification_records', {
-      p_class_watch_ids: ['watch-1', 'watch-2'],
-      p_notification_type: 'seat_available',
-    });
+    expect(mockCallFunctionScalar).toHaveBeenCalledWith('delete_notification_records', [
+      ['watch-1', 'watch-2'],
+      'seat_available',
+    ]);
   });
 });

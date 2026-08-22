@@ -1,15 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const mockRpc = vi.fn();
+// Mock the Hyperdrive-backed db client seam (replaces the former Supabase
+// service client). getClassesPage uses only callFunction('get_classes_page').
+const { mockCallFunction } = vi.hoisted(() => ({
+  mockCallFunction: vi.fn(),
+}));
 
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: vi.fn(() => ({
-    rpc: (name: string, params: Record<string, string | number | boolean | null | undefined>) =>
-      mockRpc(name, params),
-    from: () => {
-      throw new Error('from() should not be called by getClassesPage');
-    },
-  })),
+vi.mock('@/lib/db/client', () => ({
+  callFunction: mockCallFunction,
+  callFunctionScalar: vi.fn(),
+  query: vi.fn(),
+  queryOne: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: vi.fn(),
+  getClient: vi.fn(),
+  setConnectionStringGetter: vi.fn(),
 }));
 
 // Import after mocks are registered
@@ -61,7 +66,7 @@ describe('getClassesPage', () => {
         instructor_emails: 0,
       }),
     ];
-    mockRpc.mockResolvedValue({ data: rows, error: null });
+    mockCallFunction.mockResolvedValue(rows);
 
     const result = await getClassesPage({
       page: 2,
@@ -75,17 +80,17 @@ describe('getClassesPage', () => {
       dir: 'asc',
     });
 
-    expect(mockRpc).toHaveBeenCalledWith('get_classes_page', {
-      p_page: 2,
-      p_page_size: 25,
-      p_search: 'cse',
-      p_subject: 'CSE',
-      p_seat_status: 'all',
-      p_instructor: 'all',
-      p_watcher_count: 'all',
-      p_sort: 'watcher_count',
-      p_dir: 'asc',
-    });
+    expect(mockCallFunction).toHaveBeenCalledWith('get_classes_page', [
+      2,
+      25,
+      'cse',
+      'CSE',
+      'all',
+      'all',
+      'all',
+      'watcher_count',
+      'asc',
+    ]);
 
     expect(result.rows).toHaveLength(2);
     expect(result.total).toBe(2);
@@ -102,7 +107,7 @@ describe('getClassesPage', () => {
   });
 
   it('defaults aggregates to 0 when the RPC returns no rows', async () => {
-    mockRpc.mockResolvedValue({ data: [], error: null });
+    mockCallFunction.mockResolvedValue([]);
 
     const result = await getClassesPage();
 
@@ -120,7 +125,7 @@ describe('getClassesPage', () => {
     const row = classPageRow() as Record<string, string | number | boolean | null | undefined>;
     delete row.total_watchers;
     delete row.full_classes;
-    mockRpc.mockResolvedValue({ data: [row], error: null });
+    mockCallFunction.mockResolvedValue([row]);
 
     const result = await getClassesPage();
 
@@ -131,10 +136,7 @@ describe('getClassesPage', () => {
   });
 
   it('throws when the RPC fails', async () => {
-    mockRpc.mockResolvedValue({
-      data: null,
-      error: { message: 'Database connection failed' },
-    });
+    mockCallFunction.mockRejectedValue(new Error('Database connection failed'));
 
     await expect(getClassesPage()).rejects.toThrow(
       'Failed to fetch classes page: Database connection failed'

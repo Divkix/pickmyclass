@@ -1,17 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const { mockDeleteEq, mockFrom, mockRpc, mockSingle } = vi.hoisted(() => ({
-  mockDeleteEq: vi.fn(),
-  mockFrom: vi.fn(),
-  mockRpc: vi.fn(),
-  mockSingle: vi.fn(),
+const { mockCallFunction, mockExecute, mockQueryOne } = vi.hoisted(() => ({
+  mockCallFunction: vi.fn(),
+  mockExecute: vi.fn(),
+  mockQueryOne: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: vi.fn(() => ({
-    from: mockFrom,
-    rpc: mockRpc,
-  })),
+vi.mock('@/lib/db/client', () => ({
+  queryOne: mockQueryOne,
+  query: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: mockExecute,
+  callFunction: mockCallFunction,
+  callFunctionScalar: vi.fn(),
+  getClient: vi.fn(),
 }));
 
 import { createLoginAttemptPolicy, loginAttemptPolicy } from '@/lib/auth/login-attempt-policy';
@@ -51,6 +53,7 @@ class InMemoryLoginAttemptStore {
 describe('loginAttemptPolicy', () => {
   const now = new Date('2026-07-12T12:00:00.000Z');
   let store: InMemoryLoginAttemptStore;
+  // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows createLoginAttemptPolicy return type
   let policy: ReturnType<typeof createLoginAttemptPolicy>;
 
   beforeEach(() => {
@@ -155,15 +158,10 @@ describe('loginAttemptPolicy', () => {
 describe('Supabase login-attempt adapter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSingle.mockResolvedValue({ data: null, error: null });
-    mockDeleteEq.mockResolvedValue({ error: null });
-    mockFrom.mockReturnValue({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({ maybeSingle: mockSingle })),
-      })),
-      delete: vi.fn(() => ({ eq: mockDeleteEq })),
-    });
-    mockRpc.mockResolvedValue({ error: null });
+    // Default: no prior failed-attempt record, successful writes.
+    mockQueryOne.mockResolvedValue(null);
+    mockCallFunction.mockResolvedValue([]);
+    mockExecute.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -175,15 +173,15 @@ describe('Supabase login-attempt adapter', () => {
       kind: 'rejected',
     }));
 
-    expect(mockRpc).toHaveBeenCalledWith('increment_failed_attempts', {
-      p_email: 'student@example.com',
-      p_max_attempts: 5,
-      p_lockout_minutes: 15,
-    });
+    expect(mockCallFunction).toHaveBeenCalledWith('increment_failed_attempts', [
+      'student@example.com',
+      5,
+      15,
+    ]);
   });
 
   it('does not treat persistence failures as an unlocked account', async () => {
-    mockSingle.mockResolvedValueOnce({ data: null, error: { message: 'database unavailable' } });
+    mockQueryOne.mockRejectedValueOnce(new Error('database unavailable'));
     const authenticate = vi.fn();
 
     await expect(loginAttemptPolicy.attempt('student@example.com', authenticate)).rejects.toThrow(

@@ -5,7 +5,7 @@
  * and queue consumer handlers for class seat checking.
  */
 
-import { DurableObject } from 'cloudflare:workers';
+import { DurableObject, env } from 'cloudflare:workers';
 import handler from 'vinext/server/app-router-entry';
 import { handleDLQMessage } from './lib/queue/dlq-consumer';
 import { processSection } from './lib/queue/process-section';
@@ -13,7 +13,17 @@ import type { Env } from './lib/types/env';
 import type { ClassCheckMessage } from './lib/types/queue';
 import { createCronLockLifecycle } from './lib/worker/cron-lock';
 import { edgeHtmlCache } from './lib/worker/edge-html-cache';
+import { setConnectionStringGetter } from './lib/db/client';
 import { log } from './lib/log';
+
+// Register the Hyperdrive connection string getter. The env from cloudflare:workers
+// is available per-isolate; the getter is called lazily on first DB access (getPool()),
+// not at module load time, so it's safe even if env isn't populated during initial
+// module evaluation.
+setConnectionStringGetter(() => {
+  const hyperdrive = (env as unknown as Env).PICKMYCLASS_HYPERDRIVE;
+  return hyperdrive?.connectionString ?? '';
+});
 
 const workerLog = log('Worker');
 const scheduledLog = log('Scheduled');

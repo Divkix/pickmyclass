@@ -5,8 +5,8 @@ const {
   AuthError,
   NotFoundError,
   mockFetchClassFromASU,
-  mockGetServiceClient,
-  mockUpsert,
+  mockUpsertClassState,
+  mockCreateClient,
   mockGetUser,
 } = vi.hoisted(() => {
   class MockNotFoundError extends Error {}
@@ -16,8 +16,8 @@ const {
     AuthError: MockAuthError,
     NotFoundError: MockNotFoundError,
     mockFetchClassFromASU: vi.fn(),
-    mockGetServiceClient: vi.fn(),
-    mockUpsert: vi.fn(),
+    mockUpsertClassState: vi.fn(),
+    mockCreateClient: vi.fn(),
     mockGetUser: vi.fn(),
   };
 });
@@ -35,16 +35,27 @@ vi.mock('@/lib/asu/api', () => ({
   fetchClassFromASU: mockFetchClassFromASU,
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: mockGetServiceClient,
+// upsertClassState lives in lib/db/queries (uses execute under the hood) —
+// stub it so the test can assert it's invoked and control failure cases.
+vi.mock('@/lib/db/queries', () => ({
+  upsertClassState: mockUpsertClassState,
 }));
 
+// Stub the full db/client surface so no real pg Pool is constructed.
+vi.mock('@/lib/db/client', () => ({
+  query: vi.fn(),
+  queryOne: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: vi.fn(),
+  callFunction: vi.fn(),
+  callFunctionScalar: vi.fn(),
+  getClient: vi.fn(),
+  setConnectionStringGetter: vi.fn(),
+}));
+
+// Auth stays on Supabase (supabase.auth.getUser via withAuth).
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn().mockResolvedValue({
-    auth: {
-      getUser: mockGetUser,
-    },
-  }),
+  createClient: mockCreateClient,
 }));
 
 import { POST } from '@/app/api/fetch-class-details/route';
@@ -89,13 +100,9 @@ describe('/api/fetch-class-details', () => {
       data: { user: { id: 'test-user-id', email: 'test@example.com' } },
       error: null,
     });
+    mockCreateClient.mockResolvedValue({ auth: { getUser: mockGetUser } });
     mockFetchClassFromASU.mockResolvedValue(classDetails);
-    mockUpsert.mockResolvedValue({ error: null });
-    mockGetServiceClient.mockReturnValue({
-      from: vi.fn(() => ({
-        upsert: mockUpsert,
-      })),
-    });
+    mockUpsertClassState.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -131,13 +138,14 @@ describe('/api/fetch-class-details', () => {
         ASU_API_TOKEN: 'test-token',
       }
     );
-    expect(mockUpsert).toHaveBeenCalledWith(
+    // upsertClassState(ref, details) replaces the old service .upsert(...) call.
+    // The first arg is the SectionRef; the second is the ASU ClassDetails.
+    expect(mockUpsertClassState).toHaveBeenCalledWith(
+      { class_nbr: '12345', term: '2264' },
       expect.objectContaining({
-        term: '2264',
-        class_nbr: '12345',
         non_reserved_seats: 3,
-      }),
-      { onConflict: 'class_nbr,term' }
+        seats_available: 7,
+      })
     );
   });
 
@@ -172,7 +180,7 @@ describe('/api/fetch-class-details', () => {
   });
 
   it('still returns class details when persistence returns an error', async () => {
-    mockUpsert.mockResolvedValueOnce({ error: { message: 'write failed' } });
+    mockUpsertClassState.mockRejectedValueOnce(new Error('write failed'));
 
     const response = await POST(request({ term: '2264', class_nbr: '12345' }));
     const data = await json(response);
@@ -182,7 +190,7 @@ describe('/api/fetch-class-details', () => {
   });
 
   it('still returns class details when persistence throws', async () => {
-    mockGetServiceClient.mockImplementationOnce(() => {
+    mockUpsertClassState.mockImplementationOnce(() => {
       throw new Error('service client unavailable');
     });
 
@@ -191,8 +199,7 @@ describe('/api/fetch-class-details', () => {
 
     expect(response.status).toBe(200);
     expect(data.meeting_times).toBe('MWF 9:00 AM-9:50 AM');
-    expect(mockGetServiceClient).toHaveBeenCalledTimes(1);
-    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(mockUpsertClassState).toHaveBeenCalledTimes(1);
   });
 
   it('rejects unauthenticated requests', async () => {

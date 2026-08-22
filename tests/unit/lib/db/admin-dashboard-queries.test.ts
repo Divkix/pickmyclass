@@ -1,20 +1,27 @@
-import type { User } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const { mockServiceClient } = vi.hoisted(() => ({
-  mockServiceClient: {
-    auth: {
-      admin: {
-        listUsers: vi.fn(),
-      },
-    },
-    from: vi.fn(),
-    rpc: vi.fn(),
-  },
+// Mock the Hyperdrive-backed db client seam (replaces the former Supabase
+// service client). The dashboard helpers map onto:
+//   getTotalEmailsSent / getAdminCount        → queryScalar
+//   getTotalUsers / getTotalClassesWatched    → callFunctionScalar
+//   getUserWatches                            → query (class_watches then class_states)
+//   getUsersPage / getClassesPage             → callFunction
+const { mockCallFunction, mockCallFunctionScalar, mockQuery, mockQueryScalar } = vi.hoisted(() => ({
+  mockCallFunction: vi.fn(),
+  mockCallFunctionScalar: vi.fn(),
+  mockQuery: vi.fn(),
+  mockQueryScalar: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: vi.fn(() => mockServiceClient),
+vi.mock('@/lib/db/client', () => ({
+  callFunction: mockCallFunction,
+  callFunctionScalar: mockCallFunctionScalar,
+  query: mockQuery,
+  queryOne: vi.fn(),
+  queryScalar: mockQueryScalar,
+  execute: vi.fn(),
+  getClient: vi.fn(),
+  setConnectionStringGetter: vi.fn(),
 }));
 
 // Disable the TTL cache so each test exercises the real fetch path rather than
@@ -43,55 +50,9 @@ import {
   getUsersPage,
 } from '@/lib/db/admin-queries';
 
-function countQuery(count: number, error: Error | null = null) {
-  return {
-    select: vi.fn(() => Promise.resolve({ count, error })),
-  };
-}
-
-// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper wraps unknown fixture data for Supabase mock at I/O boundary
-function dataQuery(data: unknown, error: Error | null = null) {
-  const result = Promise.resolve({ data, error });
-  const builder = {
-    order: vi.fn(() => result),
-    eq: vi.fn(() => builder),
-    in: vi.fn(() => result),
-  };
-  // oxlint-disable-next-line unicorn/no-thenable
-  Object.defineProperty(builder, 'then', { value: result.then.bind(result) });
-  Object.defineProperty(builder, 'catch', { value: result.catch.bind(result) });
-  Object.defineProperty(builder, 'finally', { value: result.finally.bind(result) });
-
-  return {
-    select: vi.fn(() => builder),
-  };
-}
-
-// SAFETY: test constructs minimal User shape; only email/id fields asserted per test case
-const users = [
-  {
-    id: 'user-1',
-    email: 'one@example.com',
-    created_at: '2026-05-01T00:00:00Z',
-    last_sign_in_at: '2026-05-03T00:00:00Z',
-    email_confirmed_at: '2026-05-02T00:00:00Z',
-  },
-  {
-    id: 'user-2',
-    email: 'two@example.com',
-    created_at: '2026-05-04T00:00:00Z',
-    last_sign_in_at: null,
-    email_confirmed_at: null,
-  },
-] as User[];
-
 describe('admin dashboard query helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockServiceClient.auth.admin.listUsers.mockResolvedValue({
-      data: { users },
-      error: null,
-    });
   });
 
   it('collects dashboard counts, class watcher rows, user rows, and user watch details', async () => {
@@ -136,58 +97,40 @@ describe('admin dashboard query helpers', () => {
       { id: 'watch-3', user_id: 'user-2', class_nbr: '67890', term: '2261' },
     ];
 
-    mockServiceClient.from.mockImplementation((table: string) => {
-      if (table === 'notifications_sent') return countQuery(9);
-      if (table === 'user_profiles') {
-        return {
-          select: vi.fn((_columns: string, options?: { count?: string; head?: boolean }) => {
-            if (options?.count) {
-              return {
-                eq: vi.fn(() => Promise.resolve({ count: 1, error: null })),
-              };
-            }
-
-            return Promise.resolve({
-              data: [
-                { user_id: 'user-1', is_admin: true },
-                { user_id: 'user-2', is_admin: false },
-              ],
-              error: null,
-            });
-          }),
-        };
-      }
-      if (table === 'class_watches') return dataQuery(watches);
-      if (table === 'class_states') return dataQuery(classStates);
-      throw new Error(`Unexpected table ${table}`);
+    // queryScalar: getTotalEmailsSent (notifications_sent) + getAdminCount (user_profiles)
+    mockQueryScalar.mockImplementation((text: string) => {
+      if (text.includes('notifications_sent')) return Promise.resolve(9);
+      if (text.includes('user_profiles')) return Promise.resolve(1);
+      return Promise.resolve(0);
     });
-    // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: mock mirrors Supabase rpc which accepts unknown args decoded at boundary
-    mockServiceClient.rpc.mockImplementation((name: string, _args?: unknown) => {
-      // New scalar RPCs
-      if (name === 'count_all_users') {
-        return Promise.resolve({ data: 2, error: null });
-      }
-      if (name === 'count_distinct_classes_watched') {
-        return Promise.resolve({ data: 2, error: null });
-      }
-      throw new Error(`Unexpected RPC ${name}`);
+    // callFunctionScalar: getTotalUsers + getTotalClassesWatched
+    mockCallFunctionScalar.mockImplementation((name: string) => {
+      if (name === 'count_all_users') return Promise.resolve(2);
+      if (name === 'count_distinct_classes_watched') return Promise.resolve(2);
+      return Promise.resolve(0);
+    });
+    // query: getUserWatches (class_watches SELECT then class_states SELECT)
+    mockQuery.mockImplementation((text: string) => {
+      if (text.includes('class_watches')) return Promise.resolve(watches);
+      if (text.includes('class_states')) return Promise.resolve(classStates);
+      return Promise.resolve([]);
     });
 
     await expect(getTotalEmailsSent()).resolves.toBe(9);
 
     // getTotalUsers now uses count_all_users RPC instead of auth.admin.listUsers
     await expect(getTotalUsers()).resolves.toBe(2);
-    expect(mockServiceClient.auth.admin.listUsers).not.toHaveBeenCalled();
 
     await expect(getAdminCount()).resolves.toBe(1);
 
     // getTotalClassesWatched now uses count_distinct_classes_watched RPC
     await expect(getTotalClassesWatched()).resolves.toBe(2);
-    // Confirm it does NOT call from('class_watches').select('class_nbr')
-    // SAFETY: narrowing mock call args to string tuple for filtering; shape matches Supabase mock
-    const classWatchCalls = (mockServiceClient.from.mock.calls as string[][]).filter(
-      (c) => c[0] === 'class_watches'
+    // Confirm it does NOT scan class_watches via the query seam.
+    const classWatchCalls = mockQuery.mock.calls.filter((c) =>
+      String(c[0]).includes('class_watches')
     );
+    // getUserWatches (below) is the only class_watches reader in this test; at
+    // this point none should have run yet.
     expect(classWatchCalls.length).toBe(0);
 
     const userWatches = await getUserWatches('user-2');
@@ -196,14 +139,14 @@ describe('admin dashboard query helpers', () => {
   });
 
   it('returns an empty user watch list without querying class states when the user has no watches', async () => {
-    mockServiceClient.from.mockImplementation((table: string) => {
-      if (table === 'class_watches') return dataQuery([]);
-      if (table === 'class_states') return dataQuery([]);
-      throw new Error(`Unexpected table ${table}`);
+    mockQuery.mockImplementation((text: string) => {
+      if (text.includes('class_watches')) return Promise.resolve([]);
+      if (text.includes('class_states')) return Promise.resolve([]);
+      return Promise.resolve([]);
     });
 
     await expect(getUserWatches('user-without-watches')).resolves.toEqual([]);
-    expect(mockServiceClient.from).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
   // ── Paginated RPC wrappers ────────────────────────────────────────────────
@@ -225,7 +168,7 @@ describe('admin dashboard query helpers', () => {
       },
     ];
 
-    mockServiceClient.rpc.mockResolvedValueOnce({ data: pageRows, error: null });
+    mockCallFunction.mockResolvedValueOnce(pageRows);
 
     const result = await getUsersPage({
       page: 2,
@@ -238,16 +181,16 @@ describe('admin dashboard query helpers', () => {
       dir: 'asc',
     });
 
-    expect(mockServiceClient.rpc).toHaveBeenCalledWith('get_users_page', {
-      p_page: 2,
-      p_page_size: 10,
-      p_search: 'one',
-      p_role: 'user',
-      p_verified: 'verified',
-      p_watch_count: '1-5',
-      p_sort: 'email',
-      p_dir: 'asc',
-    });
+    expect(mockCallFunction).toHaveBeenCalledWith('get_users_page', [
+      2,
+      10,
+      'one',
+      'user',
+      'verified',
+      '1-5',
+      'email',
+      'asc',
+    ]);
 
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].email).toBe('one@example.com');
@@ -256,7 +199,7 @@ describe('admin dashboard query helpers', () => {
   });
 
   it('getUsersPage returns empty page when RPC returns no rows', async () => {
-    mockServiceClient.rpc.mockResolvedValueOnce({ data: [], error: null });
+    mockCallFunction.mockResolvedValueOnce([]);
 
     const result = await getUsersPage();
     expect(result.rows).toEqual([]);
@@ -287,7 +230,7 @@ describe('admin dashboard query helpers', () => {
       },
     ];
 
-    mockServiceClient.rpc.mockResolvedValueOnce({ data: pageRows, error: null });
+    mockCallFunction.mockResolvedValueOnce(pageRows);
 
     const result = await getClassesPage({
       page: 3,
@@ -301,17 +244,17 @@ describe('admin dashboard query helpers', () => {
       dir: 'asc',
     });
 
-    expect(mockServiceClient.rpc).toHaveBeenCalledWith('get_classes_page', {
-      p_page: 3,
-      p_page_size: 50,
-      p_search: 'cse',
-      p_subject: 'CSE',
-      p_seat_status: 'limited',
-      p_instructor: 'named',
-      p_watcher_count: '6-10',
-      p_sort: 'seats_available',
-      p_dir: 'asc',
-    });
+    expect(mockCallFunction).toHaveBeenCalledWith('get_classes_page', [
+      3,
+      50,
+      'cse',
+      'CSE',
+      'limited',
+      'named',
+      '6-10',
+      'seats_available',
+      'asc',
+    ]);
 
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].class_nbr).toBe('12345');
@@ -320,7 +263,7 @@ describe('admin dashboard query helpers', () => {
   });
 
   it('getClassesPage returns empty page when RPC returns no rows', async () => {
-    mockServiceClient.rpc.mockResolvedValueOnce({ data: [], error: null });
+    mockCallFunction.mockResolvedValueOnce([]);
 
     const result = await getClassesPage();
     expect(result.rows).toEqual([]);
@@ -328,21 +271,20 @@ describe('admin dashboard query helpers', () => {
   });
 
   it('getTotalClassesWatched uses count_distinct_classes_watched RPC (no full select)', async () => {
-    mockServiceClient.rpc.mockResolvedValueOnce({ data: 17, error: null });
+    mockCallFunctionScalar.mockResolvedValueOnce(17);
 
     const count = await getTotalClassesWatched();
     expect(count).toBe(17);
-    expect(mockServiceClient.rpc).toHaveBeenCalledWith('count_distinct_classes_watched');
-    // Must NOT do a full table scan
-    expect(mockServiceClient.from).not.toHaveBeenCalled();
+    expect(mockCallFunctionScalar).toHaveBeenCalledWith('count_distinct_classes_watched');
+    // Must NOT do a full table scan via the query seam.
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
   it('getTotalUsers uses count_all_users RPC (no auth.admin.listUsers walk)', async () => {
-    mockServiceClient.rpc.mockResolvedValueOnce({ data: 500, error: null });
+    mockCallFunctionScalar.mockResolvedValueOnce(500);
 
     const count = await getTotalUsers();
     expect(count).toBe(500);
-    expect(mockServiceClient.rpc).toHaveBeenCalledWith('count_all_users');
-    expect(mockServiceClient.auth.admin.listUsers).not.toHaveBeenCalled();
+    expect(mockCallFunctionScalar).toHaveBeenCalledWith('count_all_users');
   });
 });

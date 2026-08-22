@@ -1,13 +1,11 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-// Mock the createServerClient
-const mockGetUser = vi.fn();
-const mockFrom = vi.fn();
-const mockSelect = vi.fn();
-const mockEq = vi.fn();
-const mockSingle = vi.fn();
-const mockSignOut = vi.fn();
+const { mockGetUser, mockSignOut, mockQueryOne } = vi.hoisted(() => ({
+  mockGetUser: vi.fn(),
+  mockSignOut: vi.fn(),
+  mockQueryOne: vi.fn(),
+}));
 
 // Captures the cookies adapter passed to createServerClient so tests can
 // simulate @supabase/ssr writing cookies through it (e.g. signOut deletions).
@@ -30,17 +28,19 @@ vi.mock('@supabase/ssr', () => ({
         getUser: mockGetUser,
         signOut: mockSignOut,
       },
-      from: mockFrom,
     };
   }),
 }));
 
-// Setup mock chain
-const setupMockChain = () => {
-  mockFrom.mockReturnValue({ select: mockSelect });
-  mockSelect.mockReturnValue({ eq: mockEq });
-  mockEq.mockReturnValue({ single: mockSingle, maybeSingle: mockSingle });
-};
+vi.mock('@/lib/db/client', () => ({
+  queryOne: mockQueryOne,
+  query: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: vi.fn(),
+  callFunction: vi.fn(),
+  callFunctionScalar: vi.fn(),
+  getClient: vi.fn(),
+}));
 
 // Import proxy after mocks are set up
 import {
@@ -112,7 +112,6 @@ describe('proxy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearAuthorizationStateCache();
-    setupMockChain();
     mockCookiesAdapter = null;
     // Simulate @supabase/ssr: signOut writes deletion cookies through the
     // cookie adapter passed to createServerClient.
@@ -319,7 +318,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       const request = createAuthenticatedRequest('/login');
       const response = await proxy(request);
@@ -333,7 +332,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockAdminProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockAdminProfile);
 
       const request = createAuthenticatedRequest('/login');
       const response = await proxy(request);
@@ -347,7 +346,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       const request = createAuthenticatedRequest('/register');
       const response = await proxy(request);
@@ -364,7 +363,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockAdminProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockAdminProfile);
 
       const request = createRequest('/dashboard');
       const response = await proxy(request);
@@ -378,7 +377,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       const request = createRequest('/dashboard');
       const response = await proxy(request);
@@ -391,7 +390,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockMissingConsentProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockMissingConsentProfile);
 
       const response = await proxy(createAuthenticatedRequest('/dashboard'));
 
@@ -417,7 +416,7 @@ describe('proxy', () => {
         data: { user: mockUnverifiedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       const request = createRequest('/dashboard');
       const response = await proxy(request);
@@ -431,7 +430,7 @@ describe('proxy', () => {
         data: { user: mockUnverifiedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       const request = createRequest('/verify-email');
       const response = await proxy(request);
@@ -444,7 +443,7 @@ describe('proxy', () => {
         data: { user: mockUnverifiedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       const request = createRequest('/auth/callback');
       const response = await proxy(request);
@@ -457,7 +456,7 @@ describe('proxy', () => {
         data: { user: mockUnverifiedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       const request = createRequest('/');
       const response = await proxy(request);
@@ -472,7 +471,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockDisabledProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockDisabledProfile);
       mockSignOut.mockResolvedValue({ error: null });
 
       const request = createRequest('/dashboard');
@@ -490,7 +489,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockDisabledProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockDisabledProfile);
 
       const request = createAuthenticatedRequest('/dashboard');
       const response = await proxy(request);
@@ -521,7 +520,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockMissingConsentProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockMissingConsentProfile);
 
       const request = createAuthenticatedRequest('/api/class-watches');
       const response = await proxy(request);
@@ -538,7 +537,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockMissingConsentProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockMissingConsentProfile);
 
       const request = createAuthenticatedRequest('/api/auth/consent');
       const response = await proxy(request);
@@ -551,7 +550,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockMissingConsentProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockMissingConsentProfile);
 
       const request = createAuthenticatedRequest('/api/auth/signout');
       const response = await proxy(request);
@@ -564,7 +563,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       const request = createAuthenticatedRequest('/api/class-watches');
       const response = await proxy(request);
@@ -706,7 +705,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockDisabledProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockDisabledProfile);
       mockSignOut.mockResolvedValue({ error: null });
 
       const request = createRequest('/dashboard');
@@ -724,7 +723,7 @@ describe('proxy', () => {
         data: { user: mockUnverifiedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       const request = createRequest('/dashboard');
       const response = await proxy(request);
@@ -741,7 +740,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       const request = createAuthenticatedRequest('/login');
       const response = await proxy(request);
@@ -758,7 +757,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockAdminProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockAdminProfile);
 
       const request = createRequest('/dashboard');
       const response = await proxy(request);
@@ -777,7 +776,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockRejectedValue(new Error('Database error'));
+      mockQueryOne.mockRejectedValue(new Error('Database error'));
 
       // Suppress console.error for this test
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -798,7 +797,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: null, error: null });
+      mockQueryOne.mockResolvedValue(null);
 
       const request = createAuthenticatedRequest('/login');
       const response = await proxy(request);
@@ -815,7 +814,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       // First request - should cache
       const request1 = createRequest('/dashboard');
@@ -826,7 +825,7 @@ describe('proxy', () => {
       await proxy(request2);
 
       // Database should only be queried once due to cache
-      expect(mockSingle).toHaveBeenCalledTimes(1);
+      expect(mockQueryOne).toHaveBeenCalledTimes(1);
     });
 
     it('should fetch fresh profile after cache invalidation', async () => {
@@ -835,9 +834,7 @@ describe('proxy', () => {
         error: null,
       });
       // First call returns admin, second call returns regular user (after demotion)
-      mockSingle
-        .mockResolvedValueOnce({ data: mockAdminProfile, error: null })
-        .mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValueOnce(mockAdminProfile).mockResolvedValue(mockRegularProfile);
 
       // First request - admin user
       const request1 = createRequest('/dashboard');
@@ -853,7 +850,7 @@ describe('proxy', () => {
       expect(response2.status).toBe(200); // Not redirected, regular user can access dashboard
 
       // Database should be queried twice (before and after invalidation)
-      expect(mockSingle).toHaveBeenCalledTimes(2);
+      expect(mockQueryOne).toHaveBeenCalledTimes(2);
     });
 
     it('should redirect to login after disabled account cache invalidation', async () => {
@@ -863,9 +860,7 @@ describe('proxy', () => {
       });
       mockSignOut.mockResolvedValue({ error: null });
       // First call returns active user, second call returns disabled
-      mockSingle
-        .mockResolvedValueOnce({ data: mockRegularProfile, error: null })
-        .mockResolvedValue({ data: mockDisabledProfile, error: null });
+      mockQueryOne.mockResolvedValueOnce(mockRegularProfile).mockResolvedValue(mockDisabledProfile);
 
       // First request - active user
       const request1 = createRequest('/dashboard');
@@ -887,7 +882,7 @@ describe('proxy', () => {
         data: { user: mockAuthenticatedUser },
         error: null,
       });
-      mockSingle.mockResolvedValue({ data: mockRegularProfile, error: null });
+      mockQueryOne.mockResolvedValue(mockRegularProfile);
 
       // Populate cache
       const request = createRequest('/dashboard');

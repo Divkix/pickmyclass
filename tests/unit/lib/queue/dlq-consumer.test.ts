@@ -25,6 +25,7 @@ function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMes
   };
 }
 // SAFETY: test mock narrows getClassWatchers to vi.fn shape to set mockResolvedValue
+// eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
 const mockGetClassWatchers = getClassWatchers as ReturnType<typeof vi.fn>;
 function mockWatchers(watchers: unknown[]) {
   mockGetClassWatchers.mockResolvedValue(watchers);

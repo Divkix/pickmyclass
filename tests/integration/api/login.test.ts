@@ -16,26 +16,23 @@ interface LoginResponse {
       };
 }
 
-const { mockAttempt } = vi.hoisted(() => ({ mockAttempt: vi.fn() }));
+const { mockAttempt, mockReadAuthorizationState } = vi.hoisted(() => ({
+  mockAttempt: vi.fn(),
+  mockReadAuthorizationState: vi.fn(),
+}));
 
 vi.mock('@/lib/auth/login-attempt-policy', () => ({
   loginAttemptPolicy: { attempt: mockAttempt },
 }));
 
-// Mock the Supabase server client
+vi.mock('@/lib/auth/authorization-state', () => ({
+  readAuthorizationState: mockReadAuthorizationState,
+}));
+
+// Mock the Supabase server client — only auth.* is used by the login route now;
+// data access goes through the mocked authorization-state module.
 const mockSignInWithPassword = vi.fn();
 const mockSignOut = vi.fn();
-
-// Default mock for user_profiles query (non-disabled user).
-// readAuthorizationState uses .maybeSingle(); older call sites used .single() —
-// expose both so the chain works regardless.
-const mockSingle = vi.fn().mockResolvedValue({
-  data: { is_disabled: false },
-  error: null,
-});
-const mockEq = vi.fn().mockReturnValue({ single: mockSingle, maybeSingle: mockSingle });
-const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
-const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() =>
@@ -44,7 +41,6 @@ vi.mock('@/lib/supabase/server', () => ({
         signInWithPassword: mockSignInWithPassword,
         signOut: mockSignOut,
       },
-      from: mockFrom,
     })
   ),
 }));
@@ -85,10 +81,11 @@ describe('POST /api/auth/login', () => {
         : result;
     });
 
-    // Reset profile query mock to return non-disabled user by default
-    mockSingle.mockResolvedValue({
-      data: { is_disabled: false },
-      error: null,
+    // Reset authorization state mock to return non-disabled user by default
+    mockReadAuthorizationState.mockResolvedValue({
+      is_disabled: false,
+      is_admin: false,
+      has_consent: true,
     });
   });
 
@@ -279,28 +276,12 @@ describe('POST /api/auth/login', () => {
         error: null,
       });
 
-      // Mock the from/maybeSingle chain for checking user profile
-      const mockSingle = vi.fn().mockResolvedValue({
-        data: { is_disabled: true },
-        error: null,
+      // Mock readAuthorizationState to return disabled state
+      mockReadAuthorizationState.mockResolvedValue({
+        is_disabled: true,
+        is_admin: false,
+        has_consent: true,
       });
-      const mockEq = vi.fn().mockReturnValue({ single: mockSingle, maybeSingle: mockSingle });
-      const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
-      const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
-
-      // Mock the signOut function
-      const mockSignOut = vi.fn().mockResolvedValue({ error: null });
-
-      // Override the createClient mock for this test to include from() and signOut()
-      const { createClient } = await import('@/lib/supabase/server');
-      // SAFETY: test mock provides only partial Supabase client shape required by route; cast via never is safe in test harness
-      vi.mocked(createClient).mockResolvedValue({
-        auth: {
-          signInWithPassword: mockSignInWithPassword,
-          signOut: mockSignOut,
-        },
-        from: mockFrom,
-      } as never);
 
       const request = createRequest({ email: 'disabled@example.com', password: 'validpassword' });
       const response = await POST(request);
@@ -308,7 +289,7 @@ describe('POST /api/auth/login', () => {
 
       expect(response.status).toBe(403);
       expect(data.error).toBe('Account has been disabled');
-      expect(mockFrom).toHaveBeenCalledWith('user_profiles');
+      expect(mockReadAuthorizationState).toHaveBeenCalledWith('user-123', { cache: false });
       expect(mockSignOut).toHaveBeenCalled();
     });
 
@@ -319,22 +300,12 @@ describe('POST /api/auth/login', () => {
         error: null,
       });
 
-      // Mock the from/maybeSingle chain to return non-disabled user
-      const mockSingle = vi.fn().mockResolvedValue({
-        data: { is_disabled: false },
-        error: null,
+      // Mock readAuthorizationState to return non-disabled user
+      mockReadAuthorizationState.mockResolvedValue({
+        is_disabled: false,
+        is_admin: false,
+        has_consent: true,
       });
-      const mockEq = vi.fn().mockReturnValue({ single: mockSingle, maybeSingle: mockSingle });
-      const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
-      const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
-      const { createClient } = await import('@/lib/supabase/server');
-      // SAFETY: test mock provides only partial Supabase client shape required by route; cast via never is safe in test harness
-      vi.mocked(createClient).mockResolvedValue({
-        auth: {
-          signInWithPassword: mockSignInWithPassword,
-        },
-        from: mockFrom,
-      } as never);
 
       const request = createRequest({ email: 'active@example.com', password: 'validpassword' });
       const response = await POST(request);
@@ -342,7 +313,7 @@ describe('POST /api/auth/login', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(mockFrom).toHaveBeenCalledWith('user_profiles');
+      expect(mockReadAuthorizationState).toHaveBeenCalledWith('user-456', { cache: false });
     });
   });
 });

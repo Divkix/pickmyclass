@@ -1,24 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const {
-  mockCreateClient,
-  mockGetUser,
-  mockFrom,
-  mockSelect,
-  mockEq,
-  mockMaybeSingle,
-  mockRpc,
-  mockCaptureServerEvent,
-} = vi.hoisted(() => ({
-  mockCreateClient: vi.fn(),
-  mockGetUser: vi.fn(),
-  mockFrom: vi.fn(),
-  mockSelect: vi.fn(),
-  mockEq: vi.fn(),
-  mockMaybeSingle: vi.fn(),
-  mockRpc: vi.fn(),
-  mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
-}));
+const { mockCreateClient, mockGetUser, mockQueryOne, mockCallFunction, mockCaptureServerEvent } =
+  vi.hoisted(() => ({
+    mockCreateClient: vi.fn(),
+    mockGetUser: vi.fn(),
+    mockQueryOne: vi.fn(),
+    mockCallFunction: vi.fn(),
+    mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
+  }));
 
 vi.mock('@/lib/posthog-server', () => ({
   captureServerEvent: mockCaptureServerEvent,
@@ -26,6 +15,16 @@ vi.mock('@/lib/posthog-server', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mockCreateClient,
+}));
+
+vi.mock('@/lib/db/client', () => ({
+  queryOne: mockQueryOne,
+  callFunction: mockCallFunction,
+  query: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: vi.fn(),
+  callFunctionScalar: vi.fn(),
+  getClient: vi.fn(),
 }));
 
 import { GET, POST } from '@/app/api/user/onboarding/route';
@@ -37,8 +36,6 @@ const user = { id: 'user-123', email: 'student@example.com' };
 function createServerClient() {
   return {
     auth: { getUser: mockGetUser },
-    from: mockFrom,
-    rpc: mockRpc,
   };
 }
 
@@ -55,9 +52,6 @@ describe('/api/user/onboarding', () => {
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockCreateClient.mockResolvedValue(createServerClient());
     mockGetUser.mockResolvedValue({ data: { user }, error: null });
-    mockFrom.mockReturnValue({ select: mockSelect });
-    mockSelect.mockReturnValue({ eq: mockEq });
-    mockEq.mockReturnValue({ maybeSingle: mockMaybeSingle });
   });
 
   afterEach(() => {
@@ -76,9 +70,9 @@ describe('/api/user/onboarding', () => {
     });
 
     it('exposes needs_onboarding=true for a new user with no onboarding timestamps', async () => {
-      mockMaybeSingle.mockResolvedValue({
-        data: { onboarding_completed_at: null, onboarding_skipped_at: null },
-        error: null,
+      mockQueryOne.mockResolvedValue({
+        onboarding_completed_at: null,
+        onboarding_skipped_at: null,
       });
 
       const response = await GET();
@@ -92,12 +86,9 @@ describe('/api/user/onboarding', () => {
     });
 
     it('exposes needs_onboarding=false after the user skips', async () => {
-      mockMaybeSingle.mockResolvedValue({
-        data: {
-          onboarding_completed_at: null,
-          onboarding_skipped_at: '2026-07-11T00:00:00Z',
-        },
-        error: null,
+      mockQueryOne.mockResolvedValue({
+        onboarding_completed_at: null,
+        onboarding_skipped_at: '2026-07-11T00:00:00Z',
       });
 
       const response = await GET();
@@ -109,12 +100,9 @@ describe('/api/user/onboarding', () => {
     });
 
     it('treats existing (completed) users as not needing onboarding', async () => {
-      mockMaybeSingle.mockResolvedValue({
-        data: {
-          onboarding_completed_at: '2026-07-10T00:00:00Z',
-          onboarding_skipped_at: null,
-        },
-        error: null,
+      mockQueryOne.mockResolvedValue({
+        onboarding_completed_at: '2026-07-10T00:00:00Z',
+        onboarding_skipped_at: null,
       });
 
       const response = await GET();
@@ -125,7 +113,7 @@ describe('/api/user/onboarding', () => {
     });
 
     it('defaults to not-needed when the profile row is missing', async () => {
-      mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+      mockQueryOne.mockResolvedValue(null);
 
       const response = await GET();
       const data = await json(response);
@@ -135,7 +123,7 @@ describe('/api/user/onboarding', () => {
     });
 
     it('returns 500 when the profile read fails', async () => {
-      mockMaybeSingle.mockResolvedValue({ data: null, error: { message: 'boom' } });
+      mockQueryOne.mockRejectedValue(new Error('boom'));
 
       const response = await GET();
       const data = await json(response);
@@ -154,26 +142,23 @@ describe('/api/user/onboarding', () => {
 
       expect(response.status).toBe(401);
       expect(data.error).toBe('Unauthorized');
-      expect(mockRpc).not.toHaveBeenCalled();
+      expect(mockCallFunction).not.toHaveBeenCalled();
     });
 
     it('sets onboarding_skipped_at via the skip_onboarding RPC and returns the new state', async () => {
-      mockRpc.mockResolvedValue({
-        data: [
-          {
-            onboarding_completed_at: null,
-            onboarding_skipped_at: '2026-07-11T12:00:00Z',
-          },
-        ],
-        error: null,
-      });
+      mockCallFunction.mockResolvedValue([
+        {
+          onboarding_completed_at: null,
+          onboarding_skipped_at: '2026-07-11T12:00:00Z',
+        },
+      ]);
 
       const response = await POST();
       const data = await json(response);
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(mockRpc).toHaveBeenCalledWith('skip_onboarding');
+      expect(mockCallFunction).toHaveBeenCalledWith('skip_onboarding', ['user-123']);
       expect(data.onboarding_skipped_at).toBe('2026-07-11T12:00:00Z');
       expect(data.onboarding_completed_at).toBeNull();
       expect(data.needs_onboarding).toBe(false);
@@ -182,12 +167,12 @@ describe('/api/user/onboarding', () => {
         event: 'onboarding_skipped',
       });
       expect(mockCaptureServerEvent.mock.invocationCallOrder[0]).toBeGreaterThan(
-        mockRpc.mock.invocationCallOrder[0]
+        mockCallFunction.mock.invocationCallOrder[0]
       );
     });
 
     it('returns 500 when the RPC fails', async () => {
-      mockRpc.mockResolvedValue({ data: null, error: { message: 'rpc failed' } });
+      mockCallFunction.mockRejectedValue(new Error('rpc failed'));
 
       const response = await POST();
       const data = await json(response);

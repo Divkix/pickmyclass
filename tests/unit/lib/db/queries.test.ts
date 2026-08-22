@@ -1,13 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const mockFrom = vi.fn();
-const mockRpc = vi.fn();
+// Mock the Hyperdrive-backed db client seam (replaces the former Supabase service client)
+const { mockCallFunctionScalar, mockExecute, mockGetClient } = vi.hoisted(() => ({
+  mockCallFunctionScalar: vi.fn(),
+  mockExecute: vi.fn(),
+  mockGetClient: vi.fn(),
+}));
 
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: vi.fn(() => ({
-    from: mockFrom,
-    rpc: mockRpc,
-  })),
+vi.mock('@/lib/db/client', () => ({
+  callFunction: vi.fn(),
+  callFunctionScalar: mockCallFunctionScalar,
+  query: vi.fn(),
+  queryOne: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: mockExecute,
+  getClient: mockGetClient,
+  setConnectionStringGetter: vi.fn(),
 }));
 
 import {
@@ -15,7 +23,6 @@ import {
   incrementConsecutiveNotFound,
   resetConsecutiveNotFound,
 } from '@/lib/db/queries';
-// getServiceClient mocked via vi.mock — no direct import needed
 
 beforeEach(() => {
   vi.spyOn(console, 'info').mockImplementation(() => {});
@@ -23,116 +30,77 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-// helper to build update→eq→eq chain that resolves to {error:null}
-function mockUpdateChain() {
-  const secondEq = vi.fn().mockResolvedValue({ error: null });
-  const firstEq = vi.fn().mockReturnValue({ eq: secondEq });
-  const update = vi.fn().mockReturnValue({ eq: firstEq });
-  return { update, firstEq, secondEq };
-}
-
-// helper to build delete→eq→eq chain that resolves to {count, error}
-function mockDeleteChain(count: number) {
-  const secondEq = vi.fn().mockResolvedValue({ count, error: null });
-  const firstEq = vi.fn().mockReturnValue({ eq: secondEq });
-  const del = vi.fn().mockReturnValue({ eq: firstEq });
-  return { del, firstEq, secondEq };
-}
-
 describe('incrementConsecutiveNotFound', () => {
   it('atomic RPC success: calls increment_consecutive_not_found with SectionRef and returns new count', async () => {
-    mockRpc.mockResolvedValue({ data: 3, error: null });
+    mockCallFunctionScalar.mockResolvedValue(3);
 
     const newCount = await incrementConsecutiveNotFound({ class_nbr: '76337', term: '2261' });
 
     expect(newCount).toBe(3);
-    expect(mockRpc).toHaveBeenCalledWith('increment_consecutive_not_found', {
-      p_class_nbr: '76337',
-      p_term: '2261',
-    });
-    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockCallFunctionScalar).toHaveBeenCalledWith('increment_consecutive_not_found', [
+      '76337',
+      '2261',
+    ]);
+    expect(mockCallFunctionScalar).toHaveBeenCalledTimes(1);
   });
 
   it('when row does not exist (Section not found) creates via insert with count=1 and SectionRef', async () => {
-    mockRpc.mockResolvedValue({
-      data: null,
-      error: { message: 'Section not found', code: 'P0001' },
-    });
-    const insert = vi.fn().mockResolvedValue({ error: null });
-    mockFrom.mockImplementation(() => {
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      const stub = { insert } as unknown;
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      return stub as never;
-    });
+    mockCallFunctionScalar.mockRejectedValue(new Error('Section not found'));
+    mockExecute.mockResolvedValue(1);
 
     const newCount = await incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' });
 
     expect(newCount).toBe(1);
-    expect(mockRpc).toHaveBeenCalledWith('increment_consecutive_not_found', {
-      p_class_nbr: '42737',
-      p_term: '2261',
-    });
-    expect(insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        class_nbr: '42737',
-        term: '2261',
-        consecutive_not_found_count: 1,
-      })
+    expect(mockCallFunctionScalar).toHaveBeenCalledWith('increment_consecutive_not_found', [
+      '42737',
+      '2261',
+    ]);
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO class_states'),
+      expect.arrayContaining(['42737', '2261', 1])
     );
   });
 
   it('handles 23505 race after insert by retrying atomic RPC', async () => {
-    mockRpc
-      .mockResolvedValueOnce({
-        data: null,
-        error: { message: 'Section not found', code: 'P0001' },
-      })
-      .mockResolvedValueOnce({ data: 2, error: null });
-    const insert = vi
-      .fn()
-      .mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } });
-    mockFrom.mockImplementation(() => {
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      const stub = { insert } as unknown;
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      return stub as never;
-    });
+    mockCallFunctionScalar
+      .mockRejectedValueOnce(new Error('Section not found'))
+      .mockResolvedValueOnce(2);
+    mockExecute.mockRejectedValue(new Error('23505 duplicate key'));
 
     const newCount = await incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' });
 
     expect(newCount).toBe(2);
-    expect(mockRpc).toHaveBeenCalledTimes(2);
-    expect(insert).toHaveBeenCalled();
-    expect(mockRpc.mock.calls[0][0]).toBe('increment_consecutive_not_found');
-    expect(mockRpc.mock.calls[1][0]).toBe('increment_consecutive_not_found');
+    expect(mockCallFunctionScalar).toHaveBeenCalledTimes(2);
+    expect(mockExecute).toHaveBeenCalled();
+    expect(mockCallFunctionScalar.mock.calls[0][0]).toBe('increment_consecutive_not_found');
+    expect(mockCallFunctionScalar.mock.calls[1][0]).toBe('increment_consecutive_not_found');
   });
 
-  it('term scoping: different terms use correct p_term param', async () => {
-    mockRpc.mockResolvedValue({ data: 1, error: null });
+  it('term scoping: different terms use correct term param', async () => {
+    mockCallFunctionScalar.mockResolvedValue(1);
 
     await incrementConsecutiveNotFound({ class_nbr: '76337', term: '2261' });
-    expect(mockRpc).toHaveBeenCalledWith('increment_consecutive_not_found', {
-      p_class_nbr: '76337',
-      p_term: '2261',
-    });
+    expect(mockCallFunctionScalar).toHaveBeenCalledWith('increment_consecutive_not_found', [
+      '76337',
+      '2261',
+    ]);
 
     vi.clearAllMocks();
-    mockRpc.mockResolvedValue({ data: 2, error: null });
+    mockCallFunctionScalar.mockResolvedValue(2);
     await incrementConsecutiveNotFound({ class_nbr: '76337', term: '2257' });
-    expect(mockRpc).toHaveBeenCalledWith('increment_consecutive_not_found', {
-      p_class_nbr: '76337',
-      p_term: '2257',
-    });
+    expect(mockCallFunctionScalar).toHaveBeenCalledWith('increment_consecutive_not_found', [
+      '76337',
+      '2257',
+    ]);
     // ensure not called with previous term 2261 in this call
-    expect(mockRpc).not.toHaveBeenCalledWith('increment_consecutive_not_found', {
-      p_class_nbr: '76337',
-      p_term: '2261',
-    });
+    expect(mockCallFunctionScalar).not.toHaveBeenCalledWith('increment_consecutive_not_found', [
+      '76337',
+      '2261',
+    ]);
   });
 
   it('throws on non-notFound RPC error', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: { message: 'deadlock', code: '40P01' } });
+    mockCallFunctionScalar.mockRejectedValue(new Error('deadlock'));
 
     await expect(
       incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
@@ -140,19 +108,11 @@ describe('incrementConsecutiveNotFound', () => {
   });
 
   it('generic insert failure (42501) throws', async () => {
-    mockRpc.mockResolvedValue({
-      data: null,
-      error: { message: 'Section not found', code: 'P0001' },
-    });
-    const insert = vi
-      .fn()
-      .mockResolvedValue({ error: { code: '42501', message: 'permission denied' } });
-    mockFrom.mockImplementation(() => {
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      const stub = { insert } as unknown;
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      return stub as never;
-    });
+    mockCallFunctionScalar.mockRejectedValue(new Error('Section not found'));
+    const insertError = new Error('permission denied');
+    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double attaches a pg error code to a plain Error
+    (insertError as { code?: string }).code = '42501';
+    mockExecute.mockRejectedValue(insertError);
 
     await expect(
       incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
@@ -160,7 +120,7 @@ describe('incrementConsecutiveNotFound', () => {
   });
 
   it('RPC returns null throws validation', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockCallFunctionScalar.mockResolvedValue(null);
 
     await expect(
       incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
@@ -168,29 +128,18 @@ describe('incrementConsecutiveNotFound', () => {
   });
 
   it('RPC returns string throws validation', async () => {
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test intentionally returns wrong type to validate guard
-    mockRpc.mockResolvedValue({ data: 'not-a-number' as unknown as number, error: null });
+    mockCallFunctionScalar.mockResolvedValue('not-a-number');
+
     await expect(
       incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
     ).rejects.toThrow('Invalid increment result');
   });
 
   it('race retry RPC returns null throws validation', async () => {
-    mockRpc
-      .mockResolvedValueOnce({
-        data: null,
-        error: { message: 'Section not found', code: 'P0001' },
-      })
-      .mockResolvedValueOnce({ data: null, error: null });
-    const insert = vi
-      .fn()
-      .mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } });
-    mockFrom.mockImplementation(() => {
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      const stub = { insert } as unknown;
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      return stub as never;
-    });
+    mockCallFunctionScalar
+      .mockRejectedValueOnce(new Error('Section not found'))
+      .mockResolvedValueOnce(null);
+    mockExecute.mockRejectedValue(new Error('23505 duplicate key'));
 
     await expect(
       incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
@@ -198,30 +147,17 @@ describe('incrementConsecutiveNotFound', () => {
   });
 
   it('generic P0001 without Section not found message throws (OR masking fixed)', async () => {
-    mockRpc.mockResolvedValue({
-      data: null,
-      error: { message: 'some other error', code: 'P0001' },
-    });
+    mockCallFunctionScalar.mockRejectedValue(new Error('some other error'));
 
     await expect(
       incrementConsecutiveNotFound({ class_nbr: '42737', term: '2261' })
     ).rejects.toThrow('Failed to increment consecutive_not_found_count');
-    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it('handles Section not found via message without code (fallback)', async () => {
-    mockRpc.mockResolvedValue({
-      data: null,
-      // no code — message-only path must still trigger insert
-      error: { message: 'Section not found: 99999' } as { message: string; code?: string },
-    });
-    const insert = vi.fn().mockResolvedValue({ error: null });
-    mockFrom.mockImplementation(() => {
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      const stub = { insert } as unknown;
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      return stub as never;
-    });
+    mockCallFunctionScalar.mockRejectedValue(new Error('Section not found: 99999'));
+    mockExecute.mockResolvedValue(1);
 
     const newCount = await incrementConsecutiveNotFound({ class_nbr: '99999', term: '2261' });
     expect(newCount).toBe(1);
@@ -230,81 +166,65 @@ describe('incrementConsecutiveNotFound', () => {
 
 describe('resetConsecutiveNotFound', () => {
   it('sets consecutive_not_found_count to 0, SectionRef-scoped', async () => {
-    const { update, firstEq, secondEq } = mockUpdateChain();
-    // SAFETY: test mock — Supabase client stub with typed query builder
-    const stub = { update } as unknown;
-    // SAFETY: test mock — Supabase client stub with typed query builder
-    mockFrom.mockReturnValue(stub as never);
+    mockExecute.mockResolvedValue(0);
 
     await resetConsecutiveNotFound({ class_nbr: '42737', term: '2261' });
 
-    expect(update).toHaveBeenCalledWith({ consecutive_not_found_count: 0 });
-    expect(firstEq).toHaveBeenCalledWith('class_nbr', '42737');
-    expect(secondEq).toHaveBeenCalledWith('term', '2261');
+    expect(mockExecute).toHaveBeenCalledWith(expect.stringContaining('UPDATE class_states'), [
+      '42737',
+      '2261',
+    ]);
   });
 });
 
 describe('deleteSectionAndWatches', () => {
   it('deletes class_watches then class_states, both SectionRef-scoped, and returns counts', async () => {
-    const { del: delWatches, firstEq: feW, secondEq: seW } = mockDeleteChain(2);
-    const { del: delState, firstEq: feS, secondEq: seS } = mockDeleteChain(1);
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'class_watches') {
-        // SAFETY: test mock — Supabase client stub with typed query builder
-        const stub = { delete: delWatches } as unknown;
-        // SAFETY: test mock — Supabase client stub with typed query builder
-        return stub as never;
-      }
-      if (table === 'class_states') {
-        // SAFETY: test mock — Supabase client stub with typed query builder
-        const stub = { delete: delState } as unknown;
-        // SAFETY: test mock — Supabase client stub with typed query builder
-        return stub as never;
-      }
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      const fallback = { delete: delWatches } as unknown;
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      return fallback as never;
+    const mockClientQuery = vi.fn();
+    const mockRelease = vi.fn();
+    mockGetClient.mockResolvedValue({ query: mockClientQuery, release: mockRelease });
+    mockClientQuery.mockImplementation((sql: string) => {
+      if (sql === 'BEGIN' || sql === 'COMMIT') return Promise.resolve({ rowCount: 0 });
+      if (sql.includes('class_watches')) return Promise.resolve({ rowCount: 2 });
+      if (sql.includes('class_states')) return Promise.resolve({ rowCount: 1 });
+      return Promise.resolve({ rowCount: 0 });
     });
 
     const result = await deleteSectionAndWatches({ class_nbr: '42737', term: '2261' });
 
-    expect(delWatches).toHaveBeenCalledWith({ count: 'exact' });
-    expect(feW).toHaveBeenCalledWith('class_nbr', '42737');
-    expect(seW).toHaveBeenCalledWith('term', '2261');
-
-    expect(delState).toHaveBeenCalledWith({ count: 'exact' });
-    expect(feS).toHaveBeenCalledWith('class_nbr', '42737');
-    expect(seS).toHaveBeenCalledWith('term', '2261');
+    expect(mockClientQuery).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM class_watches'),
+      ['42737', '2261']
+    );
+    expect(mockClientQuery).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM class_states'),
+      ['42737', '2261']
+    );
 
     expect(result).toEqual({ watchesDeleted: 2, stateDeleted: true });
-    // verify order: watches deleted before state (mockFrom call order)
-    expect(mockFrom.mock.calls[0][0]).toBe('class_watches');
-    expect(mockFrom.mock.calls[1][0]).toBe('class_states');
+    // verify order: watches deleted before state (client.query call order)
+    expect(mockClientQuery.mock.calls[1][0]).toContain('class_watches');
+    expect(mockClientQuery.mock.calls[2][0]).toContain('class_states');
+    expect(mockRelease).toHaveBeenCalled();
   });
 
   it('SectionRef-scoped WHERE verified (both fields) for delete', async () => {
-    const { del: delW, firstEq: feW, secondEq: seW } = mockDeleteChain(0);
-    const { del: delS, firstEq: feS, secondEq: seS } = mockDeleteChain(0);
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'class_watches') {
-        // SAFETY: test mock — Supabase client stub with typed query builder
-        const stub = { delete: delW } as unknown;
-        // SAFETY: test mock — Supabase client stub with typed query builder
-        return stub as never;
-      }
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      const fallback = { delete: delS } as unknown;
-      // SAFETY: test mock — Supabase client stub with typed query builder
-      return fallback as never;
+    const mockClientQuery = vi.fn();
+    const mockRelease = vi.fn();
+    mockGetClient.mockResolvedValue({ query: mockClientQuery, release: mockRelease });
+    mockClientQuery.mockImplementation((sql: string) => {
+      if (sql === 'BEGIN' || sql === 'COMMIT') return Promise.resolve({ rowCount: 0 });
+      return Promise.resolve({ rowCount: 0 });
     });
 
     await deleteSectionAndWatches({ class_nbr: '99999', term: '2261' });
 
-    expect(feW).toHaveBeenCalledWith('class_nbr', '99999');
-    expect(seW).toHaveBeenCalledWith('term', '2261');
-    expect(feS).toHaveBeenCalledWith('class_nbr', '99999');
-    expect(seS).toHaveBeenCalledWith('term', '2261');
+    expect(mockClientQuery).toHaveBeenCalledWith(expect.stringContaining('class_watches'), [
+      '99999',
+      '2261',
+    ]);
+    expect(mockClientQuery).toHaveBeenCalledWith(expect.stringContaining('class_states'), [
+      '99999',
+      '2261',
+    ]);
   });
 });

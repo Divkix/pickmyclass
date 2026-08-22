@@ -13,10 +13,18 @@ interface SyncResponse {
 // vi.hoisted ensures mockKvPut is initialized before the hoisted vi.mock factory runs
 const mockKvPut = vi.hoisted(() => vi.fn());
 
-// Mock the Supabase service client so we can assert the expiry-sweep RPC is invoked.
-const mockRpc = vi.hoisted(() => vi.fn());
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: () => ({ rpc: mockRpc }),
+// Mock the data-plane seam so we can assert the expiry-sweep function is invoked.
+// callFunctionScalar replaces the old service .rpc('expire_stale_notifications').
+const mockCallFunctionScalar = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/db/client', () => ({
+  callFunctionScalar: mockCallFunctionScalar,
+  query: vi.fn(),
+  queryOne: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: vi.fn(),
+  callFunction: vi.fn(),
+  getClient: vi.fn(),
+  setConnectionStringGetter: vi.fn(),
 }));
 
 // Mock the past-term watch sweep so we can assert it's called with the right term codes.
@@ -66,7 +74,7 @@ describe('GET /api/cron/update-disposable-domains', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockKvPut.mockResolvedValue(undefined);
-    mockRpc.mockResolvedValue({ data: 0, error: null });
+    mockCallFunctionScalar.mockResolvedValue(0);
     mockDeletePastTermWatches.mockResolvedValue(0);
 
     const mod = await import('@/app/api/cron/update-disposable-domains/route');
@@ -131,12 +139,12 @@ describe('GET /api/cron/update-disposable-domains', () => {
           status: 500,
           statusText: 'Internal Server Error',
         });
-        mockRpc.mockResolvedValue({ data: 7, error: null });
+        mockCallFunctionScalar.mockResolvedValue(7);
 
         const response = await GET(createRequest('test-cron-secret'));
 
         expect(response.status).toBe(502);
-        expect(mockRpc).toHaveBeenCalledWith('expire_stale_notifications');
+        expect(mockCallFunctionScalar).toHaveBeenCalledWith('expire_stale_notifications');
         expect(mockDeletePastTermWatches).toHaveBeenCalledTimes(1);
       } finally {
         vi.useRealTimers();
@@ -186,13 +194,13 @@ describe('GET /api/cron/update-disposable-domains', () => {
       globalThis.fetch = vi
         .fn()
         .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(blocklist) });
-      mockRpc.mockResolvedValue({ data: 7, error: null });
+      mockCallFunctionScalar.mockResolvedValue(7);
 
       const request = createRequest('test-cron-secret');
       const response = await GET(request);
 
       expect(response.status).toBe(200);
-      expect(mockRpc).toHaveBeenCalledWith('expire_stale_notifications');
+      expect(mockCallFunctionScalar).toHaveBeenCalledWith('expire_stale_notifications');
     });
 
     it('still completes the blocklist sync when the expiry sweep throws', async () => {
@@ -200,7 +208,7 @@ describe('GET /api/cron/update-disposable-domains', () => {
       globalThis.fetch = vi
         .fn()
         .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(domains.join('\n')) });
-      mockRpc.mockRejectedValue(new Error('db down'));
+      mockCallFunctionScalar.mockRejectedValue(new Error('db down'));
 
       const response = await GET(createRequest('test-cron-secret'));
       const data = await parseResponse(response);
@@ -216,7 +224,7 @@ describe('GET /api/cron/update-disposable-domains', () => {
       globalThis.fetch = vi
         .fn()
         .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(domains.join('\n')) });
-      mockRpc.mockResolvedValue({ data: null, error: { message: 'rpc failed' } });
+      mockCallFunctionScalar.mockResolvedValue(null);
 
       const response = await GET(createRequest('test-cron-secret'));
 
@@ -302,7 +310,7 @@ describe('GET /api/cron/update-disposable-domains', () => {
         const response = await GET(createRequest('test-cron-secret'));
 
         expect(response.status).toBe(502);
-        expect(mockRpc).toHaveBeenCalledWith('expire_stale_notifications');
+        expect(mockCallFunctionScalar).toHaveBeenCalledWith('expire_stale_notifications');
         expect(mockDeletePastTermWatches).toHaveBeenCalledTimes(1);
         expect(mockKvPut).not.toHaveBeenCalled();
       } finally {

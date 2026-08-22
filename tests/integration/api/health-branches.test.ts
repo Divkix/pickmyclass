@@ -66,19 +66,26 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
     NotFoundError: MockNotFoundError,
   }));
 
-  const limit = vi.fn(async () => options.dbResult ?? { error: null });
-  const getServiceClient = vi.fn(() => {
+  // Data plane now goes through lib/db/client (queryOne replaces the old
+  // service .from('class_watches').select().limit() probe).
+  const queryOne = vi.fn(async () => {
     if (options.dbThrows) {
       throw new Error('service unavailable');
     }
-    return {
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({ limit })),
-      })),
-    };
+    if (options.dbResult?.error) {
+      throw new Error(options.dbResult.error.message);
+    }
+    return { id: 'probe-row' };
   });
-  vi.doMock('@/lib/supabase/service', () => ({
-    getServiceClient,
+  vi.doMock('@/lib/db/client', () => ({
+    queryOne,
+    query: vi.fn(),
+    queryScalar: vi.fn(),
+    execute: vi.fn(),
+    callFunction: vi.fn(),
+    callFunctionScalar: vi.fn(),
+    getClient: vi.fn(),
+    setConnectionStringGetter: vi.fn(),
   }));
 
   const mod = await import('@/app/api/monitoring/health/route');
@@ -87,8 +94,7 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
     createCronLockClient,
     doBinding,
     fetchClassFromASU,
-    getServiceClient,
-    limit,
+    queryOne,
     lockStatus,
   };
 }
@@ -105,12 +111,12 @@ describe('GET /api/monitoring/health branch coverage', () => {
     vi.resetModules();
     vi.doUnmock('cloudflare:workers');
     vi.doUnmock('@/lib/asu/api');
-    vi.doUnmock('@/lib/supabase/service');
+    vi.doUnmock('@/lib/db/client');
     vi.doUnmock('@/lib/worker/cron-lock');
   });
 
   it('returns a cheap liveness probe without auth', async () => {
-    const { GET, getServiceClient } = await loadHealthRoute();
+    const { GET, queryOne } = await loadHealthRoute();
 
     const response = await GET(request(''));
     // SAFETY: response.json() from mocked health route has known status shape in this branch
@@ -118,7 +124,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
 
     expect(response.status).toBe(200);
     expect(data.status).toBe('ok');
-    expect(getServiceClient).not.toHaveBeenCalled();
+    expect(queryOne).not.toHaveBeenCalled();
   });
 
   it('reports healthy detailed checks with a configured cron lock durable object', async () => {
@@ -171,12 +177,12 @@ describe('GET /api/monitoring/health branch coverage', () => {
   });
 
   it('caches detailed health checks for repeated authenticated requests', async () => {
-    const { GET, getServiceClient } = await loadHealthRoute();
+    const { GET, queryOne } = await loadHealthRoute();
 
     await GET(request());
     await GET(request());
 
-    expect(getServiceClient).toHaveBeenCalledTimes(1);
+    expect(queryOne).toHaveBeenCalledTimes(1);
   });
 
   it('reports degraded checks when database, ASU, and cron lock checks fail', async () => {
@@ -231,11 +237,10 @@ describe('GET /api/monitoring/health branch coverage', () => {
       error: 'service unavailable',
     });
     expect(data.checks.configuration.missing_vars).toEqual(
-      expect.arrayContaining([
-        'ASU_API_BASE_URL',
-        'ASU_API_TOKEN',
-        'SUPABASE_SEND_EMAIL_HOOK_SECRET',
-      ])
+      // The data-plane migration dropped Supabase-specific secrets from the
+      // health route's required-env-var list; it now checks ASU + CRON_SECRET.
+      // CRON_SECRET stays configured via baseEnv, so only the ASU vars are missing.
+      expect.arrayContaining(['ASU_API_BASE_URL', 'ASU_API_TOKEN'])
     );
     expect(data.checks.email.missing).toEqual(
       expect.arrayContaining(['EMAIL binding', 'NOTIFICATION_FROM_EMAIL'])

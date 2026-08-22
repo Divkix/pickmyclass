@@ -2,22 +2,28 @@ import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { GET, POST } from '@/app/api/unsubscribe/route';
 
-const { mockEq, mockUpdate, mockVerifyUnsubscribeToken } = vi.hoisted(() => ({
-  mockEq: vi.fn(),
-  mockUpdate: vi.fn(),
+const { mockExecute, mockVerifyUnsubscribeToken, mockCaptureServerEvent } = vi.hoisted(() => ({
+  mockExecute: vi.fn(),
   mockVerifyUnsubscribeToken: vi.fn(),
+  mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/email/unsubscribe-token', () => ({
   verifyUnsubscribeToken: mockVerifyUnsubscribeToken,
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: vi.fn(() => ({
-    from: vi.fn(() => ({
-      update: mockUpdate,
-    })),
-  })),
+vi.mock('@/lib/db/client', () => ({
+  execute: mockExecute,
+  query: vi.fn(),
+  queryOne: vi.fn(),
+  queryScalar: vi.fn(),
+  callFunction: vi.fn(),
+  callFunctionScalar: vi.fn(),
+  getClient: vi.fn(),
+}));
+
+vi.mock('@/lib/posthog-server', () => ({
+  captureServerEvent: mockCaptureServerEvent,
 }));
 
 function request(url: string, method = 'GET'): NextRequest {
@@ -39,8 +45,7 @@ describe('/api/unsubscribe', () => {
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     mockVerifyUnsubscribeToken.mockReturnValue('user-123');
-    mockUpdate.mockReturnValue({ eq: mockEq });
-    mockEq.mockResolvedValue({ error: null });
+    mockExecute.mockResolvedValue(1);
   });
 
   afterEach(() => {
@@ -66,7 +71,7 @@ describe('/api/unsubscribe', () => {
 
     expect(response.status).toBe(400);
     expect(body).toContain('Invalid or Expired Token');
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it('unsubscribes valid GET requests and returns the success page', async () => {
@@ -75,7 +80,7 @@ describe('/api/unsubscribe', () => {
 
     expect(response.status).toBe(200);
     expect(body).toContain('Confirm Unsubscribe');
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it('validates one-click POST requests', async () => {
@@ -97,7 +102,7 @@ describe('/api/unsubscribe', () => {
 
     expect(response.status).toBe(400);
     expect(data.error).toBe('Invalid or expired token');
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it('unsubscribes valid one-click POST requests', async () => {
@@ -108,11 +113,14 @@ describe('/api/unsubscribe', () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(mockEq).toHaveBeenCalledWith('user_id', 'user-123');
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE user_profiles'),
+      expect.arrayContaining(['user-123'])
+    );
   });
 
   it('returns JSON errors when one-click POST persistence fails', async () => {
-    mockEq.mockResolvedValueOnce({ error: { message: 'database down' } });
+    mockExecute.mockRejectedValueOnce(new Error('database down'));
 
     const response = await POST(
       request('https://pickmyclass.app/api/unsubscribe?token=good', 'POST')

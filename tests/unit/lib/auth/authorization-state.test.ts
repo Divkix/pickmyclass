@@ -8,8 +8,6 @@ vi.mock('@/lib/db/client', () => ({
   callFunction: vi.fn(),
   callFunctionScalar: vi.fn(),
   getClient: vi.fn(),
-  getPool: vi.fn(),
-  _resetPool: vi.fn(),
 }));
 
 import { queryOne } from '@/lib/db/client';
@@ -58,6 +56,7 @@ const adminState: AuthorizationState = {
 
 describe('readAuthorizationState', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     clearAuthorizationStateCache();
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });

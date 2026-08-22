@@ -6,16 +6,16 @@ const {
   mockCreateClient,
   mockCreateServerClient,
   mockExchangeCodeForSession,
-  mockProfileMaybeSingle,
-  mockRpc,
+  mockQueryOne,
+  mockCallFunction,
   mockSignOut,
 } = vi.hoisted(() => ({
   mockGetPublicLockoutStatus: vi.fn(),
   mockCreateClient: vi.fn(),
   mockCreateServerClient: vi.fn(),
   mockExchangeCodeForSession: vi.fn(),
-  mockProfileMaybeSingle: vi.fn(),
-  mockRpc: vi.fn(),
+  mockQueryOne: vi.fn(),
+  mockCallFunction: vi.fn(),
   mockSignOut: vi.fn(),
 }));
 
@@ -25,6 +25,16 @@ vi.mock('@/lib/auth/login-attempt-policy', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mockCreateClient,
+}));
+
+vi.mock('@/lib/db/client', () => ({
+  queryOne: mockQueryOne,
+  callFunction: mockCallFunction,
+  query: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: vi.fn(),
+  callFunctionScalar: vi.fn(),
+  getClient: vi.fn(),
 }));
 
 vi.mock('@supabase/ssr', () => ({
@@ -80,25 +90,22 @@ describe('misc API routes', () => {
       },
     });
     mockSignOut.mockResolvedValue({ error: null });
-    mockExchangeCodeForSession.mockResolvedValue({ error: null });
-    mockProfileMaybeSingle.mockResolvedValue({
-      data: {
-        age_verified_at: '2026-07-12T00:00:00.000Z',
-        agreed_to_terms_at: '2026-07-12T00:00:00.000Z',
-      },
+    // exchangeCodeForSession must return a user so the callback route proceeds
+    mockExchangeCodeForSession.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
       error: null,
     });
-    mockRpc.mockResolvedValue({ error: null });
+    // Default profile query returns consent timestamps (verified user)
+    mockQueryOne.mockResolvedValue({
+      age_verified_at: '2026-07-12T00:00:00.000Z',
+      agreed_to_terms_at: '2026-07-12T00:00:00.000Z',
+    });
+    // Default callFunction succeeds (consent recorded)
+    mockCallFunction.mockResolvedValue([]);
     mockCreateServerClient.mockReturnValue({
       auth: {
         exchangeCodeForSession: mockExchangeCodeForSession,
       },
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          maybeSingle: mockProfileMaybeSingle,
-        })),
-      })),
-      rpc: mockRpc,
     });
   });
 
@@ -161,7 +168,7 @@ describe('misc API routes', () => {
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe('https://pickmyclass.app/dashboard');
     expect(mockExchangeCodeForSession).toHaveBeenCalledWith('abc');
-    expect(mockProfileMaybeSingle).toHaveBeenCalledOnce();
+    expect(mockQueryOne).toHaveBeenCalledOnce();
   });
 
   it('ignores client-controlled x-forwarded-host when redirecting', async () => {
@@ -186,15 +193,12 @@ describe('misc API routes', () => {
     );
 
     expect(response.headers.get('location')).toBe('https://pickmyclass.app/dashboard');
-    expect(mockRpc).toHaveBeenCalledWith('accept_terms_and_verify_age');
-    expect(mockProfileMaybeSingle).not.toHaveBeenCalled();
+    expect(mockCallFunction).toHaveBeenCalledWith('accept_terms_and_verify_age', ['user-1']);
+    expect(mockQueryOne).not.toHaveBeenCalled();
   });
 
   it('gates OAuth accounts that have not recorded consent', async () => {
-    mockProfileMaybeSingle.mockResolvedValueOnce({
-      data: { age_verified_at: null, agreed_to_terms_at: null },
-      error: null,
-    });
+    mockQueryOne.mockResolvedValueOnce({ age_verified_at: null, agreed_to_terms_at: null });
 
     const response = await authCallback(
       new Request('https://pickmyclass.app/auth/callback?code=abc&next=/dashboard')
@@ -206,7 +210,7 @@ describe('misc API routes', () => {
   });
 
   it('keeps users on the consent gate when persistence fails', async () => {
-    mockRpc.mockResolvedValueOnce({ error: { message: 'database unavailable' } });
+    mockCallFunction.mockRejectedValueOnce(new Error('database unavailable'));
 
     const response = await authCallback(
       new Request(
@@ -221,6 +225,7 @@ describe('misc API routes', () => {
 
   it('falls back to login when callback exchange fails or code is missing', async () => {
     mockExchangeCodeForSession.mockResolvedValueOnce({
+      data: { user: null },
       error: { message: 'bad code' },
     });
 

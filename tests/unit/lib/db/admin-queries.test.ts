@@ -1,14 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const mockRpc = vi.fn();
-const mockFrom = vi.fn();
+// Mock the Hyperdrive-backed db client seam (replaces the former Supabase
+// service client). getRecentActivity uses callFunction; getUserWatches uses
+// query (twice: class_watches then class_states).
+const { mockCallFunction, mockQuery } = vi.hoisted(() => ({
+  mockCallFunction: vi.fn(),
+  mockQuery: vi.fn(),
+}));
 
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: vi.fn(() => ({
-    // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: mock mirrors Supabase rpc which accepts unknown params decoded at boundary
-    rpc: (name: string, params: unknown) => mockRpc(name, params),
-    from: (table: string) => mockFrom(table),
-  })),
+vi.mock('@/lib/db/client', () => ({
+  callFunction: mockCallFunction,
+  callFunctionScalar: vi.fn(),
+  query: mockQuery,
+  queryOne: vi.fn(),
+  queryScalar: vi.fn(),
+  execute: vi.fn(),
+  getClient: vi.fn(),
+  setConnectionStringGetter: vi.fn(),
 }));
 
 // Import after mocks are registered
@@ -49,13 +57,11 @@ describe('getRecentActivity', () => {
         notification_type: 'seat_available',
       },
     ];
-    mockRpc.mockResolvedValue({ data: mockData, error: null });
+    mockCallFunction.mockResolvedValue(mockData);
 
     const result = await getRecentActivity(10);
 
-    expect(mockRpc).toHaveBeenCalledWith('get_recent_activity', {
-      p_limit: 10,
-    });
+    expect(mockCallFunction).toHaveBeenCalledWith('get_recent_activity', [10]);
 
     expect(result).toHaveLength(3);
 
@@ -91,52 +97,43 @@ describe('getRecentActivity', () => {
   });
 
   it('should use default limit of 50 when none provided', async () => {
-    mockRpc.mockResolvedValue({ data: [], error: null });
+    mockCallFunction.mockResolvedValue([]);
 
     await getRecentActivity();
 
-    expect(mockRpc).toHaveBeenCalledWith('get_recent_activity', {
-      p_limit: 50,
-    });
+    expect(mockCallFunction).toHaveBeenCalledWith('get_recent_activity', [50]);
   });
 
   it('should return empty array when no activity exists', async () => {
-    mockRpc.mockResolvedValue({ data: [], error: null });
+    mockCallFunction.mockResolvedValue([]);
 
     const result = await getRecentActivity(15);
 
-    expect(mockRpc).toHaveBeenCalledWith('get_recent_activity', {
-      p_limit: 15,
-    });
+    expect(mockCallFunction).toHaveBeenCalledWith('get_recent_activity', [15]);
     expect(result).toEqual([]);
   });
 
   it('should degrade to an empty activity feed when the recent activity RPC is not deployed', async () => {
-    mockRpc.mockResolvedValue({
-      data: null,
-      error: {
-        code: 'PGRST202',
-        message:
-          'Could not find the function public.get_recent_activity(p_limit) in the schema cache',
-      },
-    });
+    // PostgreSQL error code 42883 = undefined function. The production code
+    // detects this via isMissingRecentActivityRpcError and caches an empty
+    // fallback, so the second call never reaches the db seam.
+    const missingRpcError = Object.assign(
+      new Error('function get_recent_activity(integer) does not exist'),
+      { code: '42883' }
+    );
+    mockCallFunction.mockRejectedValue(missingRpcError);
 
     const result = await getRecentActivity(42);
     const cachedResult = await getRecentActivity(42);
 
-    expect(mockRpc).toHaveBeenCalledWith('get_recent_activity', {
-      p_limit: 42,
-    });
-    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockCallFunction).toHaveBeenCalledWith('get_recent_activity', [42]);
+    expect(mockCallFunction).toHaveBeenCalledTimes(1);
     expect(result).toEqual([]);
     expect(cachedResult).toEqual([]);
   });
 
   it('should throw error when RPC fails', async () => {
-    mockRpc.mockResolvedValue({
-      data: null,
-      error: { message: 'Database connection failed' },
-    });
+    mockCallFunction.mockRejectedValue(new Error('Database connection failed'));
 
     await expect(getRecentActivity(20)).rejects.toThrow(
       'Failed to fetch recent activity: Database connection failed'
@@ -150,25 +147,17 @@ describe('getUserWatches', () => {
   });
 
   /**
-   * Wire the service-client `from()` mock: `class_watches` resolves the watch
-   * list, `class_states` resolves the joined states.
+   * Wire the db-client `query` mock: a SELECT against `class_watches` resolves
+   * the watch list, a SELECT against `class_states` resolves the joined states.
+   * The mock inspects the SQL text to discriminate the two calls (params like
+   * the user id / class_nbr arrays are ignored — the mock returns the fixture
+   * rows verbatim).
    */
   function mockTables(watches: unknown[], states: unknown[]) {
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'class_watches') {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => Promise.resolve({ data: watches, error: null }),
-            }),
-          }),
-        };
-      }
-      return {
-        select: () => ({
-          in: () => Promise.resolve({ data: states, error: null }),
-        }),
-      };
+    mockQuery.mockImplementation((text: string) => {
+      if (text.includes('class_watches')) return Promise.resolve(watches);
+      if (text.includes('class_states')) return Promise.resolve(states);
+      return Promise.resolve([]);
     });
   }
 

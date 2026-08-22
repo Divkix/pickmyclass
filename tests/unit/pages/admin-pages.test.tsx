@@ -14,13 +14,15 @@ const {
   mockGetClassesPage,
   mockGetDistinctSubjects,
   mockGetRecentActivity,
-  mockGetServiceClient,
   mockGetTotalClassesWatched,
   mockGetTotalEmailsSent,
   mockGetTotalUsers,
   mockGetUserWatches,
   mockGetUsersPage,
   mockPush,
+  mockQuery,
+  mockQueryOne,
+  mockQueryScalar,
   mockVerifyAdmin,
 } = vi.hoisted(() => ({
   mockGetAdminCount: vi.fn(),
@@ -28,13 +30,15 @@ const {
   mockGetClassesPage: vi.fn(),
   mockGetDistinctSubjects: vi.fn(),
   mockGetRecentActivity: vi.fn(),
-  mockGetServiceClient: vi.fn(),
   mockGetTotalClassesWatched: vi.fn(),
   mockGetTotalEmailsSent: vi.fn(),
   mockGetTotalUsers: vi.fn(),
   mockGetUserWatches: vi.fn(),
   mockGetUsersPage: vi.fn(),
   mockPush: vi.fn(),
+  mockQuery: vi.fn(),
+  mockQueryOne: vi.fn(),
+  mockQueryScalar: vi.fn(),
   mockVerifyAdmin: vi.fn(),
 }));
 
@@ -100,8 +104,15 @@ vi.mock('@/lib/supabase/server', () => ({
   ),
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: mockGetServiceClient,
+vi.mock('@/lib/db/client', () => ({
+  callFunction: vi.fn(),
+  callFunctionScalar: vi.fn(),
+  execute: vi.fn(),
+  getClient: vi.fn(),
+  query: mockQuery,
+  queryOne: mockQueryOne,
+  queryScalar: mockQueryScalar,
+  setConnectionStringGetter: vi.fn(),
 }));
 
 vi.mock('@/lib/db/admin-queries', () => ({
@@ -200,36 +211,11 @@ const classRows = [
 ];
 
 /**
- * class_states rows the service-client mock filters over. Reset to `classRows`
- * before each test; individual tests reassign it (e.g. the two-term case).
+ * class_states rows the `queryOne` mock resolves for class detail pages.
+ * Reset to `classRows` before each test; individual tests reassign it
+ * (e.g. the two-term case).
  */
 let classStateFixtures: Array<Record<string, JsonValue>> = classRows;
-
-/**
- * Minimal term-aware `class_states` query builder: records the `.eq` filters
- * applySectionRef applies and resolves `.single()` to the row matching BOTH
- * class_nbr and term — so a section number shared by two terms resolves to one
- * row instead of the real client's multi-row error.
- */
-function makeClassStatesQuery() {
-  const filters: Record<string, string> = {};
-  const builder = {
-    select: () => builder,
-    eq: (column: string, value: string) => {
-      filters[column] = value;
-      return builder;
-    },
-    single: () => {
-      const match = classStateFixtures.find(
-        (row) => row.class_nbr === filters.class_nbr && row.term === filters.term
-      );
-      return Promise.resolve(
-        match ? { data: match, error: null } : { data: null, error: { code: 'PGRST116' } }
-      );
-    },
-  };
-  return builder;
-}
 
 const userRows = [
   {
@@ -306,18 +292,20 @@ describe('admin pages', () => {
         class_state: classRows[0],
       },
     ]);
-    mockGetServiceClient.mockReturnValue({
-      auth: {
-        admin: {
-          getUserById: vi.fn(() =>
-            Promise.resolve({
-              data: { user: userRows[0] },
-              error: null,
-            })
-          ),
-        },
-      },
-      from: vi.fn(() => makeClassStatesQuery()),
+    // queryOne dispatches by SQL text: users mirror table vs class_states.
+    // class_states is filtered by BOTH class_nbr and term so a section number
+    // shared by two terms resolves to one row (the #278 bug).
+    mockQueryOne.mockImplementation(async (text: string, params?: unknown[]) => {
+      if (text.includes('FROM users')) {
+        const userId = params?.[0];
+        return userRows.find((u) => u.id === userId) ?? userRows[0] ?? null;
+      }
+      if (text.includes('FROM class_states')) {
+        const classNbr = params?.[0];
+        const term = params?.[1];
+        return classStateFixtures.find((r) => r.class_nbr === classNbr && r.term === term) ?? null;
+      }
+      return null;
     });
   });
 

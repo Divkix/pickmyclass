@@ -24,15 +24,6 @@ import type { ClassCheckMessage } from './queue';
  */
 export type SendEmail = Cloudflare.Env['EMAIL'];
 
-/**
- * Hyperdrive binding — provides a connectionString that points at the local
- * Hyperdrive proxy inside the Workers runtime. Configured with
- * `--caching-disabled` for correctness-critical read-modify-write paths.
- */
-export interface HyperdriveBinding {
-  connectionString: string;
-}
-
 export interface Env extends Record<string, unknown> {
   // Asset serving
   ASSETS: Fetcher;
@@ -50,7 +41,7 @@ export interface Env extends Record<string, unknown> {
   PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
 
   // Database access via Cloudflare Hyperdrive (PlanetScale Postgres)
-  PICKMYCLASS_HYPERDRIVE: HyperdriveBinding;
+  PICKMYCLASS_HYPERDRIVE: Hyperdrive;
 
   // ASU API credentials
   ASU_API_BASE_URL: string;

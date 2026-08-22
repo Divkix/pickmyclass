@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { DELETE, GET, POST } from '@/app/api/class-watches/route';
 import type { ValidationIssueDetail } from '@/lib/api/validation';
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -83,118 +82,80 @@ const mockClassDetails = {
   meeting_times: 'MWF 9:00 AM-9:50 AM',
 };
 
-// Mock Supabase methods
-const mockGetUser = vi.fn();
-const mockFrom = vi.fn();
-const mockRpc = vi.fn();
-const mockSelect = vi.fn();
-const mockDelete = vi.fn();
-const mockEq = vi.fn();
-const mockIn = vi.fn();
-const mockOrder = vi.fn();
-const mockMaybeSingle = vi.fn();
-const mockUpsert = vi.fn();
-const mockServiceFrom = vi.fn();
-const mockServiceUpsert = vi.fn();
-const mockServiceUpdate = vi.fn();
+// Hoisted mock functions (vi.mock factories run before imports, so all refs
+// referenced inside factories must be declared via vi.hoisted).
+const {
+  mockCreateClient,
+  mockGetUser,
+  mockQuery,
+  mockQueryOne,
+  mockCallFunction,
+  mockExecute,
+  mockFetchClassFromASU,
+  mockUpsertClassState,
+  mockApplyFirstWatchGuard,
+  mockCaptureServerEvent,
+  NotFoundError,
+  AuthError,
+} = vi.hoisted(() => {
+  class MockNotFoundError extends Error {}
+  class MockAuthError extends Error {}
+  return {
+    mockCreateClient: vi.fn(),
+    mockGetUser: vi.fn(),
+    mockQuery: vi.fn(),
+    mockQueryOne: vi.fn(),
+    mockCallFunction: vi.fn(),
+    mockExecute: vi.fn(),
+    mockFetchClassFromASU: vi.fn(),
+    mockUpsertClassState: vi.fn(),
+    mockApplyFirstWatchGuard: vi.fn(),
+    mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
+    NotFoundError: MockNotFoundError,
+    AuthError: MockAuthError,
+  };
+});
 
-// Mock for delete with double eq chain
-const mockDeleteEqChain = vi.fn();
-
-// Onboarding-complete update chain on the service client:
-// .update(...).eq('user_id').is('onboarding_completed_at', null)
-const mockServiceOnboardingUpdateEq = vi.fn();
-const mockServiceOnboardingIs = vi.fn();
-
-// Setup mock chain
-const setupMockChain = () => {
-  mockFrom.mockReturnValue({
-    select: mockSelect,
-    delete: mockDelete,
-    upsert: mockUpsert,
-  });
-  mockSelect.mockReturnValue({
-    eq: mockEq,
-    in: mockIn,
-    order: mockOrder,
-  });
-  // Shared eq chain supports both .order() (class_watches) and .maybeSingle() (user_profiles).
-  mockEq.mockReturnValue({
-    eq: mockEq,
-    order: mockOrder,
-    maybeSingle: mockMaybeSingle,
-  });
-  mockOrder.mockReturnValue(Promise.resolve({ data: [], error: null }));
-  mockMaybeSingle.mockResolvedValue({
-    data: { onboarding_completed_at: '2026-01-01T00:00:00Z', onboarding_skipped_at: null },
-    error: null,
-  });
-  mockIn.mockImplementation(() => {
-    // SAFETY: test mock only needs Promise shape with chained .in(); cast to any avoids typing dynamic mock chain
-    const p = Promise.resolve({ data: [], error: null }) as any;
-    p.in = () => p;
-    return p;
-  });
-  // Delete chain: .delete().eq(id).eq(user_id)
-  mockDeleteEqChain.mockResolvedValue({ error: null });
-  mockDelete.mockReturnValue({
-    eq: vi.fn().mockReturnValue({
-      eq: mockDeleteEqChain,
-    }),
-  });
-  // Service client: upsert (class state) + update (onboarding completion).
-  // Onboarding-complete update chain on the service client:
-  // .update(...).eq('user_id').is('onboarding_completed_at', null)
-  // (issue #307: the guard only filters completed_at, NOT skipped_at, so a
-  // skipped user still completes on their first watch.)
-  // SAFETY: test mock extends Promise with .is() for Supabase chain; any allows adding mock method without full type
-  const onboardingIsChain = Promise.resolve({ error: null }) as any;
-  onboardingIsChain.is = mockServiceOnboardingIs;
-  mockServiceOnboardingIs.mockReturnValue(onboardingIsChain);
-  mockServiceOnboardingUpdateEq.mockReturnValue({ is: mockServiceOnboardingIs });
-  mockServiceUpdate.mockReturnValue({ eq: mockServiceOnboardingUpdateEq });
-  mockServiceFrom.mockReturnValue({
-    upsert: mockServiceUpsert,
-    update: mockServiceUpdate,
-  });
-  mockServiceUpsert.mockResolvedValue({ error: null });
-};
-
+// Auth stays on Supabase (supabase.auth.getUser) — only the data plane moved
+// to PlanetScale/Hyperdrive, so keep the server client mock but strip data access.
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() =>
-    Promise.resolve({
-      auth: {
-        getUser: mockGetUser,
-      },
-      from: mockFrom,
-      rpc: mockRpc,
-    })
-  ),
+  createClient: mockCreateClient,
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  getServiceClient: vi.fn(() => ({
-    from: mockServiceFrom,
-    rpc: mockRpc,
-  })),
+// New data-plane seam: lib/db/client (replaces lib/supabase/service).
+vi.mock('@/lib/db/client', () => ({
+  query: mockQuery,
+  queryOne: mockQueryOne,
+  queryScalar: vi.fn(),
+  execute: mockExecute,
+  callFunction: mockCallFunction,
+  callFunctionScalar: vi.fn(),
+  getClient: vi.fn(),
+  setConnectionStringGetter: vi.fn(),
+}));
+
+// upsertClassState lives in lib/db/queries and is imported by the route.
+vi.mock('@/lib/db/queries', () => ({
+  upsertClassState: mockUpsertClassState,
+}));
+
+// Keep real toOnboardingState/onboardingStatus; only stub the persistence guard
+// (applyFirstWatchGuard) so the test can assert it's invoked on first watch.
+vi.mock('@/lib/onboarding', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/onboarding')>()),
+  applyFirstWatchGuard: mockApplyFirstWatchGuard,
 }));
 
 // Mock ASU API client
-const mockFetchClassFromASU = vi.fn();
 vi.mock('@/lib/asu/api', () => ({
-  fetchClassFromASU: (...args: unknown[]) => mockFetchClassFromASU(...args),
-  NotFoundError: class NotFoundError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = 'NotFoundError';
-    }
-  },
-  AuthError: class AuthError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = 'AuthError';
-    }
-  },
+  fetchClassFromASU: mockFetchClassFromASU,
+  NotFoundError,
+  AuthError,
+}));
+
+// PostHog server events fail open — stub so no network calls happen in tests.
+vi.mock('@/lib/posthog-server', () => ({
+  captureServerEvent: mockCaptureServerEvent,
 }));
 
 // Mock cloudflare:workers for env import
@@ -204,6 +165,20 @@ vi.mock('cloudflare:workers', () => ({
     ASU_API_TOKEN: 'mock-token',
   },
 }));
+
+import { DELETE, GET, POST } from '@/app/api/class-watches/route';
+
+// Per-test mutable results for the query/queryOne mocks. The route issues
+// multiple `query` calls per GET (class_watches, then class_states) plus a
+// `queryOne` for the onboarding profile; the mock dispatches on SQL text.
+// SAFETY: test fixtures are controlled row shapes matching the route's typed SELECT contracts
+let watchesResult: ClassWatch[] = [];
+// SAFETY: test fixtures are controlled row shapes matching the route's typed SELECT contracts
+let classStatesResult: ClassState[] = [];
+let profileResult: {
+  onboarding_completed_at: string | null;
+  onboarding_skipped_at: string | null;
+};
 
 // Response parsers
 async function parseGetResponse(response: Response): Promise<GetResponse> {
@@ -226,8 +201,36 @@ describe('/api/class-watches', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
     vi.clearAllMocks();
-    setupMockChain();
-    mockRpc.mockResolvedValue({ data: mockWatch, error: null });
+
+    // Default per-test fixtures
+    watchesResult = [];
+    classStatesResult = [];
+    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double for onboarding profile row
+    profileResult = {
+      onboarding_completed_at: '2026-01-01T00:00:00Z',
+      onboarding_skipped_at: null,
+    };
+
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
+    mockCreateClient.mockResolvedValue({ auth: { getUser: mockGetUser } });
+
+    // Dispatch `query` by SQL text: class_watches list vs class_states lookup.
+    mockQuery.mockImplementation(async (text: string) => {
+      if (text.includes('FROM class_watches WHERE user_id')) return watchesResult;
+      if (text.includes('FROM class_states')) return classStatesResult;
+      return [];
+    });
+    // Dispatch `queryOne` by SQL text: user_profiles onboarding read.
+    mockQueryOne.mockImplementation(async (text: string) => {
+      if (text.includes('FROM user_profiles')) return profileResult;
+      return null;
+    });
+
+    mockExecute.mockResolvedValue(1);
+    mockCallFunction.mockResolvedValue([mockWatch]);
+    mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
+    mockUpsertClassState.mockResolvedValue(undefined);
+    mockApplyFirstWatchGuard.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -246,9 +249,6 @@ describe('/api/class-watches', () => {
     });
 
     it('should return empty watches for authenticated user with no watches', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockOrder.mockResolvedValue({ data: [], error: null });
-
       const response = await GET();
       const data = await parseGetResponse(response);
 
@@ -262,14 +262,8 @@ describe('/api/class-watches', () => {
     });
 
     it('should return watches with joined class states', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockOrder.mockResolvedValue({ data: [mockWatch], error: null });
-      mockIn.mockImplementation(() => {
-        // SAFETY: test mock only needs Promise shape with chained .in(); cast to any avoids typing dynamic mock chain
-        const p = Promise.resolve({ data: [mockClassState], error: null }) as any;
-        p.in = () => p;
-        return p;
-      });
+      watchesResult = [mockWatch];
+      classStatesResult = [mockClassState];
 
       const response = await GET();
       const data = await parseGetResponse(response);
@@ -280,8 +274,7 @@ describe('/api/class-watches', () => {
     });
 
     it('should handle database errors', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockOrder.mockResolvedValue({ data: null, error: { message: 'Database error' } });
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
 
       const response = await GET();
       const data = await parseGetResponse(response);
@@ -290,6 +283,7 @@ describe('/api/class-watches', () => {
       expect(data.error).toBe('Failed to fetch class watches');
     });
   });
+
   describe('POST /api/class-watches', () => {
     const createRequest = (body: Record<string, JsonValue>): NextRequest => {
       return new NextRequest('http://localhost:3000/api/class-watches', {
@@ -313,11 +307,6 @@ describe('/api/class-watches', () => {
     });
 
     it('should return 400 for invalid term format', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockSelect.mockReturnValueOnce({
-        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
-      });
-
       const request = createRequest({ term: 'invalid', class_nbr: '12345' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
@@ -332,11 +321,6 @@ describe('/api/class-watches', () => {
     });
 
     it('should return 400 for invalid class_nbr format', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockSelect.mockReturnValueOnce({
-        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
-      });
-
       const request = createRequest({ term: '2264', class_nbr: '123' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
@@ -346,11 +330,9 @@ describe('/api/class-watches', () => {
     });
 
     it('should return 429 when max watches limit reached', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
-      mockRpc.mockResolvedValue({
-        data: null,
-        error: { code: 'P0001', message: 'MAX_WATCHES_EXCEEDED: user has 10 watches' },
+      mockCallFunction.mockRejectedValueOnce({
+        code: 'P0001',
+        message: 'MAX_WATCHES_EXCEEDED: user has 10 watches',
       });
 
       const request = createRequest({ term: '2264', class_nbr: '12345' });
@@ -362,14 +344,9 @@ describe('/api/class-watches', () => {
     });
 
     it('should return 409 for duplicate watch', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockSelect.mockReturnValueOnce({
-        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
-      });
-      mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
-      mockRpc.mockResolvedValue({
-        data: null,
-        error: { code: '23505', message: 'Unique constraint violation' },
+      mockCallFunction.mockRejectedValueOnce({
+        code: '23505',
+        message: 'Unique constraint violation',
       });
 
       const request = createRequest({ term: '2264', class_nbr: '12345' });
@@ -381,14 +358,9 @@ describe('/api/class-watches', () => {
     });
 
     it('should return 429 when atomic insert reports limit exceeded', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockSelect.mockReturnValueOnce({
-        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
-      });
-      mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
-      mockRpc.mockResolvedValue({
-        data: null,
-        error: { code: 'P0001', message: 'MAX_WATCHES_EXCEEDED' },
+      mockCallFunction.mockRejectedValueOnce({
+        code: 'P0001',
+        message: 'MAX_WATCHES_EXCEEDED',
       });
 
       const request = createRequest({ term: '2264', class_nbr: '12345' });
@@ -400,12 +372,7 @@ describe('/api/class-watches', () => {
     });
 
     it('should return 500 when ASU API fetch fails', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockSelect.mockReturnValueOnce({
-        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
-      });
-
-      mockFetchClassFromASU.mockRejectedValue(new Error('Network error'));
+      mockFetchClassFromASU.mockRejectedValueOnce(new Error('Network error'));
 
       const request = createRequest({ term: '2264', class_nbr: '12345' });
       const response = await POST(request);
@@ -416,14 +383,9 @@ describe('/api/class-watches', () => {
     });
 
     it('should return 404 when class section not found', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockSelect.mockReturnValueOnce({
-        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
-      });
-
       // Import the mock class to throw the right error type
-      const { NotFoundError } = await import('@/lib/asu/api');
-      mockFetchClassFromASU.mockRejectedValue(new NotFoundError('Section 99999 not found'));
+      const { NotFoundError: NFE } = await import('@/lib/asu/api');
+      mockFetchClassFromASU.mockRejectedValueOnce(new NFE('Section 99999 not found'));
 
       const request = createRequest({ term: '2264', class_nbr: '99999' });
       const response = await POST(request);
@@ -434,13 +396,8 @@ describe('/api/class-watches', () => {
     });
 
     it('should return 503 when ASU API auth fails', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockSelect.mockReturnValueOnce({
-        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
-      });
-
-      const { AuthError } = await import('@/lib/asu/api');
-      mockFetchClassFromASU.mockRejectedValue(new AuthError('Token expired'));
+      const { AuthError: AE } = await import('@/lib/asu/api');
+      mockFetchClassFromASU.mockRejectedValueOnce(new AE('Token expired'));
 
       const request = createRequest({ term: '2264', class_nbr: '12345' });
       const response = await POST(request);
@@ -451,14 +408,6 @@ describe('/api/class-watches', () => {
     });
 
     it('should create watch successfully with ASU API data', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockSelect.mockReturnValueOnce({
-        eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
-      });
-
-      mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
-      mockRpc.mockResolvedValue({ data: mockWatch, error: null });
-
       const request = createRequest({ term: '2264', class_nbr: '12345' });
       const response = await POST(request);
       const data = await parsePostResponse(response);
@@ -472,31 +421,29 @@ describe('/api/class-watches', () => {
           ASU_API_TOKEN: expect.any(String),
         }
       );
-      expect(mockRpc).toHaveBeenCalledWith(
-        'create_class_watch_with_limit',
+      // callFunction replaces .rpc(): function name + positional params array.
+      // Params: [user_id, term, subject(upper), catalog_nbr, class_nbr, max_watches].
+      expect(mockCallFunction).toHaveBeenCalledWith('create_class_watch_with_limit', [
+        mockUser.id,
+        '2264',
+        'CSE',
+        '240',
+        '12345',
+        10,
+      ]);
+      // upsertClassState(ref, details) replaces the old service .upsert(...) call.
+      expect(mockUpsertClassState).toHaveBeenCalledWith(
+        { class_nbr: '12345', term: '2264' },
         expect.objectContaining({
-          p_user_id: mockUser.id,
-          p_term: '2264',
-          p_class_nbr: '12345',
+          subject: 'CSE',
+          catalog_nbr: '240',
+          seats_available: 10,
         })
       );
-      expect(mockServiceUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          class_nbr: '12345',
-          term: '2264',
-          last_checked_at: expect.any(String),
-        }),
-        { onConflict: 'class_nbr,term' }
-      );
-      // Onboarding is marked complete on the user's first watch.
-      expect(mockServiceUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({ onboarding_completed_at: expect.any(String) })
-      );
-      expect(mockServiceOnboardingUpdateEq).toHaveBeenCalledWith('user_id', mockUser.id);
-      // Issue #307: completion guard filters ONLY on onboarding_completed_at,
+      // Onboarding is marked complete on the user's first watch via the guard.
+      // Issue #307: the guard filters ONLY on onboarding_completed_at IS NULL,
       // not on onboarding_skipped_at, so a skipped user still completes.
-      expect(mockServiceOnboardingIs).toHaveBeenCalledWith('onboarding_completed_at', null);
-      expect(mockServiceOnboardingIs).not.toHaveBeenCalledWith('onboarding_skipped_at', null);
+      expect(mockApplyFirstWatchGuard).toHaveBeenCalledWith(mockUser.id);
     });
   });
 
@@ -522,8 +469,6 @@ describe('/api/class-watches', () => {
     });
 
     it('should return 400 for invalid UUID format', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-
       const request = createDeleteRequest('not-a-uuid');
       const response = await DELETE(request);
       const data = await parseDeleteResponse(response);
@@ -533,8 +478,6 @@ describe('/api/class-watches', () => {
     });
 
     it('should return 400 for missing ID', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-
       const request = createDeleteRequest(null);
       const response = await DELETE(request);
 
@@ -542,9 +485,6 @@ describe('/api/class-watches', () => {
     });
 
     it('should delete watch successfully', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockDeleteEqChain.mockResolvedValue({ error: null });
-
       const request = createDeleteRequest('550e8400-e29b-41d4-a716-446655440000');
       const response = await DELETE(request);
       const data = await parseDeleteResponse(response);
@@ -554,8 +494,7 @@ describe('/api/class-watches', () => {
     });
 
     it('should handle database errors on delete', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-      mockDeleteEqChain.mockResolvedValue({ error: { message: 'Database error' } });
+      mockExecute.mockRejectedValueOnce(new Error('Database error'));
 
       const request = createDeleteRequest('550e8400-e29b-41d4-a716-446655440000');
       const response = await DELETE(request);
