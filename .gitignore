@@ -55,6 +55,8 @@ supabase/.branches/
 # sentry
 .sentryclirc
 sentry.properties
+# vinext build cache
+.vinext/
 /dist/
 /worker/
 .env.local
