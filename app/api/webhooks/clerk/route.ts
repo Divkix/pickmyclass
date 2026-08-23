@@ -1,10 +1,10 @@
 /**
  * Clerk webhook receiver — keeps the local `users` mirror in sync.
- *
- * Events: user.created / user.updated upsert the mirror row (id, email,
- * email_confirmed_at, last_sign_in_at) and ensure the 1:1 user_profiles row
- * exists (this replaces the dropped Supabase `on_auth_user_created` trigger).
- * user.deleted applies the CCPA-consistent soft delete on the profile.
+ * Events: user.created / user.updated delegate to
+ * `syncUserMirrorFromClerkUser` to upsert the mirror row and ensure the 1:1
+ * user_profiles row exists (this replaces the dropped Supabase
+ * `on_auth_user_created` trigger). user.deleted applies the CCPA-consistent
+ * soft delete on the profile.
  *
  * Contract: verify the Standard-Webhooks signature, return 2xx fast, never
  * throw — Svix retries on 4xx/5xx and the dashboard can replay. A 500 here is
@@ -12,20 +12,10 @@
  * signatures.
  */
 import { verifyWebhook } from '@clerk/backend/webhooks';
-import type { UserJSON } from '@clerk/backend';
 import { env } from 'cloudflare:workers';
 import { fail, ok } from '@/lib/api/response';
-import { softDeleteUserById, upsertUserFromClerkWebhook } from '@/lib/db/users';
+import { softDeleteUserById, syncUserMirrorFromClerkUser } from '@/lib/db/users';
 import { log } from '@/lib/log';
-
-/** Pull the primary email + its verification state out of the Clerk user payload. */
-function extractPrimaryEmail(user: UserJSON): { email: string; verified: boolean } | null {
-  const primary =
-    user.email_addresses.find((e) => e.id === user.primary_email_address_id) ??
-    user.email_addresses[0];
-  if (!primary) return null;
-  return { email: primary.email_address, verified: primary.verification?.status === 'verified' };
-}
 
 export async function POST(request: Request) {
   // SAFETY: provisioned via `wrangler secret put CLERK_WEBHOOK_SIGNING_SECRET`.
@@ -48,30 +38,12 @@ export async function POST(request: Request) {
 
   try {
     if (event.type === 'user.created' || event.type === 'user.updated') {
-      const data = event.data;
-      const primary = extractPrimaryEmail(data);
-      if (!primary) {
-        log('ClerkWebhook').warn(`Event ${event.type} for ${data.id} has no email — skipping`);
-        return ok(null);
+      const synced = await syncUserMirrorFromClerkUser(event.data);
+      if (!synced) {
+        log('ClerkWebhook').warn(
+          `Event ${event.type} for ${event.data.id} has no email — skipping`
+        );
       }
-
-      // Stable app user id: externalId for migrated users (old Supabase UUID),
-      // otherwise the Clerk user id.
-      const appUserId = data.external_id ?? data.id;
-      // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- SAFETY: Clerk UserJSON public_metadata is Record<string, unknown> | null per Clerk types; narrow from unknown
-      const metadata = data.public_metadata as Record<string, unknown> | null;
-
-      await upsertUserFromClerkWebhook({
-        id: appUserId,
-        clerkUserId: data.id,
-        email: primary.email.toLowerCase(),
-        emailConfirmedAt: primary.verified ? new Date() : null,
-        createdAt: typeof data.created_at === 'number' ? new Date(data.created_at) : null,
-        lastSignInAt:
-          typeof data.last_sign_in_at === 'number' ? new Date(data.last_sign_in_at) : null,
-        ageVerified: metadata?.age_verified === true,
-        agreedToTerms: metadata?.agreed_to_terms === true,
-      });
       return ok(null);
     }
 

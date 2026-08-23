@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { callFunction, queryOne } from '@/lib/db/client';
+import { log } from '@/lib/log';
+import { callFunction } from '@/lib/db/client';
 import { safeInternalPath } from '@/lib/auth/safe-redirect';
 import { invalidateAuthorizationState } from '@/lib/auth/authorization-state';
-import { getClerkClient, getSessionIdentity } from '@/lib/auth/clerk-session';
-import { ensureUserMirror } from '@/lib/db/users';
-import { log } from '@/lib/log';
+import { getSessionIdentity } from '@/lib/auth/clerk-session';
+import { repairUserMirror } from '@/lib/db/users';
 
 // Redirects always resolve against the request origin. `x-forwarded-host` is
 // client-controllable (host-header injection / open redirect), so it must never
@@ -22,11 +22,9 @@ function consentRedirect(base: string, next: string, saveFailed = false): NextRe
  * clerk-js completes the OAuth handshake on the /auth/callback page and then
  * navigates here with a live session. This route performs the server-side
  * bookkeeping the old code-exchange callback did:
- *   1. Repair the webhook race (mirror + profile row) for first-time OAuth users.
- *   2. If the register page marked the flow `consent=confirmed` (checkboxes were
- *      ticked before redirect), record consent timestamps now.
- *   3. Otherwise read the profile and route to /consent when timestamps are missing.
- *   4. Redirect to `next` (open-redirect-guarded).
+ *   1. Repair the webhook race (mirror + profile row) for first-time OAuth
+ *      users via `repairUserMirror`, which reports whether consent timestamps
+ *      already exist.
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -43,21 +41,11 @@ export async function GET(request: Request) {
   const userId = identity.userId;
 
   try {
-    // Ensure the mirror + profile rows exist before consent bookkeeping.
-    const existing = await queryOne<{ user_id: string }>(
-      'SELECT user_id FROM user_profiles WHERE user_id = $1',
-      [userId]
-    );
-    if (!existing) {
-      const clerkUser = await getClerkClient().users.getUser(identity.clerkUserId);
-      const email = clerkUser.emailAddresses
-        .find((e) => e.id === clerkUser.primaryEmailAddressId)
-        ?.emailAddress.toLowerCase();
-      if (!email) {
-        log('Auth').error(`No primary email on Clerk user ${identity.clerkUserId}`);
-        return consentRedirect(base, next, true);
-      }
-      await ensureUserMirror(userId, identity.clerkUserId, email);
+    // Repair the webhook race (mirror + profile row) before consent bookkeeping.
+    const repairResult = await repairUserMirror(userId, identity.clerkUserId);
+    if (!repairResult) {
+      log('Auth').error(`No primary email on Clerk user ${identity.clerkUserId}`);
+      return consentRedirect(base, next, true);
     }
 
     if (consentConfirmed) {
@@ -67,17 +55,8 @@ export async function GET(request: Request) {
       } catch {
         return consentRedirect(base, next, true);
       }
-    } else {
-      const profile = await queryOne<{
-        age_verified_at: string | null;
-        agreed_to_terms_at: string | null;
-      }>('SELECT age_verified_at, agreed_to_terms_at FROM user_profiles WHERE user_id = $1', [
-        userId,
-      ]);
-
-      if (!profile?.age_verified_at || !profile.agreed_to_terms_at) {
-        return consentRedirect(base, next);
-      }
+    } else if (!repairResult.hasConsent) {
+      return consentRedirect(base, next);
     }
 
     return NextResponse.redirect(`${base}${next}`);
