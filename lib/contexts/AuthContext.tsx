@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth as useClerkAuth, useClerk, useUser } from '@clerk/clerk-react';
+import { useAuth as useClerkAuth, useClerk, useUser } from '@clerk/react';
 import posthog from 'posthog-js';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { log } from '@/lib/log';

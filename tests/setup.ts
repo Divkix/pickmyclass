@@ -47,7 +47,7 @@ vi.stubEnv('CLERK_WEBHOOK_SIGNING_SECRET', 'whsec_test');
 
 // Global Clerk mock — pages that use useSignIn/useUser/useClerk need a provider.
 // Individual tests can override with vi.mocked(useSignIn).mockReturnValue etc.
-vi.mock('@clerk/clerk-react', () => ({
+vi.mock('@clerk/react', () => ({
   ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
   useSignIn: () => ({
     isLoaded: true,

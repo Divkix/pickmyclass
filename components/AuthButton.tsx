@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useClerk } from '@clerk/clerk-react';
+import { useClerk } from '@clerk/react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { log } from '@/lib/log';
 

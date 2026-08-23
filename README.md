@@ -241,7 +241,7 @@ pnpm run type-check       # tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
 
 ## Tech Stack
 
-- **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4, `@clerk/clerk-react` 5.61.3 via `ClerkClientProvider`, `posthog-js` (public token in `lib/posthog/config.ts`)
+- **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4, `@clerk/react` 6.14.5 via `ClerkClientProvider`, `posthog-js` (public token in `lib/posthog/config.ts`)
 - **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (`pg` 8.23) via Hyperdrive, Clerk (`@clerk/backend` 3.16.10 edge JWT), Supabase Realtime **removed** (polling only)
 - **Data Source**: ASU Class Search API (direct HTTP)
 - **Email**: Cloudflare Email Service
@@ -331,6 +331,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [vinext](https://github.com/cloudflare/vinext) - Vite-based Next.js for Cloudflare Workers
 - [PlanetScale](https://planetscale.com/) + [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) - Postgres + pooling
-- [Clerk](https://clerk.com/) - Auth (Backend + clerk-react, custom session claims + webhooks)
+- [Clerk](https://clerk.com/) - Auth (Backend + react, custom session claims + webhooks)
 - [Cloudflare Email Service](https://developers.cloudflare.com/email/) - Email sending from Workers
 - [shadcn/ui](https://ui.shadcn.com/) - UI component library

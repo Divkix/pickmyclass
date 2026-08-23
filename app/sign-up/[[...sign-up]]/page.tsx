@@ -1,5 +1,5 @@
 'use client';
-import { SignUp } from '@clerk/clerk-react';
+import { SignUp } from '@clerk/react';
 import { Header } from '@/components/Header';
 
 const appearance = { variables: { colorPrimary: '#7a0019', colorBackground: '#fff8e7' } };

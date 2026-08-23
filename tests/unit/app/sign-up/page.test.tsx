@@ -5,7 +5,7 @@ const { mockSignUp } = vi.hoisted(() => ({
   mockSignUp: vi.fn(),
 }));
 
-vi.mock('@clerk/clerk-react', () => ({
+vi.mock('@clerk/react', () => ({
   SignUp: mockSignUp,
 }));
 
