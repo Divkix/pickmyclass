@@ -2,17 +2,21 @@
  * `users` mirror table helpers — the local copy of Clerk-managed identities.
  *
  * The mirror exists so the ~10 SECURITY DEFINER functions can join emails
- * without a FAPI/BAPI call per query. It is written by the Clerk webhook
- * route (`/api/webhooks/clerk`) and read by the edge gate (email_confirmed_at
- * for decideGate) and admin pages.
+ * without a FAPI/BAPI call per query. Writes go through
+ * `syncUserMirrorFromClerkUser` (webhook created/updated events) and
+ * `repairUserMirror` (sign-in-time race repair); reads go through
+ * `readUserVerification` (edge gate, email_confirmed_at for decideGate)
+ * and admin queries.
  *
  * `users.id` is the stable app user id: the old Supabase UUID for migrated
  * users (via Clerk externalId), the Clerk user id for post-cutover users.
  */
 
+import { type User, type UserJSON } from '@clerk/backend';
+import { getClerkClient } from '@/lib/auth/clerk-session';
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import { execute, queryOne } from '@/lib/db/client';
-import type { UserMirrorRow } from '@/lib/db/types';
+import type { UserMirrorRow, UserProfileRow } from '@/lib/db/types';
 import { log } from '@/lib/log';
 
 /** Fields the edge gate needs from the mirror, keyed by users.id. */
@@ -58,29 +62,172 @@ export async function readUserVerification(
   return state;
 }
 
-export interface ClerkWebhookUserFields {
-  /** Stable app user id: externalId if set (migrated), else the Clerk user id. */
+/** Normalized Clerk email address — both payload casings reduce to this. */
+interface NormalizedEmailAddress {
   id: string;
-  /** Clerk's own user id — stored so user.deleted (Clerk-id-only) resolves. */
+  /** Raw Clerk casing; lowercased exactly once, in normalizeClerkUser. */
+  emailAddress: string;
+  /** null when the address never went through verification. */
+  verificationStatus: string | null;
+}
+
+/**
+ * One internal source shape shared by webhook payloads (`UserJSON`) and
+ * Backend user resources (`User`) — everything the mirror upsert needs,
+ * independent of Clerk's snake_case vs camelCase payload variants.
+ */
+interface NormalizedClerkUser {
   clerkUserId: string;
-  email: string;
-  emailConfirmedAt: Date | null;
-  createdAt: Date | null;
-  lastSignInAt: Date | null;
-  /** Consent booleans from createUser publicMetadata (register flow). */
+  externalId: string | null;
+  /** Lowercased selected primary email; null when the account has none. */
+  email: string | null;
+  /** Whether the selected address's verification status is 'verified'. */
+  emailVerified: boolean;
+  createdAt: number | null;
+  lastSignInAt: number | null;
+  /** Consent booleans from register-flow publicMetadata. */
   ageVerified: boolean;
   agreedToTerms: boolean;
 }
 
 /**
- * Upsert the users mirror row from a Clerk webhook payload, and ensure the
- * 1:1 user_profiles row exists (replaces the dropped on_auth_user_created
- * trigger). Consent timestamps are written only on insert and only when the
- * corresponding metadata boolean was true — later updates never overwrite
- * existing consent. Idempotent; safe for Svix retries and out-of-order
- * created/updated delivery.
+ * THE primary-email policy of this module (single implementation): prefer the
+ * address whose id matches `primaryEmailAddressId`, falling back to the first
+ * listed address. Returns null only when the account has no addresses at all.
  */
-export async function upsertUserFromClerkWebhook(fields: ClerkWebhookUserFields): Promise<void> {
+function selectPrimaryEmailAddress(
+  addresses: readonly NormalizedEmailAddress[],
+  primaryEmailAddressId: string | null
+): NormalizedEmailAddress | null {
+  const selected =
+    addresses.find((address) => address.id === primaryEmailAddressId) ?? addresses[0];
+  return selected ?? null;
+}
+
+/**
+ * Normalize either Clerk user shape into one internal source shape using the
+ * single primary-email policy above: lowercase the selected email exactly once
+ * and derive verification from its verification status.
+ */
+/**
+ * Register-flow consent flags as persisted in Clerk publicMetadata. Any other
+ * Clerk payload publicMetadata shape is still assignable to this.
+ */
+interface RegisterFlowPublicMetadata {
+  age_verified?: unknown;
+  agreed_to_terms?: unknown;
+}
+
+/**
+ * Read the two register-flow consent flags off publicMetadata: present and
+ * literally `true`. Absent or non-true values are false.
+ */
+function readConsentFlags(metadata: RegisterFlowPublicMetadata | null | undefined): {
+  ageVerified: boolean;
+  agreedToTerms: boolean;
+} {
+  return {
+    ageVerified:
+      metadata !== null &&
+      metadata !== undefined &&
+      'age_verified' in metadata &&
+      metadata.age_verified === true,
+    agreedToTerms:
+      metadata !== null &&
+      metadata !== undefined &&
+      'agreed_to_terms' in metadata &&
+      metadata.agreed_to_terms === true,
+  };
+}
+
+function normalizeClerkUser(input: {
+  clerkUserId: string;
+  externalId: string | null;
+  primaryEmailAddressId: string | null;
+  emailAddresses: readonly NormalizedEmailAddress[];
+  createdAt: number | null;
+  lastSignInAt: number | null;
+  publicMetadata: RegisterFlowPublicMetadata | null | undefined;
+}): NormalizedClerkUser {
+  const selected = selectPrimaryEmailAddress(input.emailAddresses, input.primaryEmailAddressId);
+  return {
+    clerkUserId: input.clerkUserId,
+    externalId: input.externalId,
+    email: selected ? selected.emailAddress.toLowerCase() : null,
+    emailVerified: selected !== null && selected.verificationStatus === 'verified',
+    createdAt: input.createdAt,
+    lastSignInAt: input.lastSignInAt,
+    ...readConsentFlags(input.publicMetadata),
+  };
+}
+/** Adapter: snake_case webhook `UserJSON` payload → normalized shape. */
+function normalizeWebhookUser(user: UserJSON): NormalizedClerkUser {
+  return normalizeClerkUser({
+    clerkUserId: user.id,
+    externalId: user.external_id ?? null,
+    primaryEmailAddressId: user.primary_email_address_id ?? null,
+    emailAddresses: user.email_addresses.map((address) => ({
+      id: address.id,
+      emailAddress: address.email_address,
+      verificationStatus: address.verification?.status ?? null,
+    })),
+    createdAt: typeof user.created_at === 'number' ? user.created_at : null,
+    lastSignInAt: typeof user.last_sign_in_at === 'number' ? user.last_sign_in_at : null,
+    publicMetadata: user.public_metadata,
+  });
+}
+
+/** Adapter: camelCase Backend `User` resource → normalized shape. */
+function normalizeBackendUser(user: User): NormalizedClerkUser {
+  return normalizeClerkUser({
+    clerkUserId: user.id,
+    externalId: user.externalId,
+    primaryEmailAddressId: user.primaryEmailAddressId,
+    emailAddresses: user.emailAddresses.map((address) => ({
+      id: address.id,
+      emailAddress: address.emailAddress,
+      verificationStatus: address.verification?.status ?? null,
+    })),
+    createdAt: typeof user.createdAt === 'number' ? user.createdAt : null,
+    lastSignInAt: typeof user.lastSignInAt === 'number' ? user.lastSignInAt : null,
+    publicMetadata: user.publicMetadata,
+  });
+}
+
+/**
+ * Read the consent timestamps actually persisted in the `user_profiles` row
+ * for `userId`. Returns null when no row exists yet; otherwise reports
+ * whether both consent timestamps are set. This is the single probe used by
+ * the existing-profile fast path and by post-write verification, so returned
+ * consent always reflects retained DB state rather than webhook metadata.
+ */
+async function readProfileConsent(userId: string): Promise<{ hasConsent: boolean } | null> {
+  const profile = await queryOne<Pick<UserProfileRow, 'age_verified_at' | 'agreed_to_terms_at'>>(
+    'SELECT age_verified_at, agreed_to_terms_at FROM user_profiles WHERE user_id = $1',
+    [userId]
+  );
+  if (!profile) return null;
+  return {
+    hasConsent: profile.age_verified_at !== null && profile.agreed_to_terms_at !== null,
+  };
+}
+
+/**
+ * Sole writer for the users mirror row and its 1:1 user_profiles row
+ * (replaces the dropped on_auth_user_created trigger). Keeps the original
+ * two-statement idempotent SQL: the mirror upsert resets verification when the
+ * email changed and keeps the earliest confirmed timestamp otherwise; consent
+ * timestamps are written only on insert and only when the corresponding
+ * metadata boolean was true — later updates never overwrite existing consent.
+ * Safe for Svix retries and out-of-order created/updated delivery. Returns
+ * nothing: what actually persisted (e.g. after an insert/conflict race with a
+ * concurrent writer) must be read back from `user_profiles`, never inferred
+ * from the metadata this call proposed for insert.
+ */
+async function upsertUserMirror(user: NormalizedClerkUser): Promise<void> {
+  // Stable app user id: externalId if set (migrated), else the Clerk user id.
+  const appUserId = user.externalId ?? user.clerkUserId;
+
   await execute(
     `INSERT INTO users (id, clerk_user_id, email, email_confirmed_at, created_at, last_sign_in_at)
      VALUES ($1, $2, $3, $4, COALESCE($5, NOW()), $6)
@@ -95,12 +242,12 @@ export async function upsertUserFromClerkWebhook(fields: ClerkWebhookUserFields)
        END,
        last_sign_in_at = COALESCE(EXCLUDED.last_sign_in_at, users.last_sign_in_at)`,
     [
-      fields.id,
-      fields.clerkUserId,
-      fields.email,
-      fields.emailConfirmedAt?.toISOString() ?? null,
-      fields.createdAt?.toISOString() ?? null,
-      fields.lastSignInAt?.toISOString() ?? null,
+      appUserId,
+      user.clerkUserId,
+      user.email,
+      user.emailVerified ? new Date().toISOString() : null,
+      user.createdAt !== null ? new Date(user.createdAt).toISOString() : null,
+      user.lastSignInAt !== null ? new Date(user.lastSignInAt).toISOString() : null,
     ]
   );
 
@@ -109,8 +256,21 @@ export async function upsertUserFromClerkWebhook(fields: ClerkWebhookUserFields)
     `INSERT INTO user_profiles (user_id, age_verified_at, agreed_to_terms_at)
      VALUES ($1, $2, $3)
      ON CONFLICT (user_id) DO NOTHING`,
-    [fields.id, fields.ageVerified ? consentNow : null, fields.agreedToTerms ? consentNow : null]
+    [appUserId, user.ageVerified ? consentNow : null, user.agreedToTerms ? consentNow : null]
   );
+}
+
+/**
+ * Upsert the mirror + profile rows from a Clerk webhook `UserJSON` payload
+ * (user.created / user.updated). Returns false when the account has no email
+ * addresses so the caller can skip the event instead of writing a mirror row
+ * that could never verify against anything.
+ */
+export async function syncUserMirrorFromClerkUser(user: UserJSON): Promise<boolean> {
+  const normalized = normalizeWebhookUser(user);
+  if (!normalized.email) return false;
+  await upsertUserMirror(normalized);
+  return true;
 }
 
 /**
@@ -139,24 +299,36 @@ export async function softDeleteUserById(userId: string): Promise<number> {
 }
 
 /**
- * Ensure the mirror + profile rows exist for a signed-in user. Repairs the
- * (short) race where a user authenticates before their user.created webhook
- * lands — most likely for Google OAuth sign-ups. Needs the email, so callers
- * pass it from the Clerk user object they already fetched.
+ * Repair the (short) race where a user authenticates before their
+ * user.created webhook lands — most likely for Google OAuth sign-ups — and
+ * report the profile's consent state so callers need no probe of their own.
+ *
+ * When the profile row already exists, returns its consent state without
+ * touching Clerk. Otherwise fetches the Backend user via `getClerkClient`,
+ * writes both rows with the user's actual verified status, timestamps, and
+ * metadata (never null stubs), then re-reads `user_profiles` so the returned
+ * consent is what actually persisted — a concurrent webhook may have won the
+ * insert race with different metadata. Returns null only when the Clerk
+ * account has no primary email. Throws if the profile row is still absent
+ * after the upsert; route error handling owns recovery from there.
  */
-export async function ensureUserMirror(
+export async function repairUserMirror(
   userId: string,
-  clerkUserId: string,
-  email: string
-): Promise<void> {
-  await upsertUserFromClerkWebhook({
-    id: userId,
-    clerkUserId,
-    email,
-    emailConfirmedAt: null,
-    createdAt: null,
-    lastSignInAt: null,
-    ageVerified: false,
-    agreedToTerms: false,
-  });
+  clerkUserId: string
+): Promise<{ hasConsent: boolean } | null> {
+  const existing = await readProfileConsent(userId);
+  if (existing) return existing;
+
+  const clerkUser = await getClerkClient().users.getUser(clerkUserId);
+  const normalized = normalizeBackendUser(clerkUser);
+  if (!normalized.email) return null;
+  await upsertUserMirror(normalized);
+
+  const persisted = await readProfileConsent(userId);
+  if (!persisted) {
+    throw new Error(
+      `repairUserMirror: user_profiles row for user ${userId} still missing after mirror upsert`
+    );
+  }
+  return persisted;
 }

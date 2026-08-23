@@ -49,9 +49,9 @@ This document defines domain terms used throughout the codebase. New modules sho
 - **Hosted Auth UI** — Clerk-hosted `<SignIn>`/`<SignUp>` components at `/sign-in` and `/sign-up` (`routing="path"`); email verification happens inside the hosted flow. No server register/login routes exist.
 - **Disposable Email Domain** — A temporary email service domain on a KV blocklist synced daily from GitHub; fails open. Its only reader (the register route) was removed in #354 — currently nothing consumes it.
 - **Admin Role** — Special user role for admin dashboard access. Checked via `lib/auth/admin.ts`.
-- **OAuth Landing** — `app/auth/post-oauth/route.ts`: repairs the webhook mirror race for first-time OAuth users, records consent when confirmed, and routes to `/consent` or the `next` path.
+- **OAuth Landing** — `app/auth/post-oauth/route.ts`: a transport adapter that calls `repairUserMirror` (`lib/db/users.ts`) once to repair the webhook race for first-time OAuth users and report consent state, then routes to `/consent` or the `next` path; confirmed consent still records via RPC + Authorization State invalidation.
 - **Clerk Session** — Edge JWT verification via `@clerk/backend` (`lib/auth/clerk-session.ts`, `ext_id` claim `{{user.external_id || user.id}}`, `jwtKey` PEM) and cookie fast-path (`lib/auth/clerk-cookies.ts`, `__session`); publishable key literal in `lib/clerk/config.ts`. See `docs/adr/0012-auth-plane-clerk.md`.
-- **Users Mirror** — Clerk users mirrored to `users` + `user_profiles` via Svix webhook `POST /api/webhooks/clerk` (`lib/db/users.ts`, `clerk_user_id` unique, `externalId` preserves old Supabase UUID).
+- **Users Mirror** — Clerk users mirrored to `users` + `user_profiles`; `lib/db/users.ts` is the single owner of primary-email selection, verification derivation, stable app id (`external_id ?? Clerk id`), and race repair (`syncUserMirrorFromClerkUser` from webhook payloads, `repairUserMirror` probing/repairing before consent); the Svix webhook route (`POST /api/webhooks/clerk`) only verifies signatures and delegates (`clerk_user_id` unique, `externalId` preserves old Supabase UUID).
 - **Polling** — Dashboard live states via polling `GET /api/class-watches/states` (`useRealtimeClassStates`), not Supabase Realtime (`docs/adr/0014-realtime-to-polling.md`).
 
 ## Compliance
