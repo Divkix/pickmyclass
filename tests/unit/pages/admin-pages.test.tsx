@@ -24,6 +24,7 @@ const {
   mockQueryOne,
   mockQueryScalar,
   mockVerifyAdmin,
+  mockSignOut,
 } = vi.hoisted(() => ({
   mockGetAdminCount: vi.fn(),
   mockGetClassWatchers: vi.fn(),
@@ -40,6 +41,7 @@ const {
   mockQueryOne: vi.fn(),
   mockQueryScalar: vi.fn(),
   mockVerifyAdmin: vi.fn(),
+  mockSignOut: vi.fn(),
 }));
 
 type LinkHref = string | { pathname?: string };
@@ -90,6 +92,15 @@ vi.mock('framer-motion', () => ({
 
 vi.mock('@/lib/auth/admin', () => ({
   verifyAdmin: mockVerifyAdmin,
+}));
+
+vi.mock('@/lib/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: null,
+    session: null,
+    loading: false,
+    signOut: mockSignOut,
+  }),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
