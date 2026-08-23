@@ -114,11 +114,14 @@
   // Hyperdrive binding — PlanetScale Postgres connection.
   // Created with: wrangler hyperdrive create HYPERDRIVE \
   //   --connection-string="postgres://...planetscale..." --caching-disabled
-  // For local dev, set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var.
+  // For local dev, set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var
+  // (overrides the localConnectionString below at runtime).
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
       "id": "4dd6f09232fe48e181099b2db23d889a",
+      // Fallback local Postgres for `vinext dev` — avoids needing a shell export.
+      "localConnectionString": "postgresql://postgres:postgres@localhost:5432/postgres",
     },
   ],
 }

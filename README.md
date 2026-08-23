@@ -147,7 +147,7 @@ pnpm install
      --connection-string="postgres://YOUR_PLANETSCALE_CONNECTION_STRING" \
      --caching-disabled
    ```
-   Note `binding` `HYPERDRIVE`, id `4dd6f09...` in `wrangler.jsonc`. Local dev fallback: `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`.
+   Note `binding` `HYPERDRIVE`, id `4dd6f09...` in `wrangler.jsonc`. Local dev: `wrangler.jsonc` ships `localConnectionString: "postgresql://postgres:postgres@localhost:5432/postgres"` so `pnpm run dev` works out-of-box if local Postgres is running; override via `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (or `DATABASE_URL`).
 
 ### 3. Configure Clerk
 
@@ -211,8 +211,17 @@ The `app/legal/` directory contains Terms/Privacy with `support@pickmyclass.app`
 
 ### Local Development
 
+Local Postgres required for any DB query (pages/APIs hit `lib/db/client.ts` `pg` pool); the dev server itself boots even if DB is down, but requests will `ECONNREFUSED`.
+
 ```bash
-pnpm run dev              # vinext dev server (localhost:3000, HYPERDRIVE local string required)
+# start local Postgres (once):
+docker run --name pickmyclass-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16
+# apply migrations in timestamp order (vanilla PG, no CLI):
+psql "postgresql://postgres:postgres@localhost:5432/postgres" -f db/migrations/<file>.sql
+
+pnpm run dev              # vinext dev server (localhost:3000) — uses wrangler.jsonc localConnectionString by default
+# override if needed:
+CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://postgres:postgres@localhost:5432/postgres pnpm run dev
 ```
 
 ### Preview with Cloudflare
@@ -237,6 +246,9 @@ pnpm run type-check       # tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
 
 ```bash
 # PlanetScale is vanilla PG: apply db/migrations/*.sql by hand via any Postgres client (psql) — no CLI workflow
+# local example (after docker run above):
+psql "postgresql://postgres:postgres@localhost:5432/postgres" -f db/migrations/20260501000000_example.sql  # repeat in timestamp order
+# or via env: DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres psql -f db/migrations/<file>.sql
 ```
 
 ## Tech Stack
