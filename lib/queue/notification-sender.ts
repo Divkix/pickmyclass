@@ -1,6 +1,8 @@
-import { callFunction } from '@/lib/db/client';
-import type { WatcherForSectionsRpcRow } from '@/lib/db/types';
-import { deleteNotificationRecords, tryRecordNotificationsBatch } from '@/lib/db/queries';
+import {
+  deleteNotificationRecords,
+  getNotificationWatchers,
+  tryRecordNotificationsBatch,
+} from '@/lib/db/queries';
 import { type ClassInfo, type OutboundEmail, sendBatchEmailsOptimized } from '@/lib/email/send';
 import { log } from '@/lib/log';
 import type { ChangeResult } from '@/lib/queue/change-detector';
@@ -47,17 +49,7 @@ export async function sendSectionNotifications(
   // Step 1: Fetch watchers — scoped to the full SectionRef (class_nbr + term).
   // A section number repeats across terms, so the term filter is what prevents
   // a transition in one term from selecting watchers in another.
-  let watchers: WatcherForSectionsRpcRow[];
-  try {
-    watchers = await callFunction<WatcherForSectionsRpcRow>('get_watchers_for_sections', [
-      [ref.class_nbr],
-      ref.term,
-    ]);
-  } catch (watchersError) {
-    throw new Error(
-      `Failed to fetch watchers for ${scope}: ${watchersError instanceof Error ? watchersError.message : watchersError}`
-    );
-  }
+  const watchers = await getNotificationWatchers(ref);
 
   if (watchers.length === 0) {
     log('NotificationSender').info(`No watchers found for ${scope}`);
@@ -68,20 +60,13 @@ export async function sendSectionNotifications(
 
   const allWatchIds = watchers.map((w) => w.watch_id);
 
-  // Step 2: Claim notification slots for each change type
-  async function claimSlots(type: NotificationType): Promise<Set<string>> {
-    // A record only exists if a notification was already sent and hasn't expired.
-    // "0 claimed" means everyone is already (recently) notified — do not resend.
-    // Expired records are freed by the scheduled expiry sweep (migration), not by deleting here.
-    return tryRecordNotificationsBatch(allWatchIds, type);
-  }
-
-  // Claim in parallel; rollback any fulfilled claim if the other rejects (allSettled ensures no leak).
+  // Step 2: Claim notification slots for each change type in parallel; rollback any fulfilled claim
+  // if the other rejects (allSettled ensures no leak).
   const seatClaim = changes.seatBecameAvailable
-    ? claimSlots('seat_available')
+    ? tryRecordNotificationsBatch(allWatchIds, 'seat_available')
     : Promise.resolve(new Set<string>());
   const instructorClaim = changes.instructorAssigned
-    ? claimSlots('instructor_assigned')
+    ? tryRecordNotificationsBatch(allWatchIds, 'instructor_assigned')
     : Promise.resolve(new Set<string>());
   const [seatResult, instructorResult] = await Promise.allSettled([seatClaim, instructorClaim]);
 

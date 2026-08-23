@@ -1,5 +1,10 @@
 import { callFunction, callFunctionScalar, execute, getClient, query } from '@/lib/db/client';
-import type { ClassStateInsert, ClassWatcherRpcRow, SectionRefRpcRow } from '@/lib/db/types';
+import type {
+  ClassStateInsert,
+  ClassWatcherRpcRow,
+  EligibleWatcherRpcRow,
+  SectionRefRpcRow,
+} from '@/lib/db/types';
 import { log } from '@/lib/log';
 import type { SectionRef } from '@/lib/section-ref';
 import type { ClassDetails } from '@/lib/types/class';
@@ -9,10 +14,7 @@ import type { StaggerGroup } from '@/lib/types/stagger';
 /**
  * User watching a class section
  */
-export interface ClassWatcher {
-  user_id: string;
-  email: string;
-  watch_id: string;
+export interface ClassWatcher extends EligibleWatcherRpcRow {
   created_at?: string;
 }
 
@@ -44,6 +46,35 @@ export async function getClassWatchers(ref: SectionRef): Promise<ClassWatcher[]>
       error
     );
     throw new Error(`Failed to fetch watchers: ${error instanceof Error ? error.message : error}`);
+  }
+}
+
+/**
+ * Get all eligible watchers for a section — the notification sender's read
+ * path. Delegates to the `get_watchers_for_sections` RPC, which applies
+ * eligibility filtering server-side.
+ *
+ * Scoped by the full SectionRef ({ class_nbr, term }) — a section number
+ * repeats across terms, so filtering by class_nbr alone over-lists watchers
+ * from other terms.
+ *
+ * @param ref - SectionRef identifying the section ({ class_nbr, term })
+ * @returns Array of eligible watchers with email addresses and watch ids
+ */
+export async function getNotificationWatchers(ref: SectionRef): Promise<EligibleWatcherRpcRow[]> {
+  try {
+    return await callFunction<EligibleWatcherRpcRow>('get_watchers_for_sections', [
+      [ref.class_nbr],
+      ref.term,
+    ]);
+  } catch (error) {
+    log('DB').error(
+      `Error fetching notification watchers for section ${ref.class_nbr} (term ${ref.term}):`,
+      error
+    );
+    throw new Error(
+      `Failed to fetch notification watchers: ${error instanceof Error ? error.message : error}`
+    );
   }
 }
 
@@ -390,30 +421,6 @@ export async function incrementConsecutiveNotFound(ref: SectionRef): Promise<num
     log('DB').error('Error incrementing consecutive_not_found_count:', error);
     throw new Error(
       `Failed to increment consecutive_not_found_count: ${error instanceof Error ? error.message : error}`
-    );
-  }
-}
-
-/**
- * Resets `class_states.consecutive_not_found_count` to 0 for a SectionRef.
- * No-op if the row does not exist or already 0 (guard avoids WAL bloat).
- *
- * @param ref - SectionRef identifying the section ({ class_nbr, term })
- */
-export async function resetConsecutiveNotFound(ref: SectionRef): Promise<void> {
-  try {
-    await execute(
-      `UPDATE class_states SET consecutive_not_found_count = 0
-       WHERE class_nbr = $1 AND term = $2 AND consecutive_not_found_count != 0`,
-      [ref.class_nbr, ref.term]
-    );
-    log('DB').info(
-      `Reset consecutive_not_found_count to 0 for ${ref.class_nbr} (term ${ref.term})`
-    );
-  } catch (error) {
-    log('DB').error('Error resetting consecutive_not_found_count:', error);
-    throw new Error(
-      `Failed to reset consecutive_not_found_count: ${error instanceof Error ? error.message : error}`
     );
   }
 }

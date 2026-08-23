@@ -82,18 +82,14 @@ export interface UserMirrorRow {
 
 // ─── RPC return types ───────────────────────────────────────────────────────
 
-export interface ClassWatcherRpcRow {
+export interface EligibleWatcherRpcRow {
   user_id: string;
   email: string;
   watch_id: string;
-  created_at: string;
 }
 
-export interface WatcherForSectionsRpcRow {
-  user_id: string;
-  email: string;
-  watch_id: string;
-  class_nbr: string;
+export interface ClassWatcherRpcRow extends EligibleWatcherRpcRow {
+  created_at: string;
 }
 
 export interface SectionRefRpcRow {

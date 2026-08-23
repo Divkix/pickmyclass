@@ -1,19 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-// Mock DB client (replaces Supabase service mock)
-vi.mock('@/lib/db/client', () => ({
-  callFunction: vi.fn(),
-  callFunctionScalar: vi.fn(),
-  query: vi.fn(),
-  queryOne: vi.fn(),
-  queryScalar: vi.fn(),
-  execute: vi.fn(),
-  getClient: vi.fn(),
-}));
-
 // Mock DB queries
 vi.mock('@/lib/db/queries', () => ({
   deleteNotificationRecords: vi.fn(),
+  getNotificationWatchers: vi.fn(),
   tryRecordNotificationsBatch: vi.fn(),
 }));
 
@@ -22,22 +12,23 @@ vi.mock('@/lib/email/send', () => ({
   sendBatchEmailsOptimized: vi.fn(),
 }));
 
-import { callFunction } from '@/lib/db/client';
-import { deleteNotificationRecords, tryRecordNotificationsBatch } from '@/lib/db/queries';
+import {
+  deleteNotificationRecords,
+  getNotificationWatchers,
+  tryRecordNotificationsBatch,
+} from '@/lib/db/queries';
+import type { EligibleWatcherRpcRow } from '@/lib/db/types';
 import type { ClassInfo } from '@/lib/email/send';
 import { sendBatchEmailsOptimized } from '@/lib/email/send';
 import type { ChangeResult } from '@/lib/queue/change-detector';
 import { sendSectionNotifications } from '@/lib/queue/notification-sender';
 
-function mockWatchersFetch(watchers: unknown[] | null) {
-  // SAFETY: test double constructs minimal shape for DB client contract; only callFunction is accessed
-  // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-  (callFunction as ReturnType<typeof vi.fn>).mockResolvedValue(watchers ?? []);
+function mockWatchersFetch(watchers: EligibleWatcherRpcRow[]) {
+  vi.mocked(getNotificationWatchers).mockResolvedValue(watchers);
 }
 
 function mockWatchersFetchError(message: string) {
-  // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-  (callFunction as ReturnType<typeof vi.fn>).mockRejectedValue(new Error(message));
+  vi.mocked(getNotificationWatchers).mockRejectedValue(new Error(message));
 }
 
 function buildClassInfo(overrides: Partial<ClassInfo> = {}): ClassInfo {
@@ -66,9 +57,9 @@ function buildChanges(overrides: Partial<ChangeResult> = {}): ChangeResult {
   };
 }
 
-const mockWatchers = [
-  { user_id: 'u1', email: 'alice@test.com', watch_id: 'w1', class_nbr: '42737' },
-  { user_id: 'u2', email: 'bob@test.com', watch_id: 'w2', class_nbr: '42737' },
+const mockWatchers: EligibleWatcherRpcRow[] = [
+  { user_id: 'u1', email: 'alice@test.com', watch_id: 'w1' },
+  { user_id: 'u2', email: 'bob@test.com', watch_id: 'w2' },
 ];
 
 describe('sendSectionNotifications', () => {
@@ -86,8 +77,7 @@ describe('sendSectionNotifications', () => {
     } as SendEmail;
 
     // Default mock: watchers returned, claimed, email succeeds
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-    (callFunction as ReturnType<typeof vi.fn>).mockClear();
+    vi.mocked(getNotificationWatchers).mockClear();
     mockWatchersFetch(mockWatchers);
     // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
@@ -126,10 +116,13 @@ describe('sendSectionNotifications', () => {
   it('throws when fetch watchers errors', async () => {
     mockWatchersFetchError('DB error');
 
-    await expect(sendSectionNotifications(defaultParams())).rejects.toThrow(
-      'Failed to fetch watchers for 2261:42737: DB error'
-    );
-    expect(callFunction).toHaveBeenCalledWith('get_watchers_for_sections', [['42737'], '2261']);
+    await expect(sendSectionNotifications(defaultParams())).rejects.toThrow('DB error');
+
+    // Full SectionRef reaches the query seam; rejection must abort before any claim/delete/send work
+    expect(getNotificationWatchers).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
+    expect(tryRecordNotificationsBatch).not.toHaveBeenCalled();
+    expect(deleteNotificationRecords).not.toHaveBeenCalled();
+    expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
   });
 
   it('returns empty array when no watchers found', async () => {
@@ -152,7 +145,7 @@ describe('sendSectionNotifications', () => {
       ref: { class_nbr: '42737', term: '2267' },
     });
 
-    expect(callFunction).toHaveBeenCalledWith('get_watchers_for_sections', [['42737'], '2267']);
+    expect(getNotificationWatchers).toHaveBeenCalledWith({ class_nbr: '42737', term: '2267' });
   });
 
   it('claims slots and sends emails for seat_available changes', async () => {
@@ -245,12 +238,70 @@ describe('sendSectionNotifications', () => {
     expect(result[1].error).toBe('Send failed');
   });
 
+  it('rolls back the fulfilled claim when its sibling claim rejects', async () => {
+    vi.mocked(tryRecordNotificationsBatch)
+      .mockResolvedValueOnce(new Set(['w1']))
+      .mockRejectedValueOnce(new Error('claim boom'));
+
+    await expect(
+      sendSectionNotifications({
+        ...defaultParams(),
+        changes: buildChanges({ seatBecameAvailable: true, instructorAssigned: true }),
+      })
+    ).rejects.toThrow('claim boom');
+
+    // Seat claim fulfilled → rolled back; instructor claim rejected → nothing to undo
+    expect(deleteNotificationRecords).toHaveBeenCalledTimes(1);
+    expect(deleteNotificationRecords).toHaveBeenCalledWith(['w1'], 'seat_available');
+    expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
+  });
+
+  it('propagates the first rejection and rolls back the later fulfilled claim', async () => {
+    vi.mocked(tryRecordNotificationsBatch)
+      .mockRejectedValueOnce(new Error('seat claim failed'))
+      .mockResolvedValueOnce(new Set(['w2']));
+
+    await expect(
+      sendSectionNotifications({
+        ...defaultParams(),
+        changes: buildChanges({ seatBecameAvailable: true, instructorAssigned: true }),
+      })
+    ).rejects.toThrow('seat claim failed');
+
+    // Instructor claim fulfilled → rolled back after the failed seat claim
+    expect(deleteNotificationRecords).toHaveBeenCalledTimes(1);
+    expect(deleteNotificationRecords).toHaveBeenCalledWith(['w2'], 'instructor_assigned');
+    expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
+  });
+
+  it('fails open when the send-failure rollback itself errors', async () => {
+    vi.mocked(sendBatchEmailsOptimized).mockResolvedValue([
+      { success: true, messageId: 'msg_1' },
+      { success: false, error: 'Send failed' },
+    ]);
+    vi.mocked(deleteNotificationRecords).mockRejectedValue(new Error('rollback down'));
+
+    const result = await sendSectionNotifications(defaultParams());
+
+    // Rollback attempted, its failure swallowed, partial results still returned
+    expect(deleteNotificationRecords).toHaveBeenCalledWith(['w2'], 'seat_available');
+    expect(result).toHaveLength(2);
+    expect(result[0].success).toBe(true);
+    expect(result[1]).toEqual({
+      success: false,
+      watchId: 'w2',
+      type: 'seat_available',
+      error: 'Send failed',
+    });
+  });
+
   it('does not infer email engagement from successful delivery', async () => {
     await sendSectionNotifications(defaultParams());
 
-    // callFunction should only be called once (for get_watchers_for_sections), not for engagement tracking
-    expect(callFunction).toHaveBeenCalledTimes(1);
-    expect(callFunction).toHaveBeenCalledWith('get_watchers_for_sections', [['42737'], '2261']);
+    // One watcher fetch through the seam, one claim pass; success never triggers a re-fetch or extra record pass
+    expect(getNotificationWatchers).toHaveBeenCalledTimes(1);
+    expect(getNotificationWatchers).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
+    expect(tryRecordNotificationsBatch).toHaveBeenCalledTimes(1);
   });
 
   it('uses fromEmail when provided', async () => {
@@ -294,7 +345,7 @@ describe('sendSectionNotifications', () => {
     expect(result).toEqual([]);
   });
 
-  describe('claimSlots behavior', () => {
+  describe('claim behavior', () => {
     it('happy path: first claim non-empty → no stale cleanup, emails only to claimed watchers', async () => {
       // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
       (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(

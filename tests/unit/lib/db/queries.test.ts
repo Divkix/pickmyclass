@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 // Mock the Hyperdrive-backed db client seam (replaces the former Supabase service client)
-const { mockCallFunctionScalar, mockExecute, mockGetClient } = vi.hoisted(() => ({
+const { mockCallFunction, mockCallFunctionScalar, mockExecute, mockGetClient } = vi.hoisted(() => ({
+  mockCallFunction: vi.fn(),
   mockCallFunctionScalar: vi.fn(),
   mockExecute: vi.fn(),
   mockGetClient: vi.fn(),
 }));
 
 vi.mock('@/lib/db/client', () => ({
-  callFunction: vi.fn(),
+  callFunction: mockCallFunction,
   callFunctionScalar: mockCallFunctionScalar,
   query: vi.fn(),
   queryOne: vi.fn(),
@@ -20,8 +21,8 @@ vi.mock('@/lib/db/client', () => ({
 
 import {
   deleteSectionAndWatches,
+  getNotificationWatchers,
   incrementConsecutiveNotFound,
-  resetConsecutiveNotFound,
 } from '@/lib/db/queries';
 
 beforeEach(() => {
@@ -164,16 +165,36 @@ describe('incrementConsecutiveNotFound', () => {
   });
 });
 
-describe('resetConsecutiveNotFound', () => {
-  it('sets consecutive_not_found_count to 0, SectionRef-scoped', async () => {
-    mockExecute.mockResolvedValue(0);
+describe('getNotificationWatchers', () => {
+  it('calls get_watchers_for_sections with full SectionRef params and returns core rows', async () => {
+    const rows = [
+      { user_id: 'user-1', email: 'user-1@example.com', watch_id: 'watch-1' },
+      { user_id: 'user-2', email: 'user-2@example.com', watch_id: 'watch-2' },
+    ];
+    mockCallFunction.mockResolvedValue(rows);
 
-    await resetConsecutiveNotFound({ class_nbr: '42737', term: '2261' });
+    const result = await getNotificationWatchers({ class_nbr: '42737', term: '2261' });
 
-    expect(mockExecute).toHaveBeenCalledWith(expect.stringContaining('UPDATE class_states'), [
-      '42737',
-      '2261',
-    ]);
+    expect(result).toEqual(rows);
+    expect(mockCallFunction).toHaveBeenCalledWith('get_watchers_for_sections', [['42737'], '2261']);
+    expect(mockCallFunction).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns an empty array when no eligible watchers exist', async () => {
+    mockCallFunction.mockResolvedValue([]);
+
+    const result = await getNotificationWatchers({ class_nbr: '42737', term: '2261' });
+
+    expect(result).toEqual([]);
+    expect(mockCallFunction).toHaveBeenCalledWith('get_watchers_for_sections', [['42737'], '2261']);
+  });
+
+  it('translates DB errors into Failed to fetch notification watchers', async () => {
+    mockCallFunction.mockRejectedValue(new Error('connection refused'));
+
+    await expect(getNotificationWatchers({ class_nbr: '42737', term: '2261' })).rejects.toThrow(
+      'Failed to fetch notification watchers: connection refused'
+    );
   });
 });
 
