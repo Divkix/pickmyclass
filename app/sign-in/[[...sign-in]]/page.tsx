@@ -8,7 +8,7 @@ export default function SignInPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <div className="flex flex-1 items-center justify-center p-4">
+      <div className="flex flex-1 items-center justify-center p-4 [color-scheme:light]">
         <SignIn
           routing="path"
           path="/sign-in"
