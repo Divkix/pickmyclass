@@ -23,7 +23,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 ## Processing Pipeline
 
-- **Section Check** — One complete cycle of: fetch current state from DB → fetch latest data from ASU API → detect changes → send notifications → persist state. Each section check processes a single `class_nbr`.
+- **Section Check** — One complete cycle for a single SectionRef: read persisted Class State from DB → fetch latest data from ASU API → detect changes → reset notifications if seats filled → persist state (upsert-before-notify) → notify watchers. When the ASU fetch raises NotFound, `processSection` delegates to the Class Section retirement module ([`lib/queue/section-retirement.ts`](./lib/queue/section-retirement.ts)) before deciding the disposition itself — NotFound always ends in `ack`.
 
 - **Change Detection** — The algorithm that compares old and new section data to determine if seats became available, seats filled, or an instructor was assigned. The seat signal is `non_reserved_seats ?? seats_available`; `non_reserved_seats` is computed as `Math.max(0, enrlCap - enrlTot - waitTot)` in `lib/asu/api.ts` and persisted via `upsertClassState` (`lib/db/queries.ts`), with fallback `non_reserved_seats ?? seats_available` when `NULL` (no waitlist data) — see `docs/adr/0005-non-reserved-seats-dormant-column.md` (pre-#198 wording is historical).
 
