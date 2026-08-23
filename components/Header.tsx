@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutDashboard, Menu, Shield, X } from 'lucide-react';
+import { LayoutDashboard, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { AuthButton } from '@/components/AuthButton';
@@ -16,7 +16,7 @@ const navLinks = [
 ];
 
 export function Header() {
-  const { user, loading, isAdmin, checkingAdmin } = useAuth();
+  const { user, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -26,25 +26,16 @@ export function Header() {
           <Link href="/" className="transition-opacity hover:opacity-80">
             <Logo variant="full" size="md" />
           </Link>
-          {!loading && !checkingAdmin && user && (
-            <Link href={isAdmin ? '/admin' : '/dashboard'}>
+          {!loading && user && (
+            <Link href="/dashboard">
               <Button
                 variant="ghost"
                 size="sm"
                 className="min-h-11 text-base"
-                aria-label={isAdmin ? 'Go to admin panel' : 'Go to dashboard'}
+                aria-label="Go to dashboard"
               >
-                {isAdmin ? (
-                  <>
-                    <Shield className="size-4" aria-hidden="true" />
-                    <span className="hidden xs:inline">Admin</span>
-                  </>
-                ) : (
-                  <>
-                    <LayoutDashboard className="size-4" aria-hidden="true" />
-                    <span className="hidden xs:inline">Dashboard</span>
-                  </>
-                )}
+                <LayoutDashboard className="size-4" aria-hidden="true" />
+                <span className="hidden xs:inline">Dashboard</span>
               </Button>
             </Link>
           )}

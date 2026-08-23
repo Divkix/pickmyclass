@@ -42,7 +42,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 ## Auth & Security
 
-- **Authorization State** — A user's `{ is_admin, is_disabled, has_consent }` state derived from `user_profiles`. Server-side gates use it for admin access, disabled-account enforcement, and the legal-consent gate. Owned by `lib/auth/authorization-state.ts`, which exposes a cached edge read, fresh authoritative reads, and cache invalidation. The browser `AuthContext`'s `is_admin` is a UI affordance only.
+- **Authorization State** — A user's `{ is_admin, is_disabled, has_consent }` state derived from `user_profiles`. Server-side gates use it for admin access, disabled-account enforcement, and the legal-consent gate. Owned by `lib/auth/authorization-state.ts`, which exposes a cached edge read, fresh authoritative reads, and cache invalidation. Authorization State is read server-side exclusively; the browser admin hint (`AuthContext`'s `is_admin`) was removed (2026-08) and is not a UI affordance.
   _Avoid_: "profile" when you mean only authorization state.
 
 - **Lockout** — Brute-force protection now owned by **Clerk Attack Protection** (the app-level `login-attempt-policy`/`failed_login_attempts` write path was removed in #354; the DB objects remain but are inert).

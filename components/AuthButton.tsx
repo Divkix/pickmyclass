@@ -4,29 +4,22 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useClerk } from '@clerk/react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { log } from '@/lib/log';
 
 export function AuthButton() {
-  const { user, loading } = useAuth();
-  const { signOut: clerkSignOut } = useClerk();
+  const { user, loading, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
 
   const handleSignOut = async () => {
     try {
       setSigningOut(true);
-      // Clear Clerk client state first (removes __session from JS + FAPI),
-      // then revoke server-side session and expire cookies.
-      await clerkSignOut();
-      await fetch('/api/auth/signout', { method: 'POST' });
-      window.location.href = '/sign-in';
+      await signOut();
     } catch (error) {
       log('AuthButton').error('Sign-out failed:', error);
-      // Fallback: force reload to /sign-in even if one step failed
-      window.location.href = '/sign-in';
     } finally {
-      setSigningOut(false);
+      // Fallback: force navigation to /sign-in even if sign-out failed
+      window.location.href = '/sign-in';
     }
   };
 

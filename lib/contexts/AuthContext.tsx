@@ -2,7 +2,7 @@
 
 import { useAuth as useClerkAuth, useClerk, useUser } from '@clerk/react';
 import posthog from 'posthog-js';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import { log } from '@/lib/log';
 
 // Keep the legacy shape that existing consumers expect, but without Supabase types.
@@ -24,8 +24,6 @@ interface AuthContextType {
   user: CompatUser | null;
   session: CompatSession | null;
   loading: boolean;
-  isAdmin: boolean;
-  checkingAdmin: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -35,9 +33,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { isLoaded: userLoaded, user: clerkUser } = useUser();
   const { isLoaded: authLoaded, sessionId } = useClerkAuth();
   const clerk = useClerk();
-
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [checkingAdmin, setCheckingAdmin] = useState(true);
 
   const loading = !userLoaded || !authLoaded;
 
@@ -64,45 +59,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [compatUser?.id, compatUser?.email]);
 
-  // isAdmin is a UI affordance only (never a security boundary — server
-  // verifyAdmin + proxy decideGate are authoritative). Check via a lightweight
-  // fetch to an auth-gated endpoint; fail open to false.
-  useEffect(() => {
-    let cancelled = false;
-    if (!compatUser?.id) {
-      setIsAdmin(false);
-      setCheckingAdmin(false);
-      return;
-    }
-    const ctrl = new AbortController();
-    async function checkAdmin() {
-      setCheckingAdmin(true);
-      try {
-        const res = await fetch('/api/user/onboarding', {
-          signal: ctrl.signal,
-          headers: { 'Content-Type': 'application/json' },
-        });
-        if (cancelled || ctrl.signal.aborted) return;
-        if (!res.ok) {
-          setIsAdmin(false);
-          return;
-        }
-        setIsAdmin(false);
-      } catch (error) {
-        if (cancelled || ctrl.signal.aborted) return;
-        log('AuthContext').error('Admin-status lookup failed:', error);
-        setIsAdmin(false);
-      } finally {
-        if (!cancelled) setCheckingAdmin(false);
-      }
-    }
-    void checkAdmin();
-    return () => {
-      cancelled = true;
-      ctrl.abort();
-    };
-  }, [compatUser?.id]);
-
   const signOut = async () => {
     try {
       posthog.capture('user_logged_out');
@@ -116,16 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user: compatUser,
-        session: compatSession,
-        loading,
-        isAdmin,
-        checkingAdmin,
-        signOut,
-      }}
-    >
+    <AuthContext.Provider value={{ user: compatUser, session: compatSession, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );
