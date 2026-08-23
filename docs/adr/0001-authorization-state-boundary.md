@@ -13,3 +13,5 @@ The `{ is_admin, is_disabled, has_consent }` access decision is owned by one ser
 - The cache + `invalidateAuthorizationState` moved **out** of `proxy.ts`; `proxy` is now just another reader and `app/api/user/delete` imports invalidation from `lib/auth/authorization-state.ts`, not `@/proxy`.
 - The Google OAuth callback and protected `/consent` gate repair pre-existing accounts with missing timestamps on their next sign-in; timestamps are not silently backfilled without an explicit confirmation.
 - A future review may suggest merging the browser admin hint into this state — this ADR records why it stays separate and why both cached and fresh server reads exist.
+
+> **2026-08:** The browser admin hint in `AuthContext` was removed; Authorization State is read server-side exclusively. The cached/fresh server split remains unchanged.

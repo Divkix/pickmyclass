@@ -3,6 +3,7 @@
 import { LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { log } from '@/lib/log';
 import { cn } from '@/lib/utils';
 
@@ -12,17 +13,16 @@ interface SignOutButtonProps {
 }
 
 export function SignOutButton({ variant = 'full', className }: SignOutButtonProps) {
+  const { signOut } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignOut = async () => {
     try {
       setIsLoading(true);
-      await fetch('/api/auth/signout', { method: 'POST' });
+      await signOut();
       window.location.href = '/sign-in';
     } catch (error) {
       log('AdminSignOut').error('Sign-out failed:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
