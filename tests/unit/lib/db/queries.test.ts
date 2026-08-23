@@ -1,28 +1,40 @@
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 // Mock the Hyperdrive-backed db client seam (replaces the former Supabase service client)
-const { mockCallFunction, mockCallFunctionScalar, mockExecute, mockGetClient } = vi.hoisted(() => ({
+const {
+  mockCallFunction,
+  mockCallFunctionScalar,
+  mockExecute,
+  mockGetClient,
+  mockQueryOne,
+  mockQueryScalar,
+} = vi.hoisted(() => ({
   mockCallFunction: vi.fn(),
   mockCallFunctionScalar: vi.fn(),
   mockExecute: vi.fn(),
   mockGetClient: vi.fn(),
+  mockQueryOne: vi.fn(),
+  mockQueryScalar: vi.fn(),
 }));
 
 vi.mock('@/lib/db/client', () => ({
   callFunction: mockCallFunction,
   callFunctionScalar: mockCallFunctionScalar,
-  query: vi.fn(),
-  queryOne: vi.fn(),
-  queryScalar: vi.fn(),
+  queryOne: mockQueryOne,
+  queryScalar: mockQueryScalar,
   execute: mockExecute,
   getClient: mockGetClient,
   setConnectionStringGetter: vi.fn(),
 }));
 
 import {
+  capConsecutiveNotFound,
   deleteSectionAndWatches,
   getNotificationWatchers,
   incrementConsecutiveNotFound,
+  readAutoCleanupBreakerCounts,
+  readSectionCheckState,
+  readSectionRemovalClassInfo,
 } from '@/lib/db/queries';
 
 beforeEach(() => {
@@ -247,5 +259,137 @@ describe('deleteSectionAndWatches', () => {
       '99999',
       '2261',
     ]);
+  });
+});
+
+describe('readAutoCleanupBreakerCounts', () => {
+  it('runs both COUNT probes and returns raw counts without policy math', async () => {
+    mockQueryScalar.mockImplementation((sql: string) => {
+      if (sql.includes('consecutive_not_found_count')) return Promise.resolve(7);
+      return Promise.resolve(40);
+    });
+
+    const counts = await readAutoCleanupBreakerCounts();
+
+    expect(counts).toEqual({ total: 40, flagged: 7 });
+    expect(mockQueryScalar).toHaveBeenCalledTimes(2);
+    expect(mockQueryScalar).toHaveBeenCalledWith('SELECT COUNT(*)::int AS count FROM class_states');
+    expect(mockQueryScalar).toHaveBeenCalledWith(
+      'SELECT COUNT(*)::int AS count FROM class_states WHERE consecutive_not_found_count >= 1'
+    );
+  });
+
+  it('projects null scalars to 0', async () => {
+    mockQueryScalar.mockResolvedValue(null);
+
+    await expect(readAutoCleanupBreakerCounts()).resolves.toEqual({ total: 0, flagged: 0 });
+  });
+
+  it('translates errors following the DB idiom', async () => {
+    mockQueryScalar.mockRejectedValue(new Error('connection refused'));
+
+    await expect(readAutoCleanupBreakerCounts()).rejects.toThrow(
+      'Failed to read auto-cleanup breaker counts: connection refused'
+    );
+  });
+});
+
+describe('capConsecutiveNotFound', () => {
+  it('runs the guarded UPDATE with capped value and full SectionRef params', async () => {
+    mockExecute.mockResolvedValue(1);
+
+    await capConsecutiveNotFound({ class_nbr: '76337', term: '2261' }, 2);
+
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    const [sql, params] = mockExecute.mock.calls[0];
+    expect(sql.replace(/\s+/g, ' ')).toBe(
+      'UPDATE class_states SET consecutive_not_found_count = $1 ' +
+        'WHERE class_nbr = $2 AND term = $3 AND consecutive_not_found_count != $1'
+    );
+    expect(params).toEqual([2, '76337', '2261']);
+  });
+
+  it('translates errors following the DB idiom', async () => {
+    mockExecute.mockRejectedValue(new Error('deadlock detected'));
+
+    await expect(capConsecutiveNotFound({ class_nbr: '76337', term: '2261' }, 2)).rejects.toThrow(
+      'Failed to cap consecutive_not_found_count: deadlock detected'
+    );
+  });
+});
+
+describe('readSectionRemovalClassInfo', () => {
+  it('selects subject/catalog_nbr/title keyed by full SectionRef', async () => {
+    const row = { subject: 'CSE', catalog_nbr: '110', title: 'Intro to Programming' };
+    mockQueryOne.mockResolvedValue(row);
+
+    await expect(readSectionRemovalClassInfo({ class_nbr: '76337', term: '2261' })).resolves.toBe(
+      row
+    );
+    expect(mockQueryOne).toHaveBeenCalledTimes(1);
+    expect(mockQueryOne).toHaveBeenCalledWith(
+      'SELECT subject, catalog_nbr, title FROM class_states WHERE class_nbr = $1 AND term = $2',
+      ['76337', '2261']
+    );
+  });
+
+  it('returns null when no class_states row exists', async () => {
+    mockQueryOne.mockResolvedValue(null);
+
+    await expect(
+      readSectionRemovalClassInfo({ class_nbr: '42737', term: '2257' })
+    ).resolves.toBeNull();
+  });
+
+  it('translates errors following the DB idiom', async () => {
+    mockQueryOne.mockRejectedValue(new Error('relation "class_states" does not exist'));
+
+    await expect(readSectionRemovalClassInfo({ class_nbr: '42737', term: '2257' })).rejects.toThrow(
+      'Failed to fetch removal class info: relation "class_states" does not exist'
+    );
+  });
+});
+
+describe('readSectionCheckState', () => {
+  it('returns the persisted old-state row for a known section', async () => {
+    const row = {
+      class_nbr: '76337',
+      term: '2261',
+      seats_available: 3,
+      non_reserved_seats: 2,
+      instructor_name: 'Christine Lee',
+      consecutive_not_found_count: 0,
+    };
+    mockQueryOne.mockResolvedValue(row);
+
+    await expect(readSectionCheckState({ class_nbr: '76337', term: '2261' })).resolves.toBe(row);
+  });
+
+  it('returns null when no class_states row exists (first observation)', async () => {
+    mockQueryOne.mockResolvedValue(null);
+
+    await expect(readSectionCheckState({ class_nbr: '42737', term: '2257' })).resolves.toBeNull();
+  });
+
+  it('invokes queryOne once with the old-state SELECT keyed by the full SectionRef', async () => {
+    mockQueryOne.mockResolvedValue(null);
+
+    await readSectionCheckState({ class_nbr: '76337', term: '2261' });
+
+    expect(mockQueryOne).toHaveBeenCalledTimes(1);
+    expect(mockQueryOne).toHaveBeenCalledWith(
+      `SELECT class_nbr, term, seats_available, non_reserved_seats, instructor_name,
+              consecutive_not_found_count
+       FROM class_states WHERE class_nbr = $1 AND term = $2`,
+      ['76337', '2261']
+    );
+  });
+
+  it('translates errors following the DB idiom', async () => {
+    mockQueryOne.mockRejectedValue(new Error('relation "class_states" does not exist'));
+
+    await expect(readSectionCheckState({ class_nbr: '42737', term: '2257' })).rejects.toThrow(
+      'Failed to fetch section check state: relation "class_states" does not exist'
+    );
   });
 });

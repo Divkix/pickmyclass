@@ -9,6 +9,7 @@ import type { ClassInfo } from '@/lib/types/class';
 import { DEFAULT_SITE_URL } from '@/lib/config';
 import { escapeHtml } from '@/lib/utils/escape-html';
 import { buildUrl } from '@/lib/utils/url';
+import { getEmailFooter } from './footer';
 
 /**
  * Sanitize class information for use in email templates
@@ -56,35 +57,6 @@ function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
     classNbrUrl: safeClassNbrUrl,
     catalogUrl,
   };
-}
-
-/**
- * Generate email footer with unsubscribe link (CAN-SPAM compliance)
- */
-function getEmailFooter(unsubscribeUrl?: string): string {
-  if (!unsubscribeUrl) {
-    return `
-    <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
-      You're receiving this email because you're watching this class on PickMyClass.
-      <br>
-      This is an automated notification sent by PickMyClass.
-    </p>
-    `.trim();
-  }
-
-  // Sanitize unsubscribe URL to prevent XSS in query params
-  const safeUnsubscribeUrl = escapeHtml(unsubscribeUrl);
-
-  return `
-    <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
-      You're receiving this email because you're watching this class on PickMyClass.
-      <br>
-      This is an automated notification sent by PickMyClass.
-    </p>
-    <p style="font-size: 11px; color: #9ca3af; text-align: center; margin: 10px 0 0 0;">
-      Don't want these emails? <a href="${safeUnsubscribeUrl}" style="color: #8C1D40; text-decoration: underline;">Unsubscribe</a>
-    </p>
-  `.trim();
 }
 
 // invariant: both SeatAvailableEmailTemplate and InstructorAssignedEmailTemplate produce HTML

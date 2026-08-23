@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from '@/lib/email/templates';
 import type { ClassInfo } from '@/lib/types/class';
+import { buildAutoCleanupRemovedEmail } from '@/lib/email/templates/auto-cleanup';
+import { getEmailFooter } from '@/lib/email/templates/footer';
 
 const classInfo: ClassInfo = {
   term: '2261<script>',
@@ -65,5 +67,48 @@ describe('notification email templates', () => {
     expect(availableHtml).toContain('Instructor: Dr. Smith &amp; Co.');
     expect(fullHtml).toContain('color: #dc2626');
     expect(fullHtml).toContain('0 of 40 seats available');
+  });
+});
+
+describe('getEmailFooter (shared)', () => {
+  it('escapes unsubscribe URLs to prevent XSS in query params', () => {
+    const footer = getEmailFooter('https://pickmyclass.app/unsubscribe?token=<bad>&next="x"');
+
+    expect(footer).toContain(
+      'href="https://pickmyclass.app/unsubscribe?token=&lt;bad&gt;&amp;next=&quot;x&quot;"'
+    );
+    expect(footer).not.toContain('<bad>');
+    expect(footer).not.toContain('"x"');
+    expect(footer).toContain('Unsubscribe</a>');
+    expect(footer).toContain("Don't want these emails?");
+  });
+
+  it('omits the unsubscribe link when no URL is provided', () => {
+    const footer = getEmailFooter();
+
+    expect(footer).not.toContain('Unsubscribe</a>');
+    expect(footer).toContain(
+      "You're receiving this email because you're watching this class on PickMyClass."
+    );
+    expect(footer).toContain('This is an automated notification sent by PickMyClass.');
+  });
+
+  it('renders byte-identical footers across notification and auto-cleanup templates', () => {
+    const url = 'https://pickmyclass.app/unsubscribe?token=tok';
+    const footer = getEmailFooter(url);
+
+    const seatHtml = SeatAvailableEmailTemplate(classInfo, url);
+    const removalHtml = buildAutoCleanupRemovedEmail({
+      classNbr: '42737',
+      term: '2261',
+      subject: 'CSE',
+      catalogNbr: '110',
+      title: 'T',
+      unsubscribeUrl: url,
+    }).html;
+
+    // split length 2 == footer embedded exactly once in each template
+    expect(seatHtml.split(footer)).toHaveLength(2);
+    expect(removalHtml.split(footer)).toHaveLength(2);
   });
 });

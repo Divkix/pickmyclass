@@ -17,6 +17,7 @@ import { log } from '@/lib/log';
 import type { SectionRef } from '@/lib/section-ref';
 import { escapeHtml } from '@/lib/utils/escape-html';
 import type { ClassWatcher } from '@/lib/db/queries';
+import { getEmailFooter } from './footer';
 
 export interface BuildAutoCleanupRemovedEmailParams {
   classNbr: string;
@@ -31,32 +32,6 @@ export interface AutoCleanupRemovedEmail {
   html: string;
   text: string;
   subject: string;
-}
-
-// TODO: deduplicate getEmailFooter — identical to lib/email/templates/index.ts#getEmailFooter; cannot import from ./index here without circular dependency (index re-exports from auto-cleanup). Extract to shared lib/email/templates/footer.ts if needed.
-function getEmailFooter(unsubscribeUrl?: string): string {
-  if (!unsubscribeUrl) {
-    return `
-    <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
-      You're receiving this email because you're watching this class on PickMyClass.
-      <br>
-      This is an automated notification sent by PickMyClass.
-    </p>
-    `.trim();
-  }
-
-  const safeUnsubscribeUrl = escapeHtml(unsubscribeUrl);
-
-  return `
-    <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
-      You're receiving this email because you're watching this class on PickMyClass.
-      <br>
-      This is an automated notification sent by PickMyClass.
-    </p>
-    <p style="font-size: 11px; color: #9ca3af; text-align: center; margin: 10px 0 0 0;">
-      Don't want these emails? <a href="${safeUnsubscribeUrl}" style="color: #8C1D40; text-decoration: underline;">Unsubscribe</a>
-    </p>
-  `.trim();
 }
 
 /**
@@ -207,11 +182,29 @@ export function buildAutoCleanupRemovedEmail(
 }
 
 /**
+ * Per-watcher outcome row for an auto-cleanup send batch.
+ *
+ * `attempted` separates real transport attempts (send succeeded, or send was
+ * invoked and rejected by the provider) from synthetic rows recorded for
+ * watchers never sent because a fatal provider error aborted the batch.
+ */
+export interface AutoCleanupSendResult {
+  success: boolean;
+  watchId: string;
+  error?: string;
+  /** True when emailBinding.send ran for this watcher; false for skipped-remainder rows. */
+  attempted: boolean;
+}
+
+/**
  * Send auto-cleanup removal emails to all watchers of a removed section.
  *
  * Sequential send (no batch API), per-watcher unsubscribe token, throttle
  * EMAIL_BATCH_DELAY_MS when batch > EMAIL_BATCH_SIZE, and logging.
  * No dedup logic — caller has already deleted watches.
+ * Each row carries `attempted`: true when emailBinding.send ran for that
+ * watcher (success or caught provider failure), false when synthesized for
+ * watchers skipped after a fatal provider error aborted the batch.
  */
 export async function sendAutoCleanupRemovalEmails(
   params: {
@@ -225,7 +218,7 @@ export async function sendAutoCleanupRemovalEmails(
   },
   emailBinding: SendEmail,
   fromEmail?: string
-): Promise<Array<{ success: boolean; watchId: string; error?: string }>> {
+): Promise<AutoCleanupSendResult[]> {
   const { ref, classInfo } = params;
   let watchers = params.watchers;
   const from = fromEmail || NOTIFICATION_FROM_EMAIL;
@@ -247,7 +240,7 @@ export async function sendAutoCleanupRemovalEmails(
     `Auto-cleanup: notifying ${watchers.length} watcher(s) for removed section ${ref.term}:${ref.class_nbr}`
   );
 
-  const results: Array<{ success: boolean; watchId: string; error?: string }> = [];
+  const results: AutoCleanupSendResult[] = [];
 
   for (let i = 0; i < watchers.length; i++) {
     const watcher = watchers[i];
@@ -275,7 +268,7 @@ export async function sendAutoCleanupRemovalEmails(
         },
       });
 
-      results.push({ success: true, watchId: watcher.watch_id });
+      results.push({ success: true, watchId: watcher.watch_id, attempted: true });
     } catch (error) {
       // SAFETY: catch variable is unknown error shape; narrowing to optional code/message for logging — fallback to UNKNOWN / failed message preserves invariant
       const errorObj = error as { code?: string; message?: string };
@@ -290,6 +283,7 @@ export async function sendAutoCleanupRemovalEmails(
         success: false,
         watchId: watcher.watch_id,
         error: `${errorCode}: ${errorMessage}`,
+        attempted: true,
       });
 
       // Rate limit / daily limit / sender not verified — abort remaining sends (mirrors lib/email/send.ts:94-106)
@@ -304,6 +298,7 @@ export async function sendAutoCleanupRemovalEmails(
             success: false,
             watchId: remaining.watch_id,
             error: `Skipped: ${errorCode} limit reached`,
+            attempted: false,
           });
         }
         log('Email').warn(

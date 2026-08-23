@@ -2,15 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE } from '@/lib/config';
 
 // Mock all dependencies
-vi.mock('@/lib/db/client', () => ({
-  queryOne: vi.fn(),
-  queryScalar: vi.fn(),
-  execute: vi.fn(),
-  query: vi.fn(),
-  callFunction: vi.fn(),
-  callFunctionScalar: vi.fn(),
-  getClient: vi.fn(),
-}));
 
 vi.mock('@/lib/asu/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/asu/api')>()),
@@ -23,6 +14,11 @@ vi.mock('@/lib/db/queries', () => ({
   deleteSectionAndWatches: vi.fn(),
   getClassWatchers: vi.fn(),
   upsertClassState: vi.fn(),
+  readSectionCheckState: vi.fn(),
+  // Retirement query seams (issue #360): raw SQL moved out of processSection
+  readAutoCleanupBreakerCounts: vi.fn(),
+  capConsecutiveNotFound: vi.fn(),
+  readSectionRemovalClassInfo: vi.fn(),
 }));
 
 vi.mock('@/lib/queue/change-detector', () => ({
@@ -48,14 +44,18 @@ import {
   RateLimitError,
   fetchClassFromASU,
 } from '@/lib/asu/api';
-import { execute, queryOne, queryScalar } from '@/lib/db/client';
 import {
+  capConsecutiveNotFound,
   deleteSectionAndWatches,
   getClassWatchers,
   incrementConsecutiveNotFound,
+  readAutoCleanupBreakerCounts,
+  readSectionCheckState,
+  readSectionRemovalClassInfo,
   resetNotificationsForSection,
   upsertClassState,
 } from '@/lib/db/queries';
+import type { SectionCheckState, SectionRemovalClassInfo } from '@/lib/db/queries';
 import type { ChangeResult } from '@/lib/queue/change-detector';
 import { detectChanges } from '@/lib/queue/change-detector';
 import { sendSectionNotifications } from '@/lib/queue/notification-sender';
@@ -101,17 +101,7 @@ function buildEnv(): Pick<
   };
 }
 
-/** Shape of the class_states row returned by the old-state fetch. */
-interface OldStateRow {
-  class_nbr: string;
-  term: string;
-  seats_available: number;
-  non_reserved_seats: number | null;
-  instructor_name: string | null;
-  consecutive_not_found_count: number;
-}
-
-function defaultOldStateRow(overrides: Partial<OldStateRow> = {}): OldStateRow {
+function defaultOldStateRow(overrides: Partial<SectionCheckState> = {}): SectionCheckState {
   return {
     class_nbr: '42737',
     term: '2261',
@@ -124,32 +114,29 @@ function defaultOldStateRow(overrides: Partial<OldStateRow> = {}): OldStateRow {
 }
 
 /**
- * Set up the `queryOne` mock to return the given old-state row (or null for
- * first observation) for the old-state fetch. Only the old-state fetch runs in
- * the happy path; the class-info fetch is only reached in the auto-cleanup
- * non-suppressed branch (see `setupAutoCleanupMocks`).
+ * Set up the `readSectionCheckState` mock to return the given persisted row
+ * (or null for first observation) for processSection's Step 1 old-state read.
+ * All class_states access flows through this typed `@/lib/db/queries` seam —
+ * no raw SQL remains in the queue module (issue #360).
  */
-function setupOldStateMock(row: OldStateRow | null): void {
-  vi.mocked(queryOne).mockResolvedValue(row);
+function setupOldStateMock(row: SectionCheckState | null): void {
+  vi.mocked(readSectionCheckState).mockResolvedValue(row);
 }
 
 /**
- * Set up mocks for the 3-strikes auto-cleanup breaker flow:
- * - `queryScalar` returns `total` then `flagged` (the two breaker count queries).
- * - `queryOne` discriminates the old-state fetch from the class-info fetch by
- *   SQL text (class-info selects `subject, catalog_nbr, title`).
- * - `execute` returns an affected-row count for the cap update (suppressed path).
+ * Set up mocks for the 3-strikes auto-cleanup flow exercised through the real
+ * `retireClassSection` module: breaker counts come from
+ * `readAutoCleanupBreakerCounts`, the suppression cap write from
+ * `capConsecutiveNotFound`, and the parallel class-info read from
+ * `readSectionRemovalClassInfo`. The `readSectionCheckState` mock carries the
+ * persisted baseline row.
  */
 function setupAutoCleanupMocks(
   opts: {
     total?: number;
     flagged?: number;
-    oldStateRow?: OldStateRow | null;
-    classInfo?: {
-      subject?: string | null;
-      catalog_nbr?: string | null;
-      title?: string | null;
-    } | null;
+    oldStateRow?: SectionCheckState | null;
+    classInfo?: SectionRemovalClassInfo | null;
   } = {}
 ): void {
   const {
@@ -159,17 +146,9 @@ function setupAutoCleanupMocks(
     classInfo = { subject: 'CSE', catalog_nbr: '110', title: 'Principles of Programming' },
   } = opts;
 
-  vi.mocked(queryScalar).mockResolvedValueOnce(total).mockResolvedValueOnce(flagged);
-
-  // SAFETY: test double — implementation discriminates old-state vs class-info fetch by SQL text; cast aligns the non-generic mock return with queryOne's generic signature
-  vi.mocked(queryOne).mockImplementation(((sql: string) => {
-    if (sql.includes('subject, catalog_nbr, title')) {
-      return Promise.resolve(classInfo);
-    }
-    return Promise.resolve(oldStateRow);
-  }) as typeof queryOne);
-
-  vi.mocked(execute).mockResolvedValue(1);
+  setupOldStateMock(oldStateRow);
+  vi.mocked(readAutoCleanupBreakerCounts).mockResolvedValue({ total, flagged });
+  vi.mocked(readSectionRemovalClassInfo).mockResolvedValue(classInfo);
 }
 
 describe('processSection', () => {
@@ -208,9 +187,10 @@ describe('processSection', () => {
       stateDeleted: true,
     });
     vi.mocked(getClassWatchers).mockResolvedValue([]);
-    // Breaker query defaults (not reached unless count >= threshold, but safe)
-    vi.mocked(queryScalar).mockResolvedValue(0);
-    vi.mocked(execute).mockResolvedValue(0);
+    // Retirement seam defaults (not reached unless count >= threshold, but safe)
+    vi.mocked(readAutoCleanupBreakerCounts).mockResolvedValue({ total: 10, flagged: 1 });
+    vi.mocked(capConsecutiveNotFound).mockResolvedValue(undefined);
+    vi.mocked(readSectionRemovalClassInfo).mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -221,12 +201,8 @@ describe('processSection', () => {
     const env = buildEnv();
     const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
 
-    // Should have fetched old state via the pg query seam (parameterized by SectionRef)
-    expect(queryOne).toHaveBeenCalledWith(
-      expect.stringContaining('FROM class_states WHERE class_nbr = $1 AND term = $2'),
-      ['42737', '2261']
-    );
-
+    // Should have fetched old state through the typed queries seam, keyed by full SectionRef
+    expect(readSectionCheckState).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
     // Should have fetched from ASU with the SectionRef
     expect(fetchClassFromASU).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' }, env);
 
@@ -262,6 +238,8 @@ describe('processSection', () => {
       emailsSent: 1,
       processingTimeMs: expect.any(Number),
     });
+    // Happy path never touches retirement (issue #360)
+    expect(outcome.result.retirement).toBeUndefined();
   });
 
   it('no changes detected: only persists, no notifications', async () => {
@@ -305,6 +283,15 @@ describe('processSection', () => {
     // Should NOT have tried to persist or notify
     expect(upsertClassState).not.toHaveBeenCalled();
     expect(sendSectionNotifications).not.toHaveBeenCalled();
+    expect(outcome.result.retirement).toMatchObject({
+      status: 'tracked',
+      strikeCount: 1,
+      suppressed: false,
+      deleted: false,
+      watchesDeleted: 0,
+      emailsAttempted: 0,
+      emailsSucceeded: 0,
+    });
   });
 
   it('ASU API throws RateLimitError: returns retry outcome (429)', async () => {
@@ -333,7 +320,7 @@ describe('processSection', () => {
   });
 
   it('first observation with open seats: suppresses notification, only persists baseline', async () => {
-    // First observation = queryOne returns null (no rows found, not an error)
+    // First observation = readSectionCheckState returns null (no rows found, not an error)
     setupOldStateMock(null);
 
     vi.mocked(fetchClassFromASU).mockResolvedValue(
@@ -348,7 +335,7 @@ describe('processSection', () => {
 
     const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
-    // detectChanges should have been called with null oldState (queryOne returns null)
+    // detectChanges should have been called with null oldState (readSectionCheckState returns null)
     expect(detectChanges).toHaveBeenCalledWith(
       null,
       expect.objectContaining({ seats_available: 5 })
@@ -367,8 +354,8 @@ describe('processSection', () => {
     expect(outcome.result.emailsSent).toBe(0);
   });
 
-  it('handles queryOne throwing a DB error gracefully: returns retry, no further processing', async () => {
-    vi.mocked(queryOne).mockRejectedValue(new Error('Connection timeout'));
+  it('handles old-state DB read throwing gracefully: returns retry, no further processing', async () => {
+    vi.mocked(readSectionCheckState).mockRejectedValue(new Error('Connection timeout'));
 
     const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
 
@@ -438,6 +425,8 @@ describe('processSection', () => {
       expect(outcome.disposition).toBe('ack');
       expect(outcome.httpStatus).toBe(200);
       expect(outcome.retryable).toBe(false);
+      // Retirement runs only for NotFound — AuthError must carry no retirement payload
+      expect(outcome.result.retirement).toBeUndefined();
     });
 
     it('acks a thrown NotFoundError (non-retryable: section gone)', async () => {
@@ -526,6 +515,10 @@ describe('processSection', () => {
       expect(outcome.result.success).toBe(false);
       expect(outcome.result.error).toBe('Section 42737 not found');
       expect(outcome.result.emailsSent).toBe(0);
+      // Below threshold: seams own breaker/cap/class-info and must stay untouched
+      expect(readAutoCleanupBreakerCounts).not.toHaveBeenCalled();
+      expect(capConsecutiveNotFound).not.toHaveBeenCalled();
+      expect(readSectionRemovalClassInfo).not.toHaveBeenCalled();
     });
 
     it('second consecutive NotFound -> count 2, ack, no deletion', async () => {
@@ -546,6 +539,11 @@ describe('processSection', () => {
       expect(outcome.httpStatus).toBe(200);
       expect(outcome.result.success).toBe(false);
       expect(outcome.result.error).toBe('Section 42737 not found');
+      expect(outcome.result.retirement).toMatchObject({
+        status: 'tracked',
+        strikeCount: 2,
+        deleted: false,
+      });
     });
 
     it('third consecutive NotFound with watchers -> deletes SectionRef-scoped watches and state, notifies watchers, ack with Auto-cleanup error', async () => {
@@ -577,6 +575,13 @@ describe('processSection', () => {
       expect(deleteSectionAndWatches).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
       expect(deleteSectionAndWatches).toHaveBeenCalledTimes(1);
       expect(getClassWatchers).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
+      // Retirement owns the breaker read + parallel class-info read; the cap write is suppression-only
+      expect(readAutoCleanupBreakerCounts).toHaveBeenCalledTimes(1);
+      expect(readSectionRemovalClassInfo).toHaveBeenCalledWith({
+        class_nbr: '42737',
+        term: '2261',
+      });
+      expect(capConsecutiveNotFound).not.toHaveBeenCalled();
 
       // Verify EMAIL.send called for each watcher with correct subject/link
       expect(env.EMAIL.send).toHaveBeenCalledTimes(2);
@@ -599,9 +604,19 @@ describe('processSection', () => {
       expect(outcome.disposition).toBe('ack');
       expect(outcome.httpStatus).toBe(200);
       expect(outcome.result.success).toBe(true);
-      expect(outcome.result.error).toContain('Auto-cleanup');
+      expect(outcome.result.error).toBe('Auto-cleanup: class removed after 3 NotFounds');
+      // emailsSent reports actual successful sends (mirrors retirement.emailsSucceeded)
       expect(outcome.result.emailsSent).toBe(2);
       expect(outcome.result.classNbr).toBe('42737');
+      expect(outcome.result.retirement).toMatchObject({
+        status: 'retired',
+        strikeCount: 3,
+        suppressed: false,
+        deleted: true,
+        watchesDeleted: 2,
+        emailsAttempted: 2,
+        emailsSucceeded: 2,
+      });
     });
 
     it('third consecutive NotFound with zero watchers -> still deletes state with no email', async () => {
@@ -629,9 +644,21 @@ describe('processSection', () => {
       expect(deleteSectionAndWatches).toHaveBeenCalledWith({ class_nbr: '99999', term: '2261' });
       expect(env.EMAIL.send).not.toHaveBeenCalled();
       expect(outcome.disposition).toBe('ack');
-      expect(outcome.result.error).toContain('Auto-cleanup');
+      expect(outcome.result.error).toBe('Auto-cleanup: class removed after 3 NotFounds');
       expect(outcome.result.emailsSent).toBe(0);
       expect(outcome.result.success).toBe(true);
+      expect(readSectionRemovalClassInfo).toHaveBeenCalledWith({
+        class_nbr: '99999',
+        term: '2261',
+      });
+      expect(outcome.result.retirement).toMatchObject({
+        status: 'retired',
+        strikeCount: 3,
+        deleted: true,
+        watchesDeleted: 0,
+        emailsAttempted: 0,
+        emailsSucceeded: 0,
+      });
     });
 
     it('success after NotFounds -> resets count to 0 via upsertClassState', async () => {
@@ -669,6 +696,7 @@ describe('processSection', () => {
       expect(outcome.httpStatus).toBe(429);
       expect(outcome.retryable).toBe(true);
       expect(outcome.result.error).toBe('Rate limit hit');
+      expect(outcome.result.retirement).toBeUndefined();
     });
 
     it('ApiError 502 does NOT increment NotFound count and returns retry', async () => {
@@ -731,11 +759,8 @@ describe('processSection', () => {
         class_nbr: '76337',
         term: '2257',
       });
-      // Old-state fetch parameterized by SectionRef (class_nbr + term)
-      expect(queryOne).toHaveBeenCalledWith(
-        expect.stringContaining('class_nbr = $1 AND term = $2'),
-        ['76337', '2261']
-      );
+      // Old-state fetch keyed by full SectionRef (class_nbr + term)
+      expect(readSectionCheckState).toHaveBeenCalledWith({ class_nbr: '76337', term: '2261' });
 
       vi.clearAllMocks();
       // Re-setup mocks after clear (clearAllMocks resets implementations to no-op, so re-mock)
@@ -754,10 +779,7 @@ describe('processSection', () => {
         class_nbr: '76337',
         term: '2257',
       });
-      expect(queryOne).toHaveBeenCalledWith(
-        expect.stringContaining('class_nbr = $1 AND term = $2'),
-        ['76337', '2257']
-      );
+      expect(readSectionCheckState).toHaveBeenCalledWith({ class_nbr: '76337', term: '2257' });
       // Ensure second call used different term
       expect(incrementConsecutiveNotFound).not.toHaveBeenCalledWith({
         class_nbr: '76337',
@@ -792,15 +814,10 @@ describe('processSection', () => {
       expect(getClassWatchers).not.toHaveBeenCalled();
       expect(env.EMAIL.send).not.toHaveBeenCalled();
 
-      // Count capped at 2 via parameterized UPDATE with neq guard to avoid no-op WAL writes
-      expect(execute).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE class_states SET consecutive_not_found_count = $1'),
-        [2, '42737', '2261']
-      );
-      expect(queryScalar).toHaveBeenCalledWith('SELECT COUNT(*)::int AS count FROM class_states');
-      expect(queryScalar).toHaveBeenCalledWith(
-        'SELECT COUNT(*)::int AS count FROM class_states WHERE consecutive_not_found_count >= 1'
-      );
+      // Count capped at threshold-1 via the guarded seam, keyed by full SectionRef
+      expect(capConsecutiveNotFound).toHaveBeenCalledTimes(1);
+      expect(capConsecutiveNotFound).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' }, 2);
+      expect(readAutoCleanupBreakerCounts).toHaveBeenCalledTimes(1);
       // Logs 'Auto-cleanup suppressed'
       const warnCalls = consoleWarnSpy.mock.calls.map(
         (c) => String(c[0]) + ' ' + String(c[1] ?? '')
@@ -815,6 +832,15 @@ describe('processSection', () => {
       expect(outcome.result.emailsSent).toBe(0);
       // Suppressed path returns original NotFound error, not Auto-cleanup
       expect(outcome.result.error).toBe('Section 42737 not found');
+      expect(outcome.result.retirement).toMatchObject({
+        status: 'suppressed',
+        strikeCount: 3,
+        suppressed: true,
+        deleted: false,
+        watchesDeleted: 0,
+        emailsAttempted: 0,
+        emailsSucceeded: 0,
+      });
 
       // rely on afterEach restoreAllMocks
     });
@@ -843,6 +869,16 @@ describe('processSection', () => {
       expect(deleteSectionAndWatches).toHaveBeenCalled();
       expect(outcome.result.error).toContain('Auto-cleanup');
       expect(outcome.result.emailsSent).toBe(1);
+      // Strict ratio: flagged/total == 0.2 exactly is NOT > 0.2, so retirement proceeds
+      expect(outcome.result.retirement).toMatchObject({
+        status: 'retired',
+        suppressed: false,
+        deleted: true,
+        strikeCount: 3,
+        watchesDeleted: 1,
+        emailsAttempted: 1,
+        emailsSucceeded: 1,
+      });
     });
 
     it('increment failure: ack without deletion, no throw', async () => {
@@ -856,6 +892,140 @@ describe('processSection', () => {
       expect(outcome.httpStatus).toBe(200);
       expect(outcome.result.success).toBe(false);
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
+      expect(outcome.result.retirement).toMatchObject({
+        status: 'increment-failed',
+        strikeCount: null,
+        deleted: false,
+        watchesDeleted: 0,
+        emailsAttempted: 0,
+        emailsSucceeded: 0,
+      });
+    });
+
+    it('breaker-count read failure fails open: proceeds with deletion and retires', async () => {
+      setupAutoCleanupMocks({
+        total: 10,
+        flagged: 1,
+        oldStateRow: defaultOldStateRow(),
+        classInfo: { subject: 'CSE', catalog_nbr: '110', title: 'T' },
+      });
+      vi.mocked(fetchClassFromASU).mockRejectedValue(new NotFoundError('Section 42737 not found'));
+      vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(3);
+      vi.mocked(readAutoCleanupBreakerCounts).mockRejectedValue(new Error('breaker query down'));
+      vi.mocked(getClassWatchers).mockResolvedValue([
+        { user_id: 'u1', email: 'a@example.com', watch_id: 'w1' },
+      ]);
+      vi.mocked(deleteSectionAndWatches).mockResolvedValue({
+        watchesDeleted: 1,
+        stateDeleted: true,
+      });
+
+      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+
+      // Fail-open ladder: an unreadable breaker must not wedge threshold sections forever
+      expect(deleteSectionAndWatches).toHaveBeenCalledTimes(1);
+      expect(outcome.disposition).toBe('ack');
+      expect(outcome.result.success).toBe(true);
+      expect(outcome.result.emailsSent).toBe(1);
+      expect(outcome.result.retirement).toMatchObject({
+        status: 'retired',
+        deleted: true,
+        watchesDeleted: 1,
+        emailsAttempted: 1,
+        emailsSucceeded: 1,
+      });
+    });
+
+    it('watcher read failure: ack, no deletion, no email, watcher-read-failed status', async () => {
+      setupAutoCleanupMocks();
+      vi.mocked(fetchClassFromASU).mockRejectedValue(new NotFoundError('Section 42737 not found'));
+      vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(3);
+      vi.mocked(getClassWatchers).mockRejectedValue(new Error('watcher RPC exploded'));
+
+      const env = buildEnv();
+      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+
+      expect(deleteSectionAndWatches).not.toHaveBeenCalled();
+      expect(env.EMAIL.send).not.toHaveBeenCalled();
+      expect(outcome.disposition).toBe('ack');
+      expect(outcome.httpStatus).toBe(200);
+      expect(outcome.result.success).toBe(false);
+      expect(outcome.result.error).toBe('Section 42737 not found');
+      expect(outcome.result.retirement).toMatchObject({
+        status: 'watcher-read-failed',
+        strikeCount: 3,
+        deleted: false,
+        watchesDeleted: 0,
+        emailsAttempted: 0,
+        emailsSucceeded: 0,
+      });
+    });
+
+    it('delete failure: ack, no email sent (deletion before email), delete-failed status', async () => {
+      setupAutoCleanupMocks();
+      vi.mocked(fetchClassFromASU).mockRejectedValue(new NotFoundError('Section 42737 not found'));
+      vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(3);
+      vi.mocked(getClassWatchers).mockResolvedValue([
+        { user_id: 'u1', email: 'a@example.com', watch_id: 'w1' },
+      ]);
+      vi.mocked(deleteSectionAndWatches).mockRejectedValue(new Error('delete statement timeout'));
+
+      const env = buildEnv();
+      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+
+      // Deletion precedes email fan-out: a failed delete must never leak removal emails
+      expect(env.EMAIL.send).not.toHaveBeenCalled();
+      expect(outcome.disposition).toBe('ack');
+      expect(outcome.httpStatus).toBe(200);
+      expect(outcome.result.success).toBe(false);
+      expect(outcome.result.error).toBe('Section 42737 not found');
+      expect(outcome.result.retirement).toMatchObject({
+        status: 'delete-failed',
+        strikeCount: 3,
+        deleted: false,
+        watchesDeleted: 0,
+        emailsAttempted: 0,
+        emailsSucceeded: 0,
+      });
+    });
+
+    it('partial email failures: emailsSent equals actual successes, deletion still stands', async () => {
+      setupAutoCleanupMocks({
+        total: 10,
+        flagged: 1,
+        oldStateRow: defaultOldStateRow(),
+        classInfo: { subject: 'CSE', catalog_nbr: '110', title: 'T' },
+      });
+      vi.mocked(fetchClassFromASU).mockRejectedValue(new NotFoundError('Section 42737 not found'));
+      vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(3);
+      vi.mocked(getClassWatchers).mockResolvedValue([
+        { user_id: 'u1', email: 'ok1@example.com', watch_id: 'w1' },
+        { user_id: 'u2', email: 'bounce@example.com', watch_id: 'w2' },
+        { user_id: 'u3', email: 'ok2@example.com', watch_id: 'w3' },
+      ]);
+      vi.mocked(deleteSectionAndWatches).mockResolvedValue({
+        watchesDeleted: 3,
+        stateDeleted: true,
+      });
+
+      const env = buildEnv();
+      // Non-fatal failure: sender continues past watcher 2, so 3 attempted / 2 succeeded
+      vi.mocked(env.EMAIL.send).mockRejectedValueOnce(new Error('SMTP 550 mailbox unavailable'));
+
+      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+
+      expect(env.EMAIL.send).toHaveBeenCalledTimes(3);
+      expect(outcome.disposition).toBe('ack');
+      expect(outcome.result.success).toBe(true);
+      expect(outcome.result.error).toBe('Auto-cleanup: class removed after 3 NotFounds');
+      expect(outcome.result.emailsSent).toBe(2);
+      expect(outcome.result.retirement).toMatchObject({
+        status: 'retired',
+        deleted: true,
+        watchesDeleted: 3,
+        emailsAttempted: 3,
+        emailsSucceeded: 2,
+      });
     });
 
     it('caps watchers at AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE and truncates emails, logs warn', async () => {
@@ -894,18 +1064,32 @@ describe('processSection', () => {
       const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
 
       expect(deleteSectionAndWatches).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
-      // Real sendAutoCleanupRemovalEmails called via processSection — should be truncated to cap
+      // Real sendAutoCleanupRemovalEmails runs untruncated into the sender — the sender alone caps
       expect(env.EMAIL.send).toHaveBeenCalledTimes(cap);
-      expect(outcome.result.emailsSent).toBe(cap);
+      const { retirement } = outcome.result;
+      expect(retirement).toBeDefined();
+      if (!retirement) throw new Error('expected retirement payload');
+      // All watches deleted despite only cap emails attempted
+      expect(retirement.watchesDeleted).toBe(overCap);
       // watchesDeleted vs emailsSent inequality when over cap: all watches deleted but only cap emailed
       expect(overCap).toBeGreaterThan(cap);
       // watchesDeleted === originalLength (overCap) — delete mock returned overCap
       expect(overCap).toBe(manyWatchers.length);
-      expect(overCap).toBeGreaterThan(outcome.result.emailsSent);
+      // Truthful attempt accounting: post-truncation attempts all succeed
+      expect(retirement.emailsAttempted).toBe(cap);
+      expect(retirement.emailsSucceeded).toBe(cap);
+      expect(retirement.status).toBe('retired');
+      // emailsSent mirrors actual successes, not the raw watcher count
+      expect(outcome.result.emailsSent).toBe(cap);
       expect(outcome.result.success).toBe(true);
       expect(outcome.result.error).toContain('Auto-cleanup');
       // threshold assertion includes threshold value (3)
       expect(outcome.result.error).toContain('3');
+      expect(outcome.result.retirement).toMatchObject({
+        strikeCount: 3,
+        suppressed: false,
+        deleted: true,
+      });
       const warnCalls = vi
         .mocked(console.warn)
         .mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
@@ -966,6 +1150,12 @@ describe('processSection', () => {
       expect(warnCalls.some((s) => s.includes('Auto-cleanup suppressed'))).toBe(true);
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
       expect(outcome.result.success).toBe(false);
+      expect(outcome.result.retirement).toMatchObject({
+        status: 'suppressed',
+        suppressed: true,
+        strikeCount: 3,
+        deleted: false,
+      });
 
       // rely on afterEach restoreAllMocks
     });

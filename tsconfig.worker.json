@@ -26,6 +26,8 @@
     "lib/types/notification.ts",
     "lib/types/stagger.ts",
     "lib/api/wire.ts",
+    "lib/email/templates/footer.ts",
+    "lib/queue/section-retirement.ts",
     "lib/worker/cron-lock.ts",
     "lib/worker/edge-html-cache.ts",
     "lib/cloudflare-env.d.ts",

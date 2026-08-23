@@ -1,4 +1,12 @@
-import { callFunction, callFunctionScalar, execute, getClient, query } from '@/lib/db/client';
+import {
+  callFunction,
+  callFunctionScalar,
+  execute,
+  getClient,
+  query,
+  queryOne,
+  queryScalar,
+} from '@/lib/db/client';
 import type {
   ClassStateInsert,
   ClassWatcherRpcRow,
@@ -466,5 +474,142 @@ export async function deleteSectionAndWatches(
     throw new Error(`Failed to delete section: ${error instanceof Error ? error.message : error}`);
   } finally {
     client.release();
+  }
+}
+
+/**
+ * Class-info columns needed to compose auto-cleanup removal emails for a
+ * retired section.
+ */
+export type SectionRemovalClassInfo = {
+  subject: string | null;
+  catalog_nbr: string | null;
+  title: string | null;
+};
+
+/**
+ * Reads both COUNT probes for the auto-cleanup circuit breaker: the total
+ * number of class_states rows and the rows flagged with
+ * `consecutive_not_found_count >= 1`. Returns raw counts only — ratio math
+ * and suppression policy live with the caller.
+ *
+ * @returns { total, flagged } as numbers; null scalars project to 0
+ */
+export async function readAutoCleanupBreakerCounts(): Promise<{
+  total: number;
+  flagged: number;
+}> {
+  try {
+    const [total, flagged] = await Promise.all([
+      queryScalar<number>('SELECT COUNT(*)::int AS count FROM class_states'),
+      queryScalar<number>(
+        'SELECT COUNT(*)::int AS count FROM class_states WHERE consecutive_not_found_count >= 1'
+      ),
+    ]);
+    return { total: Number(total ?? 0), flagged: Number(flagged ?? 0) };
+  } catch (error) {
+    log('DB').error('Error reading auto-cleanup breaker counts:', error);
+    throw new Error(
+      `Failed to read auto-cleanup breaker counts: ${error instanceof Error ? error.message : error}`
+    );
+  }
+}
+
+/**
+ * Caps `class_states.consecutive_not_found_count` for a SectionRef while the
+ * auto-cleanup breaker is tripped, so the threshold is not re-hit on every
+ * subsequent cycle. The `consecutive_not_found_count != $1` guard skips
+ * no-op writes when the count already sits at the cap.
+ *
+ * @param ref - SectionRef identifying the section ({ class_nbr, term })
+ * @param maxCount - Value to pin the counter to (threshold - 1)
+ */
+export async function capConsecutiveNotFound(ref: SectionRef, maxCount: number): Promise<void> {
+  try {
+    await execute(
+      `UPDATE class_states SET consecutive_not_found_count = $1
+       WHERE class_nbr = $2 AND term = $3
+         AND consecutive_not_found_count != $1`,
+      [maxCount, ref.class_nbr, ref.term]
+    );
+    log('DB').info(
+      `Capped consecutive_not_found_count at ${maxCount} for ${ref.class_nbr} (term ${ref.term})`
+    );
+  } catch (error) {
+    log('DB').error(
+      `Error capping consecutive_not_found_count for ${ref.class_nbr} (term ${ref.term}):`,
+      error
+    );
+    throw new Error(
+      `Failed to cap consecutive_not_found_count: ${error instanceof Error ? error.message : error}`
+    );
+  }
+}
+
+/**
+ * Reads subject/catalog/title for a SectionRef to compose auto-cleanup
+ * removal emails. Returns `null` when no class_states row exists (e.g. the
+ * row was removed concurrently); throws translated DB errors — callers that
+ * treat class info as optional degrade to null themselves.
+ *
+ * @param ref - SectionRef identifying the section ({ class_nbr, term })
+ */
+export async function readSectionRemovalClassInfo(
+  ref: SectionRef
+): Promise<SectionRemovalClassInfo | null> {
+  try {
+    return await queryOne<SectionRemovalClassInfo>(
+      'SELECT subject, catalog_nbr, title FROM class_states WHERE class_nbr = $1 AND term = $2',
+      [ref.class_nbr, ref.term]
+    );
+  } catch (error) {
+    log('DB').error(
+      `Error fetching removal class info for ${ref.class_nbr} (term ${ref.term}):`,
+      error
+    );
+    throw new Error(
+      `Failed to fetch removal class info: ${error instanceof Error ? error.message : error}`
+    );
+  }
+}
+
+/**
+ * Old-state snapshot the Section Check pipeline compares fresh ASU API data
+ * against. Projected columns only — the rest of the class_states row is
+ * irrelevant to change detection.
+ */
+export type SectionCheckState = {
+  class_nbr: string;
+  term: string;
+  seats_available: number;
+  non_reserved_seats: number | null;
+  instructor_name: string | null;
+  consecutive_not_found_count: number;
+};
+
+/**
+ * Reads the persisted class_states baseline for a SectionRef ahead of the ASU
+ * API fetch in the Section Check pipeline. Returns `null` when no row exists —
+ * a first observation, not an error. Throws translated DB errors so callers
+ * reach their unknown-error retry disposition.
+ *
+ * @param ref - SectionRef identifying the section ({ class_nbr, term })
+ */
+export async function readSectionCheckState(ref: SectionRef): Promise<SectionCheckState | null> {
+  try {
+    return await queryOne<SectionCheckState>(
+      `SELECT class_nbr, term, seats_available, non_reserved_seats, instructor_name,
+              consecutive_not_found_count
+       FROM class_states WHERE class_nbr = $1 AND term = $2`,
+      [ref.class_nbr, ref.term]
+    );
+  } catch (error) {
+    log('DB').error(
+      `Error fetching section check state for ${ref.class_nbr} (term ${ref.term}):`,
+      error
+    );
+    throw new Error(
+      `Failed to fetch section check state: ${error instanceof Error ? error.message : error}`
+    );
   }
 }
