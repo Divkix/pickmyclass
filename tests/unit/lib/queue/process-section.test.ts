@@ -22,7 +22,6 @@ vi.mock('@/lib/db/queries', () => ({
   incrementConsecutiveNotFound: vi.fn(),
   deleteSectionAndWatches: vi.fn(),
   getClassWatchers: vi.fn(),
-  resetConsecutiveNotFound: vi.fn(),
   upsertClassState: vi.fn(),
 }));
 
