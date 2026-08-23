@@ -5,13 +5,13 @@ import { withAuth } from '@/lib/api/withAuth';
 import { createClassWatchSchema, deleteClassWatchSchema } from '@/lib/api/schemas';
 import { parseOrFail } from '@/lib/api/validation';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
-import { callFunction, execute, query, queryOne } from '@/lib/db/client';
+import { callFunction, execute, query } from '@/lib/db/client';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/db/types';
 import { upsertClassState } from '@/lib/db/queries';
 import { log } from '@/lib/log';
 import { captureServerEvent } from '@/lib/posthog-server';
 import type { ClassStateRow as ClassStateRowType } from '@/lib/types/class-watch';
-import { applyFirstWatchGuard, toOnboardingState, type OnboardingRow } from '@/lib/onboarding';
+import { applyFirstWatchGuard, readOnboardingState, toOnboardingState } from '@/lib/onboarding';
 
 // Get max watches per user from env (default: 10)
 const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10);
@@ -45,14 +45,14 @@ export async function GET(request: NextRequest) {
               )
             : [];
 
-        const profile = await queryOne<{
-          onboarding_completed_at: string | null;
-          onboarding_skipped_at: string | null;
-        }>(
-          `SELECT onboarding_completed_at, onboarding_skipped_at
-           FROM user_profiles WHERE user_id = $1`,
-          [user.userId]
-        );
+        // Expose onboarding state so the dashboard can render the first-time modal
+        // / finish-setup card without an extra round trip. The auxiliary read is
+        // isolated: a failure logs and projects the module fallback ("not needed")
+        // rather than failing the whole watches fetch.
+        const onboarding = await readOnboardingState(user.userId).catch((error) => {
+          log('API').error('Failed to read onboarding state:', error);
+          return toOnboardingState(null);
+        });
 
         const statesMap = classStates.reduce(
           (acc, state) => {
@@ -68,14 +68,10 @@ export async function GET(request: NextRequest) {
           class_state: statesMap[`${watch.term}:${watch.class_nbr}`] || null,
         }));
 
-        // Expose onboarding state so the dashboard can render the first-time modal
-        // / finish-setup card without an extra round trip. Fails open: a profile-read
-        // error defaults to "not needed" rather than failing the whole watches fetch.
         return ok({
           watches: watchesWithStates,
           maxWatches: MAX_WATCHES_PER_USER,
-          // SAFETY: profile is the result of queryOne selecting onboarding columns; null or shape matches OnboardingRow by DB contract
-          onboarding: toOnboardingState(profile as OnboardingRow | null),
+          onboarding,
         });
       } catch (error) {
         log('API').error('Error fetching class watches:', error);

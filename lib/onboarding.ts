@@ -1,12 +1,15 @@
 /**
- * Onboarding lifecycle: the single owner of onboarding state, projections, and
- * transition rules. Routes and components are transport/view adapters; the
- * rules live here so the skip route, watch creation, modal, and dashboard share
- * one behavior (ADR 0010).
+ * Onboarding lifecycle: the single owner of onboarding state reads,
+ * projections, and transition rules. Routes and components are transport/view
+ * adapters; the rules live here so the skip route, watch creation, modal, and
+ * dashboard share one behavior (ADR 0010).
  *
- * This module is browser-safe (no server-only imports). Persistence is performed
- * by the routes via Supabase; this module only decides *whether* a transition
- * applies and projects the resulting state.
+ * Persistence goes through the `@/lib/db/client` seam (Hyperdrive-backed
+ * Postgres on PlanetScale). That module is server-only, so it is never
+ * imported at the top level here: every helper that touches the database
+ * dynamically imports it inside its function body. The pure projection and
+ * transition helpers below therefore stay browser-safe and importable from
+ * client components.
  *
  * Transition matrix:
  *   pending  --skip-->      skipped
@@ -96,10 +99,44 @@ export function completeOnFirstWatch(
  * Call this after creating a user's first class watch to mark onboarding complete.
  */
 export async function applyFirstWatchGuard(userId: string): Promise<void> {
+  // Dynamic import: @/lib/db/client is server-only (Hyperdrive pool); a
+  // top-level import would break this module's browser safety.
   const { execute } = await import('@/lib/db/client');
   await execute(
     `UPDATE user_profiles SET onboarding_completed_at = $1
      WHERE user_id = $2 AND onboarding_completed_at IS NULL`,
     [new Date().toISOString(), userId]
   );
+}
+
+/**
+ * Read the current onboarding state for a user — the sole owner of the
+ * two-column `user_profiles` onboarding SELECT. A missing profile row is an
+ * anomaly (the `handle_new_user` trigger always creates one) and projects to
+ * `needs_onboarding: false` via `toOnboardingState`.
+ */
+export async function readOnboardingState(userId: string): Promise<OnboardingPayload> {
+  // Dynamic import: @/lib/db/client is server-only (Hyperdrive pool); a
+  // top-level import would break this module's browser safety.
+  const { queryOne } = await import('@/lib/db/client');
+  const row = await queryOne<OnboardingRow>(
+    'SELECT onboarding_completed_at, onboarding_skipped_at FROM user_profiles WHERE user_id = $1',
+    [userId]
+  );
+  return toOnboardingState(row);
+}
+
+/**
+ * Skip onboarding: persist `onboarding_skipped_at` via the `skip_onboarding`
+ * RPC and project the resulting state. Returns null when the RPC produced no
+ * row (e.g. unknown user); callers map that to their transport-level error.
+ */
+export async function skipOnboarding(userId: string): Promise<OnboardingPayload | null> {
+  // Dynamic import: @/lib/db/client is server-only (Hyperdrive pool); a
+  // top-level import would break this module's browser safety.
+  const { callFunction } = await import('@/lib/db/client');
+  const rows = await callFunction<OnboardingRow>('skip_onboarding', [userId]);
+  const row = rows[0];
+  if (!row) return null;
+  return toOnboardingState(row);
 }
