@@ -10,12 +10,15 @@ vi.mock('@/lib/db/client', () => ({
   getClient: vi.fn(),
 }));
 
-import { execute } from '@/lib/db/client';
+import { callFunction, execute, queryOne } from '@/lib/db/client';
 import {
   applyFirstWatchGuard,
   completeOnFirstWatch,
   onboardingStatus,
+  readOnboardingState,
+  skipOnboarding,
   toOnboardingState,
+  type OnboardingPayload,
   type OnboardingRow,
   type OnboardingState,
 } from '@/lib/onboarding';
@@ -171,6 +174,120 @@ describe('lib/onboarding', () => {
       const timestamp = new Date(params[0] as string).getTime();
       expect(timestamp).toBeGreaterThanOrEqual(before);
       expect(timestamp).toBeLessThanOrEqual(after);
+    });
+  });
+  describe('readOnboardingState', () => {
+    const userId = 'user-1';
+    const queryOneMock = vi.mocked(queryOne);
+
+    function stubRow(row: OnboardingRow | null): void {
+      queryOneMock.mockClear();
+      queryOneMock.mockResolvedValue(row);
+    }
+
+    it('projects a pending row as needing onboarding', async () => {
+      stubRow({ onboarding_completed_at: null, onboarding_skipped_at: null });
+
+      await expect(readOnboardingState(userId)).resolves.toEqual({
+        onboarding_completed_at: null,
+        onboarding_skipped_at: null,
+        needs_onboarding: true,
+      } satisfies OnboardingPayload);
+    });
+
+    it('projects a skipped row with needs_onboarding=false', async () => {
+      stubRow({ onboarding_completed_at: null, onboarding_skipped_at: '2026-07-11T00:00:00Z' });
+
+      await expect(readOnboardingState(userId)).resolves.toEqual({
+        onboarding_completed_at: null,
+        onboarding_skipped_at: '2026-07-11T00:00:00Z',
+        needs_onboarding: false,
+      } satisfies OnboardingPayload);
+    });
+
+    it('projects a completed row with needs_onboarding=false', async () => {
+      stubRow({ onboarding_completed_at: '2026-07-10T00:00:00Z', onboarding_skipped_at: null });
+
+      await expect(readOnboardingState(userId)).resolves.toEqual({
+        onboarding_completed_at: '2026-07-10T00:00:00Z',
+        onboarding_skipped_at: null,
+        needs_onboarding: false,
+      } satisfies OnboardingPayload);
+    });
+
+    it('defaults to not-needed when the profile row is missing (null)', async () => {
+      stubRow(null);
+
+      await expect(readOnboardingState(userId)).resolves.toEqual({
+        onboarding_completed_at: null,
+        onboarding_skipped_at: null,
+        needs_onboarding: false,
+      } satisfies OnboardingPayload);
+    });
+
+    it('issues the sole two-column SELECT scoped to the user id', async () => {
+      stubRow(null);
+
+      await readOnboardingState(userId);
+
+      expect(queryOneMock).toHaveBeenCalledTimes(1);
+      const [sql, params] = queryOneMock.mock.calls[0];
+      expect(sql).toContain('user_profiles');
+      expect(sql).toContain('onboarding_completed_at');
+      expect(sql).toContain('onboarding_skipped_at');
+      expect(params).toEqual([userId]);
+    });
+  });
+
+  describe('skipOnboarding', () => {
+    const userId = 'user-1';
+
+    const callFunctionMock = vi.mocked(callFunction);
+
+    function stubRows(rows: OnboardingRow[]): void {
+      callFunctionMock.mockClear();
+      callFunctionMock.mockResolvedValue(rows);
+    }
+
+    it('transitions pending -> skipped via the skip RPC projection', async () => {
+      stubRows([{ onboarding_completed_at: null, onboarding_skipped_at: '2026-07-12T00:00:00Z' }]);
+
+      await expect(skipOnboarding(userId)).resolves.toEqual({
+        onboarding_completed_at: null,
+        onboarding_skipped_at: '2026-07-12T00:00:00Z',
+        needs_onboarding: false,
+      } satisfies OnboardingPayload);
+    });
+
+    it('preserves completed + skipped timestamps from the RPC row', async () => {
+      // A user who skipped earlier and later completed keeps both timestamps.
+      stubRows([
+        {
+          onboarding_completed_at: '2026-07-10T00:00:00Z',
+          onboarding_skipped_at: '2026-07-09T00:00:00Z',
+        },
+      ]);
+
+      await expect(skipOnboarding(userId)).resolves.toEqual({
+        onboarding_completed_at: '2026-07-10T00:00:00Z',
+        onboarding_skipped_at: '2026-07-09T00:00:00Z',
+        needs_onboarding: false,
+      } satisfies OnboardingPayload);
+    });
+
+    it('returns null when the RPC yields no rows', async () => {
+      stubRows([]);
+
+      await expect(skipOnboarding(userId)).resolves.toBeNull();
+    });
+
+    it('calls skip_onboarding with the user id as its sole argument', async () => {
+      stubRows([{ onboarding_completed_at: null, onboarding_skipped_at: null }]);
+
+      await skipOnboarding(userId);
+
+      expect(callFunctionMock).toHaveBeenCalledTimes(1);
+      expect(callFunctionMock).toHaveBeenCalledWith('skip_onboarding', [userId]);
     });
   });
 

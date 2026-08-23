@@ -101,11 +101,6 @@ export interface SectionRefRpcRow {
   term: string;
 }
 
-export interface SkipOnboardingRpcRow {
-  onboarding_completed_at: string;
-  onboarding_skipped_at: string;
-}
-
 export interface UsersPageRpcRow {
   id: string;
   email: string;
