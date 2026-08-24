@@ -194,7 +194,7 @@ export default {
    * Configured in wrangler.jsonc:
    * "triggers": { "crons": ["0,30 * * * *", "0 4 * * *"] }
    * - Every 30 minutes: class check cron
-   * - Daily at 4 AM UTC: disposable domain list update
+   * - Daily at 4 AM UTC: daily maintenance sweeps
    */
   async scheduled(
     event: Pick<ScheduledController, 'cron' | 'scheduledTime'>,

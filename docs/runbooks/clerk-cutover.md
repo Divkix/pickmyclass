@@ -110,6 +110,5 @@ curl -I https://pickmyclass.app --resolve clerk... # 200 + CSP *.clerk.accounts.
 
 - **Legal consent:** `skipLegalChecks:true` only for one-time import; new signups still must tick Terms (checkbox copy unchanged). Keep `legal_consent_enabled` ON in Clerk.
 - **Username:** set `username OFF` (failed 175 imports when `on`). If re-enabled, migration-tool must generate `username` (max20) again.
-- **Disposable-email KV:** `PICKMYCLASS_DISPOSABLE_DOMAINS` sync daily GitHub → KV, fails open (verification email is real gate); requires ≥1000 domains before overwrite.
 - **Dedup lifecycle:** daily `0 4 * * *` `expire_stale_notifications()` is load-bearing (frees 24h slots) + hard-deletes past-term watches via `getPastTermCodes`.
 - **Edge HTML cache:** HIT skips `proxy.ts` + RSC for anonymous GETs (`/`, `/faq`, `/about`, `/blog/*`, `/legal/*`); `?_rsc` / `RSC:` requests excluded (ADR 0009).

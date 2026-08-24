@@ -17,12 +17,6 @@
   "placement": {
     "mode": "smart",
   },
-  "kv_namespaces": [
-    {
-      "binding": "PICKMYCLASS_DISPOSABLE_DOMAINS",
-      "id": "3ff3f3f2b93b4de98f12ad7886d1f857",
-    },
-  ],
   // Custom domain configuration - uncomment and update for your deployment
   // "routes": [
   //   {
@@ -33,7 +27,7 @@
   // IMPORTANT: Cron triggers require explicit deployment via 'wrangler triggers deploy'
   // This is automatically included in 'pnpm run deploy' script
   // Schedule: Every 30 minutes at :00 (even class numbers) and :30 (odd class numbers)
-  // Daily at 4 AM UTC: Update disposable email domain list
+  // Daily at 4 AM UTC: daily maintenance sweeps (notification expiry + past-term watch deletion)
   "triggers": {
     "crons": ["0,30 * * * *", "0 4 * * *"],
   },

@@ -32,7 +32,6 @@ Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hype
 - **Durable Objects**: Distributed coordination for cron locks (CronLockDO)
 - **Hyperdrive**: Postgres connection pooling to PlanetScale (`pg` 8.23, `--caching-disabled`, 5-conn pool in `lib/db/client.ts`)
 - **Clerk**: Edge JWT verification (`@clerk/backend` `authenticateRequest` with `jwtKey` PEM, `ext_id` claim) + webhook `user.created/updated/deleted` (`lib/auth/clerk-session.ts`, `lib/db/users.ts` mirror)
-- **Workers KV**: Edge caching for disposable-email blocklist (`PICKMYCLASS_DISPOSABLE_DOMAINS`)
 
 ## Architecture
 
@@ -90,7 +89,6 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/cache/ttl-cache.ts` | TTL cache for ASU API responses |
 | `lib/api/schemas.ts` | Queue message validation schemas |
 | `proxy.ts` | vinext middleware — auth gate (Clerk), redirects, security headers + CSP (see `lib/auth/decide-gate.ts`) |
-| `lib/auth/disposable-email.ts` | Disposable email validation |
 | `app/sign-in/[[...sign-in]]/page.tsx`, `app/sign-up/[[...sign-up]]/page.tsx` | Clerk hosted `<SignIn>`/`<SignUp>` components (`routing="path"`) |
 
 ### API Routes
@@ -104,7 +102,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `app/api/class-watches/route.ts` | GET, POST, DELETE | Create, read, and delete class watches (no update) |
 | `app/api/class-watches/states/route.ts` | GET | Polling endpoint for live class states |
 | `app/api/cron/route.ts` | GET | Cron job entry - enqueues sections with staggered groups and Durable Object lock |
-| `app/api/cron/update-disposable-domains/route.ts` | GET | Daily sync of disposable email domain blocklist |
+| `app/api/cron/update-disposable-domains/route.ts` | GET | Daily maintenance sweeps: notification expiry + past-term watch deletion |
 | `app/api/fetch-class-details/route.ts` | POST | Fetch class details from ASU API and persist state |
 | `app/api/monitoring/health/route.ts` | GET | System health check (DB, ASU API, Cron Lock, email, config) |
 | `app/api/queue/process-section/route.ts` | POST | HTTP mirror of the queue consumer (tests/HTTP dispatch) |
@@ -257,7 +255,7 @@ psql "postgresql://postgres:postgres@localhost:5432/postgres" -f db/migrations/2
 - **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (`pg` 8.23) via Hyperdrive, Clerk (`@clerk/backend` 3.16.10 edge JWT), Supabase Realtime **removed** (polling only)
 - **Data Source**: ASU Class Search API (direct HTTP)
 - **Email**: Cloudflare Email Service
-- **Deployment**: Cloudflare Workers + Queues + Durable Object (CronLockDO) + KV (disposable domains)
+- **Deployment**: Cloudflare Workers + Queues + Durable Object (CronLockDO)
 
 ## Project Structure
 

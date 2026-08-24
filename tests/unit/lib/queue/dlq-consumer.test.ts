@@ -20,7 +20,6 @@ function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMes
     class_nbr: '42737',
     term: '2261',
     enqueued_at: '2026-03-01T00:00:00Z',
-    stagger_group: 'even',
     ...overrides,
   };
 }

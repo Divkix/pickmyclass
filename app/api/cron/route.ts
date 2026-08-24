@@ -117,7 +117,6 @@ export async function GET(request: NextRequest) {
               class_nbr: section.class_nbr,
               term: section.term,
               enqueued_at: new Date().toISOString(),
-              stagger_group: staggerGroup,
             }) satisfies ClassCheckMessage
         )
       );

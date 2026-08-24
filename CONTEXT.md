@@ -31,7 +31,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Stagger Group** — Even/odd class_nbr partitioning to spread checks across two cron triggers (:00 = even, :30 = odd). Reduces load on the ASU API.
 
-- **Queue Message** — A `ClassCheckMessage` containing `class_nbr`, `term`, `enqueued_at`, and `stagger_group`. Sent to Cloudflare Queue for parallel processing.
+- **Queue Message** — A `ClassCheckMessage` containing `class_nbr`, `term`, and `enqueued_at`. Sent to Cloudflare Queue for parallel processing.
 
 - **Disposition** — The retry-vs-give-up verdict for one Section Check: `ack` (done, drop the message) or `retry` (transient, try again). Decided inside `processSection` (returns `SectionCheckOutcome` with `disposition: 'ack'|'retry'`); the queue consumer and HTTP mirror each translate `outcome.disposition` to their transport (queue `ack()`/`retry()` vs HTTP `200`/`429`/`502`/`500`). See `docs/adr/0006-queue-ack-retry-contract.md`.
 
@@ -47,7 +47,6 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Lockout** — Brute-force protection now owned by **Clerk Attack Protection** (the app-level `login-attempt-policy`/`failed_login_attempts` write path was removed in #354; the DB objects remain but are inert).
 - **Hosted Auth UI** — Clerk-hosted `<SignIn>`/`<SignUp>` components at `/sign-in` and `/sign-up` (`routing="path"`); email verification happens inside the hosted flow. No server register/login routes exist.
-- **Disposable Email Domain** — A temporary email service domain on a KV blocklist synced daily from GitHub; fails open. Its only reader (the register route) was removed in #354 — currently nothing consumes it.
 - **Admin Role** — Special user role for admin dashboard access. Checked via `lib/auth/admin.ts`.
 - **OAuth Landing** — `app/auth/post-oauth/route.ts`: a transport adapter that calls `repairUserMirror` (`lib/db/users.ts`) once to repair the webhook race for first-time OAuth users and report consent state, then routes to `/consent` or the `next` path; confirmed consent still records via RPC + Authorization State invalidation.
 - **Clerk Session** — Edge JWT verification via `@clerk/backend` (`lib/auth/clerk-session.ts`, `ext_id` claim `{{user.external_id || user.id}}`, `jwtKey` PEM) and cookie fast-path (`lib/auth/clerk-cookies.ts`, `__session`); publishable key literal in `lib/clerk/config.ts`. See `docs/adr/0012-auth-plane-clerk.md`.
@@ -67,7 +66,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 ## API & Validation
 
 - **API Schema** — Zod schema for validating API inputs. Located in `lib/api/schemas.ts`.
-- **ClassCheckMessage** — Queue message type containing `class_nbr`, `term`, `enqueued_at`, `stagger_group`.
+- **ClassCheckMessage** — Queue message type containing `class_nbr`, `term`, and `enqueued_at`.
 
 ## Email System
 

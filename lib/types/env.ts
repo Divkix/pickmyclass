@@ -14,7 +14,6 @@ import type { ClassCheckMessage } from './queue';
  * - Asset serving (ASSETS)
  * - Queue processing (PICKMYCLASS_QUEUE)
  * - Durable Objects (PICKMYCLASS_CRON_LOCK_DO)
- * - KV storage (PICKMYCLASS_DISPOSABLE_DOMAINS)
  * - Database access via Hyperdrive (HYPERDRIVE — PlanetScale Postgres)
  * - ASU API credentials
  * - Email/notification settings
@@ -36,9 +35,6 @@ export interface Env extends Record<string, unknown> {
 
   // Durable Object bindings
   PICKMYCLASS_CRON_LOCK_DO: DurableObjectNamespace;
-
-  // KV namespace bindings
-  PICKMYCLASS_DISPOSABLE_DOMAINS: KVNamespace;
 
   // Database access via Cloudflare Hyperdrive (PlanetScale Postgres)
   HYPERDRIVE: Hyperdrive;

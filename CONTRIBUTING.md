@@ -253,7 +253,7 @@ How did you test these changes?
 - **Execution time**: 30 seconds for HTTP, 15 minutes for cron
 - **Queue consumers**: `max_concurrency: 20`, `max_batch_size: 5` for queue processing
 - **CronLockDO**: Durable Object that prevents duplicate cron executions across Worker isolates
-- **update-disposable-domains cron**: Runs daily at 4 AM UTC to refresh the disposable email domain list
+- **update-disposable-domains cron**: Runs daily at 4 AM UTC for maintenance sweeps (notification expiry + past-term watch deletion)
 - **Test with preview**: Always test with `pnpm run preview` before deploying
 
 ### Email Templates

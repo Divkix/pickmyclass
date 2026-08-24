@@ -1,12 +1,10 @@
 /**
- * Cron route: Sync disposable email domain blocklist + daily maintenance sweeps
+ * Cron route: daily maintenance sweeps
  *
  * Triggered daily at 4 AM UTC by Cloudflare Workers cron.
  * Runs independent phases so a failure in one never skips the others:
  *   Phase A: expire_stale_notifications() dedup sweep — never fails the job.
  *   Phase B: past-term watch deletion — never fails the job.
- *   Phase C: blocklist fetch → parse → sanity check → KV put. A failure here
- *            returns fail(...), but A and B have already run.
  */
 
 import { env } from 'cloudflare:workers';
@@ -18,11 +16,6 @@ import { log } from '@/lib/log';
 import { getPastTermCodes } from '@/lib/asu/terms';
 import { deletePastTermWatches } from '@/lib/db/queries';
 import type { Env } from '@/lib/types/env';
-
-const BLOCKLIST_URL =
-  'https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/main/disposable_email_blocklist.conf';
-
-const MINIMUM_DOMAIN_COUNT = 1000;
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -43,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     // Phase A: Sweep expired notification dedup slots so they can be re-claimed on the
     // next cycle. Load-bearing — without it, users never get re-notified after 24h.
-    // Independent of the blocklist sync: a failure here must not fail the job.
+    // A failure here must not fail the daily job.
     try {
       const expiredCount = await callFunctionScalar<number>('expire_stale_notifications');
       log('SyncDisposableDomains').info(`Expired ${expiredCount ?? 0} stale notification records`);
@@ -72,35 +65,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Phase C: Fetch blocklist from GitHub
-    const response = await fetch(BLOCKLIST_URL);
-    if (!response.ok) {
-      return fail(`Failed to fetch blocklist: ${response.status} ${response.statusText}`, 502);
-    }
-
-    const text = await response.text();
-    const domains = text
-      .split('\n')
-      .map((line) => line.trim().toLowerCase())
-      .filter((line) => line !== '' && !line.startsWith('#'));
-
-    // Sanity check: prevent wiping KV on fetch errors that return empty/garbage
-    if (domains.length < MINIMUM_DOMAIN_COUNT) {
-      return fail(
-        `Sanity check failed: only ${domains.length} domains (minimum ${MINIMUM_DOMAIN_COUNT})`,
-        502
-      );
-    }
-
-    // Store as single JSON blob in KV
-    await cfEnv.PICKMYCLASS_DISPOSABLE_DOMAINS.put('disposable-domains', JSON.stringify(domains));
-
-    const duration = Date.now() - startTime;
-    log('SyncDisposableDomains').info(`Synced ${domains.length} domains in ${duration}ms`);
-
     return ok({
-      domainCount: domains.length,
-      duration_ms: duration,
+      duration_ms: Date.now() - startTime,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

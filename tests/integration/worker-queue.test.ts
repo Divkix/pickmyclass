@@ -67,7 +67,6 @@ function makeMessage(class_nbr: string, term = '2261') {
       class_nbr,
       term,
       enqueued_at: new Date().toISOString(),
-      stagger_group: 'even',
     },
     ack: vi.fn(),
     retry: vi.fn(),

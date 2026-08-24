@@ -58,7 +58,6 @@ describe('structural compatibility', () => {
       class_nbr: '1',
       term: '2261',
       enqueued_at: '',
-      stagger_group: 'even',
     } as const;
     const fromMessage: SectionRef = message satisfies ClassCheckMessage;
     // SAFETY: structural compatibility test with controlled literal; narrow mock to ClassStateRow is safe for SectionRef assignment check

@@ -25,10 +25,6 @@
 /apple-touch-icon-precomposed.png
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
-# Web manifest
-/manifest.json
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
 # AI search discovery files
 /llms.txt
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400

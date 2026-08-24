@@ -22,10 +22,4 @@ export interface ClassCheckMessage {
    * Timestamp when this message was enqueued
    */
   enqueued_at: string;
-
-  /**
-   * Stagger group this section belongs to ('even' or 'odd')
-   * Used for debugging and metrics
-   */
-  stagger_group: 'even' | 'odd';
 }
