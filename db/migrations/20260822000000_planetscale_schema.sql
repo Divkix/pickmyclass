@@ -782,11 +782,11 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  UPDATE public.user_profiles
+  UPDATE public.user_profiles up
     SET onboarding_skipped_at = NOW()
-    WHERE user_id = p_user_id
-      AND onboarding_completed_at IS NULL
-      AND onboarding_skipped_at IS NULL;
+    WHERE up.user_id = p_user_id
+      AND up.onboarding_completed_at IS NULL
+      AND up.onboarding_skipped_at IS NULL;
 
   RETURN QUERY
     SELECT up.onboarding_completed_at, up.onboarding_skipped_at

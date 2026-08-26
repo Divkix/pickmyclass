@@ -10,13 +10,13 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-const { mockCapture, mockCreateWatch } = vi.hoisted(() => ({
-  mockCapture: vi.fn(),
+const { mockTrack, mockCreateWatch } = vi.hoisted(() => ({
+  mockTrack: vi.fn(),
   mockCreateWatch: vi.fn(),
 }));
 
-vi.mock('posthog-js', () => ({
-  default: { capture: mockCapture },
+vi.mock('@/lib/analytics/client', () => ({
+  trackAnalyticsEvent: mockTrack,
 }));
 
 vi.mock('@/lib/class-watches/class-watch-creation', () => ({
@@ -121,7 +121,7 @@ describe('OnboardingModal', () => {
     render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
     await waitFor(() => {
-      expect(mockCapture).toHaveBeenCalledWith('onboarding_started');
+      expect(mockTrack).toHaveBeenCalledWith('onboarding_started', {});
     });
   });
 
@@ -272,9 +272,9 @@ describe('OnboardingModal', () => {
       await user.click(screen.getByRole('button', { name: 'Add class' }));
 
       await waitFor(() => {
-        expect(mockCapture).toHaveBeenCalledWith('onboarding_completed');
+        expect(mockTrack).toHaveBeenCalledWith('onboarding_completed', {});
       });
-      const completedCalls = mockCapture.mock.calls.filter(
+      const completedCalls = mockTrack.mock.calls.filter(
         (args) => args[0] === 'onboarding_completed'
       );
       expect(completedCalls).toHaveLength(1);

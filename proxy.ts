@@ -1,10 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { fail } from '@/lib/api/response';
-import { readAuthorizationState } from '@/lib/auth/authorization-state';
+import { type AuthorizationState, readAuthorizationState } from '@/lib/auth/authorization-state';
 import { CLERK_COOKIES_TO_CLEAR, hasClerkSessionCookies } from '@/lib/auth/clerk-cookies';
 import { getSessionIdentity, revokeSession } from '@/lib/auth/clerk-session';
 import { decideGate, isPublicRoute } from '@/lib/auth/decide-gate';
-import { readUserVerification } from '@/lib/db/users';
+import { getDbFromEnv } from '@/lib/db';
+import { type UserVerificationState, readUserVerification } from '@/lib/db/users';
 import { CLERK_CSP } from '@/lib/clerk/config';
 /**
  * Build a per-request production CSP that replaces 'unsafe-inline' in
@@ -39,7 +40,7 @@ const CSP_FONT_SRC = "font-src 'self' data:";
 const CSP_CONNECT_SRC = [
   "connect-src 'self'",
   'https://analytics.divkix.me',
-  'https://us.i.posthog.com',
+  'https://s.pickmyclass.app',
   ...CLERK_CSP.fapiHosts,
   ...CLERK_CSP.challengeHosts,
   ...CLERK_CSP.protectHosts,
@@ -166,13 +167,15 @@ export async function proxy(request: NextRequest) {
   // Read the cached authorization decision. The edge gate deliberately serves a
   // (up to 30s) stale decision as a CPU saver; verifyAdmin and login read fresh.
   // email_confirmed_at comes from the users mirror (Clerk webhook-synced).
-  const authState = identity
-    ? await readAuthorizationState(identity.userId, { cache: true })
-    : null;
-  const verification = identity
-    ? await readUserVerification(identity.userId, { cache: true })
-    : null;
-
+  // Authenticated requests create exactly one Drizzle handle here; both gate
+  // reads below share it. Anonymous requests never touch the database.
+  let authState: AuthorizationState | null = null;
+  let verification: UserVerificationState | null = null;
+  if (identity) {
+    const db = getDbFromEnv();
+    authState = await readAuthorizationState(db, identity.userId, { cache: true });
+    verification = await readUserVerification(db, identity.userId, { cache: true });
+  }
   const decision = decideGate({
     pathname,
     search: request.nextUrl.search,

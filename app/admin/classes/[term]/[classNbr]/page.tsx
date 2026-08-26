@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { and, eq } from 'drizzle-orm';
 import { ArrowLeft, BookOpen, Calendar, Clock, MapPin, Users } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -15,9 +16,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { verifyAdmin } from '@/lib/auth/admin';
+import { getDbFromEnv } from '@/lib/db';
 import { getClassWatchers, type ClassWatcher } from '@/lib/db/queries';
-import { queryOne } from '@/lib/db/client';
-import type { ClassStateRow } from '@/lib/db/types';
+import { classStates } from '@/lib/db/schema';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 import { formatAbsoluteDate, formatRelativeTime } from '@/lib/utils/time-format';
 
@@ -41,21 +42,22 @@ interface AdminClassDetailPageProps {
  * a class_nbr repeats across terms, so both fields are required to identify one.
  */
 export default async function AdminClassDetailPage({ params }: AdminClassDetailPageProps) {
+  // One request-scoped handle shared by the gate read and both data reads.
+  const db = getDbFromEnv();
+
   // Verify admin authentication (redirects if unauthorized)
-  await verifyAdmin();
+  await verifyAdmin(db);
 
   // Resolve params promise
   const { term, classNbr } = await params;
 
   // Fetch the exact class state by its SectionRef identity (class_nbr + term).
   // Both fields are required to identify one section — a class_nbr repeats across terms.
-  const classState = await queryOne<ClassStateRow>(
-    `SELECT id, class_nbr, term, subject, catalog_nbr, title, instructor_name,
-            seats_available, seats_capacity, non_reserved_seats, location,
-            meeting_times, last_checked_at, last_changed_at, consecutive_not_found_count
-     FROM class_states WHERE class_nbr = $1 AND term = $2`,
-    [classNbr, term]
-  );
+  const [classState] = await db
+    .select()
+    .from(classStates)
+    .where(and(eq(classStates.class_nbr, classNbr), eq(classStates.term, term)))
+    .limit(1);
 
   // Handle case where class not found — guard before any other RPCs so 404 never
   // triggers (or is masked by) a watchers fetch.
@@ -63,8 +65,7 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
     notFound();
   }
 
-  const watchers: ClassWatcher[] = await getClassWatchers({ class_nbr: classNbr, term });
-
+  const watchers: ClassWatcher[] = await getClassWatchers(db, { class_nbr: classNbr, term });
   /**
    * Format timestamp to readable date/time string
    */

@@ -4,12 +4,11 @@
  * adapters; the rules live here so the skip route, watch creation, modal, and
  * dashboard share one behavior (ADR 0010).
  *
- * Persistence goes through the `@/lib/db/client` seam (Hyperdrive-backed
- * Postgres on PlanetScale). That module is server-only, so it is never
- * imported at the top level here: every helper that touches the database
- * dynamically imports it inside its function body. The pure projection and
- * transition helpers below therefore stay browser-safe and importable from
- * client components.
+ * Persistence takes a request-scoped Drizzle handle (`Database`, from the
+ * server-only `@/lib/db`) as its first argument: entry points create ONE
+ * handle per invocation and pass it down. The `Database` import here is
+ * type-only (erased at build time), so the pure projection and transition
+ * helpers below stay browser-safe and importable from client components.
  *
  * Transition matrix:
  *   pending  --skip-->      skipped
@@ -17,17 +16,21 @@
  *   skipped  --first watch--> completed   (ADR 0010: first watch completes, even after skip)
  *   completed              (terminal)
  */
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
-export interface OnboardingRow {
+import type { Database } from '@/lib/db';
+import { userProfiles } from '@/lib/db/schema';
+
+export type OnboardingRow = {
   onboarding_completed_at: string | null;
   onboarding_skipped_at: string | null;
-}
+};
 
-export interface OnboardingState {
+export type OnboardingState = {
   onboarding_completed_at: string | null;
   onboarding_skipped_at: string | null;
   needs_onboarding: boolean;
-}
+};
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 /** ok()-compatible payload (spreads into the response envelope). */
@@ -90,7 +93,7 @@ export function completeOnFirstWatch(
 /**
  * DB-level enforcement of the first-watch completion rule.
  *
- * Executes an UPDATE that only matches rows where `onboarding_completed_at IS NULL`,
+ * Runs an UPDATE that only matches rows where `onboarding_completed_at IS NULL`,
  * so a skipped user (`skipped_at` set, `completed_at` null) still transitions to
  * completed. This is the persistence-side twin of `completeOnFirstWatch`: the row
  * set matched by `completed_at IS NULL` is exactly pending-or-skipped, i.e.
@@ -98,15 +101,11 @@ export function completeOnFirstWatch(
  *
  * Call this after creating a user's first class watch to mark onboarding complete.
  */
-export async function applyFirstWatchGuard(userId: string): Promise<void> {
-  // Dynamic import: @/lib/db/client is server-only (Hyperdrive pool); a
-  // top-level import would break this module's browser safety.
-  const { execute } = await import('@/lib/db/client');
-  await execute(
-    `UPDATE user_profiles SET onboarding_completed_at = $1
-     WHERE user_id = $2 AND onboarding_completed_at IS NULL`,
-    [new Date().toISOString(), userId]
-  );
+export async function applyFirstWatchGuard(db: Database, userId: string): Promise<void> {
+  await db
+    .update(userProfiles)
+    .set({ onboarding_completed_at: new Date().toISOString() })
+    .where(and(eq(userProfiles.user_id, userId), isNull(userProfiles.onboarding_completed_at)));
 }
 
 /**
@@ -115,27 +114,32 @@ export async function applyFirstWatchGuard(userId: string): Promise<void> {
  * anomaly (the `handle_new_user` trigger always creates one) and projects to
  * `needs_onboarding: false` via `toOnboardingState`.
  */
-export async function readOnboardingState(userId: string): Promise<OnboardingPayload> {
-  // Dynamic import: @/lib/db/client is server-only (Hyperdrive pool); a
-  // top-level import would break this module's browser safety.
-  const { queryOne } = await import('@/lib/db/client');
-  const row = await queryOne<OnboardingRow>(
-    'SELECT onboarding_completed_at, onboarding_skipped_at FROM user_profiles WHERE user_id = $1',
-    [userId]
-  );
-  return toOnboardingState(row);
+export async function readOnboardingState(
+  db: Database,
+  userId: string
+): Promise<OnboardingPayload> {
+  const rows = await db
+    .select({
+      onboarding_completed_at: userProfiles.onboarding_completed_at,
+      onboarding_skipped_at: userProfiles.onboarding_skipped_at,
+    })
+    .from(userProfiles)
+    .where(eq(userProfiles.user_id, userId))
+    .limit(1);
+  return toOnboardingState(rows[0] ?? null);
 }
 
 /**
  * Skip onboarding: persist `onboarding_skipped_at` via the `skip_onboarding`
- * RPC and project the resulting state. Returns null when the RPC produced no
- * row (e.g. unknown user); callers map that to their transport-level error.
+ * SECURITY DEFINER RPC (bound parameter, explicit `::text` cast) and project
+ * the resulting state. Returns null when the RPC produced no row (e.g.
+ * unknown user); callers map that to their transport-level error.
  */
-export async function skipOnboarding(userId: string): Promise<OnboardingPayload | null> {
-  // Dynamic import: @/lib/db/client is server-only (Hyperdrive pool); a
-  // top-level import would break this module's browser safety.
-  const { callFunction } = await import('@/lib/db/client');
-  const rows = await callFunction<OnboardingRow>('skip_onboarding', [userId]);
+export async function skipOnboarding(
+  db: Database,
+  userId: string
+): Promise<OnboardingPayload | null> {
+  const rows = await db.execute<OnboardingRow>(sql`SELECT * FROM skip_onboarding(${userId}::text)`);
   const row = rows[0];
   if (!row) return null;
   return toOnboardingState(row);

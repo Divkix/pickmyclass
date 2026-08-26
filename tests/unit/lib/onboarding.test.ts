@@ -1,16 +1,8 @@
-import { describe, expect, it, vi } from 'vite-plus/test';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import type postgres from 'postgres';
+import { describe, expect, it } from 'vite-plus/test';
 
-vi.mock('@/lib/db/client', () => ({
-  execute: vi.fn().mockResolvedValue(1),
-  queryOne: vi.fn(),
-  query: vi.fn(),
-  queryScalar: vi.fn(),
-  callFunction: vi.fn(),
-  callFunctionScalar: vi.fn(),
-  getClient: vi.fn(),
-}));
-
-import { callFunction, execute, queryOne } from '@/lib/db/client';
+import * as schema from '@/lib/db/schema';
 import {
   applyFirstWatchGuard,
   completeOnFirstWatch,
@@ -22,6 +14,62 @@ import {
   type OnboardingRow,
   type OnboardingState,
 } from '@/lib/onboarding';
+
+/**
+ * Column order of readOnboardingState's SELECT list — the fake driver replays
+ * result rows positionally through `.values()`, so this must match the select
+ * shape used by the module under test.
+ */
+const SELECT_ORDER = ['onboarding_completed_at', 'onboarding_skipped_at'] as const;
+
+/** Canned result row keyed by output column name. */
+type FakeRow = Record<(typeof SELECT_ORDER)[number], string | null>;
+
+interface RecordedQuery {
+  /** Rendered PostgreSQL text with numbered placeholders. */
+  sql: string;
+  /** Bound parameter values in placeholder order. */
+  params: unknown[];
+}
+
+type RowsFor = (query: RecordedQuery) => FakeRow[];
+
+/** Resolved rows carrying the positional `.values()` Drizzle maps fields from. */
+type ScriptedRows = Promise<FakeRow[]> & { values(): PromiseLike<unknown[][]> };
+
+/** Minimal postgres-js members Drizzle's session drives end to end. */
+interface PostgresJsSeam {
+  unsafe(query: string, params: unknown[]): ScriptedRows;
+}
+
+/**
+ * Build a Drizzle database over a fake postgres-js driver.
+ *
+ * The real query builders run untouched; only the driver surface is faked.
+ * Drizzle's postgres-js session executes every statement through
+ * `client.unsafe(sql, params)`: builder queries with mapped fields then read
+ * positional columns via `.values()`, while raw `db.execute` awaits the
+ * returned row list itself — one hybrid return value serves both paths.
+ */
+function makeDb(rowsFor: RowsFor) {
+  const queries: RecordedQuery[] = [];
+  const unsafe = (sql: string, params: unknown[]): ScriptedRows => {
+    const query: RecordedQuery = { sql, params };
+    queries.push(query);
+    const rows = rowsFor(query);
+    return Object.assign(Promise.resolve(rows), {
+      values: async (): Promise<unknown[][]> =>
+        rows.map((row) => SELECT_ORDER.map((column) => row[column])),
+    });
+  };
+  const scriptedClient = { unsafe, options: { parsers: {}, serializers: {} } };
+  const client: PostgresJsSeam = scriptedClient;
+  // SAFETY: the Drizzle constructor only writes transparent parsers into
+  // `options.parsers` / `options.serializers`, and its postgres-js session
+  // only calls `unsafe`. The rest of the Sql surface is never reached.
+  const db = drizzle(client as postgres.Sql, { schema });
+  return { db, queries };
+}
 
 describe('lib/onboarding', () => {
   describe('onboardingStatus', () => {
@@ -126,69 +174,50 @@ describe('lib/onboarding', () => {
   });
 
   describe('applyFirstWatchGuard', () => {
-    it('executes UPDATE with onboarding_completed_at IS NULL guard', async () => {
-      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-      (execute as ReturnType<typeof vi.fn>).mockClear();
-      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-      (execute as ReturnType<typeof vi.fn>).mockResolvedValue(1);
+    it('updates user_profiles guarded on onboarding_completed_at IS NULL', async () => {
+      const { db, queries } = makeDb(() => []);
 
-      await applyFirstWatchGuard('user-1');
+      await applyFirstWatchGuard(db, 'user-1');
 
-      expect(execute).toHaveBeenCalledTimes(1);
-      const [sql, params] =
-        // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-        (execute as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(sql).toContain('onboarding_completed_at IS NULL');
-      expect(sql).toContain('WHERE user_id = $2');
+      expect(queries).toHaveLength(1);
+      const { sql, params } = queries[0];
+      expect(sql).toContain('update "user_profiles"');
+      expect(sql).toContain('"onboarding_completed_at" = $1');
+      expect(sql).toContain('"user_profiles"."user_id" = $2');
+      expect(sql).toContain('"onboarding_completed_at" is null');
       expect(params[1]).toBe('user-1');
     });
 
     it('never guards on onboarding_skipped_at (skipped users still complete)', async () => {
-      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-      (execute as ReturnType<typeof vi.fn>).mockClear();
-      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-      (execute as ReturnType<typeof vi.fn>).mockResolvedValue(1);
+      const { db, queries } = makeDb(() => []);
 
-      await applyFirstWatchGuard('user-1');
+      await applyFirstWatchGuard(db, 'user-1');
 
-      const [sql] =
-        // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-        (execute as ReturnType<typeof vi.fn>).mock.calls[0];
+      const { sql } = queries[0];
       expect(sql).not.toContain('onboarding_skipped_at');
     });
 
     it('sets onboarding_completed_at to a current timestamp', async () => {
-      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-      (execute as ReturnType<typeof vi.fn>).mockClear();
-      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-      (execute as ReturnType<typeof vi.fn>).mockResolvedValue(1);
+      const { db, queries } = makeDb(() => []);
 
       const before = new Date().getTime();
-      await applyFirstWatchGuard('user-1');
+      await applyFirstWatchGuard(db, 'user-1');
       const after = new Date().getTime();
 
-      const params =
-        // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
-        (execute as ReturnType<typeof vi.fn>).mock.calls[0][1] as unknown[];
       // SAFETY: params[0] is the ISO timestamp string passed to the UPDATE query
-      const timestamp = new Date(params[0] as string).getTime();
+      const timestamp = new Date(queries[0].params[0] as string).getTime();
       expect(timestamp).toBeGreaterThanOrEqual(before);
       expect(timestamp).toBeLessThanOrEqual(after);
     });
   });
+
   describe('readOnboardingState', () => {
     const userId = 'user-1';
-    const queryOneMock = vi.mocked(queryOne);
-
-    function stubRow(row: OnboardingRow | null): void {
-      queryOneMock.mockClear();
-      queryOneMock.mockResolvedValue(row);
-    }
 
     it('projects a pending row as needing onboarding', async () => {
-      stubRow({ onboarding_completed_at: null, onboarding_skipped_at: null });
+      const { db } = makeDb(() => [{ onboarding_completed_at: null, onboarding_skipped_at: null }]);
 
-      await expect(readOnboardingState(userId)).resolves.toEqual({
+      await expect(readOnboardingState(db, userId)).resolves.toEqual({
         onboarding_completed_at: null,
         onboarding_skipped_at: null,
         needs_onboarding: true,
@@ -196,9 +225,11 @@ describe('lib/onboarding', () => {
     });
 
     it('projects a skipped row with needs_onboarding=false', async () => {
-      stubRow({ onboarding_completed_at: null, onboarding_skipped_at: '2026-07-11T00:00:00Z' });
+      const { db } = makeDb(() => [
+        { onboarding_completed_at: null, onboarding_skipped_at: '2026-07-11T00:00:00Z' },
+      ]);
 
-      await expect(readOnboardingState(userId)).resolves.toEqual({
+      await expect(readOnboardingState(db, userId)).resolves.toEqual({
         onboarding_completed_at: null,
         onboarding_skipped_at: '2026-07-11T00:00:00Z',
         needs_onboarding: false,
@@ -206,19 +237,21 @@ describe('lib/onboarding', () => {
     });
 
     it('projects a completed row with needs_onboarding=false', async () => {
-      stubRow({ onboarding_completed_at: '2026-07-10T00:00:00Z', onboarding_skipped_at: null });
+      const { db } = makeDb(() => [
+        { onboarding_completed_at: '2026-07-10T00:00:00Z', onboarding_skipped_at: null },
+      ]);
 
-      await expect(readOnboardingState(userId)).resolves.toEqual({
+      await expect(readOnboardingState(db, userId)).resolves.toEqual({
         onboarding_completed_at: '2026-07-10T00:00:00Z',
         onboarding_skipped_at: null,
         needs_onboarding: false,
       } satisfies OnboardingPayload);
     });
 
-    it('defaults to not-needed when the profile row is missing (null)', async () => {
-      stubRow(null);
+    it('defaults to not-needed when the profile row is missing (no rows)', async () => {
+      const { db } = makeDb(() => []);
 
-      await expect(readOnboardingState(userId)).resolves.toEqual({
+      await expect(readOnboardingState(db, userId)).resolves.toEqual({
         onboarding_completed_at: null,
         onboarding_skipped_at: null,
         needs_onboarding: false,
@@ -226,33 +259,30 @@ describe('lib/onboarding', () => {
     });
 
     it('issues the sole two-column SELECT scoped to the user id', async () => {
-      stubRow(null);
+      const { db, queries } = makeDb(() => [
+        { onboarding_completed_at: null, onboarding_skipped_at: null },
+      ]);
 
-      await readOnboardingState(userId);
+      await readOnboardingState(db, userId);
 
-      expect(queryOneMock).toHaveBeenCalledTimes(1);
-      const [sql, params] = queryOneMock.mock.calls[0];
-      expect(sql).toContain('user_profiles');
-      expect(sql).toContain('onboarding_completed_at');
-      expect(sql).toContain('onboarding_skipped_at');
-      expect(params).toEqual([userId]);
+      expect(queries).toHaveLength(1);
+      const { sql, params } = queries[0];
+      expect(sql).toContain('from "user_profiles"');
+      expect(sql).toContain('"onboarding_completed_at"');
+      expect(sql).toContain('"onboarding_skipped_at"');
+      expect(params[0]).toBe(userId);
     });
   });
 
   describe('skipOnboarding', () => {
     const userId = 'user-1';
 
-    const callFunctionMock = vi.mocked(callFunction);
-
-    function stubRows(rows: OnboardingRow[]): void {
-      callFunctionMock.mockClear();
-      callFunctionMock.mockResolvedValue(rows);
-    }
-
     it('transitions pending -> skipped via the skip RPC projection', async () => {
-      stubRows([{ onboarding_completed_at: null, onboarding_skipped_at: '2026-07-12T00:00:00Z' }]);
+      const { db } = makeDb(() => [
+        { onboarding_completed_at: null, onboarding_skipped_at: '2026-07-12T00:00:00Z' },
+      ]);
 
-      await expect(skipOnboarding(userId)).resolves.toEqual({
+      await expect(skipOnboarding(db, userId)).resolves.toEqual({
         onboarding_completed_at: null,
         onboarding_skipped_at: '2026-07-12T00:00:00Z',
         needs_onboarding: false,
@@ -261,14 +291,14 @@ describe('lib/onboarding', () => {
 
     it('preserves completed + skipped timestamps from the RPC row', async () => {
       // A user who skipped earlier and later completed keeps both timestamps.
-      stubRows([
+      const { db } = makeDb(() => [
         {
           onboarding_completed_at: '2026-07-10T00:00:00Z',
           onboarding_skipped_at: '2026-07-09T00:00:00Z',
         },
       ]);
 
-      await expect(skipOnboarding(userId)).resolves.toEqual({
+      await expect(skipOnboarding(db, userId)).resolves.toEqual({
         onboarding_completed_at: '2026-07-10T00:00:00Z',
         onboarding_skipped_at: '2026-07-09T00:00:00Z',
         needs_onboarding: false,
@@ -276,18 +306,21 @@ describe('lib/onboarding', () => {
     });
 
     it('returns null when the RPC yields no rows', async () => {
-      stubRows([]);
+      const { db } = makeDb(() => []);
 
-      await expect(skipOnboarding(userId)).resolves.toBeNull();
+      await expect(skipOnboarding(db, userId)).resolves.toBeNull();
     });
 
-    it('calls skip_onboarding with the user id as its sole argument', async () => {
-      stubRows([{ onboarding_completed_at: null, onboarding_skipped_at: null }]);
+    it('calls skip_onboarding with the user id as its sole bound argument', async () => {
+      const { db, queries } = makeDb(() => [
+        { onboarding_completed_at: null, onboarding_skipped_at: null },
+      ]);
 
-      await skipOnboarding(userId);
+      await skipOnboarding(db, userId);
 
-      expect(callFunctionMock).toHaveBeenCalledTimes(1);
-      expect(callFunctionMock).toHaveBeenCalledWith('skip_onboarding', [userId]);
+      expect(queries).toHaveLength(1);
+      expect(queries[0].sql).toContain('skip_onboarding($1::text)');
+      expect(queries[0].params).toEqual([userId]);
     });
   });
 

@@ -10,13 +10,18 @@
  *
  * `users.id` is the stable app user id: the old Supabase UUID for migrated
  * users (via Clerk externalId), the Clerk user id for post-cutover users.
+ *
+ * Every persistence export takes a request-scoped {@link Database} first;
+ * `clearUserVerificationCache` touches only memory and does not.
  */
 
 import { type User, type UserJSON } from '@clerk/backend';
+import { eq, inArray, or, sql } from 'drizzle-orm';
+
 import { getClerkClient } from '@/lib/auth/clerk-session';
 import { TtlCache } from '@/lib/cache/ttl-cache';
-import { execute, queryOne } from '@/lib/db/client';
-import type { UserMirrorRow, UserProfileRow } from '@/lib/db/types';
+import type { Database } from '@/lib/db';
+import { users, userProfiles } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 
 /** Fields the edge gate needs from the mirror, keyed by users.id. */
@@ -29,7 +34,7 @@ export interface UserVerificationState {
 const CACHE_TTL_MS = 30 * 1000;
 const verificationCache = new TtlCache<UserVerificationState | null>(CACHE_TTL_MS, 100);
 
-/** Clear the verification cache. Exposed for test isolation. */
+/** Clear the verification cache. Exposed for test isolation. Cache-only: no DB. */
 export function clearUserVerificationCache(): void {
   verificationCache.clear();
 }
@@ -42,6 +47,7 @@ export function clearUserVerificationCache(): void {
  * "unverified" rather than an error.
  */
 export async function readUserVerification(
+  db: Database,
   userId: string,
   { cache }: { cache: boolean }
 ): Promise<UserVerificationState | null> {
@@ -50,11 +56,12 @@ export async function readUserVerification(
     if (cached !== undefined) return cached;
   }
 
-  const row = await queryOne<Pick<UserMirrorRow, 'email' | 'email_confirmed_at'>>(
-    'SELECT email, email_confirmed_at FROM users WHERE id = $1',
-    [userId]
-  );
-  const state = row ? { email: row.email, email_confirmed_at: row.email_confirmed_at } : null;
+  const [row] = await db
+    .select({ email: users.email, email_confirmed_at: users.email_confirmed_at })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const state: UserVerificationState | null = row ?? null;
 
   if (cache) {
     verificationCache.set(userId, state);
@@ -122,10 +129,7 @@ interface RegisterFlowPublicMetadata {
  * Read the two register-flow consent flags off publicMetadata: present and
  * literally `true`. Absent or non-true values are false.
  */
-function readConsentFlags(metadata: RegisterFlowPublicMetadata | null | undefined): {
-  ageVerified: boolean;
-  agreedToTerms: boolean;
-} {
+function readConsentFlags(metadata: RegisterFlowPublicMetadata | null | undefined) {
   return {
     ageVerified:
       metadata !== null &&
@@ -201,11 +205,18 @@ function normalizeBackendUser(user: User): NormalizedClerkUser {
  * the existing-profile fast path and by post-write verification, so returned
  * consent always reflects retained DB state rather than webhook metadata.
  */
-async function readProfileConsent(userId: string): Promise<{ hasConsent: boolean } | null> {
-  const profile = await queryOne<Pick<UserProfileRow, 'age_verified_at' | 'agreed_to_terms_at'>>(
-    'SELECT age_verified_at, agreed_to_terms_at FROM user_profiles WHERE user_id = $1',
-    [userId]
-  );
+async function readProfileConsent(
+  db: Database,
+  userId: string
+): Promise<{ hasConsent: boolean } | null> {
+  const [profile] = await db
+    .select({
+      age_verified_at: userProfiles.age_verified_at,
+      agreed_to_terms_at: userProfiles.agreed_to_terms_at,
+    })
+    .from(userProfiles)
+    .where(eq(userProfiles.user_id, userId))
+    .limit(1);
   if (!profile) return null;
   return {
     hasConsent: profile.age_verified_at !== null && profile.agreed_to_terms_at !== null,
@@ -215,49 +226,63 @@ async function readProfileConsent(userId: string): Promise<{ hasConsent: boolean
 /**
  * Sole writer for the users mirror row and its 1:1 user_profiles row
  * (replaces the dropped on_auth_user_created trigger). Keeps the original
- * two-statement idempotent SQL: the mirror upsert resets verification when the
- * email changed and keeps the earliest confirmed timestamp otherwise; consent
- * timestamps are written only on insert and only when the corresponding
- * metadata boolean was true — later updates never overwrite existing consent.
- * Safe for Svix retries and out-of-order created/updated delivery. Returns
- * nothing: what actually persisted (e.g. after an insert/conflict race with a
- * concurrent writer) must be read back from `user_profiles`, never inferred
- * from the metadata this call proposed for insert.
+ * two-statement idempotent SQL semantics via Drizzle upserts: the mirror
+ * upsert resets verification when the email changed and keeps the earliest
+ * confirmed timestamp otherwise; consent timestamps are written only on
+ * insert and only when the corresponding metadata boolean was true — later
+ * updates never overwrite existing consent. Safe for Svix retries and
+ * out-of-order created/updated delivery. Returns nothing: what actually
+ * persisted (e.g. after an insert/conflict race with a concurrent writer)
+ * must be read back from `user_profiles`, never inferred from the metadata
+ * this call proposed for insert.
+ *
+ * Callers must guard a non-null selected email first (both entry points skip
+ * email-less accounts); the `email: string` parameter encodes that invariant.
  */
-async function upsertUserMirror(user: NormalizedClerkUser): Promise<void> {
+async function upsertUserMirror(
+  db: Database,
+  user: NormalizedClerkUser & { email: string }
+): Promise<void> {
   // Stable app user id: externalId if set (migrated), else the Clerk user id.
   const appUserId = user.externalId ?? user.clerkUserId;
 
-  await execute(
-    `INSERT INTO users (id, clerk_user_id, email, email_confirmed_at, created_at, last_sign_in_at)
-     VALUES ($1, $2, $3, $4, COALESCE($5, NOW()), $6)
-     ON CONFLICT (id) DO UPDATE SET
-       clerk_user_id = EXCLUDED.clerk_user_id,
-       email = EXCLUDED.email,
-       -- An email change resets verification to the new address's status;
-       -- otherwise keep the earliest confirmed timestamp.
-       email_confirmed_at = CASE
-         WHEN users.email <> EXCLUDED.email THEN EXCLUDED.email_confirmed_at
-         ELSE COALESCE(users.email_confirmed_at, EXCLUDED.email_confirmed_at)
-       END,
-       last_sign_in_at = COALESCE(EXCLUDED.last_sign_in_at, users.last_sign_in_at)`,
-    [
-      appUserId,
-      user.clerkUserId,
-      user.email,
-      user.emailVerified ? new Date().toISOString() : null,
-      user.createdAt !== null ? new Date(user.createdAt).toISOString() : null,
-      user.lastSignInAt !== null ? new Date(user.lastSignInAt).toISOString() : null,
-    ]
-  );
+  await db
+    .insert(users)
+    .values({
+      id: appUserId,
+      clerk_user_id: user.clerkUserId,
+      email: user.email,
+      // An observed-verified address stamps a fresh confirmation timestamp;
+      // unverified addresses persist NULL so the CASE below can reset it.
+      email_confirmed_at: user.emailVerified ? new Date().toISOString() : null,
+      created_at: user.createdAt !== null ? new Date(user.createdAt).toISOString() : sql`now()`,
+      last_sign_in_at:
+        user.lastSignInAt !== null ? new Date(user.lastSignInAt).toISOString() : null,
+    })
+    .onConflictDoUpdate({
+      target: users.id,
+      set: {
+        clerk_user_id: sql`excluded.clerk_user_id`,
+        email: sql`excluded.email`,
+        // An email change resets verification to the new address's status;
+        // otherwise keep the earliest confirmed timestamp.
+        email_confirmed_at: sql`case
+          when ${users.email} <> excluded.email then excluded.email_confirmed_at
+          else coalesce(${users.email_confirmed_at}, excluded.email_confirmed_at)
+        end`,
+        last_sign_in_at: sql`coalesce(excluded.last_sign_in_at, ${users.last_sign_in_at})`,
+      },
+    });
 
   const consentNow = new Date().toISOString();
-  await execute(
-    `INSERT INTO user_profiles (user_id, age_verified_at, agreed_to_terms_at)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (user_id) DO NOTHING`,
-    [appUserId, user.ageVerified ? consentNow : null, user.agreedToTerms ? consentNow : null]
-  );
+  await db
+    .insert(userProfiles)
+    .values({
+      user_id: appUserId,
+      age_verified_at: user.ageVerified ? consentNow : null,
+      agreed_to_terms_at: user.agreedToTerms ? consentNow : null,
+    })
+    .onConflictDoNothing({ target: userProfiles.user_id });
 }
 
 /**
@@ -266,10 +291,11 @@ async function upsertUserMirror(user: NormalizedClerkUser): Promise<void> {
  * addresses so the caller can skip the event instead of writing a mirror row
  * that could never verify against anything.
  */
-export async function syncUserMirrorFromClerkUser(user: UserJSON): Promise<boolean> {
+export async function syncUserMirrorFromClerkUser(db: Database, user: UserJSON): Promise<boolean> {
   const normalized = normalizeWebhookUser(user);
-  if (!normalized.email) return false;
-  await upsertUserMirror(normalized);
+  const { email } = normalized;
+  if (!email) return false;
+  await upsertUserMirror(db, { ...normalized, email });
   return true;
 }
 
@@ -279,19 +305,28 @@ export async function syncUserMirrorFromClerkUser(user: UserJSON): Promise<boole
  * (FK target for historical data); the 30-day purge is a separate process.
  * Matches on either the app id or the Clerk user id, because user.deleted
  * only carries the Clerk id and migrated rows are keyed by the old UUID.
+ * Returns the number of profiles disabled.
  */
-export async function softDeleteUserById(userId: string): Promise<number> {
+export async function softDeleteUserById(db: Database, userId: string): Promise<number> {
   try {
-    return await execute(
-      `UPDATE user_profiles up
-       SET is_disabled = true,
-           disabled_at = COALESCE(disabled_at, NOW()),
-           notifications_enabled = false,
-           unsubscribed_at = COALESCE(unsubscribed_at, NOW())
-       WHERE up.user_id = $1
-          OR up.user_id = (SELECT u.id FROM users u WHERE u.clerk_user_id = $1)`,
-      [userId]
-    );
+    const result = await db
+      .update(userProfiles)
+      .set({
+        is_disabled: true,
+        disabled_at: sql`coalesce(${userProfiles.disabled_at}, now())`,
+        notifications_enabled: false,
+        unsubscribed_at: sql`coalesce(${userProfiles.unsubscribed_at}, now())`,
+      })
+      .where(
+        or(
+          eq(userProfiles.user_id, userId),
+          inArray(
+            userProfiles.user_id,
+            db.select({ id: users.id }).from(users).where(eq(users.clerk_user_id, userId))
+          )
+        )
+      );
+    return result.count;
   } catch (error) {
     log('Users').error('Failed to soft-delete user profile:', error);
     throw error;
@@ -313,18 +348,20 @@ export async function softDeleteUserById(userId: string): Promise<number> {
  * after the upsert; route error handling owns recovery from there.
  */
 export async function repairUserMirror(
+  db: Database,
   userId: string,
   clerkUserId: string
 ): Promise<{ hasConsent: boolean } | null> {
-  const existing = await readProfileConsent(userId);
+  const existing = await readProfileConsent(db, userId);
   if (existing) return existing;
 
   const clerkUser = await getClerkClient().users.getUser(clerkUserId);
   const normalized = normalizeBackendUser(clerkUser);
-  if (!normalized.email) return null;
-  await upsertUserMirror(normalized);
+  const { email } = normalized;
+  if (!email) return null;
+  await upsertUserMirror(db, { ...normalized, email });
 
-  const persisted = await readProfileConsent(userId);
+  const persisted = await readProfileConsent(db, userId);
   if (!persisted) {
     throw new Error(
       `repairUserMirror: user_profiles row for user ${userId} still missing after mirror upsert`

@@ -1,3 +1,4 @@
+import type { Database } from '@/lib/db';
 import {
   deleteNotificationRecords,
   getNotificationWatchers,
@@ -8,8 +9,12 @@ import { log } from '@/lib/log';
 import type { ChangeResult } from '@/lib/queue/change-detector';
 import { type SectionRef, sectionRefKey } from '@/lib/section-ref';
 import type { NotificationType } from '@/lib/types/notification';
+
 /**
  * Parameters for sending section notifications.
+ *
+ * `db` is the request-scoped Drizzle handle created once by the queue/HTTP
+ * entry point and threaded through every DB-touching query seam below.
  *
  * `ref` is the SectionRef ({ class_nbr, term }) of the section that changed.
  * Recipient selection is scoped to this exact SectionRef — a class number
@@ -17,6 +22,7 @@ import type { NotificationType } from '@/lib/types/notification';
  * for the same section number in a different term and send wrong-term emails.
  */
 export interface SendSectionNotificationsParams {
+  db: Database;
   ref: SectionRef;
   classInfo: ClassInfo;
   changes: ChangeResult;
@@ -43,13 +49,13 @@ export interface SentNotification {
 export async function sendSectionNotifications(
   params: SendSectionNotificationsParams
 ): Promise<SentNotification[]> {
-  const { ref, classInfo, changes, emailBinding, fromEmail } = params;
+  const { db, ref, classInfo, changes, emailBinding, fromEmail } = params;
   const scope = sectionRefKey(ref);
 
   // Step 1: Fetch watchers — scoped to the full SectionRef (class_nbr + term).
   // A section number repeats across terms, so the term filter is what prevents
   // a transition in one term from selecting watchers in another.
-  const watchers = await getNotificationWatchers(ref);
+  const watchers = await getNotificationWatchers(db, ref);
 
   if (watchers.length === 0) {
     log('NotificationSender').info(`No watchers found for ${scope}`);
@@ -63,10 +69,10 @@ export async function sendSectionNotifications(
   // Step 2: Claim notification slots for each change type in parallel; rollback any fulfilled claim
   // if the other rejects (allSettled ensures no leak).
   const seatClaim = changes.seatBecameAvailable
-    ? tryRecordNotificationsBatch(allWatchIds, 'seat_available')
+    ? tryRecordNotificationsBatch(db, allWatchIds, 'seat_available')
     : Promise.resolve(new Set<string>());
   const instructorClaim = changes.instructorAssigned
-    ? tryRecordNotificationsBatch(allWatchIds, 'instructor_assigned')
+    ? tryRecordNotificationsBatch(db, allWatchIds, 'instructor_assigned')
     : Promise.resolve(new Set<string>());
   const [seatResult, instructorResult] = await Promise.allSettled([seatClaim, instructorClaim]);
 
@@ -77,14 +83,14 @@ export async function sendSectionNotifications(
       seatResult.value.size > 0 &&
       changes.seatBecameAvailable
     ) {
-      await deleteNotificationRecords([...seatResult.value], 'seat_available');
+      await deleteNotificationRecords(db, [...seatResult.value], 'seat_available');
     }
     if (
       instructorResult.status === 'fulfilled' &&
       instructorResult.value.size > 0 &&
       changes.instructorAssigned
     ) {
-      await deleteNotificationRecords([...instructorResult.value], 'instructor_assigned');
+      await deleteNotificationRecords(db, [...instructorResult.value], 'instructor_assigned');
     }
     // SAFETY: re-narrowing after status check; instructorResult is the rejected branch when seat fulfilled
     const firstRejection =
@@ -150,10 +156,10 @@ export async function sendSectionNotifications(
 
     try {
       if (failedSeatWatchIds.length > 0) {
-        await deleteNotificationRecords(failedSeatWatchIds, 'seat_available');
+        await deleteNotificationRecords(db, failedSeatWatchIds, 'seat_available');
       }
       if (failedInstructorWatchIds.length > 0) {
-        await deleteNotificationRecords(failedInstructorWatchIds, 'instructor_assigned');
+        await deleteNotificationRecords(db, failedInstructorWatchIds, 'instructor_assigned');
       }
     } catch (rollbackError) {
       log('NotificationSender').warn(

@@ -1,77 +1,180 @@
-// @ts-nocheck — skipped Clerk migration placeholder; rewrite to mock clerk-session (tracked in issue #351)
+/**
+ * Broad CRUD coverage for /api/class-watches over the Drizzle boundary:
+ * auth gating, the dashboard join, the atomic create_class_watch_with_limit
+ * RPC (including SQLSTATE mapping), graceful-degradation paths, and deletes.
+ *
+ * DB access runs real Drizzle builders over a scripted postgres-js transport;
+ * every request must resolve exactly ONE handle through getDbFromEnv.
+ * Onboarding-specific wiring lives in class-watches-onboarding.test.ts.
+ */
+import { drizzle } from 'drizzle-orm/postgres-js';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+
+import type { Database } from '@/lib/db';
+import { getSelectableTerms } from '@/lib/asu/terms';
 import type { ValidationIssueDetail } from '@/lib/api/validation';
+import * as schema from '@/lib/db/schema';
+import type { ClassDetails } from '@/lib/types/class';
+import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
+
+// ─── Scripted postgres-js transport (Drizzle builders render real SQL) ──────
+
+interface CapturedStatement {
+  sql: string;
+  params: unknown[];
+}
+
+/** Driver rows as Drizzle's postgres-js session sees them: keyed objects. */
+type PgWireValue =
+  | string
+  | number
+  | boolean
+  | null
+  | PgWireValue[]
+  | { [column: string]: PgWireValue };
+
+/** Driver rows as Drizzle's postgres-js session sees them: keyed objects. */
+type DriverRowSet = Array<Record<string, PgWireValue>>;
+
+/**
+ * Lazy-rejection surface mirroring postgres-js PendingQuery: driver errors
+ * surface only when Drizzle awaits the query or reads `.values()`.
+ */
+interface ScriptedPendingRows {
+  then(
+    onFulfilled?: (value: never) => PromiseLike<never>,
+    onRejected?: (reason: Error) => PromiseLike<never>
+  ): Promise<never>;
+  catch(onRejected: (reason: Error) => PromiseLike<never>): Promise<never>;
+  values(): PromiseLike<never[]>;
+}
+
+/** Resolved rows carrying the positional `.values()` Drizzle maps fields from. */
+type ScriptedRows = Promise<DriverRowSet> & { values(): PromiseLike<unknown[][]> };
+
+/** Everything Drizzle's postgres-js session consumes from `unsafe()`. */
+type ScriptedQueryResult = ScriptedPendingRows | ScriptedRows;
+
+/** Minimal postgres-js members Drizzle's session drives end to end. */
+interface PostgresJsSeam {
+  unsafe(query: string, params: unknown[]): ScriptedQueryResult;
+}
+
+function createDbHarness() {
+  const statements: CapturedStatement[] = [];
+  // FIFO of per-statement outcomes: row sets and driver errors in call order.
+  const outcomes: Array<DriverRowSet | Error> = [];
+
+  const pendingRows = (rows: DriverRowSet): ScriptedRows =>
+    Object.assign(Promise.resolve(rows), {
+      values: () => Promise.resolve(rows.map((row) => Object.values(row))),
+    });
+
+  const scriptedClient = {
+    options: { parsers: {}, serializers: {} },
+    unsafe(query: string, params: unknown[]): ScriptedQueryResult {
+      statements.push({ sql: query, params });
+      const outcome = outcomes.shift();
+      if (outcome instanceof Error) {
+        // Lazy rejection mirroring postgres-js PendingQuery: drizzle reads
+        // `.values()` synchronously, and the rejection may only surface when
+        // awaited — an eagerly-rejected promise would go unhandled.
+        const reject = (): Promise<never> => Promise.reject(outcome);
+        return {
+          then: (
+            onFulfilled?: (value: never) => PromiseLike<never>,
+            onRejected?: (reason: Error) => PromiseLike<never>
+          ) => reject().then(onFulfilled, onRejected),
+          catch: (onRejected: (reason: Error) => PromiseLike<never>) => reject().catch(onRejected),
+          values: reject,
+        };
+      }
+      return pendingRows(outcome ?? []);
+    },
+    begin<T>(fn: (txClient: PostgresJsSeam) => Promise<T>): Promise<T> {
+      return fn(scriptedClient);
+    },
+  };
+
+  const client: PostgresJsSeam = scriptedClient;
+  // SAFETY: the harness implements exactly the postgres-js seams Drizzle's
+  // session drives (tag-call unsafe(), .values(), begin()); the rest of the
+  // Sql surface is unreachable through Drizzle builders and db.execute.
+  const db = drizzle(client as Database['$client'], { schema });
+
+  return {
+    db,
+    statements,
+    /** Script the row set answered by the next executed statement. */
+    next(rows: DriverRowSet = []) {
+      outcomes.push(rows);
+    },
+    /** Make the next executed statement reject with this driver-shaped error. */
+    failNext(error: Error) {
+      outcomes.push(error);
+    },
+  };
+}
+
+let h = createDbHarness();
+
+const {
+  mockGetDbFromEnv,
+  mockGetSessionIdentity,
+  mockFetchClassFromASU,
+  mockCaptureServerEvent,
+  AuthError,
+  NotFoundError,
+} = vi.hoisted(() => {
+  class MockNotFoundError extends Error {}
+  class MockAuthError extends Error {}
+  return {
+    mockGetDbFromEnv: vi.fn(),
+    mockGetSessionIdentity: vi.fn(),
+    mockFetchClassFromASU: vi.fn(),
+    mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
+    NotFoundError: MockNotFoundError,
+    AuthError: MockAuthError,
+  };
+});
+
+vi.mock('@/lib/auth/clerk-session', () => ({
+  getSessionIdentity: mockGetSessionIdentity,
+}));
+
+vi.mock('@/lib/db', () => ({
+  getDbFromEnv: (...args: unknown[]) => mockGetDbFromEnv(...args),
+}));
+
+vi.mock('@/lib/asu/api', () => ({
+  fetchClassFromASU: mockFetchClassFromASU,
+  NotFoundError,
+  AuthError,
+}));
+
+vi.mock('@/lib/analytics/server', () => ({
+  captureServerEvent: mockCaptureServerEvent,
+}));
+
+vi.mock('cloudflare:workers', () => ({
+  env: {
+    ASU_API_BASE_URL: 'https://mock-asu-api.example.com',
+    ASU_API_TOKEN: 'mock-token',
+  },
+}));
+
+import { DELETE, GET, POST } from '@/app/api/class-watches/route';
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-// Response types
-interface ClassWatch {
-  id: string;
-  user_id: string;
-  term: string;
-  subject: string;
-  catalog_nbr: string;
-  class_nbr: string;
-  created_at: string;
-  class_state?: ClassState | null;
-}
 
-interface ClassState {
-  class_nbr: string;
-  term: string;
-  subject: string;
-  catalog_nbr: string;
-  title: string;
-  instructor_name: string;
-  seats_available: number;
-  seats_capacity: number;
-}
+const USER_ID = 'user-123';
+const identity = { userId: USER_ID, clerkUserId: 'clerk_123', sessionId: 'sess_123' };
 
-interface GetResponse {
-  watches?: ClassWatch[];
-  maxWatches?: number;
-  onboarding?: {
-    onboarding_completed_at: string | null;
-    onboarding_skipped_at: string | null;
-    needs_onboarding: boolean;
-  };
-  error?: string;
-}
+// Any currently selectable term satisfies createClassWatchSchema's refinement.
+const term = getSelectableTerms()[0].code;
 
-interface PostResponse {
-  watch?: ClassWatch;
-  error?: string;
-  details?: ValidationIssueDetail[];
-}
-
-interface DeleteResponse {
-  success?: boolean;
-  error?: string;
-  details?: ValidationIssueDetail[];
-}
-
-// Mock data
-const mockUser = { id: 'user-123', email: 'test@example.com' };
-const mockWatch: ClassWatch = {
-  id: 'watch-1',
-  user_id: 'user-123',
-  term: '2264',
-  subject: 'CSE',
-  catalog_nbr: '240',
-  class_nbr: '12345',
-  created_at: '2024-06-15T12:00:00Z',
-};
-const mockClassState: ClassState = {
-  class_nbr: '12345',
-  term: '2264',
-  subject: 'CSE',
-  catalog_nbr: '240',
-  title: 'Intro to Programming',
-  instructor_name: 'John Doe',
-  seats_available: 10,
-  seats_capacity: 50,
-};
-const mockClassDetails = {
+const asuDetails: ClassDetails = {
   subject: 'CSE',
   catalog_nbr: '240',
   title: 'Intro to Programming',
@@ -83,202 +186,156 @@ const mockClassDetails = {
   meeting_times: 'MWF 9:00 AM-9:50 AM',
 };
 
-// Hoisted mock functions (vi.mock factories run before imports, so all refs
-// referenced inside factories must be declared via vi.hoisted).
-const {
-  mockCreateClient,
-  mockGetUser,
-  mockQuery,
-  mockQueryOne,
-  mockCallFunction,
-  mockExecute,
-  mockFetchClassFromASU,
-  mockUpsertClassState,
-  mockApplyFirstWatchGuard,
-  mockCaptureServerEvent,
-  NotFoundError,
-  AuthError,
-} = vi.hoisted(() => {
-  class MockNotFoundError extends Error {}
-  class MockAuthError extends Error {}
-  return {
-    mockCreateClient: vi.fn(),
-    mockGetUser: vi.fn(),
-    mockQuery: vi.fn(),
-    mockQueryOne: vi.fn(),
-    mockCallFunction: vi.fn(),
-    mockExecute: vi.fn(),
-    mockFetchClassFromASU: vi.fn(),
-    mockUpsertClassState: vi.fn(),
-    mockApplyFirstWatchGuard: vi.fn(),
-    mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
-    NotFoundError: MockNotFoundError,
-    AuthError: MockAuthError,
-  };
-});
-
-// Auth stays on Supabase (supabase.auth.getUser) — only the data plane moved
-// to PlanetScale/Hyperdrive, so keep the server client mock but strip data access.
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: mockCreateClient,
-}));
-
-// New data-plane seam: lib/db/client (replaces lib/supabase/service).
-vi.mock('@/lib/db/client', () => ({
-  query: mockQuery,
-  queryOne: mockQueryOne,
-  queryScalar: vi.fn(),
-  execute: mockExecute,
-  callFunction: mockCallFunction,
-  callFunctionScalar: vi.fn(),
-  getClient: vi.fn(),
-  setConnectionStringGetter: vi.fn(),
-}));
-
-// upsertClassState lives in lib/db/queries and is imported by the route.
-vi.mock('@/lib/db/queries', () => ({
-  upsertClassState: mockUpsertClassState,
-}));
-
-// Keep real toOnboardingState/onboardingStatus; only stub the persistence guard
-// (applyFirstWatchGuard) so the test can assert it's invoked on first watch.
-vi.mock('@/lib/onboarding', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/onboarding')>()),
-  applyFirstWatchGuard: mockApplyFirstWatchGuard,
-}));
-
-// Mock ASU API client
-vi.mock('@/lib/asu/api', () => ({
-  fetchClassFromASU: mockFetchClassFromASU,
-  NotFoundError,
-  AuthError,
-}));
-
-// PostHog server events fail open — stub so no network calls happen in tests.
-vi.mock('@/lib/posthog-server', () => ({
-  captureServerEvent: mockCaptureServerEvent,
-}));
-
-// Mock cloudflare:workers for env import
-vi.mock('cloudflare:workers', () => ({
-  env: {
-    ASU_API_BASE_URL: 'https://mock-asu-api.example.com',
-    ASU_API_TOKEN: 'mock-token',
-  },
-}));
-
-import { DELETE, GET, POST } from '@/app/api/class-watches/route';
-
-// Per-test mutable results for the query/queryOne mocks. The route issues
-// multiple `query` calls per GET (class_watches, then class_states) plus a
-// `queryOne` for the onboarding profile; the mock dispatches on SQL text.
-// SAFETY: test fixtures are controlled row shapes matching the route's typed SELECT contracts
-let watchesResult: ClassWatch[] = [];
-// SAFETY: test fixtures are controlled row shapes matching the route's typed SELECT contracts
-let classStatesResult: ClassState[] = [];
-let profileResult: {
-  onboarding_completed_at: string | null;
-  onboarding_skipped_at: string | null;
+// Key order mirrors the GET watches projection (positional driver mapping).
+const watchRow = {
+  id: 'watch-1',
+  class_nbr: '12345',
+  term,
+  subject: 'CSE',
+  catalog_nbr: '240',
+  created_at: '2026-06-15T12:00:00Z',
 };
 
-// Response parsers
-async function parseGetResponse(response: Response): Promise<GetResponse> {
-  // SAFETY: test helper parses mocked fetch Response JSON; shape is GetResponse per route contract and test fixtures
-  return (await response.json()) as GetResponse;
+// Key order mirrors the GET joined-states projection.
+const stateRow = {
+  class_nbr: '12345',
+  term,
+  seats_available: 10,
+  seats_capacity: 50,
+  non_reserved_seats: 3,
+  instructor_name: 'John Doe',
+  title: 'Intro to Programming',
+};
+
+// Completed-profile row (key order mirrors the onboarding SELECT projection).
+const completedProfile = {
+  onboarding_completed_at: '2026-01-01T00:00:00Z',
+  onboarding_skipped_at: null,
+};
+
+/** Postgres-driver error carrying its SQLSTATE on `code`. */
+function driverError(code: string, message: string): Error {
+  return Object.assign(new Error(message), { code });
 }
 
-async function parsePostResponse(response: Response): Promise<PostResponse> {
-  // SAFETY: test helper parses mocked fetch Response JSON; shape is PostResponse per route contract and test fixtures
-  return (await response.json()) as PostResponse;
+/**
+ * Drizzle's DrizzleQueryError wrapper shape: "Failed query" text plus the raw
+ * driver error parked on `.cause` alongside the rendered query/params.
+ */
+function wrappedDriverError(code: string, message: string): Error {
+  const wrapper = new Error(`Failed query: SELECT * FROM create_class_watch_with_limit`);
+  return Object.assign(wrapper, {
+    query: 'SELECT * FROM create_class_watch_with_limit(...)',
+    params: [],
+    cause: driverError(code, message),
+  });
 }
 
-async function parseDeleteResponse(response: Response): Promise<DeleteResponse> {
-  // SAFETY: test helper parses mocked fetch Response JSON; shape is DeleteResponse per route contract and test fixtures
-  return (await response.json()) as DeleteResponse;
+interface GetResponse {
+  watches?: Array<ClassWatchRow & { class_state: ClassStateRow | null }>;
+  maxWatches?: number;
+  error?: string;
 }
 
-describe.skip('/api/class-watches', () => {
+interface MutationResponse {
+  success?: boolean;
+  watch?: ClassWatchRow;
+  error?: string;
+  details?: ValidationIssueDetail[];
+}
+
+function getRequest(): NextRequest {
+  return new NextRequest('http://localhost:3000/api/class-watches');
+}
+
+function postRequest(body: Record<string, JsonValue>): NextRequest {
+  return new NextRequest('http://localhost:3000/api/class-watches', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function deleteRequest(id: string | null): NextRequest {
+  const url =
+    id === null
+      ? 'http://localhost:3000/api/class-watches'
+      : `http://localhost:3000/api/class-watches?id=${id}`;
+  return new NextRequest(url, { method: 'DELETE' });
+}
+
+async function json<T extends object>(response: Response): Promise<T> {
+  // SAFETY: mocked route handlers serialize the response contracts above; the
+  // generic pins the per-test expected shape.
+  return (await response.json()) as T;
+}
+
+describe('/api/class-watches', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
     vi.clearAllMocks();
-
-    // Default per-test fixtures
-    watchesResult = [];
-    classStatesResult = [];
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double for onboarding profile row
-    profileResult = {
-      onboarding_completed_at: '2026-01-01T00:00:00Z',
-      onboarding_skipped_at: null,
-    };
-
-    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-    mockCreateClient.mockResolvedValue({ auth: { getUser: mockGetUser } });
-
-    // Dispatch `query` by SQL text: class_watches list vs class_states lookup.
-    mockQuery.mockImplementation(async (text: string) => {
-      if (text.includes('FROM class_watches WHERE user_id')) return watchesResult;
-      if (text.includes('FROM class_states')) return classStatesResult;
-      return [];
-    });
-    // Dispatch `queryOne` by SQL text: user_profiles onboarding read.
-    mockQueryOne.mockImplementation(async (text: string) => {
-      if (text.includes('FROM user_profiles')) return profileResult;
-      return null;
-    });
-
-    mockExecute.mockResolvedValue(1);
-    mockCallFunction.mockResolvedValue([mockWatch]);
-    mockFetchClassFromASU.mockResolvedValue(mockClassDetails);
-    mockUpsertClassState.mockResolvedValue(undefined);
-    mockApplyFirstWatchGuard.mockResolvedValue(undefined);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    h = createDbHarness();
+    mockGetDbFromEnv.mockImplementation(() => h.db);
+    mockGetSessionIdentity.mockResolvedValue(identity);
+    mockFetchClassFromASU.mockResolvedValue(asuDetails);
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   describe('GET /api/class-watches', () => {
-    it('should return 401 for unauthenticated requests', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null }, error: { message: 'Unauthorized' } });
+    it('returns 401 for unauthenticated requests without touching the database', async () => {
+      mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-      const response = await GET();
-      const data = await parseGetResponse(response);
+      const response = await GET(getRequest());
 
       expect(response.status).toBe(401);
-      expect(data.error).toBe('Unauthorized');
+      expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it('should return empty watches for authenticated user with no watches', async () => {
-      const response = await GET();
-      const data = await parseGetResponse(response);
+    it('returns empty watches, the max, and onboarding state for a user with no watches', async () => {
+      // No watches → states lookup skipped; profile read still runs.
+      h.next([]);
+      h.next([completedProfile]);
+
+      const response = await GET(getRequest());
+      const data = await json<GetResponse>(response);
 
       expect(response.status).toBe(200);
       expect(data.watches).toEqual([]);
-      expect(data.maxWatches).toBeDefined();
-      expect(data.onboarding).toMatchObject({
-        onboarding_completed_at: expect.any(String),
-        needs_onboarding: false,
+      expect(data.maxWatches).toBe(10);
+      expect(data).toMatchObject({
+        onboarding: { onboarding_completed_at: '2026-01-01T00:00:00Z', needs_onboarding: false },
       });
+      // Exactly one request-scoped handle served both reads.
+      expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
+      expect(h.statements).toHaveLength(2);
     });
 
-    it('should return watches with joined class states', async () => {
-      watchesResult = [mockWatch];
-      classStatesResult = [mockClassState];
+    it('joins persisted class states onto each watch by term and class number', async () => {
+      h.next([watchRow]);
+      h.next([stateRow]);
+      h.next([completedProfile]);
 
-      const response = await GET();
-      const data = await parseGetResponse(response);
+      const response = await GET(getRequest());
+      const data = await json<GetResponse>(response);
 
       expect(response.status).toBe(200);
       expect(data.watches).toHaveLength(1);
-      expect(data.watches?.[0].class_state).toEqual(mockClassState);
+      expect(data.watches?.[0]?.class_state).toEqual(stateRow);
+
+      const statesQuery = h.statements[1];
+      expect(statesQuery.sql).toContain('"class_states"');
+      // Drizzle expands inArray into per-element placeholders.
+      expect(statesQuery.params).toEqual(['12345', term]);
     });
 
-    it('should handle database errors', async () => {
-      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+    it('maps database failures to a 500 fetch error', async () => {
+      h.failNext(new Error('Database error'));
 
-      const response = await GET();
-      const data = await parseGetResponse(response);
+      const response = await GET(getRequest());
+      const data = await json<GetResponse>(response);
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to fetch class watches');
@@ -286,220 +343,212 @@ describe.skip('/api/class-watches', () => {
   });
 
   describe('POST /api/class-watches', () => {
-    const createRequest = (body: Record<string, JsonValue>): NextRequest => {
-      return new NextRequest('http://localhost:3000/api/class-watches', {
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-    };
+    it('returns 401 for unauthenticated requests without touching the database', async () => {
+      mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-    it('should return 401 for unauthenticated requests', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null }, error: { message: 'Unauthorized' } });
-
-      const request = createRequest({ term: '2264', class_nbr: '12345' });
-      const response = await POST(request);
-      const data = await parsePostResponse(response);
+      const response = await POST(postRequest({ term, class_nbr: '12345' }));
 
       expect(response.status).toBe(401);
-      expect(data.error).toBe('Unauthorized');
+      expect(mockFetchClassFromASU).not.toHaveBeenCalled();
+      expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it('should return 400 for invalid term format', async () => {
-      const request = createRequest({ term: 'invalid', class_nbr: '12345' });
-      const response = await POST(request);
-      const data = await parsePostResponse(response);
+    it('rejects invalid payloads before calling ASU or the database', async () => {
+      const response = await POST(postRequest({ class_nbr: '12345' }));
+      const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(400);
       expect(data.error).toBe('Invalid input');
-      expect(data.details).toContainEqual(
-        expect.objectContaining({
-          field: 'term',
-        })
-      );
+      expect(mockFetchClassFromASU).not.toHaveBeenCalled();
+      expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it('should return 400 for invalid class_nbr format', async () => {
-      const request = createRequest({ term: '2264', class_nbr: '123' });
-      const response = await POST(request);
-      const data = await parsePostResponse(response);
+    it('creates the watch atomically, persists state, completes onboarding, and fires analytics', async () => {
+      const rpcWatch: ClassWatchRow = {
+        id: 'watch-new',
+        user_id: USER_ID,
+        class_nbr: '12345',
+        term,
+        subject: 'CSE',
+        catalog_nbr: '240',
+        created_at: '2026-06-15T12:00:00Z',
+      };
+      h.next([rpcWatch]);
+      h.next([]);
+      h.next([]);
 
-      expect(response.status).toBe(400);
-      expect(data.error).toBe('Invalid input');
-    });
+      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const data = await json<MutationResponse>(response);
 
-    it('should return 429 when max watches limit reached', async () => {
-      mockCallFunction.mockRejectedValueOnce({
-        code: 'P0001',
-        message: 'MAX_WATCHES_EXCEEDED: user has 10 watches',
+      expect(response.status).toBe(201);
+      expect(data.watch).toEqual(rpcWatch);
+      expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
+
+      // Bound parameters hit the SECURITY DEFINER RPC with explicit casts.
+      expect(h.statements[0].sql).toContain('create_class_watch_with_limit');
+      expect(h.statements[0].params).toEqual([USER_ID, term, 'CSE', '240', '12345', 10]);
+
+      expect(
+        h.statements.some((statement) => statement.sql.includes('insert into "class_states"'))
+      ).toBe(true);
+      expect(
+        h.statements.some((statement) => statement.sql.includes('update "user_profiles"'))
+      ).toBe(true);
+
+      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, 'class_watch_created', {
+        term,
+        class_nbr: '12345',
       });
-
-      const request = createRequest({ term: '2264', class_nbr: '12345' });
-      const response = await POST(request);
-      const data = await parsePostResponse(response);
-
-      expect(response.status).toBe(429);
-      expect(data.error).toContain('Maximum watches limit reached');
     });
 
-    it('should return 409 for duplicate watch', async () => {
-      mockCallFunction.mockRejectedValueOnce({
-        code: '23505',
-        message: 'Unique constraint violation',
-      });
+    it('maps an ASU not-found miss to 404 without touching the database', async () => {
+      mockFetchClassFromASU.mockRejectedValueOnce(new NotFoundError('missing'));
 
-      const request = createRequest({ term: '2264', class_nbr: '12345' });
-      const response = await POST(request);
-      const data = await parsePostResponse(response);
-
-      expect(response.status).toBe(409);
-      expect(data.error).toBe('You are already watching this class');
-    });
-
-    it('should return 429 when atomic insert reports limit exceeded', async () => {
-      mockCallFunction.mockRejectedValueOnce({
-        code: 'P0001',
-        message: 'MAX_WATCHES_EXCEEDED',
-      });
-
-      const request = createRequest({ term: '2264', class_nbr: '12345' });
-      const response = await POST(request);
-      const data = await parsePostResponse(response);
-
-      expect(response.status).toBe(429);
-      expect(data.error).toContain('Maximum watches limit reached');
-    });
-
-    it('should return 500 when ASU API fetch fails', async () => {
-      mockFetchClassFromASU.mockRejectedValueOnce(new Error('Network error'));
-
-      const request = createRequest({ term: '2264', class_nbr: '12345' });
-      const response = await POST(request);
-      const data = await parsePostResponse(response);
-
-      expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to fetch class details');
-    });
-
-    it('should return 404 when class section not found', async () => {
-      // Import the mock class to throw the right error type
-      const { NotFoundError: NFE } = await import('@/lib/asu/api');
-      mockFetchClassFromASU.mockRejectedValueOnce(new NFE('Section 99999 not found'));
-
-      const request = createRequest({ term: '2264', class_nbr: '99999' });
-      const response = await POST(request);
-      const data = await parsePostResponse(response);
+      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(404);
       expect(data.error).toBe('Class section not found');
+      expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it('should return 503 when ASU API auth fails', async () => {
-      const { AuthError: AE } = await import('@/lib/asu/api');
-      mockFetchClassFromASU.mockRejectedValueOnce(new AE('Token expired'));
+    it('maps ASU auth failures to a temporary outage', async () => {
+      mockFetchClassFromASU.mockRejectedValueOnce(new AuthError('expired token'));
 
-      const request = createRequest({ term: '2264', class_nbr: '12345' });
-      const response = await POST(request);
-      const data = await parsePostResponse(response);
+      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(503);
       expect(data.error).toBe('Service temporarily unavailable');
     });
 
-    it('should create watch successfully with ASU API data', async () => {
-      const request = createRequest({ term: '2264', class_nbr: '12345' });
-      const response = await POST(request);
-      const data = await parsePostResponse(response);
+    it('maps unexpected ASU failures to a fetch error', async () => {
+      mockFetchClassFromASU.mockRejectedValueOnce(new Error('network down'));
 
-      expect(response.status).toBe(201);
-      expect(data.watch).toBeDefined();
-      expect(mockFetchClassFromASU).toHaveBeenCalledWith(
-        { class_nbr: '12345', term: '2264' },
-        {
-          ASU_API_BASE_URL: expect.any(String),
-          ASU_API_TOKEN: expect.any(String),
-        }
+      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const data = await json<MutationResponse>(response);
+
+      expect(response.status).toBe(500);
+      expect(data.error).toBe('Failed to fetch class details');
+    });
+
+    it('maps a duplicate-watch unique violation (wrapped driver error) to 409', async () => {
+      h.failNext(
+        wrappedDriverError(
+          '23505',
+          'duplicate key value violates unique constraint "class_watches_user_id_class_nbr_term_key"'
+        )
       );
-      // callFunction replaces .rpc(): function name + positional params array.
-      // Params: [user_id, term, subject(upper), catalog_nbr, class_nbr, max_watches].
-      expect(mockCallFunction).toHaveBeenCalledWith('create_class_watch_with_limit', [
-        mockUser.id,
-        '2264',
-        'CSE',
-        '240',
-        '12345',
-        10,
-      ]);
-      // upsertClassState(ref, details) replaces the old service .upsert(...) call.
-      expect(mockUpsertClassState).toHaveBeenCalledWith(
-        { class_nbr: '12345', term: '2264' },
-        expect.objectContaining({
+
+      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const data = await json<MutationResponse>(response);
+
+      expect(response.status).toBe(409);
+      expect(data.error).toBe('You are already watching this class');
+    });
+
+    it('maps a duplicate-watch violation even when the error arrives unwrapped', async () => {
+      h.failNext(driverError('23505', 'duplicate key value violates unique constraint'));
+
+      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+
+      expect(response.status).toBe(409);
+    });
+
+    it('maps the atomic limit-enforcement RAISE EXCEPTION to 429', async () => {
+      h.failNext(wrappedDriverError('P0001', 'MAX_WATCHES_EXCEEDED'));
+
+      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const data = await json<MutationResponse>(response);
+
+      expect(response.status).toBe(429);
+      expect(data.error).toBe(
+        'Maximum watches limit reached (10). Delete some watches to add more.'
+      );
+      expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+    });
+
+    it('maps unrelated RPC failures to a 500 creation error', async () => {
+      h.failNext(wrappedDriverError('08006', 'connection failure'));
+
+      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const data = await json<MutationResponse>(response);
+
+      expect(response.status).toBe(500);
+      expect(data.error).toBe('Failed to create class watch');
+    });
+
+    it('still returns 201 when persisting the class state fails (graceful degradation)', async () => {
+      h.next([
+        {
+          id: 'watch-new',
+          user_id: USER_ID,
+          class_nbr: '12345',
+          term,
           subject: 'CSE',
           catalog_nbr: '240',
-          seats_available: 10,
-        })
-      );
-      // Onboarding is marked complete on the user's first watch via the guard.
-      // Issue #307: the guard filters ONLY on onboarding_completed_at IS NULL,
-      // not on onboarding_skipped_at, so a skipped user still completes.
-      expect(mockApplyFirstWatchGuard).toHaveBeenCalledWith(mockUser.id);
+          created_at: '2026-06-15T12:00:00Z',
+        },
+      ]);
+      h.failNext(new Error('upsert blew up'));
+      h.next([]);
+
+      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const data = await json<MutationResponse>(response);
+
+      expect(response.status).toBe(201);
+      expect(data.success).toBe(true);
+      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, 'class_watch_created', {
+        term,
+        class_nbr: '12345',
+      });
     });
   });
 
   describe('DELETE /api/class-watches', () => {
-    const createDeleteRequest = (id: string | null): NextRequest => {
-      const url = id
-        ? `http://localhost:3000/api/class-watches?id=${id}`
-        : 'http://localhost:3000/api/class-watches';
-      return new NextRequest(url, {
-        method: 'DELETE',
-      });
-    };
+    it('returns 401 for unauthenticated requests without touching the database', async () => {
+      mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-    it('should return 401 for unauthenticated requests', async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null }, error: { message: 'Unauthorized' } });
-
-      const request = createDeleteRequest('550e8400-e29b-41d4-a716-446655440000');
-      const response = await DELETE(request);
-      const data = await parseDeleteResponse(response);
+      const response = await DELETE(deleteRequest('d0a2b3c1-0000-4000-8000-000000000001'));
 
       expect(response.status).toBe(401);
-      expect(data.error).toBe('Unauthorized');
+      expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it('should return 400 for invalid UUID format', async () => {
-      const request = createDeleteRequest('not-a-uuid');
-      const response = await DELETE(request);
-      const data = await parseDeleteResponse(response);
+    it('deletes only the authenticated user’s matching watch and fires analytics', async () => {
+      const watchId = 'd0a2b3c1-0000-4000-8000-000000000001';
+      h.next([]);
 
-      expect(response.status).toBe(400);
-      expect(data.error).toBe('Invalid input');
-    });
-
-    it('should return 400 for missing ID', async () => {
-      const request = createDeleteRequest(null);
-      const response = await DELETE(request);
-
-      expect(response.status).toBe(400);
-    });
-
-    it('should delete watch successfully', async () => {
-      const request = createDeleteRequest('550e8400-e29b-41d4-a716-446655440000');
-      const response = await DELETE(request);
-      const data = await parseDeleteResponse(response);
+      const response = await DELETE(deleteRequest(watchId));
+      const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
+      expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
+
+      const del = h.statements[0];
+      expect(del.sql).toContain('delete from "class_watches"');
+      expect(del.params).toEqual([watchId, USER_ID]);
+
+      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, 'class_watch_deleted', {
+        watch_id: watchId,
+      });
     });
 
-    it('should handle database errors on delete', async () => {
-      mockExecute.mockRejectedValueOnce(new Error('Database error'));
+    it('rejects malformed watch ids with a validation error', async () => {
+      const response = await DELETE(deleteRequest('not-a-uuid'));
+      const data = await json<MutationResponse>(response);
 
-      const request = createDeleteRequest('550e8400-e29b-41d4-a716-446655440000');
-      const response = await DELETE(request);
-      const data = await parseDeleteResponse(response);
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Invalid input');
+      expect(mockGetDbFromEnv).not.toHaveBeenCalled();
+    });
+
+    it('maps delete failures to a 500 deletion error', async () => {
+      h.failNext(new Error('delete failed'));
+
+      const response = await DELETE(deleteRequest('d0a2b3c1-0000-4000-8000-000000000001'));
+      const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to delete class watch');

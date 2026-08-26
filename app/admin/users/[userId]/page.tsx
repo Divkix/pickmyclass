@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { eq } from 'drizzle-orm';
 import { ArrowLeft, Calendar, Clock, Eye, Mail, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -15,9 +16,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { verifyAdmin } from '@/lib/auth/admin';
+import { getDbFromEnv } from '@/lib/db';
 import { getUserWatches } from '@/lib/db/admin-queries';
-import { queryOne } from '@/lib/db/client';
-import type { UserMirrorRow } from '@/lib/db/types';
+import { users } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 import { formatAbsoluteDate } from '@/lib/utils/time-format';
@@ -39,18 +40,27 @@ interface AdminUserDetailPageProps {
  * Uses server-side data fetching for optimal performance.
  */
 export default async function AdminUserDetailPage({ params }: AdminUserDetailPageProps) {
+  // One request-scoped handle shared by the gate read and both data reads.
+  const db = getDbFromEnv();
+
   // Verify admin authentication (redirects if unauthorized)
-  await verifyAdmin();
+  await verifyAdmin(db);
 
   // Await params
   const { userId } = await params;
 
   // Fetch user information from the local users mirror table (synced by Clerk webhooks).
-  // Replaces the old auth.admin.getUserById call — no more dependency on Supabase Auth API.
-  const user = await queryOne<UserMirrorRow>(
-    'SELECT id, email, email_confirmed_at, created_at, last_sign_in_at FROM users WHERE id = $1',
-    [userId]
-  );
+  const [user] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      email_confirmed_at: users.email_confirmed_at,
+      created_at: users.created_at,
+      last_sign_in_at: users.last_sign_in_at,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
 
   if (!user) {
     log('Admin').error(`User ${userId} not found in mirror table`);
@@ -58,7 +68,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
   }
 
   // Fetch user's class watches
-  const watches = await getUserWatches(userId);
+  const watches = await getUserWatches(db, userId);
 
   /**
    * Format ISO timestamp to readable date string

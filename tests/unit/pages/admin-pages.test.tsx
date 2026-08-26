@@ -1,12 +1,17 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import type * as DrizzlePostgresJs from 'drizzle-orm/postgres-js';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import type postgres from 'postgres';
 import AdminClassDetailPage from '@/app/admin/classes/[term]/[classNbr]/page';
 import AdminClassesPage from '@/app/admin/classes/page';
 import AdminLayout from '@/app/admin/layout';
 import AdminDashboardPage from '@/app/admin/page';
 import AdminUserDetailPage from '@/app/admin/users/[userId]/page';
 import AdminUsersPage from '@/app/admin/users/page';
+
+import { getDbFromEnv } from '@/lib/db';
+import type * as DbSchema from '@/lib/db/schema';
 
 const {
   mockGetAdminCount,
@@ -20,11 +25,9 @@ const {
   mockGetUserWatches,
   mockGetUsersPage,
   mockPush,
-  mockQuery,
-  mockQueryOne,
-  mockQueryScalar,
-  mockVerifyAdmin,
   mockSignOut,
+  mockUnsafe,
+  mockVerifyAdmin,
 } = vi.hoisted(() => ({
   mockGetAdminCount: vi.fn(),
   mockGetClassWatchers: vi.fn(),
@@ -37,11 +40,9 @@ const {
   mockGetUserWatches: vi.fn(),
   mockGetUsersPage: vi.fn(),
   mockPush: vi.fn(),
-  mockQuery: vi.fn(),
-  mockQueryOne: vi.fn(),
-  mockQueryScalar: vi.fn(),
-  mockVerifyAdmin: vi.fn(),
   mockSignOut: vi.fn(),
+  mockUnsafe: vi.fn(),
+  mockVerifyAdmin: vi.fn(),
 }));
 
 type LinkHref = string | { pathname?: string };
@@ -115,16 +116,30 @@ vi.mock('@/lib/supabase/server', () => ({
   ),
 }));
 
-vi.mock('@/lib/db/client', () => ({
-  callFunction: vi.fn(),
-  callFunctionScalar: vi.fn(),
-  execute: vi.fn(),
-  getClient: vi.fn(),
-  query: mockQuery,
-  queryOne: mockQueryOne,
-  queryScalar: mockQueryScalar,
-  setConnectionStringGetter: vi.fn(),
-}));
+vi.mock('@/lib/db', async () => {
+  const { drizzle } = await vi.importActual<typeof DrizzlePostgresJs>('drizzle-orm/postgres-js');
+  const schema = await vi.importActual<typeof DbSchema>('@/lib/db/schema');
+  // Minimal postgres-js stand-in: the pages' selects only await
+  // unsafe(sql, params).values(), so mockUnsafe receives the SQL text plus the
+  // bound parameter list exactly as the wire would carry them.
+  // Minimal postgres-js members Drizzle's session drives end to end here.
+  interface PostgresJsSeam {
+    unsafe(query: string, params: unknown[]): { values(): Promise<unknown[]> };
+  }
+  const scriptedClient = {
+    // drizzle's construct() installs transparent timestamp parsers here.
+    options: { parsers: {}, serializers: {} },
+    unsafe: (text: string, params: unknown[]) => ({ values: async () => mockUnsafe(text, params) }),
+  };
+  const client: PostgresJsSeam = scriptedClient;
+  // SAFETY: the pages drive only unsafe().values(); the rest of the postgres-js
+  // Sql surface is exercised by the live-db suite instead of this stand-in.
+  const fakeDb = drizzle(client as postgres.Sql, { schema });
+  return {
+    getDb: vi.fn(() => fakeDb),
+    getDbFromEnv: vi.fn(() => fakeDb),
+  };
+});
 
 vi.mock('@/lib/db/admin-queries', () => ({
   getAdminCount: mockGetAdminCount,
@@ -222,11 +237,42 @@ const classRows = [
 ];
 
 /**
- * class_states rows the `queryOne` mock resolves for class detail pages.
+ * class_states rows the fake db resolves for class detail pages.
  * Reset to `classRows` before each test; individual tests reassign it
  * (e.g. the two-term case).
  */
 let classStateFixtures: Array<Record<string, JsonValue>> = classRows;
+
+/**
+ * Positional SELECT-list order of the pages' drizzle projections. The fake
+ * postgres-js client returns `.values()` rows, so fixture objects are projected
+ * through these keys. Must mirror lib/db/schema property order.
+ */
+const CLASS_STATE_COLUMNS = [
+  'id',
+  'class_nbr',
+  'term',
+  'subject',
+  'catalog_nbr',
+  'title',
+  'instructor_name',
+  'seats_available',
+  'seats_capacity',
+  'non_reserved_seats',
+  'location',
+  'meeting_times',
+  'last_checked_at',
+  'last_changed_at',
+  'consecutive_not_found_count',
+] as const;
+
+const USER_DETAIL_COLUMNS = [
+  'id',
+  'email',
+  'email_confirmed_at',
+  'created_at',
+  'last_sign_in_at',
+] as const;
 
 const userRows = [
   {
@@ -260,6 +306,9 @@ const userRows = [
 const emptySearchParams = Promise.resolve({} as Record<string, string | undefined>);
 
 describe('admin pages', () => {
+  // The mocked '@/lib/db' module hands every getDbFromEnv() call this one
+  // instance — assertions below prove pages pass it unchanged to each helper.
+  const db = getDbFromEnv();
   beforeEach(() => {
     vi.clearAllMocks();
     classStateFixtures = classRows;
@@ -303,20 +352,21 @@ describe('admin pages', () => {
         class_state: classRows[0],
       },
     ]);
-    // queryOne dispatches by SQL text: users mirror table vs class_states.
+    // The fake postgres-js client dispatches by SQL text, mirroring the wire:
     // class_states is filtered by BOTH class_nbr and term so a section number
-    // shared by two terms resolves to one row (the #278 bug).
-    mockQueryOne.mockImplementation(async (text: string, params?: unknown[]) => {
-      if (text.includes('FROM users')) {
-        const userId = params?.[0];
-        return userRows.find((u) => u.id === userId) ?? userRows[0] ?? null;
+    // shared by two terms resolves to one row (the #278 bug); users by id.
+    mockUnsafe.mockImplementation(async (text: string, params: unknown[] = []) => {
+      if (text.includes('from "users"')) {
+        const userId = params[0];
+        const user = userRows.find((u) => u.id === userId) ?? null;
+        return user ? [USER_DETAIL_COLUMNS.map((c) => user[c])] : [];
       }
-      if (text.includes('FROM class_states')) {
-        const classNbr = params?.[0];
-        const term = params?.[1];
-        return classStateFixtures.find((r) => r.class_nbr === classNbr && r.term === term) ?? null;
+      if (text.includes('from "class_states"')) {
+        const [classNbr, term] = params;
+        const state = classStateFixtures.find((r) => r.class_nbr === classNbr && r.term === term);
+        return state ? [CLASS_STATE_COLUMNS.map((c) => state[c])] : [];
       }
-      return null;
+      return [];
     });
   });
 
@@ -357,13 +407,15 @@ describe('admin pages', () => {
     expect(screen.getByText('Class Information')).toBeInTheDocument();
     expect(screen.getByText('student@example.com')).toBeInTheDocument();
     expect(screen.getByText('12345')).toBeInTheDocument();
-    // Watchers are scoped to the full SectionRef (class_nbr + term), not class_nbr alone.
-    expect(mockGetClassWatchers).toHaveBeenCalledWith({ class_nbr: '12345', term: '2261' });
+    // Watchers are scoped to the full SectionRef (class_nbr + term), not class_nbr alone,
+    // and receive the page's single db handle.
+    expect(mockGetClassWatchers).toHaveBeenCalledWith(db, { class_nbr: '12345', term: '2261' });
+    expect(mockVerifyAdmin).toHaveBeenCalledWith(db);
   });
 
   it('loads the requested term when a class number exists in two terms', async () => {
     // Same class_nbr in two terms with different seats/instructor — the route must
-    // resolve the exact SectionRef, not trip .single()'s multi-row error (the #278 bug).
+    // resolve the exact SectionRef and never show the other term's row (the #278 bug).
     classStateFixtures = [
       {
         ...classRows[0],
@@ -427,8 +479,8 @@ describe('admin pages', () => {
       role: 'admin',
     } satisfies Record<string, string | undefined>);
     await AdminUsersPage({ searchParams: sp });
-
     expect(mockGetUsersPage).toHaveBeenCalledWith(
+      db,
       expect.objectContaining({
         page: 2,
         sort: 'email',
@@ -449,6 +501,7 @@ describe('admin pages', () => {
     await AdminClassesPage({ searchParams: sp });
 
     expect(mockGetClassesPage).toHaveBeenCalledWith(
+      db,
       expect.objectContaining({
         page: 3,
         sort: 'class_nbr',
@@ -465,6 +518,7 @@ describe('admin pages', () => {
     });
 
     expect(mockGetClassesPage).toHaveBeenCalledWith(
+      db,
       expect.objectContaining({ sort: 'watcher_count' })
     );
   });

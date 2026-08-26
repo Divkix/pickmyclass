@@ -11,9 +11,13 @@ const mockEmailBinding: SendEmail = {
   send: mockSend,
 } as SendEmail;
 
+import type { Database } from '@/lib/db';
 import { getClassWatchers } from '@/lib/db/queries';
 import { handleDLQMessage } from '@/lib/queue/dlq-consumer';
 import type { ClassCheckMessage } from '@/lib/types/queue';
+
+/** Sentinel Drizzle handle — identity-only; the query seam is mocked. */
+const db = {} as Database;
 
 function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMessage {
   return {
@@ -53,7 +57,7 @@ describe('handleDLQMessage', () => {
     const msg = buildMessage();
     mockWatchers([]);
 
-    await handleDLQMessage(msg, mockEmailBinding);
+    await handleDLQMessage(db, msg, mockEmailBinding);
 
     expect(console.error).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('42737'));
     expect(console.error).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('2261'));
@@ -66,9 +70,9 @@ describe('handleDLQMessage', () => {
   it('looks up watchers scoped to the failed SectionRef (class_nbr + term)', async () => {
     mockWatchers([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
 
-    await handleDLQMessage(buildMessage(), mockEmailBinding);
+    await handleDLQMessage(db, buildMessage(), mockEmailBinding);
 
-    expect(mockGetClassWatchers).toHaveBeenCalledWith({
+    expect(mockGetClassWatchers).toHaveBeenCalledWith(db, {
       class_nbr: '42737',
       term: '2261',
     });
@@ -80,7 +84,7 @@ describe('handleDLQMessage', () => {
       { user_id: 'u2', email: 'b@test.com', watch_id: 'w2' },
     ]);
 
-    await handleDLQMessage(buildMessage(), mockEmailBinding);
+    await handleDLQMessage(db, buildMessage(), mockEmailBinding);
 
     expect(mockSend).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -94,7 +98,7 @@ describe('handleDLQMessage', () => {
   it('uses configured sender for alert emails', async () => {
     mockWatchers([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
 
-    await handleDLQMessage(buildMessage(), mockEmailBinding, {
+    await handleDLQMessage(db, buildMessage(), mockEmailBinding, {
       fromEmail: 'alerts@pickmyclass.app',
     });
 
@@ -108,7 +112,7 @@ describe('handleDLQMessage', () => {
   it('handles case where no watchers found', async () => {
     mockWatchers([]);
 
-    await handleDLQMessage(buildMessage(), mockEmailBinding);
+    await handleDLQMessage(db, buildMessage(), mockEmailBinding);
 
     expect(console.error).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('42737'));
     expect(console.info).toHaveBeenCalledWith('[DLQ]', expect.stringContaining('0 watchers'));
@@ -117,7 +121,7 @@ describe('handleDLQMessage', () => {
   it('handles watcher lookup errors gracefully without throwing', async () => {
     mockWatchersError('Connection refused');
 
-    await expect(handleDLQMessage(buildMessage(), mockEmailBinding)).resolves.not.toThrow();
+    await expect(handleDLQMessage(db, buildMessage(), mockEmailBinding)).resolves.not.toThrow();
 
     expect(console.error).toHaveBeenCalledWith(
       '[DLQ]',
@@ -129,7 +133,7 @@ describe('handleDLQMessage', () => {
     mockWatchers([{ user_id: 'u1', email: 'a@test.com', watch_id: 'w1' }]);
     mockSend.mockRejectedValue(new Error('API key invalid'));
 
-    await expect(handleDLQMessage(buildMessage(), mockEmailBinding)).resolves.not.toThrow();
+    await expect(handleDLQMessage(db, buildMessage(), mockEmailBinding)).resolves.not.toThrow();
 
     expect(console.error).toHaveBeenCalledWith(
       '[DLQ]',

@@ -1,8 +1,9 @@
 import { log } from '@/lib/log';
 import { fail, ok } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
+import { getDbFromEnv } from '@/lib/db';
 import { readOnboardingState, skipOnboarding } from '@/lib/onboarding';
-import { captureServerEvent } from '@/lib/posthog-server';
+import { captureServerEvent } from '@/lib/analytics/server';
 
 /**
  * GET /api/user/onboarding
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
   try {
     return await withAuth(request, async (user) => {
       try {
-        const payload = await readOnboardingState(user.userId);
+        const payload = await readOnboardingState(getDbFromEnv(), user.userId);
         return ok(payload);
       } catch (error) {
         log('Onboarding').error('Get onboarding state error:', error);
@@ -35,14 +36,14 @@ export async function POST(request: Request) {
   try {
     return await withAuth(request, async (user) => {
       try {
-        const payload = await skipOnboarding(user.userId);
+        const payload = await skipOnboarding(getDbFromEnv(), user.userId);
 
         if (!payload) {
           log('Onboarding').error('Error skipping onboarding: no result returned');
           return fail('Failed to skip onboarding', 500);
         }
 
-        await captureServerEvent({ distinctId: user.userId, event: 'onboarding_skipped' });
+        captureServerEvent(user.userId, 'onboarding_skipped', {});
 
         return ok(payload);
       } catch (error) {

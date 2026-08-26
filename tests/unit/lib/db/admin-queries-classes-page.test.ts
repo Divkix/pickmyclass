@@ -1,28 +1,82 @@
+import { type SQL } from 'drizzle-orm';
+import { PgDialect } from 'drizzle-orm/pg-core';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import type { Database } from '@/lib/db';
 
-// Mock the Hyperdrive-backed db client seam (replaces the former Supabase
-// service client). getClassesPage uses only callFunction('get_classes_page').
-const { mockCallFunction } = vi.hoisted(() => ({
-  mockCallFunction: vi.fn(),
-}));
+// getClassesPage takes a request-scoped Drizzle Database handle and issues a
+// single db.execute(sql`…get_classes_page(…)`) RPC. The mock resolves that
+// execute call and records the built query for assertions.
+const dialect = new PgDialect();
 
-vi.mock('@/lib/db/client', () => ({
-  callFunction: mockCallFunction,
-  callFunctionScalar: vi.fn(),
-  query: vi.fn(),
-  queryOne: vi.fn(),
-  queryScalar: vi.fn(),
-  execute: vi.fn(),
-  getClient: vi.fn(),
-  setConnectionStringGetter: vi.fn(),
+/** Normalize a built SQL template to comparable single-spaced text. */
+function builtSql(query: SQL): string {
+  return dialect.sqlToQuery(query).sql.replace(/\s+/g, ' ').trim();
+}
+
+/** Wire row emitted by the get_classes_page RPC; BIGINT counts arrive raw. */
+interface ClassPageWireRow {
+  id: string;
+  class_nbr: string;
+  term: string;
+  subject: string;
+  catalog_nbr: string;
+  title: string | null;
+  instructor_name: string | null;
+  seats_available: number;
+  seats_capacity: number;
+  non_reserved_seats: number | null;
+  location: string | null;
+  meeting_times: string | null;
+  last_checked_at: string;
+  last_changed_at: string;
+  watcher_count: number;
+  seat_emails: number;
+  instructor_emails: number;
+  total_count: number;
+  /** Absent on pre-aggregate RPC revisions; the reader guards with ?? 0. */
+  total_watchers?: number;
+  full_classes?: number;
+}
+
+/** The narrow Database surface getClassesPage drives: execute() RPCs. */
+interface ClassesPageSeamDb {
+  execute?(query: SQL): Promise<ClassPageWireRow[]>;
+}
+
+/**
+ * Narrows a recording double to the request-scoped Database handle.
+ */
+function asDatabaseHandle(seam: Database | ClassesPageSeamDb): Database {
+  // SAFETY: the double implements exactly the execute() seam above, and no
+  // other Database member is reachable on this code path.
+  return seam as Database;
+}
+
+/** Build a mock Database resolving db.execute with these rows. */
+function createDb(executeRows: ClassPageWireRow[]) {
+  const execute = vi.fn(async (_query: SQL): Promise<ClassPageWireRow[]> => executeRows);
+  return { db: asDatabaseHandle({ execute }), execute };
+}
+
+// Disable the TTL cache so each test exercises the real fetch path.
+vi.mock('@/lib/cache/ttl-cache', () => ({
+  TtlCache: class {
+    get(_key: string) {
+      return undefined;
+    }
+    set(_key: string, _data: never) {}
+    clear() {}
+    delete(_key: string) {
+      return false;
+    }
+  },
 }));
 
 // Import after mocks are registered
 import { getClassesPage } from '@/lib/db/admin-queries';
 
-function classPageRow(
-  overrides: Record<string, string | number | boolean | null | undefined> = {}
-) {
+/** Build a get_classes_page wire row, overriding any column for a case. */
+function classPageRow(overrides: Partial<ClassPageWireRow> = {}): ClassPageWireRow {
   return {
     id: 'state-1',
     class_nbr: '12345',
@@ -53,7 +107,7 @@ describe('getClassesPage', () => {
     vi.clearAllMocks();
   });
 
-  it('calls get_classes_page RPC and returns rows, total, and the global aggregates', async () => {
+  it('calls get_classes_page with bound, explicitly cast parameters and returns rows, total, and the global aggregates', async () => {
     const rows = [
       classPageRow({ id: 'state-1' }),
       classPageRow({
@@ -66,9 +120,9 @@ describe('getClassesPage', () => {
         instructor_emails: 0,
       }),
     ];
-    mockCallFunction.mockResolvedValue(rows);
+    const { db, execute } = createDb(rows);
 
-    const result = await getClassesPage({
+    const result = await getClassesPage(db, {
       page: 2,
       pageSize: 25,
       search: 'cse',
@@ -80,7 +134,12 @@ describe('getClassesPage', () => {
       dir: 'asc',
     });
 
-    expect(mockCallFunction).toHaveBeenCalledWith('get_classes_page', [
+    expect(execute).toHaveBeenCalledTimes(1);
+    const query = execute.mock.calls[0][0];
+    expect(builtSql(query)).toBe(
+      'SELECT * FROM public.get_classes_page( $1::int, $2::int, $3::text, $4::text, $5::text, $6::text, $7::text, $8::text, $9::text )'
+    );
+    expect(dialect.sqlToQuery(query).params).toEqual([
       2,
       25,
       'cse',
@@ -98,18 +157,23 @@ describe('getClassesPage', () => {
     // and surfaced page-independently on the result.
     expect(result.totalWatchers).toBe(7);
     expect(result.fullClasses).toBe(1);
+    // BIGINT aggregates arrive as strings and normalize to numbers; the
+    // consecutive-not-found column is absent from this RPC and defaults to 0.
     expect(result.rows[0]).toMatchObject({
       id: 'state-1',
       watcher_count: 3,
       seat_emails: 2,
       instructor_emails: 1,
+      consecutive_not_found_count: 0,
     });
+    expect(typeof result.rows[0].watcher_count).toBe('number');
+    expect(result.rows[0].last_checked_at).toBe('2026-08-01T00:00:00.000Z');
   });
 
   it('defaults aggregates to 0 when the RPC returns no rows', async () => {
-    mockCallFunction.mockResolvedValue([]);
+    const { db } = createDb([]);
 
-    const result = await getClassesPage();
+    const result = await getClassesPage(db);
 
     expect(result.rows).toEqual([]);
     expect(result.total).toBe(0);
@@ -119,15 +183,15 @@ describe('getClassesPage', () => {
 
   it('guards against a missing aggregate column (function-version skew) with 0, never NaN', async () => {
     // Old function definition shape: rows carry total_count but no
-    // total_watchers / full_classes yet. Cast through an index signature so the
-    // keys can be deleted (they are required on the generated row type).
-    // SAFETY: test widens row to generic dictionary to simulate missing columns for version-skew guard
-    const row = classPageRow() as Record<string, string | number | boolean | null | undefined>;
-    delete row.total_watchers;
-    delete row.full_classes;
-    mockCallFunction.mockResolvedValue([row]);
+    // total_watchers / full_classes yet — omit those keys to simulate it.
+    const {
+      total_watchers: _omittedWatchers,
+      full_classes: _omittedFull,
+      ...staleRow
+    } = classPageRow();
+    const { db } = createDb([staleRow]);
 
-    const result = await getClassesPage();
+    const result = await getClassesPage(db);
 
     expect(Number.isNaN(result.totalWatchers)).toBe(false);
     expect(Number.isNaN(result.fullClasses)).toBe(false);
@@ -135,10 +199,35 @@ describe('getClassesPage', () => {
     expect(result.fullClasses).toBe(0);
   });
 
-  it('throws when the RPC fails', async () => {
-    mockCallFunction.mockRejectedValue(new Error('Database connection failed'));
+  it('unwraps DrizzleQueryError so the original driver message surfaces', async () => {
+    // Drizzle rethrows failed statements as "Failed query: …" with the raw
+    // postgres-js error parked on .cause; callers must keep seeing the
+    // original driver text, not the query echo.
+    const drizzleError = Object.assign(
+      new Error('Failed query: SELECT * FROM public.get_classes_page($1::int, $2::int)'),
+      {
+        query: 'SELECT * FROM public.get_classes_page($1::int, $2::int)',
+        params: [1, 25],
+        cause: new Error('Database connection failed'),
+      }
+    );
+    const execute = vi.fn(async () => {
+      throw drizzleError;
+    });
+    const db = asDatabaseHandle({ execute });
 
-    await expect(getClassesPage()).rejects.toThrow(
+    await expect(getClassesPage(db)).rejects.toThrow(
+      'Failed to fetch classes page: Database connection failed'
+    );
+  });
+
+  it('throws when the RPC fails', async () => {
+    const execute = vi.fn(async () => {
+      throw new Error('Database connection failed');
+    });
+    const db = asDatabaseHandle({ execute });
+
+    await expect(getClassesPage(db)).rejects.toThrow(
       'Failed to fetch classes page: Database connection failed'
     );
   });

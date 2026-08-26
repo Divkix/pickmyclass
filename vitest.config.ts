@@ -9,7 +9,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.{test,spec}.{ts,tsx}'],
-    exclude: ['node_modules', '.next'],
+    exclude: ['node_modules', '.next', 'tests/integration/db/drizzle-live.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

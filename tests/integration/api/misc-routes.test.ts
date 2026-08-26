@@ -1,28 +1,14 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const { mockGetSessionIdentity, mockRevokeSession, mockCallFunction, mockQueryOne } = vi.hoisted(
-  () => ({
-    mockGetSessionIdentity: vi.fn(),
-    mockRevokeSession: vi.fn(),
-    mockCallFunction: vi.fn(),
-    mockQueryOne: vi.fn(),
-  })
-);
+const { mockGetSessionIdentity, mockRevokeSession } = vi.hoisted(() => ({
+  mockGetSessionIdentity: vi.fn(),
+  mockRevokeSession: vi.fn(),
+}));
 
 vi.mock('@/lib/auth/clerk-session', () => ({
   getSessionIdentity: mockGetSessionIdentity,
   revokeSession: mockRevokeSession,
-}));
-
-vi.mock('@/lib/db/client', () => ({
-  queryOne: mockQueryOne,
-  callFunction: mockCallFunction,
-  query: vi.fn(),
-  queryScalar: vi.fn(),
-  execute: vi.fn(),
-  callFunctionScalar: vi.fn(),
-  getClient: vi.fn(),
 }));
 
 import { POST as postSignout } from '@/app/api/auth/signout/route';

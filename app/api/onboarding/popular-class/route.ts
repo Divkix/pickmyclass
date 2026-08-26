@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { fail, ok } from '@/lib/api/response';
 import { type ClassDetails, fetchClassFromASU } from '@/lib/asu/api';
 import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
+import { getDbFromEnv } from '@/lib/db';
 import { getMostWatchedClass } from '@/lib/db/queries';
 import { log } from '@/lib/log';
 import { getSelectableTerms } from '@/lib/asu/terms';
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
       return ok({ popularClass: null });
     }
 
-    const popular = await getMostWatchedClass(currentTerm);
+    const popular = await getMostWatchedClass(getDbFromEnv(), currentTerm);
     if (!popular) {
       return ok({ popularClass: null });
     }

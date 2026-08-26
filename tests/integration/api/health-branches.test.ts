@@ -66,27 +66,21 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
     NotFoundError: MockNotFoundError,
   }));
 
-  // Data plane now goes through lib/db/client (queryOne replaces the old
-  // service .from('class_watches').select().limit() probe).
-  const queryOne = vi.fn(async () => {
+  // Data-plane seam: the health route probes class_watches through one
+  // request-scoped Drizzle handle obtained from getDbFromEnv.
+  const dbProbe = vi.fn(async () => {
     if (options.dbThrows) {
       throw new Error('service unavailable');
     }
     if (options.dbResult?.error) {
       throw new Error(options.dbResult.error.message);
     }
-    return { id: 'probe-row' };
+    return [{ id: 'probe-row' }];
   });
-  vi.doMock('@/lib/db/client', () => ({
-    queryOne,
-    query: vi.fn(),
-    queryScalar: vi.fn(),
-    execute: vi.fn(),
-    callFunction: vi.fn(),
-    callFunctionScalar: vi.fn(),
-    getClient: vi.fn(),
-    setConnectionStringGetter: vi.fn(),
+  const getDbFromEnv = vi.fn(() => ({
+    select: () => ({ from: () => ({ limit: dbProbe }) }),
   }));
+  vi.doMock('@/lib/db', () => ({ getDbFromEnv }));
 
   const mod = await import('@/app/api/monitoring/health/route');
   return {
@@ -94,7 +88,8 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
     createCronLockClient,
     doBinding,
     fetchClassFromASU,
-    queryOne,
+    getDbFromEnv,
+    dbProbe,
     lockStatus,
   };
 }
@@ -111,12 +106,11 @@ describe('GET /api/monitoring/health branch coverage', () => {
     vi.resetModules();
     vi.doUnmock('cloudflare:workers');
     vi.doUnmock('@/lib/asu/api');
-    vi.doUnmock('@/lib/db/client');
-    vi.doUnmock('@/lib/worker/cron-lock');
+    vi.doUnmock('@/lib/db');
   });
 
   it('returns a cheap liveness probe without auth', async () => {
-    const { GET, queryOne } = await loadHealthRoute();
+    const { GET, getDbFromEnv, dbProbe } = await loadHealthRoute();
 
     const response = await GET(request(''));
     // SAFETY: response.json() from mocked health route has known status shape in this branch
@@ -124,7 +118,8 @@ describe('GET /api/monitoring/health branch coverage', () => {
 
     expect(response.status).toBe(200);
     expect(data.status).toBe('ok');
-    expect(queryOne).not.toHaveBeenCalled();
+    expect(getDbFromEnv).not.toHaveBeenCalled();
+    expect(dbProbe).not.toHaveBeenCalled();
   });
 
   it('reports healthy detailed checks with a configured cron lock durable object', async () => {
@@ -177,12 +172,12 @@ describe('GET /api/monitoring/health branch coverage', () => {
   });
 
   it('caches detailed health checks for repeated authenticated requests', async () => {
-    const { GET, queryOne } = await loadHealthRoute();
+    const { GET, dbProbe } = await loadHealthRoute();
 
     await GET(request());
     await GET(request());
 
-    expect(queryOne).toHaveBeenCalledTimes(1);
+    expect(dbProbe).toHaveBeenCalledTimes(1);
   });
 
   it('reports degraded checks when database, ASU, and cron lock checks fail', async () => {

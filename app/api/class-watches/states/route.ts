@@ -1,8 +1,9 @@
+import { and, eq, inArray } from 'drizzle-orm';
 import { type NextRequest } from 'next/server';
 import { ok, fail } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
-import { query } from '@/lib/db/client';
-import type { ClassStateRow } from '@/lib/db/types';
+import { getDbFromEnv } from '@/lib/db';
+import { classStates, classWatches } from '@/lib/db/schema';
 
 /**
  * GET /api/class-watches/states?classNumbers=12345,67890
@@ -29,18 +30,40 @@ export async function GET(request: NextRequest) {
           return ok({ classStates: [] });
         }
 
-        const states = await query<ClassStateRow>(
-          `SELECT cs.id, cs.class_nbr, cs.term, cs.subject, cs.catalog_nbr, cs.title,
-                  cs.instructor_name, cs.seats_available, cs.seats_capacity,
-                  cs.non_reserved_seats, cs.location, cs.meeting_times,
-                  cs.last_checked_at, cs.last_changed_at, cs.consecutive_not_found_count
-           FROM class_states cs
-           WHERE cs.class_nbr = ANY($1::text[])
-             AND cs.class_nbr IN (
-               SELECT cw.class_nbr FROM class_watches cw WHERE cw.user_id = $2
-             )`,
-          [classNumbers, user.userId]
-        );
+        const db = getDbFromEnv();
+
+        const states = await db
+          .select({
+            id: classStates.id,
+            class_nbr: classStates.class_nbr,
+            term: classStates.term,
+            subject: classStates.subject,
+            catalog_nbr: classStates.catalog_nbr,
+            title: classStates.title,
+            instructor_name: classStates.instructor_name,
+            seats_available: classStates.seats_available,
+            seats_capacity: classStates.seats_capacity,
+            non_reserved_seats: classStates.non_reserved_seats,
+            location: classStates.location,
+            meeting_times: classStates.meeting_times,
+            last_checked_at: classStates.last_checked_at,
+            last_changed_at: classStates.last_changed_at,
+            consecutive_not_found_count: classStates.consecutive_not_found_count,
+          })
+          .from(classStates)
+          .where(
+            and(
+              inArray(classStates.class_nbr, classNumbers),
+              // Authz scope: only sections the user actually watches.
+              inArray(
+                classStates.class_nbr,
+                db
+                  .select({ class_nbr: classWatches.class_nbr })
+                  .from(classWatches)
+                  .where(eq(classWatches.user_id, user.userId))
+              )
+            )
+          );
 
         return ok({ classStates: states });
       } catch {

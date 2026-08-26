@@ -3,14 +3,11 @@
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import posthog from 'posthog-js';
 import { AddClassWatch } from '@/components/AddClassWatch';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import type { ClassWatchCreationInput } from '@/lib/class-watches/class-watch-creation';
-import type { ClassWatchRow } from '@/lib/types/class-watch';
 import { useRequireAuth } from '@/lib/hooks/useRequireAuth';
 
 export default function AddClassPage() {
@@ -18,13 +15,9 @@ export default function AddClassPage() {
   const router = useRouter();
   useRequireAuth();
 
-  const handleWatchCreated = (_watch: ClassWatchRow, watchData: ClassWatchCreationInput) => {
-    posthog.capture('class_watch_added', {
-      term: watchData.term,
-      class_nbr: watchData.class_nbr,
-    });
-
-    // Navigate back to dashboard on success
+  // The server-side `class_watch_created` event is authoritative; navigation
+  // is the only client concern after a successful watch creation.
+  const handleWatchCreated = () => {
     router.push('/dashboard');
   };
 

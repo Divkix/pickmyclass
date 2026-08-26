@@ -1,17 +1,26 @@
+import { type SQL } from 'drizzle-orm';
+import { PgDialect } from 'drizzle-orm/pg-core';
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 const {
+  dbHandle,
+  mockExecute,
   mockRequireUser,
   mockRepairUserMirror,
-  mockCallFunction,
   mockInvalidateAuthorizationState,
-} = vi.hoisted(() => ({
-  mockRequireUser: vi.fn(),
-  mockRepairUserMirror: vi.fn(),
-  mockCallFunction: vi.fn(),
-  mockInvalidateAuthorizationState: vi.fn(),
-}));
+} = vi.hoisted(() => {
+  const mockExecute = vi.fn();
+  return {
+    // Recording Database handle handed out by the mocked getDbFromEnv; every
+    // POST must create exactly one request-scoped handle through it.
+    dbHandle: { execute: mockExecute },
+    mockExecute,
+    mockRequireUser: vi.fn(),
+    mockRepairUserMirror: vi.fn(),
+    mockInvalidateAuthorizationState: vi.fn(),
+  };
+});
 
 // Clerk identity seam: POST -> requireUser -> UnauthorizedError on bad sessions.
 vi.mock('@/lib/auth/require-user', () => {
@@ -30,16 +39,25 @@ vi.mock('@/lib/db/users', () => ({
   repairUserMirror: mockRepairUserMirror,
 }));
 
-vi.mock('@/lib/db/client', () => ({
-  callFunction: mockCallFunction,
+// Request-scoped handle seam: the route calls getDbFromEnv() once per POST.
+vi.mock('@/lib/db', () => ({
+  getDbFromEnv: () => dbHandle,
 }));
 
 vi.mock('@/lib/auth/authorization-state', () => ({
   invalidateAuthorizationState: mockInvalidateAuthorizationState,
 }));
 
+// Import after mocks are registered
 import { POST } from '@/app/api/auth/consent/route';
 import { UnauthorizedError } from '@/lib/auth/require-user';
+
+const dialect = new PgDialect();
+
+/** Normalize a built SQL template to comparable single-spaced text. */
+function builtSql(query: SQL): string {
+  return dialect.sqlToQuery(query).sql.replace(/\s+/g, ' ').trim();
+}
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -60,7 +78,7 @@ describe('POST /api/auth/consent', () => {
       user: { userId: 'user-1', clerkUserId: 'clerk-1' },
     });
     mockRepairUserMirror.mockResolvedValue({ hasConsent: false });
-    mockCallFunction.mockResolvedValue([]);
+    mockExecute.mockResolvedValue([]);
   });
 
   it('rejects requests that do not explicitly confirm both statements', async () => {
@@ -71,7 +89,7 @@ describe('POST /api/auth/consent', () => {
       success: false,
       error: 'Invalid input',
     });
-    expect(mockCallFunction).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
@@ -86,7 +104,7 @@ describe('POST /api/auth/consent', () => {
       error: 'Unauthorized',
     });
     expect(mockRepairUserMirror).not.toHaveBeenCalled();
-    expect(mockCallFunction).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
@@ -100,8 +118,8 @@ describe('POST /api/auth/consent', () => {
       success: false,
       error: 'Account setup incomplete — please try again in a moment',
     });
-    expect(mockRepairUserMirror).toHaveBeenCalledWith('user-1', 'clerk-1');
-    expect(mockCallFunction).not.toHaveBeenCalled();
+    expect(mockRepairUserMirror).toHaveBeenCalledWith(dbHandle, 'user-1', 'clerk-1');
+    expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
@@ -115,12 +133,12 @@ describe('POST /api/auth/consent', () => {
       success: false,
       error: 'Could not save consent',
     });
-    expect(mockCallFunction).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
   it('does not invalidate access state when persistence fails', async () => {
-    mockCallFunction.mockRejectedValueOnce(new Error('database unavailable'));
+    mockExecute.mockRejectedValueOnce(new Error('database unavailable'));
 
     const response = await POST(request(CONSENT_BODY));
 
@@ -137,14 +155,18 @@ describe('POST /api/auth/consent', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ success: true });
-    expect(mockCallFunction).toHaveBeenCalledTimes(1);
-    expect(mockCallFunction).toHaveBeenCalledWith('accept_terms_and_verify_age', ['user-1']);
+    // Exactly one handle is created for repair + RPC, and the RPC runs with a
+    // bound, explicitly cast user id.
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    const query = mockExecute.mock.calls[0][0] as SQL;
+    expect(builtSql(query)).toBe('SELECT public.accept_terms_and_verify_age($1::text)');
+    expect(dialect.sqlToQuery(query).params).toEqual(['user-1']);
     // Invalidation happens exactly once, strictly after the consent RPC lands —
     // never before persistence and never speculatively on failure paths.
     expect(mockInvalidateAuthorizationState).toHaveBeenCalledTimes(1);
     expect(mockInvalidateAuthorizationState).toHaveBeenCalledWith('user-1');
     expect(mockInvalidateAuthorizationState.mock.invocationCallOrder[0]).toBeGreaterThan(
-      mockCallFunction.mock.invocationCallOrder[0]
+      mockExecute.mock.invocationCallOrder[0]
     );
   });
 });

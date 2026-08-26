@@ -2,7 +2,7 @@
 
 import { ArrowRight, CheckCircle2, ExternalLink, Lightbulb, Mail, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import posthog from 'posthog-js';
+import { trackAnalyticsEvent } from '@/lib/analytics/client';
 import {
   Dialog,
   DialogContent,
@@ -103,7 +103,7 @@ export function OnboardingModal({
       setPopularClass(null);
       setPrefillClassNbr('');
       completedRef.current = false;
-      posthog.capture('onboarding_started');
+      trackAnalyticsEvent('onboarding_started', {});
       // Load the most-watched class for the current selectable term. Any failure
       // (no selectable term, no watches, ASU 404/error) resolves to null and the
       // step falls back to the text-only guide — the fetch never blocks onboarding.
@@ -161,7 +161,7 @@ export function OnboardingModal({
 
   const handleWatchCreated = (watch: ClassWatchRow) => {
     setCreatedWatch(watch);
-    posthog.capture('onboarding_completed');
+    trackAnalyticsEvent('onboarding_completed', {});
     // Only advance if the user hasn't navigated away from step 2 (e.g. via
     // Back) while the request was in flight.
     setStep((current) => (current === 2 ? 3 : current));
@@ -180,7 +180,7 @@ export function OnboardingModal({
   const handleTrackPopular = () => {
     if (!popularClass) return;
     setPrefillClassNbr(popularClass.class_nbr);
-    posthog.capture('onboarding_popular_class_tracked', {
+    trackAnalyticsEvent('onboarding_popular_class_tracked', {
       class_nbr: popularClass.class_nbr,
       term: popularClass.term,
     });

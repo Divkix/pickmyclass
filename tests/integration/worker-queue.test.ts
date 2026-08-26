@@ -43,10 +43,12 @@ vi.mock('@/lib/queue/process-section', () => ({
   processSection: (...args: unknown[]) => mockProcessSection(...args),
 }));
 
-// Mock the DB client so worker.ts module-level setConnectionStringGetter call
-// doesn't import the real `pg` driver (which would attempt a real pool).
-vi.mock('@/lib/db/client', () => ({
-  setConnectionStringGetter: vi.fn(),
+// Mock the Drizzle accessor so worker.ts never constructs a real postgres pool.
+// Tests assert ONE handle per queue invocation is threaded to every helper.
+const DB_HANDLE = { __dbHandle: 'queue-invocation-db' } as const;
+const mockGetDb = vi.fn((_hyperdrive: CloudflareEnv['HYPERDRIVE']) => DB_HANDLE);
+vi.mock('@/lib/db', () => ({
+  getDb: (hyperdrive: CloudflareEnv['HYPERDRIVE']) => mockGetDb(hyperdrive),
 }));
 
 // ── Imports ───────────────────────────────────────────────────────────────────
@@ -203,11 +205,11 @@ const apiErrorOutcome = (classNbr: string) => ({
   retryable: true as const,
 });
 
-// SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
 const mockEnv = {
   CRON_SECRET: 'test-secret',
   ASU_API_BASE_URL: 'https://api.asu.edu',
   ASU_API_TOKEN: 'test-token',
+  HYPERDRIVE: { connectionString: 'postgresql://hyperdrive.test/pickmyclass' },
   EMAIL: {},
   NOTIFICATION_FROM_EMAIL: 'no-reply@test.com',
 } as Parameters<(typeof import('@/worker'))['default']['queue']>[1];
@@ -243,7 +245,10 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
 
     expect(msg.ack).toHaveBeenCalledOnce();
     expect(msg.retry).not.toHaveBeenCalled();
+    expect(mockGetDb).toHaveBeenCalledTimes(1);
+    expect(mockGetDb).toHaveBeenCalledWith(mockEnv.HYPERDRIVE);
     expect(mockProcessSection).toHaveBeenCalledWith(
+      DB_HANDLE,
       expect.objectContaining({ class_nbr: '12345', term: '2261' }),
       mockEnv
     );
@@ -341,6 +346,21 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     expect(msg3.ack).not.toHaveBeenCalled();
   });
 
+  it('creates one DB handle per invocation and threads it through every message', async () => {
+    mockProcessSection.mockResolvedValue(successOutcome('11111'));
+
+    const msg1 = makeMessage('11111');
+    const msg2 = makeMessage('22222');
+    await worker.queue(makeBatch([msg1, msg2]), mockEnv, {} as ExecutionContext);
+
+    expect(mockGetDb).toHaveBeenCalledTimes(1);
+    expect(mockGetDb).toHaveBeenCalledWith(mockEnv.HYPERDRIVE);
+    expect(mockProcessSection).toHaveBeenCalledTimes(2);
+    for (const call of mockProcessSection.mock.calls) {
+      expect(call[0]).toBe(DB_HANDLE);
+    }
+  });
+
   it('routes DLQ messages to DLQ handler without calling processSection', async () => {
     mockHandleDLQMessage.mockResolvedValue(undefined);
 
@@ -352,6 +372,11 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     expect(mockProcessSection).not.toHaveBeenCalled();
     // DLQ messages are always acked
     expect(msg.ack).toHaveBeenCalledOnce();
+    // Same single DB handle reaches the DLQ consumer
+    expect(mockGetDb).toHaveBeenCalledTimes(1);
+    expect(mockHandleDLQMessage).toHaveBeenCalledWith(DB_HANDLE, msg.body, mockEnv.EMAIL, {
+      fromEmail: mockEnv.NOTIFICATION_FROM_EMAIL,
+    });
   });
 });
 
@@ -370,7 +395,7 @@ describe('worker.ts scheduled handler', () => {
     CRON_SECRET: 'test-cron-secret',
   };
 
-  it('routes "0 4 * * *" cron to /api/cron/update-disposable-domains', async () => {
+  it('routes "0 4 * * *" cron to /api/cron/maintenance', async () => {
     const fetchSpy = vi
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));
@@ -385,7 +410,7 @@ describe('worker.ts scheduled handler', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     const calledRequest = fetchSpy.mock.calls[0]![0] as Request;
-    expect(calledRequest.url).toContain('/api/cron/update-disposable-domains');
+    expect(calledRequest.url).toContain('/api/cron/maintenance');
     expect(calledRequest.headers.get('Authorization')).toBe('Bearer test-cron-secret');
   });
 

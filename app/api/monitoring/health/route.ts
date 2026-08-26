@@ -8,7 +8,8 @@ import { env } from 'cloudflare:workers';
 import { NextResponse } from 'next/server';
 import { fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
 import { TtlCache } from '@/lib/cache/ttl-cache';
-import { queryOne } from '@/lib/db/client';
+import { getDbFromEnv } from '@/lib/db';
+import { classWatches } from '@/lib/db/schema';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 import { createCronLockClient } from '@/lib/worker/cron-lock';
 
@@ -91,7 +92,9 @@ export async function GET(request: Request) {
   const [dbResult, asuResult, cronResult] = await Promise.allSettled([
     (async () => {
       try {
-        await queryOne('SELECT id FROM class_watches LIMIT 1');
+        // One request-scoped Drizzle handle for this invocation.
+        const db = getDbFromEnv();
+        await db.select({ id: classWatches.id }).from(classWatches).limit(1);
         return { kind: 'db_ok' as const, latency_ms: Date.now() - startTime };
       } catch (error) {
         return {

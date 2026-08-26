@@ -13,21 +13,8 @@ import type { Env } from './lib/types/env';
 import type { ClassCheckMessage } from './lib/types/queue';
 import { createCronLockLifecycle } from './lib/worker/cron-lock';
 import { edgeHtmlCache } from './lib/worker/edge-html-cache';
-import { setConnectionStringGetter } from './lib/db/client';
+import { getDb } from './lib/db';
 import { log } from './lib/log';
-
-/**
- * Register the Hyperdrive connection string getter with the given env.
- * Called at the start of each handler (fetch/scheduled/queue) so the env
- * parameter — which is guaranteed to be populated — is used instead of
- * the module-level `cloudflare:workers` env import.
- * Idempotent: re-registering just replaces the getter.
- */
-function registerHyperdrive(env: Env): void {
-  setConnectionStringGetter(() => {
-    return env.HYPERDRIVE?.connectionString ?? '';
-  });
-}
 
 const workerLog = log('Worker');
 const scheduledLog = log('Scheduled');
@@ -156,8 +143,6 @@ export default {
    * return the stored response and skip proxy.ts + the RSC render entirely.
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    registerHyperdrive(env);
-
     // Sanitize GET/HEAD requests with bodies - bots sometimes send these
     // Web API spec forbids Request objects with GET/HEAD + body
     const isGetOrHead = request.method === 'GET' || request.method === 'HEAD';
@@ -201,14 +186,11 @@ export default {
     env: Env,
     _ctx: ExecutionContext
   ): Promise<void> {
-    registerHyperdrive(env);
-
     const startTime = Date.now();
     scheduledLog.info('Cron triggered at:', new Date(event.scheduledTime).toISOString());
     scheduledLog.info('Cron pattern:', event.cron);
 
-    const cronRoute =
-      event.cron === '0 4 * * *' ? '/api/cron/update-disposable-domains' : '/api/cron';
+    const cronRoute = event.cron === '0 4 * * *' ? '/api/cron/maintenance' : '/api/cron';
 
     try {
       // Make internal HTTP request to the API route
@@ -257,7 +239,10 @@ export default {
     env: Env,
     _ctx: ExecutionContext
   ): Promise<void> {
-    registerHyperdrive(env);
+    // One request-scoped Drizzle handle for this entire queue invocation; it is
+    // threaded through every helper and query seam below. Never cached across
+    // invocations — Workers reclaim invocation-scoped sockets.
+    const db = getDb(env.HYPERDRIVE);
 
     const startTime = Date.now();
     const isDLQ = batch.queue === 'pickmyclass-dlq';
@@ -269,7 +254,7 @@ export default {
     if (isDLQ) {
       for (const message of batch.messages) {
         try {
-          await handleDLQMessage(message.body, env.EMAIL, {
+          await handleDLQMessage(db, message.body, env.EMAIL, {
             fromEmail: env.NOTIFICATION_FROM_EMAIL,
           });
         } catch (error) {
@@ -288,7 +273,7 @@ export default {
       batch.messages.map(async (message) => {
         const msgStartTime = Date.now();
         try {
-          const outcome = await processSection(message.body, env);
+          const outcome = await processSection(db, message.body, env);
           const duration = Date.now() - msgStartTime;
 
           if (outcome.disposition === 'ack') {

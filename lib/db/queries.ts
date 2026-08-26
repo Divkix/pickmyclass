@@ -1,23 +1,36 @@
-import {
-  callFunction,
-  callFunctionScalar,
-  execute,
-  getClient,
-  query,
-  queryOne,
-  queryScalar,
-} from '@/lib/db/client';
-import type {
-  ClassStateInsert,
-  ClassWatcherRpcRow,
-  EligibleWatcherRpcRow,
-  SectionRefRpcRow,
-} from '@/lib/db/types';
+/**
+ * Runtime query layer for the class-watch domain: watcher reads, section
+ * state, and notification dedup.
+ *
+ * Every export takes the request-scoped Drizzle {@link Database} first — entry
+ * points create one handle (see `lib/db/index`) and pass it down; this module
+ * never touches a connection itself. Table CRUD uses Drizzle builders; the
+ * SECURITY DEFINER PostgreSQL functions that encode product invariants
+ * (watcher eligibility policy, atomic dedup claims, atomic counters) are
+ * called through `db.execute` with bound parameters and explicit casts.
+ *
+ * @module lib/db/queries
+ */
+import { and, count, eq, gte, inArray, ne, sql } from 'drizzle-orm';
+
+import type { Database } from '@/lib/db';
+import { driverErrorMessage, isUniqueViolation } from '@/lib/db/pg-errors';
+import { classStates, classWatches, notificationsSent } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 import type { SectionRef } from '@/lib/section-ref';
 import type { ClassDetails } from '@/lib/types/class';
 import type { NotificationType } from '@/lib/types/notification';
 import type { StaggerGroup } from '@/lib/types/stagger';
+
+/**
+ * Watcher fields shared by every recipient read: the watcher RPCs project
+ * exactly these columns for notification sends.
+ */
+export interface EligibleWatcherRpcRow {
+  user_id: string;
+  email: string;
+  watch_id: string;
+}
 
 /**
  * User watching a class section
@@ -27,33 +40,101 @@ export interface ClassWatcher extends EligibleWatcherRpcRow {
 }
 
 /**
+ * Timestamp shapes the driver hands this boundary: raw PG timestamptz text
+ * under the configured transparent parsers, a parsed Date if parsers change,
+ * or SQL NULL.
+ */
+type DriverTimestamp = string | Date | null | undefined;
+
+/**
+ * Normalize a driver timestamp value to the ISO-8601 UTC string shape the
+ * previous pg-based API exposed through JSON serialization. Drizzle configures
+ * postgres-js with transparent parsers, so timestamptz arrives as raw PG text
+ * ("2026-08-25 12:34:56.789+00") rather than a Date — convert once here at
+ * the typed query boundary instead of in route callers.
+ */
+function normalizeIsoTimestamp(value: DriverTimestamp): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  const date =
+    value instanceof Date
+      ? value
+      : new Date(
+          String(value)
+            .replace(' ', 'T')
+            .replace(/([+-]\d{2})$/, '$1:00')
+        );
+  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
+/**
+ * uuid[]/text[] wire shapes at this boundary: a driver-parsed JS array, or
+ * the raw '{…}' literal text when no array parser is registered
+ * (fetch_types: false). UUIDs and section numbers never contain
+ * commas or quotes, so brace-strip-and-split is lossless here.
+ */
+type DriverStringArray = readonly string[] | string;
+
+function normalizeStringArray(value: DriverStringArray | null | undefined): string[] {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
+    const inner = value.slice(1, -1);
+    return inner.length === 0 ? [] : inner.split(',');
+  }
+  return [];
+}
+
+/**
+ * Atomically increment `consecutive_not_found_count` via the SECURITY DEFINER
+ * RPC. Raises SQLSTATE P0001 "Section not found" when no class_states row
+ * exists yet.
+ *
+ * @returns The new consecutive_not_found_count value
+ */
+async function incrementConsecutiveNotFoundViaRpc(db: Database, ref: SectionRef): Promise<number> {
+  const rows = await db.execute<{ new_count: unknown }>(
+    sql`SELECT public.increment_consecutive_not_found(${ref.class_nbr}::text, ${ref.term}::text) AS new_count`
+  );
+  const newCount = rows[0]?.new_count;
+  if (typeof newCount !== 'number' || !Number.isFinite(newCount)) {
+    throw new Error(`Invalid increment result: ${String(newCount)}`);
+  }
+  return newCount;
+}
+
+/**
  * Get all users watching a specific Class Section.
  *
  * Scoped by the full SectionRef ({ class_nbr, term }) — a section number repeats
  * across terms, so filtering by class_nbr alone over-lists watchers from other
  * terms.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @returns Array of watchers with email addresses and creation timestamps
  */
-export async function getClassWatchers(ref: SectionRef): Promise<ClassWatcher[]> {
+export async function getClassWatchers(db: Database, ref: SectionRef): Promise<ClassWatcher[]> {
   try {
-    const rows = await callFunction<ClassWatcherRpcRow>('get_class_watchers', [
-      ref.class_nbr,
-      ref.term,
-    ]);
-    return rows.map((r) => ({
-      user_id: r.user_id,
-      email: r.email,
-      watch_id: r.watch_id,
-      created_at: r.created_at,
+    const rows = await db.execute<{
+      user_id: string;
+      email: string;
+      watch_id: string;
+      created_at: DriverTimestamp;
+    }>(
+      sql`SELECT user_id, email, watch_id, created_at
+          FROM public.get_class_watchers(${ref.class_nbr}::text, ${ref.term}::text)`
+    );
+    return rows.map((row) => ({
+      user_id: row.user_id,
+      email: row.email,
+      watch_id: row.watch_id,
+      created_at: normalizeIsoTimestamp(row.created_at),
     }));
   } catch (error) {
     log('DB').error(
       `Error fetching watchers for section ${ref.class_nbr} (term ${ref.term}):`,
       error
     );
-    throw new Error(`Failed to fetch watchers: ${error instanceof Error ? error.message : error}`);
+    throw new Error(`Failed to fetch watchers: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -66,23 +147,39 @@ export async function getClassWatchers(ref: SectionRef): Promise<ClassWatcher[]>
  * repeats across terms, so filtering by class_nbr alone over-lists watchers
  * from other terms.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @returns Array of eligible watchers with email addresses and watch ids
  */
-export async function getNotificationWatchers(ref: SectionRef): Promise<EligibleWatcherRpcRow[]> {
+export async function getNotificationWatchers(
+  db: Database,
+  ref: SectionRef
+): Promise<EligibleWatcherRpcRow[]> {
   try {
-    return await callFunction<EligibleWatcherRpcRow>('get_watchers_for_sections', [
-      [ref.class_nbr],
-      ref.term,
-    ]);
+    // Array-bound RPC: neither drizzle's db.execute nor the native postgres-js
+    // template can serialize a JS array under this driver config
+    // (fetch_types: false registers no array serializers — live-proven
+    // 22P02 'malformed array literal'). Compose the single-element array
+    // server-side from separately-bound scalars instead.
+    const rows = await db.execute<{
+      user_id: string;
+      email: string;
+      watch_id: string;
+    }>(
+      sql`SELECT user_id, email, watch_id
+          FROM public.get_watchers_for_sections(ARRAY[${ref.class_nbr}::text], ${ref.term}::text)`
+    );
+    return rows.map((row) => ({
+      user_id: row.user_id,
+      email: row.email,
+      watch_id: row.watch_id,
+    }));
   } catch (error) {
     log('DB').error(
       `Error fetching notification watchers for section ${ref.class_nbr} (term ${ref.term}):`,
       error
     );
-    throw new Error(
-      `Failed to fetch notification watchers: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to fetch notification watchers: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -90,17 +187,23 @@ export async function getNotificationWatchers(ref: SectionRef): Promise<Eligible
  * Get sections to check based on stagger type (even/odd)
  * Uses server-side filtering for optimal performance
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param staggerType - 'even', 'odd', or 'all'
  * @returns Array of unique sections to check
  */
-export async function getSectionsToCheck(staggerType: StaggerGroup = 'all'): Promise<SectionRef[]> {
+export async function getSectionsToCheck(
+  db: Database,
+  staggerType: StaggerGroup = 'all'
+): Promise<SectionRef[]> {
   try {
-    const rows = await callFunction<SectionRefRpcRow>('get_sections_to_check', [staggerType]);
+    const rows = await db.execute<{ class_nbr: string; term: string }>(
+      sql`SELECT class_nbr, term FROM public.get_sections_to_check(${staggerType}::text)`
+    );
     log('DB').info(`Found ${rows.length} sections to check (stagger: ${staggerType})`);
-    return rows.map((r) => ({ class_nbr: r.class_nbr, term: r.term }));
+    return rows.map((row) => ({ class_nbr: row.class_nbr, term: row.term }));
   } catch (error) {
     log('DB').error(`Error fetching sections to check:`, error);
-    throw new Error(`Failed to fetch sections: ${error instanceof Error ? error.message : error}`);
+    throw new Error(`Failed to fetch sections: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -110,19 +213,20 @@ export async function getSectionsToCheck(staggerType: StaggerGroup = 'all'): Pro
  * filters as `get_sections_to_check` / `get_watchers_for_sections`). Returns
  * `null` when no active watches exist for the term.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param term - selectable term code to look up
  */
-export async function getMostWatchedClass(term: string): Promise<SectionRef | null> {
+export async function getMostWatchedClass(db: Database, term: string): Promise<SectionRef | null> {
   try {
-    const rows = await callFunction<SectionRefRpcRow>('get_most_watched_class', [term]);
+    const rows = await db.execute<{ class_nbr: string; term: string }>(
+      sql`SELECT class_nbr, term FROM public.get_most_watched_class(${term}::text)`
+    );
     const row = rows[0];
     if (!row) return null;
     return { class_nbr: row.class_nbr, term: row.term };
   } catch (error) {
     log('DB').error(`Error fetching most watched class for term ${term}:`, error);
-    throw new Error(
-      `Failed to fetch most watched class: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to fetch most watched class: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -131,40 +235,45 @@ export async function getMostWatchedClass(term: string): Promise<SectionRef | nu
  * Called when seats fill back to zero, allowing users to be re-notified
  * when seats open again.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @param notificationType - Type of notification to reset (default: 'seat_available')
  */
 export async function resetNotificationsForSection(
+  db: Database,
   ref: SectionRef,
   notificationType: NotificationType = 'seat_available'
 ): Promise<void> {
   try {
-    const watchIds = await query<{ id: string }>(
-      'SELECT id FROM class_watches WHERE class_nbr = $1 AND term = $2',
-      [ref.class_nbr, ref.term]
-    );
+    const watches = await db
+      .select({ id: classWatches.id })
+      .from(classWatches)
+      .where(and(eq(classWatches.class_nbr, ref.class_nbr), eq(classWatches.term, ref.term)));
 
-    if (watchIds.length === 0) {
+    if (watches.length === 0) {
       log('DB').info(`No watches found for section ${ref.class_nbr}, nothing to reset`);
       return;
     }
 
-    const ids = watchIds.map((w) => w.id);
-    const deleted = await execute(
-      `DELETE FROM notifications_sent
-       WHERE class_watch_id = ANY($1::uuid[])
-         AND notification_type = $2`,
-      [ids, notificationType]
-    );
+    const deleted = await db
+      .delete(notificationsSent)
+      .where(
+        and(
+          inArray(
+            notificationsSent.class_watch_id,
+            watches.map((watch) => watch.id)
+          ),
+          eq(notificationsSent.notification_type, notificationType)
+        )
+      )
+      .returning({ id: notificationsSent.id });
 
     log('DB').info(
-      `Reset ${notificationType} notifications for ${watchIds.length} watchers of section ${ref.class_nbr} (${deleted} records deleted)`
+      `Reset ${notificationType} notifications for ${watches.length} watchers of section ${ref.class_nbr} (${deleted.length} records deleted)`
     );
   } catch (error) {
     log('DB').error('Error resetting notifications:', error);
-    throw new Error(
-      `Failed to reset notifications: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to reset notifications: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -172,28 +281,32 @@ export async function resetNotificationsForSection(
  * Delete notification records for specific watch IDs and type.
  * Used to rollback notification records when email sending fails.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param watchIds - Array of class watch UUIDs
  * @param notificationType - Type of notification to delete
  * @returns Number of records deleted
  */
 export async function deleteNotificationRecords(
+  db: Database,
   watchIds: string[],
   notificationType: NotificationType
 ): Promise<number> {
   if (watchIds.length === 0) return 0;
   try {
-    const count = await callFunctionScalar<number>('delete_notification_records', [
-      watchIds,
-      notificationType,
-    ]);
-    const deleted = Number(count ?? 0);
+    // Array-bound RPC: JS-array binds are unserializable under this driver
+    // config (live-proven 22P02 through both drizzle and the native
+    // postgres-js template). Compose the array server-side from
+    // separately-bound scalars; watchIds is guarded non-empty above.
+    const idParams = watchIds.map((id) => sql`${id}::uuid`);
+    const rows = await db.execute<{ deleted: unknown }>(
+      sql`SELECT public.delete_notification_records(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text) AS deleted`
+    );
+    const deleted = Number(rows[0]?.deleted ?? 0);
     log('DB').info(`Deleted ${deleted} notification records for ${watchIds.length} watches`);
     return deleted;
   } catch (error) {
     log('DB').error('Error deleting notification records:', error);
-    throw new Error(
-      `Failed to delete notification records: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to delete notification records: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -202,23 +315,22 @@ export async function deleteNotificationRecords(
  * The notifications_sent rows cascade via the class_watch_id FK (ON DELETE CASCADE).
  * Used by the daily sweep to clear watches a student left on a finished semester.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param termCodes - Term codes whose watches should be removed (e.g. from getPastTermCodes)
  * @returns Number of class_watches rows deleted
  */
-export async function deletePastTermWatches(termCodes: string[]): Promise<number> {
+export async function deletePastTermWatches(db: Database, termCodes: string[]): Promise<number> {
   if (termCodes.length === 0) return 0;
   try {
-    const deleted = await execute(
-      'DELETE FROM class_watches WHERE term = ANY($1::text[]) RETURNING id',
-      [termCodes]
-    );
-    log('DB').info(`Deleted ${deleted} past-term watches for ${termCodes.length} terms`);
-    return deleted;
+    const deleted = await db
+      .delete(classWatches)
+      .where(inArray(classWatches.term, termCodes))
+      .returning({ id: classWatches.id });
+    log('DB').info(`Deleted ${deleted.length} past-term watches for ${termCodes.length} terms`);
+    return deleted.length;
   } catch (error) {
     log('DB').error('Error deleting past-term watches:', error);
-    throw new Error(
-      `Failed to delete past-term watches: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to delete past-term watches: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -231,32 +343,37 @@ export async function deletePastTermWatches(termCodes: string[]): Promise<number
  * where a notification can be lost. Fail-open rollback handling in
  * notification-sender mitigates the window without adding a cross-table RPC.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param watchIds - Array of class watch UUIDs to check
  * @param notificationType - Type of notification
  * @param expiresHours - Hours until notification expires (default: 24)
  * @returns Set of watch IDs that were recorded (not previously sent)
  */
 export async function tryRecordNotificationsBatch(
+  db: Database,
   watchIds: string[],
   notificationType: NotificationType,
   expiresHours: number = 24
 ): Promise<Set<string>> {
   if (watchIds.length === 0) return new Set();
   try {
-    const rows = await callFunction<{ try_record_notifications_batch: string[] }>(
-      'try_record_notifications_batch',
-      [watchIds, notificationType, expiresHours]
+    // Array-bound both ways: uuid[] in, claimed uuid[] out. JS-array binds
+    // are unserializable under this driver config (live-proven 22P02), so the
+    // input array composes server-side from separately-bound scalars
+    // (watchIds guarded non-empty above) while the returned uuid[] column
+    // normalizes through normalizeStringArray below.
+    const idParams = watchIds.map((id) => sql`${id}::uuid`);
+    const rows = await db.execute<{ recorded: DriverStringArray | null }>(
+      sql`SELECT public.try_record_notifications_batch(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text, ${expiresHours}::integer) AS recorded`
     );
-    // The function returns text[] — pg unwraps it as a column named after the function.
-    const resultCol = rows[0]?.try_record_notifications_batch;
-    const recordedIds = new Set<string>(Array.isArray(resultCol) ? resultCol : []);
+    // The scalar UUID[] may arrive as a JS array or raw '{…}' wire text
+    // depending on registered array parsers; normalize either shape.
+    const recordedIds = new Set(normalizeStringArray(rows[0]?.recorded));
     log('DB').info(`Batch ${notificationType}: ${recordedIds.size}/${watchIds.length} recorded`);
     return recordedIds;
   } catch (error) {
     log('DB').error('Error in batch notification check:', error);
-    throw new Error(
-      `Failed to batch record notifications: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to batch record notifications: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -264,90 +381,93 @@ export async function tryRecordNotificationsBatch(
  * Upsert class state from fetched ASU API data.
  * Used by both class-watches POST and fetch-class-details POST.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @param details - Class details from the ASU API
  */
-export async function upsertClassState(ref: SectionRef, details: ClassDetails): Promise<void> {
-  const { class_nbr, term } = ref;
+export async function upsertClassState(
+  db: Database,
+  ref: SectionRef,
+  details: ClassDetails
+): Promise<void> {
   const now = new Date().toISOString();
 
   try {
-    await execute(
-      `INSERT INTO class_states (
-        class_nbr, term, subject, catalog_nbr, title, instructor_name,
-        seats_available, seats_capacity, non_reserved_seats, location,
-        meeting_times, last_checked_at, consecutive_not_found_count
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0)
-      ON CONFLICT (class_nbr, term) DO UPDATE SET
-        subject = EXCLUDED.subject,
-        catalog_nbr = EXCLUDED.catalog_nbr,
-        title = EXCLUDED.title,
-        instructor_name = EXCLUDED.instructor_name,
-        seats_available = EXCLUDED.seats_available,
-        seats_capacity = EXCLUDED.seats_capacity,
-        non_reserved_seats = EXCLUDED.non_reserved_seats,
-        location = EXCLUDED.location,
-        meeting_times = EXCLUDED.meeting_times,
-        last_checked_at = EXCLUDED.last_checked_at,
-        consecutive_not_found_count = 0`,
-      [
-        class_nbr,
-        term,
-        details.subject,
-        details.catalog_nbr,
-        details.title,
-        details.instructor_name || null,
-        details.seats_available || 0,
-        details.seats_capacity || 0,
-        details.non_reserved_seats ?? null,
-        details.location || null,
-        details.meeting_times || null,
-        now,
-      ]
-    );
+    // last_changed_at is intentionally untouched on both paths: the column
+    // default fills it on first insert and change detection owns it afterwards.
+    await db
+      .insert(classStates)
+      .values({
+        class_nbr: ref.class_nbr,
+        term: ref.term,
+        subject: details.subject,
+        catalog_nbr: details.catalog_nbr,
+        title: details.title,
+        instructor_name: details.instructor_name || null,
+        seats_available: details.seats_available || 0,
+        seats_capacity: details.seats_capacity || 0,
+        non_reserved_seats: details.non_reserved_seats ?? null,
+        location: details.location || null,
+        meeting_times: details.meeting_times || null,
+        last_checked_at: now,
+        consecutive_not_found_count: 0,
+      })
+      .onConflictDoUpdate({
+        target: [classStates.class_nbr, classStates.term],
+        set: {
+          subject: details.subject,
+          catalog_nbr: details.catalog_nbr,
+          title: details.title,
+          instructor_name: details.instructor_name || null,
+          seats_available: details.seats_available || 0,
+          seats_capacity: details.seats_capacity || 0,
+          non_reserved_seats: details.non_reserved_seats ?? null,
+          location: details.location || null,
+          meeting_times: details.meeting_times || null,
+          last_checked_at: now,
+          consecutive_not_found_count: 0,
+        },
+      });
   } catch (error) {
-    throw new Error(
-      `Failed to upsert class state: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to upsert class state: ${driverErrorMessage(error)}`);
   }
 }
 
 /**
  * Increments `class_states.consecutive_not_found_count` for a SectionRef.
- * SectionRef-scoped (class_nbr + term) — both columns are used in the WHERE clause.
- * If the row does not exist (first observation with no class_states), creates it with
- * count=1 via insert with minimal placeholder fields.
+ * SectionRef-scoped (class_nbr + term). Atomic via RPC
+ * `increment_consecutive_not_found` — prevents lost increments under
+ * concurrent workers (read-modify-write race).
  *
- * Atomic via RPC `increment_consecutive_not_found` — prevents lost increments under
- * concurrent workers for same SectionRef (read-modify-write race).
+ * If the row does not exist (first observation with no class_states), creates
+ * it with count=1 via a plain insert with minimal placeholder fields. A 23505
+ * on that insert means a concurrent worker created the real row mid-flight —
+ * the atomic RPC is retried against the winner's row so no increment is lost.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @returns The new consecutive_not_found_count value
  */
-export async function incrementConsecutiveNotFound(ref: SectionRef): Promise<number> {
+export async function incrementConsecutiveNotFound(db: Database, ref: SectionRef): Promise<number> {
   try {
-    const count = await callFunctionScalar<number>('increment_consecutive_not_found', [
-      ref.class_nbr,
-      ref.term,
-    ]);
-    if (typeof count !== 'number' || !Number.isFinite(count)) {
-      throw new Error(`Invalid increment result: ${String(count)}`);
-    }
+    const newCount = await incrementConsecutiveNotFoundViaRpc(db, ref);
     log('DB').info(
-      `Incremented consecutive_not_found_count to ${count} for ${ref.class_nbr} (term ${ref.term}) via atomic RPC`
+      `Incremented consecutive_not_found_count to ${newCount} for ${ref.class_nbr} (term ${ref.term}) via atomic RPC`
     );
-    return count;
+    return newCount;
   } catch (error) {
-    // Handle "Section not found" — no existing row, need to insert with count=1 (first observation)
-    // The RPC raises an exception with message containing 'Section not found' and code P0001
-    const msg = error instanceof Error ? error.message : '';
-    const isNotFound = typeof msg === 'string' && msg.includes('Section not found');
+    // Handle "Section not found" — no existing row, insert with count=1 (first observation).
+    // The RPC raises an exception whose message contains 'Section not found'.
+    const message = driverErrorMessage(error);
+    if (!message.includes('Section not found')) {
+      log('DB').error('Error incrementing consecutive_not_found_count:', error);
+      throw new Error(`Failed to increment consecutive_not_found_count: ${message}`);
+    }
 
-    if (isNotFound) {
-      // No existing row — insert with count=1 (no ON CONFLICT so concurrent real row triggers 23505
-      // and does not clobber subject/catalog/seats)
-      const now = new Date().toISOString();
-      const insertData: ClassStateInsert = {
+    // No existing row — plain insert (no ON CONFLICT) so a concurrent real row
+    // triggers 23505 instead of clobbering subject/catalog/seats data.
+    try {
+      await db.insert(classStates).values({
         class_nbr: ref.class_nbr,
         term: ref.term,
         subject: '',
@@ -359,121 +479,78 @@ export async function incrementConsecutiveNotFound(ref: SectionRef): Promise<num
         non_reserved_seats: null,
         location: null,
         meeting_times: null,
+        last_checked_at: new Date().toISOString(),
         consecutive_not_found_count: 1,
-        last_checked_at: now,
-      };
-
-      try {
-        await execute(
-          `INSERT INTO class_states (
-            class_nbr, term, subject, catalog_nbr, title, instructor_name,
-            seats_available, seats_capacity, non_reserved_seats, location,
-            meeting_times, last_checked_at, consecutive_not_found_count
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-          [
-            insertData.class_nbr,
-            insertData.term,
-            insertData.subject,
-            insertData.catalog_nbr,
-            insertData.title,
-            insertData.instructor_name,
-            insertData.seats_available,
-            insertData.seats_capacity,
-            insertData.non_reserved_seats,
-            insertData.location,
-            insertData.meeting_times,
-            insertData.last_checked_at,
-            insertData.consecutive_not_found_count,
-          ]
-        );
-        log('DB').info(
-          `Initialized consecutive_not_found_count=1 for ${ref.class_nbr} (term ${ref.term})`
-        );
-        return 1;
-      } catch (insertError) {
-        // Check for unique constraint violation (23505) — race: row was created concurrently
-        const insertMsg = insertError instanceof Error ? insertError.message : '';
-        // SAFETY: pg error has a code property for identifying constraint violations
-        const pgError = insertError as { code?: string };
-        if (pgError.code === '23505' || insertMsg.includes('23505')) {
-          // Race: row was created concurrently — retry atomic increment via RPC
-          try {
-            const racedCount = await callFunctionScalar<number>('increment_consecutive_not_found', [
-              ref.class_nbr,
-              ref.term,
-            ]);
-            if (typeof racedCount !== 'number' || !Number.isFinite(racedCount)) {
-              throw new Error(`Invalid increment result: ${String(racedCount)}`);
-            }
-            log('DB').info(
-              `Incremented consecutive_not_found_count to ${racedCount} for ${ref.class_nbr} (term ${ref.term}) after race via atomic RPC (recovered from insert 23505: ${insertMsg})`
-            );
-            return racedCount;
-          } catch (racedError) {
-            log('DB').error(
-              'Error incrementing consecutive_not_found_count after race:',
-              racedError
-            );
-            throw new Error(
-              `Failed to increment consecutive_not_found_count: ${racedError instanceof Error ? racedError.message : racedError}`
-            );
-          }
-        }
+      });
+      log('DB').info(
+        `Initialized consecutive_not_found_count=1 for ${ref.class_nbr} (term ${ref.term})`
+      );
+      return 1;
+    } catch (insertError) {
+      if (!isUniqueViolation(insertError)) {
         log('DB').error('Error inserting consecutive_not_found_count:', insertError);
         throw new Error(
-          `Failed to increment consecutive_not_found_count: ${insertError instanceof Error ? insertError.message : insertError}`
+          `Failed to increment consecutive_not_found_count: ${driverErrorMessage(insertError)}`
+        );
+      }
+
+      // Race: row was created concurrently — retry the atomic increment.
+      try {
+        const racedCount = await incrementConsecutiveNotFoundViaRpc(db, ref);
+        log('DB').info(
+          `Incremented consecutive_not_found_count to ${racedCount} for ${ref.class_nbr} (term ${ref.term}) after race via atomic RPC (recovered from insert 23505: ${driverErrorMessage(insertError)})`
+        );
+        return racedCount;
+      } catch (racedError) {
+        log('DB').error('Error incrementing consecutive_not_found_count after race:', racedError);
+        throw new Error(
+          `Failed to increment consecutive_not_found_count: ${driverErrorMessage(racedError)}`
         );
       }
     }
-
-    log('DB').error('Error incrementing consecutive_not_found_count:', error);
-    throw new Error(
-      `Failed to increment consecutive_not_found_count: ${error instanceof Error ? error.message : error}`
-    );
   }
 }
 
 /**
- * Hard-deletes all watches and state for a SectionRef.
+ * Hard-deletes all watches and state for a SectionRef inside one transaction.
  * Deletes `class_watches` rows first (cascades `notifications_sent` via FK),
  * then deletes the `class_states` row. SectionRef-scoped — both `class_nbr`
  * and `term` are used in the WHERE clause.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @returns Object with number of watches deleted and whether the state row was deleted
  */
 export async function deleteSectionAndWatches(
+  db: Database,
   ref: SectionRef
 ): Promise<{ watchesDeleted: number; stateDeleted: boolean }> {
-  const client = await getClient();
   try {
-    await client.query('BEGIN');
+    const result = await db.transaction(async (tx) => {
+      const deletedWatches = await tx
+        .delete(classWatches)
+        .where(and(eq(classWatches.class_nbr, ref.class_nbr), eq(classWatches.term, ref.term)))
+        .returning({ id: classWatches.id });
 
-    const watchesResult = await client.query(
-      'DELETE FROM class_watches WHERE class_nbr = $1 AND term = $2 RETURNING id',
-      [ref.class_nbr, ref.term]
-    );
-    const watchesDeleted = watchesResult.rowCount ?? 0;
+      const deletedState = await tx
+        .delete(classStates)
+        .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))
+        .returning({ id: classStates.id });
 
-    const stateResult = await client.query(
-      'DELETE FROM class_states WHERE class_nbr = $1 AND term = $2 RETURNING id',
-      [ref.class_nbr, ref.term]
-    );
-    const stateDeleted = (stateResult.rowCount ?? 0) > 0;
-
-    await client.query('COMMIT');
+      return {
+        watchesDeleted: deletedWatches.length,
+        stateDeleted: deletedState.length > 0,
+      };
+    });
 
     log('DB').info(
-      `Deleted ${watchesDeleted} watches and ${stateDeleted ? 1 : 0} state row for ${ref.class_nbr} (term ${ref.term})`
+      `Deleted ${result.watchesDeleted} watches and ${result.stateDeleted ? 1 : 0} state row for ${ref.class_nbr} (term ${ref.term})`
     );
 
-    return { watchesDeleted, stateDeleted };
+    return result;
   } catch (error) {
-    await client.query('ROLLBACK');
     log('DB').error('Error deleting section and watches:', error);
-    throw new Error(`Failed to delete section: ${error instanceof Error ? error.message : error}`);
-  } finally {
-    client.release();
+    throw new Error(`Failed to delete section: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -493,45 +570,57 @@ export type SectionRemovalClassInfo = {
  * `consecutive_not_found_count >= 1`. Returns raw counts only — ratio math
  * and suppression policy live with the caller.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @returns { total, flagged } as numbers; null scalars project to 0
  */
-export async function readAutoCleanupBreakerCounts(): Promise<{
+export async function readAutoCleanupBreakerCounts(db: Database): Promise<{
   total: number;
   flagged: number;
 }> {
   try {
-    const [total, flagged] = await Promise.all([
-      queryScalar<number>('SELECT COUNT(*)::int AS count FROM class_states'),
-      queryScalar<number>(
-        'SELECT COUNT(*)::int AS count FROM class_states WHERE consecutive_not_found_count >= 1'
-      ),
+    const [totalRows, flaggedRows] = await Promise.all([
+      db.select({ value: count() }).from(classStates),
+      db
+        .select({ value: count() })
+        .from(classStates)
+        .where(gte(classStates.consecutive_not_found_count, 1)),
     ]);
-    return { total: Number(total ?? 0), flagged: Number(flagged ?? 0) };
+    return {
+      total: Number(totalRows[0]?.value ?? 0),
+      flagged: Number(flaggedRows[0]?.value ?? 0),
+    };
   } catch (error) {
     log('DB').error('Error reading auto-cleanup breaker counts:', error);
-    throw new Error(
-      `Failed to read auto-cleanup breaker counts: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to read auto-cleanup breaker counts: ${driverErrorMessage(error)}`);
   }
 }
 
 /**
  * Caps `class_states.consecutive_not_found_count` for a SectionRef while the
  * auto-cleanup breaker is tripped, so the threshold is not re-hit on every
- * subsequent cycle. The `consecutive_not_found_count != $1` guard skips
+ * subsequent cycle. The `consecutive_not_found_count != maxCount` guard skips
  * no-op writes when the count already sits at the cap.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @param maxCount - Value to pin the counter to (threshold - 1)
  */
-export async function capConsecutiveNotFound(ref: SectionRef, maxCount: number): Promise<void> {
+export async function capConsecutiveNotFound(
+  db: Database,
+  ref: SectionRef,
+  maxCount: number
+): Promise<void> {
   try {
-    await execute(
-      `UPDATE class_states SET consecutive_not_found_count = $1
-       WHERE class_nbr = $2 AND term = $3
-         AND consecutive_not_found_count != $1`,
-      [maxCount, ref.class_nbr, ref.term]
-    );
+    await db
+      .update(classStates)
+      .set({ consecutive_not_found_count: maxCount })
+      .where(
+        and(
+          eq(classStates.class_nbr, ref.class_nbr),
+          eq(classStates.term, ref.term),
+          ne(classStates.consecutive_not_found_count, maxCount)
+        )
+      );
     log('DB').info(
       `Capped consecutive_not_found_count at ${maxCount} for ${ref.class_nbr} (term ${ref.term})`
     );
@@ -540,9 +629,7 @@ export async function capConsecutiveNotFound(ref: SectionRef, maxCount: number):
       `Error capping consecutive_not_found_count for ${ref.class_nbr} (term ${ref.term}):`,
       error
     );
-    throw new Error(
-      `Failed to cap consecutive_not_found_count: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to cap consecutive_not_found_count: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -552,24 +639,30 @@ export async function capConsecutiveNotFound(ref: SectionRef, maxCount: number):
  * row was removed concurrently); throws translated DB errors — callers that
  * treat class info as optional degrade to null themselves.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
  */
 export async function readSectionRemovalClassInfo(
+  db: Database,
   ref: SectionRef
 ): Promise<SectionRemovalClassInfo | null> {
   try {
-    return await queryOne<SectionRemovalClassInfo>(
-      'SELECT subject, catalog_nbr, title FROM class_states WHERE class_nbr = $1 AND term = $2',
-      [ref.class_nbr, ref.term]
-    );
+    const rows = await db
+      .select({
+        subject: classStates.subject,
+        catalog_nbr: classStates.catalog_nbr,
+        title: classStates.title,
+      })
+      .from(classStates)
+      .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))
+      .limit(1);
+    return rows[0] ?? null;
   } catch (error) {
     log('DB').error(
       `Error fetching removal class info for ${ref.class_nbr} (term ${ref.term}):`,
       error
     );
-    throw new Error(
-      `Failed to fetch removal class info: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to fetch removal class info: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -593,23 +686,32 @@ export type SectionCheckState = {
  * a first observation, not an error. Throws translated DB errors so callers
  * reach their unknown-error retry disposition.
  *
+ * @param db - Request-scoped Drizzle database handle
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
  */
-export async function readSectionCheckState(ref: SectionRef): Promise<SectionCheckState | null> {
+export async function readSectionCheckState(
+  db: Database,
+  ref: SectionRef
+): Promise<SectionCheckState | null> {
   try {
-    return await queryOne<SectionCheckState>(
-      `SELECT class_nbr, term, seats_available, non_reserved_seats, instructor_name,
-              consecutive_not_found_count
-       FROM class_states WHERE class_nbr = $1 AND term = $2`,
-      [ref.class_nbr, ref.term]
-    );
+    const rows = await db
+      .select({
+        class_nbr: classStates.class_nbr,
+        term: classStates.term,
+        seats_available: classStates.seats_available,
+        non_reserved_seats: classStates.non_reserved_seats,
+        instructor_name: classStates.instructor_name,
+        consecutive_not_found_count: classStates.consecutive_not_found_count,
+      })
+      .from(classStates)
+      .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))
+      .limit(1);
+    return rows[0] ?? null;
   } catch (error) {
     log('DB').error(
       `Error fetching section check state for ${ref.class_nbr} (term ${ref.term}):`,
       error
     );
-    throw new Error(
-      `Failed to fetch section check state: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to fetch section check state: ${driverErrorMessage(error)}`);
   }
 }

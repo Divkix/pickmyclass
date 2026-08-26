@@ -14,6 +14,7 @@
 import { verifyWebhook } from '@clerk/backend/webhooks';
 import { env } from 'cloudflare:workers';
 import { fail, ok } from '@/lib/api/response';
+import { getDbFromEnv } from '@/lib/db';
 import { softDeleteUserById, syncUserMirrorFromClerkUser } from '@/lib/db/users';
 import { log } from '@/lib/log';
 
@@ -37,8 +38,10 @@ export async function POST(request: Request) {
   }
 
   try {
+    // One handle per delivery; signature failures above never open a connection.
+    const db = getDbFromEnv();
     if (event.type === 'user.created' || event.type === 'user.updated') {
-      const synced = await syncUserMirrorFromClerkUser(event.data);
+      const synced = await syncUserMirrorFromClerkUser(db, event.data);
       if (!synced) {
         log('ClerkWebhook').warn(
           `Event ${event.type} for ${event.data.id} has no email — skipping`
@@ -50,7 +53,7 @@ export async function POST(request: Request) {
     if (event.type === 'user.deleted') {
       const id = event.data.id;
       if (id) {
-        await softDeleteUserById(id);
+        await softDeleteUserById(db, id);
       }
       return ok(null);
     }

@@ -2,30 +2,25 @@
  * Admin-Specific Database Queries
  *
  * Reusable admin queries for dashboard metrics and user management.
- * All functions use the Hyperdrive-backed pg query seam.
+ * Every exported operation receives the request-scoped Drizzle `Database`
+ * handle first; none of them touch a module-global connection. Dashboard
+ * stat cards are memoized per isolate through a shared TtlCache (10 min).
+ *
+ * Product invariants stay in the SECURITY DEFINER Postgres functions and are
+ * invoked through typed `db.execute(sql…)` with bound parameters and explicit
+ * PostgreSQL casts.
  *
  * @module lib/db/admin-queries
  */
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 
-import { callFunction, callFunctionScalar, query, queryScalar } from '@/lib/db/client';
-import type {
-  ClassesPageRpcRow,
-  ClassStateRow,
-  ClassWatchRow,
-  RecentActivityRpcRow,
-  UsersPageRpcRow,
-} from '@/lib/db/types';
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import { ADMIN_CACHE_TTL_MS } from '@/lib/config';
+import type { Database } from '@/lib/db';
+import { driverErrorMessage, isUndefinedFunction } from '@/lib/db/pg-errors';
+import { classStates, classWatches, notificationsSent, userProfiles } from '@/lib/db/schema';
 import { log } from '@/lib/log';
-import { sectionRefKey } from '@/lib/section-ref';
 import type { NotificationType } from '@/lib/types/notification';
-
-// eslint-disable-next-line anti-slop/no-unknown-parameters, ts-no-tiny-functions -- SAFETY: dedup 3+ consecutive_not_found_count fallbacks (getClassesPage + getUserWatches + future); preserves ??0 invariant — row is untyped pg payload narrowed via cast
-function normalizeConsecutiveCount(row: unknown): number {
-  // SAFETY: pg query may omit column in stale cache; narrow to optional count shape — fallback to 0 preserves invariant
-  return (row as { consecutive_not_found_count?: number | null }).consecutive_not_found_count ?? 0;
-}
 
 // Reuse a single cache instance across all admin queries
 const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS, 100);
@@ -37,92 +32,111 @@ type NotificationStatus = 'active' | 'unsubscribed' | 'bounced' | 'spam' | 'disa
 type SortDirection = 'asc' | 'desc';
 type WatchCountFilter = 'all' | 'none' | '1-5' | '6-10' | '10+';
 
+/**
+ * Normalize a PostgreSQL timestamptz wire value to the ISO-8601 string the
+ * previous pg/JSON boundary exposed (`2026-05-19T10:00:00.000Z`).
+ * postgres-js hands raw timestamp text straight through to Drizzle, so the
+ * typed-query boundary normalizes once here — never in route callers.
+ */
+function toIsoTimestamp(value: string): string {
+  return new Date(value).toISOString();
+}
+
+/** Row feeding {@link normalizeConsecutiveCount}: the get_classes_page RPC row
+ * omits the column under function-version skew; builder rows always carry it. */
+type ConsecutiveCountRow = { consecutive_not_found_count?: number };
+
+function normalizeConsecutiveCount(row: ConsecutiveCountRow): number {
+  const count = row.consecutive_not_found_count;
+  return typeof count === 'number' ? count : 0;
+}
+
 // ─── Simple count queries ───────────────────────────────────────────────────
+
+/** Scalar row of the BIGINT-returning count RPCs (`::text` keeps int8 a string). */
+type CountRpcRow = { count: string };
 
 /**
  * Get total number of emails sent
  */
-export async function getTotalEmailsSent(): Promise<number> {
+export async function getTotalEmailsSent(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('total-emails-sent') as number | undefined;
   if (cached !== undefined) return cached;
 
   try {
-    const count = await queryScalar<number>(
-      'SELECT COUNT(*)::int AS count FROM notifications_sent'
-    );
-    const result = Number(count ?? 0);
+    const [row] = await db.select({ value: count() }).from(notificationsSent);
+    const result = Number(row?.value ?? 0);
     adminCache.set('total-emails-sent', result);
     return result;
   } catch (error) {
     log('Admin').error('Error fetching total emails sent:', error);
-    throw new Error(
-      `Failed to fetch email count: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to fetch email count: ${driverErrorMessage(error)}`);
   }
 }
 
 /**
  * Get total number of registered users
  */
-export async function getTotalUsers(): Promise<number> {
+export async function getTotalUsers(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('total-users') as number | undefined;
   if (cached !== undefined) return cached;
 
   try {
-    const count = await callFunctionScalar<number>('count_all_users');
-    const result = Number(count ?? 0);
+    const [row] = await db.execute<CountRpcRow>(
+      sql`SELECT public.count_all_users()::text AS count`
+    );
+    const result = Number(row?.count ?? 0);
     adminCache.set('total-users', result);
     return result;
   } catch (error) {
     log('Admin').error('Error counting users:', error);
-    throw new Error(`Failed to count users: ${error instanceof Error ? error.message : error}`);
+    throw new Error(`Failed to count users: ${driverErrorMessage(error)}`);
   }
 }
 
 /**
  * Get total number of admin users
  */
-export async function getAdminCount(): Promise<number> {
+export async function getAdminCount(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('admin-count') as number | undefined;
   if (cached !== undefined) return cached;
 
   try {
-    const count = await queryScalar<number>(
-      'SELECT COUNT(*)::int AS count FROM user_profiles WHERE is_admin = true'
-    );
-    const result = Number(count ?? 0);
+    const [row] = await db
+      .select({ value: count() })
+      .from(userProfiles)
+      .where(eq(userProfiles.is_admin, true));
+    const result = Number(row?.value ?? 0);
     adminCache.set('admin-count', result);
     return result;
   } catch (error) {
     log('Admin').error('Error fetching admin count:', error);
-    throw new Error(
-      `Failed to fetch admin count: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to fetch admin count: ${driverErrorMessage(error)}`);
   }
 }
 
 /**
  * Get total number of unique classes being watched
  */
-export async function getTotalClassesWatched(): Promise<number> {
+export async function getTotalClassesWatched(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('total-classes-watched') as number | undefined;
   if (cached !== undefined) return cached;
 
   try {
-    const count = await callFunctionScalar<number>('count_distinct_classes_watched');
-    const result = Number(count ?? 0);
+    const [row] = await db.execute<CountRpcRow>(
+      sql`SELECT public.count_distinct_classes_watched()::text AS count`
+    );
+    const result = Number(row?.count ?? 0);
     log('Admin').info(`Counted ${result} unique classes being watched`);
     adminCache.set('total-classes-watched', result);
     return result;
   } catch (error) {
     log('Admin').error('Error counting distinct classes watched:', error);
-    throw new Error(
-      `Failed to fetch class count: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to fetch class count: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -182,10 +196,15 @@ export interface ClassesPage {
 
 // ─── Result types ───────────────────────────────────────────────────────────
 
+/** Row type inferred from the class_states table. */
+type ClassState = typeof classStates.$inferSelect;
+/** Row type inferred from the class_watches table. */
+type ClassWatch = typeof classWatches.$inferSelect;
+
 /**
  * Class state with aggregated watcher count
  */
-export interface ClassWithWatchers extends ClassStateRow {
+export interface ClassWithWatchers extends ClassState {
   watcher_count: number;
   seat_emails: number;
   instructor_emails: number;
@@ -210,16 +229,38 @@ export interface UserWithWatchCount {
 /**
  * Class watch with joined class state information
  */
-interface WatchWithClass extends ClassWatchRow {
-  class_state: ClassStateRow | null;
+interface WatchWithClass extends ClassWatch {
+  class_state: ClassState | null;
 }
 
 // ─── Paginated queries ──────────────────────────────────────────────────────
 
 /**
+ * One row of the {@link get_users_page} RPC. BIGINT aggregates arrive as
+ * strings (`watch_count`, counts, `total_count`); timestamps arrive as
+ * timestamptz text and are normalized at the mapping boundary below.
+ */
+type UsersPageRpcRow = {
+  id: string;
+  email: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+  email_confirmed_at: string | null;
+  watch_count: string;
+  is_admin: boolean;
+  seat_emails: string;
+  instructor_emails: string;
+  notification_status: string;
+  total_count: string;
+};
+
+/**
  * Get a single page of users for the admin dashboard
  */
-export async function getUsersPage(params: GetUsersPageParams = {}): Promise<UsersPage> {
+export async function getUsersPage(
+  db: Database,
+  params: GetUsersPageParams = {}
+): Promise<UsersPage> {
   const {
     page = 1,
     pageSize = 25,
@@ -232,23 +273,27 @@ export async function getUsersPage(params: GetUsersPageParams = {}): Promise<Use
   } = params;
 
   try {
-    const rows = await callFunction<UsersPageRpcRow>('get_users_page', [
-      page,
-      pageSize,
-      search,
-      role,
-      verified,
-      watchCount,
-      sort,
-      dir,
-    ]);
+    const rows = await db.execute<UsersPageRpcRow>(sql`
+      SELECT *
+      FROM public.get_users_page(
+        ${page}::int,
+        ${pageSize}::int,
+        ${search}::text,
+        ${role}::text,
+        ${verified}::text,
+        ${watchCount}::text,
+        ${sort}::text,
+        ${dir}::text
+      )
+    `);
 
     const mapped: UserWithWatchCount[] = rows.map((row) => ({
       id: row.id,
       email: row.email,
-      created_at: row.created_at,
-      last_sign_in_at: row.last_sign_in_at ?? null,
-      email_confirmed_at: row.email_confirmed_at ?? null,
+      created_at: toIsoTimestamp(row.created_at),
+      last_sign_in_at: row.last_sign_in_at === null ? null : toIsoTimestamp(row.last_sign_in_at),
+      email_confirmed_at:
+        row.email_confirmed_at === null ? null : toIsoTimestamp(row.email_confirmed_at),
       watch_count: Number(row.watch_count),
       is_admin: row.is_admin,
       seat_emails: Number(row.seat_emails),
@@ -263,16 +308,46 @@ export async function getUsersPage(params: GetUsersPageParams = {}): Promise<Use
     return { rows: mapped, total };
   } catch (error) {
     log('Admin').error(`Error fetching users page:`, error);
-    throw new Error(
-      `Failed to fetch users page: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to fetch users page: ${driverErrorMessage(error)}`);
   }
 }
 
 /**
+ * One row of the {@link get_classes_page} RPC. BIGINT aggregates arrive as
+ * strings; timestamps arrive as timestamptz text and are normalized at the
+ * mapping boundary below.
+ */
+type ClassesPageRpcRow = {
+  id: string;
+  class_nbr: string;
+  term: string;
+  subject: string;
+  catalog_nbr: string;
+  title: string | null;
+  instructor_name: string | null;
+  seats_available: number;
+  seats_capacity: number;
+  non_reserved_seats: number | null;
+  location: string | null;
+  meeting_times: string | null;
+  last_checked_at: string;
+  last_changed_at: string;
+  consecutive_not_found_count?: number;
+  watcher_count: string;
+  seat_emails: string;
+  instructor_emails: string;
+  total_count: string;
+  total_watchers: string;
+  full_classes: string;
+};
+
+/**
  * Get a single page of classes for the admin dashboard
  */
-export async function getClassesPage(params: GetClassesPageParams = {}): Promise<ClassesPage> {
+export async function getClassesPage(
+  db: Database,
+  params: GetClassesPageParams = {}
+): Promise<ClassesPage> {
   const {
     page = 1,
     pageSize = 25,
@@ -286,17 +361,20 @@ export async function getClassesPage(params: GetClassesPageParams = {}): Promise
   } = params;
 
   try {
-    const rows = await callFunction<ClassesPageRpcRow>('get_classes_page', [
-      page,
-      pageSize,
-      search,
-      subject,
-      seatStatus,
-      instructor,
-      watcherCount,
-      sort,
-      dir,
-    ]);
+    const rows = await db.execute<ClassesPageRpcRow>(sql`
+      SELECT *
+      FROM public.get_classes_page(
+        ${page}::int,
+        ${pageSize}::int,
+        ${search}::text,
+        ${subject}::text,
+        ${seatStatus}::text,
+        ${instructor}::text,
+        ${watcherCount}::text,
+        ${sort}::text,
+        ${dir}::text
+      )
+    `);
 
     const mapped: ClassWithWatchers[] = rows.map((row) => ({
       id: row.id,
@@ -311,8 +389,8 @@ export async function getClassesPage(params: GetClassesPageParams = {}): Promise
       non_reserved_seats: row.non_reserved_seats ?? null,
       location: row.location ?? null,
       meeting_times: row.meeting_times ?? null,
-      last_checked_at: row.last_checked_at,
-      last_changed_at: row.last_changed_at,
+      last_checked_at: toIsoTimestamp(row.last_checked_at),
+      last_changed_at: toIsoTimestamp(row.last_changed_at),
       consecutive_not_found_count: normalizeConsecutiveCount(row),
       watcher_count: Number(row.watcher_count),
       seat_emails: Number(row.seat_emails),
@@ -327,9 +405,7 @@ export async function getClassesPage(params: GetClassesPageParams = {}): Promise
     return { rows: mapped, total, totalWatchers, fullClasses };
   } catch (error) {
     log('Admin').error(`Error fetching classes page:`, error);
-    throw new Error(
-      `Failed to fetch classes page: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to fetch classes page: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -338,19 +414,21 @@ export async function getClassesPage(params: GetClassesPageParams = {}): Promise
 /**
  * Get distinct subject codes from class_states
  */
-export async function getDistinctSubjects(): Promise<string[]> {
+export async function getDistinctSubjects(db: Database): Promise<string[]> {
   // SAFETY: adminCache stores unknown; narrowing to string[] via cache key contract
   const cached = adminCache.get('distinct-subjects') as string[] | undefined;
   if (cached !== undefined) return cached;
 
   try {
-    const rows = await callFunction<{ subject: string }>('get_distinct_subjects');
+    const rows = await db.execute<{ subject: string }>(
+      sql`SELECT * FROM public.get_distinct_subjects()`
+    );
     const result = rows.map((r) => r.subject);
     adminCache.set('distinct-subjects', result);
     return result;
   } catch (error) {
     log('Admin').error('Error fetching distinct subjects:', error);
-    throw new Error(`Failed to fetch subjects: ${error instanceof Error ? error.message : error}`);
+    throw new Error(`Failed to fetch subjects: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -368,21 +446,24 @@ export interface RecentActivityItem {
   notificationType: NotificationType | null;
 }
 
-/**
- * Check whether an error indicates the recent activity RPC is missing.
- * With raw SQL, PostgreSQL error code 42883 = undefined function.
- */
-// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: boundary helper narrows unknown catch error via code property check
-function isMissingRecentActivityRpcError(error: unknown): boolean {
-  // SAFETY: caught error is a pg DatabaseError; narrowing to access the code property
-  const pgError = error as { code?: string };
-  return pgError.code === '42883';
-}
+/** One row of the {@link get_recent_activity} RPC (activity_at is timestamptz text). */
+type RecentActivityRpcRow = {
+  activity_type: string;
+  activity_at: string;
+  user_email: string;
+  class_nbr: string | null;
+  subject: string | null;
+  catalog_nbr: string | null;
+  notification_type: string | null;
+};
 
 /**
  * Get the most recent platform activity.
  */
-export async function getRecentActivity(limit: number = 50): Promise<RecentActivityItem[]> {
+export async function getRecentActivity(
+  db: Database,
+  limit: number = 50
+): Promise<RecentActivityItem[]> {
   if (!Number.isFinite(limit) || limit <= 0) {
     throw new TypeError('Invalid limit: must be a finite positive integer');
   }
@@ -394,12 +475,14 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
   if (cached !== undefined) return cached;
 
   try {
-    const rows = await callFunction<RecentActivityRpcRow>('get_recent_activity', [sanitizedLimit]);
+    const rows = await db.execute<RecentActivityRpcRow>(
+      sql`SELECT * FROM public.get_recent_activity(${sanitizedLimit}::int)`
+    );
 
     const items: RecentActivityItem[] = rows.map((row) => ({
       // SAFETY: get_recent_activity RPC constrains activity_type to ActivityType union via DB check constraint
       type: row.activity_type as ActivityType,
-      activityAt: row.activity_at,
+      activityAt: toIsoTimestamp(row.activity_at),
       userEmail: row.user_email,
       classNbr: row.class_nbr,
       subject: row.subject,
@@ -411,7 +494,7 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
     adminCache.set(cacheKey, items);
     return items;
   } catch (error) {
-    if (isMissingRecentActivityRpcError(error)) {
+    if (isUndefinedFunction(error)) {
       const fallback: RecentActivityItem[] = [];
       log('Admin').warn('Recent activity RPC is unavailable; rendering an empty activity feed');
       adminCache.set(cacheKey, fallback);
@@ -419,9 +502,7 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
     }
 
     log('Admin').error('Error fetching recent activity:', error);
-    throw new Error(
-      `Failed to fetch recent activity: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to fetch recent activity: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -430,54 +511,40 @@ export async function getRecentActivity(limit: number = 50): Promise<RecentActiv
 /**
  * Get all class watches for a specific user
  */
-export async function getUserWatches(userId: string): Promise<WatchWithClass[]> {
+export async function getUserWatches(db: Database, userId: string): Promise<WatchWithClass[]> {
   try {
-    const watches = await query<ClassWatchRow>(
-      `SELECT id, user_id, class_nbr, term, subject, catalog_nbr, created_at
-       FROM class_watches WHERE user_id = $1 ORDER BY created_at DESC`,
-      [userId]
-    );
+    const rows = await db
+      .select({ watch: classWatches, class_state: classStates })
+      .from(classWatches)
+      .leftJoin(
+        classStates,
+        and(
+          eq(classWatches.class_nbr, classStates.class_nbr),
+          eq(classWatches.term, classStates.term)
+        )
+      )
+      .where(eq(classWatches.user_id, userId))
+      .orderBy(desc(classWatches.created_at));
 
-    if (watches.length === 0) {
+    if (rows.length === 0) {
       log('Admin').info(`No watches found for user ${userId}`);
       return [];
     }
 
-    const classNumbers = watches.map((w) => w.class_nbr);
-    const terms = Array.from(new Set(watches.map((w) => w.term)));
-
-    const classStates = await query<ClassStateRow>(
-      `SELECT id, class_nbr, term, subject, catalog_nbr, title, instructor_name,
-              seats_available, seats_capacity, non_reserved_seats, location,
-              meeting_times, last_checked_at, last_changed_at, consecutive_not_found_count
-       FROM class_states WHERE class_nbr = ANY($1::text[]) AND term = ANY($2::text[])`,
-      [classNumbers, terms]
-    );
-
-    // Key by sectionRefKey ({ class_nbr, term }) so a class_nbr watched in two
-    // terms joins each watch to its own term's state instead of one overwriting
-    // the other.
-    const classStateMap = new Map<string, ClassStateRow>();
-    for (const row of classStates) {
-      // SAFETY: row is a ClassStateRow from the query; spreading + normalizing preserves the shape
-      const classState = {
-        ...row,
-        consecutive_not_found_count: normalizeConsecutiveCount(row),
-      } as ClassStateRow;
-      classStateMap.set(sectionRefKey(classState), classState);
-    }
-
-    const watchesWithClass: WatchWithClass[] = watches.map((watch) => ({
+    const watchesWithClass: WatchWithClass[] = rows.map(({ watch, class_state }) => ({
       ...watch,
-      class_state: classStateMap.get(sectionRefKey(watch)) || null,
+      created_at: toIsoTimestamp(watch.created_at),
+      class_state: class_state && {
+        ...class_state,
+        last_checked_at: toIsoTimestamp(class_state.last_checked_at),
+        last_changed_at: toIsoTimestamp(class_state.last_changed_at),
+      },
     }));
 
     log('Admin').info(`Fetched ${watchesWithClass.length} watches for user ${userId}`);
     return watchesWithClass;
   } catch (error) {
     log('Admin').error(`Error fetching watches for user ${userId}:`, error);
-    throw new Error(
-      `Failed to fetch user watches: ${error instanceof Error ? error.message : error}`
-    );
+    throw new Error(`Failed to fetch user watches: ${driverErrorMessage(error)}`);
   }
 }

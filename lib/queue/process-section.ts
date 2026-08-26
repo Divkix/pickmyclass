@@ -10,6 +10,7 @@ import {
   resetNotificationsForSection,
   upsertClassState,
 } from '@/lib/db/queries';
+import type { Database } from '@/lib/db';
 import { log } from '@/lib/log';
 import { type SectionRef } from '@/lib/section-ref';
 import { type ChangeResult, detectChanges } from '@/lib/queue/change-detector';
@@ -86,11 +87,13 @@ function failedResult(classNbr: string, duration: number, error: string): Proces
  * Never throws ApiError — those are mapped to an outcome with disposition.
  * Only truly unexpected errors may bubble and should be treated as retry by callers.
  *
+ * @param db - Request-scoped Drizzle handle created once by the entry point.
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
  * @param env - Environment bindings for ASU API and email
  * @returns SectionCheckOutcome with disposition, result, and transport hints
  */
 export async function processSection(
+  db: Database,
   ref: SectionRef,
   env: Pick<Env, 'ASU_API_BASE_URL' | 'ASU_API_TOKEN' | 'EMAIL' | 'NOTIFICATION_FROM_EMAIL'>
 ): Promise<SectionCheckOutcome> {
@@ -104,7 +107,7 @@ export async function processSection(
   try {
     // Step 1: Fetch old state from DB by its SectionRef identity (class_nbr + term).
     // Include consecutive_not_found_count for logging; DB helper does authoritative increment atomically.
-    const oldState = await readSectionCheckState(ref);
+    const oldState = await readSectionCheckState(db, ref);
 
     // null = no rows found — not an error for first observation
     // Step 2: Fetch from ASU API
@@ -124,7 +127,7 @@ export async function processSection(
 
     // Step 4: Reset notifications if seats filled
     if (changes.seatsFilled) {
-      await resetNotificationsForSection(ref, 'seat_available');
+      await resetNotificationsForSection(db, ref, 'seat_available');
     }
 
     // Step 5: Upsert new class state BEFORE sending notifications.
@@ -146,7 +149,7 @@ export async function processSection(
     // always computed against the persisted oldState so a retry correctly
     // suppresses re-notification.
     try {
-      await upsertClassState(ref, newData);
+      await upsertClassState(db, ref, newData);
     } catch (upsertError) {
       // Return before sending any emails so a retry re-attempts cleanly with no emails sent yet.
       log('ProcessSection').error(`Database error for ${classNbr}:`, upsertError);
@@ -166,6 +169,7 @@ export async function processSection(
     // Step 6: Send notifications if changes detected (baseline is now persisted)
     if (changes.seatBecameAvailable || changes.instructorAssigned) {
       const sentResults = await sendSectionNotifications({
+        db,
         ref,
         classInfo: { ...newData, ...ref },
         changes,
@@ -197,6 +201,7 @@ export async function processSection(
       // this function keeps only classification and disposition. All NotFound
       // paths ack — never retry.
       const retirement = await retireClassSection({
+        db,
         ref,
         emailBinding: env.EMAIL,
         fromEmail: env.NOTIFICATION_FROM_EMAIL,

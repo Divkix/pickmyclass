@@ -4,7 +4,7 @@
 
 ## Prerequisites (owner checklist from #353 — all [x] at live cutover)
 
-- [x] PlanetScale org/database (`pickmyclass`, region + PS-5) + `wrangler hyperdrive create HYPERDRIVE --caching-disabled` → `wrangler.jsonc` binding `HYPERDRIVE` id `4dd6f09232fe48e181099b2db23d889a`.
+- [x] PlanetScale org/database (`pickmyclass`, region + PS-5) + `wrangler hyperdrive create HYPERDRIVE --caching-disabled` → `wrangler.jsonc` binding `HYPERDRIVE` id `749d7808617942ceabbca1059710fbbf`.
 - [x] Clerk production instance (`clerk.pickmyclass.app`), custom domain CNAME `clerk → frontend-api.clerk.services` (grey-cloud), session claim `{"ext_id":"{{user.external_id || user.id}}"}` (Dashboard → Sessions → Customize token), `username OFF` (failed 175 imports otherwise).
 - [x] Clerk secrets via `wrangler secret put`: `CLERK_SECRET_KEY` (`sk_live_...`), `CLERK_PUBLISHABLE_KEY` (`pk_live_Y2xlcmsucGlja215Y2xhc3MuYXBwJA` literal also in `lib/clerk/config.ts`), `CLERK_JWT_KEY` (PEM 9 lines), `CLERK_WEBHOOK_SIGNING_SECRET` (`whsec_...` at `POST /api/webhooks/clerk` `user.created/updated/deleted`). Local `.dev.vars` (0600, gitignored) holds `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` alias.
 - [x] Google Cloud Console: existing OAuth client + redirect `https://clerk.pickmyclass.app/v1/oauth_callback` + origins `https://pickmyclass.app` + `https://clerk.pickmyclass.app` → paste Client ID/Secret into Dashboard → Social Connections → Google (scopes `openid email profile`).

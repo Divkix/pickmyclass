@@ -14,19 +14,31 @@ import type { SessionWebhookEvent, UserDeletedJSON, UserJSON, WebhookEvent } fro
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const { webhookEnv, mockSoftDeleteUserById, mockSyncUserMirrorFromClerkUser, mockVerifyWebhook } =
-  vi.hoisted(() => {
-    // Optional binding so the not-configured branch can flip it to undefined.
-    const webhookEnv: { CLERK_WEBHOOK_SIGNING_SECRET?: string } = {
-      CLERK_WEBHOOK_SIGNING_SECRET: 'whsec_test_binding',
-    };
-    return {
-      webhookEnv,
-      mockSoftDeleteUserById: vi.fn(),
-      mockSyncUserMirrorFromClerkUser: vi.fn(),
-      mockVerifyWebhook: vi.fn(),
-    };
-  });
+const {
+  webhookEnv,
+  dbHandle,
+  mockGetDbFromEnv,
+  mockSoftDeleteUserById,
+  mockSyncUserMirrorFromClerkUser,
+  mockVerifyWebhook,
+} = vi.hoisted(() => {
+  // Optional binding so the not-configured branch can flip it to undefined.
+  const webhookEnv: { CLERK_WEBHOOK_SIGNING_SECRET?: string } = {
+    CLERK_WEBHOOK_SIGNING_SECRET: 'whsec_test_binding',
+  };
+  // Recording Database handle handed out by the mocked getDbFromEnv; every
+  // delivery must create exactly one request-scoped handle through it.
+  const dbHandle = {};
+  const mockGetDbFromEnv = vi.fn(() => dbHandle);
+  return {
+    webhookEnv,
+    dbHandle,
+    mockGetDbFromEnv,
+    mockSoftDeleteUserById: vi.fn(),
+    mockSyncUserMirrorFromClerkUser: vi.fn(),
+    mockVerifyWebhook: vi.fn(),
+  };
+});
 
 vi.mock('@clerk/backend/webhooks', () => ({
   verifyWebhook: mockVerifyWebhook,
@@ -37,6 +49,11 @@ vi.mock('cloudflare:workers', () => ({ env: webhookEnv }));
 vi.mock('@/lib/db/users', () => ({
   syncUserMirrorFromClerkUser: mockSyncUserMirrorFromClerkUser,
   softDeleteUserById: mockSoftDeleteUserById,
+}));
+
+// Request-scoped handle seam: the route calls getDbFromEnv() once per delivery.
+vi.mock('@/lib/db', () => ({
+  getDbFromEnv: mockGetDbFromEnv,
 }));
 
 import { POST } from '@/app/api/webhooks/clerk/route';
@@ -153,6 +170,7 @@ describe('POST /api/webhooks/clerk', () => {
     expect(mockVerifyWebhook).toHaveBeenCalledWith(request, {
       signingSecret: WEBHOOK_SIGNING_SECRET,
     });
+    expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     expect(mockSyncUserMirrorFromClerkUser).not.toHaveBeenCalled();
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
   });
@@ -173,8 +191,10 @@ describe('POST /api/webhooks/clerk', () => {
 
     expect(response.status).toBe(200);
     expect(data).toEqual({ success: true });
+    expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
     expect(mockSyncUserMirrorFromClerkUser).toHaveBeenCalledTimes(1);
-    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][0]).toBe(user);
+    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][0]).toBe(dbHandle);
+    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][1]).toBe(user);
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
   });
 
@@ -193,8 +213,10 @@ describe('POST /api/webhooks/clerk', () => {
 
     expect(response.status).toBe(200);
     expect(data).toEqual({ success: true });
+    expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
     expect(mockSyncUserMirrorFromClerkUser).toHaveBeenCalledTimes(1);
-    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][0]).toBe(user);
+    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][0]).toBe(dbHandle);
+    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][1]).toBe(user);
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
   });
 
@@ -265,7 +287,8 @@ describe('POST /api/webhooks/clerk', () => {
     expect(response.status).toBe(200);
     expect(data).toEqual({ success: true });
     expect(mockSyncUserMirrorFromClerkUser).toHaveBeenCalledTimes(1);
-    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][0]).toBe(user);
+    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][0]).toBe(dbHandle);
+    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][1]).toBe(user);
   });
 
   it('applies the soft delete to the profile on user.deleted', async () => {
@@ -287,8 +310,9 @@ describe('POST /api/webhooks/clerk', () => {
 
     expect(response.status).toBe(200);
     expect(data).toEqual({ success: true });
+    expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
     expect(mockSoftDeleteUserById).toHaveBeenCalledTimes(1);
-    expect(mockSoftDeleteUserById).toHaveBeenCalledWith(CLERK_USER_ID);
+    expect(mockSoftDeleteUserById).toHaveBeenCalledWith(dbHandle, CLERK_USER_ID);
     expect(mockSyncUserMirrorFromClerkUser).not.toHaveBeenCalled();
   });
 
@@ -320,6 +344,7 @@ describe('POST /api/webhooks/clerk', () => {
       expect(response.status).toBe(500);
       expect(data).toEqual({ success: false, error: 'Webhook not configured' });
       expect(mockVerifyWebhook).not.toHaveBeenCalled();
+      expect(mockGetDbFromEnv).not.toHaveBeenCalled();
       expect(mockSyncUserMirrorFromClerkUser).not.toHaveBeenCalled();
       expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
     } finally {

@@ -5,15 +5,19 @@
  * Accepts signed tokens to verify authenticity.
  */
 
+import { eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { unsubscribeTokenSchema } from '@/lib/api/schemas';
 import { parseOrFail } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
 import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token';
-import { execute } from '@/lib/db/client';
+
+import { getDbFromEnv } from '@/lib/db';
+import type { Database } from '@/lib/db';
+import { userProfiles } from '@/lib/db/schema';
 import { log } from '@/lib/log';
-import { captureServerEvent } from '@/lib/posthog-server';
+import { captureServerEvent } from '@/lib/analytics/server';
 
 /**
  * Redacts a user identifier by hashing it to produce a consistent,
@@ -67,14 +71,16 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-async function unsubscribeUser(userId: string, method: 'GET' | 'POST'): Promise<void> {
+async function unsubscribeUser(
+  db: Database,
+  userId: string,
+  method: 'GET' | 'POST'
+): Promise<void> {
   try {
-    await execute(
-      `UPDATE user_profiles
-       SET notifications_enabled = false, unsubscribed_at = $1
-       WHERE user_id = $2`,
-      [new Date().toISOString(), userId]
-    );
+    await db
+      .update(userProfiles)
+      .set({ notifications_enabled: false, unsubscribed_at: new Date().toISOString() })
+      .where(eq(userProfiles.user_id, userId));
   } catch (dbError) {
     log('Unsubscribe').error('Database error:', dbError);
     throw dbError;
@@ -82,7 +88,7 @@ async function unsubscribeUser(userId: string, method: 'GET' | 'POST'): Promise<
 
   const suffix = method === 'POST' ? 'via POST' : 'successfully';
   log('Unsubscribe').info(`User ${redactIdentifier(userId)} unsubscribed ${suffix}`);
-  await captureServerEvent({ distinctId: userId, event: 'user_unsubscribed' });
+  captureServerEvent(userId, 'user_unsubscribed', {});
 }
 
 /**
@@ -159,9 +165,11 @@ export async function POST(request: NextRequest) {
     return fail('Invalid or expired token', 400);
   }
 
-  // Unsubscribe user
+  // Unsubscribe user. One request-scoped Drizzle handle for this invocation;
+  // token failures above never open a connection.
+  const db = getDbFromEnv();
   try {
-    await unsubscribeUser(userId, 'POST');
+    await unsubscribeUser(db, userId, 'POST');
     return ok(null);
   } catch (error) {
     log('Unsubscribe').error('Error processing unsubscribe:', error);

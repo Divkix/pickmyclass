@@ -2,7 +2,9 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { SectionCheckOutcome } from '@/lib/queue/process-section';
 
+const REQUEST_DB = { __dbHandle: 'request-db' };
 const mockProcessSection = vi.hoisted(() => vi.fn());
+const mockGetDbFromEnv = vi.hoisted(() => vi.fn());
 
 vi.mock('cloudflare:workers', () => ({
   env: { CRON_SECRET: 'test-cron-secret' },
@@ -10,6 +12,10 @@ vi.mock('cloudflare:workers', () => ({
 
 vi.mock('@/lib/queue/process-section', () => ({
   processSection: mockProcessSection,
+}));
+
+vi.mock('@/lib/db', () => ({
+  getDbFromEnv: (...args: unknown[]) => mockGetDbFromEnv(...args),
 }));
 
 import { POST } from '@/app/api/queue/process-section/route';
@@ -75,6 +81,7 @@ function validRequest(): NextRequest {
 describe('POST /api/queue/process-section', () => {
   beforeEach(() => {
     mockProcessSection.mockReset();
+    mockGetDbFromEnv.mockReset().mockReturnValue(REQUEST_DB);
   });
 
   it('rejects unauthorized requests', async () => {
@@ -85,6 +92,8 @@ describe('POST /api/queue/process-section', () => {
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({ success: false, error: 'Unauthorized' });
     expect(mockProcessSection).not.toHaveBeenCalled();
+    // Rejected requests never open a DB connection
+    expect(mockGetDbFromEnv).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -100,6 +109,7 @@ describe('POST /api/queue/process-section', () => {
       retryable: false,
     });
     expect(mockProcessSection).not.toHaveBeenCalled();
+    expect(mockGetDbFromEnv).not.toHaveBeenCalled();
   });
 
   it('maps a successful processing result to the HTTP response', async () => {
@@ -120,9 +130,12 @@ describe('POST /api/queue/process-section', () => {
       processing_time_ms: 15,
     });
     expect(mockProcessSection).toHaveBeenCalledWith(
+      REQUEST_DB,
       { class_nbr: '12345', term: '2261' },
       expect.objectContaining({ CRON_SECRET: 'test-cron-secret' })
     );
+    // Exactly one request-scoped handle per invocation
+    expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
   });
 
   it('returns 500 for a failed processing result', async () => {

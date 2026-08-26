@@ -6,10 +6,6 @@ const { defaultInit, bundledInit, fullInit } = vi.hoisted(() => ({
   fullInit: vi.fn(),
 }));
 
-vi.mock('posthog-js', () => ({
-  default: { init: defaultInit },
-}));
-
 vi.mock('posthog-js/dist/exception-autocapture', () => ({}));
 
 vi.mock('posthog-js/dist/module.no-external', () => ({
@@ -34,7 +30,9 @@ describe('browser instrumentation', () => {
     expect(bundledInit).toHaveBeenCalledWith(
       expect.stringMatching(/^phc_/),
       expect.objectContaining({
-        api_host: 'https://us.i.posthog.com',
+        api_host: 'https://s.pickmyclass.app',
+        ui_host: 'https://us.posthog.com',
+        defaults: '2026-05-30',
         capture_exceptions: true,
       })
     );

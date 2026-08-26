@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { UsersTable } from '@/components/admin/UsersTable';
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getUsersPage } from '@/lib/db/admin-queries';
+import { getDbFromEnv } from '@/lib/db';
 import type { UserSortField } from '@/lib/db/admin-queries';
 import { param, parsePageParam } from '@/lib/utils/page-params';
 
@@ -33,8 +34,11 @@ function userSort(value: string): UserSortField {
  * is fetched — the full table is never loaded into the Worker.
  */
 export default async function AdminUsersPage({ searchParams }: { searchParams?: SearchParams }) {
+  // One request-scoped handle shared by the gate read and the list read.
+  const db = getDbFromEnv();
+
   // Verify admin access
-  await verifyAdmin();
+  await verifyAdmin(db);
 
   const sp = (await searchParams) ?? {};
 
@@ -49,7 +53,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
   // SAFETY: Next.js searchParams validated via param helper; fallback 'all' ensures allowed union, DB handles invalid gracefully
   const watchCount = (param(sp, 'watchCount') || 'all') as 'all' | 'none' | '1-5' | '6-10' | '10+';
 
-  const { rows, total } = await getUsersPage({
+  const { rows, total } = await getUsersPage(db, {
     page,
     pageSize: PAGE_SIZE,
     search,

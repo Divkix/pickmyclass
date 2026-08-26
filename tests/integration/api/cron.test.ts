@@ -1,14 +1,20 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const { mockAcquireLock, mockReleaseLock } = vi.hoisted(() => ({
+const { mockAcquireLock, mockReleaseLock, mockGetDbFromEnv } = vi.hoisted(() => ({
   mockAcquireLock: vi.fn(),
   mockReleaseLock: vi.fn(),
+  // Stub request-scoped handle — queries are mocked below, so no real SQL runs.
+  mockGetDbFromEnv: vi.fn(() => ({ execute: vi.fn() })),
 }));
 
 // Mock modules before importing route
 vi.mock('@/lib/db/queries', () => ({
   getSectionsToCheck: vi.fn(),
+}));
+
+vi.mock('@/lib/db', () => ({
+  getDbFromEnv: mockGetDbFromEnv,
 }));
 
 vi.mock('@/lib/worker/cron-lock', () => ({
@@ -112,6 +118,8 @@ describe('GET /api/cron', () => {
     expect(responseData.success).toBe(true);
     expect(responseData.batches_failed).toBe(0);
     expect(responseData.sections_enqueued).toBe(50);
+    // Exactly one DB handle is created per invocation.
+    expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
   });
 
   it('retries failed batch once and returns success:true when retry succeeds', async () => {
@@ -256,7 +264,11 @@ describe('GET /api/cron', () => {
     await GET(request);
 
     // Assert: Should use 'even' stagger group based on header, not 'odd' from current time
-    expect(getSectionsToCheck).toHaveBeenCalledWith('even');
+    // SAFETY: mock result value is the stub DB handle created inside the route.
+    expect(getSectionsToCheck).toHaveBeenCalledWith(
+      mockGetDbFromEnv.mock.results[0]?.value,
+      'even'
+    );
   });
 
   it('returns 409 when the shared lock client reports an active run', async () => {

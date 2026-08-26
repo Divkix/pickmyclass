@@ -1,9 +1,10 @@
+import { sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { log } from '@/lib/log';
-import { callFunction } from '@/lib/db/client';
 import { safeInternalPath } from '@/lib/auth/safe-redirect';
 import { invalidateAuthorizationState } from '@/lib/auth/authorization-state';
 import { getSessionIdentity } from '@/lib/auth/clerk-session';
+import { getDbFromEnv } from '@/lib/db';
 import { repairUserMirror } from '@/lib/db/users';
 
 // Redirects always resolve against the request origin. `x-forwarded-host` is
@@ -42,7 +43,9 @@ export async function GET(request: Request) {
 
   try {
     // Repair the webhook race (mirror + profile row) before consent bookkeeping.
-    const repairResult = await repairUserMirror(userId, identity.clerkUserId);
+    // One request-scoped handle covers both this repair and the consent RPC.
+    const db = getDbFromEnv();
+    const repairResult = await repairUserMirror(db, userId, identity.clerkUserId);
     if (!repairResult) {
       log('Auth').error(`No primary email on Clerk user ${identity.clerkUserId}`);
       return consentRedirect(base, next, true);
@@ -50,7 +53,7 @@ export async function GET(request: Request) {
 
     if (consentConfirmed) {
       try {
-        await callFunction('accept_terms_and_verify_age', [userId]);
+        await db.execute(sql`SELECT public.accept_terms_and_verify_age(${userId}::text)`);
         invalidateAuthorizationState(userId);
       } catch {
         return consentRedirect(base, next, true);
