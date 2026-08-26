@@ -8,6 +8,12 @@ type MockEnv = Record<string, JsonValue>;
 export const env: MockEnv = {};
 
 /**
+ * Fallback no-op waitUntil matching the cloudflare:workers export shape.
+ * Analytics server code registers its flush/shutdown promises here.
+ */
+export function waitUntil(_promise: Promise<unknown>): void {}
+
+/**
  * Minimal DurableObject base class for testing.
  * Mirrors the cloudflare:workers DurableObject constructor signature.
  * Only implements what CronLockDO actually uses.

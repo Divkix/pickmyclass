@@ -1,10 +1,13 @@
+import { eq } from 'drizzle-orm';
+
 import { invalidateAuthorizationState } from '@/lib/auth/authorization-state';
 import { revokeAllUserSessions } from '@/lib/auth/clerk-session';
 import { log } from '@/lib/log';
 import { fail, ok } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
-import { captureServerEvent } from '@/lib/posthog-server';
-import { execute } from '@/lib/db/client';
+import { captureServerEvent } from '@/lib/analytics/server';
+import { getDbFromEnv } from '@/lib/db';
+import { userProfiles } from '@/lib/db/schema';
 
 /**
  * Account Deletion API - CCPA Compliance
@@ -23,15 +26,17 @@ export async function DELETE(request: Request) {
 
         // Soft delete: update user_profiles directly (no RLS in PlanetScale — app-layer authz)
         try {
-          await execute(
-            `UPDATE user_profiles
-             SET is_disabled = true,
-                 disabled_at = $1,
-                 notifications_enabled = false,
-                 unsubscribed_at = $1
-             WHERE user_id = $2`,
-            [deletionTimestamp, user.userId]
-          );
+          // One request-scoped Drizzle handle for this invocation.
+          const db = getDbFromEnv();
+          await db
+            .update(userProfiles)
+            .set({
+              is_disabled: true,
+              disabled_at: deletionTimestamp,
+              notifications_enabled: false,
+              unsubscribed_at: deletionTimestamp,
+            })
+            .where(eq(userProfiles.user_id, user.userId));
         } catch (updateError) {
           log('User').error('Error disabling account:', updateError);
           return fail('Failed to delete account', 500);
@@ -40,7 +45,7 @@ export async function DELETE(request: Request) {
         // Invalidate the cached authorization state to ensure immediate effect
         invalidateAuthorizationState(user.userId);
 
-        await captureServerEvent({ distinctId: user.userId, event: 'account_deleted' });
+        captureServerEvent(user.userId, 'account_deleted', {});
 
         // Revoke all Clerk sessions for the user (CCPA sign-out equivalent).
         try {

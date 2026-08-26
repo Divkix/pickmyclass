@@ -44,6 +44,7 @@ import {
   RateLimitError,
   fetchClassFromASU,
 } from '@/lib/asu/api';
+import type { Database } from '@/lib/db';
 import {
   capConsecutiveNotFound,
   deleteSectionAndWatches,
@@ -62,6 +63,9 @@ import { sendSectionNotifications } from '@/lib/queue/notification-sender';
 import { processSection } from '@/lib/queue/process-section';
 import type { ClassDetails } from '@/lib/types/class';
 import type { Env, SendEmail } from '@/lib/types/env';
+
+/** Sentinel Drizzle handle — identity-only; every DB seam below is mocked. */
+const db = {} as Database;
 
 function mockClassDetails(overrides: Partial<ClassDetails> = {}): ClassDetails {
   return {
@@ -199,10 +203,10 @@ describe('processSection', () => {
 
   it('successful full flow: fetches, detects, notifies, and persists', async () => {
     const env = buildEnv();
-    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+    const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
     // Should have fetched old state through the typed queries seam, keyed by full SectionRef
-    expect(readSectionCheckState).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
+    expect(readSectionCheckState).toHaveBeenCalledWith(db, { class_nbr: '42737', term: '2261' });
     // Should have fetched from ASU with the SectionRef
     expect(fetchClassFromASU).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' }, env);
 
@@ -220,6 +224,7 @@ describe('processSection', () => {
 
     // Should have upserted new state via upsertClassState(ref, details)
     expect(upsertClassState).toHaveBeenCalledWith(
+      db,
       { class_nbr: '42737', term: '2261' },
       expect.objectContaining({
         subject: 'CSE',
@@ -245,7 +250,7 @@ describe('processSection', () => {
   it('no changes detected: only persists, no notifications', async () => {
     vi.mocked(detectChanges).mockReturnValue(buildChangeResult());
 
-    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
     expect(sendSectionNotifications).not.toHaveBeenCalled();
     expect(resetNotificationsForSection).not.toHaveBeenCalled();
@@ -259,9 +264,10 @@ describe('processSection', () => {
       buildChangeResult({ seatsFilled: true, newOpenSeats: 0 })
     );
 
-    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
     expect(resetNotificationsForSection).toHaveBeenCalledWith(
+      db,
       { class_nbr: '42737', term: '2261' },
       'seat_available'
     );
@@ -273,7 +279,7 @@ describe('processSection', () => {
   it('ASU API throws NotFoundError: returns ack outcome (non-retryable)', async () => {
     vi.mocked(fetchClassFromASU).mockRejectedValue(new NotFoundError('Section 42737 not found'));
     // auto-cleanup increment defaults to 1 in beforeEach, so no deletion
-    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
     expect(outcome.disposition).toBe('ack');
     expect(outcome.httpStatus).toBe(200);
@@ -297,7 +303,7 @@ describe('processSection', () => {
   it('ASU API throws RateLimitError: returns retry outcome (429)', async () => {
     vi.mocked(fetchClassFromASU).mockRejectedValue(new RateLimitError('Rate limit hit'));
 
-    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
     expect(outcome.disposition).toBe('retry');
     expect(outcome.httpStatus).toBe(429);
@@ -308,7 +314,7 @@ describe('processSection', () => {
   it('DB upsert fails: returns retry outcome (500)', async () => {
     vi.mocked(upsertClassState).mockRejectedValue(new Error('Constraint violation'));
 
-    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
     expect(outcome.disposition).toBe('retry');
     expect(outcome.httpStatus).toBe(500);
@@ -333,7 +339,7 @@ describe('processSection', () => {
       buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 3 })
     );
 
-    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
     // detectChanges should have been called with null oldState (readSectionCheckState returns null)
     expect(detectChanges).toHaveBeenCalledWith(
@@ -345,6 +351,7 @@ describe('processSection', () => {
     expect(sendSectionNotifications).not.toHaveBeenCalled();
     // Baseline still persisted.
     expect(upsertClassState).toHaveBeenCalledWith(
+      db,
       { class_nbr: '42737', term: '2261' },
       expect.objectContaining({ seats_available: 5 })
     );
@@ -357,7 +364,7 @@ describe('processSection', () => {
   it('handles old-state DB read throwing gracefully: returns retry, no further processing', async () => {
     vi.mocked(readSectionCheckState).mockRejectedValue(new Error('Connection timeout'));
 
-    const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+    const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
     expect(detectChanges).not.toHaveBeenCalled();
     expect(fetchClassFromASU).not.toHaveBeenCalled();
@@ -384,7 +391,7 @@ describe('processSection', () => {
         buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 5 })
       );
 
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
       // Persist-before-send: a failed upsert must short-circuit BEFORE any emails go out,
       // so a retry re-attempts cleanly with no duplicate emails.
@@ -404,7 +411,7 @@ describe('processSection', () => {
   describe('disposition via processSection', () => {
     it('acks a successful outcome', async () => {
       // default mocks already produce success
-      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('ack');
       expect(outcome.httpStatus).toBe(200);
       expect(outcome.retryable).toBe(false);
@@ -413,7 +420,7 @@ describe('processSection', () => {
     it('retries a failed outcome (DB upsert error)', async () => {
       vi.mocked(upsertClassState).mockRejectedValue(new Error('upsert fail'));
 
-      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('retry');
       expect(outcome.httpStatus).toBe(500);
       expect(outcome.retryable).toBe(true);
@@ -421,7 +428,7 @@ describe('processSection', () => {
 
     it('acks a thrown AuthError (non-retryable: bad token)', async () => {
       vi.mocked(fetchClassFromASU).mockRejectedValue(new AuthError('401 Unauthorized from ASU'));
-      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('ack');
       expect(outcome.httpStatus).toBe(200);
       expect(outcome.retryable).toBe(false);
@@ -431,7 +438,7 @@ describe('processSection', () => {
 
     it('acks a thrown NotFoundError (non-retryable: section gone)', async () => {
       vi.mocked(fetchClassFromASU).mockRejectedValue(new NotFoundError('Section 99999 not found'));
-      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('ack');
       expect(outcome.httpStatus).toBe(200);
       expect(outcome.retryable).toBe(false);
@@ -439,7 +446,7 @@ describe('processSection', () => {
 
     it('retries a thrown RateLimitError (transient upstream)', async () => {
       vi.mocked(fetchClassFromASU).mockRejectedValue(new RateLimitError('Rate limit exceeded'));
-      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('retry');
       expect(outcome.httpStatus).toBe(429);
       expect(outcome.retryable).toBe(true);
@@ -447,7 +454,7 @@ describe('processSection', () => {
 
     it('retries a thrown ApiError (upstream failure)', async () => {
       vi.mocked(fetchClassFromASU).mockRejectedValue(new ApiError('ASU API 502 Bad Gateway', 502));
-      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('retry');
       expect(outcome.httpStatus).toBe(502);
       expect(outcome.retryable).toBe(true);
@@ -455,7 +462,7 @@ describe('processSection', () => {
 
     it('retries an unknown thrown Error (defensive)', async () => {
       vi.mocked(fetchClassFromASU).mockRejectedValue(new Error('Unexpected internal error'));
-      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('retry');
       expect(outcome.httpStatus).toBe(500);
       expect(outcome.retryable).toBe(true);
@@ -464,7 +471,7 @@ describe('processSection', () => {
     it('retries an unknown thrown non-Error value (defensive)', async () => {
       // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test verifies defensive handling of non-Error throw values; cast needed because string not overlapping Error
       vi.mocked(fetchClassFromASU).mockRejectedValue('boom' as unknown as Error);
-      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('retry');
       expect(outcome.httpStatus).toBe(500);
       expect(outcome.retryable).toBe(true);
@@ -473,19 +480,19 @@ describe('processSection', () => {
         // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test verifies defensive handling of non-Error throw values; undefined not overlapping Error
         undefined as unknown as Error
       );
-      const outcome2 = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome2 = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome2.disposition).toBe('retry');
 
       // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test verifies defensive handling of non-Error throw values; null not overlapping Error
       vi.mocked(fetchClassFromASU).mockRejectedValue(null as unknown as Error);
-      const outcome3 = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome3 = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome3.disposition).toBe('retry');
     });
 
     it('AuthError is acked even though it extends ApiError (subclass ordering)', async () => {
       // Ensures AuthError/NotFound check wins before ApiError base
       vi.mocked(fetchClassFromASU).mockRejectedValue(new AuthError('401'));
-      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('ack');
       expect(outcome.httpStatus).toBe(200);
     });
@@ -498,9 +505,9 @@ describe('processSection', () => {
       vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(1);
 
       const env = buildEnv();
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
-      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith({
+      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith(db, {
         class_nbr: '42737',
         term: '2261',
       });
@@ -527,9 +534,9 @@ describe('processSection', () => {
       vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(2);
 
       const env = buildEnv();
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
-      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith({
+      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith(db, {
         class_nbr: '42737',
         term: '2261',
       });
@@ -565,19 +572,22 @@ describe('processSection', () => {
       });
 
       const env = buildEnv();
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
-      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith({
+      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith(db, {
         class_nbr: '42737',
         term: '2261',
       });
       // Verify deletion is SectionRef-scoped (both class_nbr and term)
-      expect(deleteSectionAndWatches).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
+      expect(deleteSectionAndWatches).toHaveBeenCalledWith(db, {
+        class_nbr: '42737',
+        term: '2261',
+      });
       expect(deleteSectionAndWatches).toHaveBeenCalledTimes(1);
-      expect(getClassWatchers).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
+      expect(getClassWatchers).toHaveBeenCalledWith(db, { class_nbr: '42737', term: '2261' });
       // Retirement owns the breaker read + parallel class-info read; the cap write is suppression-only
       expect(readAutoCleanupBreakerCounts).toHaveBeenCalledTimes(1);
-      expect(readSectionRemovalClassInfo).toHaveBeenCalledWith({
+      expect(readSectionRemovalClassInfo).toHaveBeenCalledWith(db, {
         class_nbr: '42737',
         term: '2261',
       });
@@ -635,19 +645,22 @@ describe('processSection', () => {
       });
 
       const env = buildEnv();
-      const outcome = await processSection({ class_nbr: '99999', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '99999', term: '2261' }, env);
 
-      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith({
+      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith(db, {
         class_nbr: '99999',
         term: '2261',
       });
-      expect(deleteSectionAndWatches).toHaveBeenCalledWith({ class_nbr: '99999', term: '2261' });
+      expect(deleteSectionAndWatches).toHaveBeenCalledWith(db, {
+        class_nbr: '99999',
+        term: '2261',
+      });
       expect(env.EMAIL.send).not.toHaveBeenCalled();
       expect(outcome.disposition).toBe('ack');
       expect(outcome.result.error).toBe('Auto-cleanup: class removed after 3 NotFounds');
       expect(outcome.result.emailsSent).toBe(0);
       expect(outcome.result.success).toBe(true);
-      expect(readSectionRemovalClassInfo).toHaveBeenCalledWith({
+      expect(readSectionRemovalClassInfo).toHaveBeenCalledWith(db, {
         class_nbr: '99999',
         term: '2261',
       });
@@ -669,12 +682,13 @@ describe('processSection', () => {
       vi.mocked(detectChanges).mockReturnValue(buildChangeResult());
 
       const env = buildEnv();
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
-      // upsertClassState(ref, details) owns the consecutive_not_found_count=0 reset
+      // upsertClassState(db, ref, details) owns the consecutive_not_found_count=0 reset
       // internally now (it lives inside the mocked query, no longer a payload field
       // visible to callers). Verify it was called with the SectionRef and fresh data.
       expect(upsertClassState).toHaveBeenCalledWith(
+        db,
         { class_nbr: '42737', term: '2261' },
         expect.objectContaining({ subject: 'CSE', seats_available: 5, non_reserved_seats: 3 })
       );
@@ -687,7 +701,7 @@ describe('processSection', () => {
     it('RateLimitError (429) does NOT increment NotFound count and returns retry', async () => {
       vi.mocked(fetchClassFromASU).mockRejectedValue(new RateLimitError('Rate limit hit'));
 
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
       expect(incrementConsecutiveNotFound).not.toHaveBeenCalled();
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
@@ -702,7 +716,7 @@ describe('processSection', () => {
     it('ApiError 502 does NOT increment NotFound count and returns retry', async () => {
       vi.mocked(fetchClassFromASU).mockRejectedValue(new ApiError('ASU API 502 Bad Gateway', 502));
 
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
       expect(incrementConsecutiveNotFound).not.toHaveBeenCalled();
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
@@ -717,7 +731,7 @@ describe('processSection', () => {
         new ApiError('ASU API request timed out', 408)
       );
 
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
       expect(incrementConsecutiveNotFound).not.toHaveBeenCalled();
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
@@ -731,7 +745,7 @@ describe('processSection', () => {
     it('AuthError still ack without increment (existing behavior)', async () => {
       vi.mocked(fetchClassFromASU).mockRejectedValue(new AuthError('401 Unauthorized from ASU'));
 
-      const outcome = await processSection({ class_nbr: '12345', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
 
       expect(incrementConsecutiveNotFound).not.toHaveBeenCalled();
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
@@ -749,18 +763,18 @@ describe('processSection', () => {
       vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(1);
 
       const env = buildEnv();
-      await processSection({ class_nbr: '76337', term: '2261' }, env);
+      await processSection(db, { class_nbr: '76337', term: '2261' }, env);
 
-      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith({
+      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith(db, {
         class_nbr: '76337',
         term: '2261',
       });
-      expect(incrementConsecutiveNotFound).not.toHaveBeenCalledWith({
+      expect(incrementConsecutiveNotFound).not.toHaveBeenCalledWith(db, {
         class_nbr: '76337',
         term: '2257',
       });
       // Old-state fetch keyed by full SectionRef (class_nbr + term)
-      expect(readSectionCheckState).toHaveBeenCalledWith({ class_nbr: '76337', term: '2261' });
+      expect(readSectionCheckState).toHaveBeenCalledWith(db, { class_nbr: '76337', term: '2261' });
 
       vi.clearAllMocks();
       // Re-setup mocks after clear (clearAllMocks resets implementations to no-op, so re-mock)
@@ -773,15 +787,15 @@ describe('processSection', () => {
       });
       vi.mocked(getClassWatchers).mockResolvedValue([]);
 
-      await processSection({ class_nbr: '76337', term: '2257' }, env);
+      await processSection(db, { class_nbr: '76337', term: '2257' }, env);
 
-      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith({
+      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith(db, {
         class_nbr: '76337',
         term: '2257',
       });
-      expect(readSectionCheckState).toHaveBeenCalledWith({ class_nbr: '76337', term: '2257' });
+      expect(readSectionCheckState).toHaveBeenCalledWith(db, { class_nbr: '76337', term: '2257' });
       // Ensure second call used different term
-      expect(incrementConsecutiveNotFound).not.toHaveBeenCalledWith({
+      expect(incrementConsecutiveNotFound).not.toHaveBeenCalledWith(db, {
         class_nbr: '76337',
         term: '2261',
       });
@@ -807,7 +821,7 @@ describe('processSection', () => {
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       vi.spyOn(console, 'error').mockImplementation(() => {});
       const env = buildEnv();
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
       // Even though count would be 3, deletion suppressed
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
@@ -816,7 +830,11 @@ describe('processSection', () => {
 
       // Count capped at threshold-1 via the guarded seam, keyed by full SectionRef
       expect(capConsecutiveNotFound).toHaveBeenCalledTimes(1);
-      expect(capConsecutiveNotFound).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' }, 2);
+      expect(capConsecutiveNotFound).toHaveBeenCalledWith(
+        db,
+        { class_nbr: '42737', term: '2261' },
+        2
+      );
       expect(readAutoCleanupBreakerCounts).toHaveBeenCalledTimes(1);
       // Logs 'Auto-cleanup suppressed'
       const warnCalls = consoleWarnSpy.mock.calls.map(
@@ -864,7 +882,7 @@ describe('processSection', () => {
       });
 
       const env = buildEnv();
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
       expect(deleteSectionAndWatches).toHaveBeenCalled();
       expect(outcome.result.error).toContain('Auto-cleanup');
@@ -886,7 +904,7 @@ describe('processSection', () => {
       vi.mocked(fetchClassFromASU).mockRejectedValue(new NotFoundError('Section 42737 not found'));
       vi.mocked(incrementConsecutiveNotFound).mockRejectedValue(new Error('DB down'));
 
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
       expect(outcome.disposition).toBe('ack');
       expect(outcome.httpStatus).toBe(200);
@@ -920,7 +938,7 @@ describe('processSection', () => {
         stateDeleted: true,
       });
 
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, buildEnv());
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
       // Fail-open ladder: an unreadable breaker must not wedge threshold sections forever
       expect(deleteSectionAndWatches).toHaveBeenCalledTimes(1);
@@ -943,7 +961,7 @@ describe('processSection', () => {
       vi.mocked(getClassWatchers).mockRejectedValue(new Error('watcher RPC exploded'));
 
       const env = buildEnv();
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
       expect(env.EMAIL.send).not.toHaveBeenCalled();
@@ -971,7 +989,7 @@ describe('processSection', () => {
       vi.mocked(deleteSectionAndWatches).mockRejectedValue(new Error('delete statement timeout'));
 
       const env = buildEnv();
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
       // Deletion precedes email fan-out: a failed delete must never leak removal emails
       expect(env.EMAIL.send).not.toHaveBeenCalled();
@@ -1012,7 +1030,7 @@ describe('processSection', () => {
       // Non-fatal failure: sender continues past watcher 2, so 3 attempted / 2 succeeded
       vi.mocked(env.EMAIL.send).mockRejectedValueOnce(new Error('SMTP 550 mailbox unavailable'));
 
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
       expect(env.EMAIL.send).toHaveBeenCalledTimes(3);
       expect(outcome.disposition).toBe('ack');
@@ -1061,9 +1079,12 @@ describe('processSection', () => {
         });
 
       const env = buildEnv();
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
-      expect(deleteSectionAndWatches).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
+      expect(deleteSectionAndWatches).toHaveBeenCalledWith(db, {
+        class_nbr: '42737',
+        term: '2261',
+      });
       // Real sendAutoCleanupRemovalEmails runs untruncated into the sender — the sender alone caps
       expect(env.EMAIL.send).toHaveBeenCalledTimes(cap);
       const { retirement } = outcome.result;
@@ -1117,7 +1138,7 @@ describe('processSection', () => {
 
       const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
       const env = buildEnv();
-      await processSection({ class_nbr: '42737', term: '2261' }, env);
+      await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
       const infoCalls = infoSpy.mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
       expect(
@@ -1140,7 +1161,7 @@ describe('processSection', () => {
       const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const env = buildEnv();
-      const outcome = await processSection({ class_nbr: '42737', term: '2261' }, env);
+      const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
       const infoCalls = infoSpy.mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
       expect(

@@ -1,11 +1,20 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as AuthContextModule from '@/lib/contexts/AuthContext';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vite-plus/test';
 import { AuthButton } from '@/components/AuthButton';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 
 const h = vi.hoisted(() => ({
-  capture: vi.fn(),
+  track: vi.fn(),
   reset: vi.fn(),
   identify: vi.fn(),
   clerkSignOut: vi.fn(),
@@ -15,8 +24,10 @@ const h = vi.hoisted(() => ({
   useRealProvider: true,
 }));
 
-vi.mock('posthog-js', () => ({
-  default: { capture: h.capture, reset: h.reset, identify: h.identify },
+vi.mock('@/lib/analytics/client', () => ({
+  trackAnalyticsEvent: h.track,
+  resetAnalyticsIdentity: h.reset,
+  identifyAnalyticsUser: h.identify,
 }));
 
 vi.mock('@clerk/react', () => ({
@@ -78,13 +89,16 @@ describe('AuthButton', () => {
     h.useRealProvider = true;
     window.location.href = '';
     fetchMock.mockReset();
-    global.fetch = fetchMock;
+    vi.stubGlobal('fetch', fetchMock);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it('signs out through the full seam: captures, resets PostHog, signs out of Clerk, then POSTs once', async () => {
+  it('signs out through the full seam: tracks, resets analytics, signs out of Clerk, then POSTs once', async () => {
     const order: string[] = [];
-    h.capture.mockImplementation(() => {
-      order.push('capture');
+    h.track.mockImplementation(() => {
+      order.push('track');
     });
     h.reset.mockImplementation(() => {
       order.push('reset');
@@ -111,14 +125,14 @@ describe('AuthButton', () => {
       expect(fetchMock).toHaveBeenCalledWith('/api/auth/signout', { method: 'POST' });
     });
 
-    expect(h.capture).toHaveBeenCalledTimes(1);
-    expect(h.capture).toHaveBeenCalledWith('user_logged_out');
+    expect(h.track).toHaveBeenCalledTimes(1);
+    expect(h.track).toHaveBeenCalledWith('user_logged_out', {});
     expect(h.reset).toHaveBeenCalledTimes(1);
     expect(h.clerkSignOut).toHaveBeenCalledTimes(1);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    expect(order).toEqual(['capture', 'reset', 'clerk-sign-out', 'server-revoke-post']);
+    expect(order).toEqual(['track', 'reset', 'clerk-sign-out', 'server-revoke-post']);
   });
 
   it('falls back to navigating to /sign-in when signOut rejects', async () => {

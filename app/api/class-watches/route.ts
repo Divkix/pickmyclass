@@ -1,20 +1,34 @@
 import { env } from 'cloudflare:workers';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { type NextRequest } from 'next/server';
 import { ok, fail } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
 import { createClassWatchSchema, deleteClassWatchSchema } from '@/lib/api/schemas';
 import { parseOrFail } from '@/lib/api/validation';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
-import { callFunction, execute, query } from '@/lib/db/client';
-import type { ClassStateRow, ClassWatchRow } from '@/lib/db/types';
+import { getDbFromEnv } from '@/lib/db';
+import { getPgError, isUniqueViolation, PG_RAISE_EXCEPTION } from '@/lib/db/pg-errors';
 import { upsertClassState } from '@/lib/db/queries';
+import { classStates, classWatches } from '@/lib/db/schema';
 import { log } from '@/lib/log';
-import { captureServerEvent } from '@/lib/posthog-server';
-import type { ClassStateRow as ClassStateRowType } from '@/lib/types/class-watch';
+import { captureServerEvent } from '@/lib/analytics/server';
+import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 import { applyFirstWatchGuard, readOnboardingState, toOnboardingState } from '@/lib/onboarding';
 
 // Get max watches per user from env (default: 10)
 const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10);
+
+/** Projected `class_states` fields joined onto each watch in the dashboard list. */
+type WatchClassState = Pick<
+  ClassStateRow,
+  | 'class_nbr'
+  | 'term'
+  | 'seats_available'
+  | 'seats_capacity'
+  | 'non_reserved_seats'
+  | 'instructor_name'
+  | 'title'
+>;
 
 /**
  * GET /api/class-watches
@@ -23,44 +37,65 @@ const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 
 export async function GET(request: NextRequest) {
   try {
     return await withAuth(request, async (user) => {
+      // One request-scoped handle shared by every read below.
+      const db = getDbFromEnv();
+
       try {
-        const watches = await query<ClassWatchRow>(
-          `SELECT id, class_nbr, term, subject, catalog_nbr, created_at
-           FROM class_watches WHERE user_id = $1 ORDER BY created_at DESC`,
-          [user.userId]
-        );
+        const watches = await db
+          .select({
+            id: classWatches.id,
+            class_nbr: classWatches.class_nbr,
+            term: classWatches.term,
+            subject: classWatches.subject,
+            catalog_nbr: classWatches.catalog_nbr,
+            created_at: classWatches.created_at,
+          })
+          .from(classWatches)
+          .where(eq(classWatches.user_id, user.userId))
+          .orderBy(desc(classWatches.created_at));
 
         const classNumbers = watches.map((w) => w.class_nbr);
         const terms = Array.from(new Set(watches.map((w) => w.term)));
 
         // Fetch class states for the user's watches — scoped by both class_nbr AND term
         // so a section number watched in two terms keeps separate states.
-        const classStates: ClassStateRowType[] =
+        const joinedStates: WatchClassState[] =
           classNumbers.length > 0
-            ? await query<ClassStateRow>(
-                `SELECT class_nbr, term, seats_available, seats_capacity, non_reserved_seats,
-                        instructor_name, title
-                 FROM class_states WHERE class_nbr = ANY($1::text[]) AND term = ANY($2::text[])`,
-                [classNumbers, terms]
-              )
+            ? await db
+                .select({
+                  class_nbr: classStates.class_nbr,
+                  term: classStates.term,
+                  seats_available: classStates.seats_available,
+                  seats_capacity: classStates.seats_capacity,
+                  non_reserved_seats: classStates.non_reserved_seats,
+                  instructor_name: classStates.instructor_name,
+                  title: classStates.title,
+                })
+                .from(classStates)
+                .where(
+                  and(
+                    inArray(classStates.class_nbr, classNumbers),
+                    inArray(classStates.term, terms)
+                  )
+                )
             : [];
 
         // Expose onboarding state so the dashboard can render the first-time modal
         // / finish-setup card without an extra round trip. The auxiliary read is
         // isolated: a failure logs and projects the module fallback ("not needed")
         // rather than failing the whole watches fetch.
-        const onboarding = await readOnboardingState(user.userId).catch((error) => {
+        const onboarding = await readOnboardingState(db, user.userId).catch((error) => {
           log('API').error('Failed to read onboarding state:', error);
           return toOnboardingState(null);
         });
 
-        const statesMap = classStates.reduce(
+        const statesMap = joinedStates.reduce(
           (acc, state) => {
             acc[`${state.term}:${state.class_nbr}`] = state;
             return acc;
           },
           // SAFETY: empty object is the initial typed accumulator for the keyed map
-          {} as Record<string, ClassStateRowType>
+          {} as Record<string, WatchClassState>
         );
 
         const watchesWithStates = watches.map((watch) => ({
@@ -117,30 +152,36 @@ export async function POST(request: NextRequest) {
           return fail('Failed to fetch class details', 500);
         }
 
+        // One request-scoped handle shared by the RPC, the state upsert, and the
+        // first-watch guard below.
+        const db = getDbFromEnv();
+
         // Step 2: Create class watch atomically (prevents concurrent limit bypass).
-        // The RPC enforces the watch limit via an advisory lock.
+        // The SECURITY DEFINER RPC enforces the watch limit via an advisory lock;
+        // bound parameters carry explicit PostgreSQL casts.
         let watchDataRaw: ClassWatchRow | null = null;
         try {
-          const rows = await callFunction<ClassWatchRow>('create_class_watch_with_limit', [
-            user.userId,
-            term,
-            classDetails.subject.toUpperCase(),
-            classDetails.catalog_nbr,
-            class_nbr,
-            MAX_WATCHES_PER_USER,
-          ]);
+          const rows = await db.execute<ClassWatchRow>(
+            sql`SELECT * FROM public.create_class_watch_with_limit(
+              ${user.userId}::text,
+              ${term}::text,
+              ${classDetails.subject.toUpperCase()}::text,
+              ${classDetails.catalog_nbr}::text,
+              ${class_nbr}::text,
+              ${MAX_WATCHES_PER_USER}::int
+            )`
+          );
           watchDataRaw = rows[0] ?? null;
         } catch (insertError) {
-          // SAFETY: pg error has code and message properties for identifying constraint violations
-          const pgError = insertError as { code?: string; message?: string };
-          // Handle unique constraint violation
-          if (pgError.code === '23505') {
+          // Handle unique constraint violation.
+          if (isUniqueViolation(insertError)) {
             return fail('You are already watching this class', 409);
           }
 
-          // Handle atomic limit-enforcement function error.
+          // Handle atomic limit-enforcement function error (RAISE EXCEPTION).
+          const pgError = getPgError(insertError);
           if (
-            pgError.code === 'P0001' &&
+            pgError?.code === PG_RAISE_EXCEPTION &&
             typeof pgError.message === 'string' &&
             pgError.message.includes('MAX_WATCHES_EXCEEDED')
           ) {
@@ -159,7 +200,7 @@ export async function POST(request: NextRequest) {
 
         // Step 3: Persist class state
         try {
-          await upsertClassState({ class_nbr, term }, classDetails);
+          await upsertClassState(db, { class_nbr, term }, classDetails);
         } catch (dbError) {
           log('API').error('Failed to persist class state:', dbError);
           // Continue anyway - watch was created successfully
@@ -170,22 +211,13 @@ export async function POST(request: NextRequest) {
         // `onboarding_completed_at IS NULL`, so a user who skipped onboarding
         // still transitions to completed on their first watch (ADR 0010).
         try {
-          await applyFirstWatchGuard(user.userId);
+          await applyFirstWatchGuard(db, user.userId);
         } catch (dbError) {
           log('API').error('Failed to mark onboarding complete:', dbError);
           // Non-fatal - watch was created successfully
         }
 
-        await captureServerEvent({
-          distinctId: user.userId,
-          event: 'class_watch_created',
-          properties: {
-            term,
-            class_nbr,
-            subject: classDetails.subject.toUpperCase(),
-            catalog_nbr: classDetails.catalog_nbr,
-          },
-        });
+        captureServerEvent(user.userId, 'class_watch_created', { term, class_nbr });
 
         return ok({ watch: watchDataRaw }, { status: 201 });
       } catch (error) {
@@ -217,16 +249,15 @@ export async function DELETE(request: NextRequest) {
           return parsed.response;
         }
 
-        // Delete the watch — app-layer authz ensures user can only delete their own
-        await execute('DELETE FROM class_watches WHERE id = $1 AND user_id = $2', [
-          parsed.data.id,
-          user.userId,
-        ]);
+        const db = getDbFromEnv();
 
-        await captureServerEvent({
-          distinctId: user.userId,
-          event: 'class_watch_deleted',
-          properties: { watch_id: parsed.data.id },
+        // Delete the watch — app-layer authz ensures user can only delete their own
+        await db
+          .delete(classWatches)
+          .where(and(eq(classWatches.id, parsed.data.id), eq(classWatches.user_id, user.userId)));
+
+        captureServerEvent(user.userId, 'class_watch_deleted', {
+          watch_id: parsed.data.id,
         });
 
         return ok(undefined);

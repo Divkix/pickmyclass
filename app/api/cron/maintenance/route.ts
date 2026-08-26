@@ -8,9 +8,10 @@
  */
 
 import { env } from 'cloudflare:workers';
+import { sql } from 'drizzle-orm';
 import { type NextRequest } from 'next/server';
 import { verifyCronSecret } from '@/lib/auth/require-user';
-import { callFunctionScalar } from '@/lib/db/client';
+import { getDbFromEnv } from '@/lib/db';
 import { fail, ok } from '@/lib/api/response';
 import { log } from '@/lib/log';
 import { getPastTermCodes } from '@/lib/asu/terms';
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
   try {
     // Authentication: Require CRON_SECRET Bearer token
     if (!cfEnv.CRON_SECRET) {
-      log('SyncDisposableDomains').error('CRON_SECRET not configured');
+      log('Maintenance').error('CRON_SECRET not configured');
       return fail('Server configuration error', 500);
     }
 
@@ -34,14 +35,23 @@ export async function GET(request: NextRequest) {
       return fail('Unauthorized', 401);
     }
 
+    // One request-scoped Drizzle handle shared by both phases below.
+    const db = getDbFromEnv();
+
     // Phase A: Sweep expired notification dedup slots so they can be re-claimed on the
     // next cycle. Load-bearing — without it, users never get re-notified after 24h.
     // A failure here must not fail the daily job.
     try {
-      const expiredCount = await callFunctionScalar<number>('expire_stale_notifications');
-      log('SyncDisposableDomains').info(`Expired ${expiredCount ?? 0} stale notification records`);
+      // SECURITY DEFINER RPC returning INTEGER; postgres.js may deliver the
+      // scalar as number or string depending on type fetching, so normalize
+      // once here (missing row or NULL counts as 0, matching the old seam).
+      const rows = await db.execute<{ expired: unknown }>(
+        sql`SELECT public.expire_stale_notifications() AS expired`
+      );
+      const expiredCount = Number(rows[0]?.expired ?? 0);
+      log('Maintenance').info(`Expired ${expiredCount} stale notification records`);
     } catch (error) {
-      log('SyncDisposableDomains').warn(
+      log('Maintenance').warn(
         'Failed to expire stale notifications:',
         error instanceof Error ? error.message : error
       );
@@ -55,10 +65,10 @@ export async function GET(request: NextRequest) {
     const pastTermCodes = getPastTermCodes();
     if (pastTermCodes.length > 0) {
       try {
-        const sweptCount = await deletePastTermWatches(pastTermCodes);
-        log('SyncDisposableDomains').info(`Swept ${sweptCount} past-term watches`);
+        const sweptCount = await deletePastTermWatches(db, pastTermCodes);
+        log('Maintenance').info(`Swept ${sweptCount} past-term watches`);
       } catch (sweepWatchError) {
-        log('SyncDisposableDomains').warn(
+        log('Maintenance').warn(
           'Failed to sweep past-term watches:',
           sweepWatchError instanceof Error ? sweepWatchError.message : sweepWatchError
         );
@@ -70,7 +80,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    log('SyncDisposableDomains').error('Fatal error:', message);
+    log('Maintenance').error('Fatal error:', message);
     return fail(message, 500, { duration_ms: Date.now() - startTime });
   }
 }

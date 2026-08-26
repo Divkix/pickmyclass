@@ -13,8 +13,8 @@
 /** PostHog project API token (public) */
 export const POSTHOG_PROJECT_TOKEN = 'phc_rRbMvons2ERXqNoArYFrmJYAwTX5YnWmLsnqPgk58Wwo';
 
-/** Direct API host for browser and server analytics. */
-export const POSTHOG_API_HOST = 'https://us.i.posthog.com';
+/** Managed PostHog reverse-proxy ingestion host for browser and server analytics. */
+export const POSTHOG_API_HOST = 'https://s.pickmyclass.app';
 
 /** PostHog app UI host (toolbar / session replay links) */
 export const POSTHOG_UI_HOST = 'https://us.posthog.com';

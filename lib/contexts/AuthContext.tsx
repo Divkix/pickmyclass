@@ -1,8 +1,12 @@
 'use client';
 
 import { useAuth as useClerkAuth, useClerk, useUser } from '@clerk/react';
-import posthog from 'posthog-js';
 import { createContext, useContext, useEffect } from 'react';
+import {
+  identifyAnalyticsUser,
+  resetAnalyticsIdentity,
+  trackAnalyticsEvent,
+} from '@/lib/analytics/client';
 import { log } from '@/lib/log';
 
 // Keep the legacy shape that existing consumers expect, but without Supabase types.
@@ -52,17 +56,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const compatSession: CompatSession | null = sessionId ? { id: sessionId } : null;
 
-  // PostHog identify — mirrors the old Supabase flow.
+  // Analytics identify — the stable app user id (`externalId ?? Clerk id`),
+  // mirroring the `ext_id` session claim and the DB user mirror PK.
+  const analyticsUserId = clerkUser ? (clerkUser.externalId ?? clerkUser.id) : null;
+  const analyticsEmail = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
   useEffect(() => {
-    if (compatUser) {
-      posthog.identify(compatUser.id, { email: compatUser.email ?? undefined });
+    if (analyticsUserId) {
+      identifyAnalyticsUser(analyticsUserId, { email: analyticsEmail });
     }
-  }, [compatUser?.id, compatUser?.email]);
+  }, [analyticsUserId, analyticsEmail]);
 
   const signOut = async () => {
     try {
-      posthog.capture('user_logged_out');
-      posthog.reset();
+      trackAnalyticsEvent('user_logged_out', {});
+      resetAnalyticsIdentity();
       await clerk.signOut();
       await fetch('/api/auth/signout', { method: 'POST' });
     } catch (error) {

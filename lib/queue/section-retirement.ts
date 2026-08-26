@@ -29,6 +29,7 @@
  *   passes every watcher through untouched and reports the resulting gap.
  */
 
+import type { Database } from '@/lib/db';
 import {
   AUTO_CLEANUP_BREAKER_RATIO,
   AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
@@ -50,6 +51,8 @@ import { type SectionRef, sectionRefKey } from '@/lib/section-ref';
 
 /** Parameters for retiring a section after a NotFound classification. */
 export interface SectionRetirementParams {
+  /** Request-scoped Drizzle handle created once by the queue/HTTP entry point. */
+  db: Database;
   /** Full SectionRef ({ class_nbr, term }) — every query is keyed by both fields. */
   ref: SectionRef;
   /** Cloudflare EMAIL binding used for removal notifications. */
@@ -95,9 +98,9 @@ export interface SectionRetirementOutcome {
  * ratio (exactly-at-threshold does NOT trip). Any error reading the counts fails
  * open (returns false) so a monitoring outage can never wedge cleanup forever.
  */
-async function isAutoCleanupSuppressed(): Promise<boolean> {
+async function isAutoCleanupSuppressed(db: Database): Promise<boolean> {
   try {
-    const { total, flagged } = await readAutoCleanupBreakerCounts();
+    const { total, flagged } = await readAutoCleanupBreakerCounts(db);
 
     if (total === 0) return false;
 
@@ -127,13 +130,13 @@ async function isAutoCleanupSuppressed(): Promise<boolean> {
 export async function retireClassSection(
   params: SectionRetirementParams
 ): Promise<SectionRetirementOutcome> {
-  const { ref, emailBinding, fromEmail } = params;
+  const { db, ref, emailBinding, fromEmail } = params;
   const scope = sectionRefKey(ref);
 
   // Step 1: Record the strike atomically (RPC prevents lost increments between workers).
   let strikeCount: number;
   try {
-    strikeCount = await incrementConsecutiveNotFound(ref);
+    strikeCount = await incrementConsecutiveNotFound(db, ref);
   } catch (incrementError) {
     log('SectionRetirement').error(`Auto-cleanup increment failed for ${scope}:`, incrementError);
     return {
@@ -162,13 +165,13 @@ export async function retireClassSection(
   }
 
   // Step 2: At threshold — circuit breaker decides whether mass deletion may proceed.
-  const suppressed = await isAutoCleanupSuppressed();
+  const suppressed = await isAutoCleanupSuppressed(db);
   if (suppressed) {
     // Cap the counter at threshold-1 so the tripped breaker doesn't immediately
     // re-trigger on the next NotFound; guard avoids no-op WAL writes. A cap
     // failure is logged but does not change the verdict — suppression stands.
     try {
-      await capConsecutiveNotFound(ref, AUTO_CLEANUP_THRESHOLD - 1);
+      await capConsecutiveNotFound(db, ref, AUTO_CLEANUP_THRESHOLD - 1);
     } catch (capError) {
       log('SectionRetirement').warn(
         `Failed to cap consecutive_not_found_count for ${scope}:`,
@@ -194,8 +197,8 @@ export async function retireClassSection(
   let classInfo: SectionRemovalClassInfo | null;
   try {
     [watchers, classInfo] = await Promise.all([
-      getClassWatchers(ref),
-      readSectionRemovalClassInfo(ref).catch((): SectionRemovalClassInfo | null => null),
+      getClassWatchers(db, ref),
+      readSectionRemovalClassInfo(db, ref).catch((): SectionRemovalClassInfo | null => null),
     ]);
   } catch (watcherError) {
     log('SectionRetirement').warn(
@@ -217,7 +220,7 @@ export async function retireClassSection(
   // notice for a watch row that could survive a partial failure afterwards.
   let watchesDeleted = 0;
   try {
-    const delResult = await deleteSectionAndWatches(ref);
+    const delResult = await deleteSectionAndWatches(db, ref);
     watchesDeleted = delResult.watchesDeleted;
   } catch (deleteError) {
     log('SectionRetirement').error(`Auto-cleanup delete failed for ${scope}:`, deleteError);

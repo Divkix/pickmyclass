@@ -1,23 +1,41 @@
-// @ts-nocheck — skipped Clerk migration placeholder; rewrite to mock clerk-session (tracked in issue #351)
+/**
+ * /api/onboarding/popular-class over the Drizzle boundary. The route resolves
+ * ONE request-scoped handle via getDbFromEnv and passes it to the
+ * getMostWatchedClass RPC helper (stubbed here to script outcomes); any
+ * failure fails open to popularClass: null so onboarding never blocks.
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+
 import { GET } from '@/app/api/onboarding/popular-class/route';
+import type { ClassDetails } from '@/lib/types/class';
 
 const {
-  mockGetUser,
-  mockCreateClient,
+  mockGetDbFromEnv,
+  mockGetSessionIdentity,
   mockGetMostWatchedClass,
   mockFetchClassFromASU,
   mockGetSelectableTerms,
+  NotFoundError,
 } = vi.hoisted(() => ({
-  mockGetUser: vi.fn(),
-  mockCreateClient: vi.fn(),
+  mockGetDbFromEnv: vi.fn(),
+  mockGetSessionIdentity: vi.fn(),
   mockGetMostWatchedClass: vi.fn(),
   mockFetchClassFromASU: vi.fn(),
   mockGetSelectableTerms: vi.fn(),
+  NotFoundError: class NotFoundError extends Error {},
 }));
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: mockCreateClient,
+vi.mock('@/lib/auth/clerk-session', () => ({
+  getSessionIdentity: mockGetSessionIdentity,
+}));
+
+// Sentinel request-scoped handle threaded into the query helper. Flows only
+// through the mocked '@/lib/db' factory, so it needs no Database cast —
+// identity is asserted via toHaveBeenCalledWith.
+const requestDb = { __sentinel: 'popular-class-request-db' };
+
+vi.mock('@/lib/db', () => ({
+  getDbFromEnv: () => requestDb,
 }));
 
 vi.mock('@/lib/db/queries', () => ({
@@ -26,12 +44,7 @@ vi.mock('@/lib/db/queries', () => ({
 
 vi.mock('@/lib/asu/api', () => ({
   fetchClassFromASU: (...args: unknown[]) => mockFetchClassFromASU(...args),
-  NotFoundError: class NotFoundError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = 'NotFoundError';
-    }
-  },
+  NotFoundError,
 }));
 
 vi.mock('@/lib/asu/terms', () => ({
@@ -45,85 +58,86 @@ vi.mock('cloudflare:workers', () => ({
   },
 }));
 
-const user = { id: 'user-123', email: 'student@example.com' };
+const identity = { userId: 'user-123', clerkUserId: 'clerk_123', sessionId: 'sess_123' };
 
-const classDetails = {
+const classDetails: ClassDetails = {
   subject: 'CSE',
   catalog_nbr: '240',
   title: 'Intro to Programming',
   instructor_name: 'Dr. Smith',
-  seats_available: 10,
+  seats_available: 7,
   seats_capacity: 50,
-  non_reserved_seats: null,
+  non_reserved_seats: 3,
   location: 'COOR 120',
   meeting_times: 'MWF 9:00 AM-9:50 AM',
 };
 
+/** JSON payload values the route handler serializes. */
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 async function json(response: Response) {
   // SAFETY: test helper parses JSON response; shape asserted per test case via property access
   return response.json() as Promise<Record<string, JsonValue>>;
 }
-describe.skip('/api/onboarding/popular-class', () => {
-  let errorSpy: ReturnType<typeof vi.spyOn>;
 
+describe('/api/onboarding/popular-class', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockCreateClient.mockResolvedValue({
-      auth: { getUser: mockGetUser },
-    });
-    mockGetUser.mockResolvedValue({ data: { user }, error: null });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockGetDbFromEnv.mockImplementation(() => requestDb);
+    mockGetSessionIdentity.mockResolvedValue(identity);
+    mockGetSelectableTerms.mockReturnValue([{ code: '2267' }]);
   });
 
   afterEach(() => {
-    errorSpy.mockRestore();
+    vi.restoreAllMocks();
   });
 
-  it('rejects unauthenticated requests', async () => {
-    mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: { message: 'no session' } });
-    mockGetSelectableTerms.mockReturnValue([{ code: '2267' }]);
+  it('rejects unauthenticated requests without querying the database', async () => {
+    mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-    const response = await GET();
+    const response = await GET(new Request('https://pickmyclass.app/api/onboarding/popular-class'));
     const data = await json(response);
 
     expect(response.status).toBe(401);
     expect(data.error).toBe('Unauthorized');
+    expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     expect(mockGetMostWatchedClass).not.toHaveBeenCalled();
   });
 
   it('returns popularClass=null when no term is selectable', async () => {
     mockGetSelectableTerms.mockReturnValue([]);
 
-    const response = await GET();
+    const response = await GET(new Request('https://pickmyclass.app/api/onboarding/popular-class'));
     const data = await json(response);
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
     expect(data.popularClass).toBeNull();
+    expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     expect(mockGetMostWatchedClass).not.toHaveBeenCalled();
   });
 
-  it('returns popularClass=null when no popular class exists', async () => {
-    mockGetSelectableTerms.mockReturnValue([{ code: '2267' }]);
+  it('returns popularClass=null when no popular class exists for the term', async () => {
     mockGetMostWatchedClass.mockResolvedValue(null);
 
-    const response = await GET();
+    const response = await GET(new Request('https://pickmyclass.app/api/onboarding/popular-class'));
     const data = await json(response);
 
     expect(response.status).toBe(200);
     expect(data.popularClass).toBeNull();
-    expect(mockGetMostWatchedClass).toHaveBeenCalledWith('2267');
+    // The single request-scoped handle is threaded into the query helper.
+    expect(mockGetMostWatchedClass).toHaveBeenCalledTimes(1);
+    expect(mockGetMostWatchedClass).toHaveBeenCalledWith(requestDb, '2267');
     expect(mockFetchClassFromASU).not.toHaveBeenCalled();
   });
 
   it('returns the validated popular class with ASU details', async () => {
-    mockGetSelectableTerms.mockReturnValue([{ code: '2267' }]);
     mockGetMostWatchedClass.mockResolvedValue({ class_nbr: '12345', term: '2267' });
     mockFetchClassFromASU.mockResolvedValue(classDetails);
 
-    const response = await GET();
+    const response = await GET(new Request('https://pickmyclass.app/api/onboarding/popular-class'));
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -139,13 +153,10 @@ describe.skip('/api/onboarding/popular-class', () => {
   });
 
   it('fails open to popularClass=null when ASU returns NotFound', async () => {
-    mockGetSelectableTerms.mockReturnValue([{ code: '2267' }]);
     mockGetMostWatchedClass.mockResolvedValue({ class_nbr: '12345', term: '2267' });
-    mockFetchClassFromASU.mockRejectedValue(
-      Object.assign(new Error('Section 12345 not found'), { name: 'NotFoundError' })
-    );
+    mockFetchClassFromASU.mockRejectedValue(new NotFoundError('Section 12345 not found'));
 
-    const response = await GET();
+    const response = await GET(new Request('https://pickmyclass.app/api/onboarding/popular-class'));
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -153,22 +164,20 @@ describe.skip('/api/onboarding/popular-class', () => {
   });
 
   it('fails open to popularClass=null on a generic ASU API error', async () => {
-    mockGetSelectableTerms.mockReturnValue([{ code: '2267' }]);
     mockGetMostWatchedClass.mockResolvedValue({ class_nbr: '12345', term: '2267' });
     mockFetchClassFromASU.mockRejectedValue(new Error('ASU API returned 500'));
 
-    const response = await GET();
+    const response = await GET(new Request('https://pickmyclass.app/api/onboarding/popular-class'));
     const data = await json(response);
 
     expect(response.status).toBe(200);
     expect(data.popularClass).toBeNull();
   });
 
-  it('fails open to popularClass=null when getMostWatchedClass throws', async () => {
-    mockGetSelectableTerms.mockReturnValue([{ code: '2267' }]);
+  it('fails open to popularClass=null when the most-watched lookup throws', async () => {
     mockGetMostWatchedClass.mockRejectedValue(new Error('db down'));
 
-    const response = await GET();
+    const response = await GET(new Request('https://pickmyclass.app/api/onboarding/popular-class'));
     const data = await json(response);
 
     expect(response.status).toBe(200);

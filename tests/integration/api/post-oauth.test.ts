@@ -1,19 +1,28 @@
+import { type SQL } from 'drizzle-orm';
+import { PgDialect } from 'drizzle-orm/pg-core';
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 const {
+  dbHandle,
+  mockExecute,
+  mockGetDbFromEnv,
   mockGetSessionIdentity,
   mockRepairUserMirror,
-  mockCallFunction,
-  mockQueryOne,
   mockInvalidateAuthorizationState,
-} = vi.hoisted(() => ({
-  mockGetSessionIdentity: vi.fn(),
-  mockRepairUserMirror: vi.fn(),
-  mockCallFunction: vi.fn(),
-  mockQueryOne: vi.fn(),
-  mockInvalidateAuthorizationState: vi.fn(),
-}));
+} = vi.hoisted(() => {
+  const mockExecute = vi.fn();
+  return {
+    // Recording Database handle handed out by the mocked getDbFromEnv; every
+    // GET must create exactly one request-scoped handle through it.
+    dbHandle: { execute: mockExecute },
+    mockExecute,
+    mockGetDbFromEnv: vi.fn(() => dbHandle),
+    mockGetSessionIdentity: vi.fn(),
+    mockRepairUserMirror: vi.fn(),
+    mockInvalidateAuthorizationState: vi.fn(),
+  };
+});
 
 // Session seam — never verify real Clerk session tokens in tests.
 vi.mock('@/lib/auth/clerk-session', () => ({
@@ -25,21 +34,16 @@ vi.mock('@/lib/db/users', () => ({
   repairUserMirror: mockRepairUserMirror,
 }));
 
+// Request-scoped handle seam: the route calls getDbFromEnv() once per GET.
+vi.mock('@/lib/db', () => ({
+  getDbFromEnv: mockGetDbFromEnv,
+}));
+
 vi.mock('@/lib/auth/authorization-state', () => ({
   invalidateAuthorizationState: mockInvalidateAuthorizationState,
 }));
 
-vi.mock('@/lib/db/client', () => ({
-  callFunction: mockCallFunction,
-  query: vi.fn(),
-  queryOne: mockQueryOne,
-  queryScalar: vi.fn(),
-  execute: vi.fn(),
-  callFunctionScalar: vi.fn(),
-  getClient: vi.fn(),
-  setConnectionStringGetter: vi.fn(),
-}));
-
+// Import after mocks are registered
 import { GET } from '@/app/auth/post-oauth/route';
 
 const ORIGIN = 'https://pickmyclass.app';
@@ -60,7 +64,7 @@ describe('GET /auth/post-oauth', () => {
     vi.clearAllMocks();
     mockGetSessionIdentity.mockResolvedValue(IDENTITY);
     mockRepairUserMirror.mockResolvedValue({ hasConsent: false });
-    mockCallFunction.mockResolvedValue([]);
+    mockExecute.mockResolvedValue([]);
   });
 
   it('redirects unauthenticated requests to sign-in with oauth_failed without touching the mirror', async () => {
@@ -69,16 +73,26 @@ describe('GET /auth/post-oauth', () => {
     const response = await GET(getRequest());
 
     expect(locationOf(response)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
+    expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     expect(mockRepairUserMirror).not.toHaveBeenCalled();
-    expect(mockCallFunction).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
-  it('repairs the mirror once with the session identity', async () => {
+  it('creates exactly one database handle per request', async () => {
+    mockRepairUserMirror.mockResolvedValueOnce({ hasConsent: true });
+
+    const response = await GET(getRequest('?next=/dashboard'));
+
+    expect(locationOf(response)).toBe(`${ORIGIN}/dashboard`);
+    expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
+  });
+
+  it('repairs the mirror once with the request-scoped handle and session identity', async () => {
     await GET(getRequest('?next=/dashboard'));
 
     expect(mockRepairUserMirror).toHaveBeenCalledTimes(1);
-    expect(mockRepairUserMirror).toHaveBeenCalledWith('user-1', 'clerk_user_1');
+    expect(mockRepairUserMirror).toHaveBeenCalledWith(dbHandle, 'user-1', 'clerk_user_1');
   });
 
   it('maps a null repair (no email on Clerk user) to the save_failed consent redirect', async () => {
@@ -87,7 +101,7 @@ describe('GET /auth/post-oauth', () => {
     const response = await GET(getRequest('?next=/dashboard'));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/consent?error=save_failed&next=%2Fdashboard`);
-    expect(mockCallFunction).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
@@ -97,18 +111,17 @@ describe('GET /auth/post-oauth', () => {
     const response = await GET(getRequest('?next=/dashboard'));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
-    expect(mockCallFunction).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
-  it('routes users without recorded consent to /consent using the repaired flag instead of route SQL', async () => {
+  it('routes users without recorded consent to /consent using the repaired flag instead of extra SQL', async () => {
     mockRepairUserMirror.mockResolvedValueOnce({ hasConsent: false });
 
     const response = await GET(getRequest('?next=/dashboard'));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/consent?next=%2Fdashboard`);
-    expect(mockQueryOne).not.toHaveBeenCalled();
-    expect(mockCallFunction).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
@@ -118,27 +131,31 @@ describe('GET /auth/post-oauth', () => {
     const response = await GET(getRequest('?next=/dashboard'));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/dashboard`);
-    expect(mockCallFunction).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
-  it('records confirmed consent via RPC, then invalidates authorization state before redirecting', async () => {
+  it('records confirmed consent via one bound RPC, then invalidates authorization state before redirecting', async () => {
     mockRepairUserMirror.mockResolvedValueOnce({ hasConsent: false });
 
     const response = await GET(getRequest('?next=/dashboard&consent=confirmed'));
 
-    expect(mockCallFunction).toHaveBeenCalledTimes(1);
-    expect(mockCallFunction).toHaveBeenCalledWith('accept_terms_and_verify_age', ['user-1']);
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    const query = mockExecute.mock.calls[0][0] as SQL;
+    expect(new PgDialect().sqlToQuery(query).sql.replace(/\s+/g, ' ').trim()).toBe(
+      'SELECT public.accept_terms_and_verify_age($1::text)'
+    );
+    expect(new PgDialect().sqlToQuery(query).params).toEqual(['user-1']);
     expect(mockInvalidateAuthorizationState).toHaveBeenCalledTimes(1);
     expect(mockInvalidateAuthorizationState).toHaveBeenCalledWith('user-1');
-    expect(mockCallFunction.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(mockExecute.mock.invocationCallOrder[0]).toBeLessThan(
       mockInvalidateAuthorizationState.mock.invocationCallOrder[0]
     );
     expect(locationOf(response)).toBe(`${ORIGIN}/dashboard`);
   });
 
   it('does not invalidate authorization state when the consent RPC fails and falls back to save_failed', async () => {
-    mockCallFunction.mockRejectedValueOnce(new Error('database unavailable'));
+    mockExecute.mockRejectedValueOnce(new Error('database unavailable'));
 
     const response = await GET(getRequest('?next=/dashboard&consent=confirmed'));
 

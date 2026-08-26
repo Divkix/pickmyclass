@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import posthog from 'posthog-js';
+import { trackAnalyticsEvent } from '@/lib/analytics/client';
 import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { Header } from '@/components/Header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -45,7 +45,7 @@ export default function SettingsPage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      posthog.capture('data_exported');
+      trackAnalyticsEvent('data_exported', {});
       setMessage({ type: 'success', text: 'Data exported successfully!' });
     } catch (error) {
       log('Settings').error('Data export failed:', error);

@@ -15,8 +15,11 @@
  * cannot cross into the browser.
  */
 
-import { queryOne } from '@/lib/db/client';
+import { eq } from 'drizzle-orm';
+
 import { TtlCache } from '@/lib/cache/ttl-cache';
+import type { Database } from '@/lib/db';
+import { userProfiles } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 
 /**
@@ -33,7 +36,7 @@ export interface AuthorizationState {
 const CACHE_TTL_MS = 30 * 1000;
 const authorizationStateCache = new TtlCache<AuthorizationState>(CACHE_TTL_MS, 100);
 
-/** Clear the entire authorization cache. Exposed for test isolation. */
+/** Clear the entire authorization cache. Exposed for test isolation. Cache-only: no DB. */
 export function clearAuthorizationStateCache(): void {
   authorizationStateCache.clear();
 }
@@ -42,7 +45,7 @@ export function clearAuthorizationStateCache(): void {
  * Invalidate the cached authorization state for a specific user. Call after
  * mutating an authorization field (`is_admin` / `is_disabled`) or recording
  * consent so the next cached read re-queries instead of serving a stale decision.
- * Returns `true` if an entry existed.
+ * Returns `true` if an entry existed. Cache-only: no DB.
  */
 export function invalidateAuthorizationState(userId: string): boolean {
   return authorizationStateCache.delete(userId);
@@ -72,6 +75,7 @@ interface ReadAuthorizationStateOptions {
  * the error as "not disabled". Error results are never cached.
  */
 export async function readAuthorizationState(
+  db: Database,
   userId: string,
   { cache }: ReadAuthorizationStateOptions
 ): Promise<AuthorizationState | null> {
@@ -81,16 +85,16 @@ export async function readAuthorizationState(
   }
 
   try {
-    const data = await queryOne<{
-      is_admin: boolean;
-      is_disabled: boolean;
-      age_verified_at: string | null;
-      agreed_to_terms_at: string | null;
-    }>(
-      `SELECT is_admin, is_disabled, age_verified_at, agreed_to_terms_at
-       FROM user_profiles WHERE user_id = $1`,
-      [userId]
-    );
+    const [data] = await db
+      .select({
+        is_admin: userProfiles.is_admin,
+        is_disabled: userProfiles.is_disabled,
+        age_verified_at: userProfiles.age_verified_at,
+        agreed_to_terms_at: userProfiles.agreed_to_terms_at,
+      })
+      .from(userProfiles)
+      .where(eq(userProfiles.user_id, userId))
+      .limit(1);
 
     if (!data) return null;
 

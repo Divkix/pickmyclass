@@ -1,52 +1,58 @@
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+
 import { getSectionsToCheck } from '@/lib/db/queries';
 
-// Mock the Hyperdrive-backed db client seam (replaces the former Supabase service client)
-const { mockCallFunction } = vi.hoisted(() => ({
-  mockCallFunction: vi.fn(),
-}));
+import { createScriptedPostgres } from './scripted-postgres';
 
-vi.mock('@/lib/db/client', () => ({
-  callFunction: mockCallFunction,
-  callFunctionScalar: vi.fn(),
-  query: vi.fn(),
-  queryOne: vi.fn(),
-  queryScalar: vi.fn(),
-  execute: vi.fn(),
-  getClient: vi.fn(),
-  setConnectionStringGetter: vi.fn(),
-}));
+beforeEach(() => {
+  vi.spyOn(console, 'info').mockImplementation(() => {});
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('getSectionsToCheck', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('should call get_sections_to_check RPC with stagger_type parameter', async () => {
-    const mockData = [
+  it('calls get_sections_to_check with the stagger_type parameter and maps SectionRefs', async () => {
+    const h = createScriptedPostgres();
+    h.next([
       { class_nbr: '12345', term: '2261' },
       { class_nbr: '12346', term: '2261' },
-    ];
-    mockCallFunction.mockResolvedValue(mockData);
+    ]);
 
-    const result = await getSectionsToCheck('even');
+    const result = await getSectionsToCheck(h.db, 'even');
 
-    expect(mockCallFunction).toHaveBeenCalledWith('get_sections_to_check', ['even']);
-    expect(result).toEqual(mockData);
+    expect(result).toEqual([
+      { class_nbr: '12345', term: '2261' },
+      { class_nbr: '12346', term: '2261' },
+    ]);
+    expect(h.statements).toHaveLength(1);
+    expect(h.statements[0].sql).toContain('public.get_sections_to_check');
+    expect(h.statements[0].params).toEqual(['even']);
   });
 
-  it('should return an empty RPC result', async () => {
-    mockCallFunction.mockResolvedValue([]);
+  it('defaults to the "all" stagger group when called without an argument', async () => {
+    const h = createScriptedPostgres();
 
-    const result = await getSectionsToCheck('even');
+    await getSectionsToCheck(h.db);
+
+    expect(h.statements[0].params).toEqual(['all']);
+  });
+
+  it('returns an empty array for an empty RPC result', async () => {
+    const h = createScriptedPostgres();
+
+    const result = await getSectionsToCheck(h.db, 'even');
 
     expect(result).toEqual([]);
   });
 
-  it('should throw error when RPC fails', async () => {
-    mockCallFunction.mockRejectedValue(new Error('Database connection failed'));
+  it('throws when the RPC fails', async () => {
+    const h = createScriptedPostgres();
+    h.failNext(new Error('Database connection failed'));
 
-    await expect(getSectionsToCheck('odd')).rejects.toThrow(
+    await expect(getSectionsToCheck(h.db, 'odd')).rejects.toThrow(
       'Failed to fetch sections: Database connection failed'
     );
   });

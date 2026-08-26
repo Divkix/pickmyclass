@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { Calendar, CheckCircle2, Eye, Plus, Search, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import posthog from 'posthog-js';
 import { toast } from 'sonner';
 import { ClassWatchCard } from '@/components/ClassWatchCard';
 import { FinishSetupCard } from '@/components/FinishSetupCard';
@@ -149,8 +148,6 @@ export default function DashboardPage() {
     if (!response.ok) {
       throw new Error('Failed to delete class watch');
     }
-
-    posthog.capture('class_watch_removed', { watch_id: watchId });
 
     // Remove from local state immediately
     setWatches((prev) => prev.filter((w) => w.id !== watchId));

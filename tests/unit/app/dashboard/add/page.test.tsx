@@ -2,13 +2,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import AddClassPage from '@/app/dashboard/add/page';
 
-const { mockCapture, mockPush, mockReplace } = vi.hoisted(() => ({
-  mockCapture: vi.fn(),
+const { mockPush, mockReplace } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockReplace: vi.fn(),
 }));
-
-vi.mock('posthog-js', () => ({ default: { capture: mockCapture } }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -103,7 +100,7 @@ describe('AddClassPage', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('captures the created watch and returns to dashboard', async () => {
+  it('returns to the dashboard after a successful watch creation', async () => {
     render(<AddClassPage />);
 
     expect(screen.getByRole('link', { name: /back to dashboard/i })).toHaveAttribute(
@@ -113,10 +110,6 @@ describe('AddClassPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /submit watch/i }));
 
     await waitFor(() => {
-      expect(mockCapture).toHaveBeenCalledWith('class_watch_added', {
-        term: '2267',
-        class_nbr: '12345',
-      });
       expect(mockPush).toHaveBeenCalledWith('/dashboard');
     });
     expect(global.fetch).not.toHaveBeenCalled();

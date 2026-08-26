@@ -1,13 +1,22 @@
+/**
+ * /api/fetch-class-details over the Drizzle boundary: auth gating, ASU error
+ * mapping, the class_states persistence hand-off, and its graceful
+ * degradation. The route resolves ONE request-scoped handle via getDbFromEnv
+ * and passes it to upsertClassState; that seam is stubbed here so persistence
+ * outcomes can be scripted without a database.
+ */
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+
+import { getSelectableTerms } from '@/lib/asu/terms';
+import type { ClassDetails } from '@/lib/types/class';
 
 const {
   AuthError,
   NotFoundError,
   mockFetchClassFromASU,
   mockUpsertClassState,
-  mockCreateClient,
-  mockGetUser,
+  mockGetSessionIdentity,
 } = vi.hoisted(() => {
   class MockNotFoundError extends Error {}
   class MockAuthError extends Error {}
@@ -17,10 +26,34 @@ const {
     NotFoundError: MockNotFoundError,
     mockFetchClassFromASU: vi.fn(),
     mockUpsertClassState: vi.fn(),
-    mockCreateClient: vi.fn(),
-    mockGetUser: vi.fn(),
+    mockGetSessionIdentity: vi.fn(),
   };
 });
+
+vi.mock('@/lib/auth/clerk-session', () => ({
+  getSessionIdentity: mockGetSessionIdentity,
+}));
+
+// Sentinel handle: the route must create exactly one and hand it to the
+// persistence helper. Flows only through the mocked '@/lib/db' factory, so it
+// needs no Database cast — identity is asserted via toHaveBeenCalledWith.
+const requestDb = { __sentinel: 'fetch-class-details-request-db' };
+
+vi.mock('@/lib/db', () => ({
+  getDbFromEnv: () => requestDb,
+}));
+
+vi.mock('@/lib/asu/api', () => ({
+  fetchClassFromASU: mockFetchClassFromASU,
+  NotFoundError,
+  AuthError,
+}));
+
+// upsertClassState lives in lib/db/queries — stub it so the test can assert
+// the request-scoped db is threaded through and control failure cases.
+vi.mock('@/lib/db/queries', () => ({
+  upsertClassState: mockUpsertClassState,
+}));
 
 vi.mock('cloudflare:workers', () => ({
   env: {
@@ -29,56 +62,32 @@ vi.mock('cloudflare:workers', () => ({
   },
 }));
 
-vi.mock('@/lib/asu/api', () => ({
-  AuthError,
-  NotFoundError,
-  fetchClassFromASU: mockFetchClassFromASU,
-}));
-
-// upsertClassState lives in lib/db/queries (uses execute under the hood) —
-// stub it so the test can assert it's invoked and control failure cases.
-vi.mock('@/lib/db/queries', () => ({
-  upsertClassState: mockUpsertClassState,
-}));
-
-// Stub the full db/client surface so no real pg Pool is constructed.
-vi.mock('@/lib/db/client', () => ({
-  query: vi.fn(),
-  queryOne: vi.fn(),
-  queryScalar: vi.fn(),
-  execute: vi.fn(),
-  callFunction: vi.fn(),
-  callFunctionScalar: vi.fn(),
-  getClient: vi.fn(),
-  setConnectionStringGetter: vi.fn(),
-}));
-
-// Auth stays on Supabase (supabase.auth.getUser via withAuth).
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: mockCreateClient,
-}));
-
 import { POST } from '@/app/api/fetch-class-details/route';
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
-const classDetails = {
+const identity = { userId: 'user-123', clerkUserId: 'clerk_123', sessionId: 'sess_123' };
+
+const classDetails: ClassDetails = {
   subject: 'CSE',
   catalog_nbr: '240',
   title: 'Intro to Programming',
   instructor_name: 'Dr. Smith',
   seats_available: 7,
-  seats_capacity: 40,
+  seats_capacity: 50,
   non_reserved_seats: 3,
-  location: 'Tempe',
+  location: 'COOR 120',
   meeting_times: 'MWF 9:00 AM-9:50 AM',
 };
 
+// Any currently selectable term satisfies fetchClassDetailsSchema's refinement.
+const SELECTABLE_TERM = getSelectableTerms()[0].code;
+
 function request(body: Record<string, JsonValue>): NextRequest {
-  return new NextRequest('https://pickmyclass.app/api/fetch-class-details', {
+  return new NextRequest('http://localhost:3000/api/fetch-class-details', {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
   });
 }
 
@@ -86,42 +95,32 @@ async function json(response: Response) {
   // SAFETY: test helper parses JSON response; shape asserted per test case via property access
   return response.json() as Promise<Record<string, JsonValue>>;
 }
-describe.skip('/api/fetch-class-details', () => {
-  let errorSpy: ReturnType<typeof vi.spyOn>;
-  let logSpy: ReturnType<typeof vi.spyOn>;
 
+describe('/api/fetch-class-details', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
     vi.clearAllMocks();
-    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: 'test-user-id', email: 'test@example.com' } },
-      error: null,
-    });
-    mockCreateClient.mockResolvedValue({ auth: { getUser: mockGetUser } });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetSessionIdentity.mockResolvedValue(identity);
     mockFetchClassFromASU.mockResolvedValue(classDetails);
     mockUpsertClassState.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
-    errorSpy.mockRestore();
-    logSpy.mockRestore();
-    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it('rejects invalid class detail requests', async () => {
-    const response = await POST(request({ term: '2264', class_nbr: 'abc' }));
+    const response = await POST(request({ term: SELECTABLE_TERM, class_nbr: 'abc' }));
     const data = await json(response);
 
     expect(response.status).toBe(400);
     expect(data.error).toBe('Invalid input');
     expect(mockFetchClassFromASU).not.toHaveBeenCalled();
+    expect(mockUpsertClassState).not.toHaveBeenCalled();
   });
 
-  it('fetches ASU details, persists the class state, and returns display data', async () => {
-    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
+  it('fetches ASU details, persists the class state on the request handle, and returns display data', async () => {
+    const response = await POST(request({ term: SELECTABLE_TERM, class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -132,16 +131,17 @@ describe.skip('/api/fetch-class-details', () => {
       seats_available: 7,
     });
     expect(mockFetchClassFromASU).toHaveBeenCalledWith(
-      { class_nbr: '12345', term: '2264' },
+      { class_nbr: '12345', term: SELECTABLE_TERM },
       {
         ASU_API_BASE_URL: 'https://classes.example.test',
         ASU_API_TOKEN: 'test-token',
       }
     );
-    // upsertClassState(ref, details) replaces the old service .upsert(...) call.
-    // The first arg is the SectionRef; the second is the ASU ClassDetails.
+    // The single request-scoped handle is threaded into the persistence helper.
+    expect(mockUpsertClassState).toHaveBeenCalledTimes(1);
     expect(mockUpsertClassState).toHaveBeenCalledWith(
-      { class_nbr: '12345', term: '2264' },
+      requestDb,
+      { class_nbr: '12345', term: SELECTABLE_TERM },
       expect.objectContaining({
         non_reserved_seats: 3,
         seats_available: 7,
@@ -152,7 +152,7 @@ describe.skip('/api/fetch-class-details', () => {
   it('maps ASU not-found errors to 404', async () => {
     mockFetchClassFromASU.mockRejectedValueOnce(new NotFoundError('missing'));
 
-    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
+    const response = await POST(request({ term: SELECTABLE_TERM, class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(404);
@@ -162,7 +162,7 @@ describe.skip('/api/fetch-class-details', () => {
   it('maps ASU auth failures to a temporary service outage', async () => {
     mockFetchClassFromASU.mockRejectedValueOnce(new AuthError('expired token'));
 
-    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
+    const response = await POST(request({ term: SELECTABLE_TERM, class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(503);
@@ -172,29 +172,29 @@ describe.skip('/api/fetch-class-details', () => {
   it('maps unexpected ASU failures to a fetch error', async () => {
     mockFetchClassFromASU.mockRejectedValueOnce(new Error('network down'));
 
-    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
+    const response = await POST(request({ term: SELECTABLE_TERM, class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(500);
     expect(data.error).toBe('Failed to fetch class details');
   });
 
-  it('still returns class details when persistence returns an error', async () => {
+  it('still returns class details when persistence rejects', async () => {
     mockUpsertClassState.mockRejectedValueOnce(new Error('write failed'));
 
-    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
+    const response = await POST(request({ term: SELECTABLE_TERM, class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(200);
     expect(data.title).toBe('Intro to Programming');
   });
 
-  it('still returns class details when persistence throws', async () => {
+  it('still returns class details when persistence throws synchronously', async () => {
     mockUpsertClassState.mockImplementationOnce(() => {
       throw new Error('service client unavailable');
     });
 
-    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
+    const response = await POST(request({ term: SELECTABLE_TERM, class_nbr: '12345' }));
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -202,9 +202,13 @@ describe.skip('/api/fetch-class-details', () => {
     expect(mockUpsertClassState).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects unauthenticated requests', async () => {
-    mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
-    const response = await POST(request({ term: '2264', class_nbr: '12345' }));
+  it('rejects unauthenticated requests without fetching or persisting', async () => {
+    mockGetSessionIdentity.mockResolvedValueOnce(null);
+
+    const response = await POST(request({ term: SELECTABLE_TERM, class_nbr: '12345' }));
+
     expect(response.status).toBe(401);
+    expect(mockFetchClassFromASU).not.toHaveBeenCalled();
+    expect(mockUpsertClassState).not.toHaveBeenCalled();
   });
 });

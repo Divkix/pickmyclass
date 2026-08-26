@@ -15,6 +15,7 @@ import { env } from 'cloudflare:workers';
 import { type NextRequest } from 'next/server';
 import { verifyCronSecret } from '@/lib/auth/require-user';
 import { fail, ok } from '@/lib/api/response';
+import { getDbFromEnv } from '@/lib/db';
 import { getSectionsToCheck } from '@/lib/db/queries';
 import { getPastTermCodes } from '@/lib/asu/terms';
 import { log } from '@/lib/log';
@@ -81,8 +82,11 @@ export async function GET(request: NextRequest) {
       return fail('Queue binding not configured', 500);
     }
 
+    // One request-scoped Drizzle handle for this invocation.
+    const db = getDbFromEnv();
+
     // Use server-side filtering function to get sections for this stagger group
-    const allSections = await getSectionsToCheck(staggerGroup);
+    const allSections = await getSectionsToCheck(db, staggerGroup);
     // Drop sections whose term has ended — they'd 404 at ASU forever (handled by the
     // daily sweep too; this stops the wasted calls + error logs in the meantime).
     // Compute the past-term set once, then filter — O(1) per section.

@@ -12,16 +12,20 @@ vi.mock('@/lib/email/send', () => ({
   sendBatchEmailsOptimized: vi.fn(),
 }));
 
+import type { Database } from '@/lib/db';
 import {
   deleteNotificationRecords,
   getNotificationWatchers,
   tryRecordNotificationsBatch,
+  type EligibleWatcherRpcRow,
 } from '@/lib/db/queries';
-import type { EligibleWatcherRpcRow } from '@/lib/db/types';
 import type { ClassInfo } from '@/lib/email/send';
 import { sendBatchEmailsOptimized } from '@/lib/email/send';
 import type { ChangeResult } from '@/lib/queue/change-detector';
 import { sendSectionNotifications } from '@/lib/queue/notification-sender';
+
+/** Sentinel Drizzle handle — identity-only; every DB seam below is mocked. */
+const db = {} as Database;
 
 function mockWatchersFetch(watchers: EligibleWatcherRpcRow[]) {
   vi.mocked(getNotificationWatchers).mockResolvedValue(watchers);
@@ -105,6 +109,7 @@ describe('sendSectionNotifications', () => {
 
   function defaultParams(): Parameters<typeof sendSectionNotifications>[0] {
     return {
+      db,
       ref: { class_nbr: '42737', term: '2261' },
       classInfo: buildClassInfo(),
       changes: buildChanges({ seatBecameAvailable: true }),
@@ -119,7 +124,7 @@ describe('sendSectionNotifications', () => {
     await expect(sendSectionNotifications(defaultParams())).rejects.toThrow('DB error');
 
     // Full SectionRef reaches the query seam; rejection must abort before any claim/delete/send work
-    expect(getNotificationWatchers).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
+    expect(getNotificationWatchers).toHaveBeenCalledWith(db, { class_nbr: '42737', term: '2261' });
     expect(tryRecordNotificationsBatch).not.toHaveBeenCalled();
     expect(deleteNotificationRecords).not.toHaveBeenCalled();
     expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
@@ -145,13 +150,13 @@ describe('sendSectionNotifications', () => {
       ref: { class_nbr: '42737', term: '2267' },
     });
 
-    expect(getNotificationWatchers).toHaveBeenCalledWith({ class_nbr: '42737', term: '2267' });
+    expect(getNotificationWatchers).toHaveBeenCalledWith(db, { class_nbr: '42737', term: '2267' });
   });
 
   it('claims slots and sends emails for seat_available changes', async () => {
     const result = await sendSectionNotifications(defaultParams());
 
-    expect(tryRecordNotificationsBatch).toHaveBeenCalledWith(['w1', 'w2'], 'seat_available');
+    expect(tryRecordNotificationsBatch).toHaveBeenCalledWith(db, ['w1', 'w2'], 'seat_available');
     expect(sendBatchEmailsOptimized).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(2);
     expect(result[0]).toEqual({
@@ -173,7 +178,11 @@ describe('sendSectionNotifications', () => {
 
     const result = await sendSectionNotifications(params);
 
-    expect(tryRecordNotificationsBatch).toHaveBeenCalledWith(['w1', 'w2'], 'instructor_assigned');
+    expect(tryRecordNotificationsBatch).toHaveBeenCalledWith(
+      db,
+      ['w1', 'w2'],
+      'instructor_assigned'
+    );
     expect(sendBatchEmailsOptimized).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(2);
     expect(result[0].type).toBe('instructor_assigned');
@@ -231,7 +240,7 @@ describe('sendSectionNotifications', () => {
 
     const result = await sendSectionNotifications(defaultParams());
 
-    expect(deleteNotificationRecords).toHaveBeenCalledWith(['w2'], 'seat_available');
+    expect(deleteNotificationRecords).toHaveBeenCalledWith(db, ['w2'], 'seat_available');
     expect(result).toHaveLength(2);
     expect(result[0].success).toBe(true);
     expect(result[1].success).toBe(false);
@@ -252,7 +261,7 @@ describe('sendSectionNotifications', () => {
 
     // Seat claim fulfilled → rolled back; instructor claim rejected → nothing to undo
     expect(deleteNotificationRecords).toHaveBeenCalledTimes(1);
-    expect(deleteNotificationRecords).toHaveBeenCalledWith(['w1'], 'seat_available');
+    expect(deleteNotificationRecords).toHaveBeenCalledWith(db, ['w1'], 'seat_available');
     expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
   });
 
@@ -270,7 +279,7 @@ describe('sendSectionNotifications', () => {
 
     // Instructor claim fulfilled → rolled back after the failed seat claim
     expect(deleteNotificationRecords).toHaveBeenCalledTimes(1);
-    expect(deleteNotificationRecords).toHaveBeenCalledWith(['w2'], 'instructor_assigned');
+    expect(deleteNotificationRecords).toHaveBeenCalledWith(db, ['w2'], 'instructor_assigned');
     expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
   });
 
@@ -284,7 +293,7 @@ describe('sendSectionNotifications', () => {
     const result = await sendSectionNotifications(defaultParams());
 
     // Rollback attempted, its failure swallowed, partial results still returned
-    expect(deleteNotificationRecords).toHaveBeenCalledWith(['w2'], 'seat_available');
+    expect(deleteNotificationRecords).toHaveBeenCalledWith(db, ['w2'], 'seat_available');
     expect(result).toHaveLength(2);
     expect(result[0].success).toBe(true);
     expect(result[1]).toEqual({
@@ -300,7 +309,7 @@ describe('sendSectionNotifications', () => {
 
     // One watcher fetch through the seam, one claim pass; success never triggers a re-fetch or extra record pass
     expect(getNotificationWatchers).toHaveBeenCalledTimes(1);
-    expect(getNotificationWatchers).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' });
+    expect(getNotificationWatchers).toHaveBeenCalledWith(db, { class_nbr: '42737', term: '2261' });
     expect(tryRecordNotificationsBatch).toHaveBeenCalledTimes(1);
   });
 

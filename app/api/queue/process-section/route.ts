@@ -15,6 +15,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { classCheckMessageSchema } from '@/lib/api/schemas';
 import { mapValidationIssues } from '@/lib/api/validation';
 import { verifyCronSecret } from '@/lib/auth/require-user';
+import { getDbFromEnv } from '@/lib/db';
 import { log } from '@/lib/log';
 import { processSection } from '@/lib/queue/process-section';
 import type { Env } from '@/lib/types/env';
@@ -87,7 +88,10 @@ export async function POST(request: NextRequest) {
     // processSection owns the ack/retry decision; this route only translates
     // outcome.disposition to HTTP: ack → 200, retry → 429/502/500 (from outcome.httpStatus).
     // Preserves ADR 0006 ack→200 invariant.
-    const outcome = await processSection({ class_nbr, term }, cfEnv);
+    // One request-scoped Drizzle handle per invocation, created after auth and
+    // payload validation so rejected requests never open a connection.
+    const db = getDbFromEnv();
+    const outcome = await processSection(db, { class_nbr, term }, cfEnv);
 
     if (outcome.disposition === 'ack') {
       if (outcome.result.success) {

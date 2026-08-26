@@ -6,6 +6,7 @@ import { fetchClassDetailsSchema } from '@/lib/api/schemas';
 import { mapAsuErrorToResponse } from '@/lib/api/asu-response';
 import { parseOrFail } from '@/lib/api/validation';
 import { type ClassDetails, fetchClassFromASU } from '@/lib/asu/api';
+import { getDbFromEnv } from '@/lib/db';
 import { upsertClassState } from '@/lib/db/queries';
 import { log } from '@/lib/log';
 import type { FetchClassDetailsResponse } from '@/lib/types/class';
@@ -47,8 +48,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Persist fetched data to class_states table for immediate dashboard display
+        const db = getDbFromEnv();
         try {
-          await upsertClassState({ class_nbr, term }, classDetails);
+          await upsertClassState(db, { class_nbr, term }, classDetails);
         } catch (dbError) {
           log('API').error('Failed to persist class state:', dbError);
           // Continue anyway - graceful degradation

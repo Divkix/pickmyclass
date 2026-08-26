@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getClassesPage, getDistinctSubjects } from '@/lib/db/admin-queries';
 import type { ClassSortField } from '@/lib/db/admin-queries';
+import { getDbFromEnv } from '@/lib/db';
 import { param, parsePageParam } from '@/lib/utils/page-params';
 
 const PAGE_SIZE = 25;
@@ -37,8 +38,11 @@ function classSort(value: string): ClassSortField {
  * Requires admin authentication via verifyAdmin().
  */
 export default async function AdminClassesPage({ searchParams }: { searchParams?: SearchParams }) {
+  // One request-scoped handle shared by the gate read and both list reads.
+  const db = getDbFromEnv();
+
   // Verify admin authentication (redirects if unauthorized)
-  await verifyAdmin();
+  await verifyAdmin(db);
 
   const sp = (await searchParams) ?? {};
 
@@ -60,7 +64,7 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
     | '10+';
 
   const [{ rows, total, totalWatchers, fullClasses }, subjects] = await Promise.all([
-    getClassesPage({
+    getClassesPage(db, {
       page,
       pageSize: PAGE_SIZE,
       search,
@@ -71,7 +75,7 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
       sort,
       dir,
     }),
-    getDistinctSubjects(),
+    getDistinctSubjects(db),
   ]);
 
   return (

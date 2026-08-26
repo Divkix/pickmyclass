@@ -10,30 +10,235 @@
  * - the cached/fresh edge read (`readUserVerification`)
  *
  * Seams are mocked — no real DB and no Clerk API:
- * - `@/lib/db/client` → `execute` / `queryOne`
+ * - DB reads/writes run against a chainable mock Drizzle query builder passed
+ *   as the leading `db: Database` argument (no legacy client seam)
  * - `@/lib/auth/clerk-session` → `getClerkClient().users.getUser`
  */
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { EmailAddressJSON, UserJSON, VerificationJSON } from '@clerk/backend';
+import { SQL } from 'drizzle-orm';
+import { PgDialect, type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+
+import type { Database } from '@/lib/db';
+import { users, userProfiles } from '@/lib/db/schema';
+import {
+  clearUserVerificationCache,
+  readUserVerification,
+  repairUserMirror,
+  softDeleteUserById,
+  syncUserMirrorFromClerkUser,
+} from '@/lib/db/users';
 
 // ---------------------------------------------------------------------------
-// Fixture contracts — concrete stand-ins for the Clerk/DB wire types
+// Mock Database — chainable Drizzle builders recording every call
 // ---------------------------------------------------------------------------
 
-/** Consent probe row read back from `user_profiles` (readProfileConsent). */
-interface ProfileConsentRow {
-  age_verified_at: string | null;
-  agreed_to_terms_at: string | null;
+/** Wire-scale value recorded from a builder call (driver scalars or SQL). */
+type RecordedValue = string | number | boolean | null | SQL;
+
+/** Recorded insert/update payload keyed by column name. */
+interface RecordedRowMap {
+  [column: string]: RecordedValue;
 }
 
-/** Mirror row read back from `users` (the readUserVerification edge gate). */
-interface MirrorVerificationRow {
-  email: string;
-  email_confirmed_at: string | null;
+/** Select projection keyed by result column, mapping to drizzle columns/SQL. */
+interface ProjectionMap {
+  [column: string]: PgColumn | SQL;
 }
 
-/** Every `queryOne` result this suite stubs; null when no row matched. */
-type QueryOneRow = ProfileConsentRow | MirrorVerificationRow;
+/** Rows a scripted select resolves with: driver scalars or null per column. */
+type SelectRow = { [column: string]: string | null };
+
+interface SelectOp {
+  method: 'select';
+  projection: ProjectionMap;
+  table: PgTable | undefined;
+  where: SQL | undefined;
+  limit: number | null;
+}
+
+interface InsertOp {
+  method: 'insert';
+  table: PgTable;
+  values: RecordedRowMap;
+  /** onConflictDoNothing/DoUpdate config; null when the builder call is absent. */
+  conflict: { target?: PgColumn; set?: RecordedRowMap } | null;
+}
+
+interface UpdateOp {
+  method: 'update';
+  table: PgTable;
+  set: RecordedRowMap;
+  where: SQL | undefined;
+}
+
+type Op = SelectOp | InsertOp | UpdateOp;
+
+/**
+ * The chainable Drizzle builder surface lib/db/users drives, recording every
+ * call into the shared ops log. Method nesting mirrors the module exactly:
+ * select→from→where→limit, insert→values→onConflict*, update→set→where.
+ */
+interface BuilderRecorder {
+  select(projection: ProjectionMap): {
+    from(table: PgTable): {
+      where(where: SQL): {
+        limit(limit: number): Promise<SelectRow[]>;
+      };
+    };
+  };
+  insert(table: PgTable): {
+    values(values: RecordedRowMap): {
+      onConflictDoNothing(config?: { target?: PgColumn }): Promise<never[]>;
+      onConflictDoUpdate(config: { target?: PgColumn; set: RecordedRowMap }): Promise<never[]>;
+    };
+  };
+  update(table: PgTable): {
+    set(patch: RecordedRowMap): {
+      where(where: SQL): Promise<{ count: number }>;
+    };
+  };
+}
+
+/** Seam handed to the module under test: the real Database or the recorder. */
+type UsersSeamDb = Database | BuilderRecorder;
+
+/**
+ * Narrows the recording double to the Database handle lib/db/users accepts.
+ */
+function asDatabaseHandle(seam: UsersSeamDb): Database {
+  // SAFETY: the double implements exactly the BuilderRecorder nesting above —
+  // select→from→where→limit, insert→values→onConflict*, update→set→where —
+  // which is the only Database surface lib/db/users reaches; no other member
+  // is called on these paths.
+  return seam as Database;
+}
+
+interface DbDouble {
+  db: Database;
+  ops(): Op[];
+  selects(): SelectOp[];
+  inserts(): InsertOp[];
+  updates(): UpdateOp[];
+  mirrorUpserts(): InsertOp[];
+  profileInserts(): InsertOp[];
+  nextRows(rows?: SelectRow[]): void;
+  nextUpdateCount(count: number): void;
+  failNextUpdate(error: Error): void;
+}
+
+function createDbDouble(): DbDouble {
+  const ops: Op[] = [];
+  const selectResults: Array<Promise<SelectRow[]> | SelectRow[]> = [];
+  const updateResults: Array<Promise<{ count: number }> | { count: number }> = [];
+
+  const raw: BuilderRecorder = {
+    select: (projection: ProjectionMap) => {
+      const op: SelectOp = {
+        method: 'select',
+        projection,
+        table: undefined,
+        where: undefined,
+        limit: null,
+      };
+      ops.push(op);
+      return {
+        from: (table: PgTable) => {
+          op.table = table;
+          return {
+            where: (where: SQL) => {
+              op.where = where;
+              return {
+                limit: (limit: number) => {
+                  op.limit = limit;
+                  return Promise.resolve(selectResults.shift() ?? []);
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+    insert: (table: PgTable) => {
+      const op: InsertOp = { method: 'insert', table, values: {}, conflict: null };
+      ops.push(op);
+      return {
+        values: (values: RecordedRowMap) => {
+          op.values = values;
+          return {
+            onConflictDoNothing: (config: { target?: PgColumn } = {}) => {
+              op.conflict = config;
+              return Promise.resolve([]);
+            },
+            onConflictDoUpdate: (config: { target?: PgColumn; set: RecordedRowMap }) => {
+              op.conflict = config;
+              return Promise.resolve([]);
+            },
+          };
+        },
+      };
+    },
+    update: (table: PgTable) => {
+      const op: UpdateOp = { method: 'update', table, set: {}, where: undefined };
+      ops.push(op);
+      return {
+        set: (patch: RecordedRowMap) => {
+          op.set = patch;
+          return {
+            where: (where: SQL) => {
+              op.where = where;
+              // postgres-js RowList shape: affected-row count rides on .count
+              return Promise.resolve(updateResults.shift() ?? { count: 0 });
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const selects = () => ops.filter((op): op is SelectOp => op.method === 'select');
+  const inserts = () => ops.filter((op): op is InsertOp => op.method === 'insert');
+
+  return {
+    db: asDatabaseHandle(raw),
+    ops: () => ops,
+    selects,
+    inserts,
+    updates: () => ops.filter((op): op is UpdateOp => op.method === 'update'),
+    mirrorUpserts: () => inserts().filter((op) => op.table === users),
+    profileInserts: () => inserts().filter((op) => op.table === userProfiles),
+    nextRows: (rows: SelectRow[] = []) => selectResults.push(rows),
+    nextUpdateCount: (count: number) => updateResults.push({ count }),
+    failNextUpdate: (error: Error) => {
+      updateResults.push(Promise.reject(error));
+    },
+  };
+}
+
+const dialect = new PgDialect();
+
+/** Render a recorded builder value (a SQL fragment by product contract). */
+function renderSql(fragment: RecordedValue): string {
+  if (!(fragment instanceof SQL)) throw new Error('Expected a SQL fragment');
+  return dialect.sqlToQuery(fragment).sql;
+}
+
+/** Rendered where condition: SQL text plus its bound parameters. */
+interface RenderedCondition {
+  sql: string;
+  params: unknown[];
+}
+
+/** Render a recorded where condition to its SQL text and bound parameters. */
+function renderWhere(where: SQL | undefined): RenderedCondition {
+  if (where === undefined) throw new Error('Expected a where condition');
+  const { sql, params } = dialect.sqlToQuery(where);
+  return { sql, params };
+}
+
+// ---------------------------------------------------------------------------
+// Fixture contracts — concrete stand-ins for the Clerk wire types
+// ---------------------------------------------------------------------------
 
 /**
  * Structural stand-in for the Backend-API `User` resource exposing exactly the
@@ -55,29 +260,14 @@ interface BackendUserDouble {
   }>;
 }
 
-const { mockExecute, mockQueryOne, mockGetClerkClient, mockGetUser } = vi.hoisted(() => ({
-  mockExecute: vi.fn<(sql: string, params?: unknown[]) => Promise<number>>(),
-  mockQueryOne: vi.fn<(sql: string, params?: unknown[]) => Promise<QueryOneRow | null>>(),
+const { mockGetClerkClient, mockGetUser } = vi.hoisted(() => ({
   mockGetClerkClient: vi.fn(),
   mockGetUser: vi.fn<(userId: string) => Promise<BackendUserDouble>>(),
-}));
-
-vi.mock('@/lib/db/client', () => ({
-  execute: mockExecute,
-  queryOne: mockQueryOne,
 }));
 
 vi.mock('@/lib/auth/clerk-session', () => ({
   getClerkClient: mockGetClerkClient,
 }));
-
-import {
-  clearUserVerificationCache,
-  readUserVerification,
-  repairUserMirror,
-  softDeleteUserById,
-  syncUserMirrorFromClerkUser,
-} from '@/lib/db/users';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -186,42 +376,14 @@ function backendUserFrom(json: UserJSON): BackendUserDouble {
   };
 }
 
-// ---------------------------------------------------------------------------
-// SQL call inspection helpers
-// ---------------------------------------------------------------------------
-
-function normSql(sql: string): string {
-  return sql.replace(/\s+/g, ' ').trim();
-}
-
-interface ExecuteCall {
-  sql: string;
-  params: unknown[];
-}
-
-function executeCalls(): ExecuteCall[] {
-  // SAFETY: mock signature fixes sql as first and params as second argument
-  return mockExecute.mock.calls.map(([sql, params]) => ({
-    sql: normSql(sql),
-    params: params ?? [],
-  }));
-}
-
-function mirrorUpserts(): ExecuteCall[] {
-  return executeCalls().filter((call) => call.sql.startsWith('INSERT INTO users'));
-}
-
-function profileInserts(): ExecuteCall[] {
-  return executeCalls().filter((call) => call.sql.startsWith('INSERT INTO user_profiles'));
-}
+let double: DbDouble;
 
 beforeEach(() => {
   vi.spyOn(console, 'info').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.clearAllMocks();
   clearUserVerificationCache();
-  mockExecute.mockResolvedValue(1);
-  mockQueryOne.mockResolvedValue(null);
+  double = createDbDouble();
 });
 
 // ---------------------------------------------------------------------------
@@ -238,11 +400,11 @@ describe('syncUserMirrorFromClerkUser', () => {
       primary_email_address_id: EMAIL_SECONDARY_ID,
     });
 
-    await expect(syncUserMirrorFromClerkUser(user)).resolves.toBe(true);
+    await expect(syncUserMirrorFromClerkUser(double.db, user)).resolves.toBe(true);
 
-    const [upsert] = mirrorUpserts();
-    expect(upsert.params[0]).toBe(CLERK_USER_ID);
-    expect(upsert.params[2]).toBe('primary@example.org');
+    const [upsert] = double.mirrorUpserts();
+    expect(upsert.values.id).toBe(CLERK_USER_ID);
+    expect(upsert.values.email).toBe('primary@example.org');
   });
 
   it('falls back to the first address when no primary id matches', async () => {
@@ -254,101 +416,107 @@ describe('syncUserMirrorFromClerkUser', () => {
       primary_email_address_id: null,
     });
 
-    await expect(syncUserMirrorFromClerkUser(user)).resolves.toBe(true);
+    await expect(syncUserMirrorFromClerkUser(double.db, user)).resolves.toBe(true);
 
-    expect(mirrorUpserts()[0].params[2]).toBe('second.one@example.net');
+    expect(double.mirrorUpserts()[0].values.email).toBe('second.one@example.net');
   });
 
   it('stamps a fresh confirmation timestamp for a verified address', async () => {
     const before = Date.now();
-    await syncUserMirrorFromClerkUser(userJson());
+    await syncUserMirrorFromClerkUser(double.db, userJson());
 
-    const confirmedAt = mirrorUpserts()[0].params[3];
+    const confirmedAt = String(double.mirrorUpserts()[0].values.email_confirmed_at);
     expect(confirmedAt).toMatch(ISO_LIKE);
-    const parsed = Date.parse(String(confirmedAt));
+    const parsed = Date.parse(confirmedAt);
     expect(parsed).toBeGreaterThanOrEqual(before);
     expect(parsed).toBeLessThanOrEqual(Date.now());
   });
 
   it('leaves email_confirmed_at null for an unverified or unverified-payload address', async () => {
     await syncUserMirrorFromClerkUser(
+      double.db,
       userJson({
         email_addresses: [emailAddress(EMAIL_PRIMARY_ID, 'pending@Example.com', 'unverified')],
       })
     );
-    expect(mirrorUpserts()[0].params[3]).toBeNull();
+    expect(double.mirrorUpserts()[0].values.email_confirmed_at).toBeNull();
 
-    mockExecute.mockClear();
     await syncUserMirrorFromClerkUser(
+      double.db,
       userJson({
         email_addresses: [emailAddress(EMAIL_PRIMARY_ID, 'no-ver@Example.com', null)],
       })
     );
-    expect(mirrorUpserts()[0].params[3]).toBeNull();
+    expect(double.mirrorUpserts()[1].values.email_confirmed_at).toBeNull();
   });
 
   it('uses external_id as the stable app id while preserving the Clerk id', async () => {
     const migrated = userJson({ external_id: MIGRATED_APP_ID });
 
-    await syncUserMirrorFromClerkUser(migrated);
+    await syncUserMirrorFromClerkUser(double.db, migrated);
 
-    const params = mirrorUpserts()[0].params;
-    expect(params[0]).toBe(MIGRATED_APP_ID);
-    expect(params[1]).toBe(CLERK_USER_ID);
+    const upsert = double.mirrorUpserts()[0];
+    expect(upsert.values.id).toBe(MIGRATED_APP_ID);
+    expect(upsert.values.clerk_user_id).toBe(CLERK_USER_ID);
 
-    mockExecute.mockClear();
-    const postCutover = userJson({ external_id: null });
-    await syncUserMirrorFromClerkUser(postCutover);
+    await syncUserMirrorFromClerkUser(double.db, userJson({ external_id: null }));
 
-    const fallbackParams = mirrorUpserts()[0].params;
-    expect(fallbackParams[0]).toBe(CLERK_USER_ID);
-    expect(fallbackParams[1]).toBe(CLERK_USER_ID);
+    const fallback = double.mirrorUpserts()[1];
+    expect(fallback.values.id).toBe(CLERK_USER_ID);
+    expect(fallback.values.clerk_user_id).toBe(CLERK_USER_ID);
   });
 
-  it('maps created_at / last_sign_in_at onto ISO params, tolerating null sign-in', async () => {
-    await syncUserMirrorFromClerkUser(userJson());
+  it('maps created_at / last_sign_in_at onto ISO values, tolerating null sign-in', async () => {
+    await syncUserMirrorFromClerkUser(double.db, userJson());
 
-    const params = mirrorUpserts()[0].params;
-    expect(params[4]).toBe(CREATED_AT_ISO);
-    expect(params[5]).toBe(LAST_SIGN_IN_ISO);
+    const upsert = double.mirrorUpserts()[0];
+    expect(upsert.values.created_at).toBe(CREATED_AT_ISO);
+    expect(upsert.values.last_sign_in_at).toBe(LAST_SIGN_IN_ISO);
 
-    mockExecute.mockClear();
-    await syncUserMirrorFromClerkUser(userJson({ last_sign_in_at: null }));
+    await syncUserMirrorFromClerkUser(double.db, userJson({ last_sign_in_at: null }));
 
-    const neverSignedIn = mirrorUpserts()[0].params;
-    expect(neverSignedIn[4]).toBe(CREATED_AT_ISO);
-    expect(neverSignedIn[5]).toBeNull();
+    const neverSignedIn = double.mirrorUpserts()[1];
+    expect(neverSignedIn.values.created_at).toBe(CREATED_AT_ISO);
+    expect(neverSignedIn.values.last_sign_in_at).toBeNull();
   });
 
   it('writes consent timestamps on profile insert only from public_metadata booleans', async () => {
     await syncUserMirrorFromClerkUser(
+      double.db,
       userJson({
         public_metadata: { age_verified: true, agreed_to_terms: true },
       })
     );
 
-    const [insert] = profileInserts();
-    expect(insert.params[0]).toBe(CLERK_USER_ID);
-    const [ageAt, termsAt] = insert.params.slice(1, 3);
+    const [insert] = double.profileInserts();
+    expect(insert.values.user_id).toBe(CLERK_USER_ID);
+    const ageAt = String(insert.values.age_verified_at);
+    const termsAt = String(insert.values.agreed_to_terms_at);
     expect(ageAt).toMatch(ISO_LIKE);
     expect(termsAt).toMatch(ISO_LIKE);
     expect(ageAt).toBe(termsAt);
+    // One shared stamp per delivery, written insert-only:
+    expect(insert.conflict?.target).toBe(userProfiles.user_id);
 
-    mockExecute.mockClear();
     await syncUserMirrorFromClerkUser(
+      double.db,
       userJson({
         public_metadata: { age_verified: true, agreed_to_terms: false },
       })
     );
-    expect(profileInserts()[0].params.slice(1, 3)).toEqual([expect.anything(), null]);
+    const partial = double.profileInserts()[1].values;
+    expect(String(partial.age_verified_at)).toMatch(ISO_LIKE);
+    expect(partial.agreed_to_terms_at).toBeNull();
 
-    mockExecute.mockClear();
-    await syncUserMirrorFromClerkUser(userJson({ public_metadata: {} }));
-    expect(profileInserts()[0].params.slice(1, 3)).toEqual([null, null]);
+    await syncUserMirrorFromClerkUser(double.db, userJson({ public_metadata: {} }));
+    const none = double.profileInserts()[2].values;
+    expect(none.age_verified_at).toBeNull();
+    expect(none.agreed_to_terms_at).toBeNull();
   });
 
   it('returns false without touching the DB when the payload has no email', async () => {
     const result = await syncUserMirrorFromClerkUser(
+      double.db,
       userJson({
         email_addresses: [],
         primary_email_address_id: null,
@@ -356,67 +524,70 @@ describe('syncUserMirrorFromClerkUser', () => {
     );
 
     expect(result).toBe(false);
-    expect(mockExecute).not.toHaveBeenCalled();
+    expect(double.ops()).toHaveLength(0);
   });
 
-  it('replayed created payloads produce identical idempotent SQL and stable id/email', async () => {
+  it('replayed created payloads produce identical builder calls and stable id/email', async () => {
     const payload = userJson({
       external_id: MIGRATED_APP_ID,
       email_addresses: [emailAddress(EMAIL_PRIMARY_ID, 'Migrated.User@Example.COM', 'verified')],
       public_metadata: { age_verified: true, agreed_to_terms: true },
     });
 
-    await syncUserMirrorFromClerkUser(payload);
-    await syncUserMirrorFromClerkUser(payload); // Svix replay
+    await syncUserMirrorFromClerkUser(double.db, payload);
+    await syncUserMirrorFromClerkUser(double.db, payload); // Svix replay
 
-    const calls = executeCalls();
-    expect(calls.length).toBe(4); // 2 statements × 2 deliveries
+    expect(double.inserts()).toHaveLength(4); // 2 statements × 2 deliveries
 
-    // Replay produces identical SQL and every stable param. Only wall-clock
-    // derived values (email_confirmed_at, consent stamps) may legitimately
-    // advance between deliveries — those are compared by shape below instead
-    // of byte equality, so this cannot flake when milliseconds tick over.
-    const [firstMirror, secondMirror] = mirrorUpserts();
-    expect(secondMirror.sql).toBe(firstMirror.sql);
-    expect(secondMirror.params[0]).toBe(firstMirror.params[0]); // stable app id
-    expect(secondMirror.params[1]).toBe(firstMirror.params[1]); // stable Clerk id
-    expect(secondMirror.params[2]).toBe(firstMirror.params[2]); // lowercased email
-    expect(secondMirror.params[4]).toBe(firstMirror.params[4]); // created_at from payload
-    expect(secondMirror.params[5]).toBe(firstMirror.params[5]); // last_sign_in_at from payload
+    // Replay produces identical stable values. Only wall-clock derived values
+    // (email_confirmed_at, consent stamps) may legitimately advance between
+    // deliveries — those are compared by shape below instead of byte equality,
+    // so this cannot flake when milliseconds tick over.
+    const [firstMirror, secondMirror] = double.mirrorUpserts();
+    expect(secondMirror.values.id).toBe(firstMirror.values.id); // stable app id
+    expect(secondMirror.values.clerk_user_id).toBe(firstMirror.values.clerk_user_id);
+    expect(secondMirror.values.email).toBe(firstMirror.values.email); // lowercased email
+    expect(secondMirror.values.created_at).toBe(firstMirror.values.created_at);
+    expect(secondMirror.values.last_sign_in_at).toBe(firstMirror.values.last_sign_in_at);
 
-    const [firstProfile, secondProfile] = profileInserts();
-    expect(secondProfile.sql).toBe(firstProfile.sql);
-    expect(secondProfile.params[0]).toBe(firstProfile.params[0]); // stable app id
+    const [firstProfile, secondProfile] = double.profileInserts();
+    expect(secondProfile.values.user_id).toBe(firstProfile.values.user_id); // stable app id
 
-    expect(firstMirror.params[0]).toBe(MIGRATED_APP_ID); // stable app id across replays
-    expect(firstMirror.params[2]).toBe('migrated.user@example.com');
+    expect(firstMirror.values.id).toBe(MIGRATED_APP_ID);
+    expect(firstMirror.values.email).toBe('migrated.user@example.com');
 
     // Freshly stamped timestamps still land as ISO timestamptz values, and the
     // consent pair within a single delivery shares one stamp:
     for (const mirror of [firstMirror, secondMirror]) {
-      expect(mirror.params[3]).toMatch(ISO_LIKE);
+      expect(String(mirror.values.email_confirmed_at)).toMatch(ISO_LIKE);
     }
     for (const profile of [firstProfile, secondProfile]) {
-      expect(profile.params.slice(1, 3)).toEqual([
-        expect.stringMatching(ISO_LIKE),
-        expect.stringMatching(ISO_LIKE),
-      ]);
-      expect(profile.params[1]).toBe(profile.params[2]);
+      const ageAt = String(profile.values.age_verified_at);
+      const termsAt = String(profile.values.agreed_to_terms_at);
+      expect(ageAt).toMatch(ISO_LIKE);
+      expect(ageAt).toBe(termsAt);
     }
 
     // Mirror upsert never duplicates rows and keeps the earliest verification:
-    expect(firstMirror.sql).toContain('ON CONFLICT (id) DO UPDATE');
-    expect(firstMirror.sql).toContain(
-      'WHEN users.email <> EXCLUDED.email THEN EXCLUDED.email_confirmed_at'
+    expect(firstMirror.conflict?.target).toBe(users.id);
+    const conflictSet = firstMirror.conflict?.set ?? {};
+    expect(renderSql(conflictSet.clerk_user_id)).toBe('excluded.clerk_user_id');
+    expect(renderSql(conflictSet.email)).toBe('excluded.email');
+    const confirmedAtRule = renderSql(conflictSet.email_confirmed_at);
+    // An email change resets verification to the new address's status…
+    expect(confirmedAtRule).toContain(
+      'when "users"."email" <> excluded.email then excluded.email_confirmed_at'
     );
-    expect(firstMirror.sql).toContain(
-      'ELSE COALESCE(users.email_confirmed_at, EXCLUDED.email_confirmed_at)'
+    // …otherwise keep the earliest confirmed timestamp.
+    expect(confirmedAtRule).toContain(
+      'coalesce("users"."email_confirmed_at", excluded.email_confirmed_at)'
     );
-    expect(firstMirror.sql).toContain('COALESCE(EXCLUDED.last_sign_in_at, users.last_sign_in_at)');
-    expect(firstMirror.sql).toContain('COALESCE($5, NOW())');
+    expect(renderSql(conflictSet.last_sign_in_at)).toBe(
+      'coalesce(excluded.last_sign_in_at, "users"."last_sign_in_at")'
+    );
 
     // Profile consent insert cannot overwrite already-recorded consent:
-    expect(firstProfile.sql).toContain('ON CONFLICT (user_id) DO NOTHING');
+    expect(firstProfile.conflict?.target).toBe(userProfiles.user_id);
   });
 });
 
@@ -428,34 +599,37 @@ describe('repairUserMirror', () => {
   const APP_USER_ID = MIGRATED_APP_ID;
 
   it('reports existing full consent without fetching Clerk or writing', async () => {
-    mockQueryOne.mockResolvedValueOnce({
-      age_verified_at: '2026-01-01T00:00:00.000Z',
-      agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
-    });
+    double.nextRows([
+      {
+        age_verified_at: '2026-01-01T00:00:00.000Z',
+        agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
+      },
+    ]);
 
-    const result = await repairUserMirror(APP_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID);
 
     expect(result).toEqual({ hasConsent: true });
-    const [probe] = mockQueryOne.mock.calls;
-    expect(normSql(probe?.[0])).toBe(
-      'SELECT age_verified_at, agreed_to_terms_at FROM user_profiles WHERE user_id = $1'
+    const [probe] = double.selects();
+    expect(probe.table).toBe(userProfiles);
+    expect(Object.keys(probe.projection).sort()).toEqual(
+      ['age_verified_at', 'agreed_to_terms_at'].sort()
     );
-    expect(probe?.[1]).toEqual([APP_USER_ID]);
+    expect(renderWhere(probe.where)).toEqual({
+      sql: '"user_profiles"."user_id" = $1',
+      params: [APP_USER_ID],
+    });
     expect(mockGetUser).not.toHaveBeenCalled();
-    expect(mockExecute).not.toHaveBeenCalled();
+    expect(double.inserts()).toHaveLength(0);
   });
 
   it('requires BOTH consent timestamps before reporting hasConsent', async () => {
-    mockQueryOne.mockResolvedValueOnce({
-      age_verified_at: '2026-01-01T00:00:00.000Z',
-      agreed_to_terms_at: null,
-    });
+    double.nextRows([{ age_verified_at: '2026-01-01T00:00:00.000Z', agreed_to_terms_at: null }]);
 
-    const result = await repairUserMirror(APP_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID);
 
     expect(result).toEqual({ hasConsent: false });
     expect(mockGetUser).not.toHaveBeenCalled();
-    expect(mockExecute).not.toHaveBeenCalled();
+    expect(double.inserts()).toHaveLength(0);
   });
 
   it('fetches Clerk only when the profile row is missing and upserts a verified user', async () => {
@@ -466,31 +640,31 @@ describe('repairUserMirror', () => {
     mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
     // Pre-upsert probe misses the row; the post-upsert consent re-read sees it.
-    mockQueryOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
-      age_verified_at: '2026-01-01T00:00:00.000Z',
-      agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
-    });
+    double.nextRows([]);
+    double.nextRows([
+      {
+        age_verified_at: '2026-01-01T00:00:00.000Z',
+        agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
+      },
+    ]);
 
-    const result = await repairUserMirror(APP_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID);
 
     expect(result).toEqual({ hasConsent: true });
     expect(mockGetClerkClient).toHaveBeenCalledTimes(1);
     expect(mockGetUser).toHaveBeenCalledTimes(1);
     expect(mockGetUser).toHaveBeenCalledWith(CLERK_USER_ID);
 
-    const [mirror] = mirrorUpserts();
-    expect(mirror.params).toEqual([
-      APP_USER_ID,
-      CLERK_USER_ID,
-      'mixedcase@example.com',
-      expect.stringMatching(ISO_LIKE), // observed verified state
-      CREATED_AT_ISO,
-      LAST_SIGN_IN_ISO,
-    ]);
-    expect(profileInserts()[0].params.slice(1, 3)).toEqual([
-      expect.stringMatching(ISO_LIKE),
-      expect.stringMatching(ISO_LIKE),
-    ]);
+    const [mirror] = double.mirrorUpserts();
+    expect(mirror.values.id).toBe(APP_USER_ID);
+    expect(mirror.values.clerk_user_id).toBe(CLERK_USER_ID);
+    expect(mirror.values.email).toBe('mixedcase@example.com');
+    expect(String(mirror.values.email_confirmed_at)).toMatch(ISO_LIKE); // observed verified state
+    expect(mirror.values.created_at).toBe(CREATED_AT_ISO);
+    expect(mirror.values.last_sign_in_at).toBe(LAST_SIGN_IN_ISO);
+    const [profile] = double.profileInserts();
+    expect(String(profile.values.age_verified_at)).toMatch(ISO_LIKE);
+    expect(String(profile.values.agreed_to_terms_at)).toMatch(ISO_LIKE);
   });
 
   it('upserts unverified users without metadata and reports inserted consent state', async () => {
@@ -502,22 +676,22 @@ describe('repairUserMirror', () => {
     mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
     // Pre-upsert probe misses the row; the post-upsert consent re-read sees it.
-    mockQueryOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ age_verified_at: null, agreed_to_terms_at: null });
+    double.nextRows([]);
+    double.nextRows([{ age_verified_at: null, agreed_to_terms_at: null }]);
 
-    const result = await repairUserMirror(CLERK_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, CLERK_USER_ID, CLERK_USER_ID);
 
     expect(result).toEqual({ hasConsent: false });
-    expect(mirrorUpserts()[0].params).toEqual([
-      CLERK_USER_ID,
-      CLERK_USER_ID,
-      'unverified@example.com',
-      null,
-      CREATED_AT_ISO,
-      null,
-    ]);
-    expect(profileInserts()[0].params.slice(1, 3)).toEqual([null, null]);
+    const mirror = double.mirrorUpserts()[0];
+    expect(mirror.values.id).toBe(CLERK_USER_ID);
+    expect(mirror.values.clerk_user_id).toBe(CLERK_USER_ID);
+    expect(mirror.values.email).toBe('unverified@example.com');
+    expect(mirror.values.email_confirmed_at).toBeNull();
+    expect(mirror.values.created_at).toBe(CREATED_AT_ISO);
+    expect(mirror.values.last_sign_in_at).toBeNull();
+    const profile = double.profileInserts()[0].values;
+    expect(profile.age_verified_at).toBeNull();
+    expect(profile.agreed_to_terms_at).toBeNull();
   });
 
   it('returns null without writing when the Clerk user has no email', async () => {
@@ -526,14 +700,14 @@ describe('repairUserMirror', () => {
     );
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
 
-    const result = await repairUserMirror(CLERK_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, CLERK_USER_ID, CLERK_USER_ID);
 
     expect(result).toBeNull();
     expect(mockGetUser).toHaveBeenCalledWith(CLERK_USER_ID);
-    expect(mockExecute).not.toHaveBeenCalled();
+    expect(double.inserts()).toHaveLength(0);
   });
 
-  it('returns the consent persisted after an insert/conflict race, not Clerk metadata', async () => {
+  it('reports the consent persisted after an insert/conflict race, not Clerk metadata', async () => {
     // A concurrent webhook won the profile-insert race: our INSERT lands in
     // ON CONFLICT DO NOTHING, and the retained row disagrees with the
     // metadata proposed for insert. Repair must report the RETAINED state.
@@ -543,26 +717,26 @@ describe('repairUserMirror', () => {
     });
     mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
-    mockQueryOne
-      .mockResolvedValueOnce(null) // probe: nothing persisted yet
-      .mockResolvedValueOnce({
+    double.nextRows([]); // probe: nothing persisted yet
+    double.nextRows([
+      {
         age_verified_at: '2026-01-01T00:00:00.000Z',
         agreed_to_terms_at: null, // concurrent writer recorded only age consent
-      });
+      },
+    ]);
 
-    const result = await repairUserMirror(APP_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID);
 
     expect(result).toEqual({ hasConsent: false });
 
     // The answer came from a re-read keyed by userId issued AFTER both writes:
-    expect(mockQueryOne).toHaveBeenCalledTimes(2);
-    const [reRead] = mockQueryOne.mock.calls.slice(-1);
-    expect(normSql(reRead?.[0])).toBe(
-      'SELECT age_verified_at, agreed_to_terms_at FROM user_profiles WHERE user_id = $1'
-    );
-    expect(reRead?.[1]).toEqual([APP_USER_ID]);
-    const lastWriteOrder = Math.max(...mockExecute.mock.invocationCallOrder);
-    expect(mockQueryOne.mock.invocationCallOrder[1]).toBeGreaterThan(lastWriteOrder);
+    expect(double.selects()).toHaveLength(2);
+    const [reRead] = double.selects().slice(-1);
+    expect(renderWhere(reRead.where).params).toEqual([APP_USER_ID]);
+    const reReadIndex = double.ops().indexOf(reRead);
+    for (const insert of double.inserts()) {
+      expect(double.ops().indexOf(insert)).toBeLessThan(reReadIndex);
+    }
   });
 
   it('reports retained consent even when Clerk metadata claims none after the race', async () => {
@@ -572,12 +746,15 @@ describe('repairUserMirror', () => {
     });
     mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
-    mockQueryOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
-      age_verified_at: '2026-01-01T00:00:00.000Z',
-      agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
-    });
+    double.nextRows([]);
+    double.nextRows([
+      {
+        age_verified_at: '2026-01-01T00:00:00.000Z',
+        agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
+      },
+    ]);
 
-    await expect(repairUserMirror(APP_USER_ID, CLERK_USER_ID)).resolves.toEqual({
+    await expect(repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID)).resolves.toEqual({
       hasConsent: true,
     });
   });
@@ -589,13 +766,13 @@ describe('repairUserMirror', () => {
     });
     mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
-    mockQueryOne.mockResolvedValue(null); // probe AND post-write re-read both miss
+    // Probe AND post-write re-read both miss (default empty result).
 
-    await expect(repairUserMirror(APP_USER_ID, CLERK_USER_ID)).rejects.toThrow();
+    await expect(repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID)).rejects.toThrow();
 
     // Both writes were attempted before the failure surfaced:
-    expect(executeCalls()).toHaveLength(2);
-    expect(mockQueryOne).toHaveBeenCalledTimes(2);
+    expect(double.inserts()).toHaveLength(2);
+    expect(double.selects()).toHaveLength(2);
   });
 });
 
@@ -613,35 +790,35 @@ describe('webhook/repair verified-state consistency (#358)', () => {
       email_addresses: [emailAddress(EMAIL_PRIMARY_ID, 'Shared@Example.COM', status)],
     };
 
-    await syncUserMirrorFromClerkUser(userJson(shared));
-    const syncedParams = mirrorUpserts()[0].params;
+    await syncUserMirrorFromClerkUser(double.db, userJson(shared));
+    const synced = double.mirrorUpserts()[0].values;
 
-    mockExecute.mockClear();
     mockGetUser.mockResolvedValueOnce(backendUserFrom(userJson(shared)));
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
-    mockQueryOne
-      .mockResolvedValueOnce(null) // no profile row yet
-      .mockResolvedValueOnce({
+    double.nextRows([]); // no profile row yet
+    double.nextRows([
+      {
         age_verified_at: '2026-01-01T00:00:00.000Z',
         agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
-      }); // post-write consent re-read
-    await repairUserMirror(MIGRATED_APP_ID, CLERK_USER_ID);
-    const repairedParams = mirrorUpserts()[0].params;
+      },
+    ]); // post-write consent re-read
+    await repairUserMirror(double.db, MIGRATED_APP_ID, CLERK_USER_ID);
+    const repaired = double.mirrorUpserts()[1].values;
 
     // Stable id, Clerk id, lowercased email, created/last-sign-in identical:
-    expect(repairedParams[0]).toBe(syncedParams[0]);
-    expect(repairedParams[1]).toBe(syncedParams[1]);
-    expect(repairedParams[2]).toBe(syncedParams[2]);
-    expect(repairedParams[4]).toBe(syncedParams[4]);
-    expect(repairedParams[5]).toBe(syncedParams[5]);
+    expect(repaired.id).toBe(synced.id);
+    expect(repaired.clerk_user_id).toBe(synced.clerk_user_id);
+    expect(repaired.email).toBe(synced.email);
+    expect(repaired.created_at).toBe(synced.created_at);
+    expect(repaired.last_sign_in_at).toBe(synced.last_sign_in_at);
 
     // Observed verification agrees on presence and shape in both paths:
     if (status === 'verified') {
-      expect(String(repairedParams[3])).toMatch(ISO_LIKE);
-      expect(String(syncedParams[3])).toMatch(ISO_LIKE);
+      expect(String(repaired.email_confirmed_at)).toMatch(ISO_LIKE);
+      expect(String(synced.email_confirmed_at)).toMatch(ISO_LIKE);
     } else {
-      expect(repairedParams[3]).toBeNull();
-      expect(syncedParams[3]).toBeNull();
+      expect(repaired.email_confirmed_at).toBeNull();
+      expect(synced.email_confirmed_at).toBeNull();
     }
   });
 });
@@ -652,49 +829,54 @@ describe('webhook/repair verified-state consistency (#358)', () => {
 
 describe('readUserVerification', () => {
   const ROW = { email: 'gate@example.com', email_confirmed_at: '2026-02-03T04:05:06.000Z' };
-  const SELECT = 'SELECT email, email_confirmed_at FROM users WHERE id = $1';
 
-  it('live reads map the row, or null when the mirror row does not exist yet', async () => {
-    mockQueryOne.mockResolvedValueOnce(ROW);
+  it('live reads project the mirror gate columns keyed by users.id, or null when absent', async () => {
+    double.nextRows([ROW]);
 
-    await expect(readUserVerification('u1', { cache: false })).resolves.toEqual(ROW);
-    expect(normSql(mockQueryOne.mock.calls[0]?.[0])).toBe(SELECT);
-    expect(mockQueryOne.mock.calls[0]?.[1]).toEqual(['u1']);
+    await expect(readUserVerification(double.db, 'u1', { cache: false })).resolves.toEqual(ROW);
+    const [select] = double.selects();
+    expect(select.table).toBe(users);
+    expect(select.projection).toEqual({
+      email: users.email,
+      email_confirmed_at: users.email_confirmed_at,
+    });
+    expect(renderWhere(select.where)).toEqual({ sql: '"users"."id" = $1', params: ['u1'] });
 
-    mockQueryOne.mockResolvedValueOnce(null);
-    await expect(readUserVerification('u1', { cache: false })).resolves.toBeNull();
+    double.nextRows([]);
+    await expect(readUserVerification(double.db, 'u1', { cache: false })).resolves.toBeNull();
   });
 
   it('serves subsequent cached reads from memory without re-querying', async () => {
-    mockQueryOne.mockResolvedValue(ROW);
+    double.nextRows([ROW]);
+    double.nextRows([ROW]);
 
-    const first = await readUserVerification('u1', { cache: true });
-    const second = await readUserVerification('u1', { cache: true });
+    const first = await readUserVerification(double.db, 'u1', { cache: true });
+    const second = await readUserVerification(double.db, 'u1', { cache: true });
 
     expect(first).toEqual(ROW);
     expect(second).toEqual(ROW);
-    expect(mockQueryOne).toHaveBeenCalledTimes(1);
+    expect(double.selects()).toHaveLength(1);
 
-    await expect(readUserVerification('u2', { cache: true })).resolves.toEqual(ROW);
-    expect(mockQueryOne).toHaveBeenCalledTimes(2); // distinct key still queries
+    await expect(readUserVerification(double.db, 'u2', { cache: true })).resolves.toEqual(ROW);
+    expect(double.selects()).toHaveLength(2); // distinct key still queries
   });
 
   it('caches null as "unverified" until explicitly cleared', async () => {
-    mockQueryOne.mockResolvedValue(null);
-    await expect(readUserVerification('u1', { cache: true })).resolves.toBeNull();
+    await expect(readUserVerification(double.db, 'u1', { cache: true })).resolves.toBeNull();
 
     // Webhook latency resolves and the row appears…
-    mockQueryOne.mockResolvedValue(ROW);
+    double.nextRows([ROW]);
     // …but the negative cache must still serve null within the TTL window:
-    await expect(readUserVerification('u1', { cache: true })).resolves.toBeNull();
-    expect(mockQueryOne).toHaveBeenCalledTimes(1);
+    await expect(readUserVerification(double.db, 'u1', { cache: true })).resolves.toBeNull();
+    expect(double.selects()).toHaveLength(1);
 
     // Fresh reads bypass the negative cache:
-    await expect(readUserVerification('u1', { cache: false })).resolves.toEqual(ROW);
+    await expect(readUserVerification(double.db, 'u1', { cache: false })).resolves.toEqual(ROW);
 
     // And clearing (post-webhook invalidation seam) exposes the new state:
     clearUserVerificationCache();
-    await expect(readUserVerification('u1', { cache: true })).resolves.toEqual(ROW);
+    double.nextRows([ROW]);
+    await expect(readUserVerification(double.db, 'u1', { cache: true })).resolves.toEqual(ROW);
   });
 });
 
@@ -703,22 +885,44 @@ describe('readUserVerification', () => {
 // ---------------------------------------------------------------------------
 
 describe('softDeleteUserById', () => {
-  it('matches either the app id or the Clerk user id with a single bound param', async () => {
-    mockExecute.mockResolvedValueOnce(2);
+  it('disables either the app-id or Clerk-id profile with coalesced suppression stamps', async () => {
+    double.nextUpdateCount(2);
 
-    await expect(softDeleteUserById(CLERK_USER_ID)).resolves.toBe(2);
+    await expect(softDeleteUserById(double.db, CLERK_USER_ID)).resolves.toBe(2);
 
-    expect(executeCalls()).toHaveLength(1);
-    const call = executeCalls()[0];
-    expect(call.sql).toContain(
-      'WHERE up.user_id = $1 OR up.user_id = (SELECT u.id FROM users u WHERE u.clerk_user_id = $1)'
+    expect(double.updates()).toHaveLength(1);
+    const [update] = double.updates();
+    expect(update.table).toBe(userProfiles);
+    expect(update.set.is_disabled).toBe(true);
+    expect(update.set.notifications_enabled).toBe(false);
+    expect(renderSql(update.set.disabled_at)).toBe(
+      'coalesce("user_profiles"."disabled_at", now())'
     );
-    expect(call.params).toEqual([CLERK_USER_ID]);
+    expect(renderSql(update.set.unsubscribed_at)).toBe(
+      'coalesce("user_profiles"."unsubscribed_at", now())'
+    );
+
+    // Dual-key match: direct app id OR resolution via the users mirror. The
+    // IN-arm's subquery is a mock-built select, so its shape is pinned from
+    // the recorded op instead of rendered SQL.
+    const where = renderWhere(update.where);
+    expect(where.params[0]).toBe(CLERK_USER_ID);
+    expect(where.sql).toContain('"user_profiles"."user_id" = $1');
+    expect(where.sql).toContain('"user_profiles"."user_id" in $2');
+
+    const mirrorSelects = double.selects().filter((op) => op.table === users);
+    expect(mirrorSelects).toHaveLength(1);
+    const [mirrorSelect] = mirrorSelects;
+    expect(mirrorSelect.projection).toEqual({ id: users.id });
+    expect(renderWhere(mirrorSelect.where)).toEqual({
+      sql: '"users"."clerk_user_id" = $1',
+      params: [CLERK_USER_ID],
+    });
   });
 
   it('propagates DB failures after logging', async () => {
-    mockExecute.mockRejectedValueOnce(new Error('connection reset'));
+    double.failNextUpdate(new Error('connection reset'));
 
-    await expect(softDeleteUserById(CLERK_USER_ID)).rejects.toThrow('connection reset');
+    await expect(softDeleteUserById(double.db, CLERK_USER_ID)).rejects.toThrow('connection reset');
   });
 });

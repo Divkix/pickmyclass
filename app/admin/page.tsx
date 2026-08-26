@@ -11,6 +11,7 @@ import {
   getTotalEmailsSent,
   getTotalUsers,
 } from '@/lib/db/admin-queries';
+import { getDbFromEnv } from '@/lib/db';
 
 /**
  * Admin Dashboard Page
@@ -25,16 +26,19 @@ import {
  * - Recent activity feed (registrations, watches, emails)
  */
 export default async function AdminDashboardPage() {
+  // One request-scoped handle shared by the gate read and every stat helper.
+  const db = getDbFromEnv();
+
   // Verify admin access - redirects if not authenticated or not admin
-  const adminUser = await verifyAdmin();
+  const adminUser = await verifyAdmin(db);
 
   // Fetch all statistics in parallel
   const [totalEmails, totalUsers, totalClasses, adminCount, recentActivity] = await Promise.all([
-    getTotalEmailsSent(),
-    getTotalUsers(),
-    getTotalClassesWatched(),
-    getAdminCount(),
-    getRecentActivity(10),
+    getTotalEmailsSent(db),
+    getTotalUsers(db),
+    getTotalClassesWatched(db),
+    getAdminCount(db),
+    getRecentActivity(db, 10),
   ]);
 
   // Calculate aggregate delivery metrics

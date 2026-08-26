@@ -31,6 +31,7 @@ vi.mock('@/lib/email/templates/auto-cleanup', () => ({
   sendAutoCleanupRemovalEmails: vi.fn(),
 }));
 
+import type { Database } from '@/lib/db';
 import {
   capConsecutiveNotFound,
   deleteSectionAndWatches,
@@ -48,6 +49,9 @@ import type { SendEmail } from '@/lib/types/env';
 
 const REF: SectionRef = { class_nbr: '42737', term: '2261' };
 const FROM_EMAIL = 'notifications@pickmyclass.app';
+
+/** Sentinel Drizzle handle — identity-only; every DB seam below is mocked. */
+const db = {} as Database;
 
 const DEFAULT_CLASS_INFO: SectionRemovalClassInfo = {
   subject: 'CSE',
@@ -82,7 +86,7 @@ function setupAtThreshold(): void {
 }
 
 function retire(emailBinding: SendEmail = buildEmailBinding()) {
-  return retireClassSection({ ref: REF, emailBinding, fromEmail: FROM_EMAIL });
+  return retireClassSection({ db, ref: REF, emailBinding, fromEmail: FROM_EMAIL });
 }
 
 describe('retireClassSection', () => {
@@ -196,7 +200,7 @@ describe('retireClassSection', () => {
       });
 
       // Suppression caps the counter just below the threshold...
-      expect(capConsecutiveNotFound).toHaveBeenCalledWith(REF, AUTO_CLEANUP_THRESHOLD - 1);
+      expect(capConsecutiveNotFound).toHaveBeenCalledWith(db, REF, AUTO_CLEANUP_THRESHOLD - 1);
 
       // ...and short-circuits everything downstream of the breaker.
       expect(readSectionRemovalClassInfo).not.toHaveBeenCalled();
@@ -506,10 +510,10 @@ describe('retireClassSection', () => {
       // Every seam keys on BOTH class_nbr and term — dropping either would
       // mis-key across terms.
       const expectedRef: SectionRef = { class_nbr: '42737', term: '2261' };
-      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith(expectedRef);
-      expect(readSectionRemovalClassInfo).toHaveBeenCalledWith(expectedRef);
-      expect(getClassWatchers).toHaveBeenCalledWith(expectedRef);
-      expect(deleteSectionAndWatches).toHaveBeenCalledWith(expectedRef);
+      expect(incrementConsecutiveNotFound).toHaveBeenCalledWith(db, expectedRef);
+      expect(readSectionRemovalClassInfo).toHaveBeenCalledWith(db, expectedRef);
+      expect(getClassWatchers).toHaveBeenCalledWith(db, expectedRef);
+      expect(deleteSectionAndWatches).toHaveBeenCalledWith(db, expectedRef);
       expect(vi.mocked(sendAutoCleanupRemovalEmails).mock.calls[0][0].ref).toEqual(expectedRef);
     });
   });

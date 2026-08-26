@@ -6,6 +6,7 @@
  */
 
 import { ALERTS_FROM_EMAIL, NOTIFICATION_FROM_EMAIL } from '@/lib/config';
+import type { Database } from '@/lib/db';
 import { getClassWatchers } from '@/lib/db/queries';
 import { log } from '@/lib/log';
 import type { ClassCheckMessage } from '@/lib/types/queue';
@@ -24,6 +25,7 @@ interface HandleDLQMessageOptions {
  * This function must never throw — DLQ messages should always be acked.
  */
 export async function handleDLQMessage(
+  db: Database,
   message: ClassCheckMessage,
   emailBinding: SendEmail,
   options: HandleDLQMessageOptions = {}
@@ -42,7 +44,7 @@ export async function handleDLQMessage(
   // contract by falling back to a count of 0.
   let watcherCount = 0;
   try {
-    const watchers = await getClassWatchers({ class_nbr, term });
+    const watchers = await getClassWatchers(db, { class_nbr, term });
     watcherCount = watchers.length;
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
