@@ -223,6 +223,15 @@ pnpm run generate:og      # regenerate public/og-image.png (satori + resvg)
 
 **Pre-commit** (`core.hooksPath=.husky`): the operative logic lives in **`.vite-hooks/pre-commit`** (managed by `vp config`): runs `vp staged` + `pnpm run type-check`, **skipped entirely when `$CI` is set** — so CI must (and does) re-run these independently.
 
+### Local dev / Cloud Agent environment
+
+`.cursor/environment.json` (+ `.cursor/{install,start,dev}.sh`) defines the Cloud Agent setup and doubles as the local-dev recipe. Non-obvious gotchas baked into those scripts:
+- **Node must be ≥ 22.18** (`.nvmrc` pins `22`). Older node lacks default TypeScript type-stripping, which breaks the oxlint `.ts` plugin (`pnpm run lint`) and the vinext dev server. Use `nvm use` and prepend `$NVM_BIN` to `PATH`.
+- **`@clerk/shared` is `publicHoistPattern`'d in `pnpm-workspace.yaml`.** `@clerk/react` imports the bare subpath `@clerk/shared/deprecated`; under pnpm's strict layout the `@cloudflare/vite-plugin` worker runner can't resolve it and `vinext dev` dies with `Cannot find module '@clerk/shared/deprecated'`. The Rollup production build is unaffected.
+- **`pnpm run dev` needs `CLOUDFLARE_VITE_FORCE_LOCAL=true`** (and `wrangler dev` needs `--local`) or the remote-only `EMAIL` binding forces a remote proxy session requiring `CLOUDFLARE_API_TOKEN`.
+- **Local Postgres**: `wrangler.jsonc`'s Hyperdrive `localConnectionString` is `postgresql://postgres:postgres@localhost:5432/postgres`; apply the consolidated schema `db/migrations/20260822000000_planetscale_schema.sql` (the other 48 migrations are Supabase-flavored history and won't apply to vanilla PG). Local secrets (e.g. `CRON_SECRET`) go in gitignored `.dev.vars`.
+- **Client hydration on localhost needs a Clerk *development* key.** `lib/clerk/config.ts` hardcodes the production `pk_live_...` (domain-locked), so on `localhost` `<ClerkProvider>` never loads and `AuthRedirect` shows a perpetual spinner; SSR/marketing HTML still renders. Supply a `pk_test_...` dev instance for auth/UI work. `ASU_API_BASE_URL`/`ASU_API_TOKEN` are needed for live seat-check calls.
+
 ---
 
 ## CI (`.github/workflows/ci.yml`)
