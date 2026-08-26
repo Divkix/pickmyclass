@@ -7,6 +7,15 @@ allowBuilds:
   workerd: true
 confirmModulesPurge: false
 minimumReleaseAge: 0
+# Hoist @clerk/shared to the top level of node_modules. @clerk/react imports the
+# bare subpath `@clerk/shared/deprecated`; under pnpm's default strict layout
+# @clerk/shared is nested only under @clerk/react and is not resolvable as a
+# top-level bare specifier, so the @cloudflare/vite-plugin worker (workerd)
+# module runner used by `vinext dev` fails with
+# "Cannot find module '@clerk/shared/deprecated'". The production build (Rollup)
+# resolves it from @clerk/react's context and is unaffected.
+publicHoistPattern:
+  - '@clerk/shared'
 overrides:
   vite: npm:@voidzero-dev/vite-plus-core@^0.2.9
   vite-plus: 0.2.9
