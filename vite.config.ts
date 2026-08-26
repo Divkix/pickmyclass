@@ -2,14 +2,21 @@ import posthogPlugin from '@posthog/rollup-plugin';
 import { cloudflare } from '@cloudflare/vite-plugin';
 import vinext from 'vinext';
 import { defineConfig, loadEnv, type PluginOption } from 'vite-plus';
+import { shouldUploadPosthogSourcemaps } from './lib/analytics/sourcemap-upload';
+import { log } from './lib/log';
 
 export default defineConfig(({ mode }) => {
   // Source-map upload is strictly opt-in: the deploy script sets
   // POSTHOG_UPLOAD_SOURCEMAPS=true. Ordinary builds — including production-mode
   // builds and dry runs — never upload, even though POSTHOG_API_KEY /
   // POSTHOG_PROJECT_ID exist in the local (gitignored) env files.
-  const uploadSourceMaps = process.env.POSTHOG_UPLOAD_SOURCEMAPS === 'true';
-  const env = uploadSourceMaps ? loadEnv(mode, process.cwd(), '') : {};
+  // Cloudflare Workers Builds runs the same deploy script without those
+  // personal API credentials; missing keys skip the plugin so deploy proceeds.
+  const uploadRequested = process.env.POSTHOG_UPLOAD_SOURCEMAPS === 'true';
+  const env = uploadRequested ? loadEnv(mode, process.cwd(), '') : {};
+  const apiKey = env.POSTHOG_API_KEY || process.env.POSTHOG_API_KEY;
+  const projectId = env.POSTHOG_PROJECT_ID || process.env.POSTHOG_PROJECT_ID;
+  const uploadSourceMaps = shouldUploadPosthogSourcemaps(uploadRequested, apiKey, projectId);
 
   const plugins: PluginOption[] = [
     vinext(),
@@ -18,15 +25,10 @@ export default defineConfig(({ mode }) => {
     }),
   ];
 
-  if (uploadSourceMaps) {
-    if (!env.POSTHOG_API_KEY || !env.POSTHOG_PROJECT_ID) {
-      throw new Error(
-        'POSTHOG_UPLOAD_SOURCEMAPS=true requires POSTHOG_API_KEY and POSTHOG_PROJECT_ID in the environment.'
-      );
-    }
+  if (uploadSourceMaps && apiKey && projectId) {
     const plugin: unknown = posthogPlugin({
-      personalApiKey: env.POSTHOG_API_KEY,
-      projectId: env.POSTHOG_PROJECT_ID,
+      personalApiKey: apiKey,
+      projectId: projectId,
       host: 'https://us.posthog.com',
       sourcemaps: {
         enabled: true,
@@ -37,6 +39,10 @@ export default defineConfig(({ mode }) => {
     // SAFETY: The PostHog plugin uses standard Rollup hooks supported by
     // Vite+'s Rolldown compatibility layer; only the package contexts differ.
     plugins.push(plugin as PluginOption);
+  } else if (uploadRequested) {
+    log('vite').warn(
+      'POSTHOG_UPLOAD_SOURCEMAPS=true but POSTHOG_API_KEY/POSTHOG_PROJECT_ID are unset; skipping source-map upload.'
+    );
   }
 
   return {
