@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
 import { ClerkClientProvider } from '@/components/ClerkClientProvider';
 import { Footer } from '@/components/Footer';
+import { SkipToContent } from '@/components/SkipToContent';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 import './globals.css';
 
@@ -16,14 +17,12 @@ export const metadata: Metadata = {
   },
   description:
     'Get a free email the moment a seat opens in a full ASU class. PickMyClass tracks ASU class search every 30 minutes so you stop refreshing MyASU. Trusted by 2,400+ Sun Devils.',
+  // Site-wide OG/Twitter only — no title/url/description. Nested routes merge
+  // these objects, so page-specific fields here leaked onto /faq and /about.
   openGraph: {
     type: 'website',
     locale: 'en_US',
     siteName: 'PickMyClass',
-    url: 'https://pickmyclass.app/',
-    title: 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts',
-    description:
-      'Free ASU class seat tracker. Get email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.',
     images: [
       {
         url: '/og-image.png',
@@ -35,9 +34,6 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts',
-    description:
-      'Free ASU class seat tracker. Get email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.',
     images: ['/og-image.png'],
   },
   alternates: {
@@ -89,6 +85,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head />
       <body className="font-sans antialiased flex flex-col min-h-screen">
+        <SkipToContent />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

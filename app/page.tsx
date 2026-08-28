@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { Header } from '@/components/Header';
 import { AuthRedirect } from '@/components/landing/AuthRedirect';
 import { DashboardPreview } from '@/components/landing/DashboardPreview';
@@ -8,7 +9,33 @@ import { HowItWorks } from '@/components/landing/HowItWorks';
 import { JsonLd } from '@/components/landing/JsonLd';
 import { MobileStickyCTA } from '@/components/landing/MobileStickyCTA';
 import { SocialProofBanner } from '@/components/landing/SocialProofBanner';
+
 export const dynamic = 'error';
+
+const homeTitle = 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts';
+const homeDescription =
+  'Free ASU class seat tracker. Get email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.';
+
+export const metadata: Metadata = {
+  title: {
+    absolute: homeTitle,
+  },
+  description:
+    'Get a free email the moment a seat opens in a full ASU class. PickMyClass tracks ASU class search every 30 minutes so you stop refreshing MyASU. Trusted by 2,400+ Sun Devils.',
+  openGraph: {
+    title: homeTitle,
+    description: homeDescription,
+    type: 'website',
+    url: 'https://pickmyclass.app/',
+  },
+  twitter: {
+    title: homeTitle,
+    description: homeDescription,
+  },
+  alternates: {
+    canonical: '/',
+  },
+};
 
 const webApplicationSchema = {
   '@context': 'https://schema.org',
@@ -83,7 +110,7 @@ export default async function Home() {
       <div className="flex min-h-screen flex-col bg-background">
         <Header />
 
-        <main className="flex-1 pb-16 sm:pb-0">
+        <main id="main" tabIndex={-1} className="flex-1 pb-16 sm:pb-0">
           <HeroSection />
           <SocialProofBanner />
           <FeaturesSection />

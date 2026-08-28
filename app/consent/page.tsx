@@ -54,7 +54,11 @@ function ConsentForm() {
     <div className="flex min-h-screen flex-col bg-background relative">
       <div className="absolute inset-0 bg-grid-pattern mask-[linear-gradient(to_bottom,white,transparent)] pointer-events-none" />
       <Header />
-      <main className="relative z-10 flex flex-1 items-center justify-center p-4">
+      <main
+        id="main"
+        tabIndex={-1}
+        className="relative z-10 flex flex-1 items-center justify-center p-4"
+      >
         <Card className="w-full max-w-md overflow-hidden">
           <div className="h-1.5 bg-accent" />
           <CardHeader className="text-center">

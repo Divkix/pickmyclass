@@ -26,10 +26,10 @@ export default function AddClassPage() {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <Header />
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <main id="main" tabIndex={-1} className="container mx-auto px-4 py-8 max-w-4xl">
           <Skeleton className="h-8 w-64 mb-6" />
           <Skeleton className="h-96 w-full" />
-        </div>
+        </main>
       </div>
     );
   }
@@ -42,7 +42,7 @@ export default function AddClassPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <main id="main" tabIndex={-1} className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-6">
           <Link href="/dashboard">
             <Button variant="ghost" className="gap-2">
@@ -60,7 +60,7 @@ export default function AddClassPage() {
         </div>
 
         <AddClassWatch onCreated={handleWatchCreated} />
-      </div>
+      </main>
     </div>
   );
 }

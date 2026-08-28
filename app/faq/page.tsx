@@ -10,6 +10,18 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/faq',
   },
+  openGraph: {
+    title: 'Frequently Asked Questions — ASU Class Seat Notifications',
+    description:
+      'Everything you need to know about PickMyClass, the free ASU class seat notification service. How it works, notification timing, campus support, and more.',
+    type: 'website',
+    url: 'https://pickmyclass.app/faq',
+  },
+  twitter: {
+    title: 'Frequently Asked Questions — ASU Class Seat Notifications',
+    description:
+      'Everything you need to know about PickMyClass, the free ASU class seat notification service. How it works, notification timing, campus support, and more.',
+  },
 };
 
 export const dynamic = 'error';
@@ -155,7 +167,7 @@ export default async function FAQPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <main className="flex-1 px-4 py-12 md:px-8">
+      <main id="main" tabIndex={-1} className="flex-1 px-4 py-12 md:px-8">
         <div className="mx-auto max-w-4xl">
           <div className="mb-4">
             <nav className="text-sm text-muted-foreground">

@@ -220,7 +220,7 @@ export default function DashboardPage() {
           toast.error('Could not skip onboarding', { description: message })
         }
       />
-      <main className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
+      <main id="main" tabIndex={-1} className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
         {/* Page Header */}
         <motion.div className="mb-8" initial="hidden" animate="visible" variants={fadeInUp}>
           <h1 className="text-3xl font-semibold mb-2 sm:text-4xl">Your Class Watchlist</h1>

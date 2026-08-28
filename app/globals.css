@@ -394,6 +394,25 @@
     }
   }
 
+  /* Hero ATF copy: Framer Motion SSRs `initial="hidden"` as opacity:0 +
+     translateY. A CSS animation (and reduced-motion / no-JS fallbacks) keeps
+     the H1 readable if hydration is slow or scripts never run. CSS animations
+     override the inline opacity:0 Motion emits on SSR. */
+  .animation-hidden {
+    animation: hero-atf-appear 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes hero-atf-appear {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   /* Reduce motion support */
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -402,6 +421,20 @@
       animation-duration: 0.01ms;
       animation-iteration-count: 1;
       transition-duration: 0.01ms;
+    }
+
+    .animation-hidden {
+      animation: none;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+
+  @media (scripting: none) {
+    .animation-hidden {
+      animation: none;
+      opacity: 1 !important;
+      transform: none !important;
     }
   }
 }

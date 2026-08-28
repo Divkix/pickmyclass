@@ -18,7 +18,7 @@ export default async function LegalPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <div className="flex flex-1 flex-col p-4 md:p-8">
+      <main id="main" tabIndex={-1} className="flex flex-1 flex-col p-4 md:p-8">
         <div className="mx-auto w-full max-w-4xl space-y-6">
           <div>
             <h1 className="text-3xl font-semibold">Legal Documents</h1>
@@ -101,7 +101,7 @@ export default async function LegalPage() {
             </p>
           </div>
         </div>
-      </div>
+      </main>
       <JsonLd
         data={{
           '@context': 'https://schema.org',
