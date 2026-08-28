@@ -4,9 +4,9 @@ import { blogPosts } from '@/lib/blog/posts';
 const baseUrl = 'https://pickmyclass.app';
 
 /**
- * Per-URL lastmod. Blog posts use `publishedAt` (not the bulk `dateModified`
- * stamp that previously made every sitemap row 2026-06-18). Static pages use
- * the date their copy last changed.
+ * Per-URL lastmod. Blog posts use the newest of `dateModified` / `publishedAt`
+ * so lastmod matches Article JSON-LD and never moves backwards vs a later
+ * update. Static pages use the date their copy last changed.
  */
 const STATIC_PAGE_LASTMOD = {
   '/': '2026-08-28',
@@ -21,16 +21,22 @@ function lastmod(isoDate: string): Date {
   return new Date(`${isoDate}T00:00:00.000Z`);
 }
 
+function postLastmodIso(post: { publishedAt: string; dateModified?: string }): string {
+  const modified = post.dateModified ?? post.publishedAt;
+  return modified > post.publishedAt ? modified : post.publishedAt;
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const latestPostDate = blogPosts.reduce((latest, post) => {
-    return post.publishedAt > latest ? post.publishedAt : latest;
+    const modified = postLastmodIso(post);
+    return modified > latest ? modified : latest;
   }, '2025-01-01');
 
   const blogEntries: MetadataRoute.Sitemap = blogPosts.map((post) => ({
     url: `${baseUrl}/blog/${post.slug}`,
     changeFrequency: 'monthly',
     priority: post.slug === 'asu-class-seat-tracker' ? 0.9 : 0.7,
-    lastModified: lastmod(post.publishedAt),
+    lastModified: lastmod(postLastmodIso(post)),
   }));
 
   return [

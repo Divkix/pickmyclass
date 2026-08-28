@@ -23,7 +23,7 @@ export function HeroSection() {
           variants={staggerContainer}
         >
           <motion.div
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-smooth"
+            className="animation-hidden inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-smooth"
             variants={staggerItem}
           >
             <Sparkles className="size-4 text-accent" aria-hidden="true" />
@@ -58,7 +58,7 @@ export function HeroSection() {
           </motion.p>
 
           <motion.div
-            className="flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start"
+            className="animation-hidden flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start"
             variants={staggerItem}
           >
             <Link href="/sign-up" className="w-full sm:w-auto">
@@ -75,7 +75,7 @@ export function HeroSection() {
           </motion.div>
 
           <motion.ul
-            className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted-foreground lg:justify-start"
+            className="animation-hidden flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted-foreground lg:justify-start"
             variants={staggerItem}
           >
             <li className="flex items-center gap-2">
@@ -95,7 +95,7 @@ export function HeroSection() {
 
         {/* Right: product visual — the alert you'll actually receive */}
         <motion.div
-          className="relative mx-auto w-full max-w-md lg:max-w-none"
+          className="animation-hidden relative mx-auto w-full max-w-md lg:max-w-none"
           initial="hidden"
           animate="visible"
           variants={revealUp}

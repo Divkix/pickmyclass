@@ -66,12 +66,19 @@ describe('sitemap lastmod', () => {
     const faq = byUrl.get('https://pickmyclass.app/faq');
     const legal = byUrl.get('https://pickmyclass.app/legal');
 
-    expect(seatTracker).toEqual(new Date('2026-03-27T00:00:00.000Z'));
-    expect(waitlist).toEqual(new Date('2026-04-26T00:00:00.000Z'));
+    expect(seatTracker).toEqual(new Date('2026-06-18T00:00:00.000Z'));
+    expect(waitlist).toEqual(new Date('2026-06-18T00:00:00.000Z'));
     expect(faq).toEqual(new Date('2026-08-22T00:00:00.000Z'));
     expect(legal).toEqual(new Date('2025-10-24T00:00:00.000Z'));
 
     const seatTrackerPost = blogPosts.find((post) => post.slug === 'asu-class-seat-tracker');
     expect(seatTrackerPost?.publishedAt).toBe('2026-03-27');
+    expect(seatTrackerPost?.dateModified).toBe('2026-06-18');
+
+    for (const post of blogPosts) {
+      const expected = post.dateModified ?? post.publishedAt;
+      const actual = byUrl.get(`https://pickmyclass.app/blog/${post.slug}`);
+      expect(actual).toEqual(new Date(`${expected}T00:00:00.000Z`));
+    }
   });
 });

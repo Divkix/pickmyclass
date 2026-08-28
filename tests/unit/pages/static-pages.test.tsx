@@ -141,12 +141,20 @@ describe('static marketing and legal pages', () => {
     ).toHaveAttribute('href', '/blog/how-to-get-into-full-asu-classes');
   });
 
-  it('keeps the homepage H1 readable without waiting on JS animation', async () => {
+  it('keeps the homepage ATF readable without waiting on JS animation', async () => {
     render(await Home());
 
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toHaveClass('animation-hidden');
     expect(heading.closest('main')).toHaveAttribute('id', 'main');
+    expect(screen.getByText('Built for Sun Devils')).toHaveClass('animation-hidden');
+    expect(screen.getByRole('link', { name: /get started free/i }).parentElement).toHaveClass(
+      'animation-hidden'
+    );
+    expect(screen.getByText('Free forever').closest('ul')).toHaveClass('animation-hidden');
+    expect(screen.getByText(/a seat just opened in cse 240/i).closest('div.relative')).toHaveClass(
+      'animation-hidden'
+    );
   });
 
   it('moves authentication actions into the mobile menu below the desktop breakpoint', async () => {
