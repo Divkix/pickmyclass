@@ -17,35 +17,48 @@ export function HeroSection() {
       <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
         {/* Left: message */}
         <motion.div
-          className="space-y-8 text-center lg:text-left"
+          className="animation-hidden space-y-8 text-center lg:text-left"
           initial="hidden"
           animate="visible"
           variants={staggerContainer}
         >
           <motion.div
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-smooth"
+            className="animation-hidden inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-smooth"
             variants={staggerItem}
           >
             <Sparkles className="size-4 text-accent" aria-hidden="true" />
             Built for Sun Devils
           </motion.div>
 
-          <motion.h1 className="text-display" variants={staggerItem}>
+          <motion.h1 className="animation-hidden text-display" variants={staggerItem}>
             Free ASU class seat tracker: stop refreshing MyASU{' '}
             <span className="mark-gold">every 5 minutes</span>
           </motion.h1>
 
           <motion.p
-            className="mx-auto max-w-xl text-lg text-muted-foreground sm:text-xl lg:mx-0"
+            className="animation-hidden mx-auto max-w-xl text-lg text-muted-foreground sm:text-xl lg:mx-0"
             variants={staggerItem}
           >
             Get timely email alerts when seats open up in full ASU classes. PickMyClass (yep, people
-            also call it Pick My Class) checks the ASU class search every 30 minutes so you
-            don&apos;t have to.
+            also call it Pick My Class) checks the{' '}
+            <Link
+              href="/blog/asu-class-search"
+              className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
+            >
+              ASU class search
+            </Link>{' '}
+            every 30 minutes so you don&apos;t have to. Here&apos;s how an{' '}
+            <Link
+              href="/blog/asu-class-seat-tracker"
+              className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
+            >
+              ASU class seat tracker
+            </Link>{' '}
+            watches full sections for you.
           </motion.p>
 
           <motion.div
-            className="flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start"
+            className="animation-hidden flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start"
             variants={staggerItem}
           >
             <Link href="/sign-up" className="w-full sm:w-auto">
@@ -62,7 +75,7 @@ export function HeroSection() {
           </motion.div>
 
           <motion.ul
-            className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted-foreground lg:justify-start"
+            className="animation-hidden flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted-foreground lg:justify-start"
             variants={staggerItem}
           >
             <li className="flex items-center gap-2">
@@ -82,7 +95,7 @@ export function HeroSection() {
 
         {/* Right: product visual — the alert you'll actually receive */}
         <motion.div
-          className="relative mx-auto w-full max-w-md lg:max-w-none"
+          className="animation-hidden relative mx-auto w-full max-w-md lg:max-w-none"
           initial="hidden"
           animate="visible"
           variants={revealUp}

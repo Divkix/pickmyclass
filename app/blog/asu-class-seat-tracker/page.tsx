@@ -148,7 +148,7 @@ export default async function ASUClassSeatTrackerPost() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <main className="flex-1 px-4 py-12 md:px-8">
+      <main id="main" tabIndex={-1} className="flex-1 px-4 py-12 md:px-8">
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
           <div className="not-prose mb-4">
             <nav className="text-sm text-muted-foreground">

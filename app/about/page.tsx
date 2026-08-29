@@ -18,6 +18,11 @@ export const metadata: Metadata = {
     url: 'https://pickmyclass.app/about',
     images: ['/og-image.png'],
   },
+  twitter: {
+    title: 'About PickMyClass — Built by ASU Students, for ASU Students',
+    description:
+      "Learn about PickMyClass's story, mission, and the students behind the free ASU class seat tracker.",
+  },
 };
 
 export const dynamic = 'error';
@@ -42,7 +47,7 @@ export default async function AboutPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <main className="flex-1 px-4 py-12 md:px-8">
+      <main id="main" tabIndex={-1} className="flex-1 px-4 py-12 md:px-8">
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
           <div className="not-prose mb-8">
             <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">

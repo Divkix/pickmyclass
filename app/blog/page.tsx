@@ -20,6 +20,11 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://pickmyclass.app/blog',
   },
+  twitter: {
+    title: 'ASU Registration Tips & Guides: Class Search, Waitlists & Open Seats',
+    description:
+      'Real guides for ASU class registration. Find open classes, beat waitlists, and track seats so you stop refreshing MyASU.',
+  },
 };
 
 export const dynamic = 'error';
@@ -29,7 +34,7 @@ const breadcrumbSchema = {
   '@type': 'BreadcrumbList',
   itemListElement: [
     { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
-    { '@type': 'ListItem', position: 2, name: 'Blog' },
+    { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://pickmyclass.app/blog' },
   ],
 };
 
@@ -37,7 +42,7 @@ export default async function BlogIndexPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <main className="flex-1 px-4 py-12 md:px-8">
+      <main id="main" tabIndex={-1} className="flex-1 px-4 py-12 md:px-8">
         <div className="mx-auto max-w-4xl">
           <div className="mb-4">
             <nav className="text-sm text-muted-foreground">

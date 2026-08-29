@@ -17,7 +17,7 @@ export default async function TermsOfServicePage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <div className="flex flex-1 flex-col p-4 md:p-8">
+      <main id="main" tabIndex={-1} className="flex flex-1 flex-col p-4 md:p-8">
         <div className="mx-auto w-full max-w-4xl space-y-6">
           <Card>
             <CardHeader>
@@ -211,7 +211,7 @@ export default async function TermsOfServicePage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </main>
       <JsonLd
         data={{
           '@context': 'https://schema.org',

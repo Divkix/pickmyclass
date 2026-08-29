@@ -44,4 +44,14 @@ describe('production SEO and AI discovery assets', () => {
       expect(full).toContain(`https://pickmyclass.app${path === '/' ? '/' : path}`);
     }
   });
+
+  it('falls back hero ATF copy to opacity 1 without JS and for reduced motion', () => {
+    const css = readFileSync(join(root, 'app/globals.css'), 'utf8');
+
+    expect(css).toContain('.animation-hidden');
+    expect(css).toContain('hero-atf-appear');
+    expect(css).toContain('prefers-reduced-motion: reduce');
+    expect(css).toContain('scripting: none');
+    expect(css).toMatch(/\.animation-hidden[\s\S]*opacity:\s*1\s*!important/);
+  });
 });

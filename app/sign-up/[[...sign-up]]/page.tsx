@@ -8,7 +8,11 @@ export default function SignUpPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <div className="flex flex-1 items-center justify-center p-4 [color-scheme:light]">
+      <main
+        id="main"
+        tabIndex={-1}
+        className="flex flex-1 items-center justify-center p-4 [color-scheme:light]"
+      >
         <SignUp
           routing="path"
           path="/sign-up"
@@ -16,7 +20,7 @@ export default function SignUpPage() {
           fallbackRedirectUrl="/auth/post-oauth?next=%2Fdashboard"
           appearance={appearance}
         />
-      </div>
+      </main>
     </div>
   );
 }

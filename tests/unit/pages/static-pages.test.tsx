@@ -121,6 +121,42 @@ describe('static marketing and legal pages', () => {
     expect(screen.getByText(/see all frequently asked questions/i)).toHaveAttribute('href', '/faq');
   });
 
+  it('links money-post guides from homepage body copy', async () => {
+    render(await Home());
+
+    expect(screen.getByRole('link', { name: /^asu class search$/i })).toHaveAttribute(
+      'href',
+      '/blog/asu-class-search'
+    );
+    expect(screen.getByRole('link', { name: /^asu class seat tracker$/i })).toHaveAttribute(
+      'href',
+      '/blog/asu-class-seat-tracker'
+    );
+    expect(screen.getByRole('link', { name: /asu waitlist guide/i })).toHaveAttribute(
+      'href',
+      '/blog/asu-waitlist-guide'
+    );
+    expect(
+      screen.getByRole('link', { name: /strategies to get into full asu classes/i })
+    ).toHaveAttribute('href', '/blog/how-to-get-into-full-asu-classes');
+  });
+
+  it('keeps the homepage ATF readable without waiting on JS animation', async () => {
+    render(await Home());
+
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(heading).toHaveClass('animation-hidden');
+    expect(heading.closest('main')).toHaveAttribute('id', 'main');
+    expect(screen.getByText('Built for Sun Devils')).toHaveClass('animation-hidden');
+    expect(screen.getByRole('link', { name: /get started free/i }).parentElement).toHaveClass(
+      'animation-hidden'
+    );
+    expect(screen.getByText('Free forever').closest('ul')).toHaveClass('animation-hidden');
+    expect(screen.getByText(/a seat just opened in cse 240/i).closest('div.relative')).toHaveClass(
+      'animation-hidden'
+    );
+  });
+
   it('moves authentication actions into the mobile menu below the desktop breakpoint', async () => {
     render(await Home());
 
@@ -150,6 +186,7 @@ describe('static marketing and legal pages', () => {
       'href',
       'https://github.com/Divkix/pickmyclass'
     );
+    expect(document.querySelector('main#main')).toBeInTheDocument();
   });
 
   it('renders FAQ categories, answers, and the registration call to action', async () => {
@@ -165,6 +202,7 @@ describe('static marketing and legal pages', () => {
       'href',
       '/sign-up'
     );
+    expect(document.querySelector('main#main')).toBeInTheDocument();
   });
 
   it('renders the legal index and document pages with their primary headings', async () => {
@@ -201,6 +239,26 @@ describe('blog pages', () => {
       screen.getByRole('heading', { name: /how to get into full classes at asu/i })
     ).toBeInTheDocument();
     expect(screen.getAllByText(/min read/i).length).toBeGreaterThan(0);
+
+    const schemas = [...document.querySelectorAll('script[type="application/ld+json"]')].map(
+      (script) => {
+        // SAFETY: JsonLd serializes a hardcoded BreadcrumbList object; tests assert that shape.
+        return JSON.parse(script.textContent ?? '{}') as {
+          '@type'?: string;
+          itemListElement?: {
+            '@type': string;
+            position: number;
+            name: string;
+            item?: string;
+          }[];
+        };
+      }
+    );
+    const breadcrumbs = schemas.find((schema) => schema['@type'] === 'BreadcrumbList');
+    expect(breadcrumbs?.itemListElement).toEqual([
+      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://pickmyclass.app/blog' },
+    ]);
   });
 
   it.each([

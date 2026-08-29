@@ -68,7 +68,14 @@ export function HowItWorks() {
                 Register Before Everyone Else
               </h3>
               <p className="text-base text-muted-foreground sm:text-lg">
-                Get an email the moment a seat opens. Beat the crowd. Get your schedule.
+                Get an email the moment a seat opens. Beat the crowd. Pair that with{' '}
+                <Link
+                  href="/blog/how-to-get-into-full-asu-classes"
+                  className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
+                >
+                  strategies to get into full ASU classes
+                </Link>
+                .
               </p>
             </div>
           </motion.div>

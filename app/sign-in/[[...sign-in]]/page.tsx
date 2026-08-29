@@ -8,7 +8,11 @@ export default function SignInPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <div className="flex flex-1 items-center justify-center p-4 [color-scheme:light]">
+      <main
+        id="main"
+        tabIndex={-1}
+        className="flex flex-1 items-center justify-center p-4 [color-scheme:light]"
+      >
         <SignIn
           routing="path"
           path="/sign-in"
@@ -16,7 +20,7 @@ export default function SignInPage() {
           fallbackRedirectUrl="/dashboard"
           appearance={appearance}
         />
-      </div>
+      </main>
     </div>
   );
 }

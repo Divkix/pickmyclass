@@ -59,14 +59,14 @@ export default function SettingsPage() {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <Header />
-        <div className="flex flex-1 flex-col p-4 md:p-8">
+        <main id="main" tabIndex={-1} className="flex flex-1 flex-col p-4 md:p-8">
           <div className="mx-auto w-full max-w-4xl space-y-6">
             <Skeleton className="h-9 w-40" />
             <Skeleton className="h-5 w-64" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-64 w-full rounded-xl" />
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -79,7 +79,7 @@ export default function SettingsPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
-      <div className="flex flex-1 flex-col p-4 md:p-8">
+      <main id="main" tabIndex={-1} className="flex flex-1 flex-col p-4 md:p-8">
         <div className="mx-auto w-full max-w-4xl space-y-6">
           <div>
             <h1 className="text-3xl font-semibold">Settings</h1>
@@ -231,7 +231,7 @@ export default function SettingsPage() {
             </TabsContent>
           </Tabs>
         </div>
-      </div>
+      </main>
 
       <DeleteAccountModal open={showDeleteModal} onOpenChange={setShowDeleteModal} />
     </div>
