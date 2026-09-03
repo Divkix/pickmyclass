@@ -107,5 +107,5 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 ## Infrastructure
 
-- **Queue Consumer** — Cloudflare Queue consumer (`max_concurrency: 20`, `max_batch_size: 5`). `worker.ts queue()` calls `processSection()` directly (no HTTP); `app/api/queue/process-section/route.ts` is an HTTP mirror for tests/HTTP dispatch (`docs/adr/0006-queue-ack-retry-contract.md`). Data plane is PlanetScale via Hyperdrive (`lib/db/client.ts`), not Supabase; live dashboard is polling (`docs/adr/0014-realtime-to-polling.md`).
+- **Queue Consumer** — Cloudflare Queue consumer (`max_concurrency: 20`, `max_batch_size: 5`). `worker.ts queue()` calls `processSection()` directly (no HTTP); tests exercise `processSection()` directly (`docs/adr/0006-queue-ack-retry-contract.md`). Data plane is PlanetScale via Hyperdrive (`lib/db/client.ts`), not Supabase; live dashboard is polling (`docs/adr/0014-realtime-to-polling.md`).
 - **Dead Letter Queue (DLQ)** — Queue for failed messages that exceeded max retries (always ack, admin alert to `ALERTS_FROM_EMAIL`).

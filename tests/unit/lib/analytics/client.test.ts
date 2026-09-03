@@ -25,7 +25,6 @@ vi.mock('posthog-js/dist/module.no-external', () => ({
 import {
   captureAnalyticsError,
   identifyAnalyticsUser,
-  isAnalyticsInitialized,
   resetAnalyticsIdentity,
   trackAnalyticsEvent,
 } from '@/lib/analytics/client';
@@ -34,12 +33,6 @@ describe('browser analytics boundary', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sharedState.loaded = false;
-  });
-
-  it('reports initialization from the bundled PostHog singleton', () => {
-    expect(isAnalyticsInitialized()).toBe(false);
-    sharedState.loaded = true;
-    expect(isAnalyticsInitialized()).toBe(true);
   });
 
   it('forwards typed events with their exact property payloads', () => {

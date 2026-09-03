@@ -10,7 +10,7 @@
 import { env } from 'cloudflare:workers';
 import { sql } from 'drizzle-orm';
 import { type NextRequest } from 'next/server';
-import { verifyCronSecret } from '@/lib/auth/require-user';
+import { requireCronAuth } from '@/lib/auth/require-user';
 import { getDbFromEnv } from '@/lib/db';
 import { fail, ok } from '@/lib/api/response';
 import { log } from '@/lib/log';
@@ -25,14 +25,11 @@ export async function GET(request: NextRequest) {
   // SAFETY: Env type reflects wrangler.jsonc bindings validated at deploy time; narrowed from unknown.
   const cfEnv = rawEnv as Env;
   try {
-    // Authentication: Require CRON_SECRET Bearer token
-    if (!cfEnv.CRON_SECRET) {
-      log('Maintenance').error('CRON_SECRET not configured');
-      return fail('Server configuration error', 500);
-    }
-
-    if (!verifyCronSecret(request, cfEnv.CRON_SECRET)) {
-      return fail('Unauthorized', 401);
+    // Authentication: shared cron gate (500 when unconfigured, 401 when unauthorized)
+    const cronAuth = requireCronAuth(request, cfEnv.CRON_SECRET);
+    if (cronAuth) {
+      if (cronAuth.status === 500) log('Maintenance').error('CRON_SECRET not configured');
+      return cronAuth;
     }
 
     // One request-scoped Drizzle handle shared by both phases below.

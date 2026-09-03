@@ -18,16 +18,23 @@ function validationFail(error: ZodError): NextResponse {
   return fail('Invalid input', 400, mapValidationIssues(error));
 }
 
+// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: `data` is untrusted request input; schema.safeParse validates at this boundary before any domain use.
+function tryParse<T>(schema: ZodType<T>, data: unknown): { data: T } | { error: ZodError } {
+  const result = schema.safeParse(data);
+  if (!result.success) return { error: result.error };
+  return { data: result.data };
+}
+
 export function parseOrFail<T>(
   schema: ZodType<T>,
   // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: `data` is untrusted request input; schema.safeParse validates at this boundary before any domain use.
   data: unknown
 ): { success: true; data: T } | { success: false; response: NextResponse } {
-  const result = schema.safeParse(data);
-  if (!result.success) {
-    return { success: false, response: validationFail(result.error) };
+  const parsed = tryParse(schema, data);
+  if ('error' in parsed) {
+    return { success: false, response: validationFail(parsed.error) };
   }
-  return { success: true, data: result.data };
+  return { success: true, data: parsed.data };
 }
 
 export function parseOrThrow<T>(
@@ -35,9 +42,9 @@ export function parseOrThrow<T>(
   // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: `data` is untrusted input; validated via schema.safeParse before throw-or-return.
   data: unknown
 ): T {
-  const result = schema.safeParse(data);
-  if (!result.success) {
-    throw new Error(result.error.issues[0]?.message ?? 'Invalid input');
+  const parsed = tryParse(schema, data);
+  if ('error' in parsed) {
+    throw new Error(parsed.error.issues[0]?.message ?? 'Invalid input');
   }
-  return result.data;
+  return parsed.data;
 }

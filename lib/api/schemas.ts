@@ -44,14 +44,6 @@ const classWatchFieldsSchema = z.object({
 });
 
 /**
- * Schema for queue/cron messages — format only (no term-selectability refinement) so an
- * in-flight message for a term ending mid-flight still processes. Past-term watches are
- * excluded earlier, from the getPastTermCodes set at cron enqueue and by the daily sweep,
- * not here.
- */
-export const classCheckMessageSchema = classWatchFieldsSchema;
-
-/**
  * Schema for class watch creation (term + class_nbr)
  */
 export const createClassWatchSchema = classWatchFieldsSchema.refine(
@@ -65,16 +57,6 @@ export const createClassWatchSchema = classWatchFieldsSchema.refine(
 export const deleteClassWatchSchema = z.object({
   id: uuidSchema,
 });
-
-/**
- * Schema for fetching class details
- */
-export const fetchClassDetailsSchema = z
-  .object({
-    term: termSchema.min(1, 'Term is required'),
-    class_nbr: classNbrSchema.min(1, 'Section number is required'),
-  })
-  .refine((data) => isSelectableTermCode(data.term), selectableTermRefinement);
 
 /**
  * Schema for recording consent after an OAuth account has authenticated.

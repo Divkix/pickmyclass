@@ -66,72 +66,65 @@ export async function sendSectionNotifications(
 
   const allWatchIds = watchers.map((w) => w.watch_id);
 
+  // One entry per notification type drives claim, rollback, and email build
+  // below, so the seat/instructor branches cannot drift apart.
+  const claimTypes: Array<{ type: NotificationType; changed: boolean }> = [
+    { type: 'seat_available', changed: changes.seatBecameAvailable },
+    { type: 'instructor_assigned', changed: changes.instructorAssigned },
+  ];
+
   // Step 2: Claim notification slots for each change type in parallel; rollback any fulfilled claim
   // if the other rejects (allSettled ensures no leak).
-  const seatClaim = changes.seatBecameAvailable
-    ? tryRecordNotificationsBatch(db, allWatchIds, 'seat_available')
-    : Promise.resolve(new Set<string>());
-  const instructorClaim = changes.instructorAssigned
-    ? tryRecordNotificationsBatch(db, allWatchIds, 'instructor_assigned')
-    : Promise.resolve(new Set<string>());
-  const [seatResult, instructorResult] = await Promise.allSettled([seatClaim, instructorClaim]);
+  const claimResults = await Promise.allSettled(
+    claimTypes.map(({ type, changed }) =>
+      changed
+        ? tryRecordNotificationsBatch(db, allWatchIds, type)
+        : Promise.resolve(new Set<string>())
+    )
+  );
 
-  if (seatResult.status === 'rejected' || instructorResult.status === 'rejected') {
+  const firstRejection = claimResults.find((r) => r.status === 'rejected');
+  if (firstRejection) {
     // Deterministic rollback order: seat then instructor — only rollback real, non-empty claims.
-    if (
-      seatResult.status === 'fulfilled' &&
-      seatResult.value.size > 0 &&
-      changes.seatBecameAvailable
-    ) {
-      await deleteNotificationRecords(db, [...seatResult.value], 'seat_available');
+    for (const [i, { type, changed }] of claimTypes.entries()) {
+      const result = claimResults[i];
+      if (changed && result?.status === 'fulfilled' && result.value.size > 0) {
+        await deleteNotificationRecords(db, [...result.value], type);
+      }
     }
-    if (
-      instructorResult.status === 'fulfilled' &&
-      instructorResult.value.size > 0 &&
-      changes.instructorAssigned
-    ) {
-      await deleteNotificationRecords(db, [...instructorResult.value], 'instructor_assigned');
-    }
-    // SAFETY: re-narrowing after status check; instructorResult is the rejected branch when seat fulfilled
-    const firstRejection =
-      seatResult.status === 'rejected'
-        ? seatResult.reason
-        : (instructorResult as PromiseRejectedResult).reason;
-    // SAFETY: firstRejection is the rejected reason from allSettled; narrow to Error for throw contract
-    throw firstRejection instanceof Error ? firstRejection : new Error(String(firstRejection));
+    // SAFETY: find() returned a rejected settled result; narrow to read its reason for rethrow
+    const reason = (firstRejection as PromiseRejectedResult).reason;
+    throw reason instanceof Error ? reason : new Error(String(reason));
   }
-  // SAFETY: branch above threw if either rejected; both are fulfilled here per control flow narrowing
-  const claimedSeatIds = (seatResult as PromiseFulfilledResult<Set<string>>).value;
-  // SAFETY: same narrowing as above — fulfilled branch only
-  const claimedInstructorIds = (instructorResult as PromiseFulfilledResult<Set<string>>).value;
+  const claimedByType = {
+    seat_available: new Set<string>(),
+    instructor_assigned: new Set<string>(),
+  };
+  claimTypes.forEach(({ type }, i) => {
+    const result = claimResults[i];
+    if (result?.status === 'fulfilled') claimedByType[type] = result.value;
+  });
 
   // Step 3: Construct email payloads
   const emailsToSend: Array<OutboundEmail & { watchId: string }> = [];
   for (const watcher of watchers) {
-    if (claimedSeatIds.has(watcher.watch_id)) {
-      emailsToSend.push({
-        to: watcher.email,
-        userId: watcher.user_id,
-        watchId: watcher.watch_id,
-        classInfo,
-        type: 'seat_available',
-      });
-    }
-    if (claimedInstructorIds.has(watcher.watch_id)) {
-      emailsToSend.push({
-        to: watcher.email,
-        userId: watcher.user_id,
-        watchId: watcher.watch_id,
-        classInfo,
-        type: 'instructor_assigned',
-      });
+    for (const { type } of claimTypes) {
+      if (claimedByType[type].has(watcher.watch_id)) {
+        emailsToSend.push({
+          to: watcher.email,
+          userId: watcher.user_id,
+          watchId: watcher.watch_id,
+          classInfo,
+          type,
+        });
+      }
     }
   }
 
   if (emailsToSend.length === 0) {
     log('NotificationSender').info(
       `No emails to send for ${scope}` +
-        ` (seat: ${claimedSeatIds.size}, instructor: ${claimedInstructorIds.size})`
+        ` (seat: ${claimedByType.seat_available.size}, instructor: ${claimedByType.instructor_assigned.size})`
     );
     return [];
   }
@@ -147,19 +140,14 @@ export async function sendSectionNotifications(
     .filter((r) => !r.success);
 
   if (failedEmails.length > 0) {
-    const failedSeatWatchIds = failedEmails
-      .filter((e) => e.email.type === 'seat_available')
-      .map((e) => e.email.watchId);
-    const failedInstructorWatchIds = failedEmails
-      .filter((e) => e.email.type === 'instructor_assigned')
-      .map((e) => e.email.watchId);
-
     try {
-      if (failedSeatWatchIds.length > 0) {
-        await deleteNotificationRecords(db, failedSeatWatchIds, 'seat_available');
-      }
-      if (failedInstructorWatchIds.length > 0) {
-        await deleteNotificationRecords(db, failedInstructorWatchIds, 'instructor_assigned');
+      for (const { type } of claimTypes) {
+        const failedWatchIds = failedEmails
+          .filter((e) => e.email.type === type)
+          .map((e) => e.email.watchId);
+        if (failedWatchIds.length > 0) {
+          await deleteNotificationRecords(db, failedWatchIds, type);
+        }
       }
     } catch (rollbackError) {
       log('NotificationSender').warn(

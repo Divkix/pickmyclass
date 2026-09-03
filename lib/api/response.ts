@@ -1,23 +1,14 @@
 import { NextResponse } from 'next/server';
+import type { JsonValue } from '@/lib/api/wire';
 
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue | undefined };
 type ApiData = Record<string, unknown>;
 /**
  * Standard API response envelope helpers.
  *
  * ALL new API routes MUST use ok()/fail() rather than hand-rolling NextResponse.json().
  *
- * Documented exceptions (do NOT convert these):
+ * Documented exception (do NOT convert this):
  *   - app/api/monitoring/health/route.ts — external monitoring probe uses { status: 'ok' }
- *   - app/api/queue/process-section/route.ts — queue consumer reads top-level `retryable` boolean
- *     and HTTP status codes (200/429/502) that cannot be expressed via fail()
- */
 
 /**
  * Return a successful JSON response envelope: { success: true, ...data }

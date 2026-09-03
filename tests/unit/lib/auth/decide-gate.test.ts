@@ -393,7 +393,6 @@ describe('isPublicRoute', () => {
     expect(isPublicRoute('/legal/privacy')).toBe(true);
     expect(isPublicRoute('/api/auth/login')).toBe(true);
     expect(isPublicRoute('/api/cron')).toBe(true);
-    expect(isPublicRoute('/api/queue/process-section')).toBe(true);
     expect(isPublicRoute('/api/monitoring/health')).toBe(true);
     expect(isPublicRoute('/api/unsubscribe')).toBe(true);
     expect(isPublicRoute('/sitemap.xml')).toBe(true);

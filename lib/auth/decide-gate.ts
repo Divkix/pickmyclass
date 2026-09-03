@@ -31,7 +31,6 @@ function isPathPrefix(pathname: string, prefix: string): boolean {
 const API_PUBLIC_PREFIXES = [
   '/api/auth',
   '/api/cron',
-  '/api/queue',
   '/api/webhooks',
   '/api/monitoring',
   '/api/unsubscribe',

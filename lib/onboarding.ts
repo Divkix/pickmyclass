@@ -18,6 +18,7 @@
  */
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
+import type { JsonValue } from '@/lib/api/wire';
 import type { Database } from '@/lib/db';
 import { userProfiles } from '@/lib/db/schema';
 
@@ -31,7 +32,6 @@ export type OnboardingState = {
   onboarding_skipped_at: string | null;
   needs_onboarding: boolean;
 };
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 /** ok()-compatible payload (spreads into the response envelope). */
 export type OnboardingPayload = OnboardingState & Record<string, JsonValue>;

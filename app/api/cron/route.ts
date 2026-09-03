@@ -13,7 +13,7 @@
 
 import { env } from 'cloudflare:workers';
 import { type NextRequest } from 'next/server';
-import { verifyCronSecret } from '@/lib/auth/require-user';
+import { requireCronAuth } from '@/lib/auth/require-user';
 import { fail, ok } from '@/lib/api/response';
 import { getDbFromEnv } from '@/lib/db';
 import { getSectionsToCheck } from '@/lib/db/queries';
@@ -36,14 +36,11 @@ export async function GET(request: NextRequest) {
     const rawEnv: unknown = env;
     // SAFETY: Env type reflects wrangler.jsonc bindings validated at deploy time; narrowed from unknown.
     const cfEnv = rawEnv as Env;
-    if (!cfEnv.CRON_SECRET) {
-      log('Cron').error('CRON_SECRET not configured');
-      return fail('Server configuration error', 500);
-    }
-
-    if (!verifyCronSecret(request, cfEnv.CRON_SECRET)) {
-      log('Cron').warn('Unauthorized request - invalid or missing authentication');
-      return fail('Unauthorized - this endpoint requires authentication', 401);
+    const cronAuth = requireCronAuth(request, cfEnv.CRON_SECRET);
+    if (cronAuth) {
+      if (cronAuth.status === 500) log('Cron').error('CRON_SECRET not configured');
+      else log('Cron').warn('Unauthorized request - invalid or missing authentication');
+      return cronAuth;
     }
 
     const lockClient = createCronLockClient(cfEnv.PICKMYCLASS_CRON_LOCK_DO);

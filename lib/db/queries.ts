@@ -379,7 +379,7 @@ export async function tryRecordNotificationsBatch(
 
 /**
  * Upsert class state from fetched ASU API data.
- * Used by both class-watches POST and fetch-class-details POST.
+ * Used by class-watches POST.
  *
  * @param db - Request-scoped Drizzle database handle
  * @param ref - SectionRef identifying the section ({ class_nbr, term })
@@ -395,38 +395,31 @@ export async function upsertClassState(
   try {
     // last_changed_at is intentionally untouched on both paths: the column
     // default fills it on first insert and change detection owns it afterwards.
+    // One row object serves both the insert values and the conflict-update set;
+    // the insert spreads the identity fields on top.
+    const row = {
+      subject: details.subject,
+      catalog_nbr: details.catalog_nbr,
+      title: details.title,
+      instructor_name: details.instructor_name || null,
+      seats_available: details.seats_available || 0,
+      seats_capacity: details.seats_capacity || 0,
+      non_reserved_seats: details.non_reserved_seats ?? null,
+      location: details.location || null,
+      meeting_times: details.meeting_times || null,
+      last_checked_at: now,
+      consecutive_not_found_count: 0,
+    };
     await db
       .insert(classStates)
       .values({
         class_nbr: ref.class_nbr,
         term: ref.term,
-        subject: details.subject,
-        catalog_nbr: details.catalog_nbr,
-        title: details.title,
-        instructor_name: details.instructor_name || null,
-        seats_available: details.seats_available || 0,
-        seats_capacity: details.seats_capacity || 0,
-        non_reserved_seats: details.non_reserved_seats ?? null,
-        location: details.location || null,
-        meeting_times: details.meeting_times || null,
-        last_checked_at: now,
-        consecutive_not_found_count: 0,
+        ...row,
       })
       .onConflictDoUpdate({
         target: [classStates.class_nbr, classStates.term],
-        set: {
-          subject: details.subject,
-          catalog_nbr: details.catalog_nbr,
-          title: details.title,
-          instructor_name: details.instructor_name || null,
-          seats_available: details.seats_available || 0,
-          seats_capacity: details.seats_capacity || 0,
-          non_reserved_seats: details.non_reserved_seats ?? null,
-          location: details.location || null,
-          meeting_times: details.meeting_times || null,
-          last_checked_at: now,
-          consecutive_not_found_count: 0,
-        },
+        set: { ...row },
       });
   } catch (error) {
     throw new Error(`Failed to upsert class state: ${driverErrorMessage(error)}`);

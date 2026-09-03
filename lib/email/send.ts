@@ -34,6 +34,19 @@ export interface OutboundEmail {
 }
 
 /**
+ * Fatal Cloudflare Email codes: abort the batch and mark the remainder
+ * skipped (mirrors the auto-cleanup sender). Anything else fails one email
+ * and continues with the next.
+ */
+export function isFatalEmailCode(code: string): boolean {
+  return (
+    code === 'E_RATE_LIMIT_EXCEEDED' ||
+    code === 'E_DAILY_LIMIT_EXCEEDED' ||
+    code === 'E_SENDER_NOT_VERIFIED'
+  );
+}
+
+/**
  * Send batch emails sequentially using Cloudflare Email Service.
  * Cloudflare has no batch API — each email is a separate send() call.
  *
@@ -91,11 +104,7 @@ export async function sendBatchEmailsOptimized(
       log('Email').error(`Failed to send to ${email.to}: ${errorCode} - ${errorMessage}`);
 
       // Rate limit or daily limit — stop sending remaining emails
-      if (
-        errorCode === 'E_RATE_LIMIT_EXCEEDED' ||
-        errorCode === 'E_DAILY_LIMIT_EXCEEDED' ||
-        errorCode === 'E_SENDER_NOT_VERIFIED'
-      ) {
+      if (isFatalEmailCode(errorCode)) {
         // Mark current email as failed
         results.push({ success: false, error: `${errorCode}: ${errorMessage}` });
         // Mark remaining emails as skipped
