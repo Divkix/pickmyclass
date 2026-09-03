@@ -78,12 +78,12 @@
   ],
   "logpush": false,
   "observability": {
-    "enabled": false,
+    "enabled": true,
     "logs": {
-      "enabled": false,
-      "persist": false,
-      "invocation_logs": false,
-    },
+      "enabled": true,
+      "persist": true,
+      "invocation_logs": true
+    }
   },
   "vars": {
     // Application configuration
