@@ -10,10 +10,9 @@ import { fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import { getDbFromEnv } from '@/lib/db';
 import { classWatches } from '@/lib/db/schema';
-import { timingSafeCompare } from '@/lib/utils/crypto';
+import { verifyCronSecret } from '@/lib/auth/require-user';
+import type { JsonValue } from '@/lib/api/wire';
 import { createCronLockClient } from '@/lib/worker/cron-lock';
-
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 type HealthCheckResult = {
   status: string;
@@ -53,14 +52,12 @@ const healthCache = new TtlCache<{ body: HealthStatus; statusCode: number }>(60_
 export async function GET(request: Request) {
   // Auth check first - unauthenticated requests get a simple liveness probe
   // without running expensive DB/DO queries (prevents DoS via health endpoint)
-  const authHeader = request.headers.get('authorization');
   // SAFETY: Cloudflare Workers env is opaque runtime value; widen to unknown before narrowing to string record for health checks.
   const rawEnv: unknown = env;
   // SAFETY: Record<string, string | undefined> reflects the dynamic env contract for health checks; narrowed from unknown after runtime widening.
   const cfRecord = rawEnv as Record<string, string | undefined>;
   const cronSecret = process.env.CRON_SECRET || cfRecord.CRON_SECRET;
-  const isAuthenticated =
-    !!cronSecret && !!authHeader && timingSafeCompare(authHeader, `Bearer ${cronSecret}`);
+  const isAuthenticated = verifyCronSecret(request, cronSecret);
 
   if (!isAuthenticated) {
     // Intentional exception: unauthenticated liveness probe uses { status: 'ok' }

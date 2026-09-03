@@ -72,10 +72,9 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/worker/cron-lock.ts` | Cron lock lifecycle, status semantics, and Durable Object client |
 | `lib/worker/edge-html-cache.ts` | Edge HTML cache eligibility, keying, lookup, and storage rules |
 | `app/api/cron/route.ts` | Cron job entry point - enqueues sections to queue |
-| `app/api/queue/process-section/route.ts` | HTTP mirror of the queue consumer (tests/HTTP dispatch; not the production path) |
 | `lib/db/index.ts` | Request-scoped Drizzle over postgres-js (`getDb`/`getDbFromEnv` via the `HYPERDRIVE` binding) |
 | `lib/db/queries.ts` | Database query helpers (Drizzle builders for CRUD, typed SQL for SECURITY DEFINER RPCs) |
-| `lib/db/users.ts` | Clerk user mirror (`clerk_user_id`, `upsertUserFromClerkWebhook`) |
+| `lib/db/users.ts` | Clerk user mirror (`clerk_user_id`, `syncUserMirrorFromClerkUser`/`repairUserMirror`) |
 | `lib/auth/clerk-session.ts` | Edge JWT verify (`getSessionIdentity`, `revokeSession`, `revokeAllUserSessions`) |
 | `lib/auth/clerk-cookies.ts` | Clerk cookie prefix detection + `CLERK_COOKIES_TO_CLEAR` |
 | `lib/clerk/config.ts` | Committed `CLERK_PUBLISHABLE_KEY` literal + CSP |
@@ -97,15 +96,13 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 |-------|---------|-------------|
 | `app/api/auth/signout/route.ts` | POST | Sign out (`clerk.signOut` + `revokeSession` + clear `CLERK_COOKIES_TO_CLEAR`) |
 | `app/api/auth/consent/route.ts` | POST | Record `age_verified`/`agreed_to_terms` |
-| `app/api/webhooks/clerk/route.ts` | POST | Svix `verifyWebhook` (`whsec_...`) → `upsertUserFromClerkWebhook` (`user.created/updated/deleted`) |
-| `app/auth/post-oauth/route.ts` | GET | OAuth consent + `ensureUserMirror` |
+| `app/api/webhooks/clerk/route.ts` | POST | Svix `verifyWebhook` (`whsec_...`) → `syncUserMirrorFromClerkUser` (`user.created/updated/deleted`) |
+| `app/auth/post-oauth/route.ts` | GET | OAuth consent + `repairUserMirror` |
 | `app/api/class-watches/route.ts` | GET, POST, DELETE | Create, read, and delete class watches (no update) |
 | `app/api/class-watches/states/route.ts` | GET | Polling endpoint for live class states |
 | `app/api/cron/route.ts` | GET | Cron job entry - enqueues sections with staggered groups and Durable Object lock |
 | `app/api/cron/maintenance/route.ts` | GET | Daily maintenance sweeps: notification expiry + past-term watch deletion |
-| `app/api/fetch-class-details/route.ts` | POST | Fetch class details from ASU API and persist state |
 | `app/api/monitoring/health/route.ts` | GET | System health check (DB, ASU API, Cron Lock, email, config) |
-| `app/api/queue/process-section/route.ts` | POST | HTTP mirror of the queue consumer (tests/HTTP dispatch) |
 | `app/api/unsubscribe/route.ts` | GET, POST | CAN-SPAM/RFC 8058 compliant email unsubscribe |
 | `app/api/user/delete/route.ts` | DELETE | Soft-delete account (CCPA, 30-day retention) |
 | `app/api/user/export/route.ts` | GET | Export all user data in JSON (CCPA) |

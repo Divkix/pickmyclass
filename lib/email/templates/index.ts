@@ -65,22 +65,22 @@ function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
 /**
  * Shared outer HTML shell for class notification emails.
  * Owns doctype, <html>/<head>/<body>, container, gradient header, footer, and unsubscribe.
- * Callers supply only variant-specific bodyHtml and preheader; gradient + heading derive from variant.
+ * Callers supply variant-specific bodyHtml, preheader, and pre-escaped title;
+ * gradient + heading derive from variant.
  */
-function buildClassEmailShell(opts: {
-  variant: 'seat' | 'instructor';
-  classInfo: SanitizedClassInfo;
+export function buildClassEmailShell(opts: {
+  variant: 'seat' | 'instructor' | 'removed';
+  title: string;
   unsubscribeUrl?: string;
   bodyHtml: string;
   preheader: string;
 }): string {
-  const isSeat = opts.variant === 'seat';
-  const gradientFrom = isSeat ? '#8C1D40' : '#f59e0b';
-  const gradientTo = isSeat ? '#6E1733' : '#ea580c';
-  const heading = isSeat ? '🎉 Seat Available!' : '👨‍🏫 Instructor Assigned!';
-  const titlePrefix = isSeat ? 'Seat Available' : 'Instructor Assigned';
-  // classInfo fields are already escaped via sanitizeClassInfo
-  const title = `${titlePrefix} - ${opts.classInfo.subject} ${opts.classInfo.catalogNbr}`;
+  const preset =
+    opts.variant === 'seat'
+      ? { gradientFrom: '#8C1D40', gradientTo: '#6E1733', heading: '🎉 Seat Available!' }
+      : opts.variant === 'instructor'
+        ? { gradientFrom: '#f59e0b', gradientTo: '#ea580c', heading: '👨‍🏫 Instructor Assigned!' }
+        : { gradientFrom: '#6b7280', gradientTo: '#374151', heading: 'Class Removed from Catalog' };
 
   const preheaderHtml = opts.preheader
     ? `<span style="display:none!important;visibility:hidden;mso-hide:all;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${escapeHtml(opts.preheader)}</span>`
@@ -92,12 +92,12 @@ function buildClassEmailShell(opts: {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${opts.title}</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   ${preheaderHtml}
-  <div style="background: linear-gradient(135deg, ${gradientFrom} 0%, ${gradientTo} 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">${heading}</h1>
+  <div style="background: linear-gradient(135deg, ${preset.gradientFrom} 0%, ${preset.gradientTo} 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+    <h1 style="color: white; margin: 0; font-size: 24px;">${preset.heading}</h1>
   </div>
 
   <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
@@ -165,7 +165,7 @@ export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?
 
   return buildClassEmailShell({
     variant: 'seat',
-    classInfo: safe,
+    title: `Seat Available - ${safe.subject} ${safe.catalogNbr}`,
     unsubscribeUrl,
     bodyHtml,
     preheader,
@@ -229,7 +229,7 @@ export function InstructorAssignedEmailTemplate(
 
   return buildClassEmailShell({
     variant: 'instructor',
-    classInfo: safe,
+    title: `Instructor Assigned - ${safe.subject} ${safe.catalogNbr}`,
     unsubscribeUrl,
     bodyHtml,
     preheader,

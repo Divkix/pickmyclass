@@ -39,21 +39,3 @@ export interface ClassDetails {
   location: string;
   meeting_times: string;
 }
-
-/**
- * API response for fetch-class-details endpoint.
- * Derived from ClassInfo with all fields optional/nullable for API safety.
- */
-export type FetchClassDetailsResponse = Partial<
-  Pick<
-    ClassInfo,
-    | 'subject'
-    | 'catalog_nbr'
-    | 'title'
-    | 'instructor_name'
-    | 'seats_available'
-    | 'seats_capacity'
-    | 'location'
-    | 'meeting_times'
-  >
->;

@@ -67,16 +67,6 @@ export const deleteClassWatchSchema = z.object({
 });
 
 /**
- * Schema for fetching class details
- */
-export const fetchClassDetailsSchema = z
-  .object({
-    term: termSchema.min(1, 'Term is required'),
-    class_nbr: classNbrSchema.min(1, 'Section number is required'),
-  })
-  .refine((data) => isSelectableTermCode(data.term), selectableTermRefinement);
-
-/**
  * Schema for recording consent after an OAuth account has authenticated.
  */
 export const consentSchema = z.object({

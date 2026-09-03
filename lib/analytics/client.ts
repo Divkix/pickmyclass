@@ -15,11 +15,6 @@ export type { AnalyticsEventMap, AnalyticsProperties };
 /** Identity traits accepted by {@link identifyAnalyticsUser}. */
 export type AnalyticsUserTraits = Record<string, string | number | boolean | null>;
 
-/** Whether `instrumentation-client.ts` has finished `posthog.init()`. */
-export function isAnalyticsInitialized(): boolean {
-  return posthog.__loaded === true;
-}
-
 /** Capture a typed product event. No-property events pass `{}`. */
 export function trackAnalyticsEvent<E extends keyof AnalyticsEventMap>(
   event: E,

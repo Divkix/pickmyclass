@@ -13,11 +13,12 @@ import {
   NOTIFICATION_FROM_EMAIL,
 } from '@/lib/config';
 import { generateUnsubscribeUrl } from '@/lib/email/unsubscribe-token';
+import { isFatalEmailCode } from '@/lib/email/send';
 import { log } from '@/lib/log';
 import type { SectionRef } from '@/lib/section-ref';
 import { escapeHtml } from '@/lib/utils/escape-html';
 import type { ClassWatcher } from '@/lib/db/queries';
-import { getEmailFooter } from './footer';
+import { buildClassEmailShell } from './index';
 
 export interface BuildAutoCleanupRemovedEmailParams {
   classNbr: string;
@@ -82,11 +83,6 @@ export function buildAutoCleanupRemovedEmail(
       : safeSubject || safeCatalogNbr || safeClassNbr;
 
   const titleLine = safeTitle ? `: ${safeTitle}` : '';
-
-  const preheader = `Watched class ${rawIdentifier} was removed — no longer in ASU catalog`;
-
-  const preheaderHtml = `<span style="display:none!important;visibility:hidden;mso-hide:all;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${escapeHtml(preheader)}</span>`;
-
   const bodyHtml = `
     <p style="font-size: 16px; margin-top: 0;">
       A class you were watching is no longer listed in the ASU catalog.
@@ -125,30 +121,14 @@ export function buildAutoCleanupRemovedEmail(
     </div>
   `.trim();
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(emailSubject)}</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  ${preheaderHtml}
-  <div style="background: linear-gradient(135deg, #6b7280 0%, #374151 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">Class Removed from Catalog</h1>
-  </div>
-
-  <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
-    ${bodyHtml}
-
-    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-
-    ${getEmailFooter(unsubscribeUrl)}
-  </div>
-</body>
-</html>
-  `.trim();
+  const preheader = `Watched class ${rawIdentifier} was removed — no longer in ASU catalog`;
+  const html = buildClassEmailShell({
+    variant: 'removed',
+    title: escapeHtml(emailSubject),
+    unsubscribeUrl,
+    bodyHtml,
+    preheader,
+  });
 
   const textLines = [
     `A class you were watching is no longer listed in the ASU catalog.`,
@@ -286,12 +266,8 @@ export async function sendAutoCleanupRemovalEmails(
         attempted: true,
       });
 
-      // Rate limit / daily limit / sender not verified — abort remaining sends (mirrors lib/email/send.ts:94-106)
-      if (
-        errorCode === 'E_RATE_LIMIT_EXCEEDED' ||
-        errorCode === 'E_DAILY_LIMIT_EXCEEDED' ||
-        errorCode === 'E_SENDER_NOT_VERIFIED'
-      ) {
+      // Rate limit / daily limit / sender not verified — abort remaining sends (mirrors lib/email/send.ts)
+      if (isFatalEmailCode(errorCode)) {
         for (let j = i + 1; j < watchers.length; j++) {
           const remaining = watchers[j];
           results.push({

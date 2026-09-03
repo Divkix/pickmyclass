@@ -223,20 +223,15 @@ export async function processSection(
     }
 
     if (error instanceof AuthError) {
+      // Bad credentials never recover on retry — ack without touching consecutive_not_found_count
       return ackOutcome(failedResult(classNbr, duration, errorMessage));
     }
 
-    if (error instanceof RateLimitError) {
-      // Transient rate-limit — do NOT increment consecutive_not_found_count; leave count unchanged for NotFound tracking
-      return retryOutcome(failedResult(classNbr, duration, errorMessage), 429);
-    }
-
-    if (error instanceof ApiError) {
-      // Upstream 5xx / ApiError — do NOT increment consecutive_not_found_count; NotFound counter is only for NotFoundError
-      return retryOutcome(failedResult(classNbr, duration, errorMessage), 502);
-    }
-
-    // Unknown / defensive retry — do NOT touch consecutive_not_found_count
-    return retryOutcome(failedResult(classNbr, duration, errorMessage), 500);
+    // Transient / unknown errors retry with their transport status — none touches
+    // consecutive_not_found_count (reserved for NotFound tracking above).
+    let retryStatus: 429 | 502 | 500 = 500;
+    if (error instanceof RateLimitError) retryStatus = 429;
+    else if (error instanceof ApiError) retryStatus = 502;
+    return retryOutcome(failedResult(classNbr, duration, errorMessage), retryStatus);
   }
 }

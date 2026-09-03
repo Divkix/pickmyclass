@@ -25,25 +25,6 @@ export interface SectionRef {
 }
 
 /**
- * Minimal structural shape of a Supabase query/filter builder: an `.eq()` that
- * narrows by a column and returns itself for chaining. Both the real
- * `PostgrestFilterBuilder` and a test fake satisfy this.
- */
-interface SectionRefFilter {
-  eq(column: 'class_nbr' | 'term', value: string): this;
-}
-
-/**
- * Apply both `class_nbr` and `term` equality filters to a Supabase query builder
- * and return it for chaining. Callers keep control of `select`/`single`/`count`,
- * but cannot add one `.eq` without the other — dropping `term` becomes impossible
- * rather than a silent wrong-term read.
- */
-export function applySectionRef<Q extends SectionRefFilter>(query: Q, ref: SectionRef): Q {
-  return query.eq('class_nbr', ref.class_nbr).eq('term', ref.term);
-}
-
-/**
  * Stable map key derived from both fields, in `term:class_nbr` order — the shape
  * of the hand-written `` `${term}:${class_nbr}` `` section-state map keys it is
  * meant to replace, so keys never collide across terms.

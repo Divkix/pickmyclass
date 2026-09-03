@@ -12,6 +12,7 @@ import { unsubscribeTokenSchema } from '@/lib/api/schemas';
 import { parseOrFail } from '@/lib/api/validation';
 import { fail, ok } from '@/lib/api/response';
 import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token';
+import { escapeHtml } from '@/lib/utils/escape-html';
 
 import { getDbFromEnv } from '@/lib/db';
 import type { Database } from '@/lib/db';
@@ -60,15 +61,6 @@ ${content}
 </html>`,
     { status, headers: { 'Content-Type': 'text/html' } }
   );
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }
 
 async function unsubscribeUser(
