@@ -34,6 +34,7 @@ export const notificationsSent = pgTable(
     uniqueIndex('unique_notification_active')
       .on(t.class_watch_id, t.notification_type)
       .where(sql`${t.is_active} = TRUE`),
+    index('idx_notifications_sent_class_watch_id').on(t.class_watch_id),
     index('idx_notifications_sent_sent_at').on(t.sent_at.desc()),
   ]
 );

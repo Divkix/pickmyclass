@@ -19,7 +19,6 @@ export const classWatches = pgTable(
   },
   (t) => [
     unique('class_watches_user_id_class_nbr_term_key').on(t.user_id, t.class_nbr, t.term),
-    index('idx_class_watches_user_id').on(t.user_id),
     index('idx_class_watches_class_nbr').on(t.class_nbr),
     index('idx_class_watches_created_at').on(t.created_at.desc()),
   ]

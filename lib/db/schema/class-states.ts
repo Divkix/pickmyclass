@@ -25,7 +25,6 @@ export const classStates = pgTable(
   },
   (t) => [
     unique('class_states_class_nbr_term_key').on(t.class_nbr, t.term),
-    index('idx_class_states_class_nbr').on(t.class_nbr),
     index('idx_class_states_subject').on(t.subject),
   ]
 );
