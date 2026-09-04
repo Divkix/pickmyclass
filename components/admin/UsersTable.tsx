@@ -40,9 +40,6 @@ const notificationStatusDisplay = {
   disabled: { label: 'Disabled', variant: 'destructive' },
 } as const;
 
-/**
- * Format date to readable format with relative time
- */
 function formatDate(dateString: string | null): string {
   if (!dateString) return 'Never';
 
@@ -52,13 +49,6 @@ function formatDate(dateString: string | null): string {
   return formatAbsoluteDate(dateString);
 }
 
-/**
- * Admin Users Table Component
- *
- * Server-driven client component: sort, search, and filter all update URL
- * searchParams so the server re-queries.  Renders only the server-provided
- * page of rows — the full dataset is never in the browser.
- */
 export function UsersTable({
   users,
   total,
@@ -76,7 +66,6 @@ export function UsersTable({
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
 
-  /** Build a new URL with updated searchParam(s) */
   const buildUrl = useCallback(
     (updates: Record<string, string>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -102,7 +91,6 @@ export function UsersTable({
     [router, buildUrl]
   );
 
-  /** URL-driven sort handler — passed to SortableHeader as toggleSort */
   const handleSortClick = (field: UserSortField) => {
     if (sort === field) {
       navigate({ sort: field, dir: dir === 'asc' ? 'desc' : 'asc', page: '1' });
@@ -111,7 +99,6 @@ export function UsersTable({
     }
   };
 
-  /** Icon renderer that reads URL state rather than hook-internal state */
   const renderSortIconFromUrl = (field: UserSortField) => {
     if (sort !== field) return <ChevronsUpDown className="size-4 ml-1 text-muted-foreground" />;
     if (dir === 'asc') return <ChevronUp className="size-4 ml-1" />;
@@ -119,7 +106,7 @@ export function UsersTable({
   };
 
   const handleRowClick = (userId: string, event: React.MouseEvent) => {
-    // SAFETY: row click target is HTMLElement per table cell DOM contract; narrow EventTarget
+    // SAFETY: row click target is HTMLElement per table cell DOM contract
     const target = event.target as HTMLElement;
     if (target.tagName === 'A' || target.closest('a')) return;
     router.push(`/admin/users/${userId}`);
@@ -129,7 +116,6 @@ export function UsersTable({
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
       <UsersTableFiltersComponent
         search={search}
         role={role}
@@ -138,7 +124,6 @@ export function UsersTable({
         onNavigate={(updates) => navigate({ ...updates, page: '1' })}
       />
 
-      {/* Table */}
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
@@ -268,7 +253,6 @@ export function UsersTable({
         </Table>
       </div>
 
-      {/* Results count + pagination */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {total === 0 ? (

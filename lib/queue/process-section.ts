@@ -19,9 +19,6 @@ import { type SectionRetirementOutcome, retireClassSection } from '@/lib/queue/s
 import type { ClassDetails } from '@/lib/types/class';
 import type { Env } from '@/lib/types/env';
 
-/**
- * Result of processing a single section.
- */
 interface ProcessingResult {
   success: boolean;
   classNbr: string;
@@ -32,9 +29,7 @@ interface ProcessingResult {
   retirement?: SectionRetirementOutcome;
 }
 
-/** The two terminal verdicts for a Section Check message. */
 type Disposition = 'ack' | 'retry';
-
 export type SectionCheckOutcome = {
   disposition: Disposition;
   result: ProcessingResult;
@@ -70,28 +65,6 @@ function failedResult(classNbr: string, duration: number, error: string): Proces
   };
 }
 
-/**
- * Process a single class section through the full pipeline.
- *
- * Pipeline steps:
- * 1. Fetch old state from database
- * 2. Fetch latest data from ASU API
- * 3. Detect changes between old and new state
- * 4. Reset notifications if seats filled
- * 5. Upsert new class state
- * 6. Send notifications if seat became available or instructor assigned
- *
- * Returns a SectionCheckOutcome that already carries the ack/retry disposition
- * and HTTP status so callers only translate disposition to transport.
- *
- * Never throws ApiError — those are mapped to an outcome with disposition.
- * Only truly unexpected errors may bubble and should be treated as retry by callers.
- *
- * @param db - Request-scoped Drizzle handle created once by the entry point.
- * @param ref - SectionRef identifying the section ({ class_nbr, term })
- * @param env - Environment bindings for ASU API and email
- * @returns SectionCheckOutcome with disposition, result, and transport hints
- */
 export async function processSection(
   db: Database,
   ref: SectionRef,
@@ -105,53 +78,23 @@ export async function processSection(
   let emailsSent = 0;
 
   try {
-    // Step 1: Fetch old state from DB by its SectionRef identity (class_nbr + term).
-    // Include consecutive_not_found_count for logging; DB helper does authoritative increment atomically.
     const oldState = await readSectionCheckState(db, ref);
-
-    // null = no rows found — not an error for first observation
-    // Step 2: Fetch from ASU API
     newData = await fetchClassFromASU(ref, env);
 
-    // Step 3: Detect changes
     changes = detectChanges(oldState, newData);
 
-    // First observation: when there is no persisted baseline (oldState null),
-    // do not treat a currently-open seat / assigned instructor as a fresh transition. This
-    // prevents a false "seat available" email on the first check when a watch's initial
-    // state-seed failed silently — we only persist the baseline and send nothing this cycle.
     if (!oldState) {
       changes.seatBecameAvailable = false;
       changes.instructorAssigned = false;
     }
 
-    // Step 4: Reset notifications if seats filled
     if (changes.seatsFilled) {
       await resetNotificationsForSection(db, ref, 'seat_available');
     }
 
-    // Step 5: Upsert new class state BEFORE sending notifications.
-    // TRADEOFF — upsert-before-notify / at-least-once vs at-most-once:
-    // Persisting the new baseline first guarantees idempotency on retry: a
-    // retried message reads the *new* state, so detectChanges no longer re-fires
-    // the same transition and duplicate emails are impossible. The cost is a
-    // crash window — if the Worker crashes after the upsert but before
-    // tryRecordNotificationsBatch claims the notification slots, the baseline
-    // has advanced yet no email was sent, so the notification is lost for that
-    // transition. This is intentionally preferred over double-send: a lost
-    // notification is a single-cycle delay until the next state flip, whereas
-    // double-send is user-visible spam. A stronger guarantee would require a
-    // transactional RPC (claim_and_upsert) or claim-before-upsert with rollback
-    // on upsert failure, but that adds cross-table atomicity complexity without
-    // changing the disposition contract (ack vs retry) exposed to callers.
-    // Mitigations retained: (1) rollback failure in notification-sender is
-    // fail-open (F7) so a partial send still acks, and (2) detectChanges is
-    // always computed against the persisted oldState so a retry correctly
-    // suppresses re-notification.
     try {
       await upsertClassState(db, ref, newData);
     } catch (upsertError) {
-      // Return before sending any emails so a retry re-attempts cleanly with no emails sent yet.
       log('ProcessSection').error(`Database error for ${classNbr}:`, upsertError);
       return retryOutcome(
         {
@@ -166,7 +109,6 @@ export async function processSection(
       );
     }
 
-    // Step 6: Send notifications if changes detected (baseline is now persisted)
     if (changes.seatBecameAvailable || changes.instructorAssigned) {
       const sentResults = await sendSectionNotifications({
         db,
@@ -196,10 +138,6 @@ export async function processSection(
     log('ProcessSection').error(`Error processing ${classNbr}:`, errorMessage);
 
     if (error instanceof NotFoundError) {
-      // 3-strikes auto-cleanup lifecycle (increment/threshold, breaker, cap,
-      // watcher fetch, delete, email fan-out) lives in section-retirement.ts;
-      // this function keeps only classification and disposition. All NotFound
-      // paths ack — never retry.
       const retirement = await retireClassSection({
         db,
         ref,
@@ -223,12 +161,9 @@ export async function processSection(
     }
 
     if (error instanceof AuthError) {
-      // Bad credentials never recover on retry — ack without touching consecutive_not_found_count
       return ackOutcome(failedResult(classNbr, duration, errorMessage));
     }
 
-    // Transient / unknown errors retry with their transport status — none touches
-    // consecutive_not_found_count (reserved for NotFound tracking above).
     let retryStatus: 429 | 502 | 500 = 500;
     if (error instanceof RateLimitError) retryStatus = 429;
     else if (error instanceof ApiError) retryStatus = 502;

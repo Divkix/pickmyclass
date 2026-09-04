@@ -10,19 +10,12 @@ export class UnauthorizedError extends Error {
   }
 }
 
-/**
- * Require an authenticated user for an API route.
- * Verifies the Clerk session on the incoming request (networkless) and
- * returns the session identity. Throws UnauthorizedError if the session is
- * missing or invalid.
- */
 export async function requireUser(request: Request): Promise<{ user: SessionIdentity }> {
   const user = await getSessionIdentity(request);
   if (!user) throw new UnauthorizedError();
   return { user };
 }
 
-/** Verify cron secret Bearer token. Returns true if valid. */
 export function verifyCronSecret(
   request: { headers: { get(name: string): string | null } },
   cronSecret: string | undefined
@@ -33,11 +26,6 @@ export function verifyCronSecret(
   return timingSafeCompare(authHeader, `Bearer ${cronSecret}`);
 }
 
-/**
- * Cron auth gate shared by the cron + maintenance routes: CRON_SECRET-missing
- * 500 + Bearer `verifyCronSecret` 401. Returns the failure response, or null
- * when the request is authorized. Callers log with their own scope on non-null.
- */
 export function requireCronAuth(
   request: { headers: { get(name: string): string | null } },
   cronSecret: string | undefined

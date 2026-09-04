@@ -1,24 +1,14 @@
-/**
- * /api/user/onboarding over the Drizzle boundary. lib/onboarding runs REAL
- * against a scripted postgres-js transport: GET projects the user_profiles
- * onboarding SELECT through readOnboardingState, POST persists the skip via
- * the skip_onboarding SECURITY DEFINER RPC through skipOnboarding. The route
- * resolves exactly one request-scoped handle per request.
- */
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import type { Database } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
 
-// ─── Scripted postgres-js transport (Drizzle builders render real SQL) ──────
-
 interface CapturedStatement {
   sql: string;
   params: unknown[];
 }
 
-/** Driver rows as Drizzle's postgres-js session sees them: keyed objects. */
 type PgWireValue =
   | string
   | number
@@ -27,13 +17,8 @@ type PgWireValue =
   | PgWireValue[]
   | { [column: string]: PgWireValue };
 
-/** Driver rows as Drizzle's postgres-js session sees them: keyed objects. */
 type DriverRowSet = Array<Record<string, PgWireValue>>;
 
-/**
- * Lazy-rejection surface mirroring postgres-js PendingQuery: driver errors
- * surface only when Drizzle awaits the query or reads `.values()`.
- */
 interface ScriptedPendingRows {
   then(
     onFulfilled?: (value: never) => PromiseLike<never>,
@@ -43,20 +28,16 @@ interface ScriptedPendingRows {
   values(): PromiseLike<never[]>;
 }
 
-/** Resolved rows carrying the positional `.values()` Drizzle maps fields from. */
 type ScriptedRows = Promise<DriverRowSet> & { values(): PromiseLike<unknown[][]> };
 
-/** Everything Drizzle's postgres-js session consumes from `unsafe()`. */
 type ScriptedQueryResult = ScriptedPendingRows | ScriptedRows;
 
-/** Minimal postgres-js members Drizzle's session drives end to end. */
 interface PostgresJsSeam {
   unsafe(query: string, params: unknown[]): ScriptedQueryResult;
 }
 
 function createDbHarness() {
   const statements: CapturedStatement[] = [];
-  // FIFO of per-statement outcomes: row sets and driver errors in call order.
   const outcomes: Array<DriverRowSet | Error> = [];
 
   const pendingRows = (rows: DriverRowSet): ScriptedRows =>
@@ -70,9 +51,6 @@ function createDbHarness() {
       statements.push({ sql: query, params });
       const outcome = outcomes.shift();
       if (outcome instanceof Error) {
-        // Lazy rejection mirroring postgres-js PendingQuery: drizzle reads
-        // `.values()` synchronously, and the rejection may only surface when
-        // awaited — an eagerly-rejected promise would go unhandled.
         const reject = (): Promise<never> => Promise.reject(outcome);
         return {
           then: (
@@ -91,19 +69,14 @@ function createDbHarness() {
   };
 
   const client: PostgresJsSeam = scriptedClient;
-  // SAFETY: the harness implements exactly the postgres-js seams Drizzle's
-  // session drives (tag-call unsafe(), .values(), begin()); the rest of the
-  // Sql surface is unreachable through Drizzle builders and db.execute.
   const db = drizzle(client as Database['$client'], { schema });
 
   return {
     db,
     statements,
-    /** Script the row set answered by the next executed statement. */
     next(rows: DriverRowSet = []) {
       outcomes.push(rows);
     },
-    /** Make the next executed statement reject with this driver-shaped error. */
     failNext(error: Error) {
       outcomes.push(error);
     },
@@ -142,11 +115,9 @@ function post(url: string): Request {
   return new Request(url, { method: 'POST' });
 }
 
-/** JSON payload values the route handlers serialize. */
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 async function json(response: Response) {
-  // SAFETY: test helper parses JSON response; shape asserted per test case via property access
   return response.json() as Promise<Record<string, JsonValue>>;
 }
 
@@ -176,10 +147,8 @@ describe('/api/user/onboarding', () => {
       expect(data.onboarding_skipped_at).toBeNull();
       expect(data.needs_onboarding).toBe(true);
 
-      // The two-column user_profiles SELECT ran for this user.
       expect(h.statements).toHaveLength(1);
       expect(h.statements[0].sql).toContain('user_profiles');
-      // where user_id = $1 LIMIT $2 (drizzle binds the limit).
       expect(h.statements[0].params).toEqual(['user-123', 1]);
       expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
       expect(mockCaptureServerEvent).not.toHaveBeenCalled();
@@ -236,7 +205,6 @@ describe('/api/user/onboarding', () => {
       expect(data.onboarding_skipped_at).toBe('2026-07-11T12:00:00Z');
       expect(data.needs_onboarding).toBe(false);
 
-      // The SECURITY DEFINER RPC ran once with the bound, explicitly cast id.
       expect(h.statements).toHaveLength(1);
       expect(h.statements[0].sql).toContain('skip_onboarding');
       expect(h.statements[0].params).toEqual(['user-123']);

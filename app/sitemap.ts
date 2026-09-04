@@ -3,11 +3,6 @@ import { blogPosts } from '@/lib/blog/posts';
 
 const baseUrl = 'https://pickmyclass.app';
 
-/**
- * Per-URL lastmod. Blog posts use the newest of `dateModified` / `publishedAt`
- * so lastmod matches Article JSON-LD and never moves backwards vs a later
- * update. Static pages use the date their copy last changed.
- */
 const STATIC_PAGE_LASTMOD = {
   '/': '2026-08-28',
   '/faq': '2026-08-22',

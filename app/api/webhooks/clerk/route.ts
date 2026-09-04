@@ -38,7 +38,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    // One handle per delivery; signature failures above never open a connection.
     const db = getDbFromEnv();
     if (event.type === 'user.created' || event.type === 'user.updated') {
       const synced = await syncUserMirrorFromClerkUser(db, event.data);
@@ -58,10 +57,8 @@ export async function POST(request: Request) {
       return ok(null);
     }
 
-    // Unrelated event types (sessions, organizations, …) are acknowledged.
     return ok(null);
   } catch (error) {
-    // Transient DB failure — 500 so Svix redelivers.
     log('ClerkWebhook').error(`Failed to process ${event.type}:`, error);
     return fail('Webhook processing failed', 500);
   }

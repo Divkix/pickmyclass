@@ -5,8 +5,8 @@ import { log } from '@/lib/log';
 
 export interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void>;
-  threshold?: number; // pixels to trigger refresh (default: 80)
-  resistance?: number; // pull resistance factor (default: 2.5)
+  threshold?: number;
+  resistance?: number;
 }
 
 export interface UsePullToRefreshReturn {
@@ -15,10 +15,6 @@ export interface UsePullToRefreshReturn {
   containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
-/**
- * Hook to enable pull-to-refresh functionality for mobile devices
- * Only triggers when scrolled to the top of the page
- */
 export function usePullToRefresh({
   onRefresh,
   threshold = 80,
@@ -34,7 +30,6 @@ export function usePullToRefresh({
 
   const handleTouchStart = useCallback(
     (e: TouchEvent) => {
-      // Only start tracking if we're at the top of the page
       const scrollTop = window.scrollY || document.documentElement.scrollTop;
       isAtTop.current = scrollTop === 0;
 
@@ -54,9 +49,7 @@ export function usePullToRefresh({
       const touchY = e.touches[0].clientY;
       const pullDelta = touchY - touchStartY.current;
 
-      // Only handle downward pulls (positive delta)
       if (pullDelta > 0) {
-        // Check if we're still at the top
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
         if (scrollTop > 0) {
           isAtTop.current = false;
@@ -66,12 +59,10 @@ export function usePullToRefresh({
           return;
         }
 
-        // Apply resistance to make the pull feel natural
         const distance = Math.min(pullDelta / resistance, threshold * 1.5);
         currentPullDistance.current = distance;
         setPullDistance(distance);
 
-        // Prevent default scrolling when pulling
         if (distance > 10) {
           e.preventDefault();
         }
@@ -88,17 +79,14 @@ export function usePullToRefresh({
       return;
     }
 
-    // Trigger refresh if threshold exceeded
     if (currentPullDistance.current >= threshold) {
       setIsRefreshing(true);
-      setPullDistance(threshold); // Lock at threshold during refresh
 
       try {
         await onRefresh();
       } catch (error) {
         log('PullToRefresh').error('Refresh failed:', error);
       } finally {
-        // Animate back to 0
         setIsRefreshing(false);
         if (resetTimeoutRef.current) {
           clearTimeout(resetTimeoutRef.current);
@@ -109,7 +97,6 @@ export function usePullToRefresh({
         }, 100);
       }
     } else {
-      // Snap back to 0 if threshold not reached
       setPullDistance(0);
       currentPullDistance.current = 0;
     }
@@ -122,7 +109,6 @@ export function usePullToRefresh({
     const container = containerRef.current;
     if (!container) return;
 
-    // Add passive: false to allow preventDefault
     container.addEventListener('touchstart', handleTouchStart, { passive: true });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd, { passive: true });

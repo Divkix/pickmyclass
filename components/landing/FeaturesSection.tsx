@@ -32,7 +32,6 @@ export function FeaturesSection() {
           viewport={{ once: true, margin: '-100px' }}
           variants={staggerContainer}
         >
-          {/* Primary feature — spans two columns, maroon-forward */}
           <motion.article
             className="flex flex-col justify-between gap-6 rounded-xl border border-primary/20 bg-primary p-7 text-primary-foreground shadow-smooth md:col-span-2 md:row-span-2"
             variants={staggerItem}
@@ -61,7 +60,6 @@ export function FeaturesSection() {
             </div>
           </motion.article>
 
-          {/* Secondary — instructor changes */}
           <motion.article
             className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-smooth"
             variants={staggerItem}
@@ -78,7 +76,6 @@ export function FeaturesSection() {
             </div>
           </motion.article>
 
-          {/* Tertiary — beat the waitlist */}
           <motion.article
             className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-smooth"
             variants={staggerItem}
@@ -103,7 +100,6 @@ export function FeaturesSection() {
           </motion.article>
         </motion.div>
 
-        {/* Closing reassurance strip */}
         <motion.div
           className="mt-4 flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 px-6 py-4"
           initial="hidden"

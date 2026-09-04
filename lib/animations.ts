@@ -1,15 +1,7 @@
 import type { Variants } from 'framer-motion';
 
-/**
- * Exponential ease-out curves (no bounce/elastic). Entering motion eases out;
- * exiting motion eases in. Keeps the whole site on one motion rhythm.
- */
 const easeOutExpo = [0.16, 1, 0.3, 1] as const;
 
-/**
- * Utility to respect the user's motion preferences. When reduced motion is
- * requested, transitions collapse to a near-instant crossfade.
- */
 export const reduceMotion = (variants: Variants): Variants => {
   if (
     typeof window !== 'undefined' &&
@@ -25,10 +17,6 @@ export const reduceMotion = (variants: Variants): Variants => {
   return variants;
 };
 
-/**
- * Reusable Framer Motion animation variants for consistent animations across the app
- */
-
 export const fadeInUp: Variants = reduceMotion({
   hidden: { opacity: 0, y: 20 },
   visible: {
@@ -38,7 +26,6 @@ export const fadeInUp: Variants = reduceMotion({
   },
 });
 
-// A softer, slightly larger reveal for hero/feature imagery
 export const revealUp: Variants = reduceMotion({
   hidden: { opacity: 0, y: 28, scale: 0.98 },
   visible: {
@@ -49,7 +36,6 @@ export const revealUp: Variants = reduceMotion({
   },
 });
 
-// Stagger container for list animations
 export const staggerContainer: Variants = reduceMotion({
   hidden: { opacity: 0 },
   visible: {
@@ -70,7 +56,6 @@ export const staggerItem: Variants = reduceMotion({
   },
 });
 
-// Button press animation
 export const buttonTap = {
   scale: 0.95,
   transition: { duration: 0.1 },

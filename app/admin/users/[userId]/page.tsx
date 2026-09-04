@@ -28,28 +28,13 @@ interface AdminUserDetailPageProps {
   }>;
 }
 
-/**
- * Admin User Detail Page
- *
- * Displays detailed information about a specific user including:
- * - User profile information (email, registration date, verification status)
- * - All class watches for this user
- * - Quick navigation back to users list
- *
- * Requires admin authentication via verifyAdmin().
- * Uses server-side data fetching for optimal performance.
- */
 export default async function AdminUserDetailPage({ params }: AdminUserDetailPageProps) {
-  // One request-scoped handle shared by the gate read and both data reads.
   const db = getDbFromEnv();
 
-  // Verify admin authentication (redirects if unauthorized)
   await verifyAdmin(db);
 
-  // Await params
   const { userId } = await params;
 
-  // Fetch user information from the local users mirror table (synced by Clerk webhooks).
   const [user] = await db
     .select({
       id: users.id,
@@ -67,12 +52,8 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
     notFound();
   }
 
-  // Fetch user's class watches
   const watches = await getUserWatches(db, userId);
 
-  /**
-   * Format ISO timestamp to readable date string
-   */
   const formatDate = (timestamp: string | null | undefined): string => {
     if (!timestamp) return 'Never';
     return formatAbsoluteDate(timestamp, {
@@ -85,7 +66,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
   };
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {/* Breadcrumb Navigation */}
       <div className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/admin" className="hover:text-foreground transition-colors">
           Admin
@@ -98,7 +78,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
         <span className="text-foreground font-medium">{user.email}</span>
       </div>
 
-      {/* Page Header */}
       <div className="mb-8 flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-semibold mb-2">User Details</h1>
@@ -114,7 +93,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
         </Link>
       </div>
 
-      {/* User Information Card */}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>User Information</CardTitle>
@@ -122,7 +100,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-2">
-            {/* Email */}
             <div className="flex items-start gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 shrink-0">
                 <Mail className="size-5 text-primary" />
@@ -133,7 +110,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
               </div>
             </div>
 
-            {/* Email Verified */}
             <div className="flex items-start gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-success/10 shrink-0">
                 <Shield className="size-5 text-success" />
@@ -159,7 +135,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
               </div>
             </div>
 
-            {/* Registration Date */}
             <div className="flex items-start gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-accent/10 shrink-0">
                 <Calendar className="size-5 text-accent" />
@@ -170,7 +145,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
               </div>
             </div>
 
-            {/* Last Sign In */}
             <div className="flex items-start gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-muted shrink-0">
                 <Clock className="size-5 text-muted-foreground" />
@@ -181,7 +155,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
               </div>
             </div>
 
-            {/* User ID */}
             <div className="flex items-start gap-3 md:col-span-2">
               <div className="flex size-10 items-center justify-center rounded-full bg-muted shrink-0">
                 <Eye className="size-5 text-muted-foreground" />
@@ -195,7 +168,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
         </CardContent>
       </Card>
 
-      {/* Class Watches Section */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

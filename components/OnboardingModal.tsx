@@ -25,7 +25,6 @@ const stepTitles = {
   3: "You're all set",
 } as const satisfies Record<Step, string>;
 
-/** Display details for the popular-class shortcut (mirrors the API payload). */
 interface PopularClassDetails {
   subject: string;
   catalog_nbr: string;
@@ -43,27 +42,11 @@ interface PopularClass {
 
 interface OnboardingModalProps {
   open: boolean;
-  /** Called with the updated onboarding state after a successful skip. */
   onSkipped: (state: OnboardingState) => void;
-  /** Called with the newly created watch once the user dismisses the confirmation step. */
   onCompleted?: (watch: ClassWatchRow) => void;
-  /** Called when the skip request fails. */
   onSkipError?: (message: string) => void;
 }
 
-/**
- * First-time onboarding modal: a 3-step flow that guides the user from finding
- * a class ID to creating their first watch without leaving the dashboard.
- *
- * Step 1 — Find a class ID (ASU catalog link + guide).
- * Step 2 — Add the watch (simplified form, reuses the dashboard's validation).
- * Step 3 — You're all set (confirmation; closes on the next click).
- *
- * Escape, backdrop click, and the "Skip for now" button all trigger the skip
- * flow (POST /api/user/onboarding), then call onSkipped. Successfully creating
- * a watch advances to step 3; the modal calls onCompleted when it closes so the
- * dashboard can drop the modal and the Finish Setup Card.
- */
 export function OnboardingModal({
   open,
   onSkipped,
@@ -74,28 +57,14 @@ export function OnboardingModal({
   const [skipping, setSkipping] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createdWatch, setCreatedWatch] = useState<ClassWatchRow | null>(null);
-  // Popular-class example for step 1. `null` means "no example" (the modal then
-  // shows the text-only guide). `popularLoading` distinguishes "still fetching"
-  // from "fetched and none available" so we don't flash the guide before the
-  // fetch resolves.
   const [popularClass, setPopularClass] = useState<PopularClass | null>(null);
   const [popularLoading, setPopularLoading] = useState(false);
-  // Class number carried from the "Track this class" shortcut into the form.
   const [prefillClassNbr, setPrefillClassNbr] = useState('');
-  // Synchronous guard: Radix fires onPointerDownOutside and onInteractOutside
-  // for the same backdrop event, and setSkipping is async, so a ref is the only
-  // way to prevent a double POST.
   const skippingRef = useRef(false);
-  // Same idea for the confirmation close: Escape + backdrop + a double-click on
-  // "Done" can all fire before the parent lowers `open`, which would call
-  // onCompleted twice and duplicate the watch in the dashboard list.
   const completedRef = useRef(false);
-  // Ref to the current step title so we can move focus there on step transitions.
   const titleRef = useRef<HTMLHeadingElement>(null);
-  // Screen-reader-only announcement for step transitions and the current step number.
   const [announcement, setAnnouncement] = useState('');
 
-  // Track funnel start once per open. Reset to step 1 whenever the modal opens.
   useEffect(() => {
     if (open) {
       setStep(1);
@@ -104,14 +73,11 @@ export function OnboardingModal({
       setPrefillClassNbr('');
       completedRef.current = false;
       trackAnalyticsEvent('onboarding_started', {});
-      // Load the most-watched class for the current selectable term. Any failure
-      // (no selectable term, no watches, ASU 404/error) resolves to null and the
-      // step falls back to the text-only guide — the fetch never blocks onboarding.
       setPopularLoading(true);
       fetch('/api/onboarding/popular-class')
         .then((response) => response.json())
         .then((data) => {
-          // SAFETY: /api/onboarding/popular-class returns { popularClass?: PopularClass | null } per API contract; narrow JSON
+          // SAFETY: /api/onboarding/popular-class returns { popularClass?: PopularClass | null } per API contract
           setPopularClass((data as { popularClass?: PopularClass | null }).popularClass ?? null);
         })
         .catch(() => {
@@ -123,8 +89,6 @@ export function OnboardingModal({
     }
   }, [open]);
 
-  // Announce step changes and move focus to the new title so screen readers
-  // read the updated heading when the user moves between steps.
   useEffect(() => {
     if (!open) return;
     setAnnouncement(`Step ${step} of 3: ${stepTitles[step]}`);
@@ -140,7 +104,7 @@ export function OnboardingModal({
     setSkipping(true);
     try {
       const response = await fetch('/api/user/onboarding', { method: 'POST' });
-      // SAFETY: response.json() validated by API contract; shape matches Partial<OnboardingState> with optional error
+      // SAFETY: response.json() matches Partial<OnboardingState> with optional error per API contract
       const data = (await response.json()) as Partial<OnboardingState> & { error?: string };
       if (!response.ok) {
         throw new Error(data.error || 'Failed to skip onboarding');
@@ -162,8 +126,6 @@ export function OnboardingModal({
   const handleWatchCreated = (watch: ClassWatchRow) => {
     setCreatedWatch(watch);
     trackAnalyticsEvent('onboarding_completed', {});
-    // Only advance if the user hasn't navigated away from step 2 (e.g. via
-    // Back) while the request was in flight.
     setStep((current) => (current === 2 ? 3 : current));
   };
 
@@ -175,8 +137,6 @@ export function OnboardingModal({
     }
   };
 
-  // Copy the popular example's class number into the simplified form and advance
-  // to step 2. The form mounts with `defaultClassNbr` so the field is pre-filled.
   const handleTrackPopular = () => {
     if (!popularClass) return;
     setPrefillClassNbr(popularClass.class_nbr);
@@ -187,8 +147,6 @@ export function OnboardingModal({
     setStep(2);
   };
 
-  // Route every close attempt (Escape, backdrop, X, Skip) through the skip flow.
-  // On the confirmation step we instead let the close through as a completion.
   const requestClose = () => {
     if (step === 3) {
       handleConfirmClose();
@@ -208,7 +166,6 @@ export function OnboardingModal({
         className="sm:max-w-[480px]"
         aria-describedby="onboarding-step-description"
         onEscapeKeyDown={(e) => {
-          // On the confirmation step Escape confirms; otherwise it skips.
           if (step === 3) {
             e.preventDefault();
             handleConfirmClose();
@@ -222,7 +179,6 @@ export function OnboardingModal({
           requestClose();
         }}
       >
-        {/* Screen-reader-only live region for step transitions. */}
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {announcement}
         </div>

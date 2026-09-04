@@ -53,7 +53,6 @@ export function DashboardPreview() {
 
         <motion.div variants={staggerItem}>
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-            {/* Dashboard header preview */}
             <div className="flex items-center justify-between border-b border-border bg-muted/50 px-4 py-3 sm:px-6">
               <div className="flex items-center gap-4">
                 <span className="text-sm font-medium text-foreground">My Watched Classes</span>
@@ -78,7 +77,6 @@ export function DashboardPreview() {
               </div>
             </div>
 
-            {/* Sample class cards */}
             <div className="divide-y divide-border">
               {sampleClasses.map((cls) => (
                 <div
@@ -129,7 +127,6 @@ export function DashboardPreview() {
               ))}
             </div>
 
-            {/* Add more classes hint */}
             <div className="border-t border-dashed border-border bg-muted/30 px-4 py-3 text-center sm:px-6">
               <span className="text-sm text-muted-foreground">
                 + Add more classes by section number

@@ -17,8 +17,6 @@ export const metadata: Metadata = {
   },
   description:
     'Get a free email the moment a seat opens in a full ASU class. PickMyClass tracks ASU class search every 30 minutes so you stop refreshing MyASU. Trusted by 2,400+ Sun Devils.',
-  // Site-wide OG/Twitter only — no title/url/description. Nested routes merge
-  // these objects, so page-specific fields here leaked onto /faq and /about.
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -108,7 +106,6 @@ export default function RootLayout({
         />
         <script
           type="application/ld+json"
-          // static JSON-LD structured data, no user input
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',
@@ -129,7 +126,6 @@ export default function RootLayout({
         />
         <script
           type="application/ld+json"
-          // static JSON-LD structured data, no user input
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',

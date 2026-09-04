@@ -4,7 +4,6 @@ import { AuthProvider } from '@/lib/contexts/AuthContext';
 
 const { mockIdentify, clerkUser } = vi.hoisted(() => ({
   mockIdentify: vi.fn(),
-  // Mutable Clerk user fixture; each test installs its own externalId shape.
   clerkUser: { current: null as unknown },
 }));
 
@@ -14,8 +13,6 @@ vi.mock('@/lib/analytics/client', () => ({
   trackAnalyticsEvent: vi.fn(),
 }));
 
-// Clerk seam override: setup.ts provides a global signed-out mock; these tests
-// need full control over the Clerk user's externalId.
 vi.mock('@clerk/react', () => ({
   useUser: () => ({ isLoaded: true, isSignedIn: true, user: clerkUser.current }),
   useAuth: () => ({ isLoaded: true, isSignedIn: true, sessionId: 'sess_test' }),

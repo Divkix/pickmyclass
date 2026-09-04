@@ -6,12 +6,6 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-/**
- * Admin Navigation Component
- *
- * Client component to handle active route highlighting.
- * Uses usePathname to detect current route and apply active styles.
- */
 export function AdminNavigation() {
   const pathname = usePathname();
 
@@ -20,7 +14,7 @@ export function AdminNavigation() {
       href: '/admin',
       icon: <LayoutDashboard className="size-5" />,
       label: 'Dashboard',
-      exact: true, // Only highlight on exact match
+      exact: true,
     },
     {
       href: '/admin/classes',

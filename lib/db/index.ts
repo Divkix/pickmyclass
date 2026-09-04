@@ -17,12 +17,6 @@ import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
 
-/**
- * Drizzle Postgres instance typed with the canonical schema.
- * The `$client` property exposes the raw postgres-js Sql instance for direct
- * SQL (e.g. SECURITY DEFINER RPCs and conditional inserts keyed on PostgreSQL
- * SQLSTATE codes).
- */
 export type Database = PostgresJsDatabase<typeof schema> & { $client: postgres.Sql };
 
 /**
@@ -42,24 +36,12 @@ const POSTGRES_OPTIONS = {
   connect_timeout: 10,
 } as const;
 
-/**
- * Returns a new Drizzle Postgres database instance for the current invocation.
- *
- * **This is the canonical accessor** — do not construct `postgres()` /
- * `drizzle()` directly. Multi-statement atomicity uses
- * `db.transaction(async (tx) => ...)`.
- *
- * @param hyperdrive - The HYPERDRIVE binding from the Workers environment.
- * @returns A typed Drizzle database instance over the PG schema.
- */
 export function getDb(hyperdrive: Hyperdrive): Database {
   const client = postgres(hyperdrive.connectionString, POSTGRES_OPTIONS);
-  // SAFETY: drizzle(client, { schema }) returns PostgresJsDatabase whose runtime
-  // $client is the postgres-js Sql instance; the Database type adds that explicitly.
+  // SAFETY: drizzle(client, { schema }) returns PostgresJsDatabase whose $client is the postgres-js Sql instance
   return drizzle(client, { schema }) as Database;
 }
 
-/** Returns a request-scoped Drizzle handle from the Workers environment. */
 export function getDbFromEnv(): Database {
   return getDb(env.HYPERDRIVE);
 }

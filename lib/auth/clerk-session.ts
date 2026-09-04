@@ -25,18 +25,9 @@ import { env } from 'cloudflare:workers';
 import { CLERK_PUBLISHABLE_KEY } from '@/lib/clerk/config';
 import { log } from '@/lib/log';
 
-/**
- * The verified identity for one request.
- */
 export interface SessionIdentity {
-  /**
-   * Stable app user id — `ext_id` claim (old Supabase UUID for migrated users,
-   * Clerk user id for new ones). This is `users.id` everywhere in the DB.
-   */
   userId: string;
-  /** Clerk's own user id (the `sub` claim) — required for Clerk Backend API calls. */
   clerkUserId: string;
-  /** Clerk session id (`sid` claim), used for targeted session revocation. */
   sessionId: string | null;
 }
 
@@ -58,15 +49,9 @@ function getClerkEnv(): Required<Pick<ClerkEnv, 'CLERK_SECRET_KEY'>> & ClerkEnv 
   return { ...e, CLERK_SECRET_KEY: e.CLERK_SECRET_KEY };
 }
 
-/** Per-isolate cached client (module scope persists across requests in an isolate). */
 let cachedClient: ClerkClient | null = null;
 let cachedSecretKey: string | null = null;
 
-/**
- * Get the cached Clerk Backend client. `jwtKey` (PEM) is passed at creation so
- * `authenticateRequest` verifies networklessly; the secret key powers Backend
- * API calls (createUser, verifyPassword, signInTokens, session revocation).
- */
 export function getClerkClient(): ClerkClient {
   const { CLERK_SECRET_KEY, CLERK_JWT_KEY } = getClerkEnv();
   if (cachedClient && cachedSecretKey === CLERK_SECRET_KEY) {
@@ -82,11 +67,6 @@ export function getClerkClient(): ClerkClient {
   return cachedClient;
 }
 
-/**
- * Origins allowed to present session tokens (the `azp` claim). Browser session
- * tokens always carry azp; tokens minted via the ticket flow carry the origin
- * that redeemed them.
- */
 function getAuthorizedParties(): string[] {
   const { NEXT_PUBLIC_SITE_URL } = getClerkEnv();
   const parties = ['http://localhost:3000', 'http://localhost:8788'];
@@ -94,11 +74,6 @@ function getAuthorizedParties(): string[] {
   return parties;
 }
 
-/**
- * Verify the request's Clerk session (networkless) and return the identity.
- * Returns null when unauthenticated — callers map that to their own
- * redirect/401 semantics. Never throws on auth failure; logs and returns null.
- */
 export async function getSessionIdentity(request: Request): Promise<SessionIdentity | null> {
   try {
     const { CLERK_JWT_KEY } = getClerkEnv();
@@ -114,8 +89,7 @@ export async function getSessionIdentity(request: Request): Promise<SessionIdent
     if (!clerkUserId) {
       return null;
     }
-    // SAFETY: sessionClaims is JwtPayload (indexable); ext_id comes from our own
-    // claim template and is a string when present.
+    // SAFETY: sessionClaims is JwtPayload (indexable); ext_id from own claim template is string when present.
     const claims = sessionClaims as Record<string, unknown> | null;
     const extId =
       typeof claims?.ext_id === 'string' && claims.ext_id.length > 0 ? claims.ext_id : null;
@@ -126,11 +100,6 @@ export async function getSessionIdentity(request: Request): Promise<SessionIdent
   }
 }
 
-/**
- * RSC/server-component variant: Next gives read-only headers, not a Request.
- * authenticateRequest only needs the URL (for clerkUrl derivation) and headers
- * (cookie parsing), so a minimal reconstructed Request suffices.
- */
 export async function getSessionIdentityFromHeaders(
   headers: Headers
 ): Promise<SessionIdentity | null> {
@@ -140,22 +109,12 @@ export async function getSessionIdentityFromHeaders(
   return getSessionIdentity(request);
 }
 
-/**
- * Revoke all of a user's active sessions (the Clerk equivalent of a global
- * signOut). Used when an account is disabled at login or deleted (CCPA).
- * Best-effort by design: revocation only takes effect once each session's
- * short-lived JWT expires, so callers MUST also clear session cookies on the
- * current response when a browser session is in scope.
- */
 export async function revokeAllUserSessions(clerkUserId: string): Promise<void> {
   const client = getClerkClient();
   const sessions = await client.sessions.getSessionList({ userId: clerkUserId, status: 'active' });
   await Promise.allSettled(sessions.data.map((s) => client.sessions.revokeSession(s.id)));
 }
 
-/**
- * Revoke one session by id (targeted sign-out of the current browser session).
- */
 export async function revokeSession(sessionId: string): Promise<void> {
   await getClerkClient().sessions.revokeSession(sessionId);
 }

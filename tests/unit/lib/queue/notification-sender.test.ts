@@ -1,13 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-// Mock DB queries
 vi.mock('@/lib/db/queries', () => ({
   deleteNotificationRecords: vi.fn(),
   getNotificationWatchers: vi.fn(),
   tryRecordNotificationsBatch: vi.fn(),
 }));
 
-// Mock email sender
 vi.mock('@/lib/email/send', () => ({
   sendBatchEmailsOptimized: vi.fn(),
 }));
@@ -24,7 +22,6 @@ import { sendBatchEmailsOptimized } from '@/lib/email/send';
 import type { ChangeResult } from '@/lib/queue/change-detector';
 import { sendSectionNotifications } from '@/lib/queue/notification-sender';
 
-/** Sentinel Drizzle handle — identity-only; every DB seam below is mocked. */
 const db = {} as Database;
 
 function mockWatchersFetch(watchers: EligibleWatcherRpcRow[]) {
@@ -75,31 +72,28 @@ describe('sendSectionNotifications', () => {
     vi.spyOn(console, 'info').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     emailBinding = {
       send: vi.fn().mockResolvedValue({ messageId: 'msg_ok' }),
     } as SendEmail;
 
-    // Default mock: watchers returned, claimed, email succeeds
     vi.mocked(getNotificationWatchers).mockClear();
     mockWatchersFetch(mockWatchers);
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockReset();
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValue(
       new Set(['w1', 'w2'])
     );
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mockReset();
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mockResolvedValue([
       { success: true, messageId: 'msg_1' },
       { success: true, messageId: 'msg_2' },
     ]);
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     (deleteNotificationRecords as ReturnType<typeof vi.fn>).mockReset();
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     (deleteNotificationRecords as ReturnType<typeof vi.fn>).mockResolvedValue(1);
   });
 
@@ -123,7 +117,6 @@ describe('sendSectionNotifications', () => {
 
     await expect(sendSectionNotifications(defaultParams())).rejects.toThrow('DB error');
 
-    // Full SectionRef reaches the query seam; rejection must abort before any claim/delete/send work
     expect(getNotificationWatchers).toHaveBeenCalledWith(db, { class_nbr: '42737', term: '2261' });
     expect(tryRecordNotificationsBatch).not.toHaveBeenCalled();
     expect(deleteNotificationRecords).not.toHaveBeenCalled();
@@ -193,7 +186,7 @@ describe('sendSectionNotifications', () => {
       ...defaultParams(),
       changes: buildChanges({ seatBecameAvailable: true, instructorAssigned: true }),
     };
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce(new Set(['w1']))
       .mockResolvedValueOnce(new Set(['w2']));
@@ -201,7 +194,7 @@ describe('sendSectionNotifications', () => {
     const result = await sendSectionNotifications(params);
 
     expect(sendBatchEmailsOptimized).toHaveBeenCalledTimes(1);
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     const emailArg = (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(emailArg).toHaveLength(2);
     expect(emailArg[0]).toMatchObject({ watchId: 'w1', type: 'seat_available' });
@@ -210,7 +203,7 @@ describe('sendSectionNotifications', () => {
   });
 
   it('returns empty array when no slots claimed', async () => {
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValue(new Set());
 
     const result = await sendSectionNotifications(defaultParams());
@@ -220,7 +213,7 @@ describe('sendSectionNotifications', () => {
   });
 
   it('does not delete or retry when first claim returns empty (non-destructive)', async () => {
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(new Set());
 
     const result = await sendSectionNotifications(defaultParams());
@@ -232,7 +225,7 @@ describe('sendSectionNotifications', () => {
   });
 
   it('rolls back notification records when email sending fails', async () => {
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mockResolvedValue([
       { success: true, messageId: 'msg_1' },
       { success: false, error: 'Send failed' },
@@ -259,7 +252,6 @@ describe('sendSectionNotifications', () => {
       })
     ).rejects.toThrow('claim boom');
 
-    // Seat claim fulfilled → rolled back; instructor claim rejected → nothing to undo
     expect(deleteNotificationRecords).toHaveBeenCalledTimes(1);
     expect(deleteNotificationRecords).toHaveBeenCalledWith(db, ['w1'], 'seat_available');
     expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
@@ -277,7 +269,6 @@ describe('sendSectionNotifications', () => {
       })
     ).rejects.toThrow('seat claim failed');
 
-    // Instructor claim fulfilled → rolled back after the failed seat claim
     expect(deleteNotificationRecords).toHaveBeenCalledTimes(1);
     expect(deleteNotificationRecords).toHaveBeenCalledWith(db, ['w2'], 'instructor_assigned');
     expect(sendBatchEmailsOptimized).not.toHaveBeenCalled();
@@ -292,7 +283,6 @@ describe('sendSectionNotifications', () => {
 
     const result = await sendSectionNotifications(defaultParams());
 
-    // Rollback attempted, its failure swallowed, partial results still returned
     expect(deleteNotificationRecords).toHaveBeenCalledWith(db, ['w2'], 'seat_available');
     expect(result).toHaveLength(2);
     expect(result[0].success).toBe(true);
@@ -307,7 +297,6 @@ describe('sendSectionNotifications', () => {
   it('does not infer email engagement from successful delivery', async () => {
     await sendSectionNotifications(defaultParams());
 
-    // One watcher fetch through the seam, one claim pass; success never triggers a re-fetch or extra record pass
     expect(getNotificationWatchers).toHaveBeenCalledTimes(1);
     expect(getNotificationWatchers).toHaveBeenCalledWith(db, { class_nbr: '42737', term: '2261' });
     expect(tryRecordNotificationsBatch).toHaveBeenCalledTimes(1);
@@ -324,7 +313,7 @@ describe('sendSectionNotifications', () => {
   it('calls sendBatchEmailsOptimized with correct email payloads', async () => {
     await sendSectionNotifications(defaultParams());
 
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     const [emails] = (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(emails).toHaveLength(2);
     expect(emails[0]).toMatchObject({
@@ -356,7 +345,7 @@ describe('sendSectionNotifications', () => {
 
   describe('claim behavior', () => {
     it('happy path: first claim non-empty → no stale cleanup, emails only to claimed watchers', async () => {
-      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+      // eslint-disable-next-line anti-slop/no-known-value-widening
       (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
         new Set(['w1', 'w2'])
       );
@@ -366,14 +355,14 @@ describe('sendSectionNotifications', () => {
       expect(deleteNotificationRecords).not.toHaveBeenCalled();
       expect(tryRecordNotificationsBatch).toHaveBeenCalledTimes(1);
 
-      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+      // eslint-disable-next-line anti-slop/no-known-value-widening
       const [emails] = (sendBatchEmailsOptimized as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(emails.map((e: { watchId: string }) => e.watchId)).toEqual(['w1', 'w2']);
       expect(result.map((r) => r.watchId)).toEqual(['w1', 'w2']);
     });
 
     it('first claim empty → no destructive delete, no re-claim, no re-send', async () => {
-      // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+      // eslint-disable-next-line anti-slop/no-known-value-widening
       (tryRecordNotificationsBatch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(new Set());
 
       const result = await sendSectionNotifications(defaultParams());

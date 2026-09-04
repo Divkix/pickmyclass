@@ -21,27 +21,18 @@ const CLASS_SORT_FIELDS: readonly ClassSortField[] = [
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-function classSort(value: string): ClassSortField {
-  // SAFETY: CLASS_SORT_FIELDS includes check validates value against allowed ClassSortField union; fallback to 'watcher_count' preserves invariant
-  return CLASS_SORT_FIELDS.includes(value as ClassSortField)
-    ? (value as ClassSortField)
-    : 'watcher_count';
+function isClassSortField(value: string): value is ClassSortField {
+  // SAFETY: readonly widen only; includes() narrows back to ClassSortField, 'watcher_count' fallback preserves invariant
+  return (CLASS_SORT_FIELDS as readonly string[]).includes(value);
 }
 
-/**
- * Admin Classes List Page
- *
- * Server component that reads page/sort/filter searchParams and calls
- * getClassesPage() (server-side paginated RPC). Only the current page of rows
- * is fetched — the full table is never loaded into the Worker.
- *
- * Requires admin authentication via verifyAdmin().
- */
+function classSort(value: string): ClassSortField {
+  return isClassSortField(value) ? value : 'watcher_count';
+}
+
 export default async function AdminClassesPage({ searchParams }: { searchParams?: SearchParams }) {
-  // One request-scoped handle shared by the gate read and both list reads.
   const db = getDbFromEnv();
 
-  // Verify admin authentication (redirects if unauthorized)
   await verifyAdmin(db);
 
   const sp = (await searchParams) ?? {};
@@ -51,11 +42,11 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
   const dir = param(sp, 'dir') === 'asc' ? 'asc' : 'desc';
   const search = param(sp, 'search');
   const subject = param(sp, 'subject') || 'all';
-  // SAFETY: Next.js searchParams validated via param helper; fallback 'all' ensures allowed union, DB handles invalid gracefully
+  // SAFETY: param helper + 'all' fallback keeps allowed union; DB handles invalid gracefully
   const seatStatus = (param(sp, 'seatStatus') || 'all') as 'all' | 'full' | 'limited' | 'available';
-  // SAFETY: Next.js searchParams validated via param helper; fallback 'all' ensures allowed union, DB handles invalid gracefully
+  // SAFETY: param helper + 'all' fallback keeps allowed union; DB handles invalid gracefully
   const instructor = (param(sp, 'instructor') || 'all') as 'all' | 'staff' | 'named';
-  // SAFETY: Next.js searchParams validated via param helper; fallback 'all' ensures allowed union, DB handles invalid gracefully
+  // SAFETY: param helper + 'all' fallback keeps allowed union; DB handles invalid gracefully
   const watcherCount = (param(sp, 'watcherCount') || 'all') as
     | 'all'
     | 'none'
@@ -80,7 +71,6 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-semibold mb-2">All Classes</h1>
         <p className="text-muted-foreground">
@@ -88,7 +78,6 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
         </p>
       </div>
 
-      {/* Stats Summary */}
       <div className="grid gap-4 md:grid-cols-3 mb-8">
         <Card>
           <CardHeader className="pb-3">
@@ -127,7 +116,6 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
         </Card>
       </div>
 
-      {/* Classes Table */}
       <Card>
         <CardHeader>
           <CardTitle>Classes Being Watched</CardTitle>

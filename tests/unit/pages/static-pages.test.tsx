@@ -64,7 +64,7 @@ vi.mock('framer-motion', () => ({
 }));
 
 beforeAll(() => {
-  // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because minimal mock not overlapping IntersectionObserver class
+  // eslint-disable-next-line anti-slop/no-chained-type-assertions
   global.IntersectionObserver = class IntersectionObserver {
     observe = vi.fn();
     unobserve = vi.fn();
@@ -242,7 +242,6 @@ describe('blog pages', () => {
 
     const schemas = [...document.querySelectorAll('script[type="application/ld+json"]')].map(
       (script) => {
-        // SAFETY: JsonLd serializes a hardcoded BreadcrumbList object; tests assert that shape.
         return JSON.parse(script.textContent ?? '{}') as {
           '@type'?: string;
           itemListElement?: {

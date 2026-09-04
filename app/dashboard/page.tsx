@@ -43,13 +43,8 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
 
-  // Get class numbers from watches for Realtime subscription
-  // CRITICAL: Must memoize to prevent infinite re-render loop
-  // Without useMemo, every render creates a new array reference which triggers
-  // useRealtimeClassStates hook → setLoading → re-render → new array → loop
   const classNumbers = useMemo(() => watches.map((w) => w.class_nbr), [watches]);
 
-  // Subscribe to real-time updates
   const {
     classStates,
     loading: realtimeLoading,
@@ -60,7 +55,6 @@ export default function DashboardPage() {
     enabled: classNumbers.length > 0,
   });
 
-  // Fetch user's class watches
   const fetchWatches = useCallback(async (): Promise<GetClassWatchesResponse> => {
     try {
       setIsLoadingWatches(true);
@@ -71,7 +65,7 @@ export default function DashboardPage() {
         throw new Error('Failed to fetch class watches');
       }
 
-      // SAFETY: /api/class-watches returns JSON shaped as GetClassWatchesResponse per API contract validated by server
+      // SAFETY: /api/class-watches returns JSON shaped as GetClassWatchesResponse per API contract
       const data = (await response.json()) as GetClassWatchesResponse;
       setWatches(data.watches || []);
       setMaxWatches(data.maxWatches || 10);
@@ -88,26 +82,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user) {
-      void fetchWatches().catch(() => {
-        // fetchWatches already stores the user-facing error for initial page load.
-      });
+      void fetchWatches().catch(() => {});
     }
   }, [user, fetchWatches]);
 
-  // Handle pull-to-refresh
   const handleRefresh = async () => {
     try {
-      // Re-fetch class watches and class states in parallel
       const [watchData] = await Promise.all([
         fetchWatches(),
         classNumbers.length > 0 ? refetchClassStates() : Promise.resolve(),
       ]);
 
-      // Use the returned data directly to avoid stale closure capture
-      // Fixes issue #173: toast was showing stale watch count from closure
       const watchCount = watchData?.watches?.length ?? watches.length;
 
-      // Show success toast with count and timestamp
       const timeString = new Date().toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
@@ -122,24 +109,17 @@ export default function DashboardPage() {
     }
   };
 
-  // Pull-to-refresh hook
   const { pullDistance, isRefreshing, containerRef } = usePullToRefresh({
     onRefresh: handleRefresh,
     threshold: 80,
     resistance: 2.5,
   });
 
-  // Onboarding completion: the modal created the first watch server-side (which
-  // also sets onboarding_completed_at). Add the watch locally and project the
-  // new onboarding state through the lifecycle module so it matches the server
-  // (a skipped user keeps their skipped_at timestamp rather than having it
-  // fabricated back to null).
   const handleOnboardingCompleted = useCallback((watch: ClassWatch) => {
     setWatches((prev) => [watch, ...prev]);
     setOnboarding((prev) => (prev ? completeOnFirstWatch(prev) : prev));
   }, []);
 
-  // Handle deleting a watch
   const handleDeleteWatch = async (watchId: string) => {
     const response = await fetch(`/api/class-watches?id=${watchId}`, {
       method: 'DELETE',
@@ -149,11 +129,9 @@ export default function DashboardPage() {
       throw new Error('Failed to delete class watch');
     }
 
-    // Remove from local state immediately
     setWatches((prev) => prev.filter((w) => w.id !== watchId));
   };
 
-  // Filter watches based on search query
   const filteredWatches = useMemo(() => {
     if (!searchQuery.trim()) return watches;
 
@@ -170,7 +148,6 @@ export default function DashboardPage() {
     });
   }, [watches, searchQuery, classStates]);
 
-  // Calculate quick stats
   const stats = useMemo(() => {
     const totalWatches = watches.length;
     const availableSeats = watches.filter((watch) => {
@@ -185,7 +162,6 @@ export default function DashboardPage() {
     return { totalWatches, availableSeats, fullClasses };
   }, [watches, classStates]);
 
-  // Show loading state while checking auth
   if (authLoading) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
@@ -199,7 +175,6 @@ export default function DashboardPage() {
     );
   }
 
-  // User is not authenticated (will redirect)
   if (!user) {
     return null;
   }
@@ -221,7 +196,6 @@ export default function DashboardPage() {
         }
       />
       <main id="main" tabIndex={-1} className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
-        {/* Page Header */}
         <motion.div className="mb-8" initial="hidden" animate="visible" variants={fadeInUp}>
           <h1 className="text-3xl font-semibold mb-2 sm:text-4xl">Your Class Watchlist</h1>
           <p className="text-muted-foreground">
@@ -241,13 +215,11 @@ export default function DashboardPage() {
           </Alert>
         )}
 
-        {/* Finish setup card: shown after skipping onboarding, until first watch */}
         {!isLoadingWatches &&
           watches.length === 0 &&
           onboarding?.onboarding_skipped_at &&
           !onboarding.onboarding_completed_at && <FinishSetupCard />}
 
-        {/* Quick Stats */}
         {!isLoadingWatches && watches.length > 0 && (
           <motion.div
             className="mb-8 grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-4"
@@ -347,7 +319,6 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
-        {/* Search and Add Button */}
         <motion.div
           className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
           initial="hidden"
@@ -376,7 +347,6 @@ export default function DashboardPage() {
           </Link>
         </motion.div>
 
-        {/* Loading state */}
         {isLoadingWatches && (
           <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <Skeleton className="h-48 w-full rounded-xl" />
@@ -385,7 +355,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Empty state */}
         {!isLoadingWatches && watches.length === 0 && (
           <motion.div
             className="text-center py-16 bg-muted/20 rounded-xl border-2 border-dashed border-border"
@@ -413,7 +382,6 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
-        {/* Class watches grid */}
         {!isLoadingWatches && filteredWatches.length > 0 && (
           <motion.div
             className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3"
@@ -438,7 +406,6 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
-        {/* No search results */}
         {!isLoadingWatches && watches.length > 0 && filteredWatches.length === 0 && (
           <motion.div
             className="text-center py-12"

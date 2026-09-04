@@ -148,11 +148,15 @@ async function readWireResponse(response: Response): Promise<WirePayload> {
   return payload;
 }
 
-function isAcquireResponse(payload: WirePayload): boolean {
+function isAcquireResponse(
+  payload: WirePayload
+): payload is WirePayload & { acquired: boolean; message: string } {
   return typeof payload.acquired === 'boolean' && typeof payload.message === 'string';
 }
 
-function isReleaseResponse(payload: WirePayload): boolean {
+function isReleaseResponse(
+  payload: WirePayload
+): payload is WirePayload & { released: boolean; message: string } {
   return typeof payload.released === 'boolean' && typeof payload.message === 'string';
 }
 
@@ -194,13 +198,11 @@ export function createCronLockClient(namespace?: DurableObjectNamespace) {
       const payload = await readWireResponse(response);
       if (!isAcquireResponse(payload)) throw new Error('Invalid cron lock response');
 
-      // SAFETY: isAcquireResponse verified payload.acquired is boolean via typeof check
-      const acquired = payload.acquired as boolean;
-      // SAFETY: isAcquireResponse verified payload.message is string via typeof check
+      const acquired = payload.acquired;
       return {
         configured: true,
         acquired,
-        message: payload.message as string,
+        message: payload.message,
         currentHolder: typeof payload.lockHolder === 'string' ? payload.lockHolder : undefined,
         async release() {
           if (!acquired) return;

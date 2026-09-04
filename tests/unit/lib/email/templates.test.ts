@@ -107,7 +107,6 @@ describe('getEmailFooter (shared)', () => {
       unsubscribeUrl: url,
     }).html;
 
-    // split length 2 == footer embedded exactly once in each template
     expect(seatHtml.split(footer)).toHaveLength(2);
     expect(removalHtml.split(footer)).toHaveLength(2);
   });

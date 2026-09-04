@@ -24,10 +24,8 @@ export function HowItWorks() {
         </motion.div>
 
         <div className="relative space-y-12">
-          {/* Connecting Line */}
           <div className="absolute bottom-5 left-4.5 top-5 w-0.5 bg-primary/25 sm:left-6" />
 
-          {/* Step 1 */}
           <motion.div className="relative flex items-start gap-6" variants={staggerItem}>
             <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground shadow-smooth sm:size-12">
               1
@@ -42,7 +40,6 @@ export function HowItWorks() {
             </div>
           </motion.div>
 
-          {/* Step 2 */}
           <motion.div className="relative flex items-start gap-6" variants={staggerItem}>
             <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-accent-foreground shadow-smooth sm:size-12">
               2
@@ -58,7 +55,6 @@ export function HowItWorks() {
             </div>
           </motion.div>
 
-          {/* Step 3 */}
           <motion.div className="relative flex items-start gap-6" variants={staggerItem}>
             <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground shadow-smooth sm:size-12">
               3

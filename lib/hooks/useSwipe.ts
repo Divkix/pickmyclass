@@ -19,19 +19,6 @@ export interface UseSwipeReturn {
   isSwiping: boolean;
 }
 
-/**
- * Custom hook for detecting swipe gestures on touch devices
- *
- * @param options - Configuration options for swipe detection
- * @param options.onSwipeLeft - Callback triggered when swipe left threshold is exceeded
- * @param options.onSwipeRight - Callback triggered when swipe right threshold is exceeded
- * @param options.threshold - Minimum distance in pixels to trigger swipe (default: 100)
- * @param options.onSwipeStart - Callback triggered when touch starts
- * @param options.onSwipeMove - Callback triggered during swipe with current offset
- * @param options.onSwipeEnd - Callback triggered when touch ends
- *
- * @returns Object containing touch event handlers, current offset, and swiping state
- */
 export function useSwipe(options: UseSwipeOptions = {}): UseSwipeReturn {
   const {
     onSwipeLeft,
@@ -64,7 +51,6 @@ export function useSwipe(options: UseSwipeOptions = {}): UseSwipeReturn {
       touchCurrentX.current = e.touches[0].clientX;
       const diff = touchCurrentX.current - touchStartX.current;
 
-      // Update offset for visual feedback
       setOffset(diff);
       onSwipeMove?.(diff);
     },
@@ -77,14 +63,11 @@ export function useSwipe(options: UseSwipeOptions = {}): UseSwipeReturn {
     const swipeDistance = touchCurrentX.current - touchStartX.current;
     const absDistance = Math.abs(swipeDistance);
 
-    // Check if threshold was exceeded
     if (absDistance >= threshold) {
-      // Trigger haptic feedback if available
       if (navigator.vibrate) {
         navigator.vibrate(50);
       }
 
-      // Determine direction and trigger callback
       if (swipeDistance < 0) {
         onSwipeLeft?.();
       } else {
@@ -92,7 +75,6 @@ export function useSwipe(options: UseSwipeOptions = {}): UseSwipeReturn {
       }
     }
 
-    // Reset state
     setIsSwiping(false);
     setOffset(0);
     touchStartX.current = 0;

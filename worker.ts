@@ -1,10 +1,3 @@
-/**
- * Custom Cloudflare Worker
- *
- * This wraps the vinext app-router-entry handler and adds scheduled (cron)
- * and queue consumer handlers for class seat checking.
- */
-
 import { DurableObject } from 'cloudflare:workers';
 import handler from 'vinext/server/app-router-entry';
 import { handleDLQMessage } from './lib/queue/dlq-consumer';
@@ -21,38 +14,9 @@ const scheduledLog = log('Scheduled');
 const queueLog = log('Queue');
 const dlqLog = log('Queue/DLQ');
 
-/**
- * Durable Object for distributed cron job locking
- *
- * Ensures only one cron job can run at a time across all Worker isolates.
- * Prevents resource waste from concurrent cron triggers enqueuing duplicate
- * section check messages.
- *
- * **Architecture:**
- * - Single instance per cron job (identified by name "pickmyclass-cron-lock")
- * - Persistent state via Durable Object storage
- * - Auto-expires after 25 minutes (safety margin before next cron)
- * - Handles Worker crashes via timeout mechanism
- *
- * **Usage:**
- * ```typescript
- * const lock = await cronLock.acquireLock()
- * if (!lock.acquired) {
- *   return Response.json({ error: 'Cron already running' }, { status: 409 })
- * }
- * try {
- *   // ... cron processing
- * } finally {
- *   await cronLock.releaseLock()
- * }
- * ```
- */
 export class CronLockDO extends DurableObject<Cloudflare.Env> {
   private readonly lock;
 
-  /**
-   * Constructor - loads persistent state from storage
-   */
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);
     this.lock = createCronLockLifecycle({
@@ -62,35 +26,18 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
     this.ctx.blockConcurrencyWhile(() => this.lock.initialize());
   }
 
-  /**
-   * Attempt to acquire the cron lock
-   *
-   * @param holder - Identifier for who is acquiring the lock (for debugging)
-   * @returns Object with acquired status and message
-   */
   async acquireLock(holder: string = 'unknown') {
     return this.lock.acquire(holder);
   }
 
-  /**
-   * Release the cron lock
-   *
-   * @param holder - Identifier for who is releasing (must match acquirer)
-   */
   async releaseLock(holder: string = 'unknown') {
     return this.lock.release(holder);
   }
 
-  /**
-   * Get current lock status
-   */
   async getStatus() {
     return this.lock.status();
   }
 
-  /**
-   * Fetch handler - provides HTTP API for lock operations
-   */
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const holder = url.searchParams.get('holder') || 'http-request';
@@ -128,20 +75,11 @@ export const __durableObjectExports = {
   CronLockDO,
 } as const;
 
-// Runtime registration (executes on worker init)
 if (typeof __durableObjectExports === 'undefined') {
   throw new Error('Durable Object exports missing');
 }
 
-/**
- * Export the worker with fetch, scheduled, queue handlers, and Durable Object classes
- */
 export default {
-  /**
-   * HTTP request handler - routes to vinext app, with an edge HTML cache for
-   * anonymous marketing pages (see edgeHtmlCache). On a cache hit we
-   * return the stored response and skip proxy.ts + the RSC render entirely.
-   */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Sanitize GET/HEAD requests with bodies - bots sometimes send these
     // Web API spec forbids Request objects with GET/HEAD + body
@@ -173,14 +111,6 @@ export default {
     return response;
   },
 
-  /**
-   * Scheduled handler - triggered by Cloudflare Cron
-   *
-   * Configured in wrangler.jsonc:
-   * "triggers": { "crons": ["0,30 * * * *", "0 4 * * *"] }
-   * - Every 30 minutes: class check cron
-   * - Daily at 4 AM UTC: daily maintenance sweeps
-   */
   async scheduled(
     event: Pick<ScheduledController, 'cron' | 'scheduledTime'>,
     env: Env,
@@ -193,10 +123,6 @@ export default {
     const cronRoute = event.cron === '0 4 * * *' ? '/api/cron/maintenance' : '/api/cron';
 
     try {
-      // Make internal HTTP request to the API route
-      // This allows us to reuse the same logic whether triggered by cron or manually
-      // Pass scheduled time as header so API route computes correct stagger group
-      // even if cron execution is delayed
       const request = new Request(`http://localhost${cronRoute}`, {
         method: 'GET',
         headers: {
@@ -206,8 +132,6 @@ export default {
         },
       });
 
-      // Execute the cron job and await completion
-      // Environment bindings are accessed in API routes via import { env } from 'cloudflare:workers'
       const response = await handler.fetch(request);
       const body = await response.text();
       const duration = Date.now() - startTime;
@@ -228,20 +152,11 @@ export default {
     }
   },
 
-  /**
-   * Queue consumer handler - processes class section check messages
-   *
-   * Receives batches of up to 5 messages (configured in wrangler.jsonc)
-   * Each message represents a single section to check for changes.
-   */
   async queue(
     batch: MessageBatch<ClassCheckMessage>,
     env: Env,
     _ctx: ExecutionContext
   ): Promise<void> {
-    // One request-scoped Drizzle handle for this entire queue invocation; it is
-    // threaded through every helper and query seam below. Never cached across
-    // invocations — Workers reclaim invocation-scoped sockets.
     const db = getDb(env.HYPERDRIVE);
 
     const startTime = Date.now();
@@ -250,7 +165,6 @@ export default {
       `Processing batch of ${batch.messages.length} messages from queue: ${batch.queue}`
     );
 
-    // Route DLQ messages to dedicated handler — always ack, never retry
     if (isDLQ) {
       for (const message of batch.messages) {
         try {
@@ -266,9 +180,6 @@ export default {
       return;
     }
 
-    // Process all messages in the batch concurrently — direct call, no HTTP indirection.
-    // processSection owns the ack/retry decision; this handler only translates
-    // outcome.disposition to the queue transport (ack → message.ack(), retry → message.retry()).
     const results = await Promise.allSettled(
       batch.messages.map(async (message) => {
         const msgStartTime = Date.now();
@@ -304,8 +215,6 @@ export default {
           return { success: false, class_nbr: message.body.class_nbr, duration };
         } catch (error) {
           const duration = Date.now() - msgStartTime;
-          // Defensive: processSection should not throw ApiError, but if it does bubble
-          // an unexpected error, retry.
           queueLog.error(`Retryable error for ${message.body.class_nbr} in ${duration}ms:`, error);
           message.retry();
           return { success: false, class_nbr: message.body.class_nbr, duration, error };
@@ -313,7 +222,6 @@ export default {
       })
     );
 
-    // Log batch summary
     const successful = results.filter((r) => r.status === 'fulfilled' && r.value.success).length;
     const failed = results.length - successful;
     const totalDuration = Date.now() - startTime;
@@ -323,9 +231,5 @@ export default {
     );
   },
 
-  /**
-   * Durable Object classes exported for Cloudflare Workers
-   * Must be included in the default export AND exported as named exports (see class definitions above)
-   */
   CronLockDO,
 } satisfies ExportedHandler<Env, ClassCheckMessage> & { CronLockDO: typeof CronLockDO };

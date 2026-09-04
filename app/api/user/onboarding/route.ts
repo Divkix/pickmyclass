@@ -5,11 +5,6 @@ import { getDbFromEnv } from '@/lib/db';
 import { readOnboardingState, skipOnboarding } from '@/lib/onboarding';
 import { captureServerEvent } from '@/lib/analytics/server';
 
-/**
- * GET /api/user/onboarding
- * Exposes the authenticated user's onboarding state so the dashboard can
- * decide whether to render the first-time onboarding modal / finish-setup card.
- */
 export async function GET(request: Request) {
   try {
     return await withAuth(request, async (user) => {
@@ -27,11 +22,6 @@ export async function GET(request: Request) {
   }
 }
 
-/**
- * POST /api/user/onboarding
- * Marks onboarding as skipped (Escape / backdrop / Skip button). No-ops if the
- * user already completed or skipped onboarding. Returns the resulting state.
- */
 export async function POST(request: Request) {
   try {
     return await withAuth(request, async (user) => {

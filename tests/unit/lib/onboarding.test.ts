@@ -15,42 +15,23 @@ import {
   type OnboardingState,
 } from '@/lib/onboarding';
 
-/**
- * Column order of readOnboardingState's SELECT list — the fake driver replays
- * result rows positionally through `.values()`, so this must match the select
- * shape used by the module under test.
- */
 const SELECT_ORDER = ['onboarding_completed_at', 'onboarding_skipped_at'] as const;
 
-/** Canned result row keyed by output column name. */
 type FakeRow = Record<(typeof SELECT_ORDER)[number], string | null>;
 
 interface RecordedQuery {
-  /** Rendered PostgreSQL text with numbered placeholders. */
   sql: string;
-  /** Bound parameter values in placeholder order. */
   params: unknown[];
 }
 
 type RowsFor = (query: RecordedQuery) => FakeRow[];
 
-/** Resolved rows carrying the positional `.values()` Drizzle maps fields from. */
 type ScriptedRows = Promise<FakeRow[]> & { values(): PromiseLike<unknown[][]> };
 
-/** Minimal postgres-js members Drizzle's session drives end to end. */
 interface PostgresJsSeam {
   unsafe(query: string, params: unknown[]): ScriptedRows;
 }
 
-/**
- * Build a Drizzle database over a fake postgres-js driver.
- *
- * The real query builders run untouched; only the driver surface is faked.
- * Drizzle's postgres-js session executes every statement through
- * `client.unsafe(sql, params)`: builder queries with mapped fields then read
- * positional columns via `.values()`, while raw `db.execute` awaits the
- * returned row list itself — one hybrid return value serves both paths.
- */
 function makeDb(rowsFor: RowsFor) {
   const queries: RecordedQuery[] = [];
   const unsafe = (sql: string, params: unknown[]): ScriptedRows => {
@@ -64,9 +45,6 @@ function makeDb(rowsFor: RowsFor) {
   };
   const scriptedClient = { unsafe, options: { parsers: {}, serializers: {} } };
   const client: PostgresJsSeam = scriptedClient;
-  // SAFETY: the Drizzle constructor only writes transparent parsers into
-  // `options.parsers` / `options.serializers`, and its postgres-js session
-  // only calls `unsafe`. The rest of the Sql surface is never reached.
   const db = drizzle(client as postgres.Sql, { schema });
   return { db, queries };
 }
@@ -92,7 +70,6 @@ describe('lib/onboarding', () => {
     });
 
     it('treats completed as taking precedence over skipped (completed_at wins)', () => {
-      // A skipped user who then creates a watch keeps skipped_at but is completed.
       expect(
         onboardingStatus({
           onboarding_completed_at: '2026-07-12',
@@ -155,7 +132,6 @@ describe('lib/onboarding', () => {
         onboarding_skipped_at: '2026-07-11T12:00:00Z',
         needs_onboarding: false,
       };
-      // The server leaves skipped_at untouched; the projection must match.
       expect(completeOnFirstWatch(current, now)).toEqual({
         onboarding_completed_at: now,
         onboarding_skipped_at: '2026-07-11T12:00:00Z',
@@ -204,7 +180,6 @@ describe('lib/onboarding', () => {
       await applyFirstWatchGuard(db, 'user-1');
       const after = new Date().getTime();
 
-      // SAFETY: params[0] is the ISO timestamp string passed to the UPDATE query
       const timestamp = new Date(queries[0].params[0] as string).getTime();
       expect(timestamp).toBeGreaterThanOrEqual(before);
       expect(timestamp).toBeLessThanOrEqual(after);
@@ -290,7 +265,6 @@ describe('lib/onboarding', () => {
     });
 
     it('preserves completed + skipped timestamps from the RPC row', async () => {
-      // A user who skipped earlier and later completed keeps both timestamps.
       const { db } = makeDb(() => [
         {
           onboarding_completed_at: '2026-07-10T00:00:00Z',
@@ -333,7 +307,6 @@ describe('lib/onboarding', () => {
     } satisfies Record<string, OnboardingRow>;
 
     it('skip: pending -> skipped (needs_onboarding false)', () => {
-      // The skip RPC sets skipped_at; projection reflects it.
       const after = toOnboardingState({
         ...rows.skipped,
       });
@@ -352,7 +325,6 @@ describe('lib/onboarding', () => {
       const before = toOnboardingState(rows.skipped);
       const after = completeOnFirstWatch(before, now);
       expect(onboardingStatus(after)).toBe('completed');
-      // skipped_at is preserved, not wiped to null.
       expect(after.onboarding_skipped_at).toBe('2026-07-11T00:00:00Z');
     });
 

@@ -119,21 +119,14 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/db', async () => {
   const { drizzle } = await vi.importActual<typeof DrizzlePostgresJs>('drizzle-orm/postgres-js');
   const schema = await vi.importActual<typeof DbSchema>('@/lib/db/schema');
-  // Minimal postgres-js stand-in: the pages' selects only await
-  // unsafe(sql, params).values(), so mockUnsafe receives the SQL text plus the
-  // bound parameter list exactly as the wire would carry them.
-  // Minimal postgres-js members Drizzle's session drives end to end here.
   interface PostgresJsSeam {
     unsafe(query: string, params: unknown[]): { values(): Promise<unknown[]> };
   }
   const scriptedClient = {
-    // drizzle's construct() installs transparent timestamp parsers here.
     options: { parsers: {}, serializers: {} },
     unsafe: (text: string, params: unknown[]) => ({ values: async () => mockUnsafe(text, params) }),
   };
   const client: PostgresJsSeam = scriptedClient;
-  // SAFETY: the pages drive only unsafe().values(); the rest of the postgres-js
-  // Sql surface is exercised by the live-db suite instead of this stand-in.
   const fakeDb = drizzle(client as postgres.Sql, { schema });
   return {
     getDb: vi.fn(() => fakeDb),
@@ -158,7 +151,6 @@ vi.mock('@/lib/db/queries', () => ({
 }));
 
 beforeAll(() => {
-  // SAFETY: test double constructs minimal ResizeObserver shape for layout; only observe/unobserve/disconnect are accessed
   global.ResizeObserver = class ResizeObserver {
     observe = vi.fn();
     unobserve = vi.fn();
@@ -236,18 +228,8 @@ const classRows = [
   },
 ];
 
-/**
- * class_states rows the fake db resolves for class detail pages.
- * Reset to `classRows` before each test; individual tests reassign it
- * (e.g. the two-term case).
- */
 let classStateFixtures: Array<Record<string, JsonValue>> = classRows;
 
-/**
- * Positional SELECT-list order of the pages' drizzle projections. The fake
- * postgres-js client returns `.values()` rows, so fixture objects are projected
- * through these keys. Must mirror lib/db/schema property order.
- */
 const CLASS_STATE_COLUMNS = [
   'id',
   'class_nbr',
@@ -301,13 +283,9 @@ const userRows = [
   },
 ];
 
-/** Default empty searchParams */
-// SAFETY: test constructs minimal searchParams shape for Next.js page contract
 const emptySearchParams = Promise.resolve({} as Record<string, string | undefined>);
 
 describe('admin pages', () => {
-  // The mocked '@/lib/db' module hands every getDbFromEnv() call this one
-  // instance — assertions below prove pages pass it unchanged to each helper.
   const db = getDbFromEnv();
   beforeEach(() => {
     vi.clearAllMocks();
@@ -328,7 +306,6 @@ describe('admin pages', () => {
         notificationType: 'seat_available',
       },
     ]);
-    // New paginated functions
     mockGetUsersPage.mockResolvedValue({ rows: userRows, total: userRows.length });
     mockGetClassesPage.mockResolvedValue({ rows: classRows, total: classRows.length });
     mockGetDistinctSubjects.mockResolvedValue(['CSE', 'MAT']);
@@ -352,9 +329,6 @@ describe('admin pages', () => {
         class_state: classRows[0],
       },
     ]);
-    // The fake postgres-js client dispatches by SQL text, mirroring the wire:
-    // class_states is filtered by BOTH class_nbr and term so a section number
-    // shared by two terms resolves to one row (the #278 bug); users by id.
     mockUnsafe.mockImplementation(async (text: string, params: unknown[] = []) => {
       if (text.includes('from "users"')) {
         const userId = params[0];
@@ -388,12 +362,10 @@ describe('admin pages', () => {
     expect(screen.getByText('Intro to Programming')).toBeInTheDocument();
     expect(screen.getByText('Calculus I')).toBeInTheDocument();
 
-    // Verify paginated query was called (not the whole-table function)
     expect(mockGetClassesPage).toHaveBeenCalled();
     expect(mockGetDistinctSubjects).toHaveBeenCalled();
 
     fireEvent.click(screen.getByText('Class #'));
-    // SAFETY: test double navigates table row; closest('tr') is guaranteed by rendered markup in this test
     fireEvent.click(screen.getByText('67890').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/classes/2261/67890');
   });
@@ -407,15 +379,11 @@ describe('admin pages', () => {
     expect(screen.getByText('Class Information')).toBeInTheDocument();
     expect(screen.getByText('student@example.com')).toBeInTheDocument();
     expect(screen.getByText('12345')).toBeInTheDocument();
-    // Watchers are scoped to the full SectionRef (class_nbr + term), not class_nbr alone,
-    // and receive the page's single db handle.
     expect(mockGetClassWatchers).toHaveBeenCalledWith(db, { class_nbr: '12345', term: '2261' });
     expect(mockVerifyAdmin).toHaveBeenCalledWith(db);
   });
 
   it('loads the requested term when a class number exists in two terms', async () => {
-    // Same class_nbr in two terms with different seats/instructor — the route must
-    // resolve the exact SectionRef and never show the other term's row (the #278 bug).
     classStateFixtures = [
       {
         ...classRows[0],
@@ -439,10 +407,8 @@ describe('admin pages', () => {
       await AdminClassDetailPage({ params: Promise.resolve({ term: '2261', classNbr: '12345' }) })
     );
 
-    // Shows the clicked term's data...
     expect(screen.getByText('Professor Vernal')).toBeInTheDocument();
     expect(screen.getByText('2/30 seats')).toBeInTheDocument();
-    // ...and never the other term's.
     expect(screen.queryByText('Professor Autumn')).not.toBeInTheDocument();
     expect(screen.queryByText('9/30 seats')).not.toBeInTheDocument();
   });
@@ -454,10 +420,8 @@ describe('admin pages', () => {
     expect(screen.getByText('admin@example.com')).toBeInTheDocument();
     expect(screen.getByText('student@example.com')).toBeInTheDocument();
 
-    // Verify paginated query was called (not the whole-table function)
     expect(mockGetUsersPage).toHaveBeenCalled();
     fireEvent.click(screen.getByText('Email'));
-    // SAFETY: test double navigates table row; closest('tr') is guaranteed by rendered markup in this test
     fireEvent.click(screen.getByText('student@example.com').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/users/user-2');
   });

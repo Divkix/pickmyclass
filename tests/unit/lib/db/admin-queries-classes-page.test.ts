@@ -3,17 +3,12 @@ import { PgDialect } from 'drizzle-orm/pg-core';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { Database } from '@/lib/db';
 
-// getClassesPage takes a request-scoped Drizzle Database handle and issues a
-// single db.execute(sql`…get_classes_page(…)`) RPC. The mock resolves that
-// execute call and records the built query for assertions.
 const dialect = new PgDialect();
 
-/** Normalize a built SQL template to comparable single-spaced text. */
 function builtSql(query: SQL): string {
   return dialect.sqlToQuery(query).sql.replace(/\s+/g, ' ').trim();
 }
 
-/** Wire row emitted by the get_classes_page RPC; BIGINT counts arrive raw. */
 interface ClassPageWireRow {
   id: string;
   class_nbr: string;
@@ -33,32 +28,23 @@ interface ClassPageWireRow {
   seat_emails: number;
   instructor_emails: number;
   total_count: number;
-  /** Absent on pre-aggregate RPC revisions; the reader guards with ?? 0. */
   total_watchers?: number;
   full_classes?: number;
 }
 
-/** The narrow Database surface getClassesPage drives: execute() RPCs. */
 interface ClassesPageSeamDb {
   execute?(query: SQL): Promise<ClassPageWireRow[]>;
 }
 
-/**
- * Narrows a recording double to the request-scoped Database handle.
- */
 function asDatabaseHandle(seam: Database | ClassesPageSeamDb): Database {
-  // SAFETY: the double implements exactly the execute() seam above, and no
-  // other Database member is reachable on this code path.
   return seam as Database;
 }
 
-/** Build a mock Database resolving db.execute with these rows. */
 function createDb(executeRows: ClassPageWireRow[]) {
   const execute = vi.fn(async (_query: SQL): Promise<ClassPageWireRow[]> => executeRows);
   return { db: asDatabaseHandle({ execute }), execute };
 }
 
-// Disable the TTL cache so each test exercises the real fetch path.
 vi.mock('@/lib/cache/ttl-cache', () => ({
   TtlCache: class {
     get(_key: string) {
@@ -72,10 +58,8 @@ vi.mock('@/lib/cache/ttl-cache', () => ({
   },
 }));
 
-// Import after mocks are registered
 import { getClassesPage } from '@/lib/db/admin-queries';
 
-/** Build a get_classes_page wire row, overriding any column for a case. */
 function classPageRow(overrides: Partial<ClassPageWireRow> = {}): ClassPageWireRow {
   return {
     id: 'state-1',
@@ -153,12 +137,8 @@ describe('getClassesPage', () => {
 
     expect(result.rows).toHaveLength(2);
     expect(result.total).toBe(2);
-    // Global aggregates are read off every row (window-function broadcast),
-    // and surfaced page-independently on the result.
     expect(result.totalWatchers).toBe(7);
     expect(result.fullClasses).toBe(1);
-    // BIGINT aggregates arrive as strings and normalize to numbers; the
-    // consecutive-not-found column is absent from this RPC and defaults to 0.
     expect(result.rows[0]).toMatchObject({
       id: 'state-1',
       watcher_count: 3,
@@ -182,8 +162,6 @@ describe('getClassesPage', () => {
   });
 
   it('guards against a missing aggregate column (function-version skew) with 0, never NaN', async () => {
-    // Old function definition shape: rows carry total_count but no
-    // total_watchers / full_classes yet — omit those keys to simulate it.
     const {
       total_watchers: _omittedWatchers,
       full_classes: _omittedFull,
@@ -200,9 +178,6 @@ describe('getClassesPage', () => {
   });
 
   it('unwraps DrizzleQueryError so the original driver message surfaces', async () => {
-    // Drizzle rethrows failed statements as "Failed query: …" with the raw
-    // postgres-js error parked on .cause; callers must keep seeing the
-    // original driver text, not the query echo.
     const drizzleError = Object.assign(
       new Error('Failed query: SELECT * FROM public.get_classes_page($1::int, $2::int)'),
       {

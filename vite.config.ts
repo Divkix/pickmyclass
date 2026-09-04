@@ -6,12 +6,6 @@ import { shouldUploadPosthogSourcemaps } from './lib/analytics/sourcemap-upload'
 import { log } from './lib/log';
 
 export default defineConfig(({ mode }) => {
-  // Source-map upload is strictly opt-in: the deploy script sets
-  // POSTHOG_UPLOAD_SOURCEMAPS=true. Ordinary builds — including production-mode
-  // builds and dry runs — never upload, even though POSTHOG_API_KEY /
-  // POSTHOG_PROJECT_ID exist in the local (gitignored) env files.
-  // Cloudflare Workers Builds runs the same deploy script without those
-  // personal API credentials; missing keys skip the plugin so deploy proceeds.
   const uploadRequested = process.env.POSTHOG_UPLOAD_SOURCEMAPS === 'true';
   const env = uploadRequested ? loadEnv(mode, process.cwd(), '') : {};
   const apiKey = env.POSTHOG_API_KEY || process.env.POSTHOG_API_KEY;
@@ -83,7 +77,6 @@ export default defineConfig(({ mode }) => {
       ],
       rules: {
         'vite-plus/prefer-vite-plus-imports': 'error',
-        // high-signal, zero-noise: keep at error
         'anti-slop/no-chained-type-assertions': 'error',
         'anti-slop/no-conditional-empty-object-spread': 'error',
         'anti-slop/no-object-parameters': 'error',
@@ -94,7 +87,6 @@ export default defineConfig(({ mode }) => {
         'anti-slop/no-unknown-type-aliases': 'error',
         'anti-slop/require-safety-comment-for-type-assertion': 'error',
         'anti-slop/no-module-mocking': 'error',
-        // Cloudflare env widening / dictionary types: legitimate at deploy boundary, warn not error
         'anti-slop/no-known-value-widening': 'warn',
         'anti-slop/no-widen-then-assert': 'warn',
         'anti-slop/no-unsafe-dictionary-type': 'warn',

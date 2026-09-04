@@ -1,9 +1,3 @@
-/**
- * System Health and Monitoring Endpoint
- *
- * Provides real-time system status including ASU API, database, and cron lock.
- */
-
 import { env } from 'cloudflare:workers';
 import { NextResponse } from 'next/server';
 import { fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
@@ -41,27 +35,14 @@ interface HealthStatus {
 
 const healthCache = new TtlCache<{ body: HealthStatus; statusCode: number }>(60_000, 50);
 
-/**
- * GET /api/monitoring/health
- *
- * Returns system health status for monitoring and alerting
- * Public endpoint - no authentication required
- */
-// Read-only TTL cache for health monitoring — not a mutation
-// eslint-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler
 export async function GET(request: Request) {
-  // Auth check first - unauthenticated requests get a simple liveness probe
-  // without running expensive DB/DO queries (prevents DoS via health endpoint)
-  // SAFETY: Cloudflare Workers env is opaque runtime value; widen to unknown before narrowing to string record for health checks.
   const rawEnv: unknown = env;
-  // SAFETY: Record<string, string | undefined> reflects the dynamic env contract for health checks; narrowed from unknown after runtime widening.
+  // SAFETY: Workers env is opaque; widened to unknown then narrowed to string record for health checks
   const cfRecord = rawEnv as Record<string, string | undefined>;
   const cronSecret = process.env.CRON_SECRET || cfRecord.CRON_SECRET;
   const isAuthenticated = verifyCronSecret(request, cronSecret);
 
   if (!isAuthenticated) {
-    // Intentional exception: unauthenticated liveness probe uses { status: 'ok' }
-    // (external monitoring contract — not the ok()/fail() envelope).
     return NextResponse.json({ status: 'ok' }, { status: 200 });
   }
 
@@ -77,7 +58,6 @@ export async function GET(request: Request) {
     checks: {},
   };
 
-  // Helper: only escalate health status, never downgrade
   const escalateStatus = (newStatus: 'degraded' | 'unhealthy') => {
     const precedence = { healthy: 0, degraded: 1, unhealthy: 2 } as const;
     if (precedence[newStatus] > precedence[health.status]) {
@@ -85,11 +65,9 @@ export async function GET(request: Request) {
     }
   };
 
-  // Parallelize independent probes via Promise.allSettled (health stays tolerant: one failure doesn't mask others)
   const [dbResult, asuResult, cronResult] = await Promise.allSettled([
     (async () => {
       try {
-        // One request-scoped Drizzle handle for this invocation.
         const db = getDbFromEnv();
         await db.select({ id: classWatches.id }).from(classWatches).limit(1);
         return { kind: 'db_ok' as const, latency_ms: Date.now() - startTime };
@@ -102,7 +80,7 @@ export async function GET(request: Request) {
     })(),
     (async () => {
       try {
-        // SAFETY: ASU API credentials are required Cloudflare secrets validated by deployment; shape matches wrangler.jsonc env contract.
+        // SAFETY: ASU credentials are required secrets validated at deploy; shape matches wrangler.jsonc contract
         const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
         await fetchClassFromASU({ class_nbr: '10001', term: '2251' }, asuEnv);
         return { kind: 'asu_ok' as const };
@@ -116,7 +94,7 @@ export async function GET(request: Request) {
     })(),
     (async () => {
       try {
-        // SAFETY: Durable Object namespace binding is an optional Cloudflare binding; shape matches wrangler.jsonc env contract.
+        // SAFETY: DO namespace is an optional binding; shape matches wrangler.jsonc contract
         const cfEnv = env as {
           PICKMYCLASS_CRON_LOCK_DO?: DurableObjectNamespace;
         };
@@ -131,7 +109,6 @@ export async function GET(request: Request) {
     })(),
   ]);
 
-  // Database check
   if (dbResult.status === 'fulfilled') {
     const v = dbResult.value;
     if (v.kind === 'db_ok') {
@@ -148,7 +125,6 @@ export async function GET(request: Request) {
     escalateStatus('unhealthy');
   }
 
-  // ASU API check
   if (asuResult.status === 'fulfilled') {
     const v = asuResult.value;
     if (v.kind === 'asu_ok') {
@@ -167,7 +143,6 @@ export async function GET(request: Request) {
     }
   }
 
-  // Cron lock check
   if (cronResult.status === 'fulfilled') {
     const v = cronResult.value;
     if (v.kind === 'cron_ok') {
@@ -210,7 +185,6 @@ export async function GET(request: Request) {
     escalateStatus('degraded');
   }
 
-  // 3. Check Environment Configuration
   const requiredEnvVars = ['ASU_API_BASE_URL', 'ASU_API_TOKEN', 'CRON_SECRET'];
 
   const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key] && !cfRecord[key]);
@@ -224,7 +198,7 @@ export async function GET(request: Request) {
     escalateStatus('unhealthy');
   }
 
-  // SAFETY: Cloudflare Email binding is an optional service binding; shape matches wrangler.jsonc env contract.
+  // SAFETY: Email binding is optional; shape matches wrangler.jsonc contract
   const emailEnv = env as { EMAIL?: SendEmail };
   const emailConfigured = !!emailEnv.EMAIL;
   const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || cfRecord.NOTIFICATION_FROM_EMAIL;
@@ -242,10 +216,8 @@ export async function GET(request: Request) {
     escalateStatus('unhealthy');
   }
 
-  // 5. Overall Response Time
   health.response_time_ms = Date.now() - startTime;
 
-  // Return appropriate status code
   const statusCode = health.status === 'healthy' ? 200 : health.status === 'degraded' ? 503 : 500;
 
   healthCache.set('health', { body: health, statusCode });

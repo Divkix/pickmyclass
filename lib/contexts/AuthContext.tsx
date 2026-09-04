@@ -9,9 +9,6 @@ import {
 } from '@/lib/analytics/client';
 import { log } from '@/lib/log';
 
-// Keep the legacy shape that existing consumers expect, but without Supabase types.
-// `user` is a minimal compat object (id + email + email_confirmed_at) and `session`
-// is the Clerk session id wrapper — sufficient for Header/AuthButton/dashboard guards.
 interface CompatUser {
   id: string;
   email: string | null;
@@ -44,7 +41,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ? {
         id: clerkUser.id,
         email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
-        // Clerk verification status → legacy email_confirmed_at gate.
         email_confirmed_at:
           clerkUser.primaryEmailAddress?.verification.status === 'verified'
             ? (clerkUser.createdAt?.toISOString() ?? new Date().toISOString())
@@ -56,8 +52,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const compatSession: CompatSession | null = sessionId ? { id: sessionId } : null;
 
-  // Analytics identify — the stable app user id (`externalId ?? Clerk id`),
-  // mirroring the `ext_id` session claim and the DB user mirror PK.
   const analyticsUserId = clerkUser ? (clerkUser.externalId ?? clerkUser.id) : null;
   const analyticsEmail = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
   useEffect(() => {

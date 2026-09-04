@@ -1,30 +1,10 @@
-/**
- * Change Detector
- *
- * Pure function that compares old and new class section data.
- * No I/O — just comparison logic.
- *
- * Uses non-reserved seats as the primary seat count signal.
- * When oldState is null (first observation), treats baseline as:
- * - seats_available = 0 (full)
- * - instructor = 'Staff'
- */
-
 import type { ClassDetails } from '@/lib/types/class';
 import type { ClassStateRow } from '@/lib/types/class-watch';
 
-/**
- * What changed between observations of a section.
- * All fields are independent flags — the caller decides what to do.
- */
 export interface ChangeResult {
-  /** Non-reserved seats went from 0 → >0 */
   seatBecameAvailable: boolean;
-  /** Non-reserved seats went from >0 → 0 */
   seatsFilled: boolean;
-  /** Instructor changed from 'Staff' to a named professor */
   instructorAssigned: boolean;
-  /** Current count of open (non-reserved) seats */
   newOpenSeats: number;
 }
 
@@ -39,13 +19,6 @@ function getInstructor(state: Pick<ClassStateRow, 'instructor_name'> | null): st
   return state?.instructor_name ?? 'Staff';
 }
 
-/**
- * Detect changes between old and new class section data.
- *
- * @param oldState - Previous known state (null = first observation)
- * @param newData - Fresh data from ASU API
- * @returns ChangeResult with change flags
- */
 export function detectChanges(
   oldState: Pick<
     ClassStateRow,

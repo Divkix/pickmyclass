@@ -2,12 +2,10 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeAll, vi } from 'vite-plus/test';
 
-// Cleanup after each test
 afterEach(() => {
   cleanup();
 });
 
-// Mock window.matchMedia for animations
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
@@ -23,14 +21,12 @@ beforeAll(() => {
     })),
   });
 
-  // Mock ResizeObserver
   global.ResizeObserver = vi.fn().mockImplementation(() => ({
     observe: vi.fn(),
     unobserve: vi.fn(),
     disconnect: vi.fn(),
   }));
 
-  // Mock IntersectionObserver
   global.IntersectionObserver = vi.fn().mockImplementation(() => ({
     observe: vi.fn(),
     unobserve: vi.fn(),
@@ -38,15 +34,12 @@ beforeAll(() => {
   }));
 });
 
-// Mock environment variables for tests
 vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://test.example.com');
 vi.stubEnv('CLERK_SECRET_KEY', 'sk_test_dummy');
 vi.stubEnv('CLERK_PUBLISHABLE_KEY', 'pk_test_dummy');
 vi.stubEnv('CLERK_JWT_KEY', 'test-jwt-key');
 vi.stubEnv('CLERK_WEBHOOK_SIGNING_SECRET', 'whsec_test');
 
-// Global Clerk mock — pages that use useSignIn/useUser/useClerk need a provider.
-// Individual tests can override with vi.mocked(useSignIn).mockReturnValue etc.
 vi.mock('@clerk/react', () => ({
   ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
   useSignIn: () => ({

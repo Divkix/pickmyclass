@@ -29,11 +29,6 @@ function createClient(): PostHog {
   });
 }
 
-/**
- * Capture one typed product event without blocking the response. The returned
- * promise is handed to the Workers execution context; failures are logged and
- * swallowed after a terminal bounded shutdown.
- */
 export function captureServerEvent<E extends keyof AnalyticsEventMap>(
   distinctId: string,
   event: E,
@@ -50,11 +45,6 @@ export function captureServerEvent<E extends keyof AnalyticsEventMap>(
   );
 }
 
-/**
- * Capture an exception for Error Tracking. Unlike {@link captureServerEvent}
- * this returns the send promise so callers at request boundaries (e.g.
- * `instrumentation.ts` → vinext) can hand it to their own `waitUntil`.
- */
 // Server instrumentation receives arbitrary thrown JavaScript values by contract.
 // oxlint-disable anti-slop/no-unknown-parameters
 export async function captureServerException(

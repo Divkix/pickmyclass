@@ -15,10 +15,8 @@ import { captureServerEvent } from '@/lib/analytics/server';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 import { applyFirstWatchGuard, readOnboardingState, toOnboardingState } from '@/lib/onboarding';
 
-// Get max watches per user from env (default: 10)
 const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10);
 
-/** Projected `class_states` fields joined onto each watch in the dashboard list. */
 type WatchClassState = Pick<
   ClassStateRow,
   | 'class_nbr'
@@ -30,14 +28,9 @@ type WatchClassState = Pick<
   | 'title'
 >;
 
-/**
- * GET /api/class-watches
- * Fetch all class watches for the authenticated user with joined class_states data
- */
 export async function GET(request: NextRequest) {
   try {
     return await withAuth(request, async (user) => {
-      // One request-scoped handle shared by every read below.
       const db = getDbFromEnv();
 
       try {
@@ -57,8 +50,6 @@ export async function GET(request: NextRequest) {
         const classNumbers = watches.map((w) => w.class_nbr);
         const terms = Array.from(new Set(watches.map((w) => w.term)));
 
-        // Fetch class states for the user's watches — scoped by both class_nbr AND term
-        // so a section number watched in two terms keeps separate states.
         const joinedStates: WatchClassState[] =
           classNumbers.length > 0
             ? await db
@@ -80,10 +71,6 @@ export async function GET(request: NextRequest) {
                 )
             : [];
 
-        // Expose onboarding state so the dashboard can render the first-time modal
-        // / finish-setup card without an extra round trip. The auxiliary read is
-        // isolated: a failure logs and projects the module fallback ("not needed")
-        // rather than failing the whole watches fetch.
         const onboarding = await readOnboardingState(db, user.userId).catch((error) => {
           log('API').error('Failed to read onboarding state:', error);
           return toOnboardingState(null);
@@ -119,10 +106,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/**
- * POST /api/class-watches
- * Create a new class watch for the authenticated user
- */
 export async function POST(request: NextRequest) {
   try {
     return await withAuth(request, async (user) => {
@@ -152,13 +135,8 @@ export async function POST(request: NextRequest) {
           return fail('Failed to fetch class details', 500);
         }
 
-        // One request-scoped handle shared by the RPC, the state upsert, and the
-        // first-watch guard below.
         const db = getDbFromEnv();
 
-        // Step 2: Create class watch atomically (prevents concurrent limit bypass).
-        // The SECURITY DEFINER RPC enforces the watch limit via an advisory lock;
-        // bound parameters carry explicit PostgreSQL casts.
         let watchDataRaw: ClassWatchRow | null = null;
         try {
           const rows = await db.execute<ClassWatchRow>(
@@ -173,12 +151,10 @@ export async function POST(request: NextRequest) {
           );
           watchDataRaw = rows[0] ?? null;
         } catch (insertError) {
-          // Handle unique constraint violation.
           if (isUniqueViolation(insertError)) {
             return fail('You are already watching this class', 409);
           }
 
-          // Handle atomic limit-enforcement function error (RAISE EXCEPTION).
           const pgError = getPgError(insertError);
           if (
             pgError?.code === PG_RAISE_EXCEPTION &&
@@ -198,23 +174,16 @@ export async function POST(request: NextRequest) {
           throw new Error('Failed to create class watch');
         }
 
-        // Step 3: Persist class state
         try {
           await upsertClassState(db, { class_nbr, term }, classDetails);
         } catch (dbError) {
           log('API').error('Failed to persist class state:', dbError);
-          // Continue anyway - watch was created successfully
         }
 
-        // Step 4: Mark onboarding complete on the user's first class watch so the
-        // finish-setup card stops reappearing. The guard only checks
-        // `onboarding_completed_at IS NULL`, so a user who skipped onboarding
-        // still transitions to completed on their first watch (ADR 0010).
         try {
           await applyFirstWatchGuard(db, user.userId);
         } catch (dbError) {
           log('API').error('Failed to mark onboarding complete:', dbError);
-          // Non-fatal - watch was created successfully
         }
 
         captureServerEvent(user.userId, 'class_watch_created', { term, class_nbr });
@@ -231,10 +200,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * DELETE /api/class-watches?id=<watch_id>
- * Delete a class watch for the authenticated user
- */
 export async function DELETE(request: NextRequest) {
   try {
     return await withAuth(request, async (user) => {
@@ -242,7 +207,6 @@ export async function DELETE(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const watchId = searchParams.get('id');
 
-        // Validate watch ID
         const parsed = parseOrFail(deleteClassWatchSchema, { id: watchId });
 
         if (!parsed.success) {
@@ -251,7 +215,6 @@ export async function DELETE(request: NextRequest) {
 
         const db = getDbFromEnv();
 
-        // Delete the watch — app-layer authz ensures user can only delete their own
         await db
           .delete(classWatches)
           .where(and(eq(classWatches.id, parsed.data.id), eq(classWatches.user_id, user.userId)));

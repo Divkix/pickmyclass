@@ -36,10 +36,7 @@ export function DeleteConfirmDialog({
     try {
       await onConfirm();
       onOpenChange(false);
-    } catch {
-      // Error handling is done by the parent (toast, etc.)
-      // Keep dialog open on error
-    }
+    } catch {}
   };
 
   return (

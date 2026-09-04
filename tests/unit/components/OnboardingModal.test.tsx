@@ -29,7 +29,6 @@ vi.mock('@/lib/class-watches/class-watch-creation', () => ({
   },
 }));
 
-// Mock Radix Dialog portal so content renders in the jsdom document body.
 vi.mock('@/components/ui/dialog', async () => {
   const actual =
     await vi.importActual<typeof import('@/components/ui/dialog')>('@/components/ui/dialog');
@@ -45,7 +44,6 @@ const skippedState: OnboardingState = {
   needs_onboarding: false,
 };
 
-// SAFETY: test constructs minimal ClassWatchRow shape; only asserted fields are accessed by component under test
 const createdWatch: ClassWatchRow = {
   id: 'watch-1',
   user_id: 'user-1',
@@ -73,8 +71,6 @@ type PopularClassResponse = { popularClass?: typeof popularClassPayload | null }
 
 describe('OnboardingModal', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
-  // Configurable responses per endpoint so `mockResolvedValueOnce` ordering
-  // (broken by the open-time popular-class GET) doesn't bleed across tests.
   let popularClassResponse: PopularClassResponse;
   let skipResponse: Partial<OnboardingState> & { error?: string };
   let skipOk: boolean;
@@ -92,17 +88,14 @@ describe('OnboardingModal', () => {
           json: () => Promise.resolve(popularClassResponse),
         });
       }
-      // /api/user/onboarding (skip POST)
       return Promise.resolve({
         ok: skipOk,
         json: () => Promise.resolve(skipResponse),
       });
     });
-    // SAFETY: test double for global fetch; mock shape matches fetch contract for routes under test
     global.fetch = fetchMock as typeof fetch;
   });
 
-  // SAFETY: narrowing mock call args to RequestInit to inspect method in filter helper
   const skipPostCalls = () =>
     fetchMock.mock.calls.filter(
       ([url, init]) => url === '/api/user/onboarding' && (init as RequestInit)?.method === 'POST'
@@ -183,15 +176,12 @@ describe('OnboardingModal', () => {
     const onSkipped = vi.fn();
     render(<OnboardingModal open={true} onSkipped={onSkipped} />);
 
-    // SAFETY: test queries Radix overlay element; selector targets known backdrop class
     const overlay = document.querySelector('[class*="bg-black/80"]') as HTMLElement;
     await user.click(overlay);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', { method: 'POST' });
     });
-    // Radix fires both onPointerDownOutside and onInteractOutside for one
-    // backdrop click; the ref guard must keep this to a single POST.
     expect(skipPostCalls()).toBe(1);
     await waitFor(() => {
       expect(onSkipped).toHaveBeenCalledWith(skippedState);
@@ -243,22 +233,16 @@ describe('OnboardingModal', () => {
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} onCompleted={onCompleted} />);
 
-      // Step 1 -> Step 2
       await user.click(screen.getByRole('button', { name: /I have my class number/i }));
 
-      // Fill the simplified form
       const classNbrInput = screen.getByLabelText(/class number/i);
       await user.type(classNbrInput, '12345');
 
-      // Term select is a Radix Select; the default term is pre-selected, so the
-      // submit button is enabled once the class number is entered.
       await user.click(screen.getByRole('button', { name: 'Add class' }));
 
-      // Step 3 confirmation
       expect(await screen.findByText("You're all set!")).toBeInTheDocument();
       expect(mockCreateWatch).toHaveBeenCalledWith({ term: '2267', class_nbr: '12345' });
 
-      // Closing the confirmation calls onCompleted with the new watch.
       await user.click(screen.getByRole('button', { name: /Done/i }));
       expect(onCompleted).toHaveBeenCalledWith(createdWatch);
     });
@@ -314,7 +298,6 @@ describe('OnboardingModal', () => {
         expect(document.activeElement).toBeTruthy();
       });
 
-      // Tab through all focusable elements and assert focus never leaves the dialog.
       for (let i = 0; i < 12; i++) {
         await user.tab();
         expect(dialog.contains(document.activeElement)).toBe(true);
@@ -367,7 +350,6 @@ describe('OnboardingModal', () => {
       await user.click(screen.getByRole('button', { name: 'Add class' }));
       expect(await screen.findByText("You're all set!")).toBeInTheDocument();
 
-      // A skip POST must not fire from the confirmation step.
       const skipCalls = fetchMock.mock.calls.filter(
         ([url]) => url === '/api/user/onboarding'
       ).length;
@@ -390,14 +372,11 @@ describe('OnboardingModal', () => {
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-      // The catalog link is the fallback guide's anchor.
       expect(await screen.findByText('ASU Class Search page')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Track this class/i })).not.toBeInTheDocument();
     });
 
     it('shows the text-only guide when the popular-class fetch fails', async () => {
-      // fetch rejects for the popular-class endpoint; the modal catches and
-      // falls back to the guide.
       fetchMock.mockImplementation((url: string) => {
         if (url === '/api/onboarding/popular-class') {
           return Promise.reject(new Error('network'));
@@ -429,7 +408,6 @@ describe('OnboardingModal', () => {
       await user.click(await screen.findByRole('button', { name: /Track this class/i }));
 
       expect(screen.getByText('Add your first class')).toBeInTheDocument();
-      // SAFETY: getByLabelText returns HTMLElement known to be input; narrowing to HTMLInputElement for value assertion
       const classNbrInput = screen.getByLabelText(/class number/i) as HTMLInputElement;
       expect(classNbrInput).toHaveValue('12345');
     });

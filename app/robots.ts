@@ -3,7 +3,6 @@ import type { MetadataRoute } from 'next';
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const baseUrl = 'https://pickmyclass.app';
 
-  // Private routes that no crawler (including AI bots) should index.
   const disallow = [
     '/dashboard',
     '/dashboard/*',
@@ -21,8 +20,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     '/go/*',
   ];
 
-  // AI search + assistant crawlers we want to allow so they can cite us.
-  // Each gets the same disallow list as `*` so private routes stay protected.
   const aiBots = [
     'GPTBot',
     'OAI-SearchBot',

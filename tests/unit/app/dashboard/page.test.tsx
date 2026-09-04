@@ -12,7 +12,6 @@ type JsonValue =
   | undefined
   | JsonValue[]
   | { [key: string]: JsonValue };
-// Mock Next.js hooks
 const mockReplace = vi.fn();
 const mockRouter = {
   replace: mockReplace,
@@ -28,7 +27,6 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-// Mock framer-motion
 vi.mock('framer-motion', () => ({
   m: {
     div: ({ children, ...props }: { children: React.ReactNode }) => (
@@ -45,7 +43,6 @@ vi.mock('framer-motion', () => ({
   staggerItem: {},
 }));
 
-// Mock lucide-react icons
 vi.mock('lucide-react', () => ({
   Calendar: () => <span data-testid="calendar-icon">Calendar</span>,
   CheckCircle2: () => <span data-testid="check-icon">CheckCircle2</span>,
@@ -56,14 +53,12 @@ vi.mock('lucide-react', () => ({
   Users: () => <span data-testid="users-icon">Users</span>,
 }));
 
-// Mock Auth context
 const mockUseAuth = vi.fn();
 
 vi.mock('@/lib/contexts/AuthContext', () => ({
   useAuth: () => mockUseAuth(),
 }));
 
-// Mock realtime hook
 const mockUseRealtimeClassStates = vi.fn();
 const mockRefetchClassStates = vi.fn();
 
@@ -71,7 +66,6 @@ vi.mock('@/lib/hooks/useRealtimeClassStates', () => ({
   useRealtimeClassStates: (opts: RealtimeOpts) => mockUseRealtimeClassStates(opts),
 }));
 
-// Mock pull-to-refresh hook
 let lastRefreshHandler: (() => Promise<void>) | null = null;
 
 vi.mock('@/lib/hooks/usePullToRefresh', () => ({
@@ -85,7 +79,6 @@ vi.mock('@/lib/hooks/usePullToRefresh', () => ({
   },
 }));
 
-// Mock sonner toast
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
@@ -93,7 +86,6 @@ vi.mock('sonner', () => ({
   },
 }));
 
-// Mock UI components
 vi.mock('@/components/ui/alert', () => ({
   Alert: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="alert" role="alert">
@@ -119,7 +111,6 @@ vi.mock('@/components/ui/skeleton', () => ({
   Skeleton: () => <div data-testid="skeleton">Skeleton</div>,
 }));
 
-// Mock components
 vi.mock('@/components/Header', () => ({
   Header: () => <header data-testid="header">Header</header>,
 }));
@@ -206,13 +197,11 @@ describe('DashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Default mock: authenticated user
     mockUseAuth.mockReturnValue({
       user: { id: 'user-1', email: 'test@example.com' },
       loading: false,
     });
 
-    // Default mock: successful realtime state
     mockUseRealtimeClassStates.mockReturnValue({
       classStates: {},
       loading: false,
@@ -222,7 +211,6 @@ describe('DashboardPage', () => {
     mockRefetchClassStates.mockResolvedValue(undefined);
     lastRefreshHandler = null;
 
-    // Mock successful fetch response
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () =>
@@ -235,7 +223,6 @@ describe('DashboardPage', () => {
 
   describe('realtime error state display (issue #174)', () => {
     it('should display error alert when useRealtimeClassStates returns an error', async () => {
-      // Mock the hook to return an error
       const testError = new Error('Failed to fetch class states from Supabase');
       mockUseRealtimeClassStates.mockReturnValue({
         classStates: {},
@@ -244,7 +231,6 @@ describe('DashboardPage', () => {
         refetch: mockRefetchClassStates,
       });
 
-      // Mock successful watches fetch (so the page loads)
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () =>
@@ -260,14 +246,12 @@ describe('DashboardPage', () => {
 
       render(<DashboardPage />);
 
-      // Wait for the error alert to appear
       const errorAlert = await screen.findByTestId('alert');
       expect(errorAlert).toBeInTheDocument();
       expect(errorAlert).toHaveTextContent(/Failed to fetch class states/);
     });
 
     it('should not display error alert when useRealtimeClassStates has no error', async () => {
-      // Mock the hook to return no error
       mockUseRealtimeClassStates.mockReturnValue({
         classStates: {
           '2267:12345': {
@@ -281,7 +265,6 @@ describe('DashboardPage', () => {
         refetch: vi.fn(),
       });
 
-      // Mock successful watches fetch
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () =>
@@ -297,10 +280,8 @@ describe('DashboardPage', () => {
 
       render(<DashboardPage />);
 
-      // Wait for content to load
       await screen.findByText('Your Class Watchlist');
 
-      // There should be no alerts (neither fetch error nor realtime error)
       const alerts = screen.queryAllByTestId('alert');
       expect(alerts).toHaveLength(0);
     });
@@ -694,10 +675,6 @@ describe('DashboardPage', () => {
     });
 
     it('hides the finish-setup card and adds the watch when a skipped user completes (issue #307)', async () => {
-      // Simulates `handleOnboardingCompleted` firing after a skipped user
-      // creates their first watch elsewhere (e.g. via /dashboard/add). The
-      // mocked modal exposes a trigger so we can exercise the dashboard's
-      // `completeOnFirstWatch` projection without a real modal interaction.
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () =>
@@ -714,14 +691,11 @@ describe('DashboardPage', () => {
 
       render(<DashboardPage />);
 
-      // Skipped user: card shown, modal closed.
       expect(await screen.findByTestId('finish-setup-card')).toBeInTheDocument();
       expect(screen.getByTestId('onboarding-modal')).toHaveAttribute('data-open', 'false');
 
-      // The modal's completion handler fires (e.g. via the in-modal watch form).
       fireEvent.click(screen.getByRole('button', { name: 'Complete onboarding' }));
 
-      // First watch appears locally and the finish-setup card is dropped.
       await waitFor(() => {
         expect(screen.queryByTestId('finish-setup-card')).not.toBeInTheDocument();
       });

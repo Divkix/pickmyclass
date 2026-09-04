@@ -1,67 +1,39 @@
-/**
- * Integration tests for worker.ts queue handler and scheduled handler.
- *
- * Queue handler tests — ack/retry mapping via SectionCheckOutcome:
- * - processSection returns { disposition: 'ack', result: { success: true } }  → message.ack()
- * - processSection returns { disposition: 'retry', result: { success: false } } → message.retry() (DB upsert error)
- * - processSection returns { disposition: 'ack', httpStatus: 200 } (AuthError/NotFound) → message.ack()
- * - processSection returns { disposition: 'retry', httpStatus: 429 } (RateLimit) → message.retry()
- * - processSection returns { disposition: 'retry', httpStatus: 502 } (ApiError) → message.retry()
- * - processSection throws unknown Error → message.retry() (defensive)
- *
- * Scheduled handler tests — cron routing, headers, no-throw, and 207 logging.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { ClassCheckMessage } from '@/lib/types/queue';
 import type { Env } from '@/lib/types/env';
 
-// ── Module mocks (must be hoisted above imports) ──────────────────────────────
-
-// Mock cloudflare:workers DurableObject base class used by CronLockDO
 vi.mock('cloudflare:workers', () => ({
   DurableObject: class DurableObject {
     constructor(
-      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock mirrors DurableObject constructor which accepts unknown at I/O boundary
+      // eslint-disable-next-line anti-slop/no-unknown-parameters
       protected ctx: unknown,
-      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock mirrors DurableObject constructor which accepts unknown at I/O boundary
+      // eslint-disable-next-line anti-slop/no-unknown-parameters
       protected env: unknown
     ) {}
   },
   env: {},
 }));
 
-// Mock handleDLQMessage so DLQ branch works without real email binding
 const mockHandleDLQMessage = vi.fn();
 vi.mock('@/lib/queue/dlq-consumer', () => ({
   handleDLQMessage: (...args: unknown[]) => mockHandleDLQMessage(...args),
 }));
 
-// Mock processSection — core of queue handler tests
 const mockProcessSection = vi.fn();
 vi.mock('@/lib/queue/process-section', () => ({
   processSection: (...args: unknown[]) => mockProcessSection(...args),
 }));
 
-// Mock the Drizzle accessor so worker.ts never constructs a real postgres pool.
-// Tests assert ONE handle per queue invocation is threaded to every helper.
 const DB_HANDLE = { __dbHandle: 'queue-invocation-db' } as const;
 const mockGetDb = vi.fn((_hyperdrive: CloudflareEnv['HYPERDRIVE']) => DB_HANDLE);
 vi.mock('@/lib/db', () => ({
   getDb: (hyperdrive: CloudflareEnv['HYPERDRIVE']) => mockGetDb(hyperdrive),
 }));
 
-// ── Imports ───────────────────────────────────────────────────────────────────
-
-// Import worker default export for scheduled handler tests
-// (queue handler tests re-import inside beforeEach so vi.mock hoisting applies cleanly)
 const workerModule = await import('@/worker');
 const workerDefault = workerModule.default;
 
-// Import the vinext handler mock so scheduled handler tests can control fetch responses
 const handlerMock = await import('vinext/server/app-router-entry');
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeMessage(class_nbr: string, term = '2261') {
   return {
@@ -83,12 +55,12 @@ function makeBatch(
   messages: ReturnType<typeof makeMessage>[],
   queue = 'pickmyclass-queue'
 ): MessageBatch<ClassCheckMessage> {
-  // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal MessageBatch mock
+  // eslint-disable-next-line anti-slop/no-known-value-widening
   const raw: unknown = {
     queue,
     messages,
   };
-  // eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+  // eslint-disable-next-line anti-slop/no-widen-then-assert
   return raw as MessageBatch<ClassCheckMessage>;
 }
 
@@ -214,12 +186,12 @@ const mockEnv = {
   NOTIFICATION_FROM_EMAIL: 'no-reply@test.com',
 } as Parameters<(typeof import('@/worker'))['default']['queue']>[1];
 
-// eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal ExecutionContext mock
+// eslint-disable-next-line anti-slop/no-known-value-widening
 const rawTestCtx: unknown = {
   waitUntil: vi.fn(),
   passThroughOnException: vi.fn(),
 };
-// eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+// eslint-disable-next-line anti-slop/no-widen-then-assert
 const testCtx = rawTestCtx as ExecutionContext;
 
 describe('worker queue handler — direct processSection call ack/retry mapping', () => {
@@ -227,7 +199,6 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    // Import inside beforeEach so vi.mock hoisting is applied each time
     const mod = await import('@/worker');
     worker = mod.default;
   });
@@ -240,7 +211,6 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(successOutcome('12345'));
 
     const msg = makeMessage('12345');
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.ack).toHaveBeenCalledOnce();
@@ -258,7 +228,6 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(dbFailOutcome('12345'));
 
     const msg = makeMessage('12345');
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.retry).toHaveBeenCalledOnce();
@@ -269,7 +238,6 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(authErrorOutcome('12345'));
 
     const msg = makeMessage('12345');
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.ack).toHaveBeenCalledOnce();
@@ -280,7 +248,6 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(notFoundOutcome('99999'));
 
     const msg = makeMessage('99999');
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.ack).toHaveBeenCalledOnce();
@@ -291,7 +258,6 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(rateLimitOutcome('12345'));
 
     const msg = makeMessage('12345');
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.retry).toHaveBeenCalledOnce();
@@ -302,7 +268,6 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(apiErrorOutcome('12345'));
 
     const msg = makeMessage('12345');
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.retry).toHaveBeenCalledOnce();
@@ -313,7 +278,6 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockRejectedValue(new Error('Unexpected internal error'));
 
     const msg = makeMessage('12345');
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
 
     expect(msg.retry).toHaveBeenCalledOnce();
@@ -330,18 +294,14 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     const msg2 = makeMessage('22222');
     const msg3 = makeMessage('33333');
 
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg1, msg2, msg3]), mockEnv, {} as ExecutionContext);
 
-    // msg1: success → ack
     expect(msg1.ack).toHaveBeenCalledOnce();
     expect(msg1.retry).not.toHaveBeenCalled();
 
-    // msg2: RateLimitError → retry
     expect(msg2.retry).toHaveBeenCalledOnce();
     expect(msg2.ack).not.toHaveBeenCalled();
 
-    // msg3: success:false (DB error) → retry
     expect(msg3.retry).toHaveBeenCalledOnce();
     expect(msg3.ack).not.toHaveBeenCalled();
   });
@@ -365,22 +325,16 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockHandleDLQMessage.mockResolvedValue(undefined);
 
     const msg = makeMessage('12345');
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await worker.queue(makeBatch([msg], 'pickmyclass-dlq'), mockEnv, {} as ExecutionContext);
 
-    // processSection should NOT be called for DLQ messages
     expect(mockProcessSection).not.toHaveBeenCalled();
-    // DLQ messages are always acked
     expect(msg.ack).toHaveBeenCalledOnce();
-    // Same single DB handle reaches the DLQ consumer
     expect(mockGetDb).toHaveBeenCalledTimes(1);
     expect(mockHandleDLQMessage).toHaveBeenCalledWith(DB_HANDLE, msg.body, mockEnv.EMAIL, {
       fromEmail: mockEnv.NOTIFICATION_FROM_EMAIL,
     });
   });
 });
-
-// ── Scheduled handler tests ───────────────────────────────────────────────────
 
 describe('worker.ts scheduled handler', () => {
   beforeEach(() => {
@@ -400,7 +354,6 @@ describe('worker.ts scheduled handler', () => {
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));
 
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await workerDefault.scheduled(
       { cron: '0 4 * * *', scheduledTime: Date.now() },
       scheduledEnv as Env,
@@ -408,7 +361,6 @@ describe('worker.ts scheduled handler', () => {
     );
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     const calledRequest = fetchSpy.mock.calls[0]![0] as Request;
     expect(calledRequest.url).toContain('/api/cron/maintenance');
     expect(calledRequest.headers.get('Authorization')).toBe('Bearer test-cron-secret');
@@ -419,7 +371,6 @@ describe('worker.ts scheduled handler', () => {
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));
 
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await workerDefault.scheduled(
       { cron: '0,30 * * * *', scheduledTime: Date.now() },
       scheduledEnv as Env,
@@ -427,25 +378,22 @@ describe('worker.ts scheduled handler', () => {
     );
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     const calledRequest = fetchSpy.mock.calls[0]![0] as Request;
     expect(calledRequest.url).toBe('http://localhost/api/cron');
   });
 
   it('passes X-Cron-Scheduled-Time header with scheduled time', async () => {
-    const scheduledTime = 1718446800000; // fixed timestamp
+    const scheduledTime = 1718446800000;
     const fetchSpy = vi
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));
 
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await workerDefault.scheduled(
       { cron: '0,30 * * * *', scheduledTime },
       scheduledEnv as Env,
       testCtx
     );
 
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     const calledRequest = fetchSpy.mock.calls[0]![0] as Request;
     expect(calledRequest.headers.get('X-Cron-Scheduled-Time')).toBe(String(scheduledTime));
   });
@@ -456,7 +404,6 @@ describe('worker.ts scheduled handler', () => {
     );
 
     await expect(
-      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
       workerDefault.scheduled(
         { cron: '0,30 * * * *', scheduledTime: Date.now() },
         scheduledEnv as Env,
@@ -469,7 +416,6 @@ describe('worker.ts scheduled handler', () => {
     vi.spyOn(handlerMock.default, 'fetch').mockRejectedValueOnce(new Error('Handler crashed'));
 
     await expect(
-      // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
       workerDefault.scheduled(
         { cron: '0,30 * * * *', scheduledTime: Date.now() },
         scheduledEnv as Env,
@@ -485,14 +431,12 @@ describe('worker.ts scheduled handler', () => {
       new Response('partial', { status: 207 })
     );
 
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     await workerDefault.scheduled(
       { cron: '0,30 * * * *', scheduledTime: Date.now() },
       scheduledEnv as Env,
       testCtx
     );
 
-    // The scoped logger emits the scope separately from the greppable tag.
     expect(errSpy).toHaveBeenCalledWith(
       '[Scheduled]',
       expect.stringMatching(/CRON_PARTIAL_FAILURE/),

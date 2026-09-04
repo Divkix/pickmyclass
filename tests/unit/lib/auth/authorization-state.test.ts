@@ -1,18 +1,3 @@
-/**
- * Unit tests for the authorization-state owner (ADR 0001).
- *
- * The module owns the server read of `user_profiles` gating fields, its 30s
- * per-isolate cache, and its invalidation. These tests pin:
- * - the cached/fresh split (cached hit skips the query; fresh never touches
- *   the cache in either direction)
- * - the fail-closed error mapping (error results are never cached)
- * - consent requiring BOTH timestamps
- * - the rendered query shape: `user_profiles` projected to the gate columns,
- *   filtered by `user_id`
- *
- * The DB seam is REAL Drizzle builders over a scripted postgres-js transport;
- * every statement lands in `statements[]` exactly as the wire would see it.
- */
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
@@ -25,16 +10,11 @@ import {
 import type { Database } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
 
-// ---------------------------------------------------------------------------
-// Scripted postgres-js transport (Drizzle builders render real SQL)
-// ---------------------------------------------------------------------------
-
 interface CapturedStatement {
   sql: string;
   params: unknown[];
 }
 
-/** user_profiles gate columns in readAuthorizationState's SELECT order. */
 interface ProfileGateRow {
   [column: string]: PgWireValue;
   is_admin: boolean;
@@ -43,7 +23,6 @@ interface ProfileGateRow {
   agreed_to_terms_at: string | null;
 }
 
-/** Driver rows as Drizzle's postgres-js session sees them: keyed objects. */
 type PgWireValue =
   | string
   | number
@@ -52,13 +31,8 @@ type PgWireValue =
   | PgWireValue[]
   | { [column: string]: PgWireValue };
 
-/** Driver rows as Drizzle's postgres-js session sees them: keyed objects. */
 type DriverRowSet = Array<Record<string, PgWireValue>>;
 
-/**
- * Lazy-rejection surface mirroring postgres-js PendingQuery: driver errors
- * surface only when Drizzle awaits the query or reads `.values()`.
- */
 interface ScriptedPendingRows {
   then(
     onFulfilled?: (value: never) => PromiseLike<never>,
@@ -68,20 +42,16 @@ interface ScriptedPendingRows {
   values(): PromiseLike<never[]>;
 }
 
-/** Resolved rows carrying the positional `.values()` Drizzle maps fields from. */
 type ScriptedRows = Promise<DriverRowSet> & { values(): PromiseLike<unknown[][]> };
 
-/** Everything Drizzle's postgres-js session consumes from `unsafe()`. */
 type ScriptedQueryResult = ScriptedPendingRows | ScriptedRows;
 
-/** Minimal postgres-js members Drizzle's session drives end to end. */
 interface PostgresJsSeam {
   unsafe(query: string, params: unknown[]): ScriptedQueryResult;
 }
 
 function createDbDouble() {
   const statements: CapturedStatement[] = [];
-  // FIFO of per-statement outcomes: row sets and driver errors in call order.
   const outcomes: Array<DriverRowSet | Error> = [];
 
   const pendingRows = (rows: DriverRowSet): ScriptedRows =>
@@ -95,9 +65,6 @@ function createDbDouble() {
       statements.push({ sql: query, params });
       const outcome = outcomes.shift();
       if (outcome instanceof Error) {
-        // Lazy rejection mirroring postgres-js PendingQuery: drizzle reads
-        // `.values()` synchronously, and the rejection may only surface when
-        // awaited — an eagerly-rejected promise would go unhandled.
         const reject = (): Promise<never> => Promise.reject(outcome);
         return {
           then: (
@@ -116,28 +83,19 @@ function createDbDouble() {
   };
 
   const client: PostgresJsSeam = scriptedClient;
-  // SAFETY: the double implements exactly the postgres-js seams Drizzle's
-  // session drives (tag-call unsafe(), .values(), begin()); the rest of the
-  // Sql surface is unreachable through Drizzle builders.
   const db = drizzle(client as Database['$client'], { schema });
 
   return {
     db,
     statements,
-    /** Queue the profile row answered by the next select (empty = no row). */
     nextRows(rows: ProfileGateRow[] = []) {
       outcomes.push(rows);
     },
-    /** Make the next executed statement reject with this driver-shaped error. */
     failNext(error: Error) {
       outcomes.push(error);
     },
   };
 }
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
 
 const consentTimestamp = '2026-07-12T00:00:00.000Z';
 const adminProfile: ProfileGateRow = {
@@ -186,8 +144,6 @@ describe('readAuthorizationState', () => {
 
     expect(double.statements).toHaveLength(1);
     const [statement] = double.statements;
-    // Rendered SQL pins the table, the four-column gate projection, the
-    // user_id filter, and LIMIT 1 in one wire-level assertion.
     expect(statement.sql.replace(/\s+/g, ' ').trim()).toBe(
       'select "is_admin", "is_disabled", "age_verified_at", "agreed_to_terms_at" ' +
         'from "user_profiles" where "user_profiles"."user_id" = $1 limit $2'
@@ -291,8 +247,6 @@ describe('readAuthorizationState', () => {
 
     await readAuthorizationState(double.db, 'user-1', { cache: true });
 
-    // The error path must not poison the cache: after recovery the next cached
-    // read re-queries instead of serving the closed decision.
     double.nextRows([adminProfile]);
     const recovered = await readAuthorizationState(double.db, 'user-1', { cache: true });
 

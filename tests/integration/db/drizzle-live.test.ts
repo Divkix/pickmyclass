@@ -1,22 +1,3 @@
-/**
- * Live Drizzle/PostgreSQL integration suite — the runtime proof for the
- * Drizzle cutover (plan step 6).
- *
- * Run against a disposable database via:
- *
- *   DATABASE_URL=postgresql://... pnpm run test:db
- *
- * The target database must carry the consolidated baseline
- * (`db/migrations/20260822000000_planetscale_schema.sql`). The suite is
- * service-free and never part of default CI (`vitest.db.config.ts` selects
- * exactly this file; the default config excludes it).
- *
- * Isolation: every fixture is namespaced by a unique run ID (user ids,
- * emails, class numbers, terms, subjects) so the suite is safe against any
- * shared database, and teardown removes exactly those rows. No module mocks —
- * assertions exercise the real `getDb` handle, real Drizzle builders, and the
- * real SECURITY DEFINER RPCs over the wire.
- */
 import { randomUUID } from 'node:crypto';
 import { and, count, eq, inArray, like, sql } from 'drizzle-orm';
 import type { EmailAddressJSON, UserJSON, VerificationJSON } from '@clerk/backend';
@@ -69,8 +50,6 @@ import {
 import { classStates, classWatches, notificationsSent, userProfiles, users } from '@/lib/db/schema';
 import { readOnboardingState, skipOnboarding } from '@/lib/onboarding';
 
-// ─── Harness ─────────────────────────────────────────────────────────────────
-
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
   throw new Error(
@@ -79,34 +58,24 @@ if (!DATABASE_URL) {
   );
 }
 
-/**
- * Hyperdrive-shaped binding: production only ever reads `.connectionString`,
- * so the local handle carries exactly that member.
- */
-// SAFETY: getDb reads connectionString only; no other Hyperdrive member is
-// reachable through the Drizzle seam exercised here.
 const hyperdrive = { connectionString: DATABASE_URL } as Hyperdrive;
 
-/** One handle per suite run, exactly like one handle per invocation in prod. */
 const db = getDb(hyperdrive);
 
-/** Unique fixture namespace; every row this suite creates carries it. */
 const RUN = `dlv-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
 
-// Class numbers double as stagger-parity inputs: get_sections_to_check casts
-// the LAST character to INTEGER, so every fixture class number ends in a digit.
 const TERM = `${RUN}-t1`;
 const TERM_OTHER = `${RUN}-t2`;
 const TERM_EMPTY = `${RUN}-t3`;
 const SUBJECT = `ZZ${RUN}`;
 
-const REF_A = { class_nbr: `${RUN}0`, term: TERM }; // even
-const REF_B = { class_nbr: `${RUN}2`, term: TERM }; // even
-const REF_C = { class_nbr: `${RUN}4`, term: TERM }; // even
-const REF_FULL = { class_nbr: `${RUN}6`, term: TERM }; // even, seats_available = 0
-const REF_ODD = { class_nbr: `${RUN}3`, term: TERM }; // odd
+const REF_A = { class_nbr: `${RUN}0`, term: TERM };
+const REF_B = { class_nbr: `${RUN}2`, term: TERM };
+const REF_C = { class_nbr: `${RUN}4`, term: TERM };
+const REF_FULL = { class_nbr: `${RUN}6`, term: TERM };
+const REF_ODD = { class_nbr: `${RUN}3`, term: TERM };
 const REF_B_OTHER_TERM = { class_nbr: `${RUN}2`, term: TERM_OTHER };
-const REF_INC = { class_nbr: `${RUN}5`, term: TERM }; // no state seeded
+const REF_INC = { class_nbr: `${RUN}5`, term: TERM };
 const REF_LIMIT_1 = { class_nbr: `${RUN}8`, term: TERM };
 const REF_LIMIT_2 = { class_nbr: `${RUN}9`, term: TERM };
 
@@ -219,8 +188,6 @@ beforeAll(async () => {
   W_C_2 = await watch(U_XT, REF_C);
   W_ODD = await watch(U_ODD, REF_ODD);
 
-  // One durable sent-notification outside deleted sections feeds the admin
-  // activity-feed and email-count assertions below.
   await db.insert(notificationsSent).values({
     class_watch_id: W_ODD,
     notification_type: 'seat_available',
@@ -229,7 +196,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   try {
-    // FK cascades remove profiles, watches, and notifications with the users.
     await db.delete(users).where(like(users.id, `%${RUN}%`));
     await db.delete(classStates).where(like(classStates.class_nbr, `${RUN}%`));
   } finally {
@@ -237,13 +203,6 @@ afterAll(async () => {
   }
 });
 
-// ─── Assertion helpers ───────────────────────────────────────────────────────
-
-/**
- * Captures a rejection so assertions can inspect the thrown driver error.
- * Drizzle wraps statement failures in Error subclasses and the transaction
- * probe below throws a plain Error, so rejections arrive as Error values.
- */
 async function capture<T>(run: () => Promise<T>): Promise<Error | null> {
   try {
     await run();
@@ -253,34 +212,28 @@ async function capture<T>(run: () => Promise<T>): Promise<Error | null> {
   return null;
 }
 
-/** Timestamp cells as the typed query boundaries deliver them: ISO text or null. */
 type TimestampCell = string | null | undefined;
 
-/** True when the value parses to a finite timestamp (PG text or ISO string). */
 function temporal(value: TimestampCell): boolean {
   if (value === null || value === undefined) return false;
   return !Number.isNaN(new Date(value).getTime());
 }
 
-/** Strict ISO-8601 UTC shape the typed query boundaries normalize to. */
 function isIsoZ(value: TimestampCell): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value);
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** Row shape of the `{ n: count() }` projections recounted throughout the suite. */
 interface CountRow {
   n: unknown;
 }
 
-/** Resolves a count query and reads its single scalar as a number. */
 async function scalarCount(query: PromiseLike<CountRow[]>): Promise<number> {
   const rows = await query;
   return Number(rows[0]?.n ?? 0);
 }
 
-/** Row shape of the class_watches row the create_class_watch_with_limit RPC returns. */
 type CreatedWatchRow = {
   id: string;
   user_id: string;
@@ -290,8 +243,6 @@ type CreatedWatchRow = {
   catalog_nbr: string;
   created_at: string;
 };
-
-// ─── Clerk webhook payload fixtures (typed, mirroring tests/unit convention) ─
 
 const CREATED_MS = 1_750_000_000_000;
 const LAST_SIGN_IN_MS = 1_750_000_001_000;
@@ -365,8 +316,6 @@ function userJson(overrides: Partial<UserJSON>): UserJSON {
   };
 }
 
-// ─── Suites ──────────────────────────────────────────────────────────────────
-
 describe('SQLSTATE helpers against real driver errors', () => {
   it('declares the exact PostgreSQL SQLSTATE constants', () => {
     expect(PG_UNIQUE_VIOLATION).toBe('23505');
@@ -375,7 +324,6 @@ describe('SQLSTATE helpers against real driver errors', () => {
   });
 
   it('narrows a real unique violation (23505) through the cause chain', async () => {
-    // (user_id, class_nbr, term) already exists from fixtures.
     const error = await capture(() =>
       db.insert(classWatches).values({
         user_id: U_MAIN,
@@ -399,7 +347,6 @@ describe('SQLSTATE helpers against real driver errors', () => {
   });
 
   it('maps a PL/pgSQL RAISE EXCEPTION to P0001', async () => {
-    // The RPC raises 'Section not found' because REF_INC has no class_states row yet.
     const error = await capture(() =>
       db.execute(
         sql`SELECT public.increment_consecutive_not_found(${REF_INC.class_nbr}::text, ${REF_INC.term}::text)`
@@ -442,8 +389,6 @@ describe('wire formats under prepare:false / fetch_types:false', () => {
   });
 
   it('round-trips array-bound RPC parameters through the recipient read', async () => {
-    // Production binds text[]/uuid[] RPCs through the native client seam;
-    // REF_FULL carries no watches, so the full round-trip yields zero rows.
     expect(await getNotificationWatchers(db, REF_FULL)).toEqual([]);
   });
 });
@@ -453,7 +398,6 @@ describe('Drizzle builder CRUD row shapes', () => {
     const [inserted] = await db
       .insert(users)
       .values({
-        // U_CRUD already exists; exercise a second dedicated row instead.
         id: `${U_CRUD}_b`,
         email: mail('crud-b'),
       })
@@ -629,8 +573,8 @@ describe('upsertClassState / section-check pipeline ops', () => {
     const breaker = await readAutoCleanupBreakerCounts(db);
     expect(typeof breaker.total).toBe('number');
     expect(typeof breaker.flagged).toBe('number');
-    expect(breaker.total).toBeGreaterThanOrEqual(5); // A, B, C, FULL, INC
-    expect(breaker.flagged).toBeGreaterThanOrEqual(1); // INC sits at the cap
+    expect(breaker.total).toBeGreaterThanOrEqual(5);
+    expect(breaker.flagged).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -688,7 +632,6 @@ describe('create_class_watch_with_limit RPC', () => {
 describe('watcher reads and eligibility RPCs', () => {
   it('lists only eligible watchers with normalized ISO timestamps', async () => {
     const watchers = await getClassWatchers(db, REF_A);
-    // A carries three watches; bounced + disabled owners are ineligible.
     const watcherIds = watchers.map((w) => w.watch_id);
     expect(watcherIds).toEqual([W_A_MAIN]);
     expect(watcherIds).not.toContain(W_A_BOUNCED);
@@ -703,11 +646,10 @@ describe('watcher reads and eligibility RPCs', () => {
 
   it('scopes batch recipient reads to the requested sections AND term', async () => {
     const watchers = await getNotificationWatchers(db, REF_B);
-    // Same class_nbr exists in TERM_OTHER watched by eligible U_XT — excluded.
     const watcherIds = watchers.map((w) => w.watch_id);
     expect(watcherIds).toEqual([W_B_MAIN]);
     expect(watcherIds).not.toContain(W_B_SPAM);
-    expect(watcherIds).not.toContain(W_XT); // eligible, but lives in TERM_OTHER
+    expect(watcherIds).not.toContain(W_XT);
     expect(watchers[0].user_id).toBe(U_MAIN);
   });
 
@@ -741,7 +683,6 @@ describe('watcher reads and eligibility RPCs', () => {
   });
 
   it('picks the most-watched class by eligible watchers with deterministic tiebreak', async () => {
-    // C has two eligible watchers (U_MAIN, U_XT); everything else ≤ 1.
     expect(await getMostWatchedClass(db, TERM)).toEqual(REF_C);
     expect(await getMostWatchedClass(db, TERM_EMPTY)).toBeNull();
   });
@@ -749,15 +690,12 @@ describe('watcher reads and eligibility RPCs', () => {
 
 describe('notification dedup lifecycle', () => {
   it('claims each watch once, frees expired slots, and rolls back claims', async () => {
-    // 1. First claim records both watches.
     const first = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], 'seat_available');
     expect([...first].sort()).toEqual([W_C_1, W_C_2].sort());
 
-    // 2. Immediate re-claim deduplicates to nothing.
     const second = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], 'seat_available');
     expect(second.size).toBe(0);
 
-    // 3. Expire the slots, then the daily sweep flips them inactive.
     await db
       .update(notificationsSent)
       .set({ expires_at: '2020-01-01T00:00:00.000Z' })
@@ -779,7 +717,6 @@ describe('notification dedup lifecycle', () => {
     );
     expect(inactive).toBe(2);
 
-    // 4. Freed slots allow re-notification.
     const third = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], 'seat_available');
     expect([...third].sort()).toEqual([W_C_1, W_C_2].sort());
   });
@@ -798,12 +735,10 @@ describe('notification dedup lifecycle', () => {
           )
         )
     );
-    // W_C_1's claim was rolled back; W_C_2's stays.
     expect(activeLeft).toBe(1);
   });
 
   it('enforces the partial unique index only for active rows', async () => {
-    // Active duplicate on the same (watch, type) slot violates the index...
     const activeDup = await capture(() =>
       db
         .insert(notificationsSent)
@@ -811,7 +746,6 @@ describe('notification dedup lifecycle', () => {
     );
     expect(isUniqueViolation(activeDup)).toBe(true);
 
-    // ...while an inactive row may coexist (WHERE is_active = TRUE scope).
     await db.insert(notificationsSent).values({
       class_watch_id: W_C_2,
       notification_type: 'seat_available',
@@ -879,7 +813,7 @@ describe('deleteSectionAndWatches transactional cleanup', () => {
         .from(notificationsSent)
         .where(inArray(notificationsSent.class_watch_id, [W_C_1, W_C_2]))
     );
-    expect(notificationsLeft).toBe(0); // FK ON DELETE CASCADE removed every claim
+    expect(notificationsLeft).toBe(0);
   });
 
   it('rolls back the whole transaction when any statement fails', async () => {
@@ -902,12 +836,12 @@ describe('deleteSectionAndWatches transactional cleanup', () => {
         .from(classWatches)
         .where(and(eq(classWatches.user_id, U_TX), eq(classWatches.term, TERM)))
     );
-    expect(left).toBe(0); // the inserted watch did not survive the failed tx
+    expect(left).toBe(0);
   });
 
   it('hard-deletes watches for past terms by term code', async () => {
     const deleted = await deletePastTermWatches(db, [TERM_OTHER]);
-    expect(deleted).toBe(1); // exactly W_XT lives in TERM_OTHER
+    expect(deleted).toBe(1);
     const left = await scalarCount(
       db.select({ n: count() }).from(classWatches).where(eq(classWatches.term, TERM_OTHER))
     );
@@ -969,11 +903,10 @@ describe('users mirror lifecycle', () => {
     expect(profile.notifications_enabled).toBe(false);
     expect(profile.unsubscribed_at).not.toBeNull();
 
-    // Consent written at insert time survives later syncs without consent metadata.
     expect(profile.agreed_to_terms_at).not.toBeNull();
 
     const verification = await readUserVerification(db, APP_ID, { cache: false });
-    expect(verification?.email).toBe(mail('webhook-two')); // mirror row remains readable
+    expect(verification?.email).toBe(mail('webhook-two'));
   });
 });
 
@@ -991,7 +924,6 @@ describe('onboarding persistence', () => {
     expect(skipped?.onboarding_completed_at).toBeNull();
     expect(temporal(skipped?.onboarding_skipped_at)).toBe(true);
 
-    // Re-skip is a no-op: the guard requires NULL skipped_at.
     const again = await skipOnboarding(db, U_ONBOARD);
     expect(again?.onboarding_skipped_at).toBe(skipped?.onboarding_skipped_at);
 
@@ -1026,7 +958,7 @@ describe('admin queries (representative RPC + builder results)', () => {
     expect(byId.get(U_DISABLED)?.notification_status).toBe('disabled');
     expect(byId.get(U_SPAM)?.notification_status).toBe('spam');
     expect(byId.get(U_UNSUB)?.notification_status).toBe('unsubscribed');
-    expect(byId.get(`clerk_${U_WEBHOOK}`)?.notification_status).toBe('disabled'); // soft-deleted
+    expect(byId.get(`clerk_${U_WEBHOOK}`)?.notification_status).toBe('disabled');
     expect(byId.get(U_ADMIN)?.is_admin).toBe(true);
 
     const admins = await getUsersPage(db, { search: RUN, role: 'admin', pageSize: 200 });
@@ -1044,9 +976,7 @@ describe('admin queries (representative RPC + builder results)', () => {
 
     const page = await getClassesPage(db, { search: RUN, pageSize: 200 });
     expect(page.total).toBe(expectedStates);
-    // Eligibility-blind watch totals: A=3, B=2 (C was hard-deleted above).
     expect(page.totalWatchers).toBe(5);
-    // seats_available = 0: REF_FULL plus the INC placeholder row.
     expect(page.fullClasses).toBe(2);
 
     const rowA = page.rows.find((row) => row.class_nbr === REF_A.class_nbr);
@@ -1079,7 +1009,6 @@ describe('admin queries (representative RPC + builder results)', () => {
 
     expect(await getTotalEmailsSent(db)).toBe(expectedEmails);
 
-    // count_all_users profiles the mirror: bound by run-scoped profile rows.
     const expectedProfiles = await scalarCount(
       db
         .select({ n: count() })
@@ -1115,7 +1044,6 @@ describe('admin queries (representative RPC + builder results)', () => {
     );
     expect(registration).toBeDefined();
 
-    // The activity feed is eligibility-blind: every watch on A appears.
     const aWatchFeed = feed.filter(
       (item) => item.type === 'new_watch' && item.classNbr === REF_A.class_nbr
     );
@@ -1139,8 +1067,7 @@ describe('admin queries (representative RPC + builder results)', () => {
       expect(isIsoZ(watch.class_state?.last_checked_at)).toBe(true);
     }
 
-    // W_XT lived in TERM_OTHER with no class_states row -> null join side.
     const xtWatches = await getUserWatches(db, U_XT);
-    expect(xtWatches).toHaveLength(0); // TERM_OTHER watches were hard-deleted above
+    expect(xtWatches).toHaveLength(0);
   });
 });

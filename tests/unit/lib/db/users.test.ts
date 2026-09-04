@@ -1,19 +1,3 @@
-/**
- * Unit tests for the `users` mirror owner (issue #358).
- *
- * The module is the single owner of:
- * - the primary-email policy (primary-id match, then first-address fallback)
- * - deterministic mirror/profile race repair (`repairUserMirror`)
- * - the idempotent mirror upsert (Svix replays / out-of-order events)
- * - consent-on-profile-insert-only semantics
- * - the CCPA soft delete matching either the app id or the Clerk user id
- * - the cached/fresh edge read (`readUserVerification`)
- *
- * Seams are mocked — no real DB and no Clerk API:
- * - DB reads/writes run against a chainable mock Drizzle query builder passed
- *   as the leading `db: Database` argument (no legacy client seam)
- * - `@/lib/auth/clerk-session` → `getClerkClient().users.getUser`
- */
 import type { EmailAddressJSON, UserJSON, VerificationJSON } from '@clerk/backend';
 import { SQL } from 'drizzle-orm';
 import { PgDialect, type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
@@ -29,24 +13,16 @@ import {
   syncUserMirrorFromClerkUser,
 } from '@/lib/db/users';
 
-// ---------------------------------------------------------------------------
-// Mock Database — chainable Drizzle builders recording every call
-// ---------------------------------------------------------------------------
-
-/** Wire-scale value recorded from a builder call (driver scalars or SQL). */
 type RecordedValue = string | number | boolean | null | SQL;
 
-/** Recorded insert/update payload keyed by column name. */
 interface RecordedRowMap {
   [column: string]: RecordedValue;
 }
 
-/** Select projection keyed by result column, mapping to drizzle columns/SQL. */
 interface ProjectionMap {
   [column: string]: PgColumn | SQL;
 }
 
-/** Rows a scripted select resolves with: driver scalars or null per column. */
 type SelectRow = { [column: string]: string | null };
 
 interface SelectOp {
@@ -61,7 +37,6 @@ interface InsertOp {
   method: 'insert';
   table: PgTable;
   values: RecordedRowMap;
-  /** onConflictDoNothing/DoUpdate config; null when the builder call is absent. */
   conflict: { target?: PgColumn; set?: RecordedRowMap } | null;
 }
 
@@ -74,11 +49,6 @@ interface UpdateOp {
 
 type Op = SelectOp | InsertOp | UpdateOp;
 
-/**
- * The chainable Drizzle builder surface lib/db/users drives, recording every
- * call into the shared ops log. Method nesting mirrors the module exactly:
- * select→from→where→limit, insert→values→onConflict*, update→set→where.
- */
 interface BuilderRecorder {
   select(projection: ProjectionMap): {
     from(table: PgTable): {
@@ -100,17 +70,9 @@ interface BuilderRecorder {
   };
 }
 
-/** Seam handed to the module under test: the real Database or the recorder. */
 type UsersSeamDb = Database | BuilderRecorder;
 
-/**
- * Narrows the recording double to the Database handle lib/db/users accepts.
- */
 function asDatabaseHandle(seam: UsersSeamDb): Database {
-  // SAFETY: the double implements exactly the BuilderRecorder nesting above —
-  // select→from→where→limit, insert→values→onConflict*, update→set→where —
-  // which is the only Database surface lib/db/users reaches; no other member
-  // is called on these paths.
   return seam as Database;
 }
 
@@ -187,7 +149,6 @@ function createDbDouble(): DbDouble {
           return {
             where: (where: SQL) => {
               op.where = where;
-              // postgres-js RowList shape: affected-row count rides on .count
               return Promise.resolve(updateResults.shift() ?? { count: 0 });
             },
           };
@@ -217,34 +178,22 @@ function createDbDouble(): DbDouble {
 
 const dialect = new PgDialect();
 
-/** Render a recorded builder value (a SQL fragment by product contract). */
 function renderSql(fragment: RecordedValue): string {
   if (!(fragment instanceof SQL)) throw new Error('Expected a SQL fragment');
   return dialect.sqlToQuery(fragment).sql;
 }
 
-/** Rendered where condition: SQL text plus its bound parameters. */
 interface RenderedCondition {
   sql: string;
   params: unknown[];
 }
 
-/** Render a recorded where condition to its SQL text and bound parameters. */
 function renderWhere(where: SQL | undefined): RenderedCondition {
   if (where === undefined) throw new Error('Expected a where condition');
   const { sql, params } = dialect.sqlToQuery(where);
   return { sql, params };
 }
 
-// ---------------------------------------------------------------------------
-// Fixture contracts — concrete stand-ins for the Clerk wire types
-// ---------------------------------------------------------------------------
-
-/**
- * Structural stand-in for the Backend-API `User` resource exposing exactly the
- * camelCase surface the repair path reads. Real Clerk backend resources cannot
- * be constructed without ~30 positional args.
- */
 interface BackendUserDouble {
   id: string;
   externalId: string | null;
@@ -255,7 +204,6 @@ interface BackendUserDouble {
   emailAddresses: Array<{
     id: string;
     emailAddress: string;
-    /** Repair policy reads only `verification?.status`. */
     verification: { status: VerificationJSON['status'] } | null;
   }>;
 }
@@ -269,10 +217,6 @@ vi.mock('@/lib/auth/clerk-session', () => ({
   getClerkClient: mockGetClerkClient,
 }));
 
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
 const CLERK_USER_ID = 'user_2abc123';
 const MIGRATED_APP_ID = 'b7c9d1e2-3f40-4a51-8b62-old-supabase';
 const EMAIL_PRIMARY_ID = 'idn_email_primary';
@@ -283,16 +227,10 @@ const LAST_SIGN_IN_MS = 1_700_012_345_678;
 const CREATED_AT_ISO = new Date(CREATED_AT_MS).toISOString();
 const LAST_SIGN_IN_ISO = new Date(LAST_SIGN_IN_MS).toISOString();
 
-/** ISO-8601 timestamp shape (what the upsert writes into timestamptz columns). */
 const ISO_LIKE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
 
 type EmailStatus = 'verified' | 'unverified';
 
-// Webhook/BAPI verification payloads only carry status/strategy/attempts/expire_at
-// in practice, but VerificationJSON inherits the full ClerkResourceJSON envelope
-// (object/id) and @clerk/backend v3 lacks a "verification" ObjectType literal, so
-// the envelope below satisfies the SDK type with valid members — production code
-// reads only `status`.
 function emailVerification(status: EmailStatus): VerificationJSON {
   return {
     object: 'email_address',
@@ -314,7 +252,6 @@ function emailAddress(id: string, address: string, status: EmailStatus | null): 
   };
 }
 
-/** Full typed webhook payload with sensible defaults; tests override per case. */
 function userJson(overrides: Partial<UserJSON> = {}): UserJSON {
   return {
     object: 'user',
@@ -359,7 +296,6 @@ function userJson(overrides: Partial<UserJSON> = {}): UserJSON {
   };
 }
 
-/** Build the Backend-API `User` double from a webhook-style payload. */
 function backendUserFrom(json: UserJSON): BackendUserDouble {
   return {
     id: json.id,
@@ -385,10 +321,6 @@ beforeEach(() => {
   clearUserVerificationCache();
   double = createDbDouble();
 });
-
-// ---------------------------------------------------------------------------
-// syncUserMirrorFromClerkUser — sole primary-email policy + idempotent upsert
-// ---------------------------------------------------------------------------
 
 describe('syncUserMirrorFromClerkUser', () => {
   it('selects the address matching primary_email_address_id and lowercases it', async () => {
@@ -495,7 +427,6 @@ describe('syncUserMirrorFromClerkUser', () => {
     expect(ageAt).toMatch(ISO_LIKE);
     expect(termsAt).toMatch(ISO_LIKE);
     expect(ageAt).toBe(termsAt);
-    // One shared stamp per delivery, written insert-only:
     expect(insert.conflict?.target).toBe(userProfiles.user_id);
 
     await syncUserMirrorFromClerkUser(
@@ -535,29 +466,23 @@ describe('syncUserMirrorFromClerkUser', () => {
     });
 
     await syncUserMirrorFromClerkUser(double.db, payload);
-    await syncUserMirrorFromClerkUser(double.db, payload); // Svix replay
+    await syncUserMirrorFromClerkUser(double.db, payload);
 
-    expect(double.inserts()).toHaveLength(4); // 2 statements × 2 deliveries
+    expect(double.inserts()).toHaveLength(4);
 
-    // Replay produces identical stable values. Only wall-clock derived values
-    // (email_confirmed_at, consent stamps) may legitimately advance between
-    // deliveries — those are compared by shape below instead of byte equality,
-    // so this cannot flake when milliseconds tick over.
     const [firstMirror, secondMirror] = double.mirrorUpserts();
-    expect(secondMirror.values.id).toBe(firstMirror.values.id); // stable app id
+    expect(secondMirror.values.id).toBe(firstMirror.values.id);
     expect(secondMirror.values.clerk_user_id).toBe(firstMirror.values.clerk_user_id);
-    expect(secondMirror.values.email).toBe(firstMirror.values.email); // lowercased email
+    expect(secondMirror.values.email).toBe(firstMirror.values.email);
     expect(secondMirror.values.created_at).toBe(firstMirror.values.created_at);
     expect(secondMirror.values.last_sign_in_at).toBe(firstMirror.values.last_sign_in_at);
 
     const [firstProfile, secondProfile] = double.profileInserts();
-    expect(secondProfile.values.user_id).toBe(firstProfile.values.user_id); // stable app id
+    expect(secondProfile.values.user_id).toBe(firstProfile.values.user_id);
 
     expect(firstMirror.values.id).toBe(MIGRATED_APP_ID);
     expect(firstMirror.values.email).toBe('migrated.user@example.com');
 
-    // Freshly stamped timestamps still land as ISO timestamptz values, and the
-    // consent pair within a single delivery shares one stamp:
     for (const mirror of [firstMirror, secondMirror]) {
       expect(String(mirror.values.email_confirmed_at)).toMatch(ISO_LIKE);
     }
@@ -568,17 +493,14 @@ describe('syncUserMirrorFromClerkUser', () => {
       expect(ageAt).toBe(termsAt);
     }
 
-    // Mirror upsert never duplicates rows and keeps the earliest verification:
     expect(firstMirror.conflict?.target).toBe(users.id);
     const conflictSet = firstMirror.conflict?.set ?? {};
     expect(renderSql(conflictSet.clerk_user_id)).toBe('excluded.clerk_user_id');
     expect(renderSql(conflictSet.email)).toBe('excluded.email');
     const confirmedAtRule = renderSql(conflictSet.email_confirmed_at);
-    // An email change resets verification to the new address's status…
     expect(confirmedAtRule).toContain(
       'when "users"."email" <> excluded.email then excluded.email_confirmed_at'
     );
-    // …otherwise keep the earliest confirmed timestamp.
     expect(confirmedAtRule).toContain(
       'coalesce("users"."email_confirmed_at", excluded.email_confirmed_at)'
     );
@@ -586,14 +508,9 @@ describe('syncUserMirrorFromClerkUser', () => {
       'coalesce(excluded.last_sign_in_at, "users"."last_sign_in_at")'
     );
 
-    // Profile consent insert cannot overwrite already-recorded consent:
     expect(firstProfile.conflict?.target).toBe(userProfiles.user_id);
   });
 });
-
-// ---------------------------------------------------------------------------
-// repairUserMirror — deterministic race repair
-// ---------------------------------------------------------------------------
 
 describe('repairUserMirror', () => {
   const APP_USER_ID = MIGRATED_APP_ID;
@@ -639,7 +556,6 @@ describe('repairUserMirror', () => {
     });
     mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
-    // Pre-upsert probe misses the row; the post-upsert consent re-read sees it.
     double.nextRows([]);
     double.nextRows([
       {
@@ -659,7 +575,7 @@ describe('repairUserMirror', () => {
     expect(mirror.values.id).toBe(APP_USER_ID);
     expect(mirror.values.clerk_user_id).toBe(CLERK_USER_ID);
     expect(mirror.values.email).toBe('mixedcase@example.com');
-    expect(String(mirror.values.email_confirmed_at)).toMatch(ISO_LIKE); // observed verified state
+    expect(String(mirror.values.email_confirmed_at)).toMatch(ISO_LIKE);
     expect(mirror.values.created_at).toBe(CREATED_AT_ISO);
     expect(mirror.values.last_sign_in_at).toBe(LAST_SIGN_IN_ISO);
     const [profile] = double.profileInserts();
@@ -675,7 +591,6 @@ describe('repairUserMirror', () => {
     });
     mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
-    // Pre-upsert probe misses the row; the post-upsert consent re-read sees it.
     double.nextRows([]);
     double.nextRows([{ age_verified_at: null, agreed_to_terms_at: null }]);
 
@@ -708,20 +623,17 @@ describe('repairUserMirror', () => {
   });
 
   it('reports the consent persisted after an insert/conflict race, not Clerk metadata', async () => {
-    // A concurrent webhook won the profile-insert race: our INSERT lands in
-    // ON CONFLICT DO NOTHING, and the retained row disagrees with the
-    // metadata proposed for insert. Repair must report the RETAINED state.
     const clerkUser = userJson({
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: true, agreed_to_terms: true },
     });
     mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
-    double.nextRows([]); // probe: nothing persisted yet
+    double.nextRows([]);
     double.nextRows([
       {
         age_verified_at: '2026-01-01T00:00:00.000Z',
-        agreed_to_terms_at: null, // concurrent writer recorded only age consent
+        agreed_to_terms_at: null,
       },
     ]);
 
@@ -729,7 +641,6 @@ describe('repairUserMirror', () => {
 
     expect(result).toEqual({ hasConsent: false });
 
-    // The answer came from a re-read keyed by userId issued AFTER both writes:
     expect(double.selects()).toHaveLength(2);
     const [reRead] = double.selects().slice(-1);
     expect(renderWhere(reRead.where).params).toEqual([APP_USER_ID]);
@@ -766,19 +677,13 @@ describe('repairUserMirror', () => {
     });
     mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
-    // Probe AND post-write re-read both miss (default empty result).
 
     await expect(repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID)).rejects.toThrow();
 
-    // Both writes were attempted before the failure surfaced:
     expect(double.inserts()).toHaveLength(2);
     expect(double.selects()).toHaveLength(2);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Verified-state consistency between the two entry points (#358)
-// ---------------------------------------------------------------------------
 
 describe('webhook/repair verified-state consistency (#358)', () => {
   it.each([
@@ -795,24 +700,22 @@ describe('webhook/repair verified-state consistency (#358)', () => {
 
     mockGetUser.mockResolvedValueOnce(backendUserFrom(userJson(shared)));
     mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
-    double.nextRows([]); // no profile row yet
+    double.nextRows([]);
     double.nextRows([
       {
         age_verified_at: '2026-01-01T00:00:00.000Z',
         agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
       },
-    ]); // post-write consent re-read
+    ]);
     await repairUserMirror(double.db, MIGRATED_APP_ID, CLERK_USER_ID);
     const repaired = double.mirrorUpserts()[1].values;
 
-    // Stable id, Clerk id, lowercased email, created/last-sign-in identical:
     expect(repaired.id).toBe(synced.id);
     expect(repaired.clerk_user_id).toBe(synced.clerk_user_id);
     expect(repaired.email).toBe(synced.email);
     expect(repaired.created_at).toBe(synced.created_at);
     expect(repaired.last_sign_in_at).toBe(synced.last_sign_in_at);
 
-    // Observed verification agrees on presence and shape in both paths:
     if (status === 'verified') {
       expect(String(repaired.email_confirmed_at)).toMatch(ISO_LIKE);
       expect(String(synced.email_confirmed_at)).toMatch(ISO_LIKE);
@@ -822,10 +725,6 @@ describe('webhook/repair verified-state consistency (#358)', () => {
     }
   });
 });
-
-// ---------------------------------------------------------------------------
-// readUserVerification — cache/fresh split for the edge gate
-// ---------------------------------------------------------------------------
 
 describe('readUserVerification', () => {
   const ROW = { email: 'gate@example.com', email_confirmed_at: '2026-02-03T04:05:06.000Z' };
@@ -858,31 +757,23 @@ describe('readUserVerification', () => {
     expect(double.selects()).toHaveLength(1);
 
     await expect(readUserVerification(double.db, 'u2', { cache: true })).resolves.toEqual(ROW);
-    expect(double.selects()).toHaveLength(2); // distinct key still queries
+    expect(double.selects()).toHaveLength(2);
   });
 
   it('caches null as "unverified" until explicitly cleared', async () => {
     await expect(readUserVerification(double.db, 'u1', { cache: true })).resolves.toBeNull();
 
-    // Webhook latency resolves and the row appears…
     double.nextRows([ROW]);
-    // …but the negative cache must still serve null within the TTL window:
     await expect(readUserVerification(double.db, 'u1', { cache: true })).resolves.toBeNull();
     expect(double.selects()).toHaveLength(1);
 
-    // Fresh reads bypass the negative cache:
     await expect(readUserVerification(double.db, 'u1', { cache: false })).resolves.toEqual(ROW);
 
-    // And clearing (post-webhook invalidation seam) exposes the new state:
     clearUserVerificationCache();
     double.nextRows([ROW]);
     await expect(readUserVerification(double.db, 'u1', { cache: true })).resolves.toEqual(ROW);
   });
 });
-
-// ---------------------------------------------------------------------------
-// softDeleteUserById — CCPA soft delete with dual-key match
-// ---------------------------------------------------------------------------
 
 describe('softDeleteUserById', () => {
   it('disables either the app-id or Clerk-id profile with coalesced suppression stamps', async () => {
@@ -902,9 +793,6 @@ describe('softDeleteUserById', () => {
       'coalesce("user_profiles"."unsubscribed_at", now())'
     );
 
-    // Dual-key match: direct app id OR resolution via the users mirror. The
-    // IN-arm's subquery is a mock-built select, so its shape is pinned from
-    // the recorded op instead of rendered SQL.
     const where = renderWhere(update.where);
     expect(where.params[0]).toBe(CLERK_USER_ID);
     expect(where.sql).toContain('"user_profiles"."user_id" = $1');

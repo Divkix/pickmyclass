@@ -2,9 +2,8 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { useSwipe } from '@/lib/hooks/useSwipe';
 
-// Helper to create mock touch events
 const createTouchEvent = (clientX: number): React.TouchEvent => {
-  // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because minimal mock not overlapping TouchEvent
+  // eslint-disable-next-line anti-slop/no-chained-type-assertions
   return {
     touches: [{ clientX }],
   } as unknown as React.TouchEvent;
@@ -35,12 +34,11 @@ describe('useSwipe hook', () => {
       const onSwipeLeft = vi.fn();
       const { result } = renderHook(() => useSwipe({ onSwipeLeft }));
 
-      // Swipe 99px (below threshold) - should not trigger
       act(() => {
         result.current.handlers.onTouchStart(createTouchEvent(100));
       });
       act(() => {
-        result.current.handlers.onTouchMove(createTouchEvent(1)); // -99px swipe
+        result.current.handlers.onTouchMove(createTouchEvent(1));
       });
       act(() => {
         result.current.handlers.onTouchEnd();
@@ -59,7 +57,7 @@ describe('useSwipe hook', () => {
         result.current.handlers.onTouchStart(createTouchEvent(200));
       });
       act(() => {
-        result.current.handlers.onTouchMove(createTouchEvent(100)); // -100px swipe
+        result.current.handlers.onTouchMove(createTouchEvent(100));
       });
       act(() => {
         result.current.handlers.onTouchEnd();
@@ -76,7 +74,7 @@ describe('useSwipe hook', () => {
         result.current.handlers.onTouchStart(createTouchEvent(100));
       });
       act(() => {
-        result.current.handlers.onTouchMove(createTouchEvent(50)); // -50px swipe
+        result.current.handlers.onTouchMove(createTouchEvent(50));
       });
       act(() => {
         result.current.handlers.onTouchEnd();
@@ -95,7 +93,7 @@ describe('useSwipe hook', () => {
         result.current.handlers.onTouchStart(createTouchEvent(100));
       });
       act(() => {
-        result.current.handlers.onTouchMove(createTouchEvent(200)); // +100px swipe
+        result.current.handlers.onTouchMove(createTouchEvent(200));
       });
       act(() => {
         result.current.handlers.onTouchEnd();
@@ -112,7 +110,7 @@ describe('useSwipe hook', () => {
         result.current.handlers.onTouchStart(createTouchEvent(100));
       });
       act(() => {
-        result.current.handlers.onTouchMove(createTouchEvent(150)); // +50px swipe
+        result.current.handlers.onTouchMove(createTouchEvent(150));
       });
       act(() => {
         result.current.handlers.onTouchEnd();
@@ -145,7 +143,7 @@ describe('useSwipe hook', () => {
         result.current.handlers.onTouchMove(createTouchEvent(150));
       });
 
-      expect(onSwipeMove).toHaveBeenCalledWith(50); // 150 - 100 = 50
+      expect(onSwipeMove).toHaveBeenCalledWith(50);
     });
 
     it('should call onSwipeEnd when touch ends', () => {
@@ -242,7 +240,6 @@ describe('useSwipe hook', () => {
         result.current.handlers.onTouchEnd();
       });
 
-      // Should not call onSwipeEnd when not swiping
       expect(onSwipeEnd).not.toHaveBeenCalled();
     });
 

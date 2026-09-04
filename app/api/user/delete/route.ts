@@ -9,24 +9,13 @@ import { captureServerEvent } from '@/lib/analytics/server';
 import { getDbFromEnv } from '@/lib/db';
 import { userProfiles } from '@/lib/db/schema';
 
-/**
- * Account Deletion API - CCPA Compliance
- *
- * Soft-deletes user account (sets disabled flag)
- * Data is retained for 30 days for business records, then purged
- * California residents have the right to deletion (CCPA)
- *
- * US-compliant: Soft delete is acceptable in US, unlike GDPR
- */
 export async function DELETE(request: Request) {
   try {
     return await withAuth(request, async (user) => {
       try {
         const deletionTimestamp = new Date().toISOString();
 
-        // Soft delete: update user_profiles directly (no RLS in PlanetScale — app-layer authz)
         try {
-          // One request-scoped Drizzle handle for this invocation.
           const db = getDbFromEnv();
           await db
             .update(userProfiles)
@@ -42,12 +31,10 @@ export async function DELETE(request: Request) {
           return fail('Failed to delete account', 500);
         }
 
-        // Invalidate the cached authorization state to ensure immediate effect
         invalidateAuthorizationState(user.userId);
 
         captureServerEvent(user.userId, 'account_deleted', {});
 
-        // Revoke all Clerk sessions for the user (CCPA sign-out equivalent).
         try {
           await revokeAllUserSessions(user.clerkUserId);
         } catch (error) {

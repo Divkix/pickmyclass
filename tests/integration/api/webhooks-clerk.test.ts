@@ -1,15 +1,3 @@
-/**
- * Integration coverage for the Clerk webhook receiver
- * (`app/api/webhooks/clerk/route.ts`).
- *
- * The route is a transport adapter: it reads the signing-secret binding,
- * verifies the Standard-Webhooks signature, maps event types onto the mirror
- * seams in `lib/db/users.ts`, and translates failures into Svix-compatible
- * HTTP statuses. Primary-email selection and row conversion live behind
- * `syncUserMirrorFromClerkUser`, so these tests hand controlled, structurally
- * typed Clerk payloads straight to the mocked seam and never re-implement
- * that conversion policy.
- */
 import type { SessionWebhookEvent, UserDeletedJSON, UserJSON, WebhookEvent } from '@clerk/backend';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -22,12 +10,9 @@ const {
   mockSyncUserMirrorFromClerkUser,
   mockVerifyWebhook,
 } = vi.hoisted(() => {
-  // Optional binding so the not-configured branch can flip it to undefined.
   const webhookEnv: { CLERK_WEBHOOK_SIGNING_SECRET?: string } = {
     CLERK_WEBHOOK_SIGNING_SECRET: 'whsec_test_binding',
   };
-  // Recording Database handle handed out by the mocked getDbFromEnv; every
-  // delivery must create exactly one request-scoped handle through it.
   const dbHandle = {};
   const mockGetDbFromEnv = vi.fn(() => dbHandle);
   return {
@@ -51,7 +36,6 @@ vi.mock('@/lib/db/users', () => ({
   softDeleteUserById: mockSoftDeleteUserById,
 }));
 
-// Request-scoped handle seam: the route calls getDbFromEnv() once per delivery.
 vi.mock('@/lib/db', () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));
@@ -64,9 +48,6 @@ const PRIMARY_EMAIL_ID = 'idn_email_primary';
 
 type UserUpsertEvent = Extract<WebhookEvent, { type: 'user.created' | 'user.updated' }>;
 type UserDeletedEvent = Extract<WebhookEvent, { type: 'user.deleted' }>;
-// Clerk folds session.created/ended/removed/revoked into a single Webhook
-// member, so Extract-by-single-discriminant collapses to `never`; use the
-// exported grouped alias and narrow with the literal `type` at the fixture.
 
 const svixDelivery = {
   event_attributes: {
@@ -74,7 +55,6 @@ const svixDelivery = {
   },
 };
 
-/** Full structurally typed Clerk user payload; overrides tailor single fields per scenario. */
 function clerkUserFixture(overrides: Partial<UserJSON> = {}): UserJSON {
   return {
     object: 'user',
@@ -97,9 +77,6 @@ function clerkUserFixture(overrides: Partial<UserJSON> = {}): UserJSON {
         id: PRIMARY_EMAIL_ID,
         email_address: 'Primary.User@Example.com',
         linked_to: [],
-        // Unverified address: Clerk wire payloads carry object:"verification",
-        // but @clerk/backend v3's ObjectType union lacks that literal, so
-        // `null` is the only fully-typed VerificationJSON payload.
         verification: null,
       },
     ],
@@ -136,7 +113,6 @@ function signedRequest(): NextRequest {
   });
 }
 
-/** Wire shape of the route's ok()/fail() envelopes (this route never sets `details`). */
 type WebhookEnvelope = { success: true } | { success: false; error: string };
 
 async function responseBody(response: Response): Promise<WebhookEnvelope> {
@@ -239,7 +215,6 @@ describe('POST /api/webhooks/clerk', () => {
   });
 
   it('acknowledges unrelated event types without touching the mirror seams', async () => {
-    // SessionWebhookEvent (not a single-discriminant Extract — see note above).
     const event: SessionWebhookEvent = {
       type: 'session.created',
       object: 'event',

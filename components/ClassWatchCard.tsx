@@ -29,18 +29,13 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   const [swipeOffset, setSwipeOffset] = useState(0);
   const deletedWatchRef = useRef<ClassWatchRow | null>(null);
   const swipeDeleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Tracks swipe-delete in progress. Kept in a ref (not state) because onSwipeEnd
-  // runs in the same touch-end tick as onSwipeLeft, before React re-renders, so
-  // reading a state value there would see a stale false and cancel the slide-out.
   const isSwipeDeletingRef = useRef(false);
 
   const classTitle = `${watch.subject} ${watch.catalog_nbr}${classState?.title ? ` - ${classState.title}` : ''}`;
 
-  // Swipe-to-delete functionality
   const { handlers } = useSwipe({
     threshold: 100,
     onSwipeMove: (offset) => {
-      // Only allow left swipe (negative offset)
       if (offset < 0) {
         setSwipeOffset(Math.max(offset, -120));
       }
@@ -49,9 +44,6 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
       void handleSwipeDelete();
     },
     onSwipeEnd: () => {
-      // Reset if not deleted. Read the ref, not the isSwipeDeleting state: this
-      // runs synchronously after onSwipeLeft in the same touch-end tick, before
-      // React re-renders, so the state closure would still be a stale false.
       if (!isSwipeDeletingRef.current) {
         setSwipeOffset(0);
       }
@@ -72,10 +64,9 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
 
   const handleSwipeDelete = async () => {
     isSwipeDeletingRef.current = true;
-    setSwipeOffset(-500); // Slide out animation
+    setSwipeOffset(-500);
     deletedWatchRef.current = watch;
 
-    // Wait for slide animation
     swipeDeleteTimeoutRef.current = setTimeout(async () => {
       try {
         await onDelete(watch.id);
@@ -133,7 +124,6 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
     };
   }, []);
 
-  // Calculate background color based on swipe
   const getBackgroundStyle = () => {
     if (swipeOffset < -10) {
       const opacity = Math.min(Math.abs(swipeOffset) / 120, 1);
@@ -147,7 +137,6 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   return (
     <>
       <div className="relative overflow-hidden rounded-xl">
-        {/* Delete indicator (revealed on swipe) */}
         {swipeOffset < -10 && (
           <div className="absolute inset-0 flex items-center justify-end pr-6 bg-destructive rounded-xl">
             <div className="flex items-center gap-2 text-white">
@@ -157,7 +146,6 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
           </div>
         )}
 
-        {/* Card with swipe animation */}
         <motion.div
           animate={{
             x: swipeOffset,
@@ -170,7 +158,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
           }}
           {...handlers}
           style={{
-            touchAction: 'pan-y', // Allow vertical scrolling
+            touchAction: 'pan-y',
             userSelect: 'none',
             WebkitUserSelect: 'none',
           }}
@@ -186,7 +174,6 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
                   <p className="text-sm text-muted-foreground mt-1">
                     Section {watch.class_nbr} • Term {watch.term}
                   </p>
-                  {/* Watching indicator with pulse animation */}
                   <div className="flex items-center gap-1.5 mt-2">
                     <span className="relative flex size-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-asu-gold opacity-75" />

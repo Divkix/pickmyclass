@@ -11,8 +11,6 @@ describe('timingSafeCompare', () => {
   });
 
   it('should return false for a string vs the same string with a NUL byte appended (regression: zero-pad bug)', () => {
-    // The old implementation zero-padded both buffers to the same length, so
-    // "secret" (padded with \0) compared equal to "secret\0". This must be false.
     expect(timingSafeCompare('secret', 'secret\0')).toBe(false);
   });
 

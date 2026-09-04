@@ -1,10 +1,3 @@
-/**
- * Dead Letter Queue Consumer
- *
- * Handles messages that exhausted all retries in the main queue.
- * Provides visibility via structured logging and admin alert emails.
- */
-
 import { ALERTS_FROM_EMAIL, NOTIFICATION_FROM_EMAIL } from '@/lib/config';
 import type { Database } from '@/lib/db';
 import { getClassWatchers } from '@/lib/db/queries';
@@ -15,15 +8,6 @@ interface HandleDLQMessageOptions {
   fromEmail?: string;
 }
 
-/**
- * Handle a dead letter queue message
- *
- * 1. Logs structured error for observability
- * 2. Looks up affected watchers
- * 3. Sends admin alert email via Cloudflare Email Service
- *
- * This function must never throw — DLQ messages should always be acked.
- */
 export async function handleDLQMessage(
   db: Database,
   message: ClassCheckMessage,
@@ -34,14 +18,10 @@ export async function handleDLQMessage(
   const timestamp = new Date().toISOString();
   const fromEmail = options.fromEmail || NOTIFICATION_FROM_EMAIL;
 
-  // 1. Structured error log
   log('DLQ').error(
     `Section ${class_nbr} (term ${term}) permanently failed. Enqueued at: ${enqueued_at}. Processed at: ${timestamp}`
   );
 
-  // 2. Look up affected watchers for this exact SectionRef (class_nbr + term).
-  // getClassWatchers throws on RPC error; the try/catch keeps the never-throw
-  // contract by falling back to a count of 0.
   let watcherCount = 0;
   try {
     const watchers = await getClassWatchers(db, { class_nbr, term });
@@ -53,7 +33,6 @@ export async function handleDLQMessage(
 
   log('DLQ').info(`Section ${class_nbr}: ${watcherCount} watchers affected`);
 
-  // 3. Send admin alert email
   try {
     await emailBinding.send({
       to: ALERTS_FROM_EMAIL,

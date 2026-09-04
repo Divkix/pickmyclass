@@ -48,7 +48,6 @@ export function AddClassWatch({ onCreated }: AddClassWatchProps) {
             </Alert>
           )}
 
-          {/* University Dropdown (Disabled) */}
           <div className="space-y-2">
             <Label htmlFor="university">University *</Label>
             <div className="relative">
@@ -67,7 +66,6 @@ export function AddClassWatch({ onCreated }: AddClassWatchProps) {
 
           <TermSelect value={term} onValueChange={setTerm} terms={terms} id="term" />
 
-          {/* Section Number */}
           <div className="space-y-2">
             <Label htmlFor="section_number">Section Number *</Label>
             <Input
@@ -98,7 +96,6 @@ export function AddClassWatch({ onCreated }: AddClassWatchProps) {
             </div>
           </div>
 
-          {/* Submit Button */}
           <Button
             type="submit"
             variant="gradient"

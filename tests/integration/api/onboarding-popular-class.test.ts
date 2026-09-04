@@ -1,9 +1,3 @@
-/**
- * /api/onboarding/popular-class over the Drizzle boundary. The route resolves
- * ONE request-scoped handle via getDbFromEnv and passes it to the
- * getMostWatchedClass RPC helper (stubbed here to script outcomes); any
- * failure fails open to popularClass: null so onboarding never blocks.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import { GET } from '@/app/api/onboarding/popular-class/route';
@@ -29,9 +23,6 @@ vi.mock('@/lib/auth/clerk-session', () => ({
   getSessionIdentity: mockGetSessionIdentity,
 }));
 
-// Sentinel request-scoped handle threaded into the query helper. Flows only
-// through the mocked '@/lib/db' factory, so it needs no Database cast —
-// identity is asserted via toHaveBeenCalledWith.
 const requestDb = { __sentinel: 'popular-class-request-db' };
 
 vi.mock('@/lib/db', () => ({
@@ -72,11 +63,9 @@ const classDetails: ClassDetails = {
   meeting_times: 'MWF 9:00 AM-9:50 AM',
 };
 
-/** JSON payload values the route handler serializes. */
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 async function json(response: Response) {
-  // SAFETY: test helper parses JSON response; shape asserted per test case via property access
   return response.json() as Promise<Record<string, JsonValue>>;
 }
 
@@ -127,7 +116,6 @@ describe('/api/onboarding/popular-class', () => {
 
     expect(response.status).toBe(200);
     expect(data.popularClass).toBeNull();
-    // The single request-scoped handle is threaded into the query helper.
     expect(mockGetMostWatchedClass).toHaveBeenCalledTimes(1);
     expect(mockGetMostWatchedClass).toHaveBeenCalledWith(requestDb, '2267');
     expect(mockFetchClassFromASU).not.toHaveBeenCalled();

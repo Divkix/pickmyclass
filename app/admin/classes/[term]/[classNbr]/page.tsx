@@ -29,46 +29,24 @@ interface AdminClassDetailPageProps {
   }>;
 }
 
-/**
- * Admin Class Detail Page
- *
- * Displays detailed information about a specific class section including:
- * - Class information (number, subject, title, instructor, seats, location, times)
- * - List of users watching this class with their details
- * - Last checked/changed timestamps
- *
- * Requires admin authentication via verifyAdmin().
- * Uses dynamic route parameters [term]/[classNbr] to fetch the exact section —
- * a class_nbr repeats across terms, so both fields are required to identify one.
- */
 export default async function AdminClassDetailPage({ params }: AdminClassDetailPageProps) {
-  // One request-scoped handle shared by the gate read and both data reads.
   const db = getDbFromEnv();
 
-  // Verify admin authentication (redirects if unauthorized)
   await verifyAdmin(db);
 
-  // Resolve params promise
   const { term, classNbr } = await params;
 
-  // Fetch the exact class state by its SectionRef identity (class_nbr + term).
-  // Both fields are required to identify one section — a class_nbr repeats across terms.
   const [classState] = await db
     .select()
     .from(classStates)
     .where(and(eq(classStates.class_nbr, classNbr), eq(classStates.term, term)))
     .limit(1);
 
-  // Handle case where class not found — guard before any other RPCs so 404 never
-  // triggers (or is masked by) a watchers fetch.
   if (!classState) {
     notFound();
   }
 
   const watchers: ClassWatcher[] = await getClassWatchers(db, { class_nbr: classNbr, term });
-  /**
-   * Format timestamp to readable date/time string
-   */
   const formatDateTime = (timestamp: string): string => {
     return formatAbsoluteDate(timestamp, {
       month: 'short',
@@ -81,7 +59,6 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {/* Breadcrumb Navigation */}
       <div className="mb-6">
         <Link href="/admin/classes">
           <Button variant="ghost" size="sm" className="gap-2">
@@ -91,7 +68,6 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
         </Link>
       </div>
 
-      {/* Page Header */}
       <div className="mb-8">
         <div className="flex items-start justify-between mb-2">
           <div>
@@ -109,7 +85,6 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
         </div>
       </div>
 
-      {/* Class Information Card */}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Class Information</CardTitle>
@@ -117,7 +92,6 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-2">
-            {/* Left Column */}
             <div className="space-y-4">
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-1">Section Number</div>
@@ -142,7 +116,6 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
               </div>
             </div>
 
-            {/* Right Column */}
             <div className="space-y-4">
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-2">
@@ -189,7 +162,6 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
             </div>
           </div>
 
-          {/* Timestamps */}
           <div className="border-t mt-6 pt-6 grid gap-4 md:grid-cols-2">
             <div>
               <div className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-2">
@@ -219,7 +191,6 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
         </CardContent>
       </Card>
 
-      {/* Watchers Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

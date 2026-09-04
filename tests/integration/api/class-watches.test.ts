@@ -1,12 +1,3 @@
-/**
- * Broad CRUD coverage for /api/class-watches over the Drizzle boundary:
- * auth gating, the dashboard join, the atomic create_class_watch_with_limit
- * RPC (including SQLSTATE mapping), graceful-degradation paths, and deletes.
- *
- * DB access runs real Drizzle builders over a scripted postgres-js transport;
- * every request must resolve exactly ONE handle through getDbFromEnv.
- * Onboarding-specific wiring lives in class-watches-onboarding.test.ts.
- */
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -18,14 +9,11 @@ import * as schema from '@/lib/db/schema';
 import type { ClassDetails } from '@/lib/types/class';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 
-// ─── Scripted postgres-js transport (Drizzle builders render real SQL) ──────
-
 interface CapturedStatement {
   sql: string;
   params: unknown[];
 }
 
-/** Driver rows as Drizzle's postgres-js session sees them: keyed objects. */
 type PgWireValue =
   | string
   | number
@@ -34,13 +22,8 @@ type PgWireValue =
   | PgWireValue[]
   | { [column: string]: PgWireValue };
 
-/** Driver rows as Drizzle's postgres-js session sees them: keyed objects. */
 type DriverRowSet = Array<Record<string, PgWireValue>>;
 
-/**
- * Lazy-rejection surface mirroring postgres-js PendingQuery: driver errors
- * surface only when Drizzle awaits the query or reads `.values()`.
- */
 interface ScriptedPendingRows {
   then(
     onFulfilled?: (value: never) => PromiseLike<never>,
@@ -50,20 +33,16 @@ interface ScriptedPendingRows {
   values(): PromiseLike<never[]>;
 }
 
-/** Resolved rows carrying the positional `.values()` Drizzle maps fields from. */
 type ScriptedRows = Promise<DriverRowSet> & { values(): PromiseLike<unknown[][]> };
 
-/** Everything Drizzle's postgres-js session consumes from `unsafe()`. */
 type ScriptedQueryResult = ScriptedPendingRows | ScriptedRows;
 
-/** Minimal postgres-js members Drizzle's session drives end to end. */
 interface PostgresJsSeam {
   unsafe(query: string, params: unknown[]): ScriptedQueryResult;
 }
 
 function createDbHarness() {
   const statements: CapturedStatement[] = [];
-  // FIFO of per-statement outcomes: row sets and driver errors in call order.
   const outcomes: Array<DriverRowSet | Error> = [];
 
   const pendingRows = (rows: DriverRowSet): ScriptedRows =>
@@ -77,9 +56,6 @@ function createDbHarness() {
       statements.push({ sql: query, params });
       const outcome = outcomes.shift();
       if (outcome instanceof Error) {
-        // Lazy rejection mirroring postgres-js PendingQuery: drizzle reads
-        // `.values()` synchronously, and the rejection may only surface when
-        // awaited — an eagerly-rejected promise would go unhandled.
         const reject = (): Promise<never> => Promise.reject(outcome);
         return {
           then: (
@@ -98,19 +74,14 @@ function createDbHarness() {
   };
 
   const client: PostgresJsSeam = scriptedClient;
-  // SAFETY: the harness implements exactly the postgres-js seams Drizzle's
-  // session drives (tag-call unsafe(), .values(), begin()); the rest of the
-  // Sql surface is unreachable through Drizzle builders and db.execute.
   const db = drizzle(client as Database['$client'], { schema });
 
   return {
     db,
     statements,
-    /** Script the row set answered by the next executed statement. */
     next(rows: DriverRowSet = []) {
       outcomes.push(rows);
     },
-    /** Make the next executed statement reject with this driver-shaped error. */
     failNext(error: Error) {
       outcomes.push(error);
     },
@@ -171,7 +142,6 @@ type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string
 const USER_ID = 'user-123';
 const identity = { userId: USER_ID, clerkUserId: 'clerk_123', sessionId: 'sess_123' };
 
-// Any currently selectable term satisfies createClassWatchSchema's refinement.
 const term = getSelectableTerms()[0].code;
 
 const asuDetails: ClassDetails = {
@@ -186,7 +156,6 @@ const asuDetails: ClassDetails = {
   meeting_times: 'MWF 9:00 AM-9:50 AM',
 };
 
-// Key order mirrors the GET watches projection (positional driver mapping).
 const watchRow = {
   id: 'watch-1',
   class_nbr: '12345',
@@ -196,7 +165,6 @@ const watchRow = {
   created_at: '2026-06-15T12:00:00Z',
 };
 
-// Key order mirrors the GET joined-states projection.
 const stateRow = {
   class_nbr: '12345',
   term,
@@ -207,21 +175,15 @@ const stateRow = {
   title: 'Intro to Programming',
 };
 
-// Completed-profile row (key order mirrors the onboarding SELECT projection).
 const completedProfile = {
   onboarding_completed_at: '2026-01-01T00:00:00Z',
   onboarding_skipped_at: null,
 };
 
-/** Postgres-driver error carrying its SQLSTATE on `code`. */
 function driverError(code: string, message: string): Error {
   return Object.assign(new Error(message), { code });
 }
 
-/**
- * Drizzle's DrizzleQueryError wrapper shape: "Failed query" text plus the raw
- * driver error parked on `.cause` alongside the rendered query/params.
- */
 function wrappedDriverError(code: string, message: string): Error {
   const wrapper = new Error(`Failed query: SELECT * FROM create_class_watch_with_limit`);
   return Object.assign(wrapper, {
@@ -265,8 +227,6 @@ function deleteRequest(id: string | null): NextRequest {
 }
 
 async function json<T extends object>(response: Response): Promise<T> {
-  // SAFETY: mocked route handlers serialize the response contracts above; the
-  // generic pins the per-test expected shape.
   return (await response.json()) as T;
 }
 
@@ -295,7 +255,6 @@ describe('/api/class-watches', () => {
     });
 
     it('returns empty watches, the max, and onboarding state for a user with no watches', async () => {
-      // No watches → states lookup skipped; profile read still runs.
       h.next([]);
       h.next([completedProfile]);
 
@@ -308,7 +267,6 @@ describe('/api/class-watches', () => {
       expect(data).toMatchObject({
         onboarding: { onboarding_completed_at: '2026-01-01T00:00:00Z', needs_onboarding: false },
       });
-      // Exactly one request-scoped handle served both reads.
       expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
       expect(h.statements).toHaveLength(2);
     });
@@ -327,7 +285,6 @@ describe('/api/class-watches', () => {
 
       const statesQuery = h.statements[1];
       expect(statesQuery.sql).toContain('"class_states"');
-      // Drizzle expands inArray into per-element placeholders.
       expect(statesQuery.params).toEqual(['12345', term]);
     });
 
@@ -384,7 +341,6 @@ describe('/api/class-watches', () => {
       expect(data.watch).toEqual(rpcWatch);
       expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
 
-      // Bound parameters hit the SECURITY DEFINER RPC with explicit casts.
       expect(h.statements[0].sql).toContain('create_class_watch_with_limit');
       expect(h.statements[0].params).toEqual([USER_ID, term, 'CSE', '240', '12345', 10]);
 

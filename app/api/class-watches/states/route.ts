@@ -5,19 +5,6 @@ import { withAuth } from '@/lib/api/withAuth';
 import { getDbFromEnv } from '@/lib/db';
 import { classStates, classWatches } from '@/lib/db/schema';
 
-/**
- * GET /api/class-watches/states?classNumbers=12345,67890
- *
- * Returns the current class_states rows for the authenticated user's watched
- * sections. Replaces the Supabase Realtime subscription — seat data only
- * changes on the 30-min cron, so polling at 60s+ intervals has ~zero freshness
- * loss.
- *
- * Query params:
- *   classNumbers - comma-separated class_nbr values to fetch states for
- *
- * App-layer authz: only returns states for class_nbrs the user actually watches.
- */
 export async function GET(request: NextRequest) {
   try {
     return await withAuth(request, async (user) => {
@@ -54,7 +41,6 @@ export async function GET(request: NextRequest) {
           .where(
             and(
               inArray(classStates.class_nbr, classNumbers),
-              // Authz scope: only sections the user actually watches.
               inArray(
                 classStates.class_nbr,
                 db

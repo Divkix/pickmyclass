@@ -19,8 +19,6 @@ const h = vi.hoisted(() => ({
   identify: vi.fn(),
   clerkSignOut: vi.fn(),
   contextSignOut: vi.fn(),
-  // When true, useAuth resolves through the real AuthProvider; when false,
-  // tests supply a canned context value (e.g. a rejecting signOut).
   useRealProvider: true,
 }));
 

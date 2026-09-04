@@ -29,23 +29,18 @@ describe('DeleteConfirmDialog', () => {
         />
       );
 
-      // Click the delete button
       const deleteButton = screen.getByRole('button', { name: /delete/i });
       await user.click(deleteButton);
 
-      // onConfirm should be called
       expect(onConfirm).toHaveBeenCalledTimes(1);
 
-      // But onOpenChange should NOT be called yet (async operation pending)
       expect(onOpenChange).not.toHaveBeenCalled();
 
-      // Now resolve the async operation
       await act(async () => {
         resolveDelete();
         await deletePromise;
       });
 
-      // NOW onOpenChange should be called with false to close dialog
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
 
@@ -68,16 +63,12 @@ describe('DeleteConfirmDialog', () => {
 
       await user.click(deleteButton);
 
-      // Wait for async operation to complete (and fail)
       await act(async () => {
-        // Give time for the promise to reject
         await new Promise((resolve) => setTimeout(resolve, 10));
       });
 
-      // onConfirm should be called
       expect(onConfirm).toHaveBeenCalledTimes(1);
 
-      // Dialog should NOT close on error
       expect(onOpenChange).not.toHaveBeenCalled();
     });
 

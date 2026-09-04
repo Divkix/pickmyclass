@@ -34,7 +34,6 @@ export default function SettingsPage() {
         throw new Error('Export failed');
       }
 
-      // Trigger download
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -71,7 +70,6 @@ export default function SettingsPage() {
     );
   }
 
-  // User is not authenticated (will redirect)
   if (!user) {
     return null;
   }

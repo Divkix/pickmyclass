@@ -130,12 +130,10 @@ describe('createClassWatchSchema term validation', () => {
 describe('getPastTermCodes', () => {
   it('returns every calendar code whose sessionEnd has passed', () => {
     const codes = getPastTermCodes(phoenixDate(2026, 9, 1));
-    // Past on 2026-09-01: Spring/Summer/Fall 2025 + Spring/Summer 2026
     expect(codes).toEqual(['2251', '2254', '2257', '2261', '2264']);
   });
 
   it('returns an empty array when no term has ended yet', () => {
-    // Earliest calendar sessionEnd is 2025-05-09 (Spring 2025)
     expect(getPastTermCodes(phoenixDate(2025, 1, 1))).toEqual([]);
   });
 });

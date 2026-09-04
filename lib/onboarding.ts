@@ -1,21 +1,3 @@
-/**
- * Onboarding lifecycle: the single owner of onboarding state reads,
- * projections, and transition rules. Routes and components are transport/view
- * adapters; the rules live here so the skip route, watch creation, modal, and
- * dashboard share one behavior (ADR 0010).
- *
- * Persistence takes a request-scoped Drizzle handle (`Database`, from the
- * server-only `@/lib/db`) as its first argument: entry points create ONE
- * handle per invocation and pass it down. The `Database` import here is
- * type-only (erased at build time), so the pure projection and transition
- * helpers below stay browser-safe and importable from client components.
- *
- * Transition matrix:
- *   pending  --skip-->      skipped
- *   pending  --first watch--> completed
- *   skipped  --first watch--> completed   (ADR 0010: first watch completes, even after skip)
- *   completed              (terminal)
- */
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import type { JsonValue } from '@/lib/api/wire';
@@ -33,17 +15,9 @@ export type OnboardingState = {
   needs_onboarding: boolean;
 };
 
-/** ok()-compatible payload (spreads into the response envelope). */
 export type OnboardingPayload = OnboardingState & Record<string, JsonValue>;
-/** The three lifecycle states a user can be in. */
 export type OnboardingStatus = 'pending' | 'skipped' | 'completed';
 
-/**
- * Derive the lifecycle status from a profile row (or any state shape carrying
- * the two timestamps). A missing profile row is an anomaly (the `handle_new_user`
- * trigger always creates one); treat it as `completed` so unknown users aren't
- * bugged with a first-time modal.
- */
 export function onboardingStatus(row: OnboardingRow | null): OnboardingStatus {
   if (!row) return 'completed';
   if (row.onboarding_completed_at) return 'completed';
@@ -51,13 +25,6 @@ export function onboardingStatus(row: OnboardingRow | null): OnboardingStatus {
   return 'pending';
 }
 
-/**
- * Derive the onboarding state from a user_profiles row.
- *
- * A missing profile row is an anomaly (the `handle_new_user` trigger always
- * creates one); default to "not needed" so unknown users aren't bugged with a
- * first-time modal.
- */
 export function toOnboardingState(row: OnboardingRow | null): OnboardingPayload {
   const completedAt = row?.onboarding_completed_at ?? null;
   const skippedAt = row?.onboarding_skipped_at ?? null;
@@ -68,14 +35,6 @@ export function toOnboardingState(row: OnboardingRow | null): OnboardingPayload 
   };
 }
 
-/**
- * Project the onboarding state after the user creates their first watch.
- * Applies the `pending -> completed` and `skipped -> completed` transitions
- * (ADR 0010: first watch anywhere completes onboarding, including after skip).
- * A `completed` user is a no-op. The `skipped_at` timestamp is preserved so the
- * projection matches the server, which only sets `completed_at` and leaves
- * `skipped_at` untouched.
- */
 export function completeOnFirstWatch(
   current: OnboardingState,
   now: string = new Date().toISOString()
@@ -90,17 +49,6 @@ export function completeOnFirstWatch(
   };
 }
 
-/**
- * DB-level enforcement of the first-watch completion rule.
- *
- * Runs an UPDATE that only matches rows where `onboarding_completed_at IS NULL`,
- * so a skipped user (`skipped_at` set, `completed_at` null) still transitions to
- * completed. This is the persistence-side twin of `completeOnFirstWatch`: the row
- * set matched by `completed_at IS NULL` is exactly pending-or-skipped, i.e.
- * "not completed".
- *
- * Call this after creating a user's first class watch to mark onboarding complete.
- */
 export async function applyFirstWatchGuard(db: Database, userId: string): Promise<void> {
   await db
     .update(userProfiles)
@@ -108,12 +56,6 @@ export async function applyFirstWatchGuard(db: Database, userId: string): Promis
     .where(and(eq(userProfiles.user_id, userId), isNull(userProfiles.onboarding_completed_at)));
 }
 
-/**
- * Read the current onboarding state for a user — the sole owner of the
- * two-column `user_profiles` onboarding SELECT. A missing profile row is an
- * anomaly (the `handle_new_user` trigger always creates one) and projects to
- * `needs_onboarding: false` via `toOnboardingState`.
- */
 export async function readOnboardingState(
   db: Database,
   userId: string
@@ -129,12 +71,6 @@ export async function readOnboardingState(
   return toOnboardingState(rows[0] ?? null);
 }
 
-/**
- * Skip onboarding: persist `onboarding_skipped_at` via the `skip_onboarding`
- * SECURITY DEFINER RPC (bound parameter, explicit `::text` cast) and project
- * the resulting state. Returns null when the RPC produced no row (e.g.
- * unknown user); callers map that to their transport-level error.
- */
 export async function skipOnboarding(
   db: Database,
   userId: string
