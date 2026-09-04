@@ -22,21 +22,8 @@ interface UseRealtimeClassStatesReturn {
   refetch: () => Promise<void>;
 }
 
-// Polling interval — seat data only changes on the 30-min cron, so 60s polling
-// has ~zero freshness loss. Replaces the Supabase Realtime subscription.
 const POLL_INTERVAL_MS = 60_000;
 
-/**
- * Hook to poll for class state updates for specific class sections.
- *
- * Replaces the Supabase Realtime subscription with interval-based polling of
- * an authenticated endpoint. Seat data only changes on the 30-min cron, so
- * polling at 60s+ intervals has ~zero freshness loss.
- *
- * @param options.classNumbers - Array of class_nbr values to monitor
- * @param options.enabled - Whether to enable polling (default: true)
- * @returns Object containing classStates, loading state, error, and refetch function
- */
 export function useRealtimeClassStates({
   classNumbers,
   enabled = true,
@@ -55,7 +42,6 @@ export function useRealtimeClassStates({
       return;
     }
 
-    // Abort any in-flight request (e.g. from a previous poll cycle)
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -78,8 +64,6 @@ export function useRealtimeClassStates({
         classStates: ClassStateRow[];
       };
 
-      // Convert array to object keyed by sectionRefKey so states for the same
-      // class_nbr in different terms don't collide.
       const typedRows = data.classStates || [];
       const statesMap = typedRows.reduce(
         (acc, state) => {
@@ -98,7 +82,6 @@ export function useRealtimeClassStates({
         setClassStates(statesMap);
       }
     } catch (err) {
-      // Ignore abort errors — they're expected when a new request supersedes an old one
       if (err instanceof DOMException && err.name === 'AbortError') return;
       if (!controller.signal.aborted) {
         setError(err instanceof Error ? err : new Error('Failed to fetch class states'));
@@ -113,10 +96,8 @@ export function useRealtimeClassStates({
   useEffect(() => {
     if (!enabled) return;
 
-    // Initial fetch
     void fetchClassStates(classNumbersKey);
 
-    // Set up polling interval
     const intervalId = setInterval(() => {
       void fetchClassStates(classNumbersKey);
     }, POLL_INTERVAL_MS);

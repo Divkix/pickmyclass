@@ -1,11 +1,6 @@
 const ASU_SCHOOL_ID = '15723'; // Arizona State University (Tempe) school ID on RMP
 const INVALID_NAMES = ['staff', 'tba', 'tbd', 'to be announced', 'to be determined'];
 
-/**
- * Generates a RateMyProfessor search URL for a professor at ASU
- * @param professorName - Full name of the professor (e.g., "James Gordon")
- * @returns RMP search URL or null if professor name is invalid
- */
 export function getRateMyProfessorUrl(professorName: string | null | undefined): string | null {
   const name = professorName?.trim();
   if (!name || INVALID_NAMES.includes(name.toLowerCase())) return null;

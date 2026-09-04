@@ -1,11 +1,3 @@
-/**
- * Lightweight in-memory TTL cache for Cloudflare Workers.
- *
- * Per-isolate, auto-evicts expired entries on read.
- * Not shared across Workers instances — use for reducing
- * redundant calls within a single isolate's lifetime.
- */
-// ponytail: lazy sweep on read/write; add interval sweeper if isolate lives >10m with bursty keys
 export class TtlCache<T> {
   private cache = new Map<string, { data: T; expiry: number }>();
 

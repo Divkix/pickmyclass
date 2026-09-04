@@ -1,7 +1,3 @@
-/**
- * Escape HTML entities to prevent XSS attacks.
- * Converts special characters to HTML entities.
- */
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

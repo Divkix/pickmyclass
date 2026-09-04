@@ -1,7 +1,3 @@
-/**
- * Supplemental Cloudflare env types for runtime secrets.
- * Extends the auto-generated types in cloudflare-env.d.ts.
- */
 declare namespace Cloudflare {
   interface Env {
     CRON_SECRET: string;

@@ -1,6 +1,3 @@
-/**
- * Returns the seat availability badge variant for admin views.
- */
 export function getSeatBadgeVariant(
   available: number,
   capacity: number

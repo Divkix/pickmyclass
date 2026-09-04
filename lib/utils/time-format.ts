@@ -1,21 +1,3 @@
-/**
- * Time formatting utilities.
- *
- * Provides consistent relative time formatting across the application.
- */
-
-/**
- * Format a timestamp to a relative time string.
- *
- * Examples:
- * - "Just now" (less than 1 minute)
- * - "5m ago" (less than 1 hour)
- * - "3h ago" (less than 24 hours)
- * - "2d ago" (1 day or more)
- *
- * @param timestamp - ISO timestamp string
- * @returns Relative time string
- */
 export function formatRelativeTime(timestamp: string): string {
   const now = new Date();
   const then = new Date(timestamp);
@@ -30,15 +12,6 @@ export function formatRelativeTime(timestamp: string): string {
   return `${diffDays}d ago`;
 }
 
-/**
- * Format a date string to a readable format with relative time.
- *
- * For dates within the last 7 days, shows relative time ("Just now", "2 hours ago", "3 days ago").
- * For older dates, returns null to allow fallback to absolute date formatting.
- *
- * @param dateString - ISO date string or null
- * @returns Relative time string, or null if older than 7 days
- */
 export function formatRelativeDate(dateString: string | null): string | null {
   if (!dateString) return null;
 
@@ -47,7 +20,6 @@ export function formatRelativeDate(dateString: string | null): string | null {
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  // If less than 7 days ago, show relative time
   if (diffDays === 0) {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHours === 0) {
@@ -63,18 +35,6 @@ export function formatRelativeDate(dateString: string | null): string | null {
 
   return null;
 }
-/**
- * Format a date as an absolute locale string.
- *
- * Wraps `new Date(d).toLocaleString('en-US', ...)` with a sensible default
- * (`year:'numeric', month:'short', day:'numeric', timeZone:'UTC'`). Pass `opts`
- * to override or extend the formatting (e.g. include `hour`/`minute`). Caller
- * `timeZone` wins over the UTC default.
- *
- * @param d - ISO string or Date
- * @param opts - Intl.DateTimeFormatOptions to override the default
- * @returns Formatted date string
- */
 export function formatAbsoluteDate(d: string | Date, opts?: Intl.DateTimeFormatOptions): string {
   return new Date(d).toLocaleString('en-US', {
     year: 'numeric',

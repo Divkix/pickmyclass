@@ -1,20 +1,3 @@
-/**
- * Authorization State — the profile fields that gate access to the app.
- *
- * The server state is read by the edge proxy, `verifyAdmin`, and the login route.
- * Those readers used to re-implement the query with divergent column sets and
- * error handling, and only the edge proxy cached it. This module owns the server
- * read, its 30s per-isolate cache, and its invalidation, exposing a **cached**
- * read (edge) and a **fresh** read (admin).
- *
- * The deliberate cached-vs-fresh split is preserved (see
- * `docs/adr/0001-authorization-state-boundary.md`): `proxy.ts` may serve a
- * 30s-stale decision (a CPU saver), while `verifyAdmin` and login read live so
- * disabling an admin is enforced immediately. The browser `AuthContext` read is
- * intentionally left out — it is a UI affordance only, and this per-isolate cache
- * cannot cross into the browser.
- */
-
 import { eq } from 'drizzle-orm';
 
 import { TtlCache } from '@/lib/cache/ttl-cache';
@@ -22,58 +5,27 @@ import type { Database } from '@/lib/db';
 import { userProfiles } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 
-/**
- * The authorization decision for a user: role, disabled state, and whether both
- * required legal-consent timestamps exist.
- */
 export interface AuthorizationState {
   has_consent: boolean;
   is_admin: boolean;
   is_disabled: boolean;
 }
 
-/** Per-isolate authorization cache with a 30-second TTL. */
 const CACHE_TTL_MS = 30 * 1000;
 const authorizationStateCache = new TtlCache<AuthorizationState>(CACHE_TTL_MS, 100);
 
-/** Clear the entire authorization cache. Exposed for test isolation. Cache-only: no DB. */
 export function clearAuthorizationStateCache(): void {
   authorizationStateCache.clear();
 }
 
-/**
- * Invalidate the cached authorization state for a specific user. Call after
- * mutating an authorization field (`is_admin` / `is_disabled`) or recording
- * consent so the next cached read re-queries instead of serving a stale decision.
- * Returns `true` if an entry existed. Cache-only: no DB.
- */
 export function invalidateAuthorizationState(userId: string): boolean {
   return authorizationStateCache.delete(userId);
 }
 
-/** Options for {@link readAuthorizationState}. */
 interface ReadAuthorizationStateOptions {
-  /**
-   * `true` — the edge read: serve a cached decision (up to 30s stale) and cache a
-   * fresh one on a miss. `false` — the admin read: always query live and
-   * never touch the cache.
-   */
   cache: boolean;
 }
 
-/**
- * Read a user's {@link AuthorizationState}.
- *
- * With `{ cache: true }` this returns a cached decision on a hit and populates the
- * cache on a miss (the edge proxy). With `{ cache: false }` it always queries live
- * and bypasses the cache entirely (`verifyAdmin` and the login route), so a
- * disabled or demoted account is enforced immediately on those gates.
- *
- * Returns `null` when the user has no profile row. On DB/network errors it
- * fail-closes to `{ is_admin:false, is_disabled:true, has_consent:false }` so
- * callers that check `authState?.is_disabled` block the user instead of treating
- * the error as "not disabled". Error results are never cached.
- */
 export async function readAuthorizationState(
   db: Database,
   userId: string,

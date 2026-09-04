@@ -1,20 +1,9 @@
-/**
- * Email Templates for Class Notifications
- *
- * Simple HTML templates for seat availability and instructor assignment notifications.
- * User-provided data is escaped to prevent XSS attacks.
- */
-
 import type { ClassInfo } from '@/lib/types/class';
 import { DEFAULT_SITE_URL } from '@/lib/config';
 import { escapeHtml } from '@/lib/utils/escape-html';
 import { buildUrl } from '@/lib/utils/url';
 import { getEmailFooter } from './footer';
 
-/**
- * Sanitize class information for use in email templates
- * Escapes HTML entities and validates URL parameters
- */
 interface SanitizedClassInfo {
   subject: string;
   catalogNbr: string;
@@ -29,7 +18,6 @@ interface SanitizedClassInfo {
 }
 
 function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
-  // Sanitize all user-provided data
   const safeSubject = escapeHtml(classInfo.subject);
   const safeCatalogNbr = escapeHtml(classInfo.catalog_nbr);
   const safeTitle = escapeHtml(classInfo.title);
@@ -38,11 +26,9 @@ function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
   const safeLocation = classInfo.location ? escapeHtml(classInfo.location) : null;
   const safeMeetingTimes = classInfo.meeting_times ? escapeHtml(classInfo.meeting_times) : null;
 
-  // Term and class_nbr are used in URLs - validate format (numbers only)
   const safeTerm = classInfo.term.replace(/[^0-9]/g, '');
   const safeClassNbrUrl = classInfo.class_nbr.replace(/[^0-9]/g, '');
 
-  // Use internal redirect URL to match sending domain (improves email deliverability)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
   const catalogUrl = buildUrl(siteUrl, '/go/asu', { classNbr: safeClassNbrUrl, term: safeTerm });
   return {
@@ -59,15 +45,6 @@ function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
   };
 }
 
-// invariant: both SeatAvailableEmailTemplate and InstructorAssignedEmailTemplate produce HTML
-// containing getEmailFooter output and safe.catalogUrl (via buildUrl); see bodyHtml construction below.
-
-/**
- * Shared outer HTML shell for class notification emails.
- * Owns doctype, <html>/<head>/<body>, container, gradient header, footer, and unsubscribe.
- * Callers supply variant-specific bodyHtml, preheader, and pre-escaped title;
- * gradient + heading derive from variant.
- */
 export function buildClassEmailShell(opts: {
   variant: 'seat' | 'instructor' | 'removed';
   title: string;
@@ -112,13 +89,7 @@ export function buildClassEmailShell(opts: {
   `.trim();
 }
 
-/**
- * Seat Available Email Template
- *
- * Sent when a class section that was full now has available seats.
- */
 export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?: string): string {
-  // Sanitize all class information
   const safe = sanitizeClassInfo(classInfo);
   const preheader = `Seat available in ${classInfo.subject} ${classInfo.catalog_nbr} — ${classInfo.title}`;
 
@@ -172,16 +143,10 @@ export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?
   });
 }
 
-/**
- * Instructor Assigned Email Template
- *
- * Sent when a class section's instructor changes from "Staff" to an actual professor.
- */
 export function InstructorAssignedEmailTemplate(
   classInfo: ClassInfo,
   unsubscribeUrl?: string
 ): string {
-  // Sanitize all class information
   const safe = sanitizeClassInfo(classInfo);
 
   const preheader = `Instructor assigned for ${classInfo.subject} ${classInfo.catalog_nbr} — ${classInfo.instructor_name}`;

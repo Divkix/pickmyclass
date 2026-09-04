@@ -1,11 +1,3 @@
-/**
- * ASU academic term calendar and selection logic.
- *
- * Term codes follow 2YYS format (e.g. "2261" = Spring 2026, "2264" = Summer, "2267" = Fall).
- * Extend ASU_TERM_CALENDAR each August when ASU publishes the next academic year:
- * https://registrar.asu.edu/academic-calendar
- */
-
 export type AsuSeason = 'spring' | 'summer' | 'fall';
 
 interface DateParts {
@@ -19,11 +11,8 @@ export interface AsuTerm {
   label: string;
   season: AsuSeason;
   year: number;
-  /** When ASU class search catalog lists this term */
   catalogAvailable: DateParts;
-  /** Session C classes begin */
   sessionStart: DateParts;
-  /** Session C finals end — term drops from picker after this date */
   sessionEnd: DateParts;
 }
 
@@ -41,12 +30,7 @@ const SEASON_LABEL = {
   fall: 'Fall',
 } as const satisfies Record<AsuSeason, string>;
 
-/**
- * ASU academic calendar dates sourced from registrar.asu.edu/academic-calendar.
- * Dates use America/Phoenix (no DST).
- */
 const ASU_TERM_CALENDAR: AsuTerm[] = [
-  // 2025
   term(
     2025,
     'spring',
@@ -68,7 +52,6 @@ const ASU_TERM_CALENDAR: AsuTerm[] = [
     { year: 2025, month: 8, day: 21 },
     { year: 2025, month: 12, day: 13 }
   ),
-  // 2026
   term(
     2026,
     'spring',
@@ -90,7 +73,6 @@ const ASU_TERM_CALENDAR: AsuTerm[] = [
     { year: 2026, month: 8, day: 20 },
     { year: 2026, month: 12, day: 12 }
   ),
-  // 2027
   term(
     2027,
     'spring',
@@ -112,7 +94,6 @@ const ASU_TERM_CALENDAR: AsuTerm[] = [
     { year: 2027, month: 8, day: 19 },
     { year: 2027, month: 12, day: 11 }
   ),
-  // 2028 (projected from ASU calendar patterns)
   term(
     2028,
     'spring',
@@ -155,20 +136,17 @@ function term(
   };
 }
 
-/** Encode an ASU term code from year and season (e.g. 2026, "spring" → "2261"). */
 export function encodeTermCode(year: number, season: AsuSeason): string {
   const yy = year % 100;
   return `2${String(yy).padStart(2, '0')}${SEASON_SUFFIX[season]}`;
 }
 
-/** Compare two calendar dates (ignores time). Returns negative if a < b. */
 function compareDateParts(a: DateParts, b: DateParts): number {
   if (a.year !== b.year) return a.year - b.year;
   if (a.month !== b.month) return a.month - b.month;
   return a.day - b.day;
 }
 
-/** Extract today's date in America/Phoenix. */
 function getPhoenixDateParts(now: Date = new Date()): DateParts {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: ASU_TIMEZONE,
@@ -222,11 +200,6 @@ function findTermByCode(code: string): AsuTerm | undefined {
   return ASU_TERM_CALENDAR.find((t) => t.code === code);
 }
 
-/**
- * Returns the current and next selectable terms (1–2 items).
- * Current = in-session term, or earliest upcoming selectable during gaps.
- * Next = following season in the Fall → Spring → Summer cycle that is also selectable.
- */
 export function getSelectableTerms(now: Date = new Date()): AsuTerm[] {
   const today = getPhoenixDateParts(now);
   const selectable = ASU_TERM_CALENDAR.filter((t) => isSelectable(t, today));
@@ -248,7 +221,6 @@ export function getSelectableTerms(now: Date = new Date()): AsuTerm[] {
   return [current];
 }
 
-/** Whether a term code is currently selectable in the class picker. */
 export function isTermSelectable(code: string, now: Date = new Date()): boolean {
   const termEntry = findTermByCode(code);
   if (!termEntry) {
@@ -259,18 +231,15 @@ export function isTermSelectable(code: string, now: Date = new Date()): boolean 
   return isSelectable(termEntry, today);
 }
 
-/** A term is past when today is strictly after its session-C finals end. */
 function isEntryPast(termEntry: AsuTerm, today: DateParts): boolean {
   return compareDateParts(today, termEntry.sessionEnd) > 0;
 }
 
-/** All calendar term codes whose sessionEnd has passed — used by the daily watch sweep. */
 export function getPastTermCodes(now: Date = new Date()): string[] {
   const today = getPhoenixDateParts(now);
   return ASU_TERM_CALENDAR.filter((t) => isEntryPast(t, today)).map((t) => t.code);
 }
 
-/** Format a term for display in the dropdown (e.g. "Fall 2026 (2267)"). */
 export function formatTermOption(termEntry: AsuTerm): string {
   return `${termEntry.label} (${termEntry.code})`;
 }

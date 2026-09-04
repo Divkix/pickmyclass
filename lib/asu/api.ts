@@ -1,14 +1,6 @@
-/**
- * ASU Class Search API Client
- *
- * Direct API client replacing the Puppeteer scraper service.
- * Fetches class details from ASU's class search API.
- */
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import { ASU_CACHE_TTL_MS } from '@/lib/config';
 import { buildUrl } from '@/lib/utils/url';
-
-// --- Error Classes ---
 
 export class ApiError extends Error {
   constructor(
@@ -71,7 +63,6 @@ interface AsuApiClassItem {
   WAITCAP?: string;
 }
 
-/** Elasticsearch response envelope from ASU API */
 interface AsuApiResponse {
   hits: {
     total: { value: number };
@@ -79,13 +70,10 @@ interface AsuApiResponse {
   };
 }
 
-// --- Helpers ---
-
 const CLASS_SEARCH_ENDPOINT_PATH = 'search/classes';
 
 const asuApiCache = new TtlCache<ClassDetails>(ASU_CACHE_TTL_MS, 1000);
 
-/** Clear the in-memory ASU API cache. Exposed for test isolation. */
 export function clearAsuApiCache(): void {
   asuApiCache.clear();
 }
@@ -147,8 +135,6 @@ function normalizeAuthHeader(token: string): string {
   return `Bearer ${trimmed}`;
 }
 
-// --- Main Function ---
-
 export async function fetchClassFromASU(ref: SectionRef, env: AsuApiEnv): Promise<ClassDetails> {
   if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN) {
     throw new ApiError('ASU API environment variables not configured');
@@ -194,7 +180,6 @@ export async function fetchClassFromASU(ref: SectionRef, env: AsuApiEnv): Promis
     throw new NotFoundError(`Section ${classNbr} not found`);
   }
 
-  // Find the hit that matches the requested classNbr (handles fuzzy matches)
   const matchingHit = hits.find((h) => h._source.CLASSNBR === classNbr);
   if (!matchingHit) {
     throw new NotFoundError(`Section ${classNbr} not found in response`);

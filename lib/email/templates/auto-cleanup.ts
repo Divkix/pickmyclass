@@ -1,10 +1,3 @@
-/**
- * Auto-cleanup removal email template.
- *
- * Sent when a watched class no longer exists in the ASU catalog after
- * 3 consecutive NotFound checks and the watch is removed automatically.
- */
-
 import {
   AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
   DEFAULT_SITE_URL,
@@ -35,13 +28,6 @@ export interface AutoCleanupRemovedEmail {
   subject: string;
 }
 
-/**
- * Build removal notification email for auto-cleanup.
- *
- * The class no longer exists in the ASU catalog after 3 consecutive checks;
- * the watch was removed automatically. Includes dashboard link and
- * per-recipient unsubscribe handling when unsubscribeUrl is provided.
- */
 export function buildAutoCleanupRemovedEmail(
   params: BuildAutoCleanupRemovedEmailParams
 ): AutoCleanupRemovedEmail {
@@ -53,7 +39,6 @@ export function buildAutoCleanupRemovedEmail(
   const safeCatalogNbr = catalogNbr ? escapeHtml(catalogNbr) : '';
   const safeTitle = title ? escapeHtml(title) : '';
 
-  // Raw values for plain-text (no HTML encoding) — trimmed to avoid whitespace-only labels
   const rawSubject = subject?.trim() || '';
   const rawCatalog = catalogNbr?.trim() || '';
   const rawTitle = title?.trim() || '';
@@ -65,9 +50,7 @@ export function buildAutoCleanupRemovedEmail(
       ? `${rawCatalog} ${classNbr}`
       : classNbr;
 
-  // Use raw catalogNbr/classNbr fallback for subject (escaped above for html; subject is plain text)
   const rawIdentifier = (catalogNbr || classNbr).replace(/[<>"'&]/g, (c) => {
-    // plain-text subject: strip risky chars without HTML encoding
     const map: Record<string, string> = { '<': '', '>': '', '"': '', "'": '', '&': '' };
     return map[c] ?? '';
   });
@@ -161,31 +144,13 @@ export function buildAutoCleanupRemovedEmail(
   };
 }
 
-/**
- * Per-watcher outcome row for an auto-cleanup send batch.
- *
- * `attempted` separates real transport attempts (send succeeded, or send was
- * invoked and rejected by the provider) from synthetic rows recorded for
- * watchers never sent because a fatal provider error aborted the batch.
- */
 export interface AutoCleanupSendResult {
   success: boolean;
   watchId: string;
   error?: string;
-  /** True when emailBinding.send ran for this watcher; false for skipped-remainder rows. */
   attempted: boolean;
 }
 
-/**
- * Send auto-cleanup removal emails to all watchers of a removed section.
- *
- * Sequential send (no batch API), per-watcher unsubscribe token, throttle
- * EMAIL_BATCH_DELAY_MS when batch > EMAIL_BATCH_SIZE, and logging.
- * No dedup logic — caller has already deleted watches.
- * Each row carries `attempted`: true when emailBinding.send ran for that
- * watcher (success or caught provider failure), false when synthesized for
- * watchers skipped after a fatal provider error aborted the batch.
- */
 export async function sendAutoCleanupRemovalEmails(
   params: {
     ref: SectionRef;
@@ -208,7 +173,6 @@ export async function sendAutoCleanupRemovalEmails(
     return [];
   }
 
-  // Intentionally emails truncated set while deleting all watches — 500 cap prevents blast, remaining 9500 are removed silently (one-shot section gone); accepted trade-off vs paging. Logs watchesDeleted vs emailsSent.
   if (watchers.length > AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE) {
     log('Email').warn(
       `Auto-cleanup cap: ${watchers.length} watchers for ${ref.term}:${ref.class_nbr} exceeds cap ${AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE}, truncating`
@@ -250,7 +214,7 @@ export async function sendAutoCleanupRemovalEmails(
 
       results.push({ success: true, watchId: watcher.watch_id, attempted: true });
     } catch (error) {
-      // SAFETY: catch variable is unknown error shape; narrowing to optional code/message for logging — fallback to UNKNOWN / failed message preserves invariant
+      // SAFETY: unknown catch shape narrowed to optional code/message; fallback preserves invariant
       const errorObj = error as { code?: string; message?: string };
       const errorMessage = errorObj.message || 'Email send failed';
       const errorCode = errorObj.code || 'UNKNOWN';
@@ -266,7 +230,6 @@ export async function sendAutoCleanupRemovalEmails(
         attempted: true,
       });
 
-      // Rate limit / daily limit / sender not verified — abort remaining sends (mirrors lib/email/send.ts)
       if (isFatalEmailCode(errorCode)) {
         for (let j = i + 1; j < watchers.length; j++) {
           const remaining = watchers[j];

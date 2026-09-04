@@ -1,17 +1,3 @@
-/**
- * Admin-Specific Database Queries
- *
- * Reusable admin queries for dashboard metrics and user management.
- * Every exported operation receives the request-scoped Drizzle `Database`
- * handle first; none of them touch a module-global connection. Dashboard
- * stat cards are memoized per isolate through a shared TtlCache (10 min).
- *
- * Product invariants stay in the SECURITY DEFINER Postgres functions and are
- * invoked through typed `db.execute(sql…)` with bound parameters and explicit
- * PostgreSQL casts.
- *
- * @module lib/db/admin-queries
- */
 import { and, count, desc, eq, sql } from 'drizzle-orm';
 
 import { TtlCache } from '@/lib/cache/ttl-cache';
@@ -22,28 +8,17 @@ import { classStates, classWatches, notificationsSent, userProfiles } from '@/li
 import { log } from '@/lib/log';
 import type { NotificationType } from '@/lib/types/notification';
 
-// Reuse a single cache instance across all admin queries
 const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS, 100);
-
-// ─── Shared helpers ─────────────────────────────────────────────────────────
 
 type NotificationStatus = 'active' | 'unsubscribed' | 'bounced' | 'spam' | 'disabled';
 
 type SortDirection = 'asc' | 'desc';
 type WatchCountFilter = 'all' | 'none' | '1-5' | '6-10' | '10+';
 
-/**
- * Normalize a PostgreSQL timestamptz wire value to the ISO-8601 string the
- * previous pg/JSON boundary exposed (`2026-05-19T10:00:00.000Z`).
- * postgres-js hands raw timestamp text straight through to Drizzle, so the
- * typed-query boundary normalizes once here — never in route callers.
- */
 function toIsoTimestamp(value: string): string {
   return new Date(value).toISOString();
 }
 
-/** Row feeding {@link normalizeConsecutiveCount}: the get_classes_page RPC row
- * omits the column under function-version skew; builder rows always carry it. */
 type ConsecutiveCountRow = { consecutive_not_found_count?: number };
 
 function normalizeConsecutiveCount(row: ConsecutiveCountRow): number {
@@ -51,14 +26,8 @@ function normalizeConsecutiveCount(row: ConsecutiveCountRow): number {
   return typeof count === 'number' ? count : 0;
 }
 
-// ─── Simple count queries ───────────────────────────────────────────────────
-
-/** Scalar row of the BIGINT-returning count RPCs (`::text` keeps int8 a string). */
 type CountRpcRow = { count: string };
 
-/**
- * Get total number of emails sent
- */
 export async function getTotalEmailsSent(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('total-emails-sent') as number | undefined;
@@ -75,9 +44,6 @@ export async function getTotalEmailsSent(db: Database): Promise<number> {
   }
 }
 
-/**
- * Get total number of registered users
- */
 export async function getTotalUsers(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('total-users') as number | undefined;
@@ -96,9 +62,6 @@ export async function getTotalUsers(db: Database): Promise<number> {
   }
 }
 
-/**
- * Get total number of admin users
- */
 export async function getAdminCount(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('admin-count') as number | undefined;
@@ -118,9 +81,6 @@ export async function getAdminCount(db: Database): Promise<number> {
   }
 }
 
-/**
- * Get total number of unique classes being watched
- */
 export async function getTotalClassesWatched(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('total-classes-watched') as number | undefined;
@@ -139,8 +99,6 @@ export async function getTotalClassesWatched(db: Database): Promise<number> {
     throw new Error(`Failed to fetch class count: ${driverErrorMessage(error)}`);
   }
 }
-
-// ─── Paginated query parameters ─────────────────────────────────────────────
 
 export type UserSortField =
   | 'email'
@@ -194,25 +152,15 @@ export interface ClassesPage {
   fullClasses: number;
 }
 
-// ─── Result types ───────────────────────────────────────────────────────────
-
-/** Row type inferred from the class_states table. */
 type ClassState = typeof classStates.$inferSelect;
-/** Row type inferred from the class_watches table. */
 type ClassWatch = typeof classWatches.$inferSelect;
 
-/**
- * Class state with aggregated watcher count
- */
 export interface ClassWithWatchers extends ClassState {
   watcher_count: number;
   seat_emails: number;
   instructor_emails: number;
 }
 
-/**
- * User information with watch count
- */
 export interface UserWithWatchCount {
   id: string;
   email: string;
@@ -226,20 +174,10 @@ export interface UserWithWatchCount {
   notification_status: NotificationStatus;
 }
 
-/**
- * Class watch with joined class state information
- */
 interface WatchWithClass extends ClassWatch {
   class_state: ClassState | null;
 }
 
-// ─── Paginated queries ──────────────────────────────────────────────────────
-
-/**
- * One row of the {@link get_users_page} RPC. BIGINT aggregates arrive as
- * strings (`watch_count`, counts, `total_count`); timestamps arrive as
- * timestamptz text and are normalized at the mapping boundary below.
- */
 type UsersPageRpcRow = {
   id: string;
   email: string;
@@ -254,9 +192,6 @@ type UsersPageRpcRow = {
   total_count: string;
 };
 
-/**
- * Get a single page of users for the admin dashboard
- */
 export async function getUsersPage(
   db: Database,
   params: GetUsersPageParams = {}
@@ -312,11 +247,6 @@ export async function getUsersPage(
   }
 }
 
-/**
- * One row of the {@link get_classes_page} RPC. BIGINT aggregates arrive as
- * strings; timestamps arrive as timestamptz text and are normalized at the
- * mapping boundary below.
- */
 type ClassesPageRpcRow = {
   id: string;
   class_nbr: string;
@@ -341,9 +271,6 @@ type ClassesPageRpcRow = {
   full_classes: string;
 };
 
-/**
- * Get a single page of classes for the admin dashboard
- */
 export async function getClassesPage(
   db: Database,
   params: GetClassesPageParams = {}
@@ -409,11 +336,6 @@ export async function getClassesPage(
   }
 }
 
-// ─── Non-paginated queries ──────────────────────────────────────────────────
-
-/**
- * Get distinct subject codes from class_states
- */
 export async function getDistinctSubjects(db: Database): Promise<string[]> {
   // SAFETY: adminCache stores unknown; narrowing to string[] via cache key contract
   const cached = adminCache.get('distinct-subjects') as string[] | undefined;
@@ -432,8 +354,6 @@ export async function getDistinctSubjects(db: Database): Promise<string[]> {
   }
 }
 
-// ─── Recent activity ────────────────────────────────────────────────────────
-
 type ActivityType = 'user_registration' | 'new_watch' | 'email_sent';
 
 export interface RecentActivityItem {
@@ -446,7 +366,6 @@ export interface RecentActivityItem {
   notificationType: NotificationType | null;
 }
 
-/** One row of the {@link get_recent_activity} RPC (activity_at is timestamptz text). */
 type RecentActivityRpcRow = {
   activity_type: string;
   activity_at: string;
@@ -457,9 +376,6 @@ type RecentActivityRpcRow = {
   notification_type: string | null;
 };
 
-/**
- * Get the most recent platform activity.
- */
 export async function getRecentActivity(
   db: Database,
   limit: number = 50
@@ -506,11 +422,6 @@ export async function getRecentActivity(
   }
 }
 
-// ─── User watches ───────────────────────────────────────────────────────────
-
-/**
- * Get all class watches for a specific user
- */
 export async function getUserWatches(db: Database, userId: string): Promise<WatchWithClass[]> {
   try {
     const rows = await db

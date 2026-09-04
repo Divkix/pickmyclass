@@ -45,12 +45,6 @@ export function hasClerkSessionCookiesInHeader(cookieHeader: string | null): boo
   );
 }
 
-/**
- * Cookie names to expire when force-signing-out a user from the edge gate
- * (disabled account). Server responses can clear these regardless of their
- * HttpOnly flag. The session itself is also revoked via the Backend API, so
- * any surviving copy stops working once its short-lived JWT expires.
- */
 export const CLERK_COOKIES_TO_CLEAR = [
   '__session',
   '__client_uat',

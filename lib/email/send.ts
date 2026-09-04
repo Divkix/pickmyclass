@@ -13,9 +13,6 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-/**
- * Email sending result
- */
 interface EmailResult {
   success: boolean;
   messageId?: string;
@@ -33,11 +30,6 @@ export interface OutboundEmail {
   type: NotificationType;
 }
 
-/**
- * Fatal Cloudflare Email codes: abort the batch and mark the remainder
- * skipped (mirrors the auto-cleanup sender). Anything else fails one email
- * and continues with the next.
- */
 export function isFatalEmailCode(code: string): boolean {
   return (
     code === 'E_RATE_LIMIT_EXCEEDED' ||
@@ -103,11 +95,8 @@ export async function sendBatchEmailsOptimized(
 
       log('Email').error(`Failed to send to ${email.to}: ${errorCode} - ${errorMessage}`);
 
-      // Rate limit or daily limit — stop sending remaining emails
       if (isFatalEmailCode(errorCode)) {
-        // Mark current email as failed
         results.push({ success: false, error: `${errorCode}: ${errorMessage}` });
-        // Mark remaining emails as skipped
         for (let j = i + 1; j < emails.length; j++) {
           results.push({ success: false, error: `Skipped: ${errorCode} limit reached` });
         }
@@ -115,19 +104,9 @@ export async function sendBatchEmailsOptimized(
         break;
       }
 
-      // Other errors — mark as failed, continue to next email
       results.push({ success: false, error: `${errorCode}: ${errorMessage}` });
     }
 
-    // Throttle: pause EMAIL_BATCH_DELAY_MS (75ms) between batches of EMAIL_BATCH_SIZE (10)
-    // only when the total exceeds one batch. Intentionally per-batch, not per-email:
-    // old code delayed after every email when total > 10 (19 delays for 20 emails);
-    // this does 1 delay per 20 emails (~10× throughput). At this volume the 75ms
-    // inter-batch pacing plus sequential sends stays well within Cloudflare Email
-    // rate limits; if limits are hit anyway the E_RATE_LIMIT_EXCEEDED /
-    // E_DAILY_LIMIT_EXCEEDED / E_SENDER_NOT_VERIFIED abort above hard-stops the
-    // batch immediately, so throttling is best-effort pacing, not a correctness guard.
-    // No delay for batches of EMAIL_BATCH_SIZE or fewer.
     if (
       emails.length > EMAIL_BATCH_SIZE &&
       (i + 1) % EMAIL_BATCH_SIZE === 0 &&

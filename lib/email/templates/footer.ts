@@ -1,16 +1,5 @@
-/**
- * Shared CAN-SPAM email footer.
- *
- * Single source of truth for the notification footer used by every email
- * template (class notifications and auto-cleanup removal). The unsubscribe
- * URL is escaped before interpolation to prevent XSS via query params.
- */
-
 import { escapeHtml } from '@/lib/utils/escape-html';
 
-/**
- * Generate email footer with unsubscribe link (CAN-SPAM compliance)
- */
 export function getEmailFooter(unsubscribeUrl?: string): string {
   if (!unsubscribeUrl) {
     return `
@@ -22,7 +11,6 @@ export function getEmailFooter(unsubscribeUrl?: string): string {
     `.trim();
   }
 
-  // Sanitize unsubscribe URL to prevent XSS in query params
   const safeUnsubscribeUrl = escapeHtml(unsubscribeUrl);
 
   return `
