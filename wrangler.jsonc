@@ -17,17 +17,8 @@
   "placement": {
     "mode": "smart",
   },
-  // Custom domain configuration - uncomment and update for your deployment
-  // "routes": [
-  //   {
-  //     "pattern": "your-domain.com",
-  //     "custom_domain": true
-  //   }
-  // ],
   // IMPORTANT: Cron triggers require explicit deployment via 'wrangler triggers deploy'
   // This is automatically included in 'pnpm run deploy' script
-  // Schedule: Every 30 minutes at :00 (even class numbers) and :30 (odd class numbers)
-  // Daily at 4 AM UTC: daily maintenance sweeps (notification expiry + past-term watch deletion)
   "triggers": {
     "crons": ["0,30 * * * *", "0 4 * * *"],
   },
@@ -63,13 +54,9 @@
       },
     ],
   },
-  // Exposes the deployed Worker version id at runtime. Used as part of the
-  // edge HTML cache key in worker.ts so every deploy auto-busts cached pages
-  // (cached HTML references hashed /_next/static chunks that change per deploy).
   "version_metadata": {
     "binding": "CF_VERSION_METADATA",
   },
-  // Durable Objects migrations
   "migrations": [
     {
       "tag": "v2",
@@ -86,35 +73,20 @@
     },
   },
   "vars": {
-    // Application configuration
     "MAX_WATCHES_PER_USER": "10",
-    // UPDATE THESE VALUES for your deployment:
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
     "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app",
   },
-  // Email sending via Cloudflare Email Service
   "send_email": [
     {
       "name": "EMAIL",
       "remote": true,
     },
   ],
-  // IMPORTANT: Set these secrets via 'wrangler secret put <NAME>' or Cloudflare Dashboard:
-  // - ASU_API_BASE_URL (https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1/search/classes)
-  // - ASU_API_TOKEN (Bearer <token>)
-  // - CRON_SECRET (generate with: openssl rand -hex 32)
-  // - UNSUBSCRIBE_SIGNING_SECRET (generate with: openssl rand -hex 32)
-  //
-  // Hyperdrive binding — PlanetScale Postgres connection.
-  // Created with: wrangler hyperdrive create HYPERDRIVE \
-  //   --connection-string="postgres://...planetscale..." --caching-disabled
-  // For local dev, set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var
-  // (overrides the localConnectionString below at runtime).
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
       "id": "749d7808617942ceabbca1059710fbbf",
-      // Fallback local Postgres for `vinext dev` — avoids needing a shell export.
       "localConnectionString": "postgresql://postgres:postgres@localhost:5432/postgres",
     },
   ],
