@@ -15,13 +15,10 @@ export default function AddClassPage() {
   const router = useRouter();
   useRequireAuth();
 
-  // The server-side `class_watch_created` event is authoritative; navigation
-  // is the only client concern after a successful watch creation.
   const handleWatchCreated = () => {
     router.push('/dashboard');
   };
 
-  // Show loading state while checking auth
   if (authLoading) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
@@ -34,7 +31,6 @@ export default function AddClassPage() {
     );
   }
 
-  // User is not authenticated (will redirect)
   if (!user) {
     return null;
   }

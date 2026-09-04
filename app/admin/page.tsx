@@ -13,26 +13,11 @@ import {
 } from '@/lib/db/admin-queries';
 import { getDbFromEnv } from '@/lib/db';
 
-/**
- * Admin Dashboard Page
- *
- * Server Component that displays key platform metrics for admin users.
- * Protected by verifyAdmin() middleware - redirects non-admin users.
- *
- * Features:
- * - Total emails sent (notifications)
- * - Total registered users
- * - Total unique classes being watched
- * - Recent activity feed (registrations, watches, emails)
- */
 export default async function AdminDashboardPage() {
-  // One request-scoped handle shared by the gate read and every stat helper.
   const db = getDbFromEnv();
 
-  // Verify admin access - redirects if not authenticated or not admin
   const adminUser = await verifyAdmin(db);
 
-  // Fetch all statistics in parallel
   const [totalEmails, totalUsers, totalClasses, adminCount, recentActivity] = await Promise.all([
     getTotalEmailsSent(db),
     getTotalUsers(db),
@@ -41,13 +26,11 @@ export default async function AdminDashboardPage() {
     getRecentActivity(db, 10),
   ]);
 
-  // Calculate aggregate delivery metrics
   const avgWatchesPerUser = totalUsers > 0 ? (totalClasses / totalUsers).toFixed(1) : '0';
   const avgEmailsPerUser = totalUsers > 0 ? (totalEmails / totalUsers).toFixed(1) : '0';
 
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
-      {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-semibold mb-2 sm:text-4xl">Admin Dashboard</h1>
         <p className="text-muted-foreground">
@@ -55,9 +38,7 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      {/* Primary Stats Grid */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Total Emails Sent */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -75,7 +56,6 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Total Registered Users */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -102,7 +82,6 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Total Classes Watched */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -121,11 +100,9 @@ export default async function AdminDashboardPage() {
         </Card>
       </div>
 
-      {/* Engagement Metrics */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4">Engagement Metrics</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* Average Watches Per User */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -141,7 +118,6 @@ export default async function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Average Emails Per User */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -159,12 +135,10 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Recent Activity Section */}
       <div className="mb-8">
         <RecentActivity items={recentActivity} />
       </div>
 
-      {/* System Info Footer */}
       <div className="text-xs text-muted-foreground text-center py-4 border-t border-border/40">
         <p>
           Admin dashboard for PickMyClass monitoring system. Times shown in your local timezone.

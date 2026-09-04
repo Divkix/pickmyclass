@@ -17,20 +17,9 @@ function consentRedirect(base: string, next: string, saveFailed = false): NextRe
   return NextResponse.redirect(url);
 }
 
-/**
- * Post-OAuth landing route (Clerk edition of the old /auth/callback).
- *
- * clerk-js completes the OAuth handshake on the /auth/callback page and then
- * navigates here with a live session. This route performs the server-side
- * bookkeeping the old code-exchange callback did:
- *   1. Repair the webhook race (mirror + profile row) for first-time OAuth
- *      users via `repairUserMirror`, which reports whether consent timestamps
- *      already exist.
- */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const consentConfirmed = searchParams.get('consent') === 'confirmed';
-  // Default to home - middleware will route to /admin or /dashboard based on is_admin flag
   const next = safeInternalPath(searchParams.get('next'), '/');
 
   const identity = await getSessionIdentity(request);
@@ -42,8 +31,6 @@ export async function GET(request: Request) {
   const userId = identity.userId;
 
   try {
-    // Repair the webhook race (mirror + profile row) before consent bookkeeping.
-    // One request-scoped handle covers both this repair and the consent RPC.
     const db = getDbFromEnv();
     const repairResult = await repairUserMirror(db, userId, identity.clerkUserId);
     if (!repairResult) {

@@ -7,26 +7,12 @@ import { getMostWatchedClass } from '@/lib/db/queries';
 import { log } from '@/lib/log';
 import { getSelectableTerms } from '@/lib/asu/terms';
 
-/**
- * Popular class example shown on the first step of the onboarding modal.
- *
- * Returned when the most-watched section for the current selectable term can be
- * loaded AND validated against the ASU API. Any failure (no selectable term, no
- * active watches, ASU 404 / auth / rate-limit / network error) fails open to
- * `popularClass: null` so the modal falls back to the text-only guide. We never
- * surface a stale or unvalidated section to the user.
- */
 export interface PopularClass {
   [key: string]: string | ClassDetails;
   class_nbr: string;
   term: string;
   details: ClassDetails;
 }
-/**
- * GET /api/onboarding/popular-class
- * Returns the most-watched class for the current selectable term, validated
- * against the ASU API, or `popularClass: null` when unavailable.
- */
 export async function GET(request: Request) {
   try {
     await requireUser(request);
@@ -42,15 +28,13 @@ export async function GET(request: Request) {
       return ok({ popularClass: null });
     }
 
-    // SAFETY: env is Cloudflare Workers bindings; ASU_API_BASE_URL and ASU_API_TOKEN are required secrets validated at deploy
+    // SAFETY: ASU base URL and token are required secrets validated at deploy
     const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
 
     let details: ClassDetails;
     try {
       details = await fetchClassFromASU(popular, asuEnv);
     } catch (error) {
-      // Fail open: any ASU error (404, auth, rate limit, network) hides the
-      // example and falls back to the text-only guide. Logged for observability.
       log('Onboarding').warn(
         `Popular class ${popular.class_nbr} (term ${popular.term}) failed ASU validation:`,
         error instanceof Error ? error.message : error
@@ -62,7 +46,6 @@ export async function GET(request: Request) {
   } catch (error) {
     if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('Onboarding').error('Popular class error:', error);
-    // Fail open on unexpected errors so onboarding never blocks.
     return ok({ popularClass: null });
   }
 }

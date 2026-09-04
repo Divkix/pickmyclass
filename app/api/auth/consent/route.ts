@@ -19,12 +19,6 @@ export async function POST(request: NextRequest) {
     const { user } = await requireUser(request);
 
     try {
-      // Repair the (short) race where a Google-OAuth user reaches consent
-      // before their user.created webhook has landed: accept_terms_and_verify_age
-      // raises 'User profile not found' without a profile row, so make sure the
-      // mirror + profile exist first. No-op once the webhook has synced.
-      // One request-scoped handle covers both the repair read/write below and
-      // the consent RPC; anonymous/unauthorized requests never open one.
       const db = getDbFromEnv();
       const result = await repairUserMirror(db, user.userId, user.clerkUserId);
       if (!result) {

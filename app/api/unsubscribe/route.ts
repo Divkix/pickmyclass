@@ -1,10 +1,3 @@
-/**
- * Unsubscribe API Endpoint
- *
- * Handles one-click unsubscribe from email notifications (CAN-SPAM compliance).
- * Accepts signed tokens to verify authenticity.
- */
-
 import { eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
@@ -20,10 +13,6 @@ import { userProfiles } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 import { captureServerEvent } from '@/lib/analytics/server';
 
-/**
- * Redacts a user identifier by hashing it to produce a consistent,
- * non-reversible token for safe logging and tracing.
- */
 function redactIdentifier(userId: string): string {
   return createHash('sha256').update(userId).digest('hex');
 }
@@ -83,16 +72,10 @@ async function unsubscribeUser(
   captureServerEvent(userId, 'user_unsubscribed', {});
 }
 
-/**
- * GET handler for web-based unsubscribe
- * Renders a confirmation page with a POST form — no mutation occurs on GET
- * so prefetch / AV preview does not unsubscribe.
- */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const token = searchParams.get('token');
 
-  // Validate token parameter
   const parsed = parseOrFail(unsubscribeTokenSchema, { token });
 
   if (!parsed.success) {
@@ -105,7 +88,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Verify token
   const userId = verifyUnsubscribeToken(parsed.data.token);
 
   if (!userId) {
@@ -119,7 +101,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Render confirmation form — mutation only on POST
   const encodedToken = encodeURIComponent(parsed.data.token);
   const escapedAction = escapeHtml(`/api/unsubscribe?token=${encodedToken}`);
   return htmlPage(
@@ -143,22 +124,18 @@ export async function POST(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const token = searchParams.get('token');
 
-  // Validate token parameter
   const parsed = parseOrFail(unsubscribeTokenSchema, { token });
 
   if (!parsed.success) {
     return parsed.response;
   }
 
-  // Verify token
   const userId = verifyUnsubscribeToken(parsed.data.token);
 
   if (!userId) {
     return fail('Invalid or expired token', 400);
   }
 
-  // Unsubscribe user. One request-scoped Drizzle handle for this invocation;
-  // token failures above never open a connection.
   const db = getDbFromEnv();
   try {
     await unsubscribeUser(db, userId, 'POST');

@@ -13,10 +13,6 @@ import {
   type ClassWatch,
 } from '@/lib/db/schema';
 
-/**
- * class_state projection embedded in each exported watch: the row_to_json
- * subset the export SQL has always projected from class_states.
- */
 type ExportClassState = Pick<
   ClassState,
   | 'title'
@@ -28,40 +24,24 @@ type ExportClassState = Pick<
   | 'last_checked_at'
 >;
 
-/** class_watch stub embedded in each exported notification. */
 type ExportWatchStub = Pick<ClassWatch, 'term' | 'subject' | 'catalog_nbr' | 'class_nbr'>;
 
-/**
- * Normalize a nullable driver timestamp to the ISO-8601 UTC string shape this
- * endpoint has always emitted (postgres.js hands back PG text like
- * "2026-05-01 00:00:00+00" for timestamptz columns).
- */
 function toIsoTimestamp(value: string | null): string | null {
   return value === null ? null : new Date(value).toISOString();
 }
 
-/**
- * Data Export API - CCPA Compliance
- *
- * Allows users to download all their personal data in JSON format
- * California residents have the right to know what data is collected (CCPA)
- */
 export async function GET(request: Request) {
   try {
     return await withAuth(request, async (user) => {
       try {
-        // One request-scoped Drizzle handle for this invocation.
         const db = getDbFromEnv();
 
-        // Mirror is the source of truth for email + verification post-Clerk cutover.
         const mirrorRows = await db.select().from(users).where(eq(users.id, user.userId)).limit(1);
         const [profileRows, watches, notifications] = await Promise.all([
           db.select().from(userProfiles).where(eq(userProfiles.user_id, user.userId)),
           db
             .select({
               ...getTableColumns(classWatches),
-              // Correlated row_to_json fragments preserve the original nested
-              // JSON shapes; PostgreSQL renders their timestamps server-side.
               class_state: sql<ExportClassState | null>`(
                 SELECT row_to_json(cs.*)::jsonb
                 FROM class_states cs

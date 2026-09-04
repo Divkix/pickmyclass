@@ -57,10 +57,8 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  /* ASU Brand Colors */
   --color-asu-maroon: var(--brand-asu-maroon);
   --color-asu-gold: var(--brand-asu-gold);
-  /* Semantic Colors */
   --color-success: var(--success);
   --color-success-foreground: var(--primary-foreground);
   --color-warning: var(--warning);
@@ -73,18 +71,14 @@
 :root {
   --radius: 0.625rem;
 
-  /* Brand Colors - Indigo Primary, Emerald Accent - More Vibrant */
-  /* Brand: ASU Maroon primary, ASU Gold accent */
   --brand-primary: oklch(0.42 0.155 12);
   --brand-primary-foreground: oklch(0.99 0 0);
   --brand-accent: oklch(0.84 0.165 84);
   --brand-accent-foreground: oklch(0.27 0.05 50);
 
-  /* ASU Brand Colors */
-  --brand-asu-maroon: oklch(0.42 0.155 12); /* #8C1D40 */
-  --brand-asu-gold: oklch(0.84 0.165 84); /* #FFC627 */
+  --brand-asu-maroon: oklch(0.42 0.155 12);
+  --brand-asu-gold: oklch(0.84 0.165 84);
 
-  /* Base Colors — true off-white at chroma 0; warmth comes from brand layer */
   --background: oklch(1 0 0);
   --foreground: oklch(0.16 0.01 20);
   --card: oklch(1 0 0);
@@ -92,15 +86,12 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.16 0.01 20);
 
-  /* Primary — ASU maroon */
   --primary: oklch(0.42 0.155 12);
   --primary-foreground: oklch(0.99 0 0);
 
-  /* Secondary — maroon-tinted neutral */
   --secondary: oklch(0.965 0.006 20);
   --secondary-foreground: oklch(0.27 0.04 16);
 
-  /* Muted — maroon-tinted neutral */
   --muted: oklch(0.965 0.006 20);
   --muted-foreground: oklch(0.5 0.02 18);
 
@@ -108,25 +99,21 @@
   --accent: oklch(0.84 0.165 84);
   --accent-foreground: oklch(0.27 0.05 50);
 
-  /* Semantic Colors — functional status layer, independent of brand */
   --destructive: oklch(0.577 0.245 27.325);
   --success: oklch(0.62 0.16 155);
   --warning: oklch(0.828 0.189 84.429);
   --info: oklch(0.42 0.155 12);
 
-  /* Borders & Inputs — faint maroon tint */
   --border: oklch(0.915 0.006 20);
   --input: oklch(0.915 0.006 20);
   --ring: oklch(0.42 0.155 12);
 
-  /* Charts — anchored on the ASU brand pair */
   --chart-1: oklch(0.42 0.155 12);
   --chart-2: oklch(0.84 0.165 84);
   --chart-3: oklch(0.6 0.118 184.704);
   --chart-4: oklch(0.62 0.18 30);
   --chart-5: oklch(0.55 0.16 50);
 
-  /* Sidebar */
   --sidebar: oklch(0.985 0.004 20);
   --sidebar-foreground: oklch(0.16 0.01 20);
   --sidebar-primary: oklch(0.42 0.155 12);
@@ -144,11 +131,9 @@
   --brand-accent: oklch(0.86 0.165 85);
   --brand-accent-foreground: oklch(0.24 0.05 50);
 
-  /* ASU Brand Colors */
   --brand-asu-maroon: oklch(0.55 0.16 14);
   --brand-asu-gold: oklch(0.86 0.165 85);
 
-  /* Base Colors — faint maroon-tinted near-black */
   --background: oklch(0.14 0.008 18);
   --foreground: oklch(0.97 0.004 60);
   --card: oklch(0.18 0.008 18);
@@ -156,41 +141,33 @@
   --popover: oklch(0.18 0.008 18);
   --popover-foreground: oklch(0.97 0.004 60);
 
-  /* Primary — lightened ASU maroon for dark surfaces */
   --primary: oklch(0.55 0.16 14);
   --primary-foreground: oklch(0.99 0 0);
 
-  /* Secondary */
   --secondary: oklch(0.24 0.012 18);
   --secondary-foreground: oklch(0.97 0.004 60);
 
-  /* Muted */
   --muted: oklch(0.24 0.012 18);
   --muted-foreground: oklch(0.72 0.012 30);
 
-  /* Accent — ASU gold with dark foreground */
   --accent: oklch(0.86 0.165 85);
   --accent-foreground: oklch(0.24 0.05 50);
 
-  /* Semantic Colors */
   --destructive: oklch(0.704 0.191 22.216);
   --success: oklch(0.72 0.16 158);
   --warning: oklch(0.828 0.189 84.429);
   --info: oklch(0.55 0.16 14);
 
-  /* Borders & Inputs */
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.6 0.16 14);
 
-  /* Charts */
   --chart-1: oklch(0.55 0.16 14);
   --chart-2: oklch(0.86 0.165 85);
   --chart-3: oklch(0.696 0.17 162.48);
   --chart-4: oklch(0.627 0.18 30);
   --chart-5: oklch(0.645 0.18 50);
 
-  /* Sidebar */
   --sidebar: oklch(0.18 0.008 18);
   --sidebar-foreground: oklch(0.97 0.004 60);
   --sidebar-primary: oklch(0.55 0.16 14);
@@ -213,7 +190,6 @@
       'calt' 1;
   }
 
-  /* Enhanced Typography Scale with Fluid Sizing */
   h1 {
     @apply scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl;
     line-height: 1.2;
@@ -248,19 +224,16 @@
     @apply leading-7;
   }
 
-  /* Smooth Scrolling */
   html {
     scroll-behavior: smooth;
   }
 
-  /* Better Focus Visible */
   *:focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;
   }
 }
 
 @layer utilities {
-  /* Grid Pattern */
   .bg-grid-pattern {
     background-size: 40px 40px;
     background-image:
@@ -269,7 +242,6 @@
     mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
   }
 
-  /* Fluid Typography Utilities */
   .text-display {
     font-size: clamp(2.5rem, 5vw, 3.5rem);
     line-height: 1.1;
@@ -286,12 +258,10 @@
     text-wrap: balance;
   }
 
-  /* Branded emphasis — solid maroon, no gradient text */
   .text-emphasis {
     color: var(--color-primary);
   }
 
-  /* Gold highlighter behind a run of heading text (robust, no z-index) */
   .mark-gold {
     background-image: linear-gradient(
       to top,
@@ -305,7 +275,6 @@
     -webkit-box-decoration-break: clone;
   }
 
-  /* Smooth Shadow — single defined elevation, no ghost-card pairing */
   .shadow-smooth {
     box-shadow: 0 1px 2px 0 oklch(0.42 0.155 12 / 0.06);
   }
@@ -316,7 +285,6 @@
       0 2px 6px -2px oklch(0.42 0.155 12 / 0.08);
   }
 
-  /* FAQ accordion (native <details>) — chevron rotate + grid-rows reveal */
   .faq-item > summary {
     list-style: none;
     cursor: pointer;
@@ -348,7 +316,6 @@
     }
   }
 
-  /* Animation Utilities */
   @media (prefers-reduced-motion: no-preference) {
     .animate-fade-in {
       animation: fade-in 0.5s ease-out;
@@ -394,10 +361,6 @@
     }
   }
 
-  /* Hero ATF copy: Framer Motion SSRs `initial="hidden"` as opacity:0 +
-     translateY. A CSS animation (and reduced-motion / no-JS fallbacks) keeps
-     the H1 readable if hydration is slow or scripts never run. CSS animations
-     override the inline opacity:0 Motion emits on SSR. */
   .animation-hidden {
     animation: hero-atf-appear 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
@@ -413,7 +376,6 @@
     }
   }
 
-  /* Reduce motion support */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
