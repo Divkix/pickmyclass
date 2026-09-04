@@ -8,7 +8,6 @@ import {
 describe('Unsubscribe Token utilities', () => {
   const testUserId = 'user-123-abc';
 
-  // Mock Date.now for consistent testing
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-06-15T12:00:00Z'));
@@ -29,7 +28,6 @@ describe('Unsubscribe Token utilities', () => {
 
     it('should generate a base64url-encoded token', () => {
       const token = generateUnsubscribeToken(testUserId);
-      // Base64url uses only A-Za-z0-9_-
       expect(token).toMatch(/^[A-Za-z0-9_-]+$/);
     });
 
@@ -51,7 +49,6 @@ describe('Unsubscribe Token utilities', () => {
       const parts = decoded.split(':');
       const expiresAt = parseInt(parts[1], 10);
 
-      // Current time + 90 days in milliseconds
       const expectedExpiry = Date.now() + 90 * 24 * 60 * 60 * 1000;
       expect(expiresAt).toBe(expectedExpiry);
     });
@@ -72,10 +69,9 @@ describe('Unsubscribe Token utilities', () => {
       const decoded = Buffer.from(token, 'base64url').toString('utf-8');
       const parts = decoded.split(':');
 
-      // Token format: userId:expiresAt:signature
       expect(parts).toHaveLength(3);
       expect(parts[0]).toBe(testUserId);
-      expect(parts[2]).toMatch(/^[a-f0-9]{64}$/); // SHA256 hex digest is 64 chars
+      expect(parts[2]).toMatch(/^[a-f0-9]{64}$/);
     });
   });
 
@@ -87,9 +83,8 @@ describe('Unsubscribe Token utilities', () => {
     });
 
     it('should return null for expired token', () => {
-      const token = generateUnsubscribeToken(testUserId, 1); // 1 day
+      const token = generateUnsubscribeToken(testUserId, 1);
 
-      // Advance time by 2 days
       vi.advanceTimersByTime(2 * 24 * 60 * 60 * 1000);
 
       const result = verifyUnsubscribeToken(token);
@@ -101,7 +96,6 @@ describe('Unsubscribe Token utilities', () => {
       const decoded = Buffer.from(token, 'base64url').toString('utf-8');
       const parts = decoded.split(':');
 
-      // Tamper with userId
       parts[0] = 'tampered-user-id';
       const tamperedToken = Buffer.from(parts.join(':')).toString('base64url');
 
@@ -114,7 +108,6 @@ describe('Unsubscribe Token utilities', () => {
       const decoded = Buffer.from(token, 'base64url').toString('utf-8');
       const parts = decoded.split(':');
 
-      // Tamper with expiration (extend it)
       parts[1] = String(Date.now() + 365 * 24 * 60 * 60 * 1000);
       const tamperedToken = Buffer.from(parts.join(':')).toString('base64url');
 
@@ -127,7 +120,6 @@ describe('Unsubscribe Token utilities', () => {
       const decoded = Buffer.from(token, 'base64url').toString('utf-8');
       const parts = decoded.split(':');
 
-      // Tamper with signature
       parts[2] = 'a'.repeat(64);
       const tamperedToken = Buffer.from(parts.join(':')).toString('base64url');
 
@@ -217,7 +209,6 @@ describe('Unsubscribe Token utilities', () => {
     it('should work with token just before expiration', () => {
       const token = generateUnsubscribeToken(testUserId, 1);
 
-      // Advance time to just before expiration (23 hours 59 minutes)
       vi.advanceTimersByTime(23 * 60 * 60 * 1000 + 59 * 60 * 1000);
 
       const result = verifyUnsubscribeToken(token);
@@ -227,7 +218,6 @@ describe('Unsubscribe Token utilities', () => {
     it('should fail with token just after expiration', () => {
       const token = generateUnsubscribeToken(testUserId, 1);
 
-      // Advance time to just after expiration (24 hours + 1 second)
       vi.advanceTimersByTime(24 * 60 * 60 * 1000 + 1000);
 
       const result = verifyUnsubscribeToken(token);

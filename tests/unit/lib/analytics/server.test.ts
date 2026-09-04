@@ -39,11 +39,9 @@ vi.mock('@/lib/log', () => ({
 
 import { captureServerEvent, captureServerException } from '@/lib/analytics/server';
 
-/** Await the single promise the module registered with `waitUntil`. */
 async function registeredPromise(index = 0, expectedCalls = 1): Promise<void> {
   expect(mockWaitUntil).toHaveBeenCalledTimes(expectedCalls);
   expect(mockWaitUntil).toHaveBeenCalledWith(expect.any(Promise));
-  // SAFETY: waitUntil is called only with the void promise built by captureServerEvent.
   return mockWaitUntil.mock.calls[index][0] as Promise<void>;
 }
 
@@ -71,7 +69,6 @@ describe('server-side analytics boundary', () => {
         requestTimeout: 1_000,
       })
     );
-    // The event promise is handed to waitUntil, never awaited by the caller.
     await Promise.all([registeredPromise(0, 2), registeredPromise(1, 2)]);
   });
 

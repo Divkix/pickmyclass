@@ -1,12 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 
-// Mock templates module
 vi.mock('@/lib/email/templates', () => ({
   SeatAvailableEmailTemplate: vi.fn(() => '<html>seat</html>'),
   InstructorAssignedEmailTemplate: vi.fn(() => '<html>instructor</html>'),
 }));
 
-// Mock unsubscribe token
 vi.mock('@/lib/email/unsubscribe-token', () => ({
   generateUnsubscribeUrl: vi.fn((userId: string) => `https://pickmyclass.app/unsub?u=${userId}`),
 }));
@@ -21,7 +19,6 @@ function createMockSendEmail() {
 }
 
 function buildClassInfo(overrides: Partial<ClassInfo> = {}): ClassInfo {
-  // SAFETY: test constructs minimal ClassInfo shape; only required fields asserted per test case
   return {
     class_nbr: '12345',
     subject: 'CSE',
@@ -44,7 +41,6 @@ describe('sendBatchEmailsOptimized', () => {
 
   it('returns empty array for empty batch', async () => {
     const sendEmail = createMockSendEmail();
-    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
     const results = await sendBatchEmailsOptimized([], sendEmail as SendEmail);
     expect(results).toEqual([]);
     expect(sendEmail.send).not.toHaveBeenCalled();
@@ -67,7 +63,6 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
     const results = await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
 
     expect(results).toHaveLength(2);
@@ -79,7 +74,6 @@ describe('sendBatchEmailsOptimized', () => {
   it('uses the configured sender address when provided', async () => {
     const sendEmail = createMockSendEmail();
 
-    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
     await sendBatchEmailsOptimized(
       [
         {
@@ -123,7 +117,6 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
     const results = await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
 
     expect(results).toHaveLength(2);
@@ -153,7 +146,6 @@ describe('sendBatchEmailsOptimized', () => {
       { to: 'c@t.com', userId: 'u3', classInfo: buildClassInfo(), type: 'seat_available' as const },
     ];
 
-    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
     const results = await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
 
     expect(results).toHaveLength(3);
@@ -162,7 +154,7 @@ describe('sendBatchEmailsOptimized', () => {
     expect(results[1].error).toContain('E_RATE_LIMIT_EXCEEDED');
     expect(results[2].success).toBe(false);
     expect(results[2].error).toContain('Skipped');
-    expect(sendEmail.send).toHaveBeenCalledTimes(2); // Third never called
+    expect(sendEmail.send).toHaveBeenCalledTimes(2);
   });
 
   it('includes List-Unsubscribe headers in each email', async () => {
@@ -176,7 +168,6 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
     await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
 
     expect(sendEmail.send).toHaveBeenCalledWith(
@@ -200,7 +191,6 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    // SAFETY: test double for EMAIL binding; minimal shape exposes only send()
     await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
 
     expect(sendEmail.send).toHaveBeenCalledWith(
@@ -209,7 +199,6 @@ describe('sendBatchEmailsOptimized', () => {
         text: expect.any(String),
       })
     );
-    // text should be the HTML stripped of tags — mock returns '<html>seat</html>'
     const callArgs = sendEmail.send.mock.calls[0][0];
     expect(callArgs.text).toBeTruthy();
     expect(callArgs.text).not.toContain('<');

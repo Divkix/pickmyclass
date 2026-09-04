@@ -1,12 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-// Mock dependencies before importing the module under test
 vi.mock('@/lib/db/queries', () => ({
   getClassWatchers: vi.fn(),
 }));
 
 const mockSend = vi.fn();
-// SAFETY: test double constructs minimal SendEmail shape; only send is accessed
 const mockEmailBinding: SendEmail = {
   send: mockSend,
 } as SendEmail;
@@ -16,7 +14,6 @@ import { getClassWatchers } from '@/lib/db/queries';
 import { handleDLQMessage } from '@/lib/queue/dlq-consumer';
 import type { ClassCheckMessage } from '@/lib/types/queue';
 
-/** Sentinel Drizzle handle — identity-only; the query seam is mocked. */
 const db = {} as Database;
 
 function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMessage {
@@ -27,8 +24,7 @@ function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMes
     ...overrides,
   };
 }
-// SAFETY: test mock narrows getClassWatchers to vi.fn shape to set mockResolvedValue
-// eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double narrows vi.fn mock type
+// eslint-disable-next-line anti-slop/no-known-value-widening
 const mockGetClassWatchers = getClassWatchers as ReturnType<typeof vi.fn>;
 function mockWatchers(watchers: unknown[]) {
   mockGetClassWatchers.mockResolvedValue(watchers);

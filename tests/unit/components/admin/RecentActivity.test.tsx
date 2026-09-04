@@ -72,7 +72,6 @@ describe('RecentActivity', () => {
     render(<RecentActivity items={mockItems} />);
 
     expect(screen.getByText(/CSE 240/i)).toBeInTheDocument();
-    // Match the watch-specific section format: "(section 12431)" not email's "for section 12431"
     expect(screen.getByText(/\(section 12431\)/)).toBeInTheDocument();
   });
 

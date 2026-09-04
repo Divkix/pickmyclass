@@ -1,5 +1,3 @@
-/** Cloudflare Durable Object adapter tests for the cron-lock module. */
-
 import { describe, expect, it } from 'vite-plus/test';
 import { makeFakeCtx } from '../../mocks/cloudflare-workers';
 
@@ -7,7 +5,6 @@ const workerModule = await import('@/worker');
 const { CronLockDO } = workerModule;
 
 function makeDO() {
-  // SAFETY: test provides Durable Object ctx via makeFakeCtx; empty Env is safe for isolated cron-lock adapter test
   return new CronLockDO(makeFakeCtx(), {} as Cloudflare.Env);
 }
 
@@ -61,7 +58,6 @@ describe('CronLockDO adapter', () => {
 
   it('persists lifecycle state through the Durable Object storage adapter', async () => {
     const ctx = makeFakeCtx();
-    // SAFETY: test provides Durable Object ctx via makeFakeCtx; empty Env is safe for storage lifecycle assertion
     const lock = new CronLockDO(ctx, {} as Cloudflare.Env);
 
     await lock.acquireLock('worker-a');

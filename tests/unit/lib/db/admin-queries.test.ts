@@ -4,23 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import type { Database } from '@/lib/db';
 
-// getRecentActivity issues db.execute(sql`…get_recent_activity($1::int)`);
-// getUserWatches runs a single Drizzle builder join over class_watches +
-// class_states. Both receive a request-scoped Database handle; the mocks
-// reproduce exactly that surface. The real TtlCache stays active so the
-// fail-open caching behavior is exercised end-to-end.
-
 const dialect = new PgDialect();
 
-/** Normalize a built SQL template to comparable single-spaced text. */
 function builtSql(query: SQL): string {
   return dialect.sqlToQuery(query).sql.replace(/\s+/g, ' ').trim();
 }
 
-/**
- * Wire row emitted by public.get_recent_activity: timestamps arrive as
- * timestamptz driver text (or ISO strings) and counts as raw scalars.
- */
 interface RecentActivityWireRow {
   activity_type: string;
   activity_at: string;
@@ -31,7 +20,6 @@ interface RecentActivityWireRow {
   notification_type: string | null;
 }
 
-/** class_watches columns the SectionRef-scoped join reads back. */
 interface WatchWireRow {
   id: string;
   user_id: string;
@@ -42,7 +30,6 @@ interface WatchWireRow {
   created_at: string;
 }
 
-/** class_states columns the SectionRef-scoped join reads back. */
 interface ClassStateWireRow {
   id: string;
   class_nbr: string;
@@ -61,13 +48,11 @@ interface ClassStateWireRow {
   consecutive_not_found_count: number;
 }
 
-/** One joined watch/state row as drizzle's table-shape selection returns it. */
 interface JoinedWatchRow {
   watch: WatchWireRow;
   class_state: ClassStateWireRow | null;
 }
 
-/** Awaitable select chain recording the builder calls getUserWatches makes. */
 interface RecordingChain<Row> extends Promise<Row[]> {
   from(table: PgTable): RecordingChain<Row>;
   leftJoin(table: PgTable, on: SQL): RecordingChain<Row>;
@@ -75,7 +60,6 @@ interface RecordingChain<Row> extends Promise<Row[]> {
   orderBy(condition: SQL): RecordingChain<Row>;
 }
 
-/** Builder calls recorded from the join chain, keyed by builder method. */
 interface RecordedBuilderCalls {
   from: PgTable[];
   leftJoin: Array<[PgTable, SQL]>;
@@ -83,34 +67,20 @@ interface RecordedBuilderCalls {
   orderBy: SQL[];
 }
 
-/**
- * The narrow Database surface these helpers drive: execute() RPCs and the
- * select builder chain.
- */
 interface AdminSeamDb {
   execute?(query: SQL): Promise<RecentActivityWireRow[]>;
   select?(): RecordingChain<JoinedWatchRow>;
 }
 
-/**
- * Narrows a recording double to the request-scoped Database handle the
- * admin helpers accept.
- */
 function asDatabaseHandle(seam: Database | AdminSeamDb): Database {
-  // SAFETY: each double implements exactly one seam above — execute() or the
-  // select/from/leftJoin/where/orderBy builder chain — and no other Database
-  // member is reachable on these code paths.
   return seam as Database;
 }
 
 interface MockDbOptions {
-  /** Rows returned for db.execute. */
   rows?: RecentActivityWireRow[];
-  /** When set, db.execute rejects with this value instead of resolving rows. */
   error?: Error;
 }
 
-/** Build a mock Database whose execute either resolves rows or rejects. */
 function createDb({ rows = [], error }: MockDbOptions = {}) {
   const execute = vi.fn(async (_query: SQL): Promise<RecentActivityWireRow[]> => {
     if (error !== undefined) throw error;
@@ -119,10 +89,6 @@ function createDb({ rows = [], error }: MockDbOptions = {}) {
   return { db: asDatabaseHandle({ execute }), execute };
 }
 
-/**
- * Build a mock Database capturing every builder-chain call so tests can
- * inspect the join/where/order contract of getUserWatches.
- */
 function createJoinDb(joinedRows: JoinedWatchRow[]) {
   const calls: RecordedBuilderCalls = { from: [], leftJoin: [], where: [], orderBy: [] };
 
@@ -151,7 +117,6 @@ function createJoinDb(joinedRows: JoinedWatchRow[]) {
   return { db: asDatabaseHandle({ select }), calls, select };
 }
 
-/** Collect every Column referenced inside a drizzle condition/query tree. */
 function columnsIn(chunk: SQLChunk | Column, acc: Column[] = []): Column[] {
   if (is(chunk, Column)) {
     acc.push(chunk);
@@ -176,8 +141,6 @@ describe('getRecentActivity', () => {
   });
 
   it('should return discriminated union items for all activity types', async () => {
-    // Timestamps arrive as timestamptz wire text; activity_at must come back
-    // normalized to the ISO string shape the API has always exposed.
     const mockData = [
       {
         activity_type: 'user_registration',
@@ -286,9 +249,6 @@ describe('getRecentActivity', () => {
   });
 
   it('should degrade to an empty activity feed when the recent activity RPC is not deployed', async () => {
-    // PostgreSQL error code 42883 = undefined function. The production code
-    // detects this via isUndefinedFunction and caches an empty fallback, so
-    // the second call never reaches the database again.
     const missingRpcError = Object.assign(
       new Error('function get_recent_activity(integer) does not exist'),
       { code: '42883' }
@@ -304,9 +264,6 @@ describe('getRecentActivity', () => {
   });
 
   it('should still fail open on 42883 when Drizzle wraps the driver error', async () => {
-    // Drizzle rethrows failed statements as "Failed query: …" and parks the
-    // raw postgres-js error (with its SQLSTATE code) on .cause. SQLSTATE
-    // narrowing must look through the wrapper or the feed would hard-fail.
     const cause = Object.assign(new Error('function get_recent_activity(integer) does not exist'), {
       code: '42883',
     });
@@ -350,9 +307,6 @@ describe('getUserWatches', () => {
   });
 
   it('joins watches to their SectionRef-scoped state ordered by newest watch', async () => {
-    // The SectionRef-scoped join lives in SQL now; pin its contract: the ON
-    // condition must reference BOTH class_nbr and term from both tables, the
-    // filter targets user_id, and ordering is watch creation descending.
     const joinedRows = [
       {
         watch: {
@@ -436,8 +390,6 @@ describe('getUserWatches', () => {
     expect(fall?.class_state?.term).toBe('2267');
     expect(fall?.class_state?.seats_available).toBe(0);
     expect(fall?.class_state?.consecutive_not_found_count).toBe(2);
-    // Watch fields are flattened alongside class_state; timestamps are
-    // normalized to ISO strings at the boundary.
     expect(spring).toMatchObject({
       user_id: 'u1',
       class_nbr: '12345',
@@ -449,7 +401,6 @@ describe('getUserWatches', () => {
   });
 
   it('returns null class_state for a watch whose term has no matching state row', async () => {
-    // Only the spring term's state exists; the fall watch must not borrow it.
     const { db } = createJoinDb([
       {
         watch: {

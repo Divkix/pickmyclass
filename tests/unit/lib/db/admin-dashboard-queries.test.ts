@@ -4,29 +4,18 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import type { Database } from '@/lib/db';
 
-// The admin helpers receive a request-scoped Drizzle `Database` handle. The
-// mock reproduces the surface they exercise:
-//   getTotalEmailsSent / getAdminCount   → select(count()).from(table)[.where()]
-//   getUserWatches                       → select().from().leftJoin().where().orderBy()
-//   getTotalUsers / getTotalClassesWatched / getUsersPage / getClassesPage
-//                                        → db.execute(sql`…`)
-
 const dialect = new PgDialect();
 
-/** Normalize a built SQL template to comparable single-spaced text. */
 function builtSql(query: SQL): string {
   return dialect.sqlToQuery(query).sql.replace(/\s+/g, ' ').trim();
 }
 
-/** Cell values a dashboard wire row can carry, including nested join rows. */
 type DashboardCell = string | number | boolean | null | DashboardCell[] | DashboardRow;
 
-/** Driver row keyed by column name; nested objects model joined relations. */
 interface DashboardRow {
   [column: string]: DashboardCell;
 }
 
-/** Awaitable select chain recording the builder calls the helpers make. */
 interface RecordingChain extends Promise<DashboardRow[]> {
   from(table: PgTable): RecordingChain;
   leftJoin(table: PgTable, on: SQL): RecordingChain;
@@ -34,37 +23,20 @@ interface RecordingChain extends Promise<DashboardRow[]> {
   orderBy(condition: SQL): RecordingChain;
 }
 
-/**
- * The narrow Database surface these helpers drive: execute() RPCs and the
- * select builder chain.
- */
 interface AdminSeamDb {
   execute?(query: SQL): Promise<DashboardRow[]>;
   select?(): RecordingChain;
 }
 
-/**
- * Narrows a recording double to the request-scoped Database handle the
- * dashboard helpers accept.
- */
 function asDatabaseHandle(seam: Database | AdminSeamDb): Database {
-  // SAFETY: each double implements exactly one seam above — execute() or the
-  // select/from/leftJoin/where/orderBy builder chain — and no other Database
-  // member is reachable on these code paths.
   return seam as Database;
 }
 
 interface MockDbOptions {
-  /** Rows returned for builder selects, keyed by table name. */
   selectRows?: Record<string, DashboardRow[]>;
-  /** Resolved rows for db.execute, first entry whose regex matches the SQL wins. */
   executeRows?: Array<{ match: RegExp; rows: DashboardRow[] }>;
 }
 
-/**
- * Build a mock Database. Returns the Database-shaped handle plus the raw
- * mocks so tests can assert on calls.
- */
 function createDb({ selectRows = {}, executeRows = [] }: MockDbOptions = {}) {
   const execute = vi.fn(async (query: SQL): Promise<DashboardRow[]> => {
     const text = builtSql(query);
@@ -73,11 +45,9 @@ function createDb({ selectRows = {}, executeRows = [] }: MockDbOptions = {}) {
     return hit.rows;
   });
 
-  /** Table names handed to `.from(...)`, in call order. */
   const selectedTables: string[] = [];
 
   const select = vi.fn((): RecordingChain => {
-    // Rows resolve at await time so .from() can still pick the table's set.
     let pendingRows: DashboardRow[] = [];
     const chain: RecordingChain = Object.assign(
       Promise.resolve().then(() => pendingRows),
@@ -99,8 +69,6 @@ function createDb({ selectRows = {}, executeRows = [] }: MockDbOptions = {}) {
   return { db: asDatabaseHandle({ select, execute }), execute, select, selectedTables };
 }
 
-// Disable the TTL cache so each test exercises the real fetch path rather than
-// hitting a module-level cache populated by a previous test.
 vi.mock('@/lib/cache/ttl-cache', () => ({
   TtlCache: class {
     get(_key: string) {
@@ -187,19 +155,15 @@ describe('admin dashboard query helpers', () => {
 
     await expect(getTotalEmailsSent(db)).resolves.toBe(9);
 
-    // getTotalUsers uses the count_all_users RPC.
     await expect(getTotalUsers(db)).resolves.toBe(7);
     expect(builtSql(execute.mock.calls[0][0])).toContain('public.count_all_users()');
 
     await expect(getAdminCount(db)).resolves.toBe(1);
 
-    // getTotalClassesWatched uses the count_distinct_classes_watched RPC.
     await expect(getTotalClassesWatched(db)).resolves.toBe(5);
     const countTexts = execute.mock.calls.map((call) => builtSql(call[0]));
     expect(countTexts.some((text) => text.includes('count_distinct_classes_watched'))).toBe(true);
 
-    // Builder counts never read class_watches; getUserWatches below is the
-    // only class_watches reader in this test.
     expect(selectedTables.filter((name) => name === 'class_watches')).toHaveLength(0);
 
     const userWatches = await getUserWatches(db, 'user-2');
@@ -208,8 +172,6 @@ describe('admin dashboard query helpers', () => {
       id: 'watch-a',
       class_state: { class_nbr: '12345', term: '2261', consecutive_not_found_count: 0 },
     });
-    // Timestamps crossing the boundary are normalized to the ISO strings the
-    // previous pg/JSON boundary exposed, whichever wire shape arrived.
     expect(userWatches[0].created_at).toBe('2026-05-02T12:00:00.000Z');
     expect(userWatches[0].class_state?.last_checked_at).toBe('2026-05-01T00:00:00.000Z');
     expect(userWatches[1].created_at).toBe('2026-05-03T09:30:00.000Z');
@@ -225,8 +187,6 @@ describe('admin dashboard query helpers', () => {
     expect(select).toHaveBeenCalledTimes(1);
     expect(execute).not.toHaveBeenCalled();
   });
-
-  // ── Paginated RPC wrappers ────────────────────────────────────────────────
 
   it('getUsersPage binds get_users_page parameters positionally with explicit casts', async () => {
     const { db, execute } = createDb({
@@ -287,7 +247,6 @@ describe('admin dashboard query helpers', () => {
       seat_emails: 1,
       instructor_emails: 0,
     });
-    // BIGINT counts arrive as strings and are normalized to numbers.
     expect(typeof result.rows[0].watch_count).toBe('number');
     expect(result.rows[0].created_at).toBe('2026-05-01T00:00:00.000Z');
     expect(result.rows[0].last_sign_in_at).toBeNull();
@@ -396,7 +355,6 @@ describe('admin dashboard query helpers', () => {
     expect(builtSql(execute.mock.calls[0][0])).toBe(
       'SELECT public.count_distinct_classes_watched()::text AS count'
     );
-    // Must NOT scan class_watches via a builder select.
     expect(select).not.toHaveBeenCalled();
   });
 

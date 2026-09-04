@@ -46,11 +46,9 @@ describe('buildAutoCleanupRemovedEmail', () => {
       title: 'Intro <b>Programming</b> & More',
     });
 
-    // subject uses rawIdentifier fallback (catalogNbr || classNbr) stripped of <>"'& — verify fallback and not escaped HTML injection
     expect(email.subject).toContain('110');
     expect(email.subject).not.toContain('<script>');
 
-    // html should be escaped
     expect(email.html).toContain('CSE&lt;script&gt;');
     expect(email.html).toContain('Intro &lt;b&gt;Programming&lt;/b&gt; &amp; More');
     expect(email.html).toContain('42737&lt;script&gt;');
@@ -58,7 +56,6 @@ describe('buildAutoCleanupRemovedEmail', () => {
     expect(email.html).not.toContain('<script>');
     expect(email.html).not.toContain('<b>');
 
-    // dashboard link present and escaped
     expect(email.html).toContain('https://pickmyclass.app/dashboard');
     expect(email.html).toContain('Go to Dashboard');
     expect(email.text).toContain('https://pickmyclass.app/dashboard');
@@ -96,7 +93,6 @@ describe('buildAutoCleanupRemovedEmail', () => {
       catalogNbr: null,
       title: null,
     });
-    // classNbr fallback should strip < > etc
     expect(withoutCatalog.subject).toBe(
       'Watched class 42737bad removed — no longer in ASU catalog'
     );
@@ -178,9 +174,9 @@ describe('buildAutoCleanupRemovedEmail', () => {
   });
 
   it('handles trailing slash in site URL for dashboard link', () => {
-    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- SAFETY: test mutates process.env for site URL branching
+    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
     (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL =
-      // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- SAFETY: string literal for env, narrow to string for assignment
+      // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
       'https://pickmyclass.app///' as string;
     const email = buildAutoCleanupRemovedEmail({
       classNbr: '42737',
@@ -215,14 +211,14 @@ describe('sendAutoCleanupRemovalEmails', () => {
     }));
 
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(globalThis, 'setTimeout')
-      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock — setTimeout overload narrowed to callback+delay used by batch throttle
+      // eslint-disable-next-line anti-slop/no-unknown-parameters
       .mockImplementation((cb: () => void) => {
         cb();
-        // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double returns Timeout shape for batch throttle; only used for immediate resolve in cap test
+        // eslint-disable-next-line anti-slop/no-chained-type-assertions
         return {} as unknown as ReturnType<typeof setTimeout>;
       });
 
@@ -237,24 +233,19 @@ describe('sendAutoCleanupRemovalEmails', () => {
 
     expect(sendMock).toHaveBeenCalledTimes(cap);
     expect(results).toHaveLength(cap);
-    // exact cap ownership: results map one-to-one onto the first-cap watchers, in order
     expect(results.map((r) => r.watchId)).toEqual(watchers.slice(0, cap).map((w) => w.watch_id));
     expect(results.every((r) => r.success)).toBe(true);
-    // every capped result maps onto a real send attempt
     expect(results.every((r) => r.attempted)).toBe(true);
     expect(results.filter((r) => r.attempted)).toHaveLength(cap);
     expect(results.filter((r) => r.attempted).length).toBe(sendMock.mock.calls.length);
-    // identity: first watcher was emailed
     expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({ to: watchers[0].email }));
-    // w501 (first truncated) not attempted — inequality of truncated vs deleted set
     expect(sendMock).not.toHaveBeenCalledWith(expect.objectContaining({ to: watchers[cap].email }));
-    // also ensure the last truncated entry not sent
-    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- SAFETY: mock call narrow to {to:string} for sentEmails extraction
+    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
     const sentEmails = sendMock.mock.calls.map((c) => (c[0] as { to: string }).to);
     expect(sentEmails).not.toContain(watchers[cap].email);
     expect(sentEmails).toContain(watchers[0].email);
     expect(sentEmails).toContain(watchers[cap - 1].email);
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: console.warn mock narrowing requires ReturnType wrapper
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => String(c[0]) + ' ' + String(c[1] ?? '')
     );
@@ -267,7 +258,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
       { user_id: 'u2', email: 'b@example.com', watch_id: 'w2' },
     ];
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
     const results = await sendAutoCleanupRemovalEmails(
       {
@@ -281,13 +272,12 @@ describe('sendAutoCleanupRemovalEmails', () => {
     expect(sendMock).toHaveBeenCalledTimes(2);
     expect(results).toHaveLength(2);
     expect(results.every((r) => r.attempted)).toBe(true);
-    // attempted count mirrors actual send invocations
     expect(results.filter((r) => r.attempted).length).toBe(sendMock.mock.calls.length);
   });
 
   it('returns empty when no watchers', async () => {
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
     const results = await sendAutoCleanupRemovalEmails(
       {
@@ -315,7 +305,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
     const sendMock = vi
       .fn()
       .mockRejectedValue(Object.assign(new Error(message), { code: fatalCode }));
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
 
     const results = await sendAutoCleanupRemovalEmails(
@@ -327,9 +317,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
       emailBinding
     );
 
-    // fatal provider error stops further attempts at the failing watcher
     expect(sendMock).toHaveBeenCalledTimes(1);
-    // exactly one real attempt; remainder rows are synthetic skips, not attempts
     expect(results).toEqual([
       { success: false, watchId: 'w1', error: `${fatalCode}: ${message}`, attempted: true },
       {
@@ -345,7 +333,6 @@ describe('sendAutoCleanupRemovalEmails', () => {
         attempted: false,
       },
     ]);
-    // attempted count tracks actual send invocations, not result-row length
     const attemptedRows = results.filter((r) => r.attempted);
     expect(attemptedRows.map((r) => r.watchId)).toEqual(['w1']);
     expect(attemptedRows.length).toBe(sendMock.mock.calls.length);
@@ -365,7 +352,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
         Object.assign(new Error('smtp hiccup'), { code: 'E_CONNECTION_CLOSED' })
       )
       .mockResolvedValueOnce({ messageId: 'm3' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
 
     const results = await sendAutoCleanupRemovalEmails(
@@ -377,14 +364,12 @@ describe('sendAutoCleanupRemovalEmails', () => {
       emailBinding
     );
 
-    // non-fatal codes do not abort: every watcher attempted exactly once
     expect(sendMock).toHaveBeenCalledTimes(3);
     expect(results).toEqual([
       { success: true, watchId: 'w1', attempted: true },
       { success: false, watchId: 'w2', error: 'E_CONNECTION_CLOSED: smtp hiccup', attempted: true },
       { success: true, watchId: 'w3', attempted: true },
     ]);
-    // every result corresponds to a real send invocation
     const attemptedRows = results.filter((r) => r.attempted);
     expect(attemptedRows.map((r) => r.watchId)).toEqual(['w1', 'w2', 'w3']);
     expect(attemptedRows.length).toBe(sendMock.mock.calls.length);
@@ -396,7 +381,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
       { user_id: 'user-43', email: 'b@example.com', watch_id: 'w2' },
     ];
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
 
     await sendAutoCleanupRemovalEmails(
@@ -419,8 +404,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
         },
       })
     );
-    // second watcher got its own unsubscribe URL in body and headers
-    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- SAFETY: mock call narrowed to sent payload shape for unsubscribe inspection
+    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
     const secondPayload = sendMock.mock.calls[1][0] as { html: string; text: string };
     expect(secondPayload.html).toContain('unsubscribe?token=user-43');
     expect(secondPayload.text).toContain(
@@ -435,9 +419,8 @@ describe('sendAutoCleanupRemovalEmails', () => {
       })
     );
 
-    // without an override the sender falls back to NOTIFICATION_FROM_EMAIL
     const defaultSend = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double for EMAIL binding
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const defaultBinding = { send: defaultSend } as unknown as SendEmail;
     await sendAutoCleanupRemovalEmails(
       {
@@ -459,14 +442,14 @@ describe('sendAutoCleanupRemovalEmails', () => {
       watch_id: `w${i}`,
     }));
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double for EMAIL binding; minimal shape exposes only send()
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
     const timeoutSpy = vi
       .spyOn(globalThis, 'setTimeout')
-      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test mock — setTimeout overload narrowed to callback+delay used by batch throttle
+      // eslint-disable-next-line anti-slop/no-unknown-parameters
       .mockImplementation((cb: () => void) => {
         cb();
-        // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double returns Timeout shape for batch throttle
+        // eslint-disable-next-line anti-slop/no-chained-type-assertions
         return {} as unknown as ReturnType<typeof setTimeout>;
       });
 
@@ -480,7 +463,6 @@ describe('sendAutoCleanupRemovalEmails', () => {
     );
 
     expect(results.every((r) => r.success)).toBe(true);
-    // single batch boundary crossed: after email 10 of 11, delay uses configured value
     expect(timeoutSpy).toHaveBeenCalledTimes(1);
     expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), EMAIL_BATCH_DELAY_MS);
   });

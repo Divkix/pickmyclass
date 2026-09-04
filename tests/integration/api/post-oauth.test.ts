@@ -13,8 +13,6 @@ const {
 } = vi.hoisted(() => {
   const mockExecute = vi.fn();
   return {
-    // Recording Database handle handed out by the mocked getDbFromEnv; every
-    // GET must create exactly one request-scoped handle through it.
     dbHandle: { execute: mockExecute },
     mockExecute,
     mockGetDbFromEnv: vi.fn(() => dbHandle),
@@ -24,17 +22,14 @@ const {
   };
 });
 
-// Session seam — never verify real Clerk session tokens in tests.
 vi.mock('@/lib/auth/clerk-session', () => ({
   getSessionIdentity: mockGetSessionIdentity,
 }));
 
-// Mirror owner — lib/db/users owns primary-email policy and mirror/profile upserts.
 vi.mock('@/lib/db/users', () => ({
   repairUserMirror: mockRepairUserMirror,
 }));
 
-// Request-scoped handle seam: the route calls getDbFromEnv() once per GET.
 vi.mock('@/lib/db', () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));
@@ -43,7 +38,6 @@ vi.mock('@/lib/auth/authorization-state', () => ({
   invalidateAuthorizationState: mockInvalidateAuthorizationState,
 }));
 
-// Import after mocks are registered
 import { GET } from '@/app/auth/post-oauth/route';
 
 const ORIGIN = 'https://pickmyclass.app';

@@ -15,7 +15,6 @@ import type { ClassDetails } from '@/lib/types/class';
 
 import { createScriptedPostgres } from './scripted-postgres';
 
-/** Driver-shaped postgres error: SQLSTATE on `code`, like postgres-js throws. */
 function pgError(code: string, message: string): Error {
   return Object.assign(new Error(message), { code });
 }
@@ -164,7 +163,6 @@ describe('incrementConsecutiveNotFound', () => {
     expect(normalizeSql(h.statements[0].sql)).toContain('public.increment_consecutive_not_found');
     const insertSql = normalizeSql(h.statements[1].sql);
     expect(insertSql).toContain('insert into "class_states"');
-    // Plain insert — a concurrent real row must trip 23505 instead of being clobbered.
     expect(insertSql).not.toContain('on conflict');
     expect(h.statements[1].params.slice(0, 2)).toEqual(['42737', '2261']);
     expect(h.statements[1].params.at(-1)).toBe(1);
@@ -286,7 +284,6 @@ describe('deleteSectionAndWatches', () => {
     expect(result).toEqual({ watchesDeleted: 2, stateDeleted: true });
     expect(h.transactionCount).toBe(1);
     expect(h.statements).toHaveLength(2);
-    // Order matters: watches first so notifications_sent cascade inside the tx.
     expect(normalizeSql(h.statements[0].sql)).toContain('delete from "class_watches"');
     expect(normalizeSql(h.statements[1].sql)).toContain('delete from "class_states"');
     expect(h.statements[0].params).toEqual(['42737', '2261']);
@@ -311,7 +308,6 @@ describe('deleteSectionAndWatches', () => {
       deleteSectionAndWatches(h.db, { class_nbr: '42737', term: '2261' })
     ).rejects.toThrow('Failed to delete section: statement timeout');
     expect(h.transactionCount).toBe(1);
-    // Watches delete ran, state delete was attempted and failed — no partial success escapes.
     expect(h.statements).toHaveLength(2);
   });
 });
@@ -358,7 +354,6 @@ describe('capConsecutiveNotFound', () => {
     const sqlText = normalizeSql(h.statements[0].sql);
     expect(sqlText).toContain('update "class_states"');
     expect(sqlText).toMatch(/"consecutive_not_found_count" (!=|<>) \$4/);
-    // drizzle rebinds maxCount for the guard instead of reusing $1.
     expect(h.statements[0].params).toEqual([2, '76337', '2261', 2]);
   });
 
@@ -507,13 +502,12 @@ describe('upsertClassState', () => {
     );
 
     const params = h.statements[0].params;
-    // instructor_name/location/meeting_times coerce via ||; non_reserved_seats/seats keep 0 via ??/||.
-    expect(params[5]).toBeNull(); // instructor_name ''
-    expect(params[6]).toBe(0); // seats_available 0
-    expect(params[7]).toBe(0); // seats_capacity 0
-    expect(params[8]).toBe(0); // non_reserved_seats 0 preserved
-    expect(params[9]).toBeNull(); // location ''
-    expect(params[10]).toBeNull(); // meeting_times ''
+    expect(params[5]).toBeNull();
+    expect(params[6]).toBe(0);
+    expect(params[7]).toBe(0);
+    expect(params[8]).toBe(0);
+    expect(params[9]).toBeNull();
+    expect(params[10]).toBeNull();
   });
 
   it('resets consecutive_not_found_count to 0 on both insert and conflict paths', async () => {

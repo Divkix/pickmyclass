@@ -32,7 +32,6 @@ describe('root request instrumentation', () => {
       routeType: 'render',
     });
 
-    // vinext registers this exact promise with the execution context.
     expect(result).toBe(sentinel);
 
     expect(mockCaptureServerException).toHaveBeenCalledTimes(1);

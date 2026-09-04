@@ -12,7 +12,6 @@ describe('Animation variants', () => {
   describe('stagger variants', () => {
     it('should have staggerContainer with staggerChildren', () => {
       expect(staggerContainer.visible).toHaveProperty('transition');
-      // SAFETY: test narrows staggerContainer.visible to its known transition shape
       const transition = staggerContainer.visible as {
         transition: { staggerChildren: number; delayChildren: number };
       };
@@ -77,11 +76,9 @@ describe('Animation variants', () => {
 
       const result = reduceMotion(fadeInUp);
 
-      // SAFETY: reduceMotion returns original variant with transition added; cast narrows to asserted shape
       expect((result.hidden as { transition: { duration: number } }).transition.duration).toBe(
         0.01
       );
-      // SAFETY: reduceMotion returns original variant with transition added; cast narrows to asserted shape
       expect((result.visible as { transition: { duration: number } }).transition.duration).toBe(
         0.01
       );
@@ -104,13 +101,9 @@ describe('Animation variants', () => {
 
       const result = reduceMotion(fadeInUp);
 
-      // SAFETY: result is fadeInUp variant with known opacity field; cast narrows to asserted shape
       expect((result.hidden as { opacity: number }).opacity).toBe(0);
-      // SAFETY: result is fadeInUp variant with known y field; cast narrows to asserted shape
       expect((result.hidden as { y: number }).y).toBe(20);
-      // SAFETY: result is fadeInUp variant with known opacity field; cast narrows to asserted shape
       expect((result.visible as { opacity: number }).opacity).toBe(1);
-      // SAFETY: result is fadeInUp variant with known y field; cast narrows to asserted shape
       expect((result.visible as { y: number }).y).toBe(0);
     });
   });

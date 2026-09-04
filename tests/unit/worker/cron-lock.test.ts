@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { createCronLockClient, createCronLockLifecycle } from '@/lib/worker/cron-lock';
 
-// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown at I/O boundary; caller passes wire JSON
+// eslint-disable-next-line anti-slop/no-unknown-parameters
 function createMemoryLock(initial: unknown = null) {
   let stored = initial;
   let now = Date.parse('2026-07-12T12:00:00.000Z');
-  // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown at I/O boundary; persists structuredClone of lock state
+  // eslint-disable-next-line anti-slop/no-unknown-parameters
   const save = vi.fn(async (state: unknown) => {
     stored = structuredClone(state);
   });
@@ -120,12 +120,12 @@ describe('cron lock client', () => {
       return Response.json({ released: true, message: 'Lock released' });
     });
     const idFromName = vi.fn(() => 'lock-id');
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal DurableObjectNamespace mock
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     const rawNamespace: unknown = {
       idFromName,
       get: vi.fn(() => ({ fetch })),
     };
-    // eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    // eslint-disable-next-line anti-slop/no-widen-then-assert
     const namespace = rawNamespace as DurableObjectNamespace;
     const client = createCronLockClient(namespace);
 
@@ -161,12 +161,12 @@ describe('cron lock client', () => {
           expiresAt: 200,
         })
       );
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal DurableObjectNamespace mock
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     const rawNamespace: unknown = {
       idFromName: vi.fn(() => 'lock-id'),
       get: vi.fn(() => ({ fetch })),
     };
-    // eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    // eslint-disable-next-line anti-slop/no-widen-then-assert
     const namespace = rawNamespace as DurableObjectNamespace;
     const client = createCronLockClient(namespace);
 
@@ -185,12 +185,12 @@ describe('cron lock client', () => {
   });
 
   it('rejects malformed Durable Object responses', async () => {
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal DurableObjectNamespace mock
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     const rawNamespace: unknown = {
       idFromName: vi.fn(() => 'lock-id'),
       get: vi.fn(() => ({ fetch: vi.fn(async () => Response.json({ nope: true })) })),
     };
-    // eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    // eslint-disable-next-line anti-slop/no-widen-then-assert
     const namespace = rawNamespace as DurableObjectNamespace;
 
     await expect(createCronLockClient(namespace).acquire('worker-a')).rejects.toThrow(
@@ -205,12 +205,12 @@ describe('cron lock client', () => {
         Response.json({ acquired: true, message: 'acquired', lockHolder: 'worker-a' })
       )
       .mockResolvedValueOnce(Response.json({ released: false, message: 'storage unavailable' }));
-    // eslint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: test double needs unknown to satisfy tsc overlap for minimal DurableObjectNamespace mock
+    // eslint-disable-next-line anti-slop/no-known-value-widening
     const rawNamespace: unknown = {
       idFromName: vi.fn(() => 'lock-id'),
       get: vi.fn(() => ({ fetch })),
     };
-    // eslint-disable-next-line anti-slop/no-widen-then-assert -- SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
+    // eslint-disable-next-line anti-slop/no-widen-then-assert
     const namespace = rawNamespace as DurableObjectNamespace;
     const lease = await createCronLockClient(namespace).acquire('worker-a');
 

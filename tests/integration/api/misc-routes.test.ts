@@ -19,7 +19,6 @@ function get(url: string): NextRequest {
 }
 
 async function json(response: Response) {
-  // SAFETY: test helper parses JSON response; shape asserted per test case via property access
   return response.json() as Promise<Record<string, unknown>>;
 }
 
@@ -30,7 +29,6 @@ describe('misc API routes', () => {
     vi.clearAllMocks();
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockRevokeSession.mockResolvedValue(undefined);
-    // Default identity carries the session the route revokes
     mockGetSessionIdentity.mockResolvedValue({
       userId: 'user-1',
       clerkUserId: 'clerk_1',

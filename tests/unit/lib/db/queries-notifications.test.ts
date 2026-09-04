@@ -25,7 +25,6 @@ describe('resetNotificationsForSection', () => {
       resetNotificationsForSection(h.db, { class_nbr: '12345', term: '2261' }, 'seat_available')
     ).resolves.toBeUndefined();
 
-    // Only the class_watches fetch happens; no delete is issued.
     expect(h.statements).toHaveLength(1);
     expect(h.statements[0].sql).toContain('"class_watches"');
     expect(h.statements[0].params).toEqual(['12345', '2261']);
@@ -44,7 +43,6 @@ describe('resetNotificationsForSection', () => {
 
     expect(h.statements).toHaveLength(2);
     expect(h.statements[1].sql).toContain('delete from "notifications_sent"');
-    // in(watch ids) + notification_type — same rollback scope as before the cutover.
     expect(h.statements[1].params).toEqual(['watch-1', 'watch-2', 'seat_available']);
   });
 

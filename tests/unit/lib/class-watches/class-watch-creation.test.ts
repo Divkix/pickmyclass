@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ClassWatchRow } from '@/lib/types/class-watch';
 import { createClassWatchClient } from '@/lib/class-watches/class-watch-creation';
 
-// SAFETY: test fixture provides minimal ClassWatchRow fields needed for creation flow
 const watch = {
   id: 'watch-1',
   user_id: 'user-1',

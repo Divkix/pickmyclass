@@ -1,14 +1,3 @@
-/**
- * Admin table component tests
- *
- * Since filtering and sorting are now server-driven (URL searchParams → RPC),
- * these tests verify that:
- * 1. The tables render the server-provided rows with correct visual layout.
- * 2. Sort header clicks navigate to the correct URL (via router.push).
- * 3. Pagination controls render and navigate correctly.
- * 4. Row clicks navigate to detail pages.
- * 5. Empty states render correctly.
- */
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -50,7 +39,6 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
 }));
 
-// Stub filter components — they just pass onNavigate calls through
 vi.mock('@/components/admin/ClassesTableFilters', () => ({
   ClassesTableFiltersComponent: ({
     onNavigate,
@@ -186,8 +174,6 @@ describe('admin table components (server-driven)', () => {
     vi.clearAllMocks();
   });
 
-  // ── ClassesTable ──────────────────────────────────────────────────────────
-
   it('renders the empty classes state when no rows and no active filters', () => {
     render(<ClassesTable {...defaultClassProps} classes={[]} />);
     expect(screen.getByText('No classes found')).toBeInTheDocument();
@@ -204,7 +190,6 @@ describe('admin table components (server-driven)', () => {
   it('navigates to class detail page on row click', () => {
     render(<ClassesTable {...defaultClassProps} classes={classes} total={2} />);
 
-    // SAFETY: rendered fixture guarantees this text sits inside a <tr>; closest('tr') is non-null in this DOM tree
     fireEvent.click(screen.getByText('Calculus I').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/classes/2261/23456');
   });
@@ -212,17 +197,14 @@ describe('admin table components (server-driven)', () => {
   it('sort header clicks update URL searchParams', () => {
     render(<ClassesTable {...defaultClassProps} classes={classes} total={2} />);
 
-    // Click 'Class #' header
     fireEvent.click(screen.getByText('Class #'));
     expect(mockPush).toHaveBeenCalled();
-    // SAFETY: mockPush is controlled test double; first call arg is the navigated URL string per router mock
     const callArg: string = mockPush.mock.calls[0][0] as string;
     expect(callArg).toContain('sort=class_nbr');
   });
 
   it('shows no-results row when classes array is empty but filters are active', () => {
     render(<ClassesTable {...defaultClassProps} classes={[]} total={0} search="zzzz" />);
-    // Text appears in both the empty-body <td> and the pagination count line (expected).
     const matches = screen.getAllByText('No classes match the selected filters');
     expect(matches.length).toBeGreaterThanOrEqual(1);
     expect(matches[0]).toBeInTheDocument();
@@ -241,12 +223,9 @@ describe('admin table components (server-driven)', () => {
 
     fireEvent.click(screen.getByText('subject mat'));
     expect(mockPush).toHaveBeenCalled();
-    // SAFETY: mockPush is controlled test double; first call arg is the navigated URL string per router mock
     const callArg: string = mockPush.mock.calls[0][0] as string;
     expect(callArg).toContain('subject=MAT');
   });
-
-  // ── UsersTable ────────────────────────────────────────────────────────────
 
   it('renders provided user rows and shows correct count text', () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
@@ -258,7 +237,6 @@ describe('admin table components (server-driven)', () => {
 
   it('renders empty state when no users found', () => {
     render(<UsersTable {...defaultUserProps} users={[]} total={0} />);
-    // Text appears in both the empty-body <td> and the pagination count line (expected).
     const matches = screen.getAllByText('No users found');
     expect(matches.length).toBeGreaterThanOrEqual(1);
     expect(matches[0]).toBeInTheDocument();
@@ -267,7 +245,6 @@ describe('admin table components (server-driven)', () => {
   it('navigates to user detail page on row click', () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
 
-    // SAFETY: rendered fixture guarantees this text sits inside a <tr>; closest('tr') is non-null in this DOM tree
     fireEvent.click(screen.getByText('student@example.com').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/users/user-1');
   });
@@ -276,7 +253,6 @@ describe('admin table components (server-driven)', () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
 
     fireEvent.click(screen.getByText('student@example.com'));
-    // router.push should NOT be called with /admin/users/user-1
     const calls = mockPush.mock.calls.filter((c: string[]) => c[0]?.includes('/admin/users/'));
     expect(calls.length).toBe(0);
   });
@@ -286,7 +262,6 @@ describe('admin table components (server-driven)', () => {
 
     fireEvent.click(screen.getByText('Email'));
     expect(mockPush).toHaveBeenCalled();
-    // SAFETY: mockPush is controlled test double; first call arg is the navigated URL string per router mock
     const callArg: string = mockPush.mock.calls[0][0] as string;
     expect(callArg).toContain('sort=email');
   });
@@ -306,7 +281,6 @@ describe('admin table components (server-driven)', () => {
 
     fireEvent.click(screen.getByText('role admin'));
     expect(mockPush).toHaveBeenCalled();
-    // SAFETY: mockPush is controlled test double; first call arg is the navigated URL string per router mock
     const callArg: string = mockPush.mock.calls[0][0] as string;
     expect(callArg).toContain('role=admin');
   });

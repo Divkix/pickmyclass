@@ -93,7 +93,7 @@ describe('TtlCache', () => {
 
     const result = cache.get('data');
     expect(result).toEqual(obj);
-    expect(result).toBe(obj); // same reference
+    expect(result).toBe(obj);
   });
 
   it('auto-evicts expired entry on get', () => {
@@ -102,9 +102,7 @@ describe('TtlCache', () => {
 
     vi.advanceTimersByTime(1001);
 
-    // First get should evict
     expect(cache.get('key')).toBeUndefined();
-    // Setting again should work cleanly
     cache.set('key', 'new');
     expect(cache.get('key')).toBe('new');
   });

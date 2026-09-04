@@ -6,12 +6,6 @@ import type { Database } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
 import { GET, POST } from '@/app/api/unsubscribe/route';
 
-/**
- * Scripted postgres-js transport behind the mocked getDbFromEnv: the real
- * Drizzle builder renders the unsubscribe UPDATE and the recorder captures
- * SQL/params, so tests assert behavior at the database boundary.
- */
-/** Parameter values the Drizzle builders bind over the scripted transport. */
 type ScriptedParam = string | number | boolean | null;
 
 interface CapturedStatement {
@@ -19,10 +13,6 @@ interface CapturedStatement {
   params: ScriptedParam[];
 }
 
-/**
- * One driver-decoded cell under fetch_types:false — PG text scalars, JSON
- * numbers/booleans, nulls, and parsed jsonb structures.
- */
 type DriverValue =
   | string
   | number
@@ -31,25 +21,17 @@ type DriverValue =
   | DriverValue[]
   | { [column: string]: DriverValue };
 
-/** Driver row keyed by column name; drizzle maps `.values()` results positionally. */
 type DriverRow = { [column: string]: DriverValue };
 
-/** FIFO of per-statement outcomes: row sets and driver errors in call order. */
 type ScriptedOutcome = DriverRow[] | Error;
 
-/** Statement log plus scripted answers, shared with the mocked module seam. */
 interface TransportRecorder {
   statements: CapturedStatement[];
   outcomes: ScriptedOutcome[];
 }
 
-/**
- * Awaitable answer mirroring the postgres-js PendingQuery surface drizzle
- * consumes: awaited directly for raw executes, `.values()` for mapped rows.
- */
 type ScriptedQuery = Promise<DriverRow[]> & { values(): Promise<DriverValue[][]> };
 
-/** Settled rows shaped like a postgres-js PendingQuery. */
 function pendingRows(rows: DriverRow[]): ScriptedQuery {
   const query = Promise.resolve(rows);
   return Object.assign(query, {
@@ -57,12 +39,7 @@ function pendingRows(rows: DriverRow[]): ScriptedQuery {
   });
 }
 
-/** Rejection shaped like a failed postgres-js PendingQuery. */
 function rejectedRows(outcome: Error): ScriptedQuery {
-  // One shared rejected promise: however drizzle consumes the answer —
-  // awaiting unsafe() directly or its `.values()` — its handler lands on
-  // this settled promise, so the failure surfaces exactly once and no
-  // rejected promise is left unconsumed.
   const rejection = Promise.reject<never>(outcome);
   return Object.assign(rejection, { values: () => rejection });
 }
@@ -84,13 +61,10 @@ vi.mock('@/lib/analytics/server', () => ({
   captureServerEvent: mockCaptureServerEvent,
 }));
 
-// Request-scoped handle seam: POST opens exactly one handle through this mock.
-// The Drizzle handle is built lazily (first request), never during hoisting.
 vi.mock('@/lib/db', () => ({
   getDbFromEnv: () => scriptedDatabase(),
 }));
 
-/** Real query builders over a fake client that records SQL and answers FIFO. */
 function scriptedDatabase(): Database {
   const client = {
     options: { parsers: {}, serializers: {} },
@@ -101,8 +75,6 @@ function scriptedDatabase(): Database {
     },
   };
 
-  // SAFETY: drizzle touches only options.parsers/serializers and unsafe() on
-  // the postgres-js Sql surface, which the scripted client implements.
   return drizzle(client as Database['$client'], { schema });
 }
 
@@ -113,7 +85,6 @@ function request(url: string, method = 'GET'): NextRequest {
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 async function json(response: Response) {
-  // SAFETY: test helper parses JSON response; shape asserted per test case via property access
   return response.json() as Promise<Record<string, JsonValue>>;
 }
 

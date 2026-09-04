@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates';
 import type { ClassStateRow } from '@/lib/types/class-watch';
 
-// Build a minimal ClassStateRow with sensible defaults for test brevity.
 function makeRow(
   overrides: Partial<ClassStateRow> & { class_nbr: string; term: string }
 ): ClassStateRow {
@@ -25,7 +24,6 @@ function makeRow(
   };
 }
 
-// Build a fetch Response mock returning the given classStates payload.
 function fetchResponse(classStates: ClassStateRow[]): Response {
   return {
     ok: true,
@@ -60,7 +58,6 @@ describe('useRealtimeClassStates hook', () => {
         expect(Object.keys(result.current.classStates)).toHaveLength(1);
       });
 
-      // Keyed by term:class_nbr (sectionRefKey), not class_nbr alone
       expect(result.current.classStates['2261:12345']).toBeDefined();
       expect(result.current.classStates['2261:12345'].seats_available).toBe(10);
       expect(result.current.loading).toBe(false);
@@ -93,8 +90,6 @@ describe('useRealtimeClassStates hook', () => {
   });
 
   describe('per-term keying (issue #279)', () => {
-    // Two Class States sharing a class_nbr across terms; keyed by class_nbr
-    // alone they would collide, one overwriting the other.
     const spring = makeRow({ class_nbr: '12345', term: '2261', seats_available: 5 });
     const fall = makeRow({ class_nbr: '12345', term: '2267', seats_available: 0 });
 
@@ -107,13 +102,11 @@ describe('useRealtimeClassStates hook', () => {
         expect(Object.keys(result.current.classStates)).toHaveLength(2);
       });
 
-      // Each term keeps its own seats — no overwrite.
       expect(result.current.classStates['2261:12345'].seats_available).toBe(5);
       expect(result.current.classStates['2267:12345'].seats_available).toBe(0);
     });
 
     it('reflects updated data from a subsequent poll in the correct term slot', async () => {
-      // First poll: spring has 5, fall has 0
       vi.mocked(global.fetch).mockResolvedValueOnce(fetchResponse([spring, fall]));
 
       const { result } = renderHook(() => useRealtimeClassStates({ classNumbers: ['12345'] }));
@@ -122,7 +115,6 @@ describe('useRealtimeClassStates hook', () => {
         expect(Object.keys(result.current.classStates)).toHaveLength(2);
       });
 
-      // Second poll: fall gains a seat (4), spring unchanged
       vi.mocked(global.fetch).mockResolvedValueOnce(
         fetchResponse([spring, makeRow({ class_nbr: '12345', term: '2267', seats_available: 4 })])
       );
@@ -143,12 +135,10 @@ describe('useRealtimeClassStates hook', () => {
 
       renderHook(() => useRealtimeClassStates({ classNumbers: ['12345'] }));
 
-      // Initial fetch
       await vi.waitFor(() => {
         expect(global.fetch).toHaveBeenCalledTimes(1);
       });
 
-      // Advance past the 60s poll interval
       await act(async () => {
         vi.advanceTimersByTime(60_000);
       });
@@ -176,7 +166,6 @@ describe('useRealtimeClassStates hook', () => {
 
       unmount();
 
-      // Advancing the timer after unmount should NOT trigger another fetch
       await act(async () => {
         vi.advanceTimersByTime(120_000);
       });
@@ -191,7 +180,6 @@ describe('useRealtimeClassStates hook', () => {
         useRealtimeClassStates({ classNumbers: ['12345'], enabled: false })
       );
 
-      // Give microtasks a chance to flush
       await Promise.resolve();
       expect(global.fetch).not.toHaveBeenCalled();
       expect(result.current.classStates).toEqual({});

@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE } from '@/lib/config';
 
-// Mock all dependencies
-
 vi.mock('@/lib/asu/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/asu/api')>()),
   fetchClassFromASU: vi.fn(),
@@ -15,7 +13,6 @@ vi.mock('@/lib/db/queries', () => ({
   getClassWatchers: vi.fn(),
   upsertClassState: vi.fn(),
   readSectionCheckState: vi.fn(),
-  // Retirement query seams (issue #360): raw SQL moved out of processSection
   readAutoCleanupBreakerCounts: vi.fn(),
   capConsecutiveNotFound: vi.fn(),
   readSectionRemovalClassInfo: vi.fn(),
@@ -64,7 +61,6 @@ import { processSection } from '@/lib/queue/process-section';
 import type { ClassDetails } from '@/lib/types/class';
 import type { Env, SendEmail } from '@/lib/types/env';
 
-/** Sentinel Drizzle handle — identity-only; every DB seam below is mocked. */
 const db = {} as Database;
 
 function mockClassDetails(overrides: Partial<ClassDetails> = {}): ClassDetails {
@@ -99,7 +95,7 @@ function buildEnv(): Pick<
   return {
     ASU_API_BASE_URL: 'https://api.example.com',
     ASU_API_TOKEN: 'test-token',
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double constructs minimal SendEmail shape for queue processing; only send is accessed
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     EMAIL: { send: vi.fn().mockResolvedValue({ messageId: 'msg_test' }) } as unknown as SendEmail,
     NOTIFICATION_FROM_EMAIL: 'notifications@pickmyclass.app',
   };
@@ -117,24 +113,10 @@ function defaultOldStateRow(overrides: Partial<SectionCheckState> = {}): Section
   };
 }
 
-/**
- * Set up the `readSectionCheckState` mock to return the given persisted row
- * (or null for first observation) for processSection's Step 1 old-state read.
- * All class_states access flows through this typed `@/lib/db/queries` seam —
- * no raw SQL remains in the queue module (issue #360).
- */
 function setupOldStateMock(row: SectionCheckState | null): void {
   vi.mocked(readSectionCheckState).mockResolvedValue(row);
 }
 
-/**
- * Set up mocks for the 3-strikes auto-cleanup flow exercised through the real
- * `retireClassSection` module: breaker counts come from
- * `readAutoCleanupBreakerCounts`, the suppression cap write from
- * `capConsecutiveNotFound`, and the parallel class-info read from
- * `readSectionRemovalClassInfo`. The `readSectionCheckState` mock carries the
- * persisted baseline row.
- */
 function setupAutoCleanupMocks(
   opts: {
     total?: number;
@@ -162,11 +144,8 @@ describe('processSection', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'info').mockImplementation(() => {});
 
-    // Reset all mocks to clear call history from previous tests,
-    // then re-apply default implementations
     vi.resetAllMocks();
 
-    // Default mock: existing state found in DB
     setupOldStateMock(defaultOldStateRow());
 
     vi.mocked(upsertClassState).mockResolvedValue(undefined);
@@ -184,14 +163,12 @@ describe('processSection', () => {
     ]);
 
     vi.mocked(resetNotificationsForSection).mockResolvedValue(undefined);
-    // Default auto-cleanup mocks: no deletion unless test overrides
     vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(1);
     vi.mocked(deleteSectionAndWatches).mockResolvedValue({
       watchesDeleted: 0,
       stateDeleted: true,
     });
     vi.mocked(getClassWatchers).mockResolvedValue([]);
-    // Retirement seam defaults (not reached unless count >= threshold, but safe)
     vi.mocked(readAutoCleanupBreakerCounts).mockResolvedValue({ total: 10, flagged: 1 });
     vi.mocked(capConsecutiveNotFound).mockResolvedValue(undefined);
     vi.mocked(readSectionRemovalClassInfo).mockResolvedValue(null);
@@ -205,16 +182,11 @@ describe('processSection', () => {
     const env = buildEnv();
     const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
-    // Should have fetched old state through the typed queries seam, keyed by full SectionRef
     expect(readSectionCheckState).toHaveBeenCalledWith(db, { class_nbr: '42737', term: '2261' });
-    // Should have fetched from ASU with the SectionRef
     expect(fetchClassFromASU).toHaveBeenCalledWith({ class_nbr: '42737', term: '2261' }, env);
 
-    // Should have detected changes
     expect(detectChanges).toHaveBeenCalled();
 
-    // Should have sent notifications, carrying the full SectionRef (class_nbr + term)
-    // so recipient selection is term-scoped (issue #303).
     expect(sendSectionNotifications).toHaveBeenCalledWith(
       expect.objectContaining({
         ref: { class_nbr: '42737', term: '2261' },
@@ -222,7 +194,6 @@ describe('processSection', () => {
       })
     );
 
-    // Should have upserted new state via upsertClassState(ref, details)
     expect(upsertClassState).toHaveBeenCalledWith(
       db,
       { class_nbr: '42737', term: '2261' },
@@ -243,7 +214,6 @@ describe('processSection', () => {
       emailsSent: 1,
       processingTimeMs: expect.any(Number),
     });
-    // Happy path never touches retirement (issue #360)
     expect(outcome.result.retirement).toBeUndefined();
   });
 
@@ -278,7 +248,6 @@ describe('processSection', () => {
 
   it('ASU API throws NotFoundError: returns ack outcome (non-retryable)', async () => {
     vi.mocked(fetchClassFromASU).mockRejectedValue(new NotFoundError('Section 42737 not found'));
-    // auto-cleanup increment defaults to 1 in beforeEach, so no deletion
     const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
     expect(outcome.disposition).toBe('ack');
@@ -286,7 +255,6 @@ describe('processSection', () => {
     expect(outcome.retryable).toBe(false);
     expect(outcome.result.success).toBe(false);
     expect(outcome.result.error).toBe('Section 42737 not found');
-    // Should NOT have tried to persist or notify
     expect(upsertClassState).not.toHaveBeenCalled();
     expect(sendSectionNotifications).not.toHaveBeenCalled();
     expect(outcome.result.retirement).toMatchObject({
@@ -326,30 +294,24 @@ describe('processSection', () => {
   });
 
   it('first observation with open seats: suppresses notification, only persists baseline', async () => {
-    // First observation = readSectionCheckState returns null (no rows found, not an error)
     setupOldStateMock(null);
 
     vi.mocked(fetchClassFromASU).mockResolvedValue(
       mockClassDetails({ seats_available: 5, non_reserved_seats: 3 })
     );
 
-    // detectChanges would report a seat became available, but with no baseline (oldState null)
-    // this is a false positive that must be suppressed.
     vi.mocked(detectChanges).mockReturnValue(
       buildChangeResult({ seatBecameAvailable: true, newOpenSeats: 3 })
     );
 
     const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
-    // detectChanges should have been called with null oldState (readSectionCheckState returns null)
     expect(detectChanges).toHaveBeenCalledWith(
       null,
       expect.objectContaining({ seats_available: 5 })
     );
 
-    // First-observation suppression: NO emails sent.
     expect(sendSectionNotifications).not.toHaveBeenCalled();
-    // Baseline still persisted.
     expect(upsertClassState).toHaveBeenCalledWith(
       db,
       { class_nbr: '42737', term: '2261' },
@@ -379,9 +341,7 @@ describe('processSection', () => {
 
   describe('send/persist ordering', () => {
     it('does NOT send notifications when the state upsert fails (persist before send)', async () => {
-      // oldState: no open seats. ASU: open seats available → seat became available.
       setupOldStateMock(defaultOldStateRow());
-      // The class_states upsert (Step 5, now before send) fails.
       vi.mocked(upsertClassState).mockRejectedValue(new Error('upsert exploded'));
 
       vi.mocked(fetchClassFromASU).mockResolvedValue(
@@ -393,10 +353,7 @@ describe('processSection', () => {
 
       const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
-      // Persist-before-send: a failed upsert must short-circuit BEFORE any emails go out,
-      // so a retry re-attempts cleanly with no duplicate emails.
       expect(sendSectionNotifications).not.toHaveBeenCalled();
-      // The upsert failure still surfaces as an unsuccessful result.
       expect(outcome).toMatchObject({
         disposition: 'retry',
         result: expect.objectContaining({
@@ -407,10 +364,8 @@ describe('processSection', () => {
     });
   });
 
-  // Merged disposition cases — previously in disposition.test.ts
   describe('disposition via processSection', () => {
     it('acks a successful outcome', async () => {
-      // default mocks already produce success
       const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('ack');
       expect(outcome.httpStatus).toBe(200);
@@ -432,7 +387,6 @@ describe('processSection', () => {
       expect(outcome.disposition).toBe('ack');
       expect(outcome.httpStatus).toBe(200);
       expect(outcome.retryable).toBe(false);
-      // Retirement runs only for NotFound — AuthError must carry no retirement payload
       expect(outcome.result.retirement).toBeUndefined();
     });
 
@@ -469,7 +423,7 @@ describe('processSection', () => {
     });
 
     it('retries an unknown thrown non-Error value (defensive)', async () => {
-      // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test verifies defensive handling of non-Error throw values; cast needed because string not overlapping Error
+      // eslint-disable-next-line anti-slop/no-chained-type-assertions
       vi.mocked(fetchClassFromASU).mockRejectedValue('boom' as unknown as Error);
       const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('retry');
@@ -477,20 +431,19 @@ describe('processSection', () => {
       expect(outcome.retryable).toBe(true);
 
       vi.mocked(fetchClassFromASU).mockRejectedValue(
-        // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test verifies defensive handling of non-Error throw values; undefined not overlapping Error
+        // eslint-disable-next-line anti-slop/no-chained-type-assertions
         undefined as unknown as Error
       );
       const outcome2 = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome2.disposition).toBe('retry');
 
-      // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test verifies defensive handling of non-Error throw values; null not overlapping Error
+      // eslint-disable-next-line anti-slop/no-chained-type-assertions
       vi.mocked(fetchClassFromASU).mockRejectedValue(null as unknown as Error);
       const outcome3 = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome3.disposition).toBe('retry');
     });
 
     it('AuthError is acked even though it extends ApiError (subclass ordering)', async () => {
-      // Ensures AuthError/NotFound check wins before ApiError base
       vi.mocked(fetchClassFromASU).mockRejectedValue(new AuthError('401'));
       const outcome = await processSection(db, { class_nbr: '12345', term: '2261' }, buildEnv());
       expect(outcome.disposition).toBe('ack');
@@ -522,7 +475,6 @@ describe('processSection', () => {
       expect(outcome.result.success).toBe(false);
       expect(outcome.result.error).toBe('Section 42737 not found');
       expect(outcome.result.emailsSent).toBe(0);
-      // Below threshold: seams own breaker/cap/class-info and must stay untouched
       expect(readAutoCleanupBreakerCounts).not.toHaveBeenCalled();
       expect(capConsecutiveNotFound).not.toHaveBeenCalled();
       expect(readSectionRemovalClassInfo).not.toHaveBeenCalled();
@@ -556,7 +508,7 @@ describe('processSection', () => {
     it('third consecutive NotFound with watchers -> deletes SectionRef-scoped watches and state, notifies watchers, ack with Auto-cleanup error', async () => {
       setupAutoCleanupMocks({
         total: 10,
-        flagged: 1, // ratio 0.1 < 0.2, breaker NOT tripped
+        flagged: 1,
         oldStateRow: defaultOldStateRow(),
         classInfo: { subject: 'CSE', catalog_nbr: '110', title: 'Principles of Programming' },
       });
@@ -578,14 +530,12 @@ describe('processSection', () => {
         class_nbr: '42737',
         term: '2261',
       });
-      // Verify deletion is SectionRef-scoped (both class_nbr and term)
       expect(deleteSectionAndWatches).toHaveBeenCalledWith(db, {
         class_nbr: '42737',
         term: '2261',
       });
       expect(deleteSectionAndWatches).toHaveBeenCalledTimes(1);
       expect(getClassWatchers).toHaveBeenCalledWith(db, { class_nbr: '42737', term: '2261' });
-      // Retirement owns the breaker read + parallel class-info read; the cap write is suppression-only
       expect(readAutoCleanupBreakerCounts).toHaveBeenCalledTimes(1);
       expect(readSectionRemovalClassInfo).toHaveBeenCalledWith(db, {
         class_nbr: '42737',
@@ -593,9 +543,7 @@ describe('processSection', () => {
       });
       expect(capConsecutiveNotFound).not.toHaveBeenCalled();
 
-      // Verify EMAIL.send called for each watcher with correct subject/link
       expect(env.EMAIL.send).toHaveBeenCalledTimes(2);
-      // SAFETY: test reads mock call args; narrowing required because SendEmail method shape carries no mock metadata
       const firstSend = vi.mocked(env.EMAIL.send).mock.calls[0][0] as {
         to: string;
         subject: string;
@@ -607,7 +555,6 @@ describe('processSection', () => {
       expect(firstSend.subject.toLowerCase()).toContain('no longer in asu catalog');
       expect(firstSend.html).toContain('/dashboard');
       expect(firstSend.html).toContain('pickmyclass.app');
-      // SAFETY: test reads mock call args; narrowing required because SendEmail method shape carries no mock metadata
       const secondSend = vi.mocked(env.EMAIL.send).mock.calls[1][0] as { to: string };
       expect(secondSend.to).toBe('bob@example.com');
 
@@ -615,7 +562,6 @@ describe('processSection', () => {
       expect(outcome.httpStatus).toBe(200);
       expect(outcome.result.success).toBe(true);
       expect(outcome.result.error).toBe('Auto-cleanup: class removed after 3 NotFounds');
-      // emailsSent reports actual successful sends (mirrors retirement.emailsSucceeded)
       expect(outcome.result.emailsSent).toBe(2);
       expect(outcome.result.classNbr).toBe('42737');
       expect(outcome.result.retirement).toMatchObject({
@@ -632,7 +578,7 @@ describe('processSection', () => {
     it('third consecutive NotFound with zero watchers -> still deletes state with no email', async () => {
       setupAutoCleanupMocks({
         total: 20,
-        flagged: 2, // ratio 0.1 < 0.2
+        flagged: 2,
         oldStateRow: defaultOldStateRow(),
         classInfo: { subject: 'CSE', catalog_nbr: '240', title: 'Intro' },
       });
@@ -684,9 +630,6 @@ describe('processSection', () => {
       const env = buildEnv();
       const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
-      // upsertClassState(db, ref, details) owns the consecutive_not_found_count=0 reset
-      // internally now (it lives inside the mocked query, no longer a payload field
-      // visible to callers). Verify it was called with the SectionRef and fresh data.
       expect(upsertClassState).toHaveBeenCalledWith(
         db,
         { class_nbr: '42737', term: '2261' },
@@ -736,7 +679,6 @@ describe('processSection', () => {
       expect(incrementConsecutiveNotFound).not.toHaveBeenCalled();
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
       expect(outcome.disposition).toBe('retry');
-      // processSection maps ApiError to 502 per retryOutcome signature
       expect(outcome.httpStatus).toBe(502);
       expect(outcome.retryable).toBe(true);
       expect(outcome.result.error).toBe('ASU API request timed out');
@@ -757,7 +699,6 @@ describe('processSection', () => {
     });
 
     it('term scoping: increment for 76337/2261 does NOT affect 76337/2257', async () => {
-      // First term 2261
       setupOldStateMock(defaultOldStateRow({ class_nbr: '76337', term: '2261' }));
       vi.mocked(fetchClassFromASU).mockRejectedValue(new NotFoundError('Section 76337 not found'));
       vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(1);
@@ -773,11 +714,9 @@ describe('processSection', () => {
         class_nbr: '76337',
         term: '2257',
       });
-      // Old-state fetch keyed by full SectionRef (class_nbr + term)
       expect(readSectionCheckState).toHaveBeenCalledWith(db, { class_nbr: '76337', term: '2261' });
 
       vi.clearAllMocks();
-      // Re-setup mocks after clear (clearAllMocks resets implementations to no-op, so re-mock)
       setupOldStateMock(defaultOldStateRow({ class_nbr: '76337', term: '2257' }));
       vi.mocked(fetchClassFromASU).mockRejectedValue(new NotFoundError('Section 76337 not found'));
       vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(1);
@@ -794,7 +733,6 @@ describe('processSection', () => {
         term: '2257',
       });
       expect(readSectionCheckState).toHaveBeenCalledWith(db, { class_nbr: '76337', term: '2257' });
-      // Ensure second call used different term
       expect(incrementConsecutiveNotFound).not.toHaveBeenCalledWith(db, {
         class_nbr: '76337',
         term: '2261',
@@ -804,7 +742,7 @@ describe('processSection', () => {
     it('circuit breaker: ratio >0.2 suppresses deletion, caps count at 2, logs suppressed, ack without deletion', async () => {
       setupAutoCleanupMocks({
         total: 10,
-        flagged: 5, // ratio 0.5 > 0.2 → tripped
+        flagged: 5,
         oldStateRow: defaultOldStateRow(),
         classInfo: null,
       });
@@ -823,12 +761,10 @@ describe('processSection', () => {
       const env = buildEnv();
       const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
-      // Even though count would be 3, deletion suppressed
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
       expect(getClassWatchers).not.toHaveBeenCalled();
       expect(env.EMAIL.send).not.toHaveBeenCalled();
 
-      // Count capped at threshold-1 via the guarded seam, keyed by full SectionRef
       expect(capConsecutiveNotFound).toHaveBeenCalledTimes(1);
       expect(capConsecutiveNotFound).toHaveBeenCalledWith(
         db,
@@ -836,7 +772,6 @@ describe('processSection', () => {
         2
       );
       expect(readAutoCleanupBreakerCounts).toHaveBeenCalledTimes(1);
-      // Logs 'Auto-cleanup suppressed'
       const warnCalls = consoleWarnSpy.mock.calls.map(
         (c) => String(c[0]) + ' ' + String(c[1] ?? '')
       );
@@ -848,7 +783,6 @@ describe('processSection', () => {
       expect(outcome.retryable).toBe(false);
       expect(outcome.result.success).toBe(false);
       expect(outcome.result.emailsSent).toBe(0);
-      // Suppressed path returns original NotFound error, not Auto-cleanup
       expect(outcome.result.error).toBe('Section 42737 not found');
       expect(outcome.result.retirement).toMatchObject({
         status: 'suppressed',
@@ -859,12 +793,9 @@ describe('processSection', () => {
         emailsAttempted: 0,
         emailsSucceeded: 0,
       });
-
-      // rely on afterEach restoreAllMocks
     });
 
     it('breaker ratio exactly 0.2 does NOT suppress (threshold is >0.2)', async () => {
-      // total 10 flagged 2 => 0.2 exactly, should NOT suppress
       setupAutoCleanupMocks({
         total: 10,
         flagged: 2,
@@ -887,7 +818,6 @@ describe('processSection', () => {
       expect(deleteSectionAndWatches).toHaveBeenCalled();
       expect(outcome.result.error).toContain('Auto-cleanup');
       expect(outcome.result.emailsSent).toBe(1);
-      // Strict ratio: flagged/total == 0.2 exactly is NOT > 0.2, so retirement proceeds
       expect(outcome.result.retirement).toMatchObject({
         status: 'retired',
         suppressed: false,
@@ -940,7 +870,6 @@ describe('processSection', () => {
 
       const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, buildEnv());
 
-      // Fail-open ladder: an unreadable breaker must not wedge threshold sections forever
       expect(deleteSectionAndWatches).toHaveBeenCalledTimes(1);
       expect(outcome.disposition).toBe('ack');
       expect(outcome.result.success).toBe(true);
@@ -991,7 +920,6 @@ describe('processSection', () => {
       const env = buildEnv();
       const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
 
-      // Deletion precedes email fan-out: a failed delete must never leak removal emails
       expect(env.EMAIL.send).not.toHaveBeenCalled();
       expect(outcome.disposition).toBe('ack');
       expect(outcome.httpStatus).toBe(200);
@@ -1027,7 +955,6 @@ describe('processSection', () => {
       });
 
       const env = buildEnv();
-      // Non-fatal failure: sender continues past watcher 2, so 3 attempted / 2 succeeded
       vi.mocked(env.EMAIL.send).mockRejectedValueOnce(new Error('SMTP 550 mailbox unavailable'));
 
       const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
@@ -1056,7 +983,7 @@ describe('processSection', () => {
       }));
       setupAutoCleanupMocks({
         total: 1000,
-        flagged: 10, // ratio 0.01 < 0.2, breaker NOT tripped
+        flagged: 10,
         oldStateRow: defaultOldStateRow(),
         classInfo: { subject: 'CSE', catalog_nbr: '110', title: 'Principles of Programming' },
       });
@@ -1069,14 +996,11 @@ describe('processSection', () => {
       });
 
       vi.spyOn(console, 'warn').mockImplementation(() => {});
-      // Speed up batch delay for 500 sends — mock setTimeout to immediate
-      vi.spyOn(globalThis, 'setTimeout')
-        // SAFETY: test mock — setTimeout overload narrowed to callback+delay used by auto-cleanup batch throttle
-        .mockImplementation((cb: () => void) => {
-          cb();
-          // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double returns Timeout shape for batch throttle; only used for immediate resolve in cap truncation test
-          return {} as unknown as ReturnType<typeof setTimeout>;
-        });
+      vi.spyOn(globalThis, 'setTimeout').mockImplementation((cb: () => void) => {
+        cb();
+        // eslint-disable-next-line anti-slop/no-chained-type-assertions
+        return {} as unknown as ReturnType<typeof setTimeout>;
+      });
 
       const env = buildEnv();
       const outcome = await processSection(db, { class_nbr: '42737', term: '2261' }, env);
@@ -1085,26 +1009,19 @@ describe('processSection', () => {
         class_nbr: '42737',
         term: '2261',
       });
-      // Real sendAutoCleanupRemovalEmails runs untruncated into the sender — the sender alone caps
       expect(env.EMAIL.send).toHaveBeenCalledTimes(cap);
       const { retirement } = outcome.result;
       expect(retirement).toBeDefined();
       if (!retirement) throw new Error('expected retirement payload');
-      // All watches deleted despite only cap emails attempted
       expect(retirement.watchesDeleted).toBe(overCap);
-      // watchesDeleted vs emailsSent inequality when over cap: all watches deleted but only cap emailed
       expect(overCap).toBeGreaterThan(cap);
-      // watchesDeleted === originalLength (overCap) — delete mock returned overCap
       expect(overCap).toBe(manyWatchers.length);
-      // Truthful attempt accounting: post-truncation attempts all succeed
       expect(retirement.emailsAttempted).toBe(cap);
       expect(retirement.emailsSucceeded).toBe(cap);
       expect(retirement.status).toBe('retired');
-      // emailsSent mirrors actual successes, not the raw watcher count
       expect(outcome.result.emailsSent).toBe(cap);
       expect(outcome.result.success).toBe(true);
       expect(outcome.result.error).toContain('Auto-cleanup');
-      // threshold assertion includes threshold value (3)
       expect(outcome.result.error).toContain('3');
       expect(outcome.result.retirement).toMatchObject({
         strikeCount: 3,
@@ -1122,7 +1039,7 @@ describe('processSection', () => {
     it('breaker check logs total flagged ratio before suppression decision', async () => {
       setupAutoCleanupMocks({
         total: 100,
-        flagged: 5, // ratio 0.05 < 0.2, NOT suppressed — should still log info
+        flagged: 5,
         oldStateRow: defaultOldStateRow(),
         classInfo: { subject: 'CSE', catalog_nbr: '110', title: 'T' },
       });
@@ -1144,14 +1061,12 @@ describe('processSection', () => {
       expect(
         infoCalls.some((s) => s.includes('Breaker check total=100 flagged=5 ratio=0.050'))
       ).toBe(true);
-
-      // rely on afterEach restoreAllMocks
     });
 
     it('breaker tripped also logs ratio info and warn suppressed', async () => {
       setupAutoCleanupMocks({
         total: 100,
-        flagged: 30, // ratio 0.30 > 0.2, suppressed
+        flagged: 30,
         oldStateRow: defaultOldStateRow(),
         classInfo: null,
       });
@@ -1177,8 +1092,6 @@ describe('processSection', () => {
         strikeCount: 3,
         deleted: false,
       });
-
-      // rely on afterEach restoreAllMocks
     });
   });
 });

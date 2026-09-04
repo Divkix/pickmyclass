@@ -5,14 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { Database } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
 
-/**
- * Scripted postgres-js transport shared by every DB-touching expectation:
- * real Drizzle builders render each statement against the canonical schema,
- * the fake client records SQL/params and answers them FIFO. Rows are keyed in
- * schema-definition order because drizzle maps `.values()` results
- * positionally.
- */
-/** Parameter values the Drizzle builders bind over the scripted transport. */
 type ScriptedParam = string | number | boolean | null;
 
 interface CapturedStatement {
@@ -20,10 +12,6 @@ interface CapturedStatement {
   params: ScriptedParam[];
 }
 
-/**
- * One driver-decoded cell under fetch_types:false — PG text scalars, JSON
- * numbers/booleans, nulls, and parsed jsonb structures.
- */
 type DriverValue =
   | string
   | number
@@ -32,25 +20,17 @@ type DriverValue =
   | DriverValue[]
   | { [column: string]: DriverValue };
 
-/** Driver row keyed by column name; drizzle maps `.values()` results positionally. */
 type DriverRow = { [column: string]: DriverValue };
 
-/** FIFO of per-statement outcomes: row sets and driver errors in call order. */
 type ScriptedOutcome = DriverRow[] | Error;
 
-/** Statement log plus scripted answers, shared with the mocked module seams. */
 interface TransportRecorder {
   statements: CapturedStatement[];
   outcomes: ScriptedOutcome[];
 }
 
-/**
- * Awaitable answer mirroring the postgres-js PendingQuery surface drizzle
- * consumes: awaited directly for raw executes, `.values()` for mapped rows.
- */
 type ScriptedQuery = Promise<DriverRow[]> & { values(): Promise<DriverValue[][]> };
 
-/** Settled rows shaped like a postgres-js PendingQuery. */
 function pendingRows(rows: DriverRow[]): ScriptedQuery {
   const query = Promise.resolve(rows);
   return Object.assign(query, {
@@ -58,12 +38,7 @@ function pendingRows(rows: DriverRow[]): ScriptedQuery {
   });
 }
 
-/** Rejection shaped like a failed postgres-js PendingQuery. */
 function rejectedRows(outcome: Error): ScriptedQuery {
-  // One shared rejected promise: however drizzle consumes the answer —
-  // awaiting unsafe() directly or its `.values()` — its handler lands on
-  // this settled promise, so the failure surfaces exactly once and no
-  // rejected promise is left unconsumed.
   const rejection = Promise.reject<never>(outcome);
   return Object.assign(rejection, { values: () => rejection });
 }
@@ -85,7 +60,6 @@ const {
   };
 });
 
-// Clerk identity seam: withAuth -> requireUser -> UnauthorizedError on bad sessions.
 vi.mock('@/lib/auth/require-user', () => {
   class UnauthorizedError extends Error {
     constructor(message = 'Unauthorized') {
@@ -104,19 +78,14 @@ vi.mock('@/lib/auth/authorization-state', () => ({
   invalidateAuthorizationState: mockInvalidateAuthorizationState,
 }));
 
-// PostHog server events fail open — stub so no network calls happen in tests.
 vi.mock('@/lib/analytics/server', () => ({
   captureServerEvent: mockCaptureServerEvent,
 }));
 
-// Request-scoped handle seam: each route invocation gets the one Drizzle handle
-// built over the scripted transport below.
 vi.mock('@/lib/db', () => ({
-  // The Drizzle handle is built lazily (first request), never during hoisting.
   getDbFromEnv: () => scriptedDatabase(),
 }));
 
-/** Real query builders over a fake client that records SQL and answers FIFO. */
 function scriptedDatabase(): Database {
   const client = {
     options: { parsers: {}, serializers: {} },
@@ -127,12 +96,9 @@ function scriptedDatabase(): Database {
     },
   };
 
-  // SAFETY: drizzle touches only options.parsers/serializers and unsafe() on
-  // the postgres-js Sql surface, which the scripted client implements.
   return drizzle(client as Database['$client'], { schema });
 }
 
-// Import after mocks are registered
 import { DELETE } from '@/app/api/user/delete/route';
 import { GET } from '@/app/api/user/export/route';
 import { UnauthorizedError } from '@/lib/auth/require-user';
@@ -141,7 +107,6 @@ type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string
 
 const SESSION_USER = { userId: 'user-123', clerkUserId: 'clerk-456', sessionId: null };
 
-/** Mirror row keyed in users-table definition order; timestamps in PG text form. */
 const MIRROR_ROW = {
   id: 'user-123',
   clerk_user_id: 'clerk-456',
@@ -151,7 +116,6 @@ const MIRROR_ROW = {
   last_sign_in_at: null,
 } satisfies DriverRow;
 
-/** Profile row keyed in user_profiles definition order. */
 const ACTIVE_PROFILE_ROW = {
   id: '11111111-1111-4111-8111-111111111111',
   user_id: 'user-123',
@@ -180,7 +144,6 @@ const WATCH_ROW = {
   subject: 'CSE',
   catalog_nbr: '240',
   created_at: '2026-05-10 12:00:00+00',
-  // jsonb arrives driver-parsed: PostgreSQL rendered these values server-side.
   class_state: {
     title: 'Intro to Programming',
     instructor_name: 'Christine Lee',
@@ -202,7 +165,6 @@ const NOTIFICATION_ROW = {
   class_watch: { term: '2264', subject: 'CSE', catalog_nbr: '240', class_nbr: '12345' },
 } satisfies DriverRow;
 
-/** Queue the export reads in issue order: mirror, profile, watches, notifications. */
 function scriptExportRows(overrides: {
   mirror?: DriverRow | null;
   profile?: DriverRow | null;
@@ -222,21 +184,14 @@ function scriptExportRows(overrides: {
 }
 
 async function json(response: Response) {
-  // SAFETY: test helper parses JSON response; shape asserted per test case via property access
   return response.json() as Promise<Record<string, JsonValue>>;
 }
 
-/** Narrows an export array field to the row shapes the assertions pin down. */
 function exportRows(value: JsonValue): Array<Record<string, JsonValue>> {
-  // SAFETY: export routes serialize plain-object arrays; member shapes are
-  // pinned by the assertions consuming this helper.
   return value as Array<Record<string, JsonValue>>;
 }
 
-/** Narrows an export object field to the members the assertions read. */
 function exportObject(value: JsonValue): Record<string, JsonValue> {
-  // SAFETY: export routes serialize plain objects; member shapes are pinned
-  // by the assertions consuming this helper.
   return value as Record<string, JsonValue>;
 }
 
@@ -310,7 +265,6 @@ describe('user data rights APIs', () => {
 
       const watches = exportRows(data.class_watches);
       expect(watches).toHaveLength(1);
-      // PG text ("2026-05-10 12:00:00+00") re-emits as the legacy ISO wire value.
       expect(watches[0].created_at).toBe('2026-05-10T12:00:00.000Z');
       expect(watches[0].subject).toBe('CSE');
       expect(watches[0].class_state).toEqual(WATCH_ROW.class_state);
@@ -396,7 +350,6 @@ describe('user data rights APIs', () => {
       expect(data.disabled_at).toEqual(expect.any(String));
       expect(data.permanent_deletion_date).toEqual(expect.any(String));
 
-      // Exactly one statement: the soft-delete UPDATE disabling notifications.
       expect(recorder.statements).toHaveLength(1);
       const statement = recorder.statements[0];
       expect(statement.sql).toContain('"user_profiles"');

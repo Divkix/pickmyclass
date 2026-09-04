@@ -12,8 +12,6 @@ const {
 } = vi.hoisted(() => {
   const mockExecute = vi.fn();
   return {
-    // Recording Database handle handed out by the mocked getDbFromEnv; every
-    // POST must create exactly one request-scoped handle through it.
     dbHandle: { execute: mockExecute },
     mockExecute,
     mockRequireUser: vi.fn(),
@@ -22,7 +20,6 @@ const {
   };
 });
 
-// Clerk identity seam: POST -> requireUser -> UnauthorizedError on bad sessions.
 vi.mock('@/lib/auth/require-user', () => {
   class UnauthorizedError extends Error {
     constructor(message = 'Unauthorized') {
@@ -33,13 +30,10 @@ vi.mock('@/lib/auth/require-user', () => {
   return { requireUser: mockRequireUser, UnauthorizedError };
 });
 
-// Mirror/profile ownership lives in lib/db/users; the consent route only sees
-// repairUserMirror's tri-state result (profile | null when no primary email).
 vi.mock('@/lib/db/users', () => ({
   repairUserMirror: mockRepairUserMirror,
 }));
 
-// Request-scoped handle seam: the route calls getDbFromEnv() once per POST.
 vi.mock('@/lib/db', () => ({
   getDbFromEnv: () => dbHandle,
 }));
@@ -48,13 +42,11 @@ vi.mock('@/lib/auth/authorization-state', () => ({
   invalidateAuthorizationState: mockInvalidateAuthorizationState,
 }));
 
-// Import after mocks are registered
 import { POST } from '@/app/api/auth/consent/route';
 import { UnauthorizedError } from '@/lib/auth/require-user';
 
 const dialect = new PgDialect();
 
-/** Normalize a built SQL template to comparable single-spaced text. */
 function builtSql(query: SQL): string {
   return dialect.sqlToQuery(query).sql.replace(/\s+/g, ' ').trim();
 }
@@ -155,14 +147,10 @@ describe('POST /api/auth/consent', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ success: true });
-    // Exactly one handle is created for repair + RPC, and the RPC runs with a
-    // bound, explicitly cast user id.
     expect(mockExecute).toHaveBeenCalledTimes(1);
     const query = mockExecute.mock.calls[0][0] as SQL;
     expect(builtSql(query)).toBe('SELECT public.accept_terms_and_verify_age($1::text)');
     expect(dialect.sqlToQuery(query).params).toEqual(['user-1']);
-    // Invalidation happens exactly once, strictly after the consent RPC lands —
-    // never before persistence and never speculatively on failure paths.
     expect(mockInvalidateAuthorizationState).toHaveBeenCalledTimes(1);
     expect(mockInvalidateAuthorizationState).toHaveBeenCalledWith('user-1');
     expect(mockInvalidateAuthorizationState.mock.invocationCallOrder[0]).toBeGreaterThan(

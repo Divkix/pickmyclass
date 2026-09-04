@@ -7,7 +7,6 @@ import {
 } from '@/lib/auth/decide-gate';
 
 const verifiedUser = { email_confirmed_at: '2024-01-01T00:00:00Z' };
-// SAFETY: test fixture narrows null union to exercise unverified branch; value is always string | null in prod
 const unverifiedUser = { email_confirmed_at: null as string | null };
 const adminConsent = { is_admin: true, is_disabled: false, has_consent: true };
 const regularConsent = { is_admin: false, is_disabled: false, has_consent: true };
@@ -51,7 +50,6 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'allow' });
   });
 
-  // 2) unverified
   it('unverified -> /sign-in for protected', () => {
     expect(
       decideGate({
@@ -97,7 +95,6 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'redirect', to: '/sign-in' });
   });
 
-  // 3) !user + protected -> /sign-in
   it('unauthenticated protected /dashboard -> /sign-in', () => {
     expect(decideGate({ pathname: '/dashboard', search: '', user: null, authState: null })).toEqual(
       {
@@ -133,7 +130,6 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'allow' });
   });
 
-  // 4) verified + !has_consent + protected + !/consent -> /consent?next=
   it('missing consent protected -> /consent?next', () => {
     expect(
       decideGate({
@@ -184,7 +180,6 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'allow' });
   });
 
-  // 5) verified + !has_consent + /api/ -> forbidden
   it('missing consent api -> forbidden', () => {
     expect(
       decideGate({
@@ -240,7 +235,6 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'allow' });
   });
 
-  // 6) verified + has_consent + /consent -> redirect to getRedirectPath
   it('has_consent on /consent as regular -> /dashboard', () => {
     expect(
       decideGate({
@@ -258,7 +252,6 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'redirect', to: '/admin' });
   });
 
-  // 7) verified + AUTH_PAGES -> getRedirectPath
   it('verified on /sign-in as regular -> /dashboard', () => {
     expect(
       decideGate({
@@ -331,7 +324,6 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'redirect', to: '/sign-in' });
   });
 
-  // 8) verified + /dashboard + is_admin -> /admin
   it('admin on /dashboard -> /admin', () => {
     expect(
       decideGate({
@@ -371,7 +363,6 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'allow' });
   });
 
-  // 9) allow fallthrough
   it('verified regular on / -> allow', () => {
     expect(
       decideGate({ pathname: '/', search: '', user: verifiedUser, authState: regularConsent })

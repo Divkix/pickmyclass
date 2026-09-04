@@ -66,8 +66,6 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
     NotFoundError: MockNotFoundError,
   }));
 
-  // Data-plane seam: the health route probes class_watches through one
-  // request-scoped Drizzle handle obtained from getDbFromEnv.
   const dbProbe = vi.fn(async () => {
     if (options.dbThrows) {
       throw new Error('service unavailable');
@@ -113,7 +111,6 @@ describe('GET /api/monitoring/health branch coverage', () => {
     const { GET, getDbFromEnv, dbProbe } = await loadHealthRoute();
 
     const response = await GET(request(''));
-    // SAFETY: response.json() from mocked health route has known status shape in this branch
     const data = (await response.json()) as { status: string };
 
     expect(response.status).toBe(200);
@@ -127,7 +124,6 @@ describe('GET /api/monitoring/health branch coverage', () => {
     const { GET, createCronLockClient, doBinding, lockStatus } = await loadHealthRoute();
 
     const response = await GET(request());
-    // SAFETY: mocked health route returns healthy detailed checks matching this typed shape
     const data = (await response.json()) as {
       status: string;
       checks: {
@@ -160,7 +156,6 @@ describe('GET /api/monitoring/health branch coverage', () => {
     });
 
     const response = await GET(request());
-    // SAFETY: mocked health route returns cron_lock timestamps matching this typed shape
     const data = (await response.json()) as {
       checks: {
         cron_lock: { lock_acquired_at: string | null; expires_at: string | null };
@@ -188,7 +183,6 @@ describe('GET /api/monitoring/health branch coverage', () => {
     });
 
     const response = await GET(request());
-    // SAFETY: mocked health route returns degraded checks matching this typed record shape
     const data = (await response.json()) as {
       status: string;
       checks: Record<string, { status?: string; error?: string }>;
@@ -219,7 +213,6 @@ describe('GET /api/monitoring/health branch coverage', () => {
     });
 
     const response = await GET(request());
-    // SAFETY: mocked health route returns unhealthy checks matching this typed record shape
     const data = (await response.json()) as {
       status: string;
       checks: Record<string, { status?: string; missing_vars?: string[]; missing?: string[] }>;
@@ -232,9 +225,6 @@ describe('GET /api/monitoring/health branch coverage', () => {
       error: 'service unavailable',
     });
     expect(data.checks.configuration.missing_vars).toEqual(
-      // The data-plane migration dropped Supabase-specific secrets from the
-      // health route's required-env-var list; it now checks ASU + CRON_SECRET.
-      // CRON_SECRET stays configured via baseEnv, so only the ASU vars are missing.
       expect.arrayContaining(['ASU_API_BASE_URL', 'ASU_API_TOKEN'])
     );
     expect(data.checks.email.missing).toEqual(

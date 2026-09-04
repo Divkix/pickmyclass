@@ -59,7 +59,6 @@ describe('edgeHtmlCache', () => {
   it('uses a dev cache namespace when deploy metadata is unavailable', async () => {
     await cache.get(get('/'), undefined);
 
-    // SAFETY: test-controlled mock cache stores Request; safe to narrow to Request for url assertion
     expect((match.mock.calls[0]![0] as Request).url).toBe('https://edge-cache.internal/dev/');
   });
 
@@ -81,9 +80,7 @@ describe('edgeHtmlCache', () => {
 
     expect(write).not.toBeNull();
     await write;
-    // SAFETY: test-controlled mock cache stores Request; safe to narrow first tuple entry to Request for url assertion
     expect((put.mock.calls[0]![0] as Request).url).toBe('https://edge-cache.internal/version-1/');
-    // SAFETY: test-controlled mock cache stores Response; safe to narrow second tuple entry to Response for header checks
     const stored = put.mock.calls[0]![1] as Response;
     expect(stored.headers.get('cache-control')).toBe('public, s-maxage=3600');
     expect(stored.headers.get('content-security-policy')).toBe("script-src 'nonce-abc'");

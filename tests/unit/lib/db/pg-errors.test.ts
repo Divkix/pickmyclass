@@ -1,21 +1,3 @@
-/**
- * Unit tests for the Postgres error-shape helpers in `@/lib/db/pg-errors`.
- *
- * These helpers replace the scattered `(error as { code?: string })` casts and
- * message heuristics that used to live in `lib/db/queries.ts` /
- * `admin-queries.ts` / route catch blocks. The suite pins the public contract:
- *
- * - SQLSTATE constants match PostgreSQL's documented values.
- * - `getPgError` narrows only genuine Postgres-shaped errors ({ code, message })
- *   and returns null for everything else a `catch` can produce.
- * - Driver fields beyond code/message are stripped, so narrowed values are safe
- *   to log or compare without leaking driver internals.
- * - `isUniqueViolation` falls back to the classic "duplicate key value"
- *   message for intermediaries that drop the SQLSTATE `code`.
- * - `isRaisedException` / `isUndefinedFunction` match their exact SQLSTATEs
- *   (P0001 RAISE EXCEPTION from SECURITY DEFINER RPCs; 42883 undefined
- *   function) and reject unrelated errors.
- */
 import { describe, expect, it } from 'vite-plus/test';
 import {
   PG_RAISE_EXCEPTION,
@@ -56,7 +38,6 @@ describe('getPgError', () => {
       constraint: 'users_clerk_user_id_key',
       message: 'duplicate key value violates unique constraint "users_clerk_user_id_key"',
     };
-    // SAFETY: hint is deliberately present-but-undefined to mirror wire noise.
     expect(getPgError(error)).toStrictEqual({
       code: '23505',
       message: 'duplicate key value violates unique constraint "users_clerk_user_id_key"',
@@ -74,11 +55,8 @@ describe('getPgError', () => {
   });
 
   it('rejects malformed shapes instead of guessing', () => {
-    // Non-string code (numeric SQLSTATE) is not a Postgres error shape.
     expect(getPgError({ code: 23_505 })).toBeNull();
-    // Message alone is not enough: getPgError requires the SQLSTATE.
     expect(getPgError({ message: 'duplicate key value violates unique constraint' })).toBeNull();
-    // Non-string message poisons the whole shape.
     expect(getPgError({ code: '23505', message: 42 })).toBeNull();
   });
 });
@@ -95,13 +73,11 @@ describe('isUniqueViolation', () => {
   });
 
   it('falls back to the duplicate-key message when SQLSTATE was dropped', () => {
-    // Intermediary stripped `code` but kept the server message.
     expect(
       isUniqueViolation({
         message: 'duplicate key value violates unique constraint "unique_notification_active"',
       })
     ).toBe(true);
-    // Plain Error instance (no code property at all).
     expect(
       isUniqueViolation(new Error('duplicate key value violates unique constraint "users_pkey"'))
     ).toBe(true);

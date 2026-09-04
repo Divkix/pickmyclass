@@ -14,9 +14,6 @@ const {
 } = vi.hoisted(() => {
   const mockExecute = vi.fn();
   return {
-    // Recording Database handle handed out by the mocked getDbFromEnv; every
-    // authenticated request must create exactly one and share it across the
-    // authorization-state and verification reads.
     dbHandle: { execute: mockExecute },
     mockGetDbFromEnv: vi.fn(() => dbHandle),
     mockGetSessionIdentity: vi.fn(),
@@ -26,13 +23,11 @@ const {
   };
 });
 
-// Clerk seams — never verify real session tokens or call the Backend API.
 vi.mock('@/lib/auth/clerk-session', () => ({
   getSessionIdentity: mockGetSessionIdentity,
   revokeSession: mockRevokeSession,
 }));
 
-// Gate read seams; decideGate itself stays real so redirect policy is exercised.
 vi.mock('@/lib/auth/authorization-state', () => ({
   readAuthorizationState: mockReadAuthorizationState,
 }));
@@ -41,12 +36,10 @@ vi.mock('@/lib/db/users', () => ({
   readUserVerification: mockReadUserVerification,
 }));
 
-// Request-scoped handle seam: authenticated requests call getDbFromEnv() once.
 vi.mock('@/lib/db', () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));
 
-// Import proxy after mocks are registered
 import proxy from '@/proxy';
 
 const ORIGIN = 'http://localhost:3000';
@@ -66,7 +59,6 @@ function createRequest(pathname: string, cookie?: string): NextRequest {
   });
 }
 
-/** Default happy-path seam wiring: verified, consented regular user. */
 function seedAuthenticated(
   identity: SessionIdentity = IDENTITY,
   verification: UserVerificationState = VERIFIED,
@@ -111,8 +103,6 @@ describe('proxy', () => {
     expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
     expect(mockReadAuthorizationState).toHaveBeenCalledTimes(1);
     expect(mockReadUserVerification).toHaveBeenCalledTimes(1);
-    // Both reads receive the SAME request-scoped handle (never a second one),
-    // the stable user id, and the edge cache flag.
     expect(mockReadAuthorizationState.mock.calls[0][0]).toBe(dbHandle);
     expect(mockReadUserVerification.mock.calls[0][0]).toBe(dbHandle);
     expect(mockReadAuthorizationState.mock.calls[0][1]).toBe('user-1');

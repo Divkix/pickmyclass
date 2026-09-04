@@ -95,7 +95,6 @@ describe('fetchClassFromASU', () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0];
-    // SAFETY: fetchSpy mock returns string url from fetch call; validated by test setup
     const parsedUrl = new URL(url as string);
 
     expect(parsedUrl.pathname).toBe('/catalog-microservices/api/v1/search/classes');
@@ -130,7 +129,6 @@ describe('fetchClassFromASU', () => {
     );
 
     const [url, init] = fetchSpy.mock.calls[0];
-    // SAFETY: fetchSpy mock returns string url from fetch call; validated by test setup
     const parsedUrl = new URL(url as string);
 
     expect(parsedUrl.pathname).toBe('/catalog-microservices/api/v1/search/classes');
@@ -144,7 +142,7 @@ describe('fetchClassFromASU', () => {
     ['token', { ASU_API_BASE_URL: 'https://example.com/api/v1', ASU_API_TOKEN: '' }],
   ])('should reject when the ASU API %s is missing', async (_field, env) => {
     await expect(fetchClassFromASU({ class_nbr: '42737', term: '2264' }, env)).rejects.toSatisfy(
-      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown error at boundary
+      // eslint-disable-next-line anti-slop/no-unknown-parameters
       (error: unknown) => {
         return error instanceof ApiError && error.message.includes('not configured');
       }
@@ -181,7 +179,7 @@ describe('fetchClassFromASU', () => {
           ASU_API_TOKEN: 'test-token',
         }
       )
-      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown error at boundary
+      // eslint-disable-next-line anti-slop/no-unknown-parameters
     ).rejects.toSatisfy((error: unknown) => {
       return error instanceof ApiError && error.status === 408;
     });
@@ -236,7 +234,7 @@ describe('fetchClassFromASU', () => {
           ASU_API_TOKEN: 'test-token',
         }
       )
-      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown error at boundary
+      // eslint-disable-next-line anti-slop/no-unknown-parameters
     ).rejects.toSatisfy((error: unknown) => {
       return error instanceof ErrorClass && error.message.includes(message);
     });
@@ -263,7 +261,6 @@ describe('fetchClassFromASU', () => {
   });
 
   it('should compute non_reserved_seats correctly with waitlist data', async () => {
-    // enrlCap=30, enrlTot=10, waitTot=5 → non_reserved_seats = max(0, 30-10-5) = 15
     const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify(buildAsuResponseWithWaitlist('30', '10', '5', '10')), {
         status: 200,
@@ -284,7 +281,6 @@ describe('fetchClassFromASU', () => {
   });
 
   it('should return 0 for non_reserved_seats when all seats are filled including waitlist', async () => {
-    // enrlCap=30, enrlTot=25, waitTot=10 → non_reserved_seats = max(0, 30-25-10) = 0
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify(buildAsuResponseWithWaitlist('30', '25', '10', '10')), {
         status: 200,
@@ -304,7 +300,6 @@ describe('fetchClassFromASU', () => {
   });
 
   it('should compute non_reserved_seats correctly when no waitlist data is provided', async () => {
-    // enrlCap=25, enrlTot=4, no WAITTOT/WAITCAP → non_reserved_seats = max(0, 25-4-0) = 21
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify(buildAsuSuccessResponse()), { status: 200 })
     );
@@ -322,7 +317,6 @@ describe('fetchClassFromASU', () => {
   });
 
   it('should return the class matching the requested CLASSNBR, not just the first hit', async () => {
-    // Simulate Elasticsearch returning fuzzy matches with different CLASSNBR values
     const responseWithMultipleHits = {
       hits: {
         total: { value: 3 },
@@ -401,7 +395,6 @@ describe('fetchClassFromASU', () => {
       }
     );
 
-    // Should return the class with CLASSNBR='42737', not the first hit (CLASSNBR='99999')
     expect(result.subject).toBe('ABS');
     expect(result.catalog_nbr).toBe('302');
     expect(result.title).toBe('Ethical and Policy Issues in Biology');
@@ -469,15 +462,13 @@ describe('fetchClassFromASU', () => {
           ASU_API_TOKEN: 'test-token',
         }
       )
-      // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test helper decodes unknown error at boundary
+      // eslint-disable-next-line anti-slop/no-unknown-parameters
     ).rejects.toSatisfy((error: unknown) => {
       return error instanceof Error && error.message.includes('Section 99999 not found');
     });
   });
 
-  it('should handle empty string enrollment fields without returning NaN', async () => {
-    // Regression test for issue #169: Number.parseInt('', 10) returns NaN
-    // which causes Math.max(0, NaN) to return NaN, serializing as null in JSON
+  it('should handle empty string enrollment fields without returning NaN (issue #169)', async () => {
     const responseWithEmptyStrings = {
       hits: {
         total: { value: 1 },
@@ -489,9 +480,9 @@ describe('fetchClassFromASU', () => {
               CATALOGNBR: '101',
               COURSETITLELONG: 'Introduction to Programming',
               INSTRUCTORSLIST: ['Dr. Smith'],
-              ENRLCAP: '', // Empty string should be treated as 0
-              ENRLTOT: '', // Empty string should be treated as 0
-              WAITTOT: '', // Empty string should be treated as 0
+              ENRLCAP: '',
+              ENRLTOT: '',
+              WAITTOT: '',
               FACILITYID: 'MAIN',
               MON: 'Y',
               TUES: 'N',
@@ -519,7 +510,6 @@ describe('fetchClassFromASU', () => {
       }
     );
 
-    // All seat counts should be valid numbers, not NaN
     expect(result.seats_capacity).toBe(0);
     expect(result.seats_available).toBe(0);
     expect(result.non_reserved_seats).toBe(0);

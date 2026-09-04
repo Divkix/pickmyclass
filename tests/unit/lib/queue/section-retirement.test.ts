@@ -1,22 +1,6 @@
-/**
- * Unit tests for the NotFound end-of-life lifecycle in
- * `lib/queue/section-retirement.ts` (issue #360).
- *
- * Exercises `retireClassSection` directly through its seams: the
- * `@/lib/db/queries` helpers and the auto-cleanup email sender are mocked,
- * so no database or email traffic is involved and every branch of the
- * outcome/failure ladder is deterministic:
- *
- * tracked strikes -> increment failure -> breaker (strict > ratio,
- * fail-open) -> suppressed (+cap success/failure) -> watcher read failure ->
- * class-info degradation -> delete failure / delete-before-email ordering /
- * unexpected sender throw -> truthful watchesDeleted / emailsAttempted /
- * emailsSucceeded counts.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE, AUTO_CLEANUP_THRESHOLD } from '@/lib/config';
 
-// Query seams — the only DB surface the retirement module touches.
 vi.mock('@/lib/db/queries', () => ({
   readAutoCleanupBreakerCounts: vi.fn(),
   capConsecutiveNotFound: vi.fn(),
@@ -26,7 +10,6 @@ vi.mock('@/lib/db/queries', () => ({
   deleteSectionAndWatches: vi.fn(),
 }));
 
-// Auto-cleanup sender — truncation to the per-cycle cap lives inside the sender.
 vi.mock('@/lib/email/templates/auto-cleanup', () => ({
   sendAutoCleanupRemovalEmails: vi.fn(),
 }));
@@ -50,7 +33,6 @@ import type { SendEmail } from '@/lib/types/env';
 const REF: SectionRef = { class_nbr: '42737', term: '2261' };
 const FROM_EMAIL = 'notifications@pickmyclass.app';
 
-/** Sentinel Drizzle handle — identity-only; every DB seam below is mocked. */
 const db = {} as Database;
 
 const DEFAULT_CLASS_INFO: SectionRemovalClassInfo = {
@@ -71,7 +53,6 @@ function buildEmailBinding(): SendEmail {
   return { send: vi.fn().mockResolvedValue({ messageId: 'msg_test' }) };
 }
 
-/** Per-watch sender results keyed to buildWatcher(n)/buildWatchers order; every row reflects a real transport call. */
 function senderResults(successFlags: boolean[]) {
   return successFlags.map((success, n) =>
     success
@@ -80,7 +61,6 @@ function senderResults(successFlags: boolean[]) {
   );
 }
 
-/** Move the lifecycle just past the increment/threshold gate (3rd strike). */
 function setupAtThreshold(): void {
   vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(AUTO_CLEANUP_THRESHOLD);
 }
@@ -96,12 +76,8 @@ describe('retireClassSection', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'info').mockImplementation(() => {});
 
-    // Reset all mocks to clear call history from previous tests,
-    // then re-apply default implementations
     vi.resetAllMocks();
 
-    // Defaults: strike 1, healthy breaker, benign downstream no-ops — each
-    // test overrides only the seam under scrutiny.
     vi.mocked(incrementConsecutiveNotFound).mockResolvedValue(1);
     vi.mocked(readAutoCleanupBreakerCounts).mockResolvedValue({ total: 10, flagged: 1 });
     vi.mocked(capConsecutiveNotFound).mockResolvedValue(undefined);
@@ -131,7 +107,6 @@ describe('retireClassSection', () => {
         emailsSucceeded: 0,
       });
 
-      // Below threshold: none of the end-of-life machinery may run.
       expect(readAutoCleanupBreakerCounts).not.toHaveBeenCalled();
       expect(capConsecutiveNotFound).not.toHaveBeenCalled();
       expect(readSectionRemovalClassInfo).not.toHaveBeenCalled();
@@ -173,7 +148,6 @@ describe('retireClassSection', () => {
         emailsSucceeded: 0,
       });
 
-      // Lifecycle halts right at the increment: not even the breaker runs.
       expect(readAutoCleanupBreakerCounts).not.toHaveBeenCalled();
       expect(capConsecutiveNotFound).not.toHaveBeenCalled();
       expect(getClassWatchers).not.toHaveBeenCalled();
@@ -199,10 +173,8 @@ describe('retireClassSection', () => {
         emailsSucceeded: 0,
       });
 
-      // Suppression caps the counter just below the threshold...
       expect(capConsecutiveNotFound).toHaveBeenCalledWith(db, REF, AUTO_CLEANUP_THRESHOLD - 1);
 
-      // ...and short-circuits everything downstream of the breaker.
       expect(readSectionRemovalClassInfo).not.toHaveBeenCalled();
       expect(getClassWatchers).not.toHaveBeenCalled();
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
@@ -211,7 +183,6 @@ describe('retireClassSection', () => {
 
     it('proceeds when the flagged ratio is exactly 0.2 (strict > boundary)', async () => {
       setupAtThreshold();
-      // 2/10 === 0.2 — must NOT trip the breaker; retirement continues.
       vi.mocked(readAutoCleanupBreakerCounts).mockResolvedValue({ total: 10, flagged: 2 });
       const watchers = buildWatchers(1);
       vi.mocked(getClassWatchers).mockResolvedValue(watchers);
@@ -241,7 +212,6 @@ describe('retireClassSection', () => {
 
       const outcome = await retire();
 
-      // Fail open: an unreadable breaker must not block a legitimate retirement.
       expect(outcome.status).toBe('retired');
       expect(outcome.suppressed).toBe(false);
       expect(outcome.deleted).toBe(true);
@@ -257,7 +227,6 @@ describe('retireClassSection', () => {
 
       const outcome = await retire();
 
-      // Cap failure is logged and swallowed: suppression stands either way.
       expect(outcome).toMatchObject({
         status: 'suppressed',
         strikeCount: AUTO_CLEANUP_THRESHOLD,
@@ -288,7 +257,6 @@ describe('retireClassSection', () => {
         emailsSucceeded: 0,
       });
 
-      // Watcher failure aborts the whole tail: no cap, no delete, no email.
       expect(capConsecutiveNotFound).not.toHaveBeenCalled();
       expect(deleteSectionAndWatches).not.toHaveBeenCalled();
       expect(sendAutoCleanupRemovalEmails).not.toHaveBeenCalled();
@@ -318,7 +286,6 @@ describe('retireClassSection', () => {
         emailsSucceeded: 1,
       });
 
-      // Sender still runs, with classInfo degraded to null and bindings forwarded.
       const [params, sentBinding, sentFrom] = vi.mocked(sendAutoCleanupRemovalEmails).mock.calls[0];
       expect(params.ref).toEqual(REF);
       expect(params.classInfo).toBeNull();
@@ -346,7 +313,6 @@ describe('retireClassSection', () => {
         emailsAttempted: 0,
         emailsSucceeded: 0,
       });
-      // Watches still exist — emailing them would be wrong.
       expect(sendAutoCleanupRemovalEmails).not.toHaveBeenCalled();
     });
 
@@ -365,7 +331,6 @@ describe('retireClassSection', () => {
       expect(outcome.status).toBe('retired');
       expect(outcome.deleted).toBe(true);
 
-      // Invocation order is the guarantee: watches are gone before any email.
       const deleteOrder = vi.mocked(deleteSectionAndWatches).mock.invocationCallOrder[0];
       const sendOrder = vi.mocked(sendAutoCleanupRemovalEmails).mock.invocationCallOrder[0];
       expect(deleteOrder).toBeLessThan(sendOrder);
@@ -383,7 +348,6 @@ describe('retireClassSection', () => {
 
       const outcome = await retire();
 
-      // Deletion already happened; an email crash must not undo or retry it.
       expect(outcome).toMatchObject({
         status: 'retired',
         strikeCount: AUTO_CLEANUP_THRESHOLD,
@@ -424,9 +388,6 @@ describe('retireClassSection', () => {
         watchesDeleted: 3,
         stateDeleted: true,
       });
-      // Fatal provider shape (mirrors the real sender): watcher-0's transport
-      // call went out and failed; the fatal code aborted the loop, so every
-      // remaining watcher gets a synthetic skip row that was never attempted.
       vi.mocked(sendAutoCleanupRemovalEmails).mockResolvedValue([
         {
           success: false,
@@ -444,15 +405,11 @@ describe('retireClassSection', () => {
 
       const outcome = await retire();
 
-      // Retirement stands: deletion is committed regardless of email fate.
       expect(outcome.status).toBe('retired');
       expect(outcome.deleted).toBe(true);
       expect(outcome.watchesDeleted).toBe(3);
-      // One real (failed) attempt; the two synthetic skips must not inflate
-      // either count — length-based counting would have claimed 3 attempts.
       expect(outcome.emailsAttempted).toBe(1);
       expect(outcome.emailsSucceeded).toBe(0);
-      // Truthful gap: 3 removed − 1 real attempt = 2 watchers never emailed.
       expect(outcome.watchesDeleted - outcome.emailsAttempted).toBe(2);
       const closingLog = infoSpy.mock.calls
         .map((args) => args.join(' '))
@@ -464,8 +421,6 @@ describe('retireClassSection', () => {
 
     it('passes every watcher untruncated and reports only what the sender attempted', async () => {
       setupAtThreshold();
-      // Far beyond the 500-cap: retirement must hand over ALL watchers —
-      // only the sender truncates.
       const watcherCount = AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE + 37;
       const watchers = buildWatchers(watcherCount);
       vi.mocked(getClassWatchers).mockResolvedValue(watchers);
@@ -473,7 +428,6 @@ describe('retireClassSection', () => {
         watchesDeleted: watcherCount,
         stateDeleted: true,
       });
-      // Mimic the real sender: truncate to the cap, alternate success/failure.
       vi.mocked(sendAutoCleanupRemovalEmails).mockImplementation(async (params) =>
         params.watchers
           .slice(0, AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE)
@@ -488,7 +442,6 @@ describe('retireClassSection', () => {
 
       expect(outcome.status).toBe('retired');
       expect(outcome.watchesDeleted).toBe(watcherCount);
-      // Counts reflect the sender's truncated attempt, not the watch count.
       expect(outcome.emailsAttempted).toBe(AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE);
       expect(outcome.emailsSucceeded).toBe(AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE / 2);
     });
@@ -507,8 +460,6 @@ describe('retireClassSection', () => {
 
       expect(outcome.status).toBe('retired');
 
-      // Every seam keys on BOTH class_nbr and term — dropping either would
-      // mis-key across terms.
       const expectedRef: SectionRef = { class_nbr: '42737', term: '2261' };
       expect(incrementConsecutiveNotFound).toHaveBeenCalledWith(db, expectedRef);
       expect(readSectionRemovalClassInfo).toHaveBeenCalledWith(db, expectedRef);

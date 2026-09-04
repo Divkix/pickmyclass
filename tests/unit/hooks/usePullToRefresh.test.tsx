@@ -2,7 +2,6 @@ import { act, render, renderHook, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh';
 
-// Helper component that uses the hook and attaches ref to a div
 function TestComponent({
   onRefresh,
   threshold = 80,
@@ -26,7 +25,6 @@ function TestComponent({
   );
 }
 
-// Helper to create and dispatch touch events
 const createTouchEvent = (type: string, clientY: number): TouchEvent => {
   const touch = {
     clientY,
@@ -36,8 +34,7 @@ const createTouchEvent = (type: string, clientY: number): TouchEvent => {
     pageY: clientY,
     screenX: 0,
     screenY: clientY,
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: test double needs unknown intermediate because null not overlapping EventTarget
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     target: null as unknown as EventTarget,
     radiusX: 0,
     radiusY: 0,
@@ -46,28 +43,22 @@ const createTouchEvent = (type: string, clientY: number): TouchEvent => {
   };
 
   return new TouchEvent(type, {
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     touches: type === 'touchend' || type === 'touchcancel' ? [] : [touch as Touch],
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     targetTouches: type === 'touchend' || type === 'touchcancel' ? [] : [touch as Touch],
-    // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
     changedTouches: [touch as Touch],
     bubbles: true,
     cancelable: true,
   });
 };
-// Create properly typed mock
 const createMockRefresh = (): (() => Promise<void>) => {
   const fn = vi.fn();
   fn.mockResolvedValue(undefined);
-  // SAFETY: test double constructs minimal shape for SDK contract; only accessed fields are asserted
   return fn as () => Promise<void>;
 };
 
 describe('usePullToRefresh hook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset scroll position
     Object.defineProperty(window, 'scrollY', { value: 0, writable: true, configurable: true });
     Object.defineProperty(document.documentElement, 'scrollTop', {
       value: 0,
@@ -210,7 +201,6 @@ describe('usePullToRefresh hook', () => {
         container.dispatchEvent(createTouchEvent('touchmove', 200));
       });
 
-      // Pull distance should be (200-100) / 2.5 = 40
       const pullDistance = Number.parseFloat(
         screen.getByTestId('pull-distance').textContent || '0'
       );
@@ -223,12 +213,10 @@ describe('usePullToRefresh hook', () => {
 
       const container = screen.getByTestId('container');
 
-      // Start at y=10 to avoid 0 being falsy
       await act(async () => {
         container.dispatchEvent(createTouchEvent('touchstart', 10));
       });
 
-      // Pull 500px (from 10 to 510) - should cap at 80 * 1.5 = 120
       await act(async () => {
         container.dispatchEvent(createTouchEvent('touchmove', 510));
       });
@@ -263,7 +251,6 @@ describe('usePullToRefresh hook', () => {
       const mockRefresh = vi.fn().mockResolvedValue(undefined);
       render(<TestComponent onRefresh={mockRefresh} />);
 
-      // Set scroll position away from top
       Object.defineProperty(window, 'scrollY', { value: 100, writable: true, configurable: true });
 
       const container = screen.getByTestId('container');
@@ -348,7 +335,6 @@ describe('usePullToRefresh hook', () => {
         container.dispatchEvent(createTouchEvent('touchstart', 100));
       });
 
-      // Scroll down after touch starts
       Object.defineProperty(window, 'scrollY', { value: 50, writable: true, configurable: true });
 
       await act(async () => {
@@ -375,7 +361,6 @@ describe('usePullToRefresh hook', () => {
         container.dispatchEvent(createTouchEvent('touchmove', 200));
       });
 
-      // Pull distance should be 100 / 5 = 20
       const pullDistance = Number.parseFloat(
         screen.getByTestId('pull-distance').textContent || '0'
       );
