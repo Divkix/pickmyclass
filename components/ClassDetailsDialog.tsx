@@ -43,7 +43,6 @@ export function ClassDetailsDialog({
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
-          {/* Seat Information */}
           {classState && (
             <div className="space-y-2">
               <h3 className="font-semibold text-foreground">Seat Availability</h3>
@@ -80,7 +79,6 @@ export function ClassDetailsDialog({
             </div>
           )}
 
-          {/* Instructor Information */}
           <div className="space-y-2">
             <h3 className="font-semibold text-foreground">Instructor</h3>
             <div className="bg-muted rounded-md p-4">
@@ -108,7 +106,6 @@ export function ClassDetailsDialog({
             </div>
           </div>
 
-          {/* Location & Times */}
           {(classState?.location || classState?.meeting_times) && (
             <div className="space-y-2">
               <h3 className="font-semibold text-foreground">Location & Schedule</h3>
@@ -129,7 +126,6 @@ export function ClassDetailsDialog({
             </div>
           )}
 
-          {/* Last Checked */}
           {classState?.last_checked_at && (
             <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border">
               Last checked: {formatAbsoluteDate(classState.last_checked_at)}

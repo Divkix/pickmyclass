@@ -8,15 +8,11 @@ interface SortableHeaderProps<F extends string> {
   label: string;
   toggleSort: (field: F) => void;
   renderSortIcon: (field: F) => ReactNode;
-  /** Alignment of the button content. Defaults to 'left'. */
   align?: Align;
-  /** Extra className forwarded to the wrapping <TableHead>. */
   className?: string;
-  /** Optional icon(s) to render before the label text. */
   children?: ReactNode;
 }
 
-/** A sortable admin table header backed by a native button. */
 export function SortableHeader<F extends string>({
   field,
   label,

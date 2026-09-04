@@ -21,20 +21,17 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
   const hasInstructor = instructor_name && instructor_name !== 'Staff';
   const rmpUrl = getRateMyProfessorUrl(instructor_name);
 
-  // Determine seat availability state: open or full
   let seatColor: string;
   let seatMessage: string;
   let SeatIcon: typeof CheckCircle;
   let ariaLabel: string;
 
   if (seats_available > 0) {
-    // Seats available - GREEN
     seatColor = 'bg-success/20 text-success';
     SeatIcon = CheckCircle;
     seatMessage = `${seats_available} of ${seats_capacity} seats available`;
     ariaLabel = `Seats available: ${seats_available} of ${seats_capacity} seats available`;
   } else {
-    // Completely full - RED
     seatColor = 'bg-destructive/20 text-destructive';
     SeatIcon = XCircle;
     seatMessage = `0 of ${seats_capacity} seats available`;
@@ -43,7 +40,6 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Seats indicator */}
       <output
         className={cn('inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm', seatColor)}
         aria-label={ariaLabel}
@@ -52,7 +48,6 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
         <span className="font-medium">{seatMessage}</span>
       </output>
 
-      {/* Instructor indicator */}
       <div
         className={`inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm ${
           hasInstructor ? 'bg-info/20 text-primary' : 'bg-muted text-muted-foreground'

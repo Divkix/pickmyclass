@@ -64,7 +64,7 @@ function Button({
     );
   }
 
-  // SAFETY: Radix Slot polymorphism; props matches MotionButtonProps by component contract excluding drag handlers
+  // SAFETY: Radix Slot polymorphism; props matches MotionButtonProps by component contract
   return (
     <motion.button
       data-slot="button"

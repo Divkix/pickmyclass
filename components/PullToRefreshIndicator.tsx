@@ -8,21 +8,15 @@ interface PullToRefreshIndicatorProps {
   threshold: number;
 }
 
-/**
- * Visual indicator component for pull-to-refresh functionality
- * Shows a spinner that rotates based on pull distance
- */
 export function PullToRefreshIndicator({
   pullDistance,
   isRefreshing,
   threshold,
 }: PullToRefreshIndicatorProps) {
-  // Calculate opacity and rotation
   const opacity = Math.min(pullDistance / threshold, 1);
   const rotation = isRefreshing ? 0 : (pullDistance / threshold) * 360;
   const height = Math.min(pullDistance, 80);
 
-  // Determine message
   const getMessage = () => {
     if (isRefreshing) return 'Refreshing...';
     if (pullDistance >= threshold) return 'Release to refresh';
@@ -32,7 +26,6 @@ export function PullToRefreshIndicator({
 
   const message = getMessage();
 
-  // Don't render if not pulling and not refreshing
   if (pullDistance === 0 && !isRefreshing) return null;
 
   return (

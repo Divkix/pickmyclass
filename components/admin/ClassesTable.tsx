@@ -36,13 +36,6 @@ interface ClassesTableProps {
   watcherCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
 }
 
-/**
- * Admin Classes Table Component
- *
- * Server-driven client component: sort, search, and filter all update URL
- * searchParams so the server re-queries. Renders only the server-provided
- * page of rows — the full dataset is never in the browser.
- */
 export function ClassesTable({
   classes,
   total,
@@ -62,7 +55,6 @@ export function ClassesTable({
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
 
-  /** Build a new URL with updated searchParam(s) */
   const buildUrl = useCallback(
     (updates: Record<string, string>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -88,7 +80,6 @@ export function ClassesTable({
     [router, buildUrl]
   );
 
-  /** URL-driven sort handler — passed to SortableHeader as toggleSort */
   const handleSortClick = (field: ClassSortField) => {
     if (sort === field) {
       navigate({ sort: field, dir: dir === 'asc' ? 'desc' : 'asc', page: '1' });
@@ -97,7 +88,6 @@ export function ClassesTable({
     }
   };
 
-  /** Icon renderer that reads URL state rather than hook-internal state */
   const renderSortIconFromUrl = (field: ClassSortField) => {
     if (sort !== field) return <ChevronsUpDown className="size-4 ml-1 text-muted-foreground" />;
     if (dir === 'asc') return <ChevronUp className="size-4 ml-1" />;
@@ -124,7 +114,6 @@ export function ClassesTable({
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
       <ClassesTableFiltersComponent
         subjects={subjects}
         search={search}
@@ -135,7 +124,6 @@ export function ClassesTable({
         onNavigate={(updates) => navigate({ ...updates, page: '1' })}
       />
 
-      {/* Table */}
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
@@ -283,7 +271,6 @@ export function ClassesTable({
         </Table>
       </div>
 
-      {/* Results count + pagination */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {total === 0 ? (

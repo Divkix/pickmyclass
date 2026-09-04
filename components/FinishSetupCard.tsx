@@ -5,11 +5,6 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-/**
- * Compact card shown on the dashboard after a user skips onboarding. Persists
- * until the user creates their first class watch (which sets
- * onboarding_completed_at server-side and hides this card).
- */
 export function FinishSetupCard() {
   return (
     <Card className="mb-6 border-primary/20 bg-primary/5">

@@ -13,12 +13,10 @@ export function AuthRedirect({ children }: { children: React.ReactNode }) {
   }, []);
   useRedirectIfAuthenticated();
 
-  // During SSR and before hydration, always render full content (for crawlers)
   if (!mounted) {
     return <>{children}</>;
   }
 
-  // After hydration, show spinner while checking auth or if authenticated (redirect pending)
   if (loading || user?.email_confirmed_at) {
     return (
       <div className="flex min-h-screen flex-col bg-background">

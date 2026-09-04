@@ -1,7 +1,3 @@
-/**
- * First focusable control on every page. Targets the `#main` landmark so
- * keyboard users skip the sticky header / nav chrome.
- */
 export function SkipToContent() {
   return (
     <a

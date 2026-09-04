@@ -18,7 +18,6 @@ export function AuthButton() {
     } catch (error) {
       log('AuthButton').error('Sign-out failed:', error);
     } finally {
-      // Fallback: force navigation to /sign-in even if sign-out failed
       window.location.href = '/sign-in';
     }
   };

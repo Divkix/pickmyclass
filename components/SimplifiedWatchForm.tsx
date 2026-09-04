@@ -10,22 +10,13 @@ import type { ClassWatchCreationInput } from '@/lib/class-watches/class-watch-cr
 import type { ClassWatchRow } from '@/lib/types/class-watch';
 
 interface SimplifiedWatchFormProps {
-  /** Runs caller-specific state/analytics after the watch is created. */
   onCreated: (watch: ClassWatchRow, input: ClassWatchCreationInput) => void | Promise<void>;
-  /** Exposes the complete request lifecycle to containers that gate other actions. */
   onSubmittingChange?: (submitting: boolean) => void;
-  /** Optional pre-filled class number (e.g. from a "Track this class" shortcut). */
   defaultClassNbr?: string;
   submitLabel?: string;
   submittingLabel?: string;
 }
 
-/**
- * Minimal class-watch form (class number + term only). Shares the same
- * validation rules as the dashboard's `AddClassWatch` (exactly 5 digits, a
- * selectable term, and the "No terms are currently available" fallback) so
- * onboarding cannot create a broken watch.
- */
 export function SimplifiedWatchForm({
   onCreated,
   onSubmittingChange,

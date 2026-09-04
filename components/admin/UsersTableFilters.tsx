@@ -14,24 +14,13 @@ import {
 import { useDebouncedSearchParam } from '@/lib/hooks/useDebouncedSearchParam';
 
 interface UsersTableFiltersProps {
-  /** Current filter values (from URL searchParams via parent) */
   search: string;
   role: 'all' | 'admin' | 'user';
   verified: 'all' | 'verified' | 'unverified';
   watchCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
-  /**
-   * Called with a flat map of searchParam updates when any filter changes.
-   * The parent component (UsersTable) merges these into the URL.
-   */
   onNavigate: (updates: Record<string, string>) => void;
 }
 
-/**
- * Users Table Filters Component
- *
- * URL-driven: filter changes update URL searchParams so the server re-queries.
- * Search is debounced to avoid a request on every keystroke.
- */
 export function UsersTableFiltersComponent({
   search,
   role,
@@ -52,7 +41,6 @@ export function UsersTableFiltersComponent({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Search Input (debounced) */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
@@ -63,7 +51,6 @@ export function UsersTableFiltersComponent({
           />
         </div>
 
-        {/* Role Filter */}
         <Select value={role} onValueChange={(value) => onNavigate({ role: value })}>
           <SelectTrigger>
             <SelectValue placeholder="All Roles" />
@@ -75,7 +62,6 @@ export function UsersTableFiltersComponent({
           </SelectContent>
         </Select>
 
-        {/* Email Verified Filter */}
         <Select value={verified} onValueChange={(value) => onNavigate({ verified: value })}>
           <SelectTrigger>
             <SelectValue placeholder="Email Status" />
@@ -87,7 +73,6 @@ export function UsersTableFiltersComponent({
           </SelectContent>
         </Select>
 
-        {/* Watch Count Filter */}
         <Select value={watchCount} onValueChange={(value) => onNavigate({ watchCount: value })}>
           <SelectTrigger>
             <SelectValue placeholder="Watch Count" />
@@ -102,7 +87,6 @@ export function UsersTableFiltersComponent({
         </Select>
       </div>
 
-      {/* Clear Filters Button */}
       {hasActiveFilters && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">Filters active</p>
