@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { log } from '@/lib/log';
 import { safeInternalPath } from '@/lib/auth/safe-redirect';
 import { invalidateAuthorizationState } from '@/lib/auth/authorization-state';
-import { getSessionIdentity } from '@/lib/auth/clerk-session';
+import { getClerkClient, getSessionIdentity } from '@/lib/auth/clerk-session';
 import { getDbFromEnv } from '@/lib/db';
 import { repairUserMirror } from '@/lib/db/users';
 
@@ -32,7 +32,8 @@ export async function GET(request: Request) {
 
   try {
     const db = getDbFromEnv();
-    const repairResult = await repairUserMirror(db, userId, identity.clerkUserId);
+    const clerkUser = await getClerkClient().users.getUser(identity.clerkUserId);
+    const repairResult = await repairUserMirror(db, userId, clerkUser);
     if (!repairResult) {
       log('Auth').error(`No primary email on Clerk user ${identity.clerkUserId}`);
       return consentRedirect(base, next, true);

@@ -1,7 +1,6 @@
 import { type User, type UserJSON } from '@clerk/backend';
 import { eq, inArray, or, sql } from 'drizzle-orm';
 
-import { getClerkClient } from '@/lib/auth/clerk-session';
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import type { Database } from '@/lib/db';
 import { users, userProfiles } from '@/lib/db/schema';
@@ -236,12 +235,11 @@ export async function softDeleteUserById(db: Database, userId: string): Promise<
 export async function repairUserMirror(
   db: Database,
   userId: string,
-  clerkUserId: string
+  clerkUser: User
 ): Promise<{ hasConsent: boolean } | null> {
   const existing = await readProfileConsent(db, userId);
   if (existing) return existing;
 
-  const clerkUser = await getClerkClient().users.getUser(clerkUserId);
   const normalized = normalizeBackendUser(clerkUser);
   const { email } = normalized;
   if (!email) return null;

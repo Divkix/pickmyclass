@@ -4,6 +4,7 @@ import { consentSchema } from '@/lib/api/schemas';
 import { fail, ok } from '@/lib/api/response';
 import { parseOrFail } from '@/lib/api/validation';
 import { invalidateAuthorizationState } from '@/lib/auth/authorization-state';
+import { getClerkClient } from '@/lib/auth/clerk-session';
 import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
 import { getDbFromEnv } from '@/lib/db';
 import { repairUserMirror } from '@/lib/db/users';
@@ -20,7 +21,8 @@ export async function POST(request: NextRequest) {
 
     try {
       const db = getDbFromEnv();
-      const result = await repairUserMirror(db, user.userId, user.clerkUserId);
+      const clerkUser = await getClerkClient().users.getUser(user.clerkUserId);
+      const result = await repairUserMirror(db, user.userId, clerkUser);
       if (!result) {
         log('Consent').error(`No primary email on Clerk user ${user.clerkUserId}`);
         return fail('Account setup incomplete — please try again in a moment', 409);
