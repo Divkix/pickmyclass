@@ -1,4 +1,4 @@
-import type { EmailAddressJSON, UserJSON, VerificationJSON } from '@clerk/backend';
+import type { EmailAddressJSON, User, UserJSON, VerificationJSON } from '@clerk/backend';
 import { SQL } from 'drizzle-orm';
 import { PgDialect, type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -208,15 +208,6 @@ interface BackendUserDouble {
   }>;
 }
 
-const { mockGetClerkClient, mockGetUser } = vi.hoisted(() => ({
-  mockGetClerkClient: vi.fn(),
-  mockGetUser: vi.fn<(userId: string) => Promise<BackendUserDouble>>(),
-}));
-
-vi.mock('@/lib/auth/clerk-session', () => ({
-  getClerkClient: mockGetClerkClient,
-}));
-
 const CLERK_USER_ID = 'user_2abc123';
 const MIGRATED_APP_ID = 'b7c9d1e2-3f40-4a51-8b62-old-supabase';
 const EMAIL_PRIMARY_ID = 'idn_email_primary';
@@ -310,6 +301,11 @@ function backendUserFrom(json: UserJSON): BackendUserDouble {
       verification: address.verification ? { status: address.verification.status } : null,
     })),
   };
+}
+
+function backendUser(json: UserJSON): User {
+  // eslint-disable-next-line anti-slop/no-chained-type-assertions
+  return backendUserFrom(json) as unknown as User;
 }
 
 let double: DbDouble;
@@ -515,7 +511,7 @@ describe('syncUserMirrorFromClerkUser', () => {
 describe('repairUserMirror', () => {
   const APP_USER_ID = MIGRATED_APP_ID;
 
-  it('reports existing full consent without fetching Clerk or writing', async () => {
+  it('reports existing full consent without using the passed user or writing', async () => {
     double.nextRows([
       {
         age_verified_at: '2026-01-01T00:00:00.000Z',
@@ -523,7 +519,7 @@ describe('repairUserMirror', () => {
       },
     ]);
 
-    const result = await repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, APP_USER_ID, backendUser(userJson()));
 
     expect(result).toEqual({ hasConsent: true });
     const [probe] = double.selects();
@@ -535,27 +531,69 @@ describe('repairUserMirror', () => {
       sql: '"user_profiles"."user_id" = $1',
       params: [APP_USER_ID],
     });
-    expect(mockGetUser).not.toHaveBeenCalled();
     expect(double.inserts()).toHaveLength(0);
+  });
+
+  it('never reads the passed user when the profile row already exists', async () => {
+    double.nextRows([
+      {
+        age_verified_at: '2026-01-01T00:00:00.000Z',
+        agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
+      },
+    ]);
+    const untouched = new Proxy(
+      {},
+      {
+        get: () => {
+          throw new Error('repair must not read the passed user on a cache hit');
+        },
+      }
+    );
+
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
+    const result = await repairUserMirror(double.db, APP_USER_ID, untouched as unknown as User);
+
+    expect(result).toEqual({ hasConsent: true });
+    expect(double.ops()).toHaveLength(1);
+    expect(double.inserts()).toHaveLength(0);
+  });
+
+  it('preserves the existing confirmation timestamp when the email is unchanged', async () => {
+    double.nextRows([]);
+    double.nextRows([{ age_verified_at: null, agreed_to_terms_at: null }]);
+
+    await repairUserMirror(
+      double.db,
+      APP_USER_ID,
+      backendUser(userJson({ external_id: MIGRATED_APP_ID }))
+    );
+
+    const [mirror] = double.mirrorUpserts();
+    expect(mirror.conflict?.target).toBe(users.id);
+    const conflictSet = mirror.conflict?.set ?? {};
+    const confirmedAtRule = renderSql(conflictSet.email_confirmed_at);
+    expect(confirmedAtRule).toContain(
+      'when "users"."email" <> excluded.email then excluded.email_confirmed_at'
+    );
+    expect(confirmedAtRule).toContain(
+      'coalesce("users"."email_confirmed_at", excluded.email_confirmed_at)'
+    );
   });
 
   it('requires BOTH consent timestamps before reporting hasConsent', async () => {
     double.nextRows([{ age_verified_at: '2026-01-01T00:00:00.000Z', agreed_to_terms_at: null }]);
 
-    const result = await repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, APP_USER_ID, backendUser(userJson()));
 
     expect(result).toEqual({ hasConsent: false });
-    expect(mockGetUser).not.toHaveBeenCalled();
     expect(double.inserts()).toHaveLength(0);
   });
 
-  it('fetches Clerk only when the profile row is missing and upserts a verified user', async () => {
+  it('upserts the passed Clerk user when the profile row is missing (verified user)', async () => {
     const clerkUser = userJson({
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: true, agreed_to_terms: true },
     });
-    mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
-    mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
     double.nextRows([]);
     double.nextRows([
       {
@@ -564,12 +602,9 @@ describe('repairUserMirror', () => {
       },
     ]);
 
-    const result = await repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, APP_USER_ID, backendUser(clerkUser));
 
     expect(result).toEqual({ hasConsent: true });
-    expect(mockGetClerkClient).toHaveBeenCalledTimes(1);
-    expect(mockGetUser).toHaveBeenCalledTimes(1);
-    expect(mockGetUser).toHaveBeenCalledWith(CLERK_USER_ID);
 
     const [mirror] = double.mirrorUpserts();
     expect(mirror.values.id).toBe(APP_USER_ID);
@@ -589,12 +624,10 @@ describe('repairUserMirror', () => {
       last_sign_in_at: null,
       public_metadata: {},
     });
-    mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
-    mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
     double.nextRows([]);
     double.nextRows([{ age_verified_at: null, agreed_to_terms_at: null }]);
 
-    const result = await repairUserMirror(double.db, CLERK_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, CLERK_USER_ID, backendUser(clerkUser));
 
     expect(result).toEqual({ hasConsent: false });
     const mirror = double.mirrorUpserts()[0];
@@ -610,15 +643,13 @@ describe('repairUserMirror', () => {
   });
 
   it('returns null without writing when the Clerk user has no email', async () => {
-    mockGetUser.mockResolvedValueOnce(
-      backendUserFrom(userJson({ email_addresses: [], primary_email_address_id: null }))
+    const clerkUser = backendUser(
+      userJson({ email_addresses: [], primary_email_address_id: null })
     );
-    mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
 
-    const result = await repairUserMirror(double.db, CLERK_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, CLERK_USER_ID, clerkUser);
 
     expect(result).toBeNull();
-    expect(mockGetUser).toHaveBeenCalledWith(CLERK_USER_ID);
     expect(double.inserts()).toHaveLength(0);
   });
 
@@ -627,8 +658,6 @@ describe('repairUserMirror', () => {
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: true, agreed_to_terms: true },
     });
-    mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
-    mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
     double.nextRows([]);
     double.nextRows([
       {
@@ -637,7 +666,7 @@ describe('repairUserMirror', () => {
       },
     ]);
 
-    const result = await repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID);
+    const result = await repairUserMirror(double.db, APP_USER_ID, backendUser(clerkUser));
 
     expect(result).toEqual({ hasConsent: false });
 
@@ -655,8 +684,6 @@ describe('repairUserMirror', () => {
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: false, agreed_to_terms: false },
     });
-    mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
-    mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
     double.nextRows([]);
     double.nextRows([
       {
@@ -665,9 +692,11 @@ describe('repairUserMirror', () => {
       },
     ]);
 
-    await expect(repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID)).resolves.toEqual({
-      hasConsent: true,
-    });
+    await expect(repairUserMirror(double.db, APP_USER_ID, backendUser(clerkUser))).resolves.toEqual(
+      {
+        hasConsent: true,
+      }
+    );
   });
 
   it('throws when the profile row is inexplicably absent after the upsert', async () => {
@@ -675,10 +704,9 @@ describe('repairUserMirror', () => {
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: true, agreed_to_terms: true },
     });
-    mockGetUser.mockResolvedValueOnce(backendUserFrom(clerkUser));
-    mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
-
-    await expect(repairUserMirror(double.db, APP_USER_ID, CLERK_USER_ID)).rejects.toThrow();
+    await expect(
+      repairUserMirror(double.db, APP_USER_ID, backendUser(clerkUser))
+    ).rejects.toThrow();
 
     expect(double.inserts()).toHaveLength(2);
     expect(double.selects()).toHaveLength(2);
@@ -698,8 +726,6 @@ describe('webhook/repair verified-state consistency (#358)', () => {
     await syncUserMirrorFromClerkUser(double.db, userJson(shared));
     const synced = double.mirrorUpserts()[0].values;
 
-    mockGetUser.mockResolvedValueOnce(backendUserFrom(userJson(shared)));
-    mockGetClerkClient.mockReturnValueOnce({ users: { getUser: mockGetUser } });
     double.nextRows([]);
     double.nextRows([
       {
@@ -707,7 +733,7 @@ describe('webhook/repair verified-state consistency (#358)', () => {
         agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
       },
     ]);
-    await repairUserMirror(double.db, MIGRATED_APP_ID, CLERK_USER_ID);
+    await repairUserMirror(double.db, MIGRATED_APP_ID, backendUser(userJson(shared)));
     const repaired = double.mirrorUpserts()[1].values;
 
     expect(repaired.id).toBe(synced.id);

@@ -37,6 +37,10 @@ export type SectionCheckOutcome = {
   retryable: boolean;
 };
 
+export type ProcessSectionDeps = {
+  fetchClass: typeof fetchClassFromASU;
+};
+
 function emptyChanges(): ChangeResult {
   return {
     seatBecameAvailable: false,
@@ -68,8 +72,10 @@ function failedResult(classNbr: string, duration: number, error: string): Proces
 export async function processSection(
   db: Database,
   ref: SectionRef,
-  env: Pick<Env, 'ASU_API_BASE_URL' | 'ASU_API_TOKEN' | 'EMAIL' | 'NOTIFICATION_FROM_EMAIL'>
+  env: Pick<Env, 'ASU_API_BASE_URL' | 'ASU_API_TOKEN' | 'EMAIL' | 'NOTIFICATION_FROM_EMAIL'>,
+  overrides: Partial<ProcessSectionDeps> = {}
 ): Promise<SectionCheckOutcome> {
+  const { fetchClass = fetchClassFromASU } = overrides;
   const { class_nbr: classNbr } = ref;
   const startTime = Date.now();
 
@@ -79,7 +85,7 @@ export async function processSection(
 
   try {
     const oldState = await readSectionCheckState(db, ref);
-    newData = await fetchClassFromASU(ref, env);
+    newData = await fetchClass(ref, env);
 
     changes = detectChanges(oldState, newData);
 

@@ -7,18 +7,28 @@ const {
   dbHandle,
   mockExecute,
   mockRequireUser,
+  mockGetClerkClient,
+  mockGetUser,
   mockRepairUserMirror,
   mockInvalidateAuthorizationState,
 } = vi.hoisted(() => {
   const mockExecute = vi.fn();
+  const mockGetUser = vi.fn();
+  const mockGetClerkClient = vi.fn(() => ({ users: { getUser: mockGetUser } }));
   return {
     dbHandle: { execute: mockExecute },
     mockExecute,
     mockRequireUser: vi.fn(),
+    mockGetClerkClient,
+    mockGetUser,
     mockRepairUserMirror: vi.fn(),
     mockInvalidateAuthorizationState: vi.fn(),
   };
 });
+
+vi.mock('@/lib/auth/clerk-session', () => ({
+  getClerkClient: mockGetClerkClient,
+}));
 
 vi.mock('@/lib/auth/require-user', () => {
   class UnauthorizedError extends Error {
@@ -62,6 +72,7 @@ function request(body: Record<string, JsonValue>): NextRequest {
 }
 
 const CONSENT_BODY = { ageVerified: true, agreedToTerms: true };
+const CLERK_USER = { id: 'clerk-1' };
 
 describe('POST /api/auth/consent', () => {
   beforeEach(() => {
@@ -70,6 +81,7 @@ describe('POST /api/auth/consent', () => {
       user: { userId: 'user-1', clerkUserId: 'clerk-1' },
     });
     mockRepairUserMirror.mockResolvedValue({ hasConsent: false });
+    mockGetUser.mockResolvedValue(CLERK_USER);
     mockExecute.mockResolvedValue([]);
   });
 
@@ -110,7 +122,8 @@ describe('POST /api/auth/consent', () => {
       success: false,
       error: 'Account setup incomplete — please try again in a moment',
     });
-    expect(mockRepairUserMirror).toHaveBeenCalledWith(dbHandle, 'user-1', 'clerk-1');
+    expect(mockGetUser).toHaveBeenCalledWith('clerk-1');
+    expect(mockRepairUserMirror).toHaveBeenCalledWith(dbHandle, 'user-1', CLERK_USER);
     expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
@@ -125,6 +138,21 @@ describe('POST /api/auth/consent', () => {
       success: false,
       error: 'Could not save consent',
     });
+    expect(mockExecute).not.toHaveBeenCalled();
+    expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
+  });
+
+  it('maps a Clerk fetch failure to the existing 500 fail path', async () => {
+    mockGetUser.mockRejectedValueOnce(new Error('clerk unavailable'));
+
+    const response = await POST(request(CONSENT_BODY));
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      error: 'Could not save consent',
+    });
+    expect(mockRepairUserMirror).not.toHaveBeenCalled();
     expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });

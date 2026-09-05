@@ -8,15 +8,21 @@ const {
   mockExecute,
   mockGetDbFromEnv,
   mockGetSessionIdentity,
+  mockGetClerkClient,
+  mockGetUser,
   mockRepairUserMirror,
   mockInvalidateAuthorizationState,
 } = vi.hoisted(() => {
   const mockExecute = vi.fn();
+  const mockGetUser = vi.fn();
+  const mockGetClerkClient = vi.fn(() => ({ users: { getUser: mockGetUser } }));
   return {
     dbHandle: { execute: mockExecute },
     mockExecute,
     mockGetDbFromEnv: vi.fn(() => dbHandle),
     mockGetSessionIdentity: vi.fn(),
+    mockGetClerkClient,
+    mockGetUser,
     mockRepairUserMirror: vi.fn(),
     mockInvalidateAuthorizationState: vi.fn(),
   };
@@ -24,6 +30,7 @@ const {
 
 vi.mock('@/lib/auth/clerk-session', () => ({
   getSessionIdentity: mockGetSessionIdentity,
+  getClerkClient: mockGetClerkClient,
 }));
 
 vi.mock('@/lib/db/users', () => ({
@@ -42,6 +49,7 @@ import { GET } from '@/app/auth/post-oauth/route';
 
 const ORIGIN = 'https://pickmyclass.app';
 const IDENTITY = { userId: 'user-1', clerkUserId: 'clerk_user_1', sessionId: 'sess_1' };
+const CLERK_USER = { id: 'clerk_user_1' };
 
 function getRequest(search = '', headers: Record<string, string> = {}): NextRequest {
   return new NextRequest(`${ORIGIN}/auth/post-oauth${search}`, { headers });
@@ -57,6 +65,7 @@ describe('GET /auth/post-oauth', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetSessionIdentity.mockResolvedValue(IDENTITY);
+    mockGetUser.mockResolvedValue(CLERK_USER);
     mockRepairUserMirror.mockResolvedValue({ hasConsent: false });
     mockExecute.mockResolvedValue([]);
   });
@@ -82,11 +91,13 @@ describe('GET /auth/post-oauth', () => {
     expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
   });
 
-  it('repairs the mirror once with the request-scoped handle and session identity', async () => {
+  it('fetches the Clerk user then repairs the mirror once with the request-scoped handle', async () => {
     await GET(getRequest('?next=/dashboard'));
 
+    expect(mockGetUser).toHaveBeenCalledTimes(1);
+    expect(mockGetUser).toHaveBeenCalledWith('clerk_user_1');
     expect(mockRepairUserMirror).toHaveBeenCalledTimes(1);
-    expect(mockRepairUserMirror).toHaveBeenCalledWith(dbHandle, 'user-1', 'clerk_user_1');
+    expect(mockRepairUserMirror).toHaveBeenCalledWith(dbHandle, 'user-1', CLERK_USER);
   });
 
   it('maps a null repair (no email on Clerk user) to the save_failed consent redirect', async () => {
@@ -105,6 +116,17 @@ describe('GET /auth/post-oauth', () => {
     const response = await GET(getRequest('?next=/dashboard'));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
+    expect(mockExecute).not.toHaveBeenCalled();
+    expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
+  });
+
+  it('maps a Clerk fetch failure to the oauth_failed sign-in redirect', async () => {
+    mockGetUser.mockRejectedValueOnce(new Error('clerk unavailable'));
+
+    const response = await GET(getRequest('?next=/dashboard'));
+
+    expect(locationOf(response)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
+    expect(mockRepairUserMirror).not.toHaveBeenCalled();
     expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
