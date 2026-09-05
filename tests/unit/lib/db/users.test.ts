@@ -534,6 +534,52 @@ describe('repairUserMirror', () => {
     expect(double.inserts()).toHaveLength(0);
   });
 
+  it('never reads the passed user when the profile row already exists', async () => {
+    double.nextRows([
+      {
+        age_verified_at: '2026-01-01T00:00:00.000Z',
+        agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
+      },
+    ]);
+    const untouched = new Proxy(
+      {},
+      {
+        get: () => {
+          throw new Error('repair must not read the passed user on a cache hit');
+        },
+      }
+    );
+
+    // eslint-disable-next-line anti-slop/no-chained-type-assertions
+    const result = await repairUserMirror(double.db, APP_USER_ID, untouched as unknown as User);
+
+    expect(result).toEqual({ hasConsent: true });
+    expect(double.ops()).toHaveLength(1);
+    expect(double.inserts()).toHaveLength(0);
+  });
+
+  it('preserves the existing confirmation timestamp when the email is unchanged', async () => {
+    double.nextRows([]);
+    double.nextRows([{ age_verified_at: null, agreed_to_terms_at: null }]);
+
+    await repairUserMirror(
+      double.db,
+      APP_USER_ID,
+      backendUser(userJson({ external_id: MIGRATED_APP_ID }))
+    );
+
+    const [mirror] = double.mirrorUpserts();
+    expect(mirror.conflict?.target).toBe(users.id);
+    const conflictSet = mirror.conflict?.set ?? {};
+    const confirmedAtRule = renderSql(conflictSet.email_confirmed_at);
+    expect(confirmedAtRule).toContain(
+      'when "users"."email" <> excluded.email then excluded.email_confirmed_at'
+    );
+    expect(confirmedAtRule).toContain(
+      'coalesce("users"."email_confirmed_at", excluded.email_confirmed_at)'
+    );
+  });
+
   it('requires BOTH consent timestamps before reporting hasConsent', async () => {
     double.nextRows([{ age_verified_at: '2026-01-01T00:00:00.000Z', agreed_to_terms_at: null }]);
 
