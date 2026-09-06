@@ -13,6 +13,7 @@ import {
 } from '@/lib/db/queries';
 import type { ClassDetails } from '@/lib/types/class';
 
+import { expectRpcFailure } from './rpc-failure';
 import { createScriptedPostgres } from './scripted-postgres';
 
 function pgError(code: string, message: string): Error {
@@ -94,8 +95,10 @@ describe('getClassWatchers', () => {
     const h = createScriptedPostgres();
     h.failNext(new Error('connection refused'));
 
-    await expect(getClassWatchers(h.db, { class_nbr: '76337', term: '2261' })).rejects.toThrow(
-      'Failed to fetch watchers: connection refused'
+    await expectRpcFailure(
+      getClassWatchers(h.db, { class_nbr: '76337', term: '2261' }),
+      'Failed to fetch watchers',
+      'connection refused'
     );
   });
 });
@@ -133,9 +136,11 @@ describe('getNotificationWatchers', () => {
     const h = createScriptedPostgres();
     h.failNext(new Error('connection refused'));
 
-    await expect(
-      getNotificationWatchers(h.db, { class_nbr: '42737', term: '2261' })
-    ).rejects.toThrow('Failed to fetch notification watchers: connection refused');
+    await expectRpcFailure(
+      getNotificationWatchers(h.db, { class_nbr: '42737', term: '2261' }),
+      'Failed to fetch notification watchers',
+      'connection refused'
+    );
   });
 });
 

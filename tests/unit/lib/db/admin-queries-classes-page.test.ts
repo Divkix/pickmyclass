@@ -2,6 +2,7 @@ import { type SQL } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { Database } from '@/lib/db';
+import { expectRpcFailure } from './rpc-failure';
 
 const dialect = new PgDialect();
 
@@ -191,8 +192,10 @@ describe('getClassesPage', () => {
     });
     const db = asDatabaseHandle({ execute });
 
-    await expect(getClassesPage(db)).rejects.toThrow(
-      'Failed to fetch classes page: Database connection failed'
+    await expectRpcFailure(
+      getClassesPage(db),
+      'Failed to fetch classes page',
+      'Database connection failed'
     );
   });
 
@@ -202,8 +205,10 @@ describe('getClassesPage', () => {
     });
     const db = asDatabaseHandle({ execute });
 
-    await expect(getClassesPage(db)).rejects.toThrow(
-      'Failed to fetch classes page: Database connection failed'
+    await expectRpcFailure(
+      getClassesPage(db),
+      'Failed to fetch classes page',
+      'Database connection failed'
     );
   });
 });

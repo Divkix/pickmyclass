@@ -352,7 +352,15 @@ describe('admin pages', () => {
     expect(screen.getByText('11')).toBeInTheDocument();
     expect(screen.getByText('student@example.com')).toBeInTheDocument();
     expect(screen.getByText(/seat available/i)).toBeInTheDocument();
+    expect(screen.getByRole('time')).toHaveAttribute('dateTime', '2026-05-19T12:00:00Z');
     expect(screen.getAllByRole('link', { name: /classes/i }).length).toBeGreaterThan(0);
+  });
+
+  it('shows an empty state when there is no recent activity', async () => {
+    mockGetRecentActivity.mockResolvedValue([]);
+    render(await AdminLayout({ children: await AdminDashboardPage() }));
+
+    expect(screen.getByText(/no recent activity/i)).toBeInTheDocument();
   });
 
   it('renders class tables with paginated rows and supports row navigation/sorting controls', async () => {

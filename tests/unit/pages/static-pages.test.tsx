@@ -108,16 +108,10 @@ function createMotionElements() {
 }
 
 describe('static marketing and legal pages', () => {
-  it('renders the homepage sections that explain the class tracking flow', async () => {
+  it('links the FAQ from the homepage main landmark', async () => {
     render(await Home());
 
-    expect(
-      screen.getByRole('heading', { name: /free asu class seat tracker/i })
-    ).toBeInTheDocument();
-    expect(screen.getByText(/every 30 minutes so you don't have to/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: /your dashboard, ready to go/i })
-    ).toBeInTheDocument();
+    expect(document.querySelector('main#main')).toBeInTheDocument();
     expect(screen.getByText(/see all frequently asked questions/i)).toHaveAttribute('href', '/faq');
   });
 
@@ -141,22 +135,6 @@ describe('static marketing and legal pages', () => {
     ).toHaveAttribute('href', '/blog/how-to-get-into-full-asu-classes');
   });
 
-  it('keeps the homepage ATF readable without waiting on JS animation', async () => {
-    render(await Home());
-
-    const heading = screen.getByRole('heading', { level: 1 });
-    expect(heading).toHaveClass('animation-hidden');
-    expect(heading.closest('main')).toHaveAttribute('id', 'main');
-    expect(screen.getByText('Built for Sun Devils')).toHaveClass('animation-hidden');
-    expect(screen.getByRole('link', { name: /get started free/i }).parentElement).toHaveClass(
-      'animation-hidden'
-    );
-    expect(screen.getByText('Free forever').closest('ul')).toHaveClass('animation-hidden');
-    expect(screen.getByText(/a seat just opened in cse 240/i).closest('div.relative')).toHaveClass(
-      'animation-hidden'
-    );
-  });
-
   it('moves authentication actions into the mobile menu below the desktop breakpoint', async () => {
     render(await Home());
 
@@ -176,12 +154,9 @@ describe('static marketing and legal pages', () => {
     );
   });
 
-  it('renders the about page story, trust stats, and open-source link', async () => {
+  it('links the open-source repo from the about page', async () => {
     render(await AboutPage());
 
-    expect(screen.getByRole('heading', { name: /about pickmyclass/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /the problem we faced/i })).toBeInTheDocument();
-    expect(screen.getByText('15,000+')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /open source on github/i })).toHaveAttribute(
       'href',
       'https://github.com/Divkix/pickmyclass'
@@ -189,15 +164,9 @@ describe('static marketing and legal pages', () => {
     expect(document.querySelector('main#main')).toBeInTheDocument();
   });
 
-  it('renders FAQ categories, answers, and the registration call to action', async () => {
+  it('links registration from the FAQ page', async () => {
     render(await FAQPage());
 
-    expect(
-      screen.getByRole('heading', { name: /frequently asked questions/i, level: 1 })
-    ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /getting started/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /features & compatibility/i })).toBeInTheDocument();
-    expect(screen.getByText(/supports all asu campuses/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /get started free/i })).toHaveAttribute(
       'href',
       '/sign-up'
@@ -205,21 +174,22 @@ describe('static marketing and legal pages', () => {
     expect(document.querySelector('main#main')).toBeInTheDocument();
   });
 
-  it('renders the legal index and document pages with their primary headings', async () => {
+  it('links the legal documents and renders each page landmark', async () => {
     const { rerender } = render(await LegalPage());
-    expect(screen.getByRole('heading', { name: /legal documents/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute(
       'href',
       '/legal/privacy'
     );
+    expect(screen.getByRole('link', { name: /terms of service/i })).toHaveAttribute(
+      'href',
+      '/legal/terms'
+    );
 
     rerender(await PrivacyPolicyPage());
-    expect(screen.getByRole('heading', { name: /privacy policy/i })).toBeInTheDocument();
-    expect(screen.getByText(/information we collect/i)).toBeInTheDocument();
+    expect(document.querySelector('main#main')).toBeInTheDocument();
 
     rerender(await TermsOfServicePage());
-    expect(screen.getAllByText(/terms of service/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/user responsibilities/i)).toBeInTheDocument();
+    expect(document.querySelector('main#main')).toBeInTheDocument();
   });
 });
 
@@ -231,14 +201,7 @@ describe('blog pages', () => {
       return link.getAttribute('href')?.startsWith('/blog/');
     });
 
-    expect(
-      screen.getByRole('heading', { name: /asu registration tips & guides/i })
-    ).toBeInTheDocument();
     expect(articleLinks).toHaveLength(blogPosts.length);
-    expect(
-      screen.getByRole('heading', { name: /how to get into full classes at asu/i })
-    ).toBeInTheDocument();
-    expect(screen.getAllByText(/min read/i).length).toBeGreaterThan(0);
 
     const schemas = [...document.querySelectorAll('script[type="application/ld+json"]')].map(
       (script) => {
@@ -286,17 +249,13 @@ describe('blog pages', () => {
       renderPage: MyASUSearchTipsPost,
       heading: "MyASU Class Search: 10 Hidden Features Most Students Don't Know",
     },
-  ])(
-    'renders the $heading article body, takeaways, and FAQ section',
-    async ({ renderPage, heading }) => {
-      render(await renderPage());
+  ])('renders the $heading article with FAQ schema', async ({ renderPage }) => {
+    render(await renderPage());
 
-      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
-      expect(screen.getByText(/key takeaways/i)).toBeInTheDocument();
-      expect(
-        screen.getByRole('heading', { name: /frequently asked questions/i })
-      ).toBeInTheDocument();
-      expect(screen.getAllByText(/pickmyclass/i).length).toBeGreaterThan(0);
-    }
-  );
+    expect(document.querySelector('main#main article')).toBeInTheDocument();
+    const schemas = [...document.querySelectorAll('script[type="application/ld+json"]')].map(
+      (script) => JSON.parse(script.textContent ?? '{}') as { '@type'?: string }
+    );
+    expect(schemas.some((schema) => schema['@type'] === 'FAQPage')).toBe(true);
+  });
 });

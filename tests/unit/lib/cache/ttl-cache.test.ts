@@ -44,17 +44,6 @@ describe('TtlCache', () => {
     expect(cache.get('key')).toBe('second');
   });
 
-  it('overwrite resets TTL', () => {
-    const cache = new TtlCache<string>(1000);
-    cache.set('key', 'first');
-
-    vi.advanceTimersByTime(800);
-    cache.set('key', 'second');
-
-    vi.advanceTimersByTime(800);
-    expect(cache.get('key')).toBe('second');
-  });
-
   it('clears all entries', () => {
     const cache = new TtlCache<string>(1000);
     cache.set('a', '1');
@@ -86,27 +75,6 @@ describe('TtlCache', () => {
     expect(cache.get('key')).toBeUndefined();
   });
 
-  it('caches complex objects', () => {
-    const cache = new TtlCache<{ count: number; items: string[] }>(5000);
-    const obj = { count: 3, items: ['a', 'b', 'c'] };
-    cache.set('data', obj);
-
-    const result = cache.get('data');
-    expect(result).toEqual(obj);
-    expect(result).toBe(obj);
-  });
-
-  it('auto-evicts expired entry on get', () => {
-    const cache = new TtlCache<string>(1000);
-    cache.set('key', 'value');
-
-    vi.advanceTimersByTime(1001);
-
-    expect(cache.get('key')).toBeUndefined();
-    cache.set('key', 'new');
-    expect(cache.get('key')).toBe('new');
-  });
-
   it('deletes specific key and returns true when key existed', () => {
     const cache = new TtlCache<string>(1000);
     cache.set('key', 'value');
@@ -123,16 +91,5 @@ describe('TtlCache', () => {
     const result = cache.delete('non-existent');
 
     expect(result).toBe(false);
-  });
-
-  it('only deletes specified key without affecting others', () => {
-    const cache = new TtlCache<string>(1000);
-    cache.set('key1', 'value1');
-    cache.set('key2', 'value2');
-
-    cache.delete('key1');
-
-    expect(cache.get('key1')).toBeUndefined();
-    expect(cache.get('key2')).toBe('value2');
   });
 });

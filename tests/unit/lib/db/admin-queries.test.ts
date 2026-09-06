@@ -3,6 +3,7 @@ import { PgDialect, type PgTable } from 'drizzle-orm/pg-core';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 import type { Database } from '@/lib/db';
+import { expectRpcFailure } from './rpc-failure';
 
 const dialect = new PgDialect();
 
@@ -287,16 +288,20 @@ describe('getRecentActivity', () => {
     const raiseError = Object.assign(new Error('product invariant raised'), { code: 'P0001' });
     const { db } = createDb({ error: raiseError });
 
-    await expect(getRecentActivity(db, 21)).rejects.toThrow(
-      'Failed to fetch recent activity: product invariant raised'
+    await expectRpcFailure(
+      getRecentActivity(db, 21),
+      'Failed to fetch recent activity',
+      'product invariant raised'
     );
   });
 
   it('should throw error when the query fails', async () => {
     const { db } = createDb({ error: new Error('Database connection failed') });
 
-    await expect(getRecentActivity(db, 20)).rejects.toThrow(
-      'Failed to fetch recent activity: Database connection failed'
+    await expectRpcFailure(
+      getRecentActivity(db, 20),
+      'Failed to fetch recent activity',
+      'Database connection failed'
     );
   });
 });

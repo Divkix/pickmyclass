@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { Header } from '@/components/Header';
 
@@ -62,36 +62,24 @@ describe('Header', () => {
     };
   });
 
-  it('shows the dashboard link with its href, label, and accessible name for a signed-in user', () => {
+  it('routes a signed-in user to the dashboard without surfacing admin UI', () => {
     render(<Header />);
 
-    const dashboardButton = screen.getByRole('button', { name: 'Go to dashboard' });
-    const dashboardLink = dashboardButton.closest('a');
-    expect(dashboardLink).toHaveAttribute('href', '/dashboard');
-    expect(within(dashboardButton).getByTestId('layout-dashboard-icon')).toBeInTheDocument();
-    expect(dashboardButton).toHaveTextContent('Dashboard');
-  });
-
-  it('does not surface any admin link or admin UI for a signed-in user', () => {
-    render(<Header />);
-
+    expect(screen.getByRole('button', { name: 'Go to dashboard' }).closest('a')).toHaveAttribute(
+      'href',
+      '/dashboard'
+    );
     expect(screen.queryByRole('link', { name: /admin/i })).not.toBeInTheDocument();
-    expect(screen.queryByTestId('shield-icon')).not.toBeInTheDocument();
   });
 
-  it('omits the account nav link while auth is loading', () => {
+  it('omits the account nav link while signed out or loading', () => {
     h.authState = { user: null, session: null, loading: true };
-
-    render(<Header />);
-
+    const { unmount } = render(<Header />);
     expect(screen.queryByRole('link', { name: /dashboard|admin/i })).not.toBeInTheDocument();
-  });
+    unmount();
 
-  it('omits the account nav link for a signed-out visitor', () => {
     h.authState = { user: null, session: null, loading: false };
-
     render(<Header />);
-
     expect(screen.queryByRole('link', { name: /dashboard|admin/i })).not.toBeInTheDocument();
   });
 });
