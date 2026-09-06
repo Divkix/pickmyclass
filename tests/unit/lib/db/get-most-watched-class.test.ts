@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
 import { getMostWatchedClass } from '@/lib/db/queries';
 
+import { expectRpcFailure } from './rpc-failure';
 import { createScriptedPostgres } from './scripted-postgres';
 
 beforeEach(() => {
@@ -50,8 +51,10 @@ describe('getMostWatchedClass', () => {
     const h = createScriptedPostgres();
     h.failNext(new Error('boom'));
 
-    await expect(getMostWatchedClass(h.db, '2267')).rejects.toThrow(
-      'Failed to fetch most watched class: boom'
+    await expectRpcFailure(
+      getMostWatchedClass(h.db, '2267'),
+      'Failed to fetch most watched class',
+      'boom'
     );
   });
 });

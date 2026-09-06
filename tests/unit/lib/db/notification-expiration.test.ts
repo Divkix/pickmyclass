@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
 import { tryRecordNotificationsBatch } from '@/lib/db/queries';
 
+import { expectRpcFailure } from './rpc-failure';
 import { createScriptedPostgres } from './scripted-postgres';
 
 beforeEach(() => {
@@ -108,9 +109,11 @@ describe('Notification Expiration (Issue #157)', () => {
       const h = createScriptedPostgres();
       h.failNext(new Error('Database error'));
 
-      await expect(
-        tryRecordNotificationsBatch(h.db, ['watch-1'], 'seat_available')
-      ).rejects.toThrow('Failed to batch record notifications: Database error');
+      await expectRpcFailure(
+        tryRecordNotificationsBatch(h.db, ['watch-1'], 'seat_available'),
+        'Failed to batch record notifications',
+        'Database error'
+      );
     });
 
     it('uses the default expiration of 24 hours', async () => {

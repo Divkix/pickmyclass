@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
 import { getSectionsToCheck } from '@/lib/db/queries';
 
+import { expectRpcFailure } from './rpc-failure';
 import { createScriptedPostgres } from './scripted-postgres';
 
 beforeEach(() => {
@@ -52,8 +53,10 @@ describe('getSectionsToCheck', () => {
     const h = createScriptedPostgres();
     h.failNext(new Error('Database connection failed'));
 
-    await expect(getSectionsToCheck(h.db, 'odd')).rejects.toThrow(
-      'Failed to fetch sections: Database connection failed'
+    await expectRpcFailure(
+      getSectionsToCheck(h.db, 'odd'),
+      'Failed to fetch sections',
+      'Database connection failed'
     );
   });
 });

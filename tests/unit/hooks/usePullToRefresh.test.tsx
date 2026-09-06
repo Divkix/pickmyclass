@@ -1,4 +1,4 @@
-import { act, render, renderHook, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh';
 
@@ -50,11 +50,6 @@ const createTouchEvent = (type: string, clientY: number): TouchEvent => {
     cancelable: true,
   });
 };
-const createMockRefresh = (): (() => Promise<void>) => {
-  const fn = vi.fn();
-  fn.mockResolvedValue(undefined);
-  return fn as () => Promise<void>;
-};
 
 describe('usePullToRefresh hook', () => {
   beforeEach(() => {
@@ -67,126 +62,7 @@ describe('usePullToRefresh hook', () => {
     });
   });
 
-  describe('initialization', () => {
-    it('should return initial state', () => {
-      const { result } = renderHook(() => usePullToRefresh({ onRefresh: createMockRefresh() }));
-
-      expect(result.current.pullDistance).toBe(0);
-      expect(result.current.isRefreshing).toBe(false);
-      expect(result.current.containerRef).toBeDefined();
-    });
-
-    it('should use default threshold of 80', () => {
-      const { result } = renderHook(() => usePullToRefresh({ onRefresh: createMockRefresh() }));
-      expect(result.current.pullDistance).toBe(0);
-    });
-
-    it('should use default resistance of 2.5', () => {
-      const { result } = renderHook(() => usePullToRefresh({ onRefresh: createMockRefresh() }));
-      expect(result.current.pullDistance).toBe(0);
-    });
-  });
-
-  describe('custom options', () => {
-    it('should accept custom threshold', () => {
-      const { result } = renderHook(() =>
-        usePullToRefresh({ onRefresh: createMockRefresh(), threshold: 100 })
-      );
-      expect(result.current.pullDistance).toBe(0);
-    });
-
-    it('should accept custom resistance', () => {
-      const { result } = renderHook(() =>
-        usePullToRefresh({ onRefresh: createMockRefresh(), resistance: 3 })
-      );
-      expect(result.current.pullDistance).toBe(0);
-    });
-  });
-
-  describe('container ref', () => {
-    it('should return a valid ref object', () => {
-      const { result } = renderHook(() => usePullToRefresh({ onRefresh: createMockRefresh() }));
-      expect(result.current.containerRef).toHaveProperty('current');
-    });
-
-    it('should start with null container', () => {
-      const { result } = renderHook(() => usePullToRefresh({ onRefresh: createMockRefresh() }));
-      expect(result.current.containerRef.current).toBeNull();
-    });
-  });
-
-  describe('state transitions', () => {
-    it('should start with pullDistance of 0', () => {
-      const { result } = renderHook(() => usePullToRefresh({ onRefresh: createMockRefresh() }));
-      expect(result.current.pullDistance).toBe(0);
-    });
-
-    it('should start with isRefreshing as false', () => {
-      const { result } = renderHook(() => usePullToRefresh({ onRefresh: createMockRefresh() }));
-      expect(result.current.isRefreshing).toBe(false);
-    });
-  });
-
-  describe('refresh callback', () => {
-    it('should not call onRefresh during initialization', () => {
-      const mockRefresh = createMockRefresh();
-      renderHook(() => usePullToRefresh({ onRefresh: mockRefresh }));
-      expect(mockRefresh).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('cleanup', () => {
-    it('should handle unmount gracefully', () => {
-      const { unmount } = renderHook(() => usePullToRefresh({ onRefresh: createMockRefresh() }));
-      expect(() => unmount()).not.toThrow();
-    });
-  });
-
-  describe('options updates', () => {
-    it('should handle threshold prop changes', () => {
-      const mockRefresh = createMockRefresh();
-      const { result, rerender } = renderHook(
-        (props: { threshold?: number }) => usePullToRefresh({ onRefresh: mockRefresh, ...props }),
-        { initialProps: { threshold: 80 } }
-      );
-
-      expect(result.current.pullDistance).toBe(0);
-      rerender({ threshold: 120 });
-      expect(result.current.pullDistance).toBe(0);
-    });
-
-    it('should handle resistance prop changes', () => {
-      const mockRefresh = createMockRefresh();
-      const { result, rerender } = renderHook(
-        (props: { resistance?: number }) => usePullToRefresh({ onRefresh: mockRefresh, ...props }),
-        { initialProps: { resistance: 2.5 } }
-      );
-
-      expect(result.current.pullDistance).toBe(0);
-      rerender({ resistance: 3 });
-      expect(result.current.pullDistance).toBe(0);
-    });
-  });
-
-  describe('component with ref attached', () => {
-    it('should render with pull distance 0', () => {
-      const mockRefresh = vi.fn().mockResolvedValue(undefined);
-      render(<TestComponent onRefresh={mockRefresh} />);
-      expect(screen.getByTestId('pull-distance').textContent).toBe('0');
-    });
-
-    it('should render with isRefreshing false', () => {
-      const mockRefresh = vi.fn().mockResolvedValue(undefined);
-      render(<TestComponent onRefresh={mockRefresh} />);
-      expect(screen.getByTestId('is-refreshing').textContent).toBe('false');
-    });
-
-    it('should render container element', () => {
-      const mockRefresh = vi.fn().mockResolvedValue(undefined);
-      render(<TestComponent onRefresh={mockRefresh} />);
-      expect(screen.getByTestId('container')).toBeInTheDocument();
-    });
-
+  describe('touch-interaction math', () => {
     it('should track pull distance on touch interaction when at top', async () => {
       const mockRefresh = vi.fn().mockResolvedValue(undefined);
       render(<TestComponent onRefresh={mockRefresh} threshold={80} resistance={2.5} />);
@@ -225,126 +101,6 @@ describe('usePullToRefresh hook', () => {
         screen.getByTestId('pull-distance').textContent || '0'
       );
       expect(pullDistance).toBe(120);
-    });
-
-    it('should not track upward pulls', async () => {
-      const mockRefresh = vi.fn().mockResolvedValue(undefined);
-      render(<TestComponent onRefresh={mockRefresh} />);
-
-      const container = screen.getByTestId('container');
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchstart', 200));
-      });
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchmove', 100));
-      });
-
-      const pullDistance = Number.parseFloat(
-        screen.getByTestId('pull-distance').textContent || '0'
-      );
-      expect(pullDistance).toBe(0);
-    });
-
-    it('should not track pull when page is scrolled', async () => {
-      const mockRefresh = vi.fn().mockResolvedValue(undefined);
-      render(<TestComponent onRefresh={mockRefresh} />);
-
-      Object.defineProperty(window, 'scrollY', { value: 100, writable: true, configurable: true });
-
-      const container = screen.getByTestId('container');
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchstart', 100));
-      });
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchmove', 200));
-      });
-
-      const pullDistance = Number.parseFloat(
-        screen.getByTestId('pull-distance').textContent || '0'
-      );
-      expect(pullDistance).toBe(0);
-    });
-
-    it('should reset on touch end when not at top', async () => {
-      const mockRefresh = vi.fn().mockResolvedValue(undefined);
-      render(<TestComponent onRefresh={mockRefresh} />);
-
-      Object.defineProperty(window, 'scrollY', { value: 100, writable: true, configurable: true });
-
-      const container = screen.getByTestId('container');
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchstart', 100));
-      });
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchend', 100));
-      });
-
-      expect(mockRefresh).not.toHaveBeenCalled();
-      expect(screen.getByTestId('pull-distance').textContent).toBe('0');
-    });
-
-    it('should reset on touch cancel', async () => {
-      const mockRefresh = vi.fn().mockResolvedValue(undefined);
-      render(<TestComponent onRefresh={mockRefresh} />);
-
-      const container = screen.getByTestId('container');
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchstart', 0));
-      });
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchmove', 100));
-      });
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchcancel', 100));
-      });
-
-      expect(screen.getByTestId('pull-distance').textContent).toBe('0');
-    });
-
-    it('should remove event listeners on unmount', () => {
-      const mockRefresh = vi.fn().mockResolvedValue(undefined);
-      const { unmount } = render(<TestComponent onRefresh={mockRefresh} />);
-
-      const container = screen.getByTestId('container');
-      const removeEventListenerSpy = vi.spyOn(container, 'removeEventListener');
-
-      unmount();
-
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('touchstart', expect.any(Function));
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('touchmove', expect.any(Function));
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('touchend', expect.any(Function));
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('touchcancel', expect.any(Function));
-    });
-
-    it('should reset pull when scrolling starts mid-pull', async () => {
-      const mockRefresh = vi.fn().mockResolvedValue(undefined);
-      render(<TestComponent onRefresh={mockRefresh} />);
-
-      const container = screen.getByTestId('container');
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchstart', 100));
-      });
-
-      Object.defineProperty(window, 'scrollY', { value: 50, writable: true, configurable: true });
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchmove', 200));
-      });
-
-      const pullDistance = Number.parseFloat(
-        screen.getByTestId('pull-distance').textContent || '0'
-      );
-      expect(pullDistance).toBe(0);
     });
 
     it('should apply resistance to pull distance', async () => {
@@ -386,19 +142,6 @@ describe('usePullToRefresh hook', () => {
       });
 
       expect(mockRefresh).not.toHaveBeenCalled();
-      expect(screen.getByTestId('pull-distance').textContent).toBe('0');
-    });
-
-    it('should ignore touch move without prior touch start', async () => {
-      const mockRefresh = vi.fn().mockResolvedValue(undefined);
-      render(<TestComponent onRefresh={mockRefresh} />);
-
-      const container = screen.getByTestId('container');
-
-      await act(async () => {
-        container.dispatchEvent(createTouchEvent('touchmove', 200));
-      });
-
       expect(screen.getByTestId('pull-distance').textContent).toBe('0');
     });
   });

@@ -1,10 +1,13 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import AddClassPage from '@/app/dashboard/add/page';
 
-const { mockPush, mockReplace } = vi.hoisted(() => ({
+const { mockPush, mockReplace, captured } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockReplace: vi.fn(),
+  captured: {} as {
+    onCreated?: (watch: { id: string }, input: { term: string; class_nbr: string }) => void;
+  },
 }));
 
 vi.mock('next/navigation', () => ({
@@ -49,19 +52,16 @@ vi.mock('@/components/AddClassWatch', () => ({
     onCreated,
   }: {
     onCreated: (watch: { id: string }, input: { term: string; class_nbr: string }) => void;
-  }) => (
-    <button
-      type="button"
-      onClick={() => onCreated({ id: 'watch-1' }, { term: '2267', class_nbr: '12345' })}
-    >
-      Submit watch
-    </button>
-  ),
+  }) => {
+    captured.onCreated = onCreated;
+    return <div data-testid="add-class-watch-form" />;
+  },
 }));
 
 describe('AddClassPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete captured.onCreated;
     mockUseAuth.mockReturnValue({
       user: { id: 'user-1', email: 'student@example.com' },
       loading: false,
@@ -107,7 +107,10 @@ describe('AddClassPage', () => {
       'href',
       '/dashboard'
     );
-    fireEvent.click(screen.getByRole('button', { name: /submit watch/i }));
+    expect(screen.getByTestId('add-class-watch-form')).toBeInTheDocument();
+    expect(captured.onCreated).toBeDefined();
+
+    captured.onCreated?.({ id: 'watch-1' }, { term: '2267', class_nbr: '12345' });
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith('/dashboard');
