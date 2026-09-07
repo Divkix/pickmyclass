@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@clerk/backend": "^3.17.1",
-    "@clerk/react": "^6.15.0",
+    "@clerk/react": "^6.15.1",
     "@radix-ui/react-avatar": "^1.2.6",
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-label": "^2.1.15",
@@ -41,11 +41,11 @@
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "framer-motion": "^13.2.0",
-    "lucide-react": "^1.39.0",
+    "lucide-react": "^1.40.0",
     "next": "^16.3.4",
     "next-themes": "^0.4.6",
     "postgres": "^3.4.9",
-    "posthog-js": "^1.425.1",
+    "posthog-js": "^1.426.2",
     "posthog-node": "^5.51.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -54,7 +54,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.54.3",
+    "@cloudflare/vite-plugin": "^1.54.4",
     "@oxlint/plugins": "1.81.0",
     "@posthog/rollup-plugin": "^1.6.0",
     "@resvg/resvg-js": "^2.6.2",
@@ -64,7 +64,7 @@
     "@testing-library/user-event": "^14.6.7",
     "@types/node": "^26.4.1",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5",
+    "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "@vitejs/plugin-rsc": "^0.5.34",
     "@vitest/coverage-v8": "4.1.11",
@@ -81,7 +81,7 @@
     "vite": "npm:@voidzero-dev/vite-plus-core@^0.3.0",
     "vite-plus": "0.3.0",
     "vitest": "4.1.11",
-    "wrangler": "^4.128.0"
+    "wrangler": "^4.129.0"
   },
   "packageManager": "pnpm@11.10.0"
 }
