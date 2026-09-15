@@ -20,7 +20,7 @@
     "test": "vp test",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "test:db": "vp test run --config vitest.db.config.ts",
+    "test:db": "vitest run --config vitest.db.config.ts",
     "test:run": "vp test run",
     "test:coverage": "vp test run --coverage",
     "test:ui": "vp test --ui",
