@@ -78,7 +78,7 @@ Two tsconfigs: `tsconfig.json` (app, excludes worker.ts) + `tsconfig.worker.json
 
 ## CI (`.github/workflows/ci.yml`)
 
-`validate-lockfile` -> `quality`/`test`/`check` in parallel -> `ci-success` (required). Dependabot ignores `vite-plus` (lockstep pins in `pnpm-workspace.yaml`).
+`validate-lockfile` -> `quality`/`test`/`check` in parallel -> `ci-success` (required). Dependabot ignores the vite-plus toolchain (`vite-plus`, `vite`, `vitest`, `@vitest/*`, `@voidzero-dev/vite-plus-core`) — bump via `vp migrate` only, never solo (solo bumps desync core/vitest and break types/coverage).
 
 ## Conventions
 
