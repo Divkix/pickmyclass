@@ -136,6 +136,8 @@ jobs:
 
       - name: Check unused exports
         run: pnpm exec knip
+        env:
+          DATABASE_URL: postgres://user:pass@localhost:5432/db
 
       - name: Build
         run: pnpm run build
