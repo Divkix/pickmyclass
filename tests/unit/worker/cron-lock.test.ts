@@ -93,6 +93,23 @@ describe('cron lock lifecycle', () => {
       lockHolder: 'worker-a',
     });
   });
+
+  it('stays unlocked when persisting the acquisition fails, so the next tick can acquire', async () => {
+    // eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: test double mirrors the CronLockStore.save(state: CronLockState) seam with an unknown-state mock
+    const save = vi.fn<(state: unknown) => Promise<void>>(async () => {
+      throw new Error('storage unavailable');
+    });
+    const lifecycle = createCronLockLifecycle({ load: async () => null, save });
+
+    await expect(lifecycle.acquire('worker-a')).rejects.toThrow('storage unavailable');
+    await expect(lifecycle.status()).resolves.toMatchObject({ locked: false });
+
+    save.mockImplementation(async () => {});
+    await expect(lifecycle.acquire('worker-a')).resolves.toMatchObject({
+      acquired: true,
+      lockHolder: 'worker-a',
+    });
+  });
 });
 
 describe('cron lock client', () => {

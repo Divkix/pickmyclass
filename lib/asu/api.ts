@@ -135,7 +135,18 @@ function normalizeAuthHeader(token: string): string {
   return `Bearer ${trimmed}`;
 }
 
-export async function fetchClassFromASU(ref: SectionRef, env: AsuApiEnv): Promise<ClassDetails> {
+/**
+ * Fetches one Class Section from the ASU catalog API.
+ *
+ * `useCache: false` skips the TTL cache read — the seat-check pipeline must not
+ * persist a stale snapshot over a fresher row. The fresh response still
+ * refreshes the cache for the user-facing read paths.
+ */
+export async function fetchClassFromASU(
+  ref: SectionRef,
+  env: AsuApiEnv,
+  opts: { useCache?: boolean } = {}
+): Promise<ClassDetails> {
   if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN) {
     throw new ApiError('ASU API environment variables not configured');
   }
@@ -143,7 +154,7 @@ export async function fetchClassFromASU(ref: SectionRef, env: AsuApiEnv): Promis
   const { class_nbr: classNbr, term } = ref;
 
   const cacheKey = sectionRefKey(ref);
-  const cached = asuApiCache.get(cacheKey);
+  const cached = opts.useCache === false ? undefined : asuApiCache.get(cacheKey);
   if (cached) return cached;
 
   const url = buildClassSearchUrl(env.ASU_API_BASE_URL, classNbr, term);

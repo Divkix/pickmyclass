@@ -43,7 +43,7 @@ vinext App (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (Drizz
       |         |                               ^
       |         | Clerk FAPI (clerk.*)          | polling GET /api/class-watches/states
       v         v                               | (30–60s, sectionRefKey)
-Cloudflare Cron (every 30 min + daily at 4 AM)  |
+Cloudflare Cron (every 30 min + 04:05 maintenance)  |
       |
       v
 CronLockDO (Durable Object) - prevents duplicate executions
@@ -313,7 +313,7 @@ wrangler.jsonc               # Cloudflare Workers config (HYPERDRIVE, CLERK_* se
 2. **Every 30 minutes** - Cloudflare cron triggers enqueue all watched sections (even/odd stagger)
 3. **Queue consumers process** - 20 concurrent Workers query ASU API in parallel
 4. **Change detection** - Compare new state with PostgreSQL cached state (`non_reserved_seats ?? seats_available`)
-5. **Atomic deduplication** - a partial unique index (`is_active=TRUE`) + `try_record_notifications_batch` claims recipients; a daily `expire_stale_notifications()` sweep frees expired slots
+5. **Atomic deduplication** - a partial unique index (`is_active=TRUE`) + `try_record_notifications_batch` claims recipients; an `expire_stale_notifications()` sweep on every cron tail + the 04:05 maintenance run frees expired slots
 6. **Email notification** - Cloudflare Email Service sends alerts for available seats
 7. **Dashboard polls** - `useRealtimeClassStates` polls `/api/class-watches/states` (not Realtime)
 

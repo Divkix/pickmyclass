@@ -1,6 +1,6 @@
-# Notification dedup via a partial unique index + daily expiry sweep
+# Notification dedup via a partial unique index + expiry sweep
 
-`notifications_sent` deduplicates emails using a **partial unique index `unique_notification_active WHERE is_active=TRUE`**, paired with `try_record_notifications_batch` (atomic claim) and a **daily 4 AM `expire_stale_notifications()` RPC** that frees expired slots.
+`notifications_sent` deduplicates emails using a **partial unique index `unique_notification_active WHERE is_active=TRUE`**, paired with `try_record_notifications_batch` (atomic claim), `reset_section_notifications` (join-scoped single-statement reset), `delete_notification_records_by_ids` (row-id rollback), and an **`expire_stale_notifications()` sweep on every 30-min cron tail plus the 04:05 maintenance run** that frees expired slots.
 
 ## Why
 
@@ -10,6 +10,6 @@
 
 ## Consequences
 
-- The **daily `expire_stale_notifications()` cron is load-bearing**: if it stops, users never get re-notified after the 24h window. It also hard-deletes past-term watches (`getPastTermCodes` → `delete class_watches`).
-- The claim is authoritative: email **exactly the watch IDs returned by `try_record_notifications_batch`** (the newly-claimed set), and **roll back failed sends** via `deleteNotificationRecords`, or those users are suppressed for 24h.
-- `README.md`/`CONTEXT.md` historically described this as generic "atomic `INSERT...ON CONFLICT`"; corrected to the real mechanism (the `is_active` partial unique index + `try_record_notifications_batch` + the daily expiry sweep). Watch for the oversimplified framing creeping back in.
+- The **`expire_stale_notifications()` sweep is load-bearing**: it runs best-effort on every `/api/cron` tail and again in the 04:05 maintenance run (which also hard-deletes past-term watches via `getPastTermCodes` → `delete class_watches`). If both stop, users never get re-notified after the 24h window. The `/api/cron` claim predicate is `is_active = TRUE` (matching the index); FK-vanished watches are skipped, not errors.
+- The claim is authoritative: email **exactly the watch IDs returned by `try_record_notifications_batch`** (the newly-claimed set), and **roll back failed sends** via `deleteNotificationRecordsByIds` (row-id scoped; `(watch,type)` delete would erase a newer claim), or those users are suppressed for 24h.
+- `README.md`/`CONTEXT.md` historically described this as generic "atomic `INSERT...ON CONFLICT`"; corrected to the real mechanism (the `is_active` partial unique index + `try_record_notifications_batch` + the expiry sweep). Watch for the oversimplified framing creeping back in.

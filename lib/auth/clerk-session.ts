@@ -50,11 +50,14 @@ function getClerkEnv(): Required<Pick<ClerkEnv, 'CLERK_SECRET_KEY'>> & ClerkEnv 
 }
 
 let cachedClient: ClerkClient | null = null;
-let cachedSecretKey: string | null = null;
+let cachedClientKey: string | null = null;
 
 export function getClerkClient(): ClerkClient {
   const { CLERK_SECRET_KEY, CLERK_JWT_KEY } = getClerkEnv();
-  if (cachedClient && cachedSecretKey === CLERK_SECRET_KEY) {
+  // The verifier is built from both keys: dropping CLERK_JWT_KEY (PEM -> JWKS
+  // fallback) or rotating it must not reuse a client pinned to the old key.
+  const clientKey = `${CLERK_SECRET_KEY}\u0000${CLERK_JWT_KEY ?? ''}`;
+  if (cachedClient && cachedClientKey === clientKey) {
     return cachedClient;
   }
   const clientOptions: Parameters<typeof createClerkClient>[0] = {
@@ -63,7 +66,7 @@ export function getClerkClient(): ClerkClient {
   };
   if (CLERK_JWT_KEY) clientOptions.jwtKey = CLERK_JWT_KEY;
   cachedClient = createClerkClient(clientOptions);
-  cachedSecretKey = CLERK_SECRET_KEY;
+  cachedClientKey = clientKey;
   return cachedClient;
 }
 

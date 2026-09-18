@@ -228,6 +228,30 @@ describe('useRealtimeClassStates hook', () => {
 
       expect(result.current.error?.message).toBe('network down');
     });
+
+    it('clears previously loaded states when a poll is rejected (access revoked)', async () => {
+      const row = makeRow({ class_nbr: '12345', term: '2261', seats_available: 3 });
+      vi.mocked(global.fetch).mockResolvedValueOnce(fetchResponse([row]));
+
+      const { result } = renderHook(() => useRealtimeClassStates({ classNumbers: ['12345'] }));
+
+      await waitFor(() => {
+        expect(result.current.classStates['2261:12345']).toBeDefined();
+      });
+
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      } as Response);
+
+      await act(async () => {
+        await result.current.refetch();
+      });
+
+      expect(result.current.classStates).toEqual({});
+      expect(result.current.error?.message).toContain('403');
+    });
   });
 
   describe('refetch', () => {

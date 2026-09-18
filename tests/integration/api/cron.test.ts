@@ -106,6 +106,16 @@ describe('GET /api/cron', () => {
     expect(responseData.batches_failed).toBe(0);
     expect(responseData.sections_enqueued).toBe(50);
     expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
+
+    const sentMessages = vi
+      .mocked(env.PICKMYCLASS_QUEUE.sendBatch)
+      .mock.calls.flatMap((call) =>
+        Array.from(call[0]).map((entry) => entry.body as { cycle?: string })
+      );
+    expect(sentMessages).toHaveLength(50);
+    expect(sentMessages.every((message) => message.cycle === '2024-01-15T12:00:00.000Z:even')).toBe(
+      true
+    );
   });
 
   it('retries failed batch once and returns success:true when retry succeeds', async () => {

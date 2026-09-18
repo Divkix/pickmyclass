@@ -1,14 +1,8 @@
 import type { AuthorizationState } from '@/lib/auth/authorization-state';
 
-const PUBLIC_ROUTES = [
-  '/sign-in',
-  '/sign-up',
-  '/legal',
-  '/auth/post-oauth',
-  '/go',
-  '/faq',
-  '/blog',
-];
+const REPAIR_PATH = '/auth/post-oauth';
+
+const PUBLIC_ROUTES = ['/sign-in', '/sign-up', '/legal', REPAIR_PATH, '/go', '/faq', '/blog'];
 
 const AUTH_PAGES = ['/sign-in', '/sign-up'];
 
@@ -66,8 +60,21 @@ export function decideGate(input: {
     return { kind: 'signout-and-redirect', to: '/sign-in?error=account_disabled' };
   }
 
+  // Unknown authorization: no `user_profiles` row, and — since the profile is
+  // the FK child of the mirror row — usually no `users` row either (webhook
+  // lag, half-written mirror, `ext_id` drift). Send the user through the OAuth
+  // repair route instead of letting the miss fall open, or bouncing between
+  // /sign-in and the protected page. API routes keep their own checks.
+  if (user && !authState && !pathname.startsWith('/api/')) {
+    const isRepairPath = [REPAIR_PATH, '/sign-in'].some((path) => isPathPrefix(pathname, path));
+    if (!isRepairPath && pathname !== '/') {
+      const next = `${pathname}${search}`;
+      return { kind: 'redirect', to: `${REPAIR_PATH}?next=${encodeURIComponent(next)}` };
+    }
+  }
+
   if (user && !user.email_confirmed_at) {
-    const allowedPaths = ['/auth/post-oauth', '/sign-in'];
+    const allowedPaths = [REPAIR_PATH, '/sign-in'];
     const isAllowedPath = allowedPaths.some((p) => isPathPrefix(pathname, p));
     if (!isAllowedPath && pathname !== '/') {
       return { kind: 'redirect', to: '/sign-in' };

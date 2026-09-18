@@ -157,6 +157,23 @@ describe('proxy', () => {
     expect(response.headers.get('set-cookie')).toContain('__session=');
   });
 
+  it('redirects an unknown authorization read without revoking the session', async () => {
+    mockGetSessionIdentity.mockResolvedValue(IDENTITY);
+    mockReadUserVerification.mockResolvedValue(VERIFIED);
+    mockReadAuthorizationState.mockResolvedValue(null);
+
+    const response = await proxy(
+      createRequest('/dashboard?tab=watching', '__session=test-clerk-jwt')
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      `${ORIGIN}/auth/post-oauth?next=${encodeURIComponent('/dashboard?tab=watching')}`
+    );
+    expect(mockRevokeSession).not.toHaveBeenCalled();
+    expect(response.headers.getSetCookie().join('\n')).not.toContain('__session=');
+  });
+
   it('sends verified admins hitting sign-in to /admin', async () => {
     seedAuthenticated(IDENTITY, VERIFIED, ADMIN);
 

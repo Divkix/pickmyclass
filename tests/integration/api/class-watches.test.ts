@@ -285,7 +285,10 @@ describe('/api/class-watches', () => {
 
       const statesQuery = h.statements[1];
       expect(statesQuery.sql).toContain('"class_states"');
-      expect(statesQuery.params).toEqual(['12345', term]);
+      expect(statesQuery.sql).toContain('"class_watches"."class_nbr" = "class_states"."class_nbr"');
+      expect(statesQuery.sql).toContain('"class_watches"."term" = "class_states"."term"');
+      expect(statesQuery.sql).not.toContain('"class_states"."term" in');
+      expect(statesQuery.params).toEqual(['12345', USER_ID]);
     });
 
     it('maps database failures to a 500 fetch error', async () => {

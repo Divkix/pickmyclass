@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, exists, inArray, sql } from 'drizzle-orm';
 import { type NextRequest } from 'next/server';
 import { ok, fail } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
@@ -41,12 +41,17 @@ export async function GET(request: NextRequest) {
           .where(
             and(
               inArray(classStates.class_nbr, classNumbers),
-              inArray(
-                classStates.class_nbr,
+              exists(
                 db
-                  .select({ class_nbr: classWatches.class_nbr })
+                  .select({ one: sql`1` })
                   .from(classWatches)
-                  .where(eq(classWatches.user_id, user.userId))
+                  .where(
+                    and(
+                      eq(classWatches.user_id, user.userId),
+                      eq(classWatches.class_nbr, classStates.class_nbr),
+                      eq(classWatches.term, classStates.term)
+                    )
+                  )
               )
             )
           );

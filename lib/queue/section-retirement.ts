@@ -162,16 +162,18 @@ export async function retireClassSection(
 
   let emailsAttempted = 0;
   let emailsSucceeded = 0;
-  try {
-    const results = await sendAutoCleanupRemovalEmails(
-      { ref, classInfo, watchers },
-      emailBinding,
-      fromEmail
-    );
-    emailsAttempted = results.filter((r) => r.attempted).length;
-    emailsSucceeded = results.filter((r) => r.success).length;
-  } catch (emailError) {
-    log('SectionRetirement').warn(`Auto-cleanup email failed for ${scope}:`, emailError);
+  if (watchesDeleted > 0) {
+    try {
+      const results = await sendAutoCleanupRemovalEmails(
+        { ref, classInfo, watchers },
+        emailBinding,
+        fromEmail
+      );
+      emailsAttempted = results.filter((r) => r.attempted).length;
+      emailsSucceeded = results.filter((r) => r.success).length;
+    } catch (emailError) {
+      log('SectionRetirement').warn(`Auto-cleanup email failed for ${scope}:`, emailError);
+    }
   }
 
   log('SectionRetirement').info(

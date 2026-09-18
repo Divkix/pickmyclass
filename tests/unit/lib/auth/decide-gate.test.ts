@@ -44,10 +44,10 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'signout-and-redirect', to: '/sign-in?error=account_disabled' });
   });
 
-  it('null authState with user not disabled allows (no crash)', () => {
+  it('unknown authState on a protected page routes to the OAuth repair path, not /sign-in', () => {
     expect(
       decideGate({ pathname: '/dashboard', search: '', user: verifiedUser, authState: null })
-    ).toEqual({ kind: 'allow' });
+    ).toEqual({ kind: 'redirect', to: '/auth/post-oauth?next=%2Fdashboard' });
   });
 
   it('unverified -> /sign-in for protected', () => {
@@ -174,10 +174,43 @@ describe('decideGate', () => {
     ).toEqual({ kind: 'allow' });
   });
 
-  it('null authState with verified user on protected -> allow (treated as not missing consent)', () => {
+  it('unknown authState keeps the requested path in the repair next param', () => {
     expect(
-      decideGate({ pathname: '/dashboard', search: '', user: verifiedUser, authState: null })
+      decideGate({
+        pathname: '/dashboard',
+        search: '?tab=watching',
+        user: verifiedUser,
+        authState: null,
+      })
+    ).toEqual({
+      kind: 'redirect',
+      to: '/auth/post-oauth?next=%2Fdashboard%3Ftab%3Dwatching',
+    });
+  });
+
+  it('unknown authState never redirects API routes (handlers keep their own authz)', () => {
+    expect(
+      decideGate({
+        pathname: '/api/class-watches',
+        search: '',
+        user: verifiedUser,
+        authState: null,
+      })
     ).toEqual({ kind: 'allow' });
+  });
+
+  it('unknown authState is allowed on the repair route and on /', () => {
+    expect(
+      decideGate({
+        pathname: '/auth/post-oauth',
+        search: '?next=%2Fdashboard',
+        user: verifiedUser,
+        authState: null,
+      })
+    ).toEqual({ kind: 'allow' });
+    expect(decideGate({ pathname: '/', search: '', user: verifiedUser, authState: null })).toEqual({
+      kind: 'allow',
+    });
   });
 
   it('missing consent api -> forbidden', () => {

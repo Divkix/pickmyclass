@@ -5,6 +5,7 @@
 ## Decision
 
 - A lock expires after **25 minutes**, leaving a five-minute safety margin before the next 30-minute cron window. The timeout is private to the lifecycle module; callers and tests derive expiry from returned status.
+- Acquisition persists before the in-memory state flips: a failed save rejects the acquire and leaves the lock unlocked, so the next tick retries instead of pinning a lock that was never durable.
 - The holder that acquires a lock is the only holder allowed to release it. Acquire and status operations clear expired or corrupt persisted state before returning.
 - `createCronLockClient` hides the singleton DO identity (`pickmyclass-cron-lock`), internal URLs, JSON wire parsing, and acquire/release pairing. It returns a lease whose `release()` targets the acquiring holder.
 - A missing `PICKMYCLASS_CRON_LOCK_DO` binding **fails open**: acquire returns an acquired, unconfigured no-op lease so cron processing continues, while health reports `not_configured`.

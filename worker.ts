@@ -120,7 +120,7 @@ export default {
     scheduledLog.info('Cron triggered at:', new Date(event.scheduledTime).toISOString());
     scheduledLog.info('Cron pattern:', event.cron);
 
-    const cronRoute = event.cron === '0 4 * * *' ? '/api/cron/maintenance' : '/api/cron';
+    const cronRoute = event.cron === '5 4 * * *' ? '/api/cron/maintenance' : '/api/cron';
 
     try {
       const request = new Request(`http://localhost${cronRoute}`, {

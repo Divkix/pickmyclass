@@ -24,11 +24,11 @@ Two systems to understand first: **seat-check notification pipeline** and **auth
 
 ```
 Browser -> vinext Worker (worker.ts) -> PlanetScale via Hyperdrive (polling)
-             |  Cron 0,30 * * * * + 0 4 * * * -> worker.ts scheduled() -> /api/cron -> Queue -> worker.ts queue() -> processSection() -> ASU API + Email
+             |  Cron 0,30 * * * * + 5 4 * * * -> worker.ts scheduled() -> /api/cron -> Queue -> worker.ts queue() -> processSection() -> ASU API + Email
              |  Clerk FAPI (jwtKey verify)    -> polling GET /api/class-watches/states
 ```
 
-Queue consumer `worker.ts queue()` calls `processSection()` directly (not HTTP); `app/api/queue/process-section/route.ts` is a mirror for tests. See `docs/adr/0006`.
+Queue consumer `worker.ts queue()` calls `processSection()` directly (not HTTP); the former `app/api/queue/process-section/route.ts` mirror was deleted (#380 Phase 1) — tests exercise `processSection()` directly. See `docs/adr/0006`.
 
 ## Core systems (pointers, not copies)
 
@@ -93,8 +93,8 @@ Two tsconfigs: `tsconfig.json` (app, excludes worker.ts) + `tsconfig.worker.json
 ## Critical invariants & gotchas
 
 - **`processSection` order** reset -> **upsert `class_states` before send** — moving send earlier double-sends on retry.
-- **Email only the IDs returned by `tryRecordNotificationsBatch`** (claimed set) and **rollback failed sends** via `deleteNotificationRecords`, or users suppressed 24h.
-- **Daily `expire_stale_notifications()` + past-term watch delete is load-bearing** — without it re-notifications stop.
+- **Email only the IDs returned by `tryRecordNotificationsBatch`** (claimed set) and **rollback failed sends** via `deleteNotificationRecordsByIds` (row-id scoped through `getNotificationRecordIds`), or users suppressed 24h.
+- **`expire_stale_notifications()` on every 30-min cron tail + 04:05 maintenance sweep + past-term watch delete is load-bearing** — without it re-notifications stop.
 - **`processSection` owns `ack`/`retry`** (`SectionCheckOutcome`); callers only translate to transport. HTTP route returns `200` for `ack` on purpose.
 - **`class_states` key is `(class_nbr, term)`** — always include term.
 - **`proxy.ts` is THE auth gate** (Clerk `jwtKey`, `hasClerkSessionCookies`, `ext_id` claim, `readAuthorizationState` 30s cache). Invalidate via `invalidateAuthorizationState` after consent/admin changes.

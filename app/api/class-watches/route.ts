@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, exists, inArray, sql } from 'drizzle-orm';
 import { type NextRequest } from 'next/server';
 import { ok, fail } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
@@ -8,7 +8,7 @@ import { parseOrFail } from '@/lib/api/validation';
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
 import { getDbFromEnv } from '@/lib/db';
 import { getPgError, isUniqueViolation, PG_RAISE_EXCEPTION } from '@/lib/db/pg-errors';
-import { upsertClassState } from '@/lib/db/queries';
+import { insertClassStateIfMissing } from '@/lib/db/queries';
 import { classStates, classWatches } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 import { captureServerEvent } from '@/lib/analytics/server';
@@ -48,7 +48,6 @@ export async function GET(request: NextRequest) {
           .orderBy(desc(classWatches.created_at));
 
         const classNumbers = watches.map((w) => w.class_nbr);
-        const terms = Array.from(new Set(watches.map((w) => w.term)));
 
         const joinedStates: WatchClassState[] =
           classNumbers.length > 0
@@ -66,7 +65,18 @@ export async function GET(request: NextRequest) {
                 .where(
                   and(
                     inArray(classStates.class_nbr, classNumbers),
-                    inArray(classStates.term, terms)
+                    exists(
+                      db
+                        .select({ one: sql`1` })
+                        .from(classWatches)
+                        .where(
+                          and(
+                            eq(classWatches.user_id, user.userId),
+                            eq(classWatches.class_nbr, classStates.class_nbr),
+                            eq(classWatches.term, classStates.term)
+                          )
+                        )
+                    )
                   )
                 )
             : [];
@@ -122,7 +132,9 @@ export async function POST(request: NextRequest) {
         const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
         let classDetails: ClassDetails;
         try {
-          classDetails = await fetchClassFromASU({ class_nbr, term }, asuEnv);
+          // Freshness matters: this snapshot seeds a brand-new row, and the
+          // pipeline compares against it on the next check.
+          classDetails = await fetchClassFromASU({ class_nbr, term }, asuEnv, { useCache: false });
         } catch (error) {
           if (error instanceof NotFoundError) {
             return fail('Class section not found', 404);
@@ -175,9 +187,11 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          await upsertClassState(db, { class_nbr, term }, classDetails);
+          // Seed only — never overwrite an existing pipeline row (it carries
+          // the strike counter and the freshest snapshot).
+          await insertClassStateIfMissing(db, { class_nbr, term }, classDetails);
         } catch (dbError) {
-          log('API').error('Failed to persist class state:', dbError);
+          log('API').error('Failed to seed class state:', dbError);
         }
 
         try {

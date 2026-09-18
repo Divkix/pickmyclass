@@ -11,7 +11,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Class Watch** — A user's subscription to monitor a Class Section for changes. Each watch belongs to one user and targets one section. Users are limited to `MAX_WATCHES_PER_USER` (default: 10).
 
-- **Class State** — A cached snapshot of a Class Section's current data stored in the `class_states` table. Updated during each section check. Contains seats, instructor, location, and meeting times. Not authoritative — the ASU API is the source of truth.
+- **Class State** — A cached snapshot of a Class Section's current data stored in the `class_states` table. Updated during each section check (advisory-locked upsert) and seeded insert-only when a Class Watch is created, so a watch creation never overwrites pipeline state or the strike counter. Contains seats, instructor, location, and meeting times. Not authoritative — the ASU API is the source of truth.
 
 ## Notifications
 
@@ -23,7 +23,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 ## Processing Pipeline
 
-- **Section Check** — One complete cycle for a single SectionRef: read persisted Class State from DB → fetch latest data from ASU API → detect changes → reset notifications if seats filled → persist state (upsert-before-notify) → notify watchers. When the ASU fetch raises NotFound, `processSection` delegates to the Class Section retirement module ([`lib/queue/section-retirement.ts`](./lib/queue/section-retirement.ts)) before deciding the disposition itself — NotFound always ends in `ack`.
+- **Section Check** — One complete cycle for a single SectionRef: read persisted Class State from DB → fetch latest data from ASU API → detect changes → reset notifications if seats filled → persist state (upsert-before-notify) → notify watchers. The queued message carries the Cron Cycle stamp that produced it; when `class_states.last_checked_at` is already at or after that stamp the check no-ops and acks without calling ASU. When the ASU fetch raises NotFound, `processSection` delegates to the Class Section retirement module ([`lib/queue/section-retirement.ts`](./lib/queue/section-retirement.ts)) before deciding the disposition itself — NotFound always ends in `ack`.
 
 - **Change Detection** — The algorithm that compares old and new section data to determine if seats became available, seats filled, or an instructor was assigned. The seat signal is `non_reserved_seats ?? seats_available`; `non_reserved_seats` is computed as `Math.max(0, enrlCap - enrlTot - waitTot)` in `lib/asu/api.ts` and persisted via `upsertClassState` (`lib/db/queries.ts`), with fallback `non_reserved_seats ?? seats_available` when `NULL` (no waitlist data) — see `docs/adr/0005-non-reserved-seats-dormant-column.md` (pre-#198 wording is historical).
 
@@ -31,7 +31,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Stagger Group** — Even/odd class_nbr partitioning to spread checks across two cron triggers (:00 = even, :30 = odd). Reduces load on the ASU API.
 
-- **Queue Message** — A `ClassCheckMessage` containing `class_nbr`, `term`, and `enqueued_at`. Sent to Cloudflare Queue for parallel processing.
+- **Queue Message** — A `ClassCheckMessage` containing `class_nbr`, `term`, `enqueued_at`, and the Cron Cycle stamp `cycle` (`<scheduledTime>:<stagger group>`) used to skip redeliveries. Sent to Cloudflare Queue for parallel processing.
 
 - **Disposition** — The retry-vs-give-up verdict for one Section Check: `ack` (done, drop the message) or `retry` (transient, try again). Decided inside `processSection` (returns `SectionCheckOutcome` with `disposition: 'ack'|'retry'`); the queue consumer and HTTP mirror each translate `outcome.disposition` to their transport (queue `ack()`/`retry()` vs HTTP `200`/`429`/`502`/`500`). See `docs/adr/0006-queue-ack-retry-contract.md`.
 
@@ -66,7 +66,7 @@ This document defines domain terms used throughout the codebase. New modules sho
 ## API & Validation
 
 - **API Schema** — Zod schema for validating API inputs. Located in `lib/api/schemas.ts`.
-- **ClassCheckMessage** — Queue message type containing `class_nbr`, `term`, and `enqueued_at`.
+- **ClassCheckMessage** — Queue message type containing `class_nbr`, `term`, `enqueued_at`, and the optional Cron Cycle stamp `cycle`.
 
 ## Email System
 

@@ -40,21 +40,16 @@ interface InsertOp {
   conflict: { target?: PgColumn; set?: RecordedRowMap } | null;
 }
 
-interface UpdateOp {
-  method: 'update';
-  table: PgTable;
-  set: RecordedRowMap;
-  where: SQL | undefined;
-}
+type Op = SelectOp | InsertOp;
 
-type Op = SelectOp | InsertOp | UpdateOp;
+type SelectChain = Promise<SelectRow[]> & {
+  limit(limit: number): Promise<SelectRow[]>;
+};
 
 interface BuilderRecorder {
   select(projection: ProjectionMap): {
     from(table: PgTable): {
-      where(where: SQL): {
-        limit(limit: number): Promise<SelectRow[]>;
-      };
+      where(where: SQL): SelectChain;
     };
   };
   insert(table: PgTable): {
@@ -63,11 +58,7 @@ interface BuilderRecorder {
       onConflictDoUpdate(config: { target?: PgColumn; set: RecordedRowMap }): Promise<never[]>;
     };
   };
-  update(table: PgTable): {
-    set(patch: RecordedRowMap): {
-      where(where: SQL): Promise<{ count: number }>;
-    };
-  };
+  transaction<T>(fn: (tx: BuilderRecorder) => Promise<T>): Promise<T>;
 }
 
 type UsersSeamDb = Database | BuilderRecorder;
@@ -81,18 +72,16 @@ interface DbDouble {
   ops(): Op[];
   selects(): SelectOp[];
   inserts(): InsertOp[];
-  updates(): UpdateOp[];
   mirrorUpserts(): InsertOp[];
   profileInserts(): InsertOp[];
   nextRows(rows?: SelectRow[]): void;
-  nextUpdateCount(count: number): void;
-  failNextUpdate(error: Error): void;
+  failNextInsert(error: Error): void;
 }
 
 function createDbDouble(): DbDouble {
   const ops: Op[] = [];
   const selectResults: Array<Promise<SelectRow[]> | SelectRow[]> = [];
-  const updateResults: Array<Promise<{ count: number }> | { count: number }> = [];
+  const insertResults: Array<Promise<never[]>> = [];
 
   const raw: BuilderRecorder = {
     select: (projection: ProjectionMap) => {
@@ -110,12 +99,14 @@ function createDbDouble(): DbDouble {
           return {
             where: (where: SQL) => {
               op.where = where;
-              return {
+              // softDeleteUserById awaits the chain bare; the mirror reads chain .limit(1).
+              const rows = Promise.resolve(selectResults.shift() ?? []);
+              return Object.assign(rows, {
                 limit: (limit: number) => {
                   op.limit = limit;
-                  return Promise.resolve(selectResults.shift() ?? []);
+                  return rows;
                 },
-              };
+              });
             },
           };
         },
@@ -130,31 +121,17 @@ function createDbDouble(): DbDouble {
           return {
             onConflictDoNothing: (config: { target?: PgColumn } = {}) => {
               op.conflict = config;
-              return Promise.resolve([]);
+              return insertResults.shift() ?? Promise.resolve([]);
             },
             onConflictDoUpdate: (config: { target?: PgColumn; set: RecordedRowMap }) => {
               op.conflict = config;
-              return Promise.resolve([]);
+              return insertResults.shift() ?? Promise.resolve([]);
             },
           };
         },
       };
     },
-    update: (table: PgTable) => {
-      const op: UpdateOp = { method: 'update', table, set: {}, where: undefined };
-      ops.push(op);
-      return {
-        set: (patch: RecordedRowMap) => {
-          op.set = patch;
-          return {
-            where: (where: SQL) => {
-              op.where = where;
-              return Promise.resolve(updateResults.shift() ?? { count: 0 });
-            },
-          };
-        },
-      };
-    },
+    transaction: <T>(fn: (tx: BuilderRecorder) => Promise<T>): Promise<T> => fn(raw),
   };
 
   const selects = () => ops.filter((op): op is SelectOp => op.method === 'select');
@@ -165,13 +142,13 @@ function createDbDouble(): DbDouble {
     ops: () => ops,
     selects,
     inserts,
-    updates: () => ops.filter((op): op is UpdateOp => op.method === 'update'),
     mirrorUpserts: () => inserts().filter((op) => op.table === users),
     profileInserts: () => inserts().filter((op) => op.table === userProfiles),
     nextRows: (rows: SelectRow[] = []) => selectResults.push(rows),
-    nextUpdateCount: (count: number) => updateResults.push({ count }),
-    failNextUpdate: (error: Error) => {
-      updateResults.push(Promise.reject(error));
+    failNextInsert: (error: Error) => {
+      const rejected = Promise.reject<never[]>(error);
+      rejected.catch(() => {});
+      insertResults.push(rejected);
     },
   };
 }
@@ -786,56 +763,64 @@ describe('readUserVerification', () => {
     expect(double.selects()).toHaveLength(2);
   });
 
-  it('caches null as "unverified" until explicitly cleared', async () => {
-    await expect(readUserVerification(double.db, 'u1', { cache: true })).resolves.toBeNull();
-
-    double.nextRows([ROW]);
+  it('does not cache a miss, so a mirror row that lands later is seen by the next read', async () => {
     await expect(readUserVerification(double.db, 'u1', { cache: true })).resolves.toBeNull();
     expect(double.selects()).toHaveLength(1);
 
-    await expect(readUserVerification(double.db, 'u1', { cache: false })).resolves.toEqual(ROW);
-
-    clearUserVerificationCache();
     double.nextRows([ROW]);
     await expect(readUserVerification(double.db, 'u1', { cache: true })).resolves.toEqual(ROW);
+    expect(double.selects()).toHaveLength(2);
+
+    await expect(readUserVerification(double.db, 'u2', { cache: true })).resolves.toBeNull();
+    expect(double.selects()).toHaveLength(3);
   });
 });
 
 describe('softDeleteUserById', () => {
-  it('disables either the app-id or Clerk-id profile with coalesced suppression stamps', async () => {
-    double.nextUpdateCount(2);
+  it('writes a disabled tombstone profile row so a user.created retry cannot resurrect the account', async () => {
+    double.nextRows([{ id: 'app-user-1' }]);
 
-    await expect(softDeleteUserById(double.db, CLERK_USER_ID)).resolves.toBe(2);
+    await expect(softDeleteUserById(double.db, CLERK_USER_ID)).resolves.toBe(1);
 
-    expect(double.updates()).toHaveLength(1);
-    const [update] = double.updates();
-    expect(update.table).toBe(userProfiles);
-    expect(update.set.is_disabled).toBe(true);
-    expect(update.set.notifications_enabled).toBe(false);
-    expect(renderSql(update.set.disabled_at)).toBe(
+    const [mirrorSelect] = double.selects();
+    expect(mirrorSelect.table).toBe(users);
+    expect(renderWhere(mirrorSelect.where)).toEqual({
+      sql: '("users"."id" = $1 or "users"."clerk_user_id" = $2)',
+      params: [CLERK_USER_ID, CLERK_USER_ID],
+    });
+
+    const tombstones = double.profileInserts();
+    expect(tombstones).toHaveLength(1);
+    const [tombstone] = tombstones;
+    expect(tombstone.values.user_id).toBe('app-user-1');
+    expect(tombstone.values.is_disabled).toBe(true);
+    expect(tombstone.values.notifications_enabled).toBe(false);
+    expect(renderSql(tombstone.values.disabled_at)).toBe('now()');
+    expect(renderSql(tombstone.values.unsubscribed_at)).toBe('now()');
+
+    expect(tombstone.conflict?.target).toBe(userProfiles.user_id);
+    const conflictSet = tombstone.conflict?.set ?? {};
+    expect(conflictSet.is_disabled).toBe(true);
+    expect(conflictSet.notifications_enabled).toBe(false);
+    expect(renderSql(conflictSet.disabled_at)).toBe(
       'coalesce("user_profiles"."disabled_at", now())'
     );
-    expect(renderSql(update.set.unsubscribed_at)).toBe(
+    expect(renderSql(conflictSet.unsubscribed_at)).toBe(
       'coalesce("user_profiles"."unsubscribed_at", now())'
     );
+  });
 
-    const where = renderWhere(update.where);
-    expect(where.params[0]).toBe(CLERK_USER_ID);
-    expect(where.sql).toContain('"user_profiles"."user_id" = $1');
-    expect(where.sql).toContain('"user_profiles"."user_id" in $2');
+  it('returns 0 and writes nothing when no mirror row carries the id', async () => {
+    double.nextRows([]);
 
-    const mirrorSelects = double.selects().filter((op) => op.table === users);
-    expect(mirrorSelects).toHaveLength(1);
-    const [mirrorSelect] = mirrorSelects;
-    expect(mirrorSelect.projection).toEqual({ id: users.id });
-    expect(renderWhere(mirrorSelect.where)).toEqual({
-      sql: '"users"."clerk_user_id" = $1',
-      params: [CLERK_USER_ID],
-    });
+    await expect(softDeleteUserById(double.db, CLERK_USER_ID)).resolves.toBe(0);
+
+    expect(double.inserts()).toHaveLength(0);
   });
 
   it('propagates DB failures after logging', async () => {
-    double.failNextUpdate(new Error('connection reset'));
+    double.nextRows([{ id: 'app-user-1' }]);
+    double.failNextInsert(new Error('connection reset'));
 
     await expect(softDeleteUserById(double.db, CLERK_USER_ID)).rejects.toThrow('connection reset');
   });

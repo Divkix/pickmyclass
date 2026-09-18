@@ -89,13 +89,20 @@ export function createCronLockLifecycle(
         };
       }
 
-      state = { locked: true, lockAcquiredAt: now(), lockHolder: holder };
-      await store.save(state);
+      // Persist the acquisition first: a failed save must leave the lock unlocked in memory
+      // (and retryable next tick) instead of pinning a lock that was never durable.
+      const acquiredState: CronLockState = {
+        locked: true,
+        lockAcquiredAt: now(),
+        lockHolder: holder,
+      };
+      await store.save(acquiredState);
+      state = acquiredState;
       return {
         acquired: true,
         message: 'Lock acquired successfully',
         lockHolder: holder,
-        lockedSince: state.lockAcquiredAt,
+        lockedSince: acquiredState.lockAcquiredAt,
       };
     },
 

@@ -1,4 +1,5 @@
 import { env } from 'cloudflare:workers';
+import { sql } from 'drizzle-orm';
 import { type NextRequest } from 'next/server';
 import { requireCronAuth } from '@/lib/auth/require-user';
 import { fail, ok } from '@/lib/api/response';
@@ -61,6 +62,19 @@ export async function GET(request: NextRequest) {
 
     const db = getDbFromEnv();
 
+    try {
+      const expiredRows = await db.execute<{ expired: unknown }>(
+        sql`SELECT public.expire_stale_notifications() AS expired`
+      );
+      const expiredCount = Number(expiredRows[0]?.expired ?? 0);
+      if (expiredCount > 0) log('Cron').info(`Expired ${expiredCount} stale notification records`);
+    } catch (error) {
+      log('Cron').warn(
+        'Failed to expire stale notifications:',
+        error instanceof Error ? error.message : error
+      );
+    }
+
     const allSections = await getSectionsToCheck(db, staggerGroup);
     const pastTerms = new Set(getPastTermCodes());
     const sections = allSections.filter((s) => !pastTerms.has(s.term));
@@ -82,6 +96,9 @@ export async function GET(request: NextRequest) {
     }
 
     const batches: ClassCheckMessage[][] = [];
+    // Cycle identity for stale-message suppression: message is a no-op once the section was
+    // checked at or after this stamp (lexicographic ISO compare in processSection).
+    const cycle = `${now.toISOString()}:${staggerGroup}`;
 
     for (let i = 0; i < sections.length; i += CF_QUEUE_SEND_BATCH_LIMIT) {
       batches.push(
@@ -91,6 +108,7 @@ export async function GET(request: NextRequest) {
               class_nbr: section.class_nbr,
               term: section.term,
               enqueued_at: new Date().toISOString(),
+              cycle,
             }) satisfies ClassCheckMessage
         )
       );

@@ -349,13 +349,13 @@ describe('worker.ts scheduled handler', () => {
     CRON_SECRET: 'test-cron-secret',
   };
 
-  it('routes "0 4 * * *" cron to /api/cron/maintenance', async () => {
+  it('routes "5 4 * * *" cron to /api/cron/maintenance', async () => {
     const fetchSpy = vi
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));
 
     await workerDefault.scheduled(
-      { cron: '0 4 * * *', scheduledTime: Date.now() },
+      { cron: '5 4 * * *', scheduledTime: Date.now() },
       scheduledEnv as Env,
       testCtx
     );

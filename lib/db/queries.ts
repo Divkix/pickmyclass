@@ -1,7 +1,7 @@
 import { and, count, eq, gte, inArray, ne, sql } from 'drizzle-orm';
 
 import type { Database } from '@/lib/db';
-import { driverErrorMessage, isUniqueViolation } from '@/lib/db/pg-errors';
+import { driverErrorMessage } from '@/lib/db/pg-errors';
 import { classStates, classWatches, notificationsSent } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 import type { SectionRef } from '@/lib/section-ref';
@@ -46,6 +46,8 @@ function normalizeStringArray(value: DriverStringArray | null | undefined): stri
 }
 
 async function incrementConsecutiveNotFoundViaRpc(db: Database, ref: SectionRef): Promise<number> {
+  // The RPC creates the placeholder row itself when the section has never been
+  // seen, so this is one atomic statement with no insert-fallback race.
   const rows = await db.execute<{ new_count: unknown }>(
     sql`SELECT public.increment_consecutive_not_found(${ref.class_nbr}::text, ${ref.term}::text) AS new_count`
   );
@@ -150,31 +152,14 @@ export async function resetNotificationsForSection(
   notificationType: NotificationType = 'seat_available'
 ): Promise<void> {
   try {
-    const watches = await db
-      .select({ id: classWatches.id })
-      .from(classWatches)
-      .where(and(eq(classWatches.class_nbr, ref.class_nbr), eq(classWatches.term, ref.term)));
-
-    if (watches.length === 0) {
-      log('DB').info(`No watches found for section ${ref.class_nbr}, nothing to reset`);
-      return;
-    }
-
-    const deleted = await db
-      .delete(notificationsSent)
-      .where(
-        and(
-          inArray(
-            notificationsSent.class_watch_id,
-            watches.map((watch) => watch.id)
-          ),
-          eq(notificationsSent.notification_type, notificationType)
-        )
-      )
-      .returning({ id: notificationsSent.id });
-
+    // Single join-scoped DELETE: a SELECT-then-DELETE by watch id list can outlive a
+    // watch row that moved out of the section and delete a foreign active claim.
+    const rows = await db.execute<{ deleted: unknown }>(
+      sql`SELECT public.reset_section_notifications(${ref.class_nbr}::text, ${ref.term}::text, ${notificationType}::text) AS deleted`
+    );
+    const deleted = Number(rows[0]?.deleted ?? 0);
     log('DB').info(
-      `Reset ${notificationType} notifications for ${watches.length} watchers of section ${ref.class_nbr} (${deleted.length} records deleted)`
+      `Reset ${notificationType} notifications for section ${ref.class_nbr} (${deleted} records deleted)`
     );
   } catch (error) {
     log('DB').error('Error resetting notifications:', error);
@@ -203,6 +188,51 @@ export async function deleteNotificationRecords(
   } catch (error) {
     log('DB').error('Error deleting notification records:', error);
     throw new Error(`Failed to delete notification records: ${driverErrorMessage(error)}`);
+  }
+}
+
+export async function deleteNotificationRecordsByIds(
+  db: Database,
+  notificationIds: string[]
+): Promise<number> {
+  if (notificationIds.length === 0) return 0;
+  try {
+    // Same array-bind constraint as the RPCs above: compose the uuid[] server-side
+    // from separately-bound scalars (notificationIds guarded non-empty above).
+    const idParams = notificationIds.map((id) => sql`${id}::uuid`);
+    const rows = await db.execute<{ deleted: unknown }>(
+      sql`SELECT public.delete_notification_records_by_ids(ARRAY[${sql.join(idParams, sql`, `)}]) AS deleted`
+    );
+    const deleted = Number(rows[0]?.deleted ?? 0);
+    log('DB').info(`Deleted ${deleted} notification records by id (${notificationIds.length} ids)`);
+    return deleted;
+  } catch (error) {
+    log('DB').error('Error deleting notification records by id:', error);
+    throw new Error(`Failed to delete notification records by id: ${driverErrorMessage(error)}`);
+  }
+}
+
+export async function getNotificationRecordIds(
+  db: Database,
+  watchIds: string[],
+  notificationType: NotificationType
+): Promise<Map<string, string>> {
+  if (watchIds.length === 0) return new Map();
+  try {
+    const rows = await db
+      .select({ id: notificationsSent.id, class_watch_id: notificationsSent.class_watch_id })
+      .from(notificationsSent)
+      .where(
+        and(
+          inArray(notificationsSent.class_watch_id, watchIds),
+          eq(notificationsSent.notification_type, notificationType),
+          eq(notificationsSent.is_active, true)
+        )
+      );
+    return new Map(rows.map((row) => [row.class_watch_id, row.id]));
+  } catch (error) {
+    log('DB').error('Error reading notification record ids:', error);
+    throw new Error(`Failed to read notification record ids: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -252,35 +282,58 @@ export async function upsertClassState(
   ref: SectionRef,
   details: ClassDetails
 ): Promise<void> {
-  const now = new Date().toISOString();
-
   try {
-    const row = {
-      subject: details.subject,
-      catalog_nbr: details.catalog_nbr,
-      title: details.title,
-      instructor_name: details.instructor_name || null,
-      seats_available: details.seats_available || 0,
-      seats_capacity: details.seats_capacity || 0,
-      non_reserved_seats: details.non_reserved_seats ?? null,
-      location: details.location || null,
-      meeting_times: details.meeting_times || null,
-      last_checked_at: now,
-      consecutive_not_found_count: 0,
-    };
+    // RPC, not a drizzle upsert: the write takes a SectionRef advisory lock
+    // server-side, so a check and a strike for the same section serialize
+    // instead of interleaving (see db/migrations/20260918000001_state_fix.sql).
+    await db.execute(
+      sql`SELECT public.upsert_class_state_locked(
+        ${ref.class_nbr}::text,
+        ${ref.term}::text,
+        ${details.subject}::text,
+        ${details.catalog_nbr}::text,
+        ${details.title}::text,
+        ${details.instructor_name || null}::text,
+        ${details.seats_available || 0}::integer,
+        ${details.seats_capacity || 0}::integer,
+        ${details.non_reserved_seats ?? null}::integer,
+        ${details.location || null}::text,
+        ${details.meeting_times || null}::text
+      )`
+    );
+  } catch (error) {
+    throw new Error(`Failed to upsert class state: ${driverErrorMessage(error)}`);
+  }
+}
+
+export async function insertClassStateIfMissing(
+  db: Database,
+  ref: SectionRef,
+  details: ClassDetails
+): Promise<void> {
+  try {
     await db
       .insert(classStates)
       .values({
         class_nbr: ref.class_nbr,
         term: ref.term,
-        ...row,
+        subject: details.subject,
+        catalog_nbr: details.catalog_nbr,
+        title: details.title,
+        instructor_name: details.instructor_name || null,
+        seats_available: details.seats_available || 0,
+        seats_capacity: details.seats_capacity || 0,
+        non_reserved_seats: details.non_reserved_seats ?? null,
+        location: details.location || null,
+        meeting_times: details.meeting_times || null,
+        last_checked_at: new Date().toISOString(),
+        consecutive_not_found_count: 0,
       })
-      .onConflictDoUpdate({
-        target: [classStates.class_nbr, classStates.term],
-        set: { ...row },
-      });
+      // Seed only: an existing row is pipeline state (and carries a strike
+      // counter), so a watch creation must never overwrite it.
+      .onConflictDoNothing({ target: [classStates.class_nbr, classStates.term] });
   } catch (error) {
-    throw new Error(`Failed to upsert class state: ${driverErrorMessage(error)}`);
+    throw new Error(`Failed to insert class state: ${driverErrorMessage(error)}`);
   }
 }
 
@@ -292,53 +345,13 @@ export async function incrementConsecutiveNotFound(db: Database, ref: SectionRef
     );
     return newCount;
   } catch (error) {
-    const message = driverErrorMessage(error);
-    if (!message.includes('Section not found')) {
-      log('DB').error('Error incrementing consecutive_not_found_count:', error);
-      throw new Error(`Failed to increment consecutive_not_found_count: ${message}`);
-    }
-
-    try {
-      await db.insert(classStates).values({
-        class_nbr: ref.class_nbr,
-        term: ref.term,
-        subject: '',
-        catalog_nbr: '',
-        title: null,
-        instructor_name: null,
-        seats_available: 0,
-        seats_capacity: 0,
-        non_reserved_seats: null,
-        location: null,
-        meeting_times: null,
-        last_checked_at: new Date().toISOString(),
-        consecutive_not_found_count: 1,
-      });
-      log('DB').info(
-        `Initialized consecutive_not_found_count=1 for ${ref.class_nbr} (term ${ref.term})`
-      );
-      return 1;
-    } catch (insertError) {
-      if (!isUniqueViolation(insertError)) {
-        log('DB').error('Error inserting consecutive_not_found_count:', insertError);
-        throw new Error(
-          `Failed to increment consecutive_not_found_count: ${driverErrorMessage(insertError)}`
-        );
-      }
-
-      try {
-        const racedCount = await incrementConsecutiveNotFoundViaRpc(db, ref);
-        log('DB').info(
-          `Incremented consecutive_not_found_count to ${racedCount} for ${ref.class_nbr} (term ${ref.term}) after race via atomic RPC (recovered from insert 23505: ${driverErrorMessage(insertError)})`
-        );
-        return racedCount;
-      } catch (racedError) {
-        log('DB').error('Error incrementing consecutive_not_found_count after race:', racedError);
-        throw new Error(
-          `Failed to increment consecutive_not_found_count: ${driverErrorMessage(racedError)}`
-        );
-      }
-    }
+    log('DB').error(
+      `Error incrementing consecutive_not_found_count for ${ref.class_nbr} (term ${ref.term}):`,
+      error
+    );
+    throw new Error(
+      `Failed to increment consecutive_not_found_count: ${driverErrorMessage(error)}`
+    );
   }
 }
 
@@ -462,6 +475,8 @@ export type SectionCheckState = {
   non_reserved_seats: number | null;
   instructor_name: string | null;
   consecutive_not_found_count: number;
+  /** ISO-8601 UTC, or undefined when the driver returns no timestamp. */
+  last_checked_at?: string;
 };
 
 export async function readSectionCheckState(
@@ -477,11 +492,14 @@ export async function readSectionCheckState(
         non_reserved_seats: classStates.non_reserved_seats,
         instructor_name: classStates.instructor_name,
         consecutive_not_found_count: classStates.consecutive_not_found_count,
+        last_checked_at: classStates.last_checked_at,
       })
       .from(classStates)
       .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))
       .limit(1);
-    return rows[0] ?? null;
+    const row = rows[0];
+    if (!row) return null;
+    return { ...row, last_checked_at: normalizeIsoTimestamp(row.last_checked_at) };
   } catch (error) {
     log('DB').error(
       `Error fetching section check state for ${ref.class_nbr} (term ${ref.term}):`,

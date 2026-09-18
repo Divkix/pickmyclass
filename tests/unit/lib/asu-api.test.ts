@@ -166,6 +166,29 @@ describe('fetchClassFromASU', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('should bypass the cache when useCache is false and refresh it with the fresh response', async () => {
+    // Fresh Response per call: a cached body cannot be re-read.
+    const fetchSpy = vi
+      .spyOn(global, 'fetch')
+      .mockImplementation(
+        async () => new Response(JSON.stringify(buildAsuSuccessResponse()), { status: 200 })
+      );
+
+    const env = {
+      ASU_API_BASE_URL: 'https://eadvs-cscc-catalog-api.apps.asu.edu/catalog-microservices/api/v1',
+      ASU_API_TOKEN: 'test-token',
+    };
+
+    const ref = { class_nbr: '42737', term: '2264' };
+
+    await fetchClassFromASU(ref, env);
+    const fresh = await fetchClassFromASU(ref, env, { useCache: false });
+    const cachedAgain = await fetchClassFromASU(ref, env);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(cachedAgain).toEqual(fresh);
+  });
+
   it('should throw ApiError with status 408 when fetch times out', async () => {
     const timeoutError = new DOMException('The operation was aborted.', 'TimeoutError');
     vi.spyOn(global, 'fetch').mockRejectedValue(timeoutError);

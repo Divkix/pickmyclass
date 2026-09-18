@@ -24,6 +24,7 @@ import {
   getNotificationWatchers,
   getSectionsToCheck,
   incrementConsecutiveNotFound,
+  insertClassStateIfMissing,
   readAutoCleanupBreakerCounts,
   readSectionCheckState,
   readSectionRemovalClassInfo,
@@ -76,6 +77,7 @@ const REF_FULL = { class_nbr: `${RUN}6`, term: TERM };
 const REF_ODD = { class_nbr: `${RUN}3`, term: TERM };
 const REF_B_OTHER_TERM = { class_nbr: `${RUN}2`, term: TERM_OTHER };
 const REF_INC = { class_nbr: `${RUN}5`, term: TERM };
+const REF_SEED = { class_nbr: `${RUN}7`, term: TERM };
 const REF_LIMIT_1 = { class_nbr: `${RUN}8`, term: TERM };
 const REF_LIMIT_2 = { class_nbr: `${RUN}9`, term: TERM };
 
@@ -347,13 +349,22 @@ describe('SQLSTATE helpers against real driver errors', () => {
   });
 
   it('maps a PL/pgSQL RAISE EXCEPTION to P0001', async () => {
+    // Any raising RPC works as the probe; the watch-limit guard raises before
+    // it touches a row (p_max_watches < 1).
     const error = await capture(() =>
       db.execute(
-        sql`SELECT public.increment_consecutive_not_found(${REF_INC.class_nbr}::text, ${REF_INC.term}::text)`
+        sql`SELECT * FROM public.create_class_watch_with_limit(
+          ${U_LIMIT}::text,
+          ${TERM}::text,
+          ${SUBJECT}::text,
+          '310'::text,
+          ${`${RUN}1`}::text,
+          0::integer
+        )`
       )
     );
     expect(error).not.toBeNull();
-    expect(driverErrorMessage(error)).toMatch(/Section not found/);
+    expect(driverErrorMessage(error)).toMatch(/Invalid watch limit/);
     expect(isRaisedException(error)).toBe(true);
     expect(getPgError(error)?.code).toBe(PG_RAISE_EXCEPTION);
   });
@@ -536,13 +547,14 @@ describe('upsertClassState / section-check pipeline ops', () => {
       meeting_times: 'MW 10:00-11:15',
     });
     const baseline = await readSectionCheckState(db, REF_A);
-    expect(baseline).toEqual({
+    expect(baseline).toMatchObject({
       class_nbr: REF_A.class_nbr,
       term: TERM,
       seats_available: 11,
       non_reserved_seats: 9,
       instructor_name: 'Dr. Fixture',
       consecutive_not_found_count: 0,
+      last_checked_at: expect.any(String),
     });
   });
 
@@ -550,11 +562,94 @@ describe('upsertClassState / section-check pipeline ops', () => {
     expect(await readSectionCheckState(db, REF_INC)).toBeNull();
   });
 
-  it('increments atomically: recovers from Section-not-found, then RPC increments', async () => {
+  it('counts one strike per call, creating the missing row, including concurrent calls', async () => {
+    // Regression: the old path raised 'Section not found' and let the application
+    // insert a placeholder + retry on 23505 — which lost or double-counted
+    // strikes under concurrency. The RPC now owns the placeholder insert.
     expect(await incrementConsecutiveNotFound(db, REF_INC)).toBe(1);
     expect(await incrementConsecutiveNotFound(db, REF_INC)).toBe(2);
+
+    const concurrent = await Promise.all(
+      Array.from({ length: 4 }, () => incrementConsecutiveNotFound(db, REF_INC))
+    );
+    expect([...concurrent].sort((a, b) => a - b)).toEqual([3, 4, 5, 6]);
+
     const state = await readSectionCheckState(db, REF_INC);
-    expect(state?.consecutive_not_found_count).toBe(2);
+    expect(state?.consecutive_not_found_count).toBe(6);
+    expect(state?.last_checked_at).toBeDefined();
+  });
+
+  it('seeds a missing row but never clobbers pipeline state or the strike counter', async () => {
+    const pipelineSnapshot = {
+      subject: SUBJECT,
+      catalog_nbr: '310',
+      title: `Seed Probe ${RUN}`,
+      instructor_name: 'Dr. Fixture',
+      seats_available: 11,
+      seats_capacity: 30,
+      non_reserved_seats: 9,
+      location: 'TEMPE',
+      meeting_times: 'MW 10:00-11:15',
+    };
+
+    await insertClassStateIfMissing(db, REF_SEED, pipelineSnapshot);
+    expect((await readSectionCheckState(db, REF_SEED))?.seats_available).toBe(11);
+
+    // Pipeline records a strike, then a watch creation seeds again with what
+    // would be a clobbering snapshot.
+    await incrementConsecutiveNotFound(db, REF_SEED);
+    await insertClassStateIfMissing(db, REF_SEED, {
+      ...pipelineSnapshot,
+      title: 'Stale Seed Snapshot',
+      instructor_name: 'Someone Else',
+      seats_available: 99,
+      non_reserved_seats: 99,
+    });
+
+    const row = await readSectionCheckState(db, REF_SEED);
+    expect(row?.seats_available).toBe(11);
+    expect(row?.non_reserved_seats).toBe(9);
+    expect(row?.instructor_name).toBe('Dr. Fixture');
+    expect(row?.consecutive_not_found_count).toBe(1);
+  });
+
+  it('moves last_changed_at for a seat-signal change but not for an unrelated field', async () => {
+    const details = (overrides: { title?: string; non_reserved_seats?: number | null }) => ({
+      subject: SUBJECT,
+      catalog_nbr: '310',
+      title: overrides.title ?? `Seed Probe ${RUN}`,
+      instructor_name: 'Dr. Fixture',
+      seats_available: 11,
+      seats_capacity: 30,
+      non_reserved_seats: overrides.non_reserved_seats ?? 9,
+      location: 'TEMPE',
+      meeting_times: 'MW 10:00-11:15',
+    });
+
+    const selectStamps = async () => {
+      const [row] = await db
+        .select({
+          last_checked_at: classStates.last_checked_at,
+          last_changed_at: classStates.last_changed_at,
+        })
+        .from(classStates)
+        .where(
+          and(eq(classStates.class_nbr, REF_SEED.class_nbr), eq(classStates.term, REF_SEED.term))
+        );
+      return row;
+    };
+
+    const before = await selectStamps();
+    await upsertClassState(db, REF_SEED, details({ title: 'Renamed Probe' }));
+    const afterRename = await selectStamps();
+    // mode: 'string' columns come back as driver text, so compare parsed dates.
+    expect(afterRename?.last_changed_at).toBe(before?.last_changed_at);
+
+    await upsertClassState(db, REF_SEED, details({ non_reserved_seats: 4 }));
+    const afterSeats = await selectStamps();
+    expect(new Date(afterSeats?.last_changed_at ?? 0).getTime()).toBeGreaterThan(
+      new Date(afterRename?.last_changed_at ?? 0).getTime()
+    );
   });
 
   it('caps the counter and skips no-op writes', async () => {
@@ -1069,5 +1164,82 @@ describe('admin queries (representative RPC + builder results)', () => {
 
     const xtWatches = await getUserWatches(db, U_XT);
     expect(xtWatches).toHaveLength(0);
+  });
+});
+
+describe('notification claim races', () => {
+  const seedWatch = async (ref: { class_nbr: string; term: string }) => {
+    const [row] = await db
+      .insert(classWatches)
+      .values({
+        user_id: U_CRUD,
+        class_nbr: ref.class_nbr,
+        term: ref.term,
+        subject: SUBJECT,
+        catalog_nbr: '310',
+      })
+      .returning({ id: classWatches.id });
+    return row.id;
+  };
+
+  it('lets exactly one of two concurrent claims win a watch', async () => {
+    const watchId = await seedWatch(REF_LIMIT_2);
+    try {
+      const [first, second] = await Promise.all([
+        tryRecordNotificationsBatch(db, [watchId], 'seat_available'),
+        tryRecordNotificationsBatch(db, [watchId], 'seat_available'),
+      ]);
+
+      expect(first.size + second.size).toBe(1);
+      const activeClaims = await scalarCount(
+        db
+          .select({ n: count() })
+          .from(notificationsSent)
+          .where(
+            and(
+              eq(notificationsSent.class_watch_id, watchId),
+              eq(notificationsSent.is_active, true)
+            )
+          )
+      );
+      expect(activeClaims).toBe(1);
+    } finally {
+      await db.delete(classWatches).where(eq(classWatches.id, watchId));
+    }
+  });
+
+  it('claims a free slot again when only an inactive history row is left unexpired', async () => {
+    const watchId = await seedWatch(REF_LIMIT_1);
+    try {
+      await db.insert(notificationsSent).values({
+        class_watch_id: watchId,
+        notification_type: 'seat_available',
+        is_active: false,
+      });
+
+      const claimed = await tryRecordNotificationsBatch(db, [watchId], 'seat_available');
+
+      expect([...claimed]).toEqual([watchId]);
+    } finally {
+      await db.delete(classWatches).where(eq(classWatches.id, watchId));
+    }
+  });
+
+  it('skips a watch deleted mid-claim instead of failing the whole batch', async () => {
+    const doomedId = await seedWatch(REF_LIMIT_1);
+    const survivorId = await seedWatch(REF_LIMIT_2);
+    try {
+      await db.delete(classWatches).where(eq(classWatches.id, doomedId));
+
+      const claimed = await tryRecordNotificationsBatch(
+        db,
+        [doomedId, survivorId],
+        'instructor_assigned'
+      );
+
+      expect([...claimed]).toEqual([survivorId]);
+    } finally {
+      await db.delete(classWatches).where(inArray(classWatches.id, [doomedId, survivorId]));
+    }
   });
 });

@@ -18,6 +18,7 @@ import { type SentNotification, sendSectionNotifications } from '@/lib/queue/not
 import { type SectionRetirementOutcome, retireClassSection } from '@/lib/queue/section-retirement';
 import type { ClassDetails } from '@/lib/types/class';
 import type { Env } from '@/lib/types/env';
+import type { ClassCheckMessage } from '@/lib/types/queue';
 
 interface ProcessingResult {
   success: boolean;
@@ -40,6 +41,13 @@ export type SectionCheckOutcome = {
 export type ProcessSectionDeps = {
   fetchClass: typeof fetchClassFromASU;
 };
+
+/**
+ * SectionRef plus the queue message's cron cycle stamp (`ClassCheckMessage.cycle`).
+ * The worker hands `processSection` the whole message body, so the stamp rides
+ * along without a second parameter.
+ */
+type SectionCheckInput = SectionRef & Pick<ClassCheckMessage, 'cycle'>;
 
 function emptyChanges(): ChangeResult {
   return {
@@ -71,12 +79,12 @@ function failedResult(classNbr: string, duration: number, error: string): Proces
 
 export async function processSection(
   db: Database,
-  ref: SectionRef,
+  ref: SectionCheckInput,
   env: Pick<Env, 'ASU_API_BASE_URL' | 'ASU_API_TOKEN' | 'EMAIL' | 'NOTIFICATION_FROM_EMAIL'>,
   overrides: Partial<ProcessSectionDeps> = {}
 ): Promise<SectionCheckOutcome> {
   const { fetchClass = fetchClassFromASU } = overrides;
-  const { class_nbr: classNbr } = ref;
+  const { class_nbr: classNbr, cycle } = ref;
   const startTime = Date.now();
 
   let changes: ChangeResult;
@@ -85,7 +93,25 @@ export async function processSection(
 
   try {
     const oldState = await readSectionCheckState(db, ref);
-    newData = await fetchClass(ref, env);
+
+    // Duplicate enqueue redelivery: this section was already persisted at or
+    // after the cycle that produced the message (fixed-width ISO stamps, so the
+    // string compare is chronological). Ack without re-fetching ASU.
+    if (cycle && oldState?.last_checked_at && oldState.last_checked_at >= cycle) {
+      const duration = Date.now() - startTime;
+      log('ProcessSection').info(
+        `Skipping ${classNbr}: last checked at ${oldState.last_checked_at}, cycle ${cycle}`
+      );
+      return ackOutcome({
+        success: true,
+        classNbr,
+        changes: emptyChanges(),
+        emailsSent: 0,
+        processingTimeMs: duration,
+      });
+    }
+
+    newData = await fetchClass(ref, env, { useCache: false });
 
     changes = detectChanges(oldState, newData);
 
@@ -96,6 +122,18 @@ export async function processSection(
 
     if (changes.seatsFilled) {
       await resetNotificationsForSection(db, ref, 'seat_available');
+    }
+
+    // Staff -> X -> Staff -> X must re-notify: when the instructor reverts to Staff,
+    // free the instructor_assigned slot. Without this, the next assignment is still
+    // suppressed for the remainder of the 24h dedup window.
+    const instructorRevertedToStaff =
+      oldState !== null &&
+      (oldState.instructor_name ?? 'Staff') !== 'Staff' &&
+      newData.instructor_name === 'Staff';
+
+    if (instructorRevertedToStaff) {
+      await resetNotificationsForSection(db, ref, 'instructor_assigned');
     }
 
     try {

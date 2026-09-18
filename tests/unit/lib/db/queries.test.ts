@@ -6,6 +6,7 @@ import {
   getNotificationWatchers,
   getClassWatchers,
   incrementConsecutiveNotFound,
+  insertClassStateIfMissing,
   readAutoCleanupBreakerCounts,
   readSectionCheckState,
   readSectionRemovalClassInfo,
@@ -15,10 +16,6 @@ import type { ClassDetails } from '@/lib/types/class';
 
 import { expectRpcFailure } from './rpc-failure';
 import { createScriptedPostgres } from './scripted-postgres';
-
-function pgError(code: string, message: string): Error {
-  return Object.assign(new Error(message), { code });
-}
 
 function normalizeSql(sql: string): string {
   return sql.replace(/\s+/g, ' ');
@@ -157,50 +154,18 @@ describe('incrementConsecutiveNotFound', () => {
     expect(h.statements[0].params).toEqual(['76337', '2261']);
   });
 
-  it('when row does not exist (Section not found) inserts placeholder row with count=1 and SectionRef', async () => {
+  it('is a single statement: a missing row is created by the RPC, not by an insert fallback', async () => {
+    // Regression guard: the removed fallback raised 'Section not found', inserted
+    // a placeholder, then retried on 23505 — which lost or double-counted strikes
+    // under concurrency. The RPC now owns that path.
     const h = createScriptedPostgres();
-    h.failNext(pgError('P0001', 'Section not found'));
+    h.next([{ new_count: 1 }]);
 
     const newCount = await incrementConsecutiveNotFound(h.db, { class_nbr: '42737', term: '2261' });
 
     expect(newCount).toBe(1);
-    expect(h.statements).toHaveLength(2);
+    expect(h.statements).toHaveLength(1);
     expect(normalizeSql(h.statements[0].sql)).toContain('public.increment_consecutive_not_found');
-    const insertSql = normalizeSql(h.statements[1].sql);
-    expect(insertSql).toContain('insert into "class_states"');
-    expect(insertSql).not.toContain('on conflict');
-    expect(h.statements[1].params.slice(0, 2)).toEqual(['42737', '2261']);
-    expect(h.statements[1].params.at(-1)).toBe(1);
-  });
-
-  it('handles a 23505 race after insert by retrying the atomic RPC against the winning row', async () => {
-    const h = createScriptedPostgres();
-    h.failNext(pgError('P0001', 'Section not found'));
-    h.failNext(
-      pgError(
-        '23505',
-        'duplicate key value violates unique constraint "class_states_class_nbr_term_key"'
-      )
-    );
-    h.next([{ new_count: 2 }]);
-
-    const newCount = await incrementConsecutiveNotFound(h.db, { class_nbr: '42737', term: '2261' });
-
-    expect(newCount).toBe(2);
-    expect(h.statements).toHaveLength(3);
-    expect(normalizeSql(h.statements[0].sql)).toContain('public.increment_consecutive_not_found');
-    expect(normalizeSql(h.statements[1].sql)).toContain('insert into "class_states"');
-    expect(normalizeSql(h.statements[2].sql)).toContain('public.increment_consecutive_not_found');
-    expect(h.statements[2].params).toEqual(['42737', '2261']);
-  });
-
-  it('detects Section not found via the raised message even when SQLSTATE is dropped by an intermediary', async () => {
-    const h = createScriptedPostgres();
-    h.failNext(new Error('Section not found: 99999'));
-
-    const newCount = await incrementConsecutiveNotFound(h.db, { class_nbr: '99999', term: '2261' });
-
-    expect(newCount).toBe(1);
   });
 
   it('term scoping: different terms bind their own term param', async () => {
@@ -215,7 +180,7 @@ describe('incrementConsecutiveNotFound', () => {
     expect(h.statements[1].params).toEqual(['76337', '2257']);
   });
 
-  it('throws on non-notFound RPC errors without attempting the insert fallback', async () => {
+  it('throws on RPC errors without a retry', async () => {
     const h = createScriptedPostgres();
     h.failNext(new Error('deadlock detected'));
 
@@ -223,19 +188,6 @@ describe('incrementConsecutiveNotFound', () => {
       incrementConsecutiveNotFound(h.db, { class_nbr: '42737', term: '2261' })
     ).rejects.toThrow('Failed to increment consecutive_not_found_count: deadlock detected');
     expect(h.statements).toHaveLength(1);
-  });
-
-  it('generic insert failure (42501 permission denied) throws translated, not race-recovery', async () => {
-    const h = createScriptedPostgres();
-    h.failNext(pgError('P0001', 'Section not found'));
-    h.failNext(pgError('42501', 'permission denied for table class_states'));
-
-    await expect(
-      incrementConsecutiveNotFound(h.db, { class_nbr: '42737', term: '2261' })
-    ).rejects.toThrow(
-      'Failed to increment consecutive_not_found_count: permission denied for table class_states'
-    );
-    expect(h.statements).toHaveLength(2);
   });
 
   it('RPC returning null throws validation', async () => {
@@ -254,27 +206,6 @@ describe('incrementConsecutiveNotFound', () => {
     await expect(
       incrementConsecutiveNotFound(h.db, { class_nbr: '42737', term: '2261' })
     ).rejects.toThrow('Invalid increment result');
-  });
-
-  it('race retry RPC returning null throws validation', async () => {
-    const h = createScriptedPostgres();
-    h.failNext(pgError('P0001', 'Section not found'));
-    h.failNext(pgError('23505', 'duplicate key value violates unique constraint'));
-    h.next([{ new_count: null }]);
-
-    await expect(
-      incrementConsecutiveNotFound(h.db, { class_nbr: '42737', term: '2261' })
-    ).rejects.toThrow('Invalid increment result');
-  });
-
-  it('a generic RAISE EXCEPTION without the Section not found message never reaches the insert fallback', async () => {
-    const h = createScriptedPostgres();
-    h.failNext(pgError('P0001', 'some other invariant broken'));
-
-    await expect(
-      incrementConsecutiveNotFound(h.db, { class_nbr: '42737', term: '2261' })
-    ).rejects.toThrow('Failed to increment consecutive_not_found_count');
-    expect(h.statements).toHaveLength(1);
   });
 });
 
@@ -409,7 +340,7 @@ describe('readSectionRemovalClassInfo', () => {
 });
 
 describe('readSectionCheckState', () => {
-  it('returns the persisted old-state row for a known section', async () => {
+  it('returns the persisted old-state row with last_checked_at normalized to ISO UTC', async () => {
     const h = createScriptedPostgres();
     h.next([
       {
@@ -419,6 +350,8 @@ describe('readSectionCheckState', () => {
         non_reserved_seats: 2,
         instructor_name: 'Christine Lee',
         consecutive_not_found_count: 0,
+        // Driver shape for TIMESTAMPTZ: the cycle-stamp compare needs ISO UTC.
+        last_checked_at: '2026-09-18 14:30:05+00',
       },
     ]);
 
@@ -431,6 +364,7 @@ describe('readSectionCheckState', () => {
       non_reserved_seats: 2,
       instructor_name: 'Christine Lee',
       consecutive_not_found_count: 0,
+      last_checked_at: '2026-09-18T14:30:05.000Z',
     });
     expect(h.statements).toHaveLength(1);
     expect(h.statements[0].params).toEqual(['76337', '2261', 1]);
@@ -444,7 +378,7 @@ describe('readSectionCheckState', () => {
     ).resolves.toBeNull();
   });
 
-  it('projects exactly the change-detection columns keyed by the full SectionRef', async () => {
+  it('projects exactly the change-detection and freshness columns keyed by the full SectionRef', async () => {
     const h = createScriptedPostgres();
 
     await readSectionCheckState(h.db, { class_nbr: '76337', term: '2261' });
@@ -452,7 +386,7 @@ describe('readSectionCheckState', () => {
     expect(h.statements).toHaveLength(1);
     const sqlText = normalizeSql(h.statements[0].sql);
     expect(sqlText).toContain(
-      'select "class_nbr", "term", "seats_available", "non_reserved_seats", "instructor_name", "consecutive_not_found_count" from "class_states"'
+      'select "class_nbr", "term", "seats_available", "non_reserved_seats", "instructor_name", "consecutive_not_found_count", "last_checked_at" from "class_states"'
     );
     expect(h.statements[0].params).toEqual(['76337', '2261', 1]);
   });
@@ -468,25 +402,25 @@ describe('readSectionCheckState', () => {
 });
 
 describe('upsertClassState', () => {
-  it('upserts ASU details keyed by (class_nbr, term) without touching last_changed_at', async () => {
+  it('calls upsert_class_state_locked with the SectionRef and the ASU details', async () => {
     const h = createScriptedPostgres();
 
     await upsertClassState(h.db, { class_nbr: '12345', term: '2261' }, buildDetails());
 
     expect(h.statements).toHaveLength(1);
-    const sqlText = normalizeSql(h.statements[0].sql);
-    expect(sqlText).toContain('insert into "class_states"');
-    expect(sqlText).toContain('on conflict ("class_nbr","term") do update set');
-    const setClause = sqlText.slice(sqlText.indexOf('do update set'));
-    expect(setClause).not.toContain('last_changed_at');
-    expect(sqlText).toContain('"consecutive_not_found_count"');
-    const params = h.statements[0].params;
-    expect(params.slice(0, 5)).toEqual([
+    expect(normalizeSql(h.statements[0].sql)).toContain('public.upsert_class_state_locked');
+    expect(h.statements[0].params).toEqual([
       '12345',
       '2261',
       'CSE',
       '110',
       'Introduction to Programming',
+      'Christine Lee',
+      3,
+      100,
+      2,
+      'BYAO 210',
+      'MWF 9:00-9:50am',
     ]);
   });
 
@@ -515,15 +449,6 @@ describe('upsertClassState', () => {
     expect(params[10]).toBeNull();
   });
 
-  it('resets consecutive_not_found_count to 0 on both insert and conflict paths', async () => {
-    const h = createScriptedPostgres();
-
-    await upsertClassState(h.db, { class_nbr: '12345', term: '2261' }, buildDetails());
-
-    const sqlText = normalizeSql(h.statements[0].sql);
-    expect(sqlText.match(/consecutive_not_found_count/g)?.length).toBeGreaterThanOrEqual(2);
-  });
-
   it('translates failures following the module idiom', async () => {
     const h = createScriptedPostgres();
     h.failNext(new Error('connection refused'));
@@ -531,5 +456,29 @@ describe('upsertClassState', () => {
     await expect(
       upsertClassState(h.db, { class_nbr: '12345', term: '2261' }, buildDetails())
     ).rejects.toThrow('Failed to upsert class state: connection refused');
+  });
+});
+
+describe('insertClassStateIfMissing', () => {
+  it('seeds with conflict-do-nothing so an existing pipeline row is never clobbered', async () => {
+    const h = createScriptedPostgres();
+
+    await insertClassStateIfMissing(h.db, { class_nbr: '12345', term: '2261' }, buildDetails());
+
+    expect(h.statements).toHaveLength(1);
+    const sqlText = normalizeSql(h.statements[0].sql);
+    expect(sqlText).toContain('insert into "class_states"');
+    expect(sqlText).toContain('on conflict ("class_nbr","term") do nothing');
+    expect(sqlText).not.toContain('do update');
+    expect(h.statements[0].params.slice(0, 2)).toEqual(['12345', '2261']);
+  });
+
+  it('translates failures following the module idiom', async () => {
+    const h = createScriptedPostgres();
+    h.failNext(new Error('connection refused'));
+
+    await expect(
+      insertClassStateIfMissing(h.db, { class_nbr: '12345', term: '2261' }, buildDetails())
+    ).rejects.toThrow('Failed to insert class state: connection refused');
   });
 });

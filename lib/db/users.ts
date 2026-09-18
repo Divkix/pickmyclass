@@ -1,5 +1,5 @@
 import { type User, type UserJSON } from '@clerk/backend';
-import { eq, inArray, or, sql } from 'drizzle-orm';
+import { eq, or, sql } from 'drizzle-orm';
 
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import type { Database } from '@/lib/db';
@@ -12,7 +12,7 @@ export interface UserVerificationState {
 }
 
 const CACHE_TTL_MS = 30 * 1000;
-const verificationCache = new TtlCache<UserVerificationState | null>(CACHE_TTL_MS, 100);
+const verificationCache = new TtlCache<UserVerificationState>(CACHE_TTL_MS, 100);
 
 export function clearUserVerificationCache(): void {
   verificationCache.clear();
@@ -33,12 +33,13 @@ export async function readUserVerification(
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  const state: UserVerificationState | null = row ?? null;
 
-  if (cache) {
-    verificationCache.set(userId, state);
+  // Never cache a miss: the mirror row can land (webhook / repair) at any
+  // moment, and a cached null would keep a verified user gated for the TTL.
+  if (cache && row) {
+    verificationCache.set(userId, row);
   }
-  return state;
+  return row ?? null;
 }
 
 interface NormalizedEmailAddress {
@@ -160,42 +161,48 @@ async function readProfileConsent(
 async function upsertUserMirror(
   db: Database,
   user: NormalizedClerkUser & { email: string }
-): Promise<void> {
+): Promise<string> {
   const appUserId = user.externalId ?? user.clerkUserId;
 
-  await db
-    .insert(users)
-    .values({
-      id: appUserId,
-      clerk_user_id: user.clerkUserId,
-      email: user.email,
-      email_confirmed_at: user.emailVerified ? new Date().toISOString() : null,
-      created_at: user.createdAt !== null ? new Date(user.createdAt).toISOString() : sql`now()`,
-      last_sign_in_at:
-        user.lastSignInAt !== null ? new Date(user.lastSignInAt).toISOString() : null,
-    })
-    .onConflictDoUpdate({
-      target: users.id,
-      set: {
-        clerk_user_id: sql`excluded.clerk_user_id`,
-        email: sql`excluded.email`,
-        email_confirmed_at: sql`case
-          when ${users.email} <> excluded.email then excluded.email_confirmed_at
-          else coalesce(${users.email_confirmed_at}, excluded.email_confirmed_at)
-        end`,
-        last_sign_in_at: sql`coalesce(excluded.last_sign_in_at, ${users.last_sign_in_at})`,
-      },
-    });
+  // One transaction: a `users` row without its `user_profiles` row (or the
+  // reverse) is a half-written mirror that the gate reads as "unknown".
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(users)
+      .values({
+        id: appUserId,
+        clerk_user_id: user.clerkUserId,
+        email: user.email,
+        email_confirmed_at: user.emailVerified ? new Date().toISOString() : null,
+        created_at: user.createdAt !== null ? new Date(user.createdAt).toISOString() : sql`now()`,
+        last_sign_in_at:
+          user.lastSignInAt !== null ? new Date(user.lastSignInAt).toISOString() : null,
+      })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          clerk_user_id: sql`excluded.clerk_user_id`,
+          email: sql`excluded.email`,
+          email_confirmed_at: sql`case
+            when ${users.email} <> excluded.email then excluded.email_confirmed_at
+            else coalesce(${users.email_confirmed_at}, excluded.email_confirmed_at)
+          end`,
+          last_sign_in_at: sql`coalesce(excluded.last_sign_in_at, ${users.last_sign_in_at})`,
+        },
+      });
 
-  const consentNow = new Date().toISOString();
-  await db
-    .insert(userProfiles)
-    .values({
-      user_id: appUserId,
-      age_verified_at: user.ageVerified ? consentNow : null,
-      agreed_to_terms_at: user.agreedToTerms ? consentNow : null,
-    })
-    .onConflictDoNothing({ target: userProfiles.user_id });
+    const consentNow = new Date().toISOString();
+    await tx
+      .insert(userProfiles)
+      .values({
+        user_id: appUserId,
+        age_verified_at: user.ageVerified ? consentNow : null,
+        agreed_to_terms_at: user.agreedToTerms ? consentNow : null,
+      })
+      .onConflictDoNothing({ target: userProfiles.user_id });
+  });
+
+  return appUserId;
 }
 
 export async function syncUserMirrorFromClerkUser(db: Database, user: UserJSON): Promise<boolean> {
@@ -208,24 +215,44 @@ export async function syncUserMirrorFromClerkUser(db: Database, user: UserJSON):
 
 export async function softDeleteUserById(db: Database, userId: string): Promise<number> {
   try {
-    const result = await db
-      .update(userProfiles)
-      .set({
-        is_disabled: true,
-        disabled_at: sql`coalesce(${userProfiles.disabled_at}, now())`,
-        notifications_enabled: false,
-        unsubscribed_at: sql`coalesce(${userProfiles.unsubscribed_at}, now())`,
-      })
-      .where(
-        or(
-          eq(userProfiles.user_id, userId),
-          inArray(
-            userProfiles.user_id,
-            db.select({ id: users.id }).from(users).where(eq(users.clerk_user_id, userId))
-          )
-        )
-      );
-    return result.count;
+    // Resolve both the app id and any mirror row carrying this Clerk id; the
+    // profile FK means a Clerk id with no mirror row has nothing to disable.
+    const mirrors = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(or(eq(users.id, userId), eq(users.clerk_user_id, userId)));
+    const targetIds = [...new Set(mirrors.map((row) => row.id))];
+    // ponytail: a delete that beats every mirror write is a no-op — the profile
+    // FK needs the users row and `users.email` is NOT NULL, so no placeholder
+    // row is invented; Clerk already refuses the deleted identity at sign-in.
+    if (targetIds.length === 0) return 0;
+
+    // INSERT, not UPDATE: a later `user.created` retry only does
+    // `ON CONFLICT DO NOTHING` on user_profiles, so the tombstone must exist as
+    // a row — a half-written mirror (users row, no profile) would otherwise
+    // come back enabled.
+    for (const targetId of targetIds) {
+      await db
+        .insert(userProfiles)
+        .values({
+          user_id: targetId,
+          is_disabled: true,
+          disabled_at: sql`now()`,
+          notifications_enabled: false,
+          unsubscribed_at: sql`now()`,
+        })
+        .onConflictDoUpdate({
+          target: userProfiles.user_id,
+          set: {
+            is_disabled: true,
+            disabled_at: sql`coalesce(${userProfiles.disabled_at}, now())`,
+            notifications_enabled: false,
+            unsubscribed_at: sql`coalesce(${userProfiles.unsubscribed_at}, now())`,
+          },
+        });
+    }
+
+    return targetIds.length;
   } catch (error) {
     log('Users').error('Failed to soft-delete user profile:', error);
     throw error;
@@ -243,12 +270,14 @@ export async function repairUserMirror(
   const normalized = normalizeBackendUser(clerkUser);
   const { email } = normalized;
   if (!email) return null;
-  await upsertUserMirror(db, { ...normalized, email });
+  // Read back the row the upsert actually wrote: with a stale `ext_id` claim
+  // the canonical app id differs from the requested one.
+  const appUserId = await upsertUserMirror(db, { ...normalized, email });
 
-  const persisted = await readProfileConsent(db, userId);
+  const persisted = await readProfileConsent(db, appUserId);
   if (!persisted) {
     throw new Error(
-      `repairUserMirror: user_profiles row for user ${userId} still missing after mirror upsert`
+      `repairUserMirror: user_profiles row for user ${appUserId} still missing after mirror upsert`
     );
   }
   return persisted;

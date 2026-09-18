@@ -1,6 +1,7 @@
 import type { Database } from '@/lib/db';
 import {
-  deleteNotificationRecords,
+  deleteNotificationRecordsByIds,
+  getNotificationRecordIds,
   getNotificationWatchers,
   tryRecordNotificationsBatch,
 } from '@/lib/db/queries';
@@ -24,6 +25,28 @@ export interface SentNotification {
   watchId: string;
   type: NotificationType;
   error?: string;
+}
+
+// Row-id-scoped rollback: deleting by (watch_id, type) deletes whatever active row
+// occupies the slot now, which can be a newer claim that replaced ours. Best-effort —
+// a failed rollback only means those users stay suppressed for the dedup window.
+// ponytail: the id map is resolved at rollback time, so a reset + re-claim inside the
+// email window can still be mapped; resolve it next to the claim if that ever bites.
+async function rollbackClaims(
+  db: Database,
+  watchIds: string[],
+  notificationType: NotificationType
+): Promise<void> {
+  try {
+    const rowIds = await getNotificationRecordIds(db, watchIds, notificationType);
+    if (rowIds.size === 0) return;
+    await deleteNotificationRecordsByIds(db, [...rowIds.values()]);
+  } catch (rollbackError) {
+    log('NotificationSender').warn(
+      `Failed to rollback ${notificationType} notification records:`,
+      rollbackError
+    );
+  }
 }
 
 export async function sendSectionNotifications(
@@ -61,7 +84,7 @@ export async function sendSectionNotifications(
     for (const [i, { type, changed }] of claimTypes.entries()) {
       const result = claimResults[i];
       if (changed && result?.status === 'fulfilled' && result.value.size > 0) {
-        await deleteNotificationRecords(db, [...result.value], type);
+        await rollbackClaims(db, [...result.value], type);
       }
     }
     // SAFETY: find() returned a rejected settled result; narrow to read its reason for rethrow
@@ -109,20 +132,13 @@ export async function sendSectionNotifications(
     .filter((r) => !r.success);
 
   if (failedEmails.length > 0) {
-    try {
-      for (const { type } of claimTypes) {
-        const failedWatchIds = failedEmails
-          .filter((e) => e.email.type === type)
-          .map((e) => e.email.watchId);
-        if (failedWatchIds.length > 0) {
-          await deleteNotificationRecords(db, failedWatchIds, type);
-        }
+    for (const { type } of claimTypes) {
+      const failedWatchIds = failedEmails
+        .filter((e) => e.email.type === type)
+        .map((e) => e.email.watchId);
+      if (failedWatchIds.length > 0) {
+        await rollbackClaims(db, failedWatchIds, type);
       }
-    } catch (rollbackError) {
-      log('NotificationSender').warn(
-        `Failed to rollback notification records for ${scope}:`,
-        rollbackError
-      );
     }
   }
 

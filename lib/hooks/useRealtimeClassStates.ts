@@ -56,6 +56,10 @@ export function useRealtimeClassStates({
       );
 
       if (!response.ok) {
+        // A 403 (revoked watch / auth) or 307 must not leave the last poll's seats on screen
+        if (!controller.signal.aborted) {
+          setClassStates({});
+        }
         throw new Error(`Failed to fetch class states: ${response.status}`);
       }
 

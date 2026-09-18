@@ -20,7 +20,7 @@
   // IMPORTANT: Cron triggers require explicit deployment via 'wrangler triggers deploy'
   // This is automatically included in 'pnpm run deploy' script
   "triggers": {
-    "crons": ["0,30 * * * *", "0 4 * * *"],
+    "crons": ["0,30 * * * *", "5 4 * * *"],
   },
   "queues": {
     "producers": [

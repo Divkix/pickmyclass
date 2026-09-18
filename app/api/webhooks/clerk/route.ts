@@ -14,6 +14,7 @@
 import { verifyWebhook } from '@clerk/backend/webhooks';
 import { env } from 'cloudflare:workers';
 import { fail, ok } from '@/lib/api/response';
+import { clearAuthorizationStateCache } from '@/lib/auth/authorization-state';
 import { getDbFromEnv } from '@/lib/db';
 import { softDeleteUserById, syncUserMirrorFromClerkUser } from '@/lib/db/users';
 import { log } from '@/lib/log';
@@ -53,6 +54,11 @@ export async function POST(request: Request) {
       const id = event.data.id;
       if (id) {
         await softDeleteUserById(db, id);
+        // The event only carries the Clerk id while the gate caches by app id
+        // (the migrated Supabase UUID for old accounts), so drop the small
+        // per-isolate cache wholesale rather than guess the key. Deletes are
+        // rare; the cost is re-reading state on the next request.
+        clearAuthorizationStateCache();
       }
       return ok(null);
     }

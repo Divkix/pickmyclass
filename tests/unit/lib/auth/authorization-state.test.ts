@@ -168,13 +168,13 @@ describe('readAuthorizationState', () => {
     expect(state).toBeNull();
   });
 
-  it('returns fail-closed state and logs when the query throws', async () => {
+  it('returns null (unknown, not disabled) and logs when the query throws', async () => {
     const double = createDbDouble();
     double.failNext(new Error('db down'));
 
     const state = await readAuthorizationState(double.db, 'user-1', { cache: false });
 
-    expect(state).toEqual({ is_admin: false, is_disabled: true, has_consent: false });
+    expect(state).toBeNull();
     expect(console.error).toHaveBeenCalled();
   });
 
@@ -241,11 +241,11 @@ describe('readAuthorizationState', () => {
     });
   });
 
-  it('never caches the fail-closed error state', async () => {
+  it('never caches the unknown result of a failed read', async () => {
     const double = createDbDouble();
     double.failNext(new Error('db down'));
 
-    await readAuthorizationState(double.db, 'user-1', { cache: true });
+    await expect(readAuthorizationState(double.db, 'user-1', { cache: true })).resolves.toBeNull();
 
     double.nextRows([adminProfile]);
     const recovered = await readAuthorizationState(double.db, 'user-1', { cache: true });

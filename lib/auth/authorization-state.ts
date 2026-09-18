@@ -63,6 +63,7 @@ export async function readAuthorizationState(
     return state;
   } catch (error) {
     log('Auth').error('Error reading authorization state:', error);
-    return { is_admin: false, is_disabled: true, has_consent: false };
+    // Unknown, not disabled: a transient DB failure must not revoke sessions.
+    return null;
   }
 }
