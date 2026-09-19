@@ -5,6 +5,7 @@ import { processSection } from './lib/queue/process-section';
 import type { Env } from './lib/types/env';
 import type { ClassCheckMessage } from './lib/types/queue';
 import { createCronLockLifecycle } from './lib/worker/cron-lock';
+import { withJsonApiError } from './lib/worker/api-errors';
 import { edgeHtmlCache } from './lib/worker/edge-html-cache';
 import {
   appendLinkEntry,
@@ -144,7 +145,10 @@ export default {
     }
 
     if (!edgeHtmlCache.isEligible(request)) {
-      return withAgentHeaders(await handler.fetch(request), url.pathname);
+      return withAgentHeaders(
+        withJsonApiError(await handler.fetch(request), url.pathname, request.method),
+        url.pathname
+      );
     }
 
     const versionId = env.CF_VERSION_METADATA?.id;
@@ -153,7 +157,10 @@ export default {
       return cached;
     }
 
-    const response = withAgentHeaders(await handler.fetch(request), url.pathname);
+    const response = withAgentHeaders(
+      withJsonApiError(await handler.fetch(request), url.pathname, request.method),
+      url.pathname
+    );
 
     const cacheWrite = edgeHtmlCache.put(request, versionId, response);
     if (cacheWrite) ctx.waitUntil(cacheWrite);

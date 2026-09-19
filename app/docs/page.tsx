@@ -46,6 +46,12 @@ const resources: Resource[] = [
       'A public JSON liveness check. An unauthenticated request answers 200 with { "status": "ok" }; the detailed dependency report behind it is reserved for the operator.',
   },
   {
+    path: '/openapi.json',
+    title: 'openapi.json',
+    returns:
+      'An OpenAPI 3.1 description of the public API: the health endpoint, its response schema, and the JSON error shape every API routing failure returns.',
+  },
+  {
     path: '/.well-known/security.txt',
     title: '.well-known/security.txt',
     returns: 'The RFC 9116 security contact for reporting a vulnerability in the service.',

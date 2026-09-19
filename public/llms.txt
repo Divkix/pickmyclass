@@ -70,6 +70,7 @@ How to act on it:
 - [Full corpus for agents](https://pickmyclass.app/llms-full.txt)
 - [Sitemap](https://pickmyclass.app/sitemap.xml)
 - [Pricing (machine-readable)](https://pickmyclass.app/pricing.md)
+- [OpenAPI description of the public API](https://pickmyclass.app/openapi.json)
 - [Blog RSS feed](https://pickmyclass.app/blog/feed.xml)
 - [Public health endpoint](https://pickmyclass.app/api/monitoring/health) (unauthenticated requests return `{"status":"ok"}`)
 - [Security contact](https://pickmyclass.app/.well-known/security.txt)

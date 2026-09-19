@@ -29,6 +29,7 @@
     "lib/email/templates/footer.ts",
     "lib/queue/section-retirement.ts",
     "lib/worker/cron-lock.ts",
+    "lib/worker/api-errors.ts",
     "lib/worker/edge-html-cache.ts",
     "lib/worker/markdown-negotiation.ts",
     "lib/cloudflare-env.d.ts",

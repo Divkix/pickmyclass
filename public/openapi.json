@@ -1,0 +1,127 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PickMyClass public API",
+    "version": "1.0.0",
+    "summary": "The unauthenticated HTTP surface of PickMyClass, the free ASU class seat tracker and open-seat notification app.",
+    "description": "PickMyClass watches ASU Class Search sections for a student and emails them when a seat opens or a \"Staff\" section gets a named instructor.\n\nThis document covers the endpoint that answers without a signed-in student. A student's watches, seat history, and account data are deliberately not part of a public API: they belong to the account holder and stay behind the dashboard session, so no request here can read or change another person's watchlist.\n\nThe rest of the machine-readable surface is described at https://pickmyclass.app/docs and https://pickmyclass.app/llms.txt, and every page is also served as Markdown to clients that send `Accept: text/markdown` or append `.md` to the path.",
+    "contact": {
+      "name": "PickMyClass",
+      "url": "https://pickmyclass.app/contact"
+    },
+    "license": {
+      "name": "All rights reserved",
+      "identifier": "LicenseRef-Proprietary"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://pickmyclass.app",
+      "description": "Production"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Monitoring",
+      "description": "Liveness checks for the service itself."
+    }
+  ],
+  "paths": {
+    "/api/monitoring/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Liveness probe for the PickMyClass worker",
+        "description": "Answers `{\"status\":\"ok\"}` with HTTP 200 as soon as the worker can serve traffic, so an uptime monitor or an agent can confirm the service is up without credentials.\n\nRequests that carry the operator's cron secret receive the detailed report instead: database, ASU Class Search, cron lock, configuration, and email checks, with HTTP 500 or 503 when a dependency is unhealthy. That detailed form is operator-only and is not part of this contract.",
+        "tags": ["Monitoring"],
+        "responses": {
+          "200": {
+            "description": "The worker is serving traffic.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No API route matches the requested path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "success": false,
+                  "error": "No API route matches GET /api/monitoring/unknown",
+                  "details": {
+                    "code": "not_found",
+                    "status": 404,
+                    "resolution": "Public endpoints are documented at https://pickmyclass.app/openapi.json"
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "The route exists but not for this method.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthSummary": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "description": "Present on every unauthenticated response."
+          }
+        },
+        "examples": [{ "status": "ok" }]
+      },
+      "ApiError": {
+        "type": "object",
+        "required": ["success", "error"],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "const": false
+          },
+          "error": {
+            "type": "string",
+            "description": "Human-readable summary of what failed."
+          },
+          "details": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Machine-readable code, such as `not_found` or `method_not_allowed`."
+              },
+              "status": {
+                "type": "integer",
+                "description": "The HTTP status repeated in the body."
+              },
+              "resolution": {
+                "type": "string",
+                "description": "What to do next, usually a link to this specification."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
