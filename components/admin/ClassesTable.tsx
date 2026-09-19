@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCallback, useTransition } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -20,6 +19,7 @@ import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 import { formatRelativeTime } from '@/lib/utils/time-format';
 import { SortableHeader } from './SortableHeader';
 import { ClassesTableFiltersComponent } from './ClassesTableFilters';
+import { TablePagination } from './TablePagination';
 
 interface ClassesTableProps {
   classes: ClassWithWatchers[];
@@ -271,41 +271,15 @@ export function ClassesTable({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {total === 0 ? (
-            'No classes match the selected filters'
-          ) : (
-            <>
-              Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}{' '}
-              classes
-            </>
-          )}
-        </p>
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => navigate({ page: String(page - 1) })}
-            >
-              Previous
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {page} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => navigate({ page: String(page + 1) })}
-            >
-              Next
-            </Button>
-          </div>
-        )}
-      </div>
+      <TablePagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        emptyMessage="No classes match the selected filters"
+        itemNoun="classes"
+        onNavigate={navigate}
+      />
     </div>
   );
 }

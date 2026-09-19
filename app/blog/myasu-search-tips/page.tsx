@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import {
   BlogAuthor,
   BlogCTA,
   BlogFAQ,
+  BlogPostHeader,
   KeyTakeaways,
   RelatedArticles,
   ShortAnswer,
@@ -115,31 +115,14 @@ export default async function MyASUSearchTipsPost() {
       <Header />
       <main id="main" tabIndex={-1} className="flex-1 px-4 py-12 md:px-8">
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
-          <div className="not-prose mb-4">
-            <nav className="text-sm text-muted-foreground">
-              <Link href="/" className="hover:text-foreground transition-colors">
-                Home
-              </Link>
-              <span className="mx-2">/</span>
-              <Link href="/blog" className="hover:text-foreground transition-colors">
-                Blog
-              </Link>
-              <span className="mx-2">/</span>
-              <span className="text-foreground">MyASU Search Tips</span>
-            </nav>
-          </div>
-
-          <div className="not-prose mb-8">
-            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">
-              MyASU Class Search: 10 Hidden Features Most Students Don't Know
-            </h1>
-            <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-              <time dateTime="2026-04-26">April 26, 2026</time>
-              <span>·</span>
-              <span>Updated June 18, 2026</span>
-              <span>7 min read</span>
-            </div>
-          </div>
+          <BlogPostHeader
+            breadcrumb="MyASU Search Tips"
+            title="MyASU Class Search: 10 Hidden Features Most Students Don't Know"
+            dateTime="2026-04-26"
+            date="April 26, 2026"
+            updated="Updated June 18, 2026"
+            readTime="7 min read"
+          />
 
           <p className="text-lg text-muted-foreground leading-relaxed">
             I'll be honest: most students use MyASU class search like a basic Google search. Type in

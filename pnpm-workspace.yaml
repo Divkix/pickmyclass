@@ -7,6 +7,7 @@ allowBuilds:
   workerd: true
 confirmModulesPurge: false
 minimumReleaseAge: 0
+trustPolicy: no-downgrade
 overrides:
   vite-plus: 0.3.1
   '@vitest/coverage-v8': 4.1.11

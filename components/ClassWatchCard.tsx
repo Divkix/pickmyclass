@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Info, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -146,7 +146,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
           </div>
         )}
 
-        <motion.div
+        <m.div
           animate={{
             x: swipeOffset,
           }}
@@ -222,7 +222,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </m.div>
       </div>
 
       <ClassDetailsDialog

@@ -231,26 +231,28 @@ export async function softDeleteUserById(db: Database, userId: string): Promise<
     // `ON CONFLICT DO NOTHING` on user_profiles, so the tombstone must exist as
     // a row — a half-written mirror (users row, no profile) would otherwise
     // come back enabled.
-    for (const targetId of targetIds) {
-      await db
-        .insert(userProfiles)
-        .values({
-          user_id: targetId,
-          is_disabled: true,
-          disabled_at: sql`now()`,
-          notifications_enabled: false,
-          unsubscribed_at: sql`now()`,
-        })
-        .onConflictDoUpdate({
-          target: userProfiles.user_id,
-          set: {
+    await Promise.all(
+      targetIds.map((targetId) =>
+        db
+          .insert(userProfiles)
+          .values({
+            user_id: targetId,
             is_disabled: true,
-            disabled_at: sql`coalesce(${userProfiles.disabled_at}, now())`,
+            disabled_at: sql`now()`,
             notifications_enabled: false,
-            unsubscribed_at: sql`coalesce(${userProfiles.unsubscribed_at}, now())`,
-          },
-        });
-    }
+            unsubscribed_at: sql`now()`,
+          })
+          .onConflictDoUpdate({
+            target: userProfiles.user_id,
+            set: {
+              is_disabled: true,
+              disabled_at: sql`coalesce(${userProfiles.disabled_at}, now())`,
+              notifications_enabled: false,
+              unsubscribed_at: sql`coalesce(${userProfiles.unsubscribed_at}, now())`,
+            },
+          })
+      )
+    );
 
     return targetIds.length;
   } catch (error) {

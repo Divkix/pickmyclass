@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth as useClerkAuth, useClerk, useUser } from '@clerk/react';
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import {
   identifyAnalyticsUser,
   resetAnalyticsIdentity,
@@ -37,20 +37,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loading = !userLoaded || !authLoaded;
 
-  const compatUser: CompatUser | null = clerkUser
-    ? {
-        id: clerkUser.id,
-        email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
-        email_confirmed_at:
-          clerkUser.primaryEmailAddress?.verification.status === 'verified'
-            ? (clerkUser.createdAt?.toISOString() ?? new Date().toISOString())
-            : null,
-        created_at: clerkUser.createdAt?.toISOString(),
-        last_sign_in_at: clerkUser.lastSignInAt?.toISOString() ?? null,
-      }
-    : null;
+  const compatUser: CompatUser | null = useMemo(
+    () =>
+      clerkUser
+        ? {
+            id: clerkUser.id,
+            email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
+            email_confirmed_at:
+              clerkUser.primaryEmailAddress?.verification.status === 'verified'
+                ? (clerkUser.createdAt?.toISOString() ?? new Date().toISOString())
+                : null,
+            created_at: clerkUser.createdAt?.toISOString(),
+            last_sign_in_at: clerkUser.lastSignInAt?.toISOString() ?? null,
+          }
+        : null,
+    [clerkUser]
+  );
 
-  const compatSession: CompatSession | null = sessionId ? { id: sessionId } : null;
+  const compatSession: CompatSession | null = useMemo(
+    () => (sessionId ? { id: sessionId } : null),
+    [sessionId]
+  );
 
   const analyticsUserId = clerkUser ? (clerkUser.externalId ?? clerkUser.id) : null;
   const analyticsEmail = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
@@ -60,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [analyticsUserId, analyticsEmail]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       trackAnalyticsEvent('user_logged_out', {});
       resetAnalyticsIdentity();
@@ -70,13 +77,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       log('AuthContext').error('Sign-out failed:', error);
       throw error;
     }
-  };
+  }, [clerk]);
 
-  return (
-    <AuthContext.Provider value={{ user: compatUser, session: compatSession, loading, signOut }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ user: compatUser, session: compatSession, loading, signOut }),
+    [compatUser, compatSession, loading, signOut]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

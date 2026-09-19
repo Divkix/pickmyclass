@@ -2,13 +2,14 @@ import type { Metadata } from 'next';
 import { Header } from '@/components/Header';
 import { AuthRedirect } from '@/components/landing/AuthRedirect';
 import { DashboardPreview } from '@/components/landing/DashboardPreview';
-import { FAQSection, faqs } from '@/components/landing/FAQSection';
+import { FAQSection } from '@/components/landing/FAQSection';
 import { FeaturesSection } from '@/components/landing/FeaturesSection';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { HowItWorks } from '@/components/landing/HowItWorks';
 import { JsonLd } from '@/components/landing/JsonLd';
 import { MobileStickyCTA } from '@/components/landing/MobileStickyCTA';
 import { SocialProofBanner } from '@/components/landing/SocialProofBanner';
+import { faqs } from '@/lib/faqs';
 
 export const dynamic = 'error';
 

@@ -1,166 +1,49 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Calendar, CheckCircle2, Eye, Plus, Search, TrendingUp, Users } from 'lucide-react';
+import { m } from 'framer-motion';
+import { Plus, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ClassWatchCard } from '@/components/ClassWatchCard';
+import { DashboardStats } from '@/components/dashboard/DashboardStats';
+import { EmptyWatchlist, NoSearchResults } from '@/components/dashboard/EmptyStates';
 import { FinishSetupCard } from '@/components/FinishSetupCard';
 import { Header } from '@/components/Header';
-import { OnboardingModal, type OnboardingState } from '@/components/OnboardingModal';
+import { OnboardingModal } from '@/components/OnboardingModal';
 import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fadeInUp, staggerContainer, staggerItem } from '@/lib/animations';
-import { useAuth } from '@/lib/contexts/AuthContext';
-import { completeOnFirstWatch } from '@/lib/onboarding';
-import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh';
-import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates';
+import { useClassWatches } from '@/lib/hooks/useClassWatches';
 import { useRequireAuth } from '@/lib/hooks/useRequireAuth';
 import { sectionRefKey } from '@/lib/section-ref';
-import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
-
-type ClassWatch = ClassWatchRow & {
-  class_state?: ClassStateRow | null;
-};
-
-interface GetClassWatchesResponse {
-  watches: ClassWatch[];
-  maxWatches: number;
-  onboarding?: OnboardingState;
-}
 
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth();
   useRequireAuth();
-  const [watches, setWatches] = useState<ClassWatch[]>([]);
-  const [maxWatches, setMaxWatches] = useState<number>(10);
-  const [isLoadingWatches, setIsLoadingWatches] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
-
-  const classNumbers = useMemo(() => watches.map((w) => w.class_nbr), [watches]);
-
   const {
+    user,
+    authLoading,
+    watches,
+    maxWatches,
+    isLoadingWatches,
+    error,
+    searchQuery,
+    setSearchQuery,
+    onboarding,
+    setOnboarding,
     classStates,
-    loading: realtimeLoading,
-    error: realtimeError,
-    refetch: refetchClassStates,
-  } = useRealtimeClassStates({
-    classNumbers,
-    enabled: classNumbers.length > 0,
-  });
-
-  const fetchWatches = useCallback(async (): Promise<GetClassWatchesResponse> => {
-    try {
-      setIsLoadingWatches(true);
-      setError(null);
-
-      const response = await fetch('/api/class-watches');
-      if (!response.ok) {
-        throw new Error('Failed to fetch class watches');
-      }
-
-      // SAFETY: /api/class-watches returns JSON shaped as GetClassWatchesResponse per API contract
-      const data = (await response.json()) as GetClassWatchesResponse;
-      setWatches(data.watches || []);
-      setMaxWatches(data.maxWatches || 10);
-      if (data.onboarding) setOnboarding(data.onboarding);
-      return data;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load class watches';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
-      setIsLoadingWatches(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      void fetchWatches().catch(() => {});
-    }
-  }, [user, fetchWatches]);
-
-  const handleRefresh = async () => {
-    try {
-      const [watchData] = await Promise.all([
-        fetchWatches(),
-        classNumbers.length > 0 ? refetchClassStates() : Promise.resolve(),
-      ]);
-
-      const watchCount = watchData?.watches?.length ?? watches.length;
-
-      const timeString = new Date().toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-      });
-      toast.success(`Dashboard refreshed at ${timeString}`, {
-        description: `Updated ${watchCount} class watch${watchCount !== 1 ? 'es' : ''}`,
-      });
-    } catch (err) {
-      toast.error('Failed to refresh dashboard', {
-        description: err instanceof Error ? err.message : 'Please try again',
-      });
-    }
-  };
-
-  const { pullDistance, isRefreshing, containerRef } = usePullToRefresh({
-    onRefresh: handleRefresh,
-    threshold: 80,
-    resistance: 2.5,
-  });
-
-  const handleOnboardingCompleted = useCallback((watch: ClassWatch) => {
-    setWatches((prev) => [watch, ...prev]);
-    setOnboarding((prev) => (prev ? completeOnFirstWatch(prev) : prev));
-  }, []);
-
-  const handleDeleteWatch = async (watchId: string) => {
-    const response = await fetch(`/api/class-watches?id=${watchId}`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to delete class watch');
-    }
-
-    setWatches((prev) => prev.filter((w) => w.id !== watchId));
-  };
-
-  const filteredWatches = useMemo(() => {
-    if (!searchQuery.trim()) return watches;
-
-    const query = searchQuery.toLowerCase();
-    return watches.filter((watch) => {
-      const liveState = classStates[sectionRefKey(watch)] || watch.class_state;
-      return (
-        watch.class_nbr.toLowerCase().includes(query) ||
-        watch.subject?.toLowerCase().includes(query) ||
-        watch.catalog_nbr?.toLowerCase().includes(query) ||
-        liveState?.title?.toLowerCase().includes(query) ||
-        liveState?.instructor_name?.toLowerCase().includes(query)
-      );
-    });
-  }, [watches, searchQuery, classStates]);
-
-  const stats = useMemo(() => {
-    const totalWatches = watches.length;
-    const availableSeats = watches.filter((watch) => {
-      const liveState = classStates[sectionRefKey(watch)] || watch.class_state;
-      return liveState && liveState.seats_available > 0;
-    }).length;
-    const fullClasses = watches.filter((watch) => {
-      const liveState = classStates[sectionRefKey(watch)] || watch.class_state;
-      return liveState && liveState.seats_available === 0;
-    }).length;
-
-    return { totalWatches, availableSeats, fullClasses };
-  }, [watches, classStates]);
+    realtimeLoading,
+    realtimeError,
+    fetchWatches,
+    handleDeleteWatch,
+    handleOnboardingCompleted,
+    filteredWatches,
+    stats,
+    pullDistance,
+    isRefreshing,
+    containerRef,
+  } = useClassWatches();
 
   if (authLoading) {
     return (
@@ -196,12 +79,12 @@ export default function DashboardPage() {
         }
       />
       <main id="main" tabIndex={-1} className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
-        <motion.div className="mb-8" initial="hidden" animate="visible" variants={fadeInUp}>
+        <m.div className="mb-8" initial="hidden" animate="visible" variants={fadeInUp}>
           <h1 className="text-3xl font-semibold mb-2 sm:text-4xl">Your Class Watchlist</h1>
           <p className="text-muted-foreground">
             We're keeping an eye on your ASU classes so you don't have to.
           </p>
-        </motion.div>
+        </m.div>
 
         {error && (
           <Alert className="mb-6 bg-destructive/10 text-destructive border-destructive/20">
@@ -221,105 +104,10 @@ export default function DashboardPage() {
           !onboarding.onboarding_completed_at && <FinishSetupCard />}
 
         {!isLoadingWatches && watches.length > 0 && (
-          <motion.div
-            className="mb-8 grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-4"
-            initial="hidden"
-            animate="visible"
-            variants={staggerContainer}
-          >
-            <motion.div variants={staggerItem}>
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Total Watches
-                    </CardTitle>
-                    <Eye className="size-4 text-muted-foreground" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.totalWatches}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {maxWatches - stats.totalWatches} remaining
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div variants={staggerItem}>
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Available
-                    </CardTitle>
-                    <CheckCircle2 className="size-4 text-success" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-success">{stats.availableSeats}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {stats.availableSeats > 0 ? 'Go register now!' : 'Classes with open seats'}
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div variants={staggerItem}>
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Full
-                    </CardTitle>
-                    <Users className="size-4 text-destructive" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-destructive">{stats.fullClasses}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {stats.fullClasses > 0
-                      ? "We'll alert you when seats open"
-                      : 'Classes at capacity'}
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div variants={staggerItem}>
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Status
-                    </CardTitle>
-                    <TrendingUp className="size-4 text-primary" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    {realtimeLoading ? (
-                      <span className="text-sm text-muted-foreground animate-pulse">
-                        Syncing...
-                      </span>
-                    ) : (
-                      <>
-                        <span className="relative flex size-2">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-                          <span className="relative inline-flex size-2 rounded-full bg-success" />
-                        </span>
-                        <span className="text-sm font-medium text-success">Watching 24/7</span>
-                      </>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">We check every 30 minutes</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </motion.div>
+          <DashboardStats stats={stats} maxWatches={maxWatches} realtimeLoading={realtimeLoading} />
         )}
 
-        <motion.div
+        <m.div
           className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
           initial="hidden"
           animate="visible"
@@ -345,7 +133,7 @@ export default function DashboardPage() {
               Add Class
             </Button>
           </Link>
-        </motion.div>
+        </m.div>
 
         {isLoadingWatches && (
           <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -355,35 +143,10 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {!isLoadingWatches && watches.length === 0 && (
-          <motion.div
-            className="text-center py-16 bg-muted/20 rounded-xl border-2 border-dashed border-border"
-            initial="hidden"
-            animate="visible"
-            variants={fadeInUp}
-          >
-            <div className="flex size-12 sm:size-16 items-center justify-center rounded-full bg-primary/10 mx-auto mb-4">
-              <Calendar className="size-6 sm:size-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Your watchlist is empty</h3>
-            <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
-              Add your first class and we'll start refreshing MyASU for you. No more F5 spam.
-            </p>
-            <p className="text-sm text-muted-foreground mb-6">
-              Join <span className="font-semibold text-asu-maroon">2,400+</span> Sun Devils already
-              using PickMyClass
-            </p>
-            <Link href="/dashboard/add">
-              <Button variant="gradient">
-                <Plus className="size-4" />
-                Add Your First Class
-              </Button>
-            </Link>
-          </motion.div>
-        )}
+        {!isLoadingWatches && watches.length === 0 && <EmptyWatchlist />}
 
         {!isLoadingWatches && filteredWatches.length > 0 && (
-          <motion.div
+          <m.div
             className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3"
             initial="hidden"
             animate="visible"
@@ -393,30 +156,21 @@ export default function DashboardPage() {
               const liveState = classStates[sectionRefKey(watch)] || watch.class_state || null;
 
               return (
-                <motion.div key={watch.id} variants={staggerItem}>
+                <m.div key={watch.id} variants={staggerItem}>
                   <ClassWatchCard
                     watch={watch}
                     classState={liveState}
                     onDelete={handleDeleteWatch}
                     onRestore={fetchWatches}
                   />
-                </motion.div>
+                </m.div>
               );
             })}
-          </motion.div>
+          </m.div>
         )}
 
         {!isLoadingWatches && watches.length > 0 && filteredWatches.length === 0 && (
-          <motion.div
-            className="text-center py-12"
-            initial="hidden"
-            animate="visible"
-            variants={fadeInUp}
-          >
-            <Search className="size-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No results found</h3>
-            <p className="text-muted-foreground">Try adjusting your search query</p>
-          </motion.div>
+          <NoSearchResults />
         )}
       </main>
     </div>

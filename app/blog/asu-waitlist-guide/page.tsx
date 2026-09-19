@@ -4,6 +4,7 @@ import {
   BlogAuthor,
   BlogCTA,
   BlogFAQ,
+  BlogPostHeader,
   KeyTakeaways,
   RelatedArticles,
   ShortAnswer,
@@ -115,32 +116,14 @@ export default async function ASUWaitlistGuidePost() {
       <Header />
       <main id="main" tabIndex={-1} className="flex-1 px-4 py-12 md:px-8">
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
-          <div className="not-prose mb-4">
-            <nav className="text-sm text-muted-foreground">
-              <Link href="/" className="hover:text-foreground transition-colors">
-                Home
-              </Link>
-              <span className="mx-2">/</span>
-              <Link href="/blog" className="hover:text-foreground transition-colors">
-                Blog
-              </Link>
-              <span className="mx-2">/</span>
-              <span className="text-foreground">ASU Waitlist Guide</span>
-            </nav>
-          </div>
-
-          <div className="not-prose mb-8">
-            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">
-              How to Add a Full ASU Class to the Waitlist (And What to Do If There&apos;s No
-              Waitlist)
-            </h1>
-            <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-              <time dateTime="2026-04-26">April 26, 2026</time>
-              <span>·</span>
-              <span>Updated June 18, 2026</span>
-              <span>6 min read</span>
-            </div>
-          </div>
+          <BlogPostHeader
+            breadcrumb="ASU Waitlist Guide"
+            title="How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)"
+            dateTime="2026-04-26"
+            date="April 26, 2026"
+            updated="Updated June 18, 2026"
+            readTime="6 min read"
+          />
 
           <p className="text-lg text-muted-foreground leading-relaxed">
             Your class is full, your friends keep mentioning their &ldquo;waitlist position,&rdquo;
