@@ -4,7 +4,7 @@
     "title": "PickMyClass public API",
     "version": "1.0.0",
     "summary": "The unauthenticated HTTP surface of PickMyClass, the free ASU class seat tracker and open-seat notification app.",
-    "description": "PickMyClass watches ASU Class Search sections for a student and emails them when a seat opens or a \"Staff\" section gets a named instructor.\n\nThis document covers the endpoint that answers without a signed-in student. A student's watches, seat history, and account data are deliberately not part of a public API: they belong to the account holder and stay behind the dashboard session, so no request here can read or change another person's watchlist.\n\nThe rest of the machine-readable surface is described at https://pickmyclass.app/docs and https://pickmyclass.app/llms.txt, and every page is also served as Markdown to clients that send `Accept: text/markdown` or append `.md` to the path.",
+    "description": "PickMyClass watches ASU Class Search sections for a student and emails them when a seat opens or a \"Staff\" section gets a named instructor.\n\nThis document covers the endpoint that answers without a signed-in student. A student's watches, seat history, and account data are deliberately not part of a public API: they belong to the account holder and stay behind the dashboard session, so no request here can read or change another person's watchlist.\n\nThe rest of the machine-readable surface is described at https://pickmyclass.app/docs and https://pickmyclass.app/llms.txt, and every page is also served as Markdown to clients that send `Accept: text/markdown` or append `.md` to the path.\n\n### Versioning and deprecation\n\nThe public API is versioned in the URL path. `/api/v1/...` is the current version, and `/api/monitoring/health` continues to answer as a stable unversioned alias of the same handler, so nothing breaks for clients that already call it.\n\nWhen a breaking change is needed, it ships as a new path version (`/api/v2/...`) and the previous version keeps answering. Before an endpoint is removed it reports the change in response headers: `Deprecation` with the date the deprecation started, and `Sunset` with the date it stops answering, at least 90 days later. Non-breaking additions, such as new response fields or optional parameters, ship within the current version.",
     "contact": {
       "name": "PickMyClass",
       "url": "https://pickmyclass.app/contact"
@@ -27,11 +27,11 @@
     }
   ],
   "paths": {
-    "/api/monitoring/health": {
+    "/api/v1/monitoring/health": {
       "get": {
-        "operationId": "getHealth",
+        "operationId": "getHealthV1",
         "summary": "Liveness probe for the PickMyClass worker",
-        "description": "Answers `{\"status\":\"ok\"}` with HTTP 200 as soon as the worker can serve traffic, so an uptime monitor or an agent can confirm the service is up without credentials.\n\nRequests that carry the operator's cron secret receive the detailed report instead: database, ASU Class Search, cron lock, configuration, and email checks, with HTTP 500 or 503 when a dependency is unhealthy. That detailed form is operator-only and is not part of this contract.",
+        "description": "Answers `{\"status\":\"ok\"}` with HTTP 200 as soon as the worker can serve traffic, so an uptime monitor or an agent can confirm the service is up without credentials. This is the versioned path to integrate against; `/api/monitoring/health` answers identically as a stable unversioned alias.\n\nRequests that carry the operator's cron secret receive the detailed report instead: database, ASU Class Search, cron lock, configuration, and email checks, with HTTP 500 or 503 when a dependency is unhealthy. That detailed form is operator-only and is not part of this contract.",
         "tags": ["Monitoring"],
         "responses": {
           "200": {
@@ -53,7 +53,7 @@
                 },
                 "example": {
                   "success": false,
-                  "error": "No API route matches GET /api/monitoring/unknown",
+                  "error": "No API route matches GET /api/v1/monitoring/unknown",
                   "details": {
                     "code": "not_found",
                     "status": 404,

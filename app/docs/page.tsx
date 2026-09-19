@@ -139,6 +139,19 @@ export default function DocsPage() {
           </div>
 
           <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
+            API versioning and deprecation
+          </h2>
+          <p className="text-muted-foreground leading-relaxed">
+            The public API is versioned in the URL path:{' '}
+            <code className="text-sm">/api/v1/monitoring/health</code> is the current version, and{' '}
+            <code className="text-sm">/api/monitoring/health</code> answers identically as a stable
+            unversioned alias. A breaking change ships as a new path version, the previous version
+            keeps answering, and an endpoint on its way out reports{' '}
+            <code className="text-sm">Deprecation</code> and <code className="text-sm">Sunset</code>{' '}
+            headers at least 90 days before it stops.
+          </p>
+
+          <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
             Watch management needs an account
           </h2>
           <p className="text-muted-foreground leading-relaxed">
