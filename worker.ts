@@ -7,9 +7,12 @@ import type { ClassCheckMessage } from './lib/types/queue';
 import { createCronLockLifecycle } from './lib/worker/cron-lock';
 import { edgeHtmlCache } from './lib/worker/edge-html-cache';
 import {
+  appendLinkEntry,
   appendVary,
   isHtmlResponse,
   markdownResponse,
+  markdownSourcePath,
+  pageLinkHeader,
   prefersMarkdown,
 } from './lib/worker/markdown-negotiation';
 import { getDb } from './lib/db';
@@ -22,14 +25,16 @@ const dlqLog = log('Queue/DLQ');
 
 /**
  * Advertises the Markdown representation on HTML responses so shared caches
- * keep the two variants apart. Copies the response because headers off the
- * assets binding are immutable.
+ * keep the two variants apart, and points agents at the sitemap and the
+ * Markdown twin before they parse the page. Copies the response because
+ * headers off the assets binding are immutable.
  */
-function withAcceptVary(response: Response): Response {
+function withAgentHeaders(response: Response, pathname: string): Response {
   if (!isHtmlResponse(response)) return response;
 
   const varied = new Response(response.body, response);
   appendVary(varied.headers, 'Accept');
+  appendLinkEntry(varied.headers, pageLinkHeader(pathname));
   return varied;
 }
 
@@ -112,6 +117,23 @@ export default {
       request = new Request(request, { body: null });
     }
 
+    const url = new URL(request.url);
+
+    // A `.md` URL is a request for the Markdown twin of the page it names.
+    // Static assets win: /pricing.md is a real file, not a twin of /pricing.
+    const markdownPath = markdownSourcePath(url.pathname);
+    if (markdownPath && isGetOrHead) {
+      const asset = await env.ASSETS.fetch(request);
+      if (asset.status !== 404) return asset;
+
+      const target = new URL(request.url);
+      target.pathname = markdownPath;
+      const response = await handler.fetch(new Request(target, request));
+      if (!isHtmlResponse(response)) return response;
+
+      return markdownResponse({ response, html: await response.text(), url: request.url });
+    }
+
     if (prefersMarkdown(request.headers.get('accept'))) {
       // Markdown requests never touch the edge cache: it stores one HTML
       // representation per path, and the conversion is cheap for agent traffic.
@@ -122,7 +144,7 @@ export default {
     }
 
     if (!edgeHtmlCache.isEligible(request)) {
-      return withAcceptVary(await handler.fetch(request));
+      return withAgentHeaders(await handler.fetch(request), url.pathname);
     }
 
     const versionId = env.CF_VERSION_METADATA?.id;
@@ -131,7 +153,7 @@ export default {
       return cached;
     }
 
-    const response = withAcceptVary(await handler.fetch(request));
+    const response = withAgentHeaders(await handler.fetch(request), url.pathname);
 
     const cacheWrite = edgeHtmlCache.put(request, versionId, response);
     if (cacheWrite) ctx.waitUntil(cacheWrite);

@@ -9,7 +9,7 @@
  * page views, and caching a second representation is not worth the bookkeeping.
  */
 
-const INLINE_TAGS: Record<string, true> = {
+const INLINE_TAGS = {
   abbr: true,
   bdi: true,
   bdo: true,
@@ -33,10 +33,10 @@ const INLINE_TAGS: Record<string, true> = {
   u: true,
   var: true,
   wbr: true,
-};
+} as const;
 
 /** Elements whose text content is never page content for an agent. */
-const SKIPPED_TAGS: Record<string, true> = {
+const SKIPPED_TAGS = {
   audio: true,
   canvas: true,
   iframe: true,
@@ -48,18 +48,11 @@ const SKIPPED_TAGS: Record<string, true> = {
   svg: true,
   template: true,
   video: true,
-};
+} as const;
 
-const HEADING_TAGS: Record<string, number> = {
-  h1: 1,
-  h2: 2,
-  h3: 3,
-  h4: 4,
-  h5: 5,
-  h6: 6,
-};
+const HEADING_TAGS = { h1: 1, h2: 2, h3: 3, h4: 4, h5: 5, h6: 6 } as const;
 
-const INLINE_MARKERS: Record<string, string> = {
+const INLINE_MARKERS = {
   b: '**',
   code: '`',
   del: '~~',
@@ -68,11 +61,9 @@ const INLINE_MARKERS: Record<string, string> = {
   ins: '__',
   s: '~~',
   strong: '**',
-};
+} as const;
 
-const NOT_FOUND_STATUSES = new Set([404, 410]);
-
-const ENTITIES: Record<string, string> = {
+const ENTITIES = {
   amp: '&',
   apos: "'",
   copy: '\u00a9',
@@ -91,21 +82,38 @@ const ENTITIES: Record<string, string> = {
   rsquo: '\u2019',
   times: '\u00d7',
   trade: '\u2122',
-};
+} as const;
+
+const NOT_FOUND_STATUSES = new Set([404, 410]);
 
 const TOKEN_PATTERN =
   /<!--[\s\S]*?-->|<\/?([a-zA-Z][a-zA-Z0-9:-]*)((?:"[^"]*"|'[^']*'|[^'">])*?)>/g;
 
+interface TextToken {
+  kind: 'text';
+  value: string;
+}
+
 interface TagToken {
+  kind: 'tag';
   tag: string;
   closing: boolean;
   attrs: string;
 }
 
+type Token = TextToken | TagToken;
+
 interface MediaRange {
   type: string;
   subtype: string;
   quality: number;
+}
+
+/** Reads a lookup table with a runtime key without widening the table's type. */
+function lookup<T extends object>(table: T, key: string): T[keyof T] | undefined {
+  // SAFETY: the `in` guard proves `key` is a key of `table` at runtime; the cast only
+  // restores the index TypeScript erased when the table kept its literal type.
+  return key in table ? table[key as keyof T] : undefined;
 }
 
 function decodeEntities(text: string): string {
@@ -116,28 +124,29 @@ function decodeEntities(text: string): string {
       if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return match;
       return String.fromCodePoint(code);
     }
-    return ENTITIES[entity.toLowerCase()] ?? match;
+    return lookup(ENTITIES, entity.toLowerCase()) ?? match;
   });
 }
 
-function tokenize(html: string): Array<TagToken | string> {
-  const tokens: Array<TagToken | string> = [];
+function tokenize(html: string): Token[] {
+  const tokens: Token[] = [];
   let cursor = 0;
 
   for (const match of html.matchAll(TOKEN_PATTERN)) {
     const start = match.index ?? 0;
-    if (start > cursor) tokens.push(html.slice(cursor, start));
+    if (start > cursor) tokens.push({ kind: 'text', value: html.slice(cursor, start) });
     cursor = start + match[0].length;
 
     if (match[0].startsWith('<!--')) continue;
     tokens.push({
+      kind: 'tag',
       tag: (match[1] ?? '').toLowerCase(),
       closing: match[0][1] === '/',
       attrs: match[2] ?? '',
     });
   }
 
-  if (cursor < html.length) tokens.push(html.slice(cursor));
+  if (cursor < html.length) tokens.push({ kind: 'text', value: html.slice(cursor) });
   return tokens;
 }
 
@@ -174,7 +183,7 @@ function pushTable(blocks: string[], rows: string[][]): void {
 /**
  * True when the client explicitly asks for Markdown and does not rank HTML higher.
  *
- * A wildcard-only `Accept` (`* /*`) is not enough: browsers and plain HTTP clients
+ * A wildcard-only `Accept` (`*​/*`) is not enough: browsers and plain HTTP clients
  * send it, and they must keep receiving HTML.
  */
 export function prefersMarkdown(accept: string | null): boolean {
@@ -243,6 +252,40 @@ export function appendVary(headers: Headers, value: string): void {
   headers.set('vary', values.join(', '));
 }
 
+/**
+ * Appends one RFC 8288 link-value to `Link`, keeping whatever the page already
+ * advertises (image preloads, canonical alternates).
+ */
+export function appendLinkEntry(headers: Headers, value: string): void {
+  const existing = headers.get('link');
+  headers.set('link', existing ? `${existing}, ${value}` : value);
+}
+
+/** Path of the page a `.md` request renders, or null when the path is not a `.md` URL. */
+export function markdownSourcePath(pathname: string): string | null {
+  if (!pathname.toLowerCase().endsWith('.md')) return null;
+
+  const trimmed = pathname.slice(0, -3);
+  if (!trimmed || trimmed === '/' || trimmed === '/index' || trimmed === 'index') return '/';
+  return trimmed;
+}
+
+/** Path of a page's `.md` twin, used to advertise the Markdown representation. */
+export function markdownAlternatePath(pathname: string): string | null {
+  if (pathname.toLowerCase().endsWith('.md')) return null;
+  if (pathname === '/') return '/index.md';
+  if (pathname.endsWith('/')) return `${pathname}index.md`;
+  return `${pathname}.md`;
+}
+
+/** `Link` header advertising the sitemap and the page's Markdown twin. */
+export function pageLinkHeader(pathname: string): string {
+  const parts = ['</sitemap.xml>; rel="sitemap"'];
+  const alternate = markdownAlternatePath(pathname);
+  if (alternate) parts.push(`<${alternate}>; rel="alternate"; type="text/markdown"`);
+  return parts.join(', ');
+}
+
 /** Last-resort body for pages that render no convertible content. */
 function fallbackFromHtml(html: string): string {
   const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
@@ -276,6 +319,14 @@ interface MarkdownResponseInput {
 export function markdownResponse({ response, html, url }: MarkdownResponseInput): Response {
   const origin = new URL(url).origin;
   let body = htmlToMarkdown(html) || fallbackFromHtml(html);
+
+  // Rendered pages can open with a badge or eyebrow line; agents that read the
+  // document title first want a top-level heading.
+  if (body && !/^#\s/.test(body)) {
+    const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+    if (title) body = `# ${decodeEntities(title).trim()}\n\n${body}`;
+  }
+
   if (NOT_FOUND_STATUSES.has(response.status)) {
     body = body ? `${body}\n\n---\n\n${notFoundNote(origin)}` : notFoundNote(origin);
   }
@@ -312,7 +363,6 @@ export function htmlToMarkdown(html: string): string {
   let table: string[][] | null = null;
   let row: string[] | null = null;
   let cell: string | null = null;
-
   let tight = false;
 
   const flush = (): void => {
@@ -333,18 +383,18 @@ export function htmlToMarkdown(html: string): string {
   };
 
   for (const token of tokenize(extractContent(html))) {
-    if (typeof token === 'string') {
+    if (token.kind === 'text') {
       if (skipped.length > 0) continue;
-      if (preText !== null) preText += token;
-      else if (cell !== null) cell += decodeEntities(token);
-      else inline += decodeEntities(token);
+      if (preText !== null) preText += token.value;
+      else if (cell !== null) cell += decodeEntities(token.value);
+      else inline += decodeEntities(token.value);
       continue;
     }
 
     const { tag, closing, attrs } = token;
 
     if (skipped.length > 0) {
-      if (SKIPPED_TAGS[tag]) {
+      if (lookup(SKIPPED_TAGS, tag)) {
         if (closing) skipped.pop();
         else skipped.push(tag);
       }
@@ -385,7 +435,7 @@ export function htmlToMarkdown(html: string): string {
       continue;
     }
 
-    if (SKIPPED_TAGS[tag]) {
+    if (lookup(SKIPPED_TAGS, tag)) {
       if (!closing) skipped.push(tag);
       continue;
     }
@@ -421,7 +471,7 @@ export function htmlToMarkdown(html: string): string {
       continue;
     }
 
-    const heading = HEADING_TAGS[tag];
+    const heading = lookup(HEADING_TAGS, tag);
     if (heading) {
       flush();
       if (!closing) prefix = `${'#'.repeat(heading)} `;
@@ -472,7 +522,7 @@ export function htmlToMarkdown(html: string): string {
       continue;
     }
 
-    const marker = INLINE_MARKERS[tag];
+    const marker = lookup(INLINE_MARKERS, tag);
     if (marker) {
       if (closing) {
         const styled = styleStack.pop();
@@ -488,7 +538,7 @@ export function htmlToMarkdown(html: string): string {
       continue;
     }
 
-    if (INLINE_TAGS[tag]) continue;
+    if (lookup(INLINE_TAGS, tag)) continue;
 
     // Every remaining tag is a block boundary.
     flush();

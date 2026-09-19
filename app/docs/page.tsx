@@ -95,8 +95,12 @@ export default function DocsPage() {
           <p className="text-muted-foreground leading-relaxed">
             Every page on this site is also available as Markdown: send{' '}
             <code className="text-sm">Accept: text/markdown</code> and the same server-rendered page
-            comes back as <code className="text-sm">text/markdown; charset=utf-8</code>. The files
-            below are the curated surfaces, and each one is stable enough to fetch directly.
+            comes back as <code className="text-sm">text/markdown; charset=utf-8</code>. The same
+            Markdown is also served at the page&apos;s <code className="text-sm">.md</code> URL (
+            <code className="text-sm">/index.md</code> for the homepage,{' '}
+            <code className="text-sm">/faq.md</code> for the FAQ), and HTML responses advertise it
+            in the <code className="text-sm">Link</code> header. The files below are the curated
+            surfaces, and each one is stable enough to fetch directly.
           </p>
 
           <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">

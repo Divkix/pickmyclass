@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
+  appendLinkEntry,
   htmlToMarkdown,
   markdownResponse,
+  markdownSourcePath,
+  pageLinkHeader,
   prefersMarkdown,
 } from '@/lib/worker/markdown-negotiation';
 
@@ -102,5 +105,54 @@ describe('markdownResponse', () => {
 
     expect(body).toContain('Free for ASU students.');
     expect(body).not.toContain('sitemap.xml');
+  });
+
+  it('opens with the document title when the page starts with something else', async () => {
+    const html =
+      '<html><head><title>PickMyClass — ASU class seat tracker</title></head><body><main><p>Built for Sun Devils</p><h1>Free seat alerts</h1></main></body></html>';
+
+    const markdown = markdownResponse({
+      response: htmlResponse(html),
+      html,
+      url: 'https://pickmyclass.app/',
+    });
+
+    const body = await markdown.text();
+
+    expect(body.startsWith('# PickMyClass — ASU class seat tracker')).toBe(true);
+    expect(body).toContain('Built for Sun Devils');
+  });
+});
+
+describe('markdownSourcePath', () => {
+  it('maps a .md URL onto the page it names', () => {
+    expect(markdownSourcePath('/index.md')).toBe('/');
+    expect(markdownSourcePath('/blog/asu-class-seat-tracker.md')).toBe(
+      '/blog/asu-class-seat-tracker'
+    );
+    expect(markdownSourcePath('/blog/asu-class-seat-tracker')).toBeNull();
+    expect(markdownSourcePath('/llms.txt')).toBeNull();
+  });
+});
+
+describe('pageLinkHeader / appendLinkEntry', () => {
+  it('advertises the sitemap and the page markdown twin', () => {
+    expect(pageLinkHeader('/')).toBe(
+      '</sitemap.xml>; rel="sitemap", </index.md>; rel="alternate"; type="text/markdown"'
+    );
+    expect(pageLinkHeader('/blog/asu-class-seat-tracker')).toContain(
+      '</blog/asu-class-seat-tracker.md>; rel="alternate"'
+    );
+    expect(pageLinkHeader('/pricing.md')).toBe('</sitemap.xml>; rel="sitemap"');
+  });
+
+  it('keeps the links the page already advertises', () => {
+    const headers = new Headers({ link: '</og.png>; rel="preload"' });
+
+    appendLinkEntry(headers, pageLinkHeader('/'));
+
+    expect(headers.get('link')).toBe(
+      '</og.png>; rel="preload", </sitemap.xml>; rel="sitemap", </index.md>; rel="alternate"; type="text/markdown"'
+    );
   });
 });
