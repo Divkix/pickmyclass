@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     description:
       'Everything you need to know about PickMyClass, the free ASU class seat notification service. How it works, notification timing, campus support, and more.',
     type: 'website',
-    url: 'https://pickmyclass.app/faq',
+    url: '/faq',
   },
   twitter: {
     title: 'Frequently Asked Questions — ASU Class Seat Notifications',

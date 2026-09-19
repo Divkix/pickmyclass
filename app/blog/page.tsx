@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     description:
       'Real guides for ASU class registration. Find open classes, beat waitlists, and track seats so you stop refreshing MyASU.',
     type: 'website',
-    url: 'https://pickmyclass.app/blog',
+    url: '/blog',
   },
   twitter: {
     title: 'ASU Registration Tips & Guides: Class Search, Waitlists & Open Seats',
