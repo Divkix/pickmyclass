@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     title: homeTitle,
     description: homeDescription,
     type: 'website',
-    url: 'https://pickmyclass.app/',
+    url: '/',
   },
   twitter: {
     title: homeTitle,

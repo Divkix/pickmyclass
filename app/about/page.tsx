@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     description:
       "Learn about PickMyClass's story, mission, and the students behind the free ASU class seat tracker.",
     type: 'website',
-    url: 'https://pickmyclass.app/about',
+    url: '/about',
     images: ['/og-image.png'],
   },
   twitter: {

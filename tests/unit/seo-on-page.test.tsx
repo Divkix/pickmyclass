@@ -8,6 +8,17 @@ import { metadata as homeMetadata } from '@/app/page';
 import sitemap from '@/app/sitemap';
 import { SkipToContent } from '@/components/SkipToContent';
 import { blogPosts } from '@/lib/blog/posts';
+import { DEFAULT_SITE_URL } from '@/lib/config';
+
+const siteBase = new URL(rootMetadata.metadataBase ?? DEFAULT_SITE_URL);
+
+function resolveMetadataUrl(value: string | URL | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const resolved = new URL(value, siteBase);
+  return resolved.pathname === '/' && resolved.search === '' && resolved.hash === ''
+    ? resolved.origin
+    : resolved.href;
+}
 
 describe('SkipToContent', () => {
   it('points at the main landmark', () => {
@@ -27,25 +38,29 @@ describe('per-route open graph and twitter', () => {
   });
 
   it('keeps homepage og:url and twitter:title on the home route', () => {
-    expect(homeMetadata.openGraph?.url).toBe('https://pickmyclass.app/');
+    expect(resolveMetadataUrl(homeMetadata.openGraph?.url)).toBe('https://pickmyclass.app');
+    expect(homeMetadata.alternates?.canonical).toBe(homeMetadata.openGraph?.url);
     expect(homeMetadata.openGraph?.title).toMatch(/PickMyClass — Free ASU Class Seat Tracker/);
     expect(homeMetadata.twitter?.title).toMatch(/PickMyClass — Free ASU Class Seat Tracker/);
   });
 
   it('sets faq og:url to the faq page, not the homepage', () => {
-    expect(faqMetadata.openGraph?.url).toBe('https://pickmyclass.app/faq');
+    expect(resolveMetadataUrl(faqMetadata.openGraph?.url)).toBe('https://pickmyclass.app/faq');
+    expect(faqMetadata.alternates?.canonical).toBe(faqMetadata.openGraph?.url);
     expect(faqMetadata.openGraph?.title).toMatch(/Frequently Asked Questions/);
     expect(faqMetadata.twitter?.title).toMatch(/Frequently Asked Questions/);
   });
 
   it('sets about twitter:title to the about page title', () => {
-    expect(aboutMetadata.openGraph?.url).toBe('https://pickmyclass.app/about');
+    expect(resolveMetadataUrl(aboutMetadata.openGraph?.url)).toBe('https://pickmyclass.app/about');
+    expect(aboutMetadata.alternates?.canonical).toBe(aboutMetadata.openGraph?.url);
     expect(aboutMetadata.twitter?.title).toMatch(/About PickMyClass/);
     expect(aboutMetadata.twitter?.title).not.toMatch(/Free ASU Class Seat Tracker/);
   });
 
   it('keeps the blog index og and twitter titles page-specific', () => {
-    expect(blogMetadata.openGraph?.url).toBe('https://pickmyclass.app/blog');
+    expect(resolveMetadataUrl(blogMetadata.openGraph?.url)).toBe('https://pickmyclass.app/blog');
+    expect(blogMetadata.alternates?.canonical).toBe(blogMetadata.openGraph?.url);
     expect(blogMetadata.twitter?.title).toMatch(/ASU Registration Tips/);
   });
 });
