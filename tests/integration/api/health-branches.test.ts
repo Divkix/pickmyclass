@@ -166,15 +166,6 @@ describe('GET /api/monitoring/health branch coverage', () => {
     expect(data.checks.cron_lock.expires_at).toBe('1970-01-01T00:00:00.001Z');
   });
 
-  it('caches detailed health checks for repeated authenticated requests', async () => {
-    const { GET, dbProbe } = await loadHealthRoute();
-
-    await GET(request());
-    await GET(request());
-
-    expect(dbProbe).toHaveBeenCalledTimes(1);
-  });
-
   it('reports degraded checks when database, ASU, and cron lock checks fail', async () => {
     const { GET } = await loadHealthRoute({
       dbResult: { error: { message: 'database rejected query' } },

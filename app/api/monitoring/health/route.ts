@@ -1,7 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { NextResponse } from 'next/server';
 import { fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
-import { TtlCache } from '@/lib/cache/ttl-cache';
 import { getDbFromEnv } from '@/lib/db';
 import { classWatches } from '@/lib/db/schema';
 import { verifyCronSecret } from '@/lib/auth/require-user';
@@ -33,8 +32,6 @@ interface HealthStatus {
   response_time_ms?: number;
 }
 
-const healthCache = new TtlCache<{ body: HealthStatus; statusCode: number }>(60_000, 50);
-
 export async function GET(request: Request) {
   const rawEnv: unknown = env;
   // SAFETY: Workers env is opaque; widened to unknown then narrowed to string record for health checks
@@ -44,11 +41,6 @@ export async function GET(request: Request) {
 
   if (!isAuthenticated) {
     return NextResponse.json({ status: 'ok' }, { status: 200 });
-  }
-
-  const cached = healthCache.get('health');
-  if (cached) {
-    return NextResponse.json(cached.body, { status: cached.statusCode });
   }
 
   const startTime = Date.now();
@@ -219,8 +211,6 @@ export async function GET(request: Request) {
   health.response_time_ms = Date.now() - startTime;
 
   const statusCode = health.status === 'healthy' ? 200 : health.status === 'degraded' ? 503 : 500;
-
-  healthCache.set('health', { body: health, statusCode });
 
   return NextResponse.json(health, { status: statusCode });
 }
