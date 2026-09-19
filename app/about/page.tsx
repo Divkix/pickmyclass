@@ -40,6 +40,12 @@ const organizationSchema = {
     email: 'support@pickmyclass.app',
     contactType: 'customer service',
   },
+  address: {
+    '@type': 'PostalAddress',
+    addressLocality: 'Tempe',
+    addressRegion: 'AZ',
+    addressCountry: 'US',
+  },
   sameAs: ['https://github.com/Divkix/pickmyclass'],
 };
 

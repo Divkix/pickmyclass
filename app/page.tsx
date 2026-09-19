@@ -28,10 +28,19 @@ export const metadata: Metadata = {
     description: homeDescription,
     type: 'website',
     url: '/',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts',
+      },
+    ],
   },
   twitter: {
     title: homeTitle,
     description: homeDescription,
+    images: ['/og-image.png'],
   },
   alternates: {
     canonical: '/',

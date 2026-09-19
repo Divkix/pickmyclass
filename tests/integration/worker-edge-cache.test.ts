@@ -89,4 +89,37 @@ describe('worker edge HTML cache adapter', () => {
     expect(cachePut).toHaveBeenCalledWith(request, 'version-1', response);
     expect(waitUntil).toHaveBeenCalledWith(write);
   });
+
+  it('serves markdown without reading or writing the edge cache', async () => {
+    const request = new Request('https://pickmyclass.app/', {
+      headers: { accept: 'text/markdown' },
+    });
+    const rendered = new Response('<main><h1>Open seats</h1></main>');
+    rendered.headers.set('content-type', 'text/html; charset=utf-8');
+    cacheIsEligible.mockReturnValue(true);
+    vi.spyOn(handler, 'fetch').mockResolvedValue(rendered);
+
+    const response = await worker.fetch(request, env, ctx);
+
+    expect(response.headers.get('content-type')).toBe('text/markdown; charset=utf-8');
+    await expect(response.text()).resolves.toContain('# Open seats');
+    expect(cacheGet).not.toHaveBeenCalled();
+    expect(cachePut).not.toHaveBeenCalled();
+  });
+
+  it('adds Accept to the HTML Vary before the cache write', async () => {
+    const request = new Request('https://pickmyclass.app/');
+    const rendered = new Response('<main><h1>Open seats</h1></main>');
+    rendered.headers.set('content-type', 'text/html; charset=utf-8');
+    cacheIsEligible.mockReturnValue(true);
+    cachePut.mockReturnValue(Promise.resolve());
+    vi.spyOn(handler, 'fetch').mockResolvedValue(rendered);
+
+    const response = await worker.fetch(request, env, ctx);
+
+    expect(response.headers.get('vary')).toBe('Accept');
+    // SAFETY: cachePut is an untyped vi.fn stub; the worker passes the response it rendered.
+    const storedHeaders = (cachePut.mock.calls[0]?.[2] as Response).headers;
+    expect(storedHeaders.get('vary')).toContain('Accept');
+  });
 });

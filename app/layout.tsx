@@ -56,6 +56,9 @@ export const metadata: Metadata = {
   },
   authors: [{ name: 'PickMyClass' }],
   creator: 'PickMyClass',
+  other: {
+    'is-agentic-site-type': 'app',
+  },
 };
 
 export const viewport: Viewport = {
@@ -121,6 +124,12 @@ export default function RootLayout({
                 '@type': 'ContactPoint',
                 email: 'support@pickmyclass.app',
                 contactType: 'customer service',
+              },
+              address: {
+                '@type': 'PostalAddress',
+                addressLocality: 'Tempe',
+                addressRegion: 'AZ',
+                addressCountry: 'US',
               },
             }}
           />

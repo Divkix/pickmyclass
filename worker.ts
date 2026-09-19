@@ -6,6 +6,12 @@ import type { Env } from './lib/types/env';
 import type { ClassCheckMessage } from './lib/types/queue';
 import { createCronLockLifecycle } from './lib/worker/cron-lock';
 import { edgeHtmlCache } from './lib/worker/edge-html-cache';
+import {
+  appendVary,
+  isHtmlResponse,
+  markdownResponse,
+  prefersMarkdown,
+} from './lib/worker/markdown-negotiation';
 import { getDb } from './lib/db';
 import { log } from './lib/log';
 
@@ -13,6 +19,19 @@ const workerLog = log('Worker');
 const scheduledLog = log('Scheduled');
 const queueLog = log('Queue');
 const dlqLog = log('Queue/DLQ');
+
+/**
+ * Advertises the Markdown representation on HTML responses so shared caches
+ * keep the two variants apart. Copies the response because headers off the
+ * assets binding are immutable.
+ */
+function withAcceptVary(response: Response): Response {
+  if (!isHtmlResponse(response)) return response;
+
+  const varied = new Response(response.body, response);
+  appendVary(varied.headers, 'Accept');
+  return varied;
+}
 
 export class CronLockDO extends DurableObject<Cloudflare.Env> {
   private readonly lock;
@@ -93,8 +112,17 @@ export default {
       request = new Request(request, { body: null });
     }
 
+    if (prefersMarkdown(request.headers.get('accept'))) {
+      // Markdown requests never touch the edge cache: it stores one HTML
+      // representation per path, and the conversion is cheap for agent traffic.
+      const response = await handler.fetch(request);
+      if (!isHtmlResponse(response)) return response;
+
+      return markdownResponse({ response, html: await response.text(), url: request.url });
+    }
+
     if (!edgeHtmlCache.isEligible(request)) {
-      return handler.fetch(request);
+      return withAcceptVary(await handler.fetch(request));
     }
 
     const versionId = env.CF_VERSION_METADATA?.id;
@@ -103,7 +131,7 @@ export default {
       return cached;
     }
 
-    const response = await handler.fetch(request);
+    const response = withAcceptVary(await handler.fetch(request));
 
     const cacheWrite = edgeHtmlCache.put(request, versionId, response);
     if (cacheWrite) ctx.waitUntil(cacheWrite);

@@ -7,6 +7,8 @@ const STATIC_PAGE_LASTMOD = {
   '/': '2026-08-28',
   '/faq': '2026-08-22',
   '/about': '2026-08-22',
+  '/contact': '2026-09-19',
+  '/docs': '2026-09-19',
   '/legal': '2025-10-24',
   '/legal/terms': '2025-10-24',
   '/legal/privacy': '2025-10-24',
@@ -58,6 +60,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly',
       priority: 0.5,
       lastModified: lastmod(STATIC_PAGE_LASTMOD['/about']),
+    },
+    {
+      url: `${baseUrl}/contact`,
+      changeFrequency: 'yearly',
+      priority: 0.4,
+      lastModified: lastmod(STATIC_PAGE_LASTMOD['/contact']),
+    },
+    {
+      url: `${baseUrl}/docs`,
+      changeFrequency: 'monthly',
+      priority: 0.4,
+      lastModified: lastmod(STATIC_PAGE_LASTMOD['/docs']),
     },
     ...blogEntries,
     {

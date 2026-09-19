@@ -30,6 +30,7 @@
     "lib/queue/section-retirement.ts",
     "lib/worker/cron-lock.ts",
     "lib/worker/edge-html-cache.ts",
+    "lib/worker/markdown-negotiation.ts",
     "lib/cloudflare-env.d.ts",
     "lib/cloudflare-env.supplemental.d.ts"
   ],

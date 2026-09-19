@@ -29,6 +29,8 @@ PickMyClass is not affiliated with Arizona State University. It is an independen
 - Home: https://pickmyclass.app/
 - FAQ: https://pickmyclass.app/faq
 - Blog index: https://pickmyclass.app/blog
+- Contact and support: https://pickmyclass.app/contact
+- Developer & agent resources: https://pickmyclass.app/docs
 - Terms: https://pickmyclass.app/legal/terms
 - Privacy: https://pickmyclass.app/legal/privacy
 
