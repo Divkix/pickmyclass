@@ -70,7 +70,9 @@ export function RecentActivity({ items }: RecentActivityProps) {
                       dateTime={item.activityAt}
                       title={new Date(item.activityAt).toUTCString()}
                     >
-                      {new Date(item.activityAt).toLocaleString()}
+                      {new Date(item.activityAt).toLocaleString('en-US', {
+                        timeZone: 'America/Phoenix',
+                      })}
                     </time>
                   </div>
                 </li>

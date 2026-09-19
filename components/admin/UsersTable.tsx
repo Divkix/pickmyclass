@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCallback, useTransition } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -18,6 +17,7 @@ import type { UserSortField, UserWithWatchCount } from '@/lib/db/admin-queries';
 import { formatAbsoluteDate, formatRelativeDate } from '@/lib/utils/time-format';
 import { SortableHeader } from './SortableHeader';
 import { UsersTableFiltersComponent } from './UsersTableFilters';
+import { TablePagination } from './TablePagination';
 
 interface UsersTableProps {
   users: UserWithWatchCount[];
@@ -253,41 +253,15 @@ export function UsersTable({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {total === 0 ? (
-            'No users found'
-          ) : (
-            <>
-              Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}{' '}
-              users
-            </>
-          )}
-        </p>
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => navigate({ page: String(page - 1) })}
-            >
-              Previous
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {page} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => navigate({ page: String(page + 1) })}
-            >
-              Next
-            </Button>
-          </div>
-        )}
-      </div>
+      <TablePagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        emptyMessage="No users found"
+        itemNoun="users"
+        onNavigate={navigate}
+      />
     </div>
   );
 }

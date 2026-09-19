@@ -28,14 +28,6 @@ vi.mock('@/lib/class-watches/class-watch-creation', () => ({
 
 vi.mock('framer-motion', () => ({
   m: {
-    div: ({ children, ...props }: { children: React.ReactNode }) => (
-      <div {...props}>{children}</div>
-    ),
-    button: ({ children, ...props }: { children: React.ReactNode }) => (
-      <button {...props}>{children}</button>
-    ),
-  },
-  motion: {
     div: (props: { children?: React.ReactNode }) => {
       motionDivProps.current = props as Record<string, MotionValue>;
       return <div {...props}>{props.children}</div>;

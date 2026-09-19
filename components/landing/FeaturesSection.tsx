@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Bell, RefreshCw, TrendingUp, User } from 'lucide-react';
 import Link from 'next/link';
 import { fadeInUp, staggerContainer, staggerItem } from '@/lib/animations';
@@ -9,7 +9,7 @@ export function FeaturesSection() {
   return (
     <section className="border-b border-border px-6 py-20">
       <div className="mx-auto max-w-6xl">
-        <motion.div
+        <m.div
           className="mb-12 max-w-2xl"
           initial="hidden"
           whileInView="visible"
@@ -23,16 +23,16 @@ export function FeaturesSection() {
             You&apos;ve got better things to do than stare at MyASU all day. Here&apos;s what we
             handle while you live your life.
           </p>
-        </motion.div>
+        </m.div>
 
-        <motion.div
+        <m.div
           className="grid gap-4 md:grid-cols-3 md:grid-rows-2"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-100px' }}
           variants={staggerContainer}
         >
-          <motion.article
+          <m.article
             className="flex flex-col justify-between gap-6 rounded-xl border border-primary/20 bg-primary p-7 text-primary-foreground shadow-smooth md:col-span-2 md:row-span-2"
             variants={staggerItem}
           >
@@ -58,9 +58,9 @@ export function FeaturesSection() {
                 </span>
               </div>
             </div>
-          </motion.article>
+          </m.article>
 
-          <motion.article
+          <m.article
             className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-smooth"
             variants={staggerItem}
           >
@@ -74,9 +74,9 @@ export function FeaturesSection() {
                 time to check RateMyProfessors.
               </p>
             </div>
-          </motion.article>
+          </m.article>
 
-          <motion.article
+          <m.article
             className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-smooth"
             variants={staggerItem}
           >
@@ -97,10 +97,10 @@ export function FeaturesSection() {
                 .
               </p>
             </div>
-          </motion.article>
-        </motion.div>
+          </m.article>
+        </m.div>
 
-        <motion.div
+        <m.div
           className="mt-4 flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 px-6 py-4"
           initial="hidden"
           whileInView="visible"
@@ -111,7 +111,7 @@ export function FeaturesSection() {
           <p className="text-sm text-muted-foreground">
             One email per change. No marketing, no digests, no noise — just the alerts that matter.
           </p>
-        </motion.div>
+        </m.div>
       </div>
     </section>
   );

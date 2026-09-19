@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Bell, CheckCircle2, Clock, Mail, Sparkles, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -14,26 +14,26 @@ export function HeroSection() {
       <div className="pointer-events-none absolute -bottom-40 -right-24 -z-10 size-96 rounded-full bg-accent/20 blur-3xl" />
 
       <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-        <motion.div
+        <m.div
           className="animation-hidden space-y-8 text-center lg:text-left"
           initial="hidden"
           animate="visible"
           variants={staggerContainer}
         >
-          <motion.div
+          <m.div
             className="animation-hidden inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-smooth"
             variants={staggerItem}
           >
             <Sparkles className="size-4 text-accent" aria-hidden="true" />
             Built for Sun Devils
-          </motion.div>
+          </m.div>
 
-          <motion.h1 className="animation-hidden text-display" variants={staggerItem}>
+          <m.h1 className="animation-hidden text-display" variants={staggerItem}>
             Free ASU class seat tracker: stop refreshing MyASU{' '}
             <span className="mark-gold">every 5 minutes</span>
-          </motion.h1>
+          </m.h1>
 
-          <motion.p
+          <m.p
             className="animation-hidden mx-auto max-w-xl text-lg text-muted-foreground sm:text-xl lg:mx-0"
             variants={staggerItem}
           >
@@ -53,9 +53,9 @@ export function HeroSection() {
               ASU class seat tracker
             </Link>{' '}
             watches full sections for you.
-          </motion.p>
+          </m.p>
 
-          <motion.div
+          <m.div
             className="animation-hidden flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start"
             variants={staggerItem}
           >
@@ -70,9 +70,9 @@ export function HeroSection() {
                 Sign In
               </Button>
             </Link>
-          </motion.div>
+          </m.div>
 
-          <motion.ul
+          <m.ul
             className="animation-hidden flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted-foreground lg:justify-start"
             variants={staggerItem}
           >
@@ -88,10 +88,10 @@ export function HeroSection() {
               <Clock className="size-4 text-primary" aria-hidden="true" />
               <span>Checks every 30 min</span>
             </li>
-          </motion.ul>
-        </motion.div>
+          </m.ul>
+        </m.div>
 
-        <motion.div
+        <m.div
           className="animation-hidden relative mx-auto w-full max-w-md lg:max-w-none"
           initial="hidden"
           animate="visible"
@@ -147,7 +147,7 @@ export function HeroSection() {
             </span>
             <span className="text-xs font-medium text-foreground">Checking 24/7</span>
           </div>
-        </motion.div>
+        </m.div>
       </div>
     </section>
   );

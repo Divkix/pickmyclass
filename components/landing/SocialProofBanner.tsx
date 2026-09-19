@@ -1,13 +1,13 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { GraduationCap } from 'lucide-react';
 import { fadeInUp } from '@/lib/animations';
 
 export function SocialProofBanner() {
   return (
     <section className="border-b border-border bg-primary text-primary-foreground">
-      <motion.div
+      <m.div
         className="mx-auto flex max-w-5xl flex-col items-center gap-x-8 gap-y-3 px-6 py-5 text-center sm:flex-row sm:justify-center sm:text-left"
         initial="hidden"
         whileInView="visible"
@@ -24,7 +24,7 @@ export function SocialProofBanner() {
           <strong className="font-semibold text-primary-foreground">15,000+</strong> classes
           monitored · <strong className="font-semibold text-accent">8,500+</strong> seats secured
         </p>
-      </motion.div>
+      </m.div>
     </section>
   );
 }

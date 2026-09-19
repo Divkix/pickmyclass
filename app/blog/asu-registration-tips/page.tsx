@@ -4,6 +4,7 @@ import {
   BlogAuthor,
   BlogCTA,
   BlogFAQ,
+  BlogPostHeader,
   ComparisonTable,
   KeyTakeaways,
   RelatedArticles,
@@ -157,31 +158,14 @@ export default async function ASURegistrationTipsPost() {
       <Header />
       <main id="main" tabIndex={-1} className="flex-1 px-4 py-12 md:px-8">
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
-          <div className="not-prose mb-4">
-            <nav className="text-sm text-muted-foreground">
-              <Link href="/" className="hover:text-foreground transition-colors">
-                Home
-              </Link>
-              <span className="mx-2">/</span>
-              <Link href="/blog" className="hover:text-foreground transition-colors">
-                Blog
-              </Link>
-              <span className="mx-2">/</span>
-              <span className="text-foreground">ASU Registration Tips</span>
-            </nav>
-          </div>
-
-          <div className="not-prose mb-8">
-            <h1 className="text-4xl font-semibold text-foreground sm:text-5xl leading-tight">
-              ASU Registration Tips: Build Your Perfect Schedule
-            </h1>
-            <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-              <time dateTime="2026-03-27">March 27, 2026</time>
-              <span>·</span>
-              <span>Updated June 18, 2026</span>
-              <span>6 min read</span>
-            </div>
-          </div>
+          <BlogPostHeader
+            breadcrumb="ASU Registration Tips"
+            title="ASU Registration Tips: Build Your Perfect Schedule"
+            dateTime="2026-03-27"
+            date="March 27, 2026"
+            updated="Updated June 18, 2026"
+            readTime="6 min read"
+          />
 
           <p className="text-lg text-muted-foreground leading-relaxed">
             ASU registration can feel like a high-stakes game. Your window is short, the good

@@ -18,6 +18,13 @@ export interface AsuTerm {
 
 const ASU_TIMEZONE = 'America/Phoenix';
 
+const PHOENIX_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: ASU_TIMEZONE,
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+});
+
 const SEASON_SUFFIX = {
   spring: 1,
   summer: 4,
@@ -148,14 +155,7 @@ function compareDateParts(a: DateParts, b: DateParts): number {
 }
 
 function getPhoenixDateParts(now: Date = new Date()): DateParts {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: ASU_TIMEZONE,
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-  });
-
-  const parts = formatter.formatToParts(now);
+  const parts = PHOENIX_DATE_FORMATTER.formatToParts(now);
   const lookup = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
 
   return {

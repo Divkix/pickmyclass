@@ -5,7 +5,9 @@ import { Toaster } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
 import { ClerkClientProvider } from '@/components/ClerkClientProvider';
 import { Footer } from '@/components/Footer';
+import { MotionProvider } from '@/components/MotionProvider';
 import { SkipToContent } from '@/components/SkipToContent';
+import { JsonLd } from '@/components/landing/JsonLd';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 import './globals.css';
 
@@ -83,31 +85,30 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head />
       <body className="font-sans antialiased flex flex-col min-h-screen">
-        <SkipToContent />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <ClerkClientProvider>
-            <AuthProvider>
-              <div className="flex-1 pb-20 md:pb-0">{children}</div>
-              <Footer />
-              <BottomNav />
-              <Toaster position="top-center" richColors />
-            </AuthProvider>
-          </ClerkClientProvider>
-        </ThemeProvider>
-        <Script
-          src="https://analytics.divkix.me/s.js"
-          data-website-id="f2ef7132-055d-4c9a-8040-dcd07f22e84d"
-          strategy="afterInteractive"
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+        <MotionProvider>
+          <SkipToContent />
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <ClerkClientProvider>
+              <AuthProvider>
+                <div className="flex-1 pb-20 md:pb-0">{children}</div>
+                <Footer />
+                <BottomNav />
+                <Toaster position="top-center" richColors />
+              </AuthProvider>
+            </ClerkClientProvider>
+          </ThemeProvider>
+          <Script
+            src="https://analytics.divkix.me/s.js"
+            data-website-id="f2ef7132-055d-4c9a-8040-dcd07f22e84d"
+            strategy="afterInteractive"
+          />
+          <JsonLd
+            data={{
               '@context': 'https://schema.org',
               '@type': 'Organization',
               name: 'PickMyClass',
@@ -121,21 +122,18 @@ export default function RootLayout({
                 email: 'support@pickmyclass.app',
                 contactType: 'customer service',
               },
-            }),
-          }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            }}
+          />
+          <JsonLd
+            data={{
               '@context': 'https://schema.org',
               '@type': 'WebSite',
               name: 'PickMyClass',
               alternateName: ['Pick My Class', 'Pick A Class', 'PickAClass'],
               url: 'https://pickmyclass.app',
-            }),
-          }}
-        />
+            }}
+          />
+        </MotionProvider>
       </body>
     </html>
   );
