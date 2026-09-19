@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { Suspense } from 'react';
 import { UsersTable } from '@/components/admin/UsersTable';
 import { verifyAdmin } from '@/lib/auth/admin';
 import { getUsersPage } from '@/lib/db/admin-queries';
@@ -66,18 +67,20 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
         </p>
       </div>
 
-      <UsersTable
-        users={rows}
-        total={total}
-        page={page}
-        pageSize={PAGE_SIZE}
-        sort={sort}
-        dir={dir}
-        search={search}
-        role={role}
-        verified={verified}
-        watchCount={watchCount}
-      />
+      <Suspense fallback={null}>
+        <UsersTable
+          users={rows}
+          total={total}
+          page={page}
+          pageSize={PAGE_SIZE}
+          sort={sort}
+          dir={dir}
+          search={search}
+          role={role}
+          verified={verified}
+          watchCount={watchCount}
+        />
+      </Suspense>
 
       {rows.length > 0 && (
         <div className="mt-4 text-sm text-muted-foreground">

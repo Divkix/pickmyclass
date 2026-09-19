@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { Suspense } from 'react';
 import { ClassesTable } from '@/components/admin/ClassesTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { verifyAdmin } from '@/lib/auth/admin';
@@ -122,20 +123,22 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
           <CardDescription>Click on a class number to view detailed information</CardDescription>
         </CardHeader>
         <CardContent>
-          <ClassesTable
-            classes={rows}
-            total={total}
-            page={page}
-            pageSize={PAGE_SIZE}
-            subjects={subjects}
-            sort={sort}
-            dir={dir}
-            search={search}
-            subject={subject}
-            seatStatus={seatStatus}
-            instructor={instructor}
-            watcherCount={watcherCount}
-          />
+          <Suspense fallback={null}>
+            <ClassesTable
+              classes={rows}
+              total={total}
+              page={page}
+              pageSize={PAGE_SIZE}
+              subjects={subjects}
+              sort={sort}
+              dir={dir}
+              search={search}
+              subject={subject}
+              seatStatus={seatStatus}
+              instructor={instructor}
+              watcherCount={watcherCount}
+            />
+          </Suspense>
         </CardContent>
       </Card>
     </div>
