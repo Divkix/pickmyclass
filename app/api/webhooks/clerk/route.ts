@@ -13,18 +13,20 @@
  */
 import { verifyWebhook } from '@clerk/backend/webhooks';
 import { env } from 'cloudflare:workers';
+import { z } from 'zod';
 import { fail, ok } from '@/lib/api/response';
 import { clearAuthorizationStateCache } from '@/lib/auth/authorization-state';
 import { getDbFromEnv } from '@/lib/db';
 import { softDeleteUserById, syncUserMirrorFromClerkUser } from '@/lib/db/users';
 import { log } from '@/lib/log';
 
+const clerkWebhookEnvSchema = z.object({
+  CLERK_WEBHOOK_SIGNING_SECRET: z.string().optional(),
+});
+
 export async function POST(request: Request) {
   // SAFETY: provisioned via `wrangler secret put CLERK_WEBHOOK_SIGNING_SECRET`.
-  // SAFETY: Cloudflare Env has string-indexed bindings; narrow to known secret shape for optional chaining
-  const { CLERK_WEBHOOK_SIGNING_SECRET } = env as unknown as {
-    CLERK_WEBHOOK_SIGNING_SECRET?: string;
-  };
+  const { CLERK_WEBHOOK_SIGNING_SECRET } = clerkWebhookEnvSchema.parse(env);
 
   if (!CLERK_WEBHOOK_SIGNING_SECRET) {
     log('ClerkWebhook').error('CLERK_WEBHOOK_SIGNING_SECRET is not set');

@@ -1,19 +1,15 @@
 import { NextResponse } from 'next/server';
 import type { JsonValue } from '@/lib/api/wire';
 
-type ApiData = Record<string, unknown>;
-
-export function ok<T extends (ApiData & { success?: never }) | null | undefined>(
-  data: T,
+export function ok<T extends object>(
+  data: (T & { success?: never }) | null | undefined,
   init?: ResponseInit
 ): NextResponse {
   if (data == null) {
     return NextResponse.json({ success: true }, init);
   }
 
-  const responseData = { ...data, success: true as const } satisfies ApiData;
-
-  return NextResponse.json(responseData, init);
+  return NextResponse.json({ ...data, success: true as const }, init);
 }
 
 export function fail(error: string, status: number, details?: JsonValue): NextResponse {

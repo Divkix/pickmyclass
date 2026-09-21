@@ -12,6 +12,7 @@ import { insertClassStateIfMissing } from '@/lib/db/queries';
 import { classStates, classWatches } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 import { captureServerEvent } from '@/lib/analytics/server';
+import type { JsonValue } from '@/lib/api/wire';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 import { applyFirstWatchGuard, readOnboardingState, toOnboardingState } from '@/lib/onboarding';
 
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
   try {
     return await withAuth(request, async (user) => {
       try {
-        const body = await request.json();
+        const body = await request.json<JsonValue>();
         const parsed = parseOrFail(createClassWatchSchema, body);
 
         if (!parsed.success) {
@@ -182,7 +183,7 @@ export async function POST(request: NextRequest) {
 
           if (
             pgError?.code === PG_RAISE_EXCEPTION &&
-            typeof pgError.message === 'string' &&
+            pgError.message !== undefined &&
             pgError.message.includes('MAX_WATCHES_EXCEEDED')
           ) {
             return fail(
