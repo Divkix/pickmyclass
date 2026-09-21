@@ -76,6 +76,8 @@ pnpm run type-check       # AUTHORITATIVE: tsc --noEmit && tsc -p tsconfig.worke
 
 Two tsconfigs: `tsconfig.json` (app, excludes worker.ts) + `tsconfig.worker.json` (Workers, add new worker files to `include` or they're un-typechecked). Tests import from `vite-plus/test`, mock `cloudflare:workers`/`vinext` via `tests/mocks`.
 
+**Anti-slop lint rules are vendored:** `tools/oxlint/anti-slop/` (provenance + snapshot digest in its `UPSTREAM.md`) loads into `vp lint` via `vite.config.ts`, and is excluded from lint, fmt, `tsc`, and knip on purpose — it is tooling, and its `.ts`-suffixed relative imports fail TS5097. `@oxlint/plugins` is pinned exactly to the `oxlint` version `vite-plus` resolves: move it in the same change that bumps the toolchain, never alone. `effect/` ships unregistered (no direct `effect` dependency). The whole tree must stay committed — `vendor/` is un-ignored in `.gitignore` because a global `vendor/` ignore dropped it once: local lint kept working off the working copy while CI's lint could not load the plugin at all.
+
 ## CI (`.github/workflows/ci.yml`)
 
 `validate-lockfile` -> `quality`/`test`/`check` in parallel -> `ci-success` (required). Dependabot ignores the vite-plus toolchain (`vite-plus`, `vite`, `vitest`, `@vitest/*`, `@voidzero-dev/vite-plus-core`) — bump via `vp migrate` only, never solo (solo bumps desync core/vitest and break types/coverage).

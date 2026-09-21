@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": ["**/*.{ts,tsx}"],
   "entry": ["scripts/verify-migration.ts"],
-  "ignore": ["components/ui/**", "tests/mocks/**"],
+  "ignore": ["components/ui/**", "tests/mocks/**", "tools/oxlint/anti-slop/**"],
   "ignoreDependencies": ["tailwindcss", "tw-animate-css", "cloudflare"],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false,
