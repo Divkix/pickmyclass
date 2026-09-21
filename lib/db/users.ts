@@ -1,5 +1,6 @@
 import { type User, type UserJSON } from '@clerk/backend';
 import { eq, or, sql } from 'drizzle-orm';
+import { z } from 'zod';
 
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import type { Database } from '@/lib/db';
@@ -114,7 +115,18 @@ function normalizeClerkUser(input: {
   };
 }
 
+const clerkTimestampSchema = z.number();
+
+function normalizeTimestamp(value: number | null | undefined): number | null {
+  const parsed = clerkTimestampSchema.safeParse(value);
+
+  return parsed.success ? parsed.data : null;
+}
+
 function normalizeWebhookUser(user: UserJSON): NormalizedClerkUser {
+  const createdAt = normalizeTimestamp(user.created_at);
+  const lastSignInAt = normalizeTimestamp(user.last_sign_in_at);
+
   return normalizeClerkUser({
     clerkUserId: user.id,
     externalId: user.external_id ?? null,
@@ -124,13 +136,16 @@ function normalizeWebhookUser(user: UserJSON): NormalizedClerkUser {
       emailAddress: address.email_address,
       verificationStatus: address.verification?.status ?? null,
     })),
-    createdAt: typeof user.created_at === 'number' ? user.created_at : null,
-    lastSignInAt: typeof user.last_sign_in_at === 'number' ? user.last_sign_in_at : null,
+    createdAt,
+    lastSignInAt,
     publicMetadata: user.public_metadata,
   });
 }
 
 function normalizeBackendUser(user: User): NormalizedClerkUser {
+  const createdAt = normalizeTimestamp(user.createdAt);
+  const lastSignInAt = normalizeTimestamp(user.lastSignInAt);
+
   return normalizeClerkUser({
     clerkUserId: user.id,
     externalId: user.externalId,
@@ -140,8 +155,8 @@ function normalizeBackendUser(user: User): NormalizedClerkUser {
       emailAddress: address.emailAddress,
       verificationStatus: address.verification?.status ?? null,
     })),
-    createdAt: typeof user.createdAt === 'number' ? user.createdAt : null,
-    lastSignInAt: typeof user.lastSignInAt === 'number' ? user.lastSignInAt : null,
+    createdAt,
+    lastSignInAt,
     publicMetadata: user.publicMetadata,
   });
 }
