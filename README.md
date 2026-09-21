@@ -119,7 +119,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 
 ### Prerequisites
 
-- [pnpm](https://pnpm.io/) 11.10.0
+- [pnpm](https://pnpm.io/) 12.5.1
 - [PlanetScale](https://planetscale.com/) Postgres (PS-5) + Cloudflare Hyperdrive (`--caching-disabled`)
 - [Clerk](https://clerk.com/) (Hobby free ≤50k MRU) — OAuth app for Google, custom domain `clerk.your-domain.com`
 - [Cloudflare Account](https://cloudflare.com/) (Workers, Queues, KV, Email Service)
