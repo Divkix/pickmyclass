@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ClassWatchRow } from '@/lib/types/class-watch';
 import { createClassWatchClient } from '@/lib/class-watches/class-watch-creation';
 
-const watch = {
+const watch: ClassWatchRow = {
   id: 'watch-1',
   user_id: 'user-1',
   term: '2267',
@@ -10,7 +10,7 @@ const watch = {
   subject: 'CSE',
   catalog_nbr: '110',
   created_at: '2026-07-12T00:00:00.000Z',
-} as ClassWatchRow;
+};
 
 describe('classWatchCreation', () => {
   beforeEach(() => {
