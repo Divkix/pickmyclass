@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
 
 import type { Database } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
@@ -101,6 +102,7 @@ function scriptedDatabase(): Database {
     },
   };
 
+  // SAFETY: this double implements only the client members the code path under test reads.
   return drizzle(client as Database['$client'], { schema });
 }
 
@@ -189,16 +191,29 @@ function scriptExportRows(overrides: {
   recorder.outcomes.push(notifications);
 }
 
+const jsonValue: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonValue),
+    z.record(z.string(), jsonValue),
+  ])
+);
+
+const jsonObject = z.record(z.string(), jsonValue);
+
 async function json(response: Response) {
-  return response.json() as Promise<Record<string, JsonValue>>;
+  return jsonObject.parse(await response.json());
 }
 
 function exportRows(value: JsonValue): Array<Record<string, JsonValue>> {
-  return value as Array<Record<string, JsonValue>>;
+  return z.array(jsonObject).parse(value);
 }
 
 function exportObject(value: JsonValue): Record<string, JsonValue> {
-  return value as Record<string, JsonValue>;
+  return jsonObject.parse(value);
 }
 
 describe('user data rights APIs', () => {

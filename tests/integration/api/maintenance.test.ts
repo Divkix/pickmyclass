@@ -1,5 +1,8 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
+
+import type { deletePastTermWatches } from '@/lib/db/queries';
 
 interface MaintenanceResponse {
   success?: boolean;
@@ -18,7 +21,7 @@ vi.mock('@/lib/db', () => ({
 
 const dbHandle = { execute: mockExecute };
 
-const mockDeletePastTermWatches = vi.hoisted(() => vi.fn());
+const mockDeletePastTermWatches = vi.hoisted(() => vi.fn<typeof deletePastTermWatches>());
 
 vi.mock('@/lib/db/queries', () => ({
   deletePastTermWatches: mockDeletePastTermWatches,
@@ -29,12 +32,10 @@ vi.mock('cloudflare:workers', () => ({
 }));
 
 function createRequest(cronSecret?: string): NextRequest {
-  const headers: Record<string, string> = {
-    'User-Agent': 'Cloudflare-Workers-Cron',
-  };
+  const headers = new Headers({ 'User-Agent': 'Cloudflare-Workers-Cron' });
 
   if (cronSecret) {
-    headers.Authorization = `Bearer ${cronSecret}`;
+    headers.set('Authorization', `Bearer ${cronSecret}`);
   }
 
   return new NextRequest('http://localhost/api/cron/maintenance', {
@@ -43,8 +44,14 @@ function createRequest(cronSecret?: string): NextRequest {
   });
 }
 
+const maintenanceResponse = z.object({
+  success: z.boolean().optional(),
+  error: z.string().optional(),
+  duration_ms: z.number().optional(),
+});
+
 async function parseResponse(response: Response): Promise<MaintenanceResponse> {
-  return (await response.json()) as MaintenanceResponse;
+  return maintenanceResponse.parse(await response.json());
 }
 
 describe('GET /api/cron/maintenance', () => {
@@ -60,6 +67,7 @@ describe('GET /api/cron/maintenance', () => {
   });
 
   afterEach(() => {
+    // SAFETY: ProcessEnv is merged with a string index signature at runtime; the cast restores it for `delete`.
     delete (process.env as Record<string, string | undefined>).CRON_SECRET;
   });
 
@@ -132,7 +140,7 @@ describe('GET /api/cron/maintenance', () => {
         expect(response.status).toBe(200);
 
         expect(mockDeletePastTermWatches).toHaveBeenCalledTimes(1);
-        const [passedDb, codes] = mockDeletePastTermWatches.mock.calls[0] as [unknown, string[]];
+        const [passedDb, codes] = mockDeletePastTermWatches.mock.calls[0];
         expect(passedDb).toBe(dbHandle);
         expect(codes).toContain('2261');
         expect(codes).toContain('2264');

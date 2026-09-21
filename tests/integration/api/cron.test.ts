@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
 
 const { mockAcquireLock, mockReleaseLock, mockGetDbFromEnv } = vi.hoisted(() => ({
   mockAcquireLock: vi.fn(),
@@ -38,6 +39,21 @@ function createRequest(authHeader?: string): NextRequest {
   });
 }
 
+const cronResponse = z.object({
+  success: z.boolean(),
+  error: z.string().optional(),
+  sections_enqueued: z.number().optional(),
+  batches_failed: z.number().optional(),
+  batches_total: z.number().optional(),
+  // The 409 lock-held branch carries its own details shape (message/current_holder).
+  details: z
+    .looseObject({
+      batches_failed: z.number().optional(),
+      batches_total: z.number().optional(),
+    })
+    .optional(),
+});
+
 describe('GET /api/cron', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -71,12 +87,7 @@ describe('GET /api/cron', () => {
     );
 
     const response = await GET(createRequest('Bearer test-cron-secret'));
-    const data = await response.json();
-
-    const responseData = data as {
-      success: boolean;
-      details?: { batches_failed: number; batches_total: number };
-    };
+    const responseData = cronResponse.parse(await response.json());
 
     expect(responseData.success).toBe(false);
     expect(responseData.details?.batches_failed).toBeGreaterThan(0);
@@ -94,23 +105,18 @@ describe('GET /api/cron', () => {
     const { env } = await import('cloudflare:workers');
     // oxlint-disable-next-line typescript/unbound-method
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue({
-      metadata: {},
-    } as QueueSendBatchResponse);
+      metadata: { metrics: { backlogCount: 0, backlogBytes: 0 } },
+    });
 
     const response = await GET(createRequest('Bearer test-cron-secret'));
-    const data = await response.json();
-
-    const responseData = data as {
-      success: boolean;
-      batches_failed: number;
-      sections_enqueued: number;
-    };
+    const responseData = cronResponse.parse(await response.json());
 
     expect(responseData.success).toBe(true);
     expect(responseData.batches_failed).toBe(0);
     expect(responseData.sections_enqueued).toBe(50);
     expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
 
+    // SAFETY: cron route stamps every enqueued ClassCheckMessage body with `cycle`.
     const sentMessages = vi
       .mocked(env.PICKMYCLASS_QUEUE.sendBatch)
       .mock.calls.flatMap((call) =>
@@ -141,17 +147,11 @@ describe('GET /api/cron', () => {
         return Promise.reject(new Error('Transient error'));
       }
 
-      return Promise.resolve({ metadata: {} } as QueueSendBatchResponse);
+      return Promise.resolve({ metadata: { metrics: { backlogCount: 0, backlogBytes: 0 } } });
     });
 
     const response = await GET(createRequest('Bearer test-cron-secret'));
-    const data = await response.json();
-
-    const responseData = data as {
-      success: boolean;
-      batches_failed: number;
-      batches_total: number;
-    };
+    const responseData = cronResponse.parse(await response.json());
 
     expect(responseData.success).toBe(true);
     expect(responseData.batches_failed).toBe(0);
@@ -177,16 +177,11 @@ describe('GET /api/cron', () => {
         return Promise.reject(new Error('Persistent error'));
       }
 
-      return Promise.resolve({ metadata: {} } as QueueSendBatchResponse);
+      return Promise.resolve({ metadata: { metrics: { backlogCount: 0, backlogBytes: 0 } } });
     });
 
     const response = await GET(createRequest('Bearer test-cron-secret'));
-    const data = await response.json();
-
-    const responseData = data as {
-      success: boolean;
-      details?: { batches_failed: number; batches_total: number };
-    };
+    const responseData = cronResponse.parse(await response.json());
 
     expect(responseData.success).toBe(false);
     expect(responseData.details?.batches_failed).toBe(1);
@@ -204,17 +199,18 @@ describe('GET /api/cron', () => {
     const { env } = await import('cloudflare:workers');
     // oxlint-disable-next-line typescript/unbound-method
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue({
-      metadata: {},
-    } as QueueSendBatchResponse);
+      metadata: { metrics: { backlogCount: 0, backlogBytes: 0 } },
+    });
 
     const response = await GET(createRequest('Bearer test-cron-secret'));
-    const data = (await response.json()) as { sections_enqueued?: number };
+    const data = cronResponse.parse(await response.json());
 
     expect(data.sections_enqueued).toBe(1);
 
     // oxlint-disable-next-line typescript/unbound-method
     const sendBatch = vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch);
 
+    // SAFETY: batch bodies are ClassCheckMessages built from section rows, so each carries `term`.
     const enqueuedTerms = sendBatch.mock.calls.flatMap(([batch]) =>
       (batch as { body: { term: string } }[]).map((m) => m.body.term)
     );
@@ -233,8 +229,8 @@ describe('GET /api/cron', () => {
     const { env } = await import('cloudflare:workers');
     // oxlint-disable-next-line typescript/unbound-method
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockResolvedValue({
-      metadata: {},
-    } as QueueSendBatchResponse);
+      metadata: { metrics: { backlogCount: 0, backlogBytes: 0 } },
+    });
 
     vi.setSystemTime(new Date('2024-01-15T12:30:00Z'));
 
@@ -266,7 +262,7 @@ describe('GET /api/cron', () => {
     });
 
     const response = await GET(createRequest('Bearer test-cron-secret'));
-    const data = (await response.json()) as { error?: string };
+    const data = cronResponse.parse(await response.json());
 
     expect(response.status).toBe(409);
     expect(data.error).toBe('Another cron job is already running');

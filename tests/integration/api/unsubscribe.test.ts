@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
 
 import type { Database } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
@@ -79,6 +80,7 @@ function scriptedDatabase(): Database {
     },
   };
 
+  // SAFETY: the double implements the postgres-js seam drizzle drives: options, unsafe.
   return drizzle(client as Database['$client'], { schema });
 }
 
@@ -86,10 +88,13 @@ function request(url: string, method = 'GET'): NextRequest {
   return new NextRequest(url, { method });
 }
 
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+const unsubscribeBody = z.object({
+  success: z.boolean().optional(),
+  error: z.string().optional(),
+});
 
 async function json(response: Response) {
-  return response.json() as Promise<Record<string, JsonValue>>;
+  return unsubscribeBody.parse(await response.json());
 }
 
 describe('/api/unsubscribe', () => {

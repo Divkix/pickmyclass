@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { and, count, eq, inArray, like, sql } from 'drizzle-orm';
 import type { EmailAddressJSON, UserJSON, VerificationJSON } from '@clerk/backend';
 import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test';
+import { z } from 'zod';
 
 import { getDb } from '@/lib/db';
 import {
@@ -60,6 +61,7 @@ if (!DATABASE_URL) {
   );
 }
 
+// SAFETY: DATABASE_URL is non-empty after the throw above; getDb reads only connectionString.
 const hyperdrive = { connectionString: DATABASE_URL } as Hyperdrive;
 
 const db = getDb(hyperdrive);
@@ -261,7 +263,10 @@ function temporal(value: TimestampCell): boolean {
 }
 
 function isIsoZ(value: TimestampCell): value is string {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value);
+  return z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+    .safeParse(value).success;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -434,13 +439,13 @@ describe('wire formats under prepare:false / fetch_types:false', () => {
       sql`SELECT COUNT(*)::bigint AS c FROM class_watches`
     );
 
-    expect(typeof rows[0]?.c).toBe('string');
+    expect(z.string().safeParse(rows[0]?.c).success).toBe(true);
     expect(String(rows[0]?.c)).toMatch(/^\d+$/);
   });
 
   it('delivers timestamptz as parseable PG text (boundaries normalize to ISO)', async () => {
     const rows = await db.execute<{ t: string }>(sql`SELECT now()::timestamptz AS t`);
-    expect(typeof rows[0]?.t).toBe('string');
+    expect(z.string().safeParse(rows[0]?.t).success).toBe(true);
     expect(temporal(rows[0]?.t)).toBe(true);
   });
 
@@ -720,8 +725,8 @@ describe('upsertClassState / section-check pipeline ops', () => {
       title: null,
     });
     const breaker = await readAutoCleanupBreakerCounts(db);
-    expect(typeof breaker.total).toBe('number');
-    expect(typeof breaker.flagged).toBe('number');
+    expect(z.number().safeParse(breaker.total).success).toBe(true);
+    expect(z.number().safeParse(breaker.flagged).success).toBe(true);
     expect(breaker.total).toBeGreaterThanOrEqual(5);
     expect(breaker.flagged).toBeGreaterThanOrEqual(1);
   });
@@ -809,8 +814,9 @@ describe('watcher reads and eligibility RPCs', () => {
   it('enumerates sections to check with stagger parity filtering', async () => {
     const mine = (refs: { class_nbr: string; term: string }[]) =>
       refs
-        .filter((r) => r.term === TERM || r.term === TERM_OTHER)
-        .map((r) => `${r.term}:${r.class_nbr}`)
+        .flatMap((r) =>
+          r.term === TERM || r.term === TERM_OTHER ? [`${r.term}:${r.class_nbr}`] : []
+        )
         .sort();
 
     expect(mine(await getSectionsToCheck(db, 'all'))).toEqual(

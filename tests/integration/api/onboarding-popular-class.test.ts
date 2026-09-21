@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
 
 import { GET } from '@/app/api/onboarding/popular-class/route';
 import type { ClassDetails } from '@/lib/types/class';
@@ -63,10 +64,17 @@ const classDetails: ClassDetails = {
   meeting_times: 'MWF 9:00 AM-9:50 AM',
 };
 
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+const popularClassBody = z.object({
+  success: z.boolean().optional(),
+  error: z.string().optional(),
+  popularClass: z
+    .object({ class_nbr: z.string(), term: z.string(), details: z.unknown() })
+    .nullable()
+    .optional(),
+});
 
 async function json(response: Response) {
-  return response.json() as Promise<Record<string, JsonValue>>;
+  return popularClassBody.parse(await response.json());
 }
 
 describe('/api/onboarding/popular-class', () => {

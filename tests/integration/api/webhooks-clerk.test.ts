@@ -10,9 +10,12 @@ const {
   mockSyncUserMirrorFromClerkUser,
   mockVerifyWebhook,
 } = vi.hoisted(() => {
-  const webhookEnv: { CLERK_WEBHOOK_SIGNING_SECRET?: string } = {
+  type WebhookEnvDouble = { CLERK_WEBHOOK_SIGNING_SECRET?: string };
+
+  // SAFETY: the missing-secret test clears this binding, so the double declares it absent-able.
+  const webhookEnv = {
     CLERK_WEBHOOK_SIGNING_SECRET: 'whsec_test_binding',
-  };
+  } as WebhookEnvDouble;
 
   const dbHandle = {};
   const mockGetDbFromEnv = vi.fn(() => dbHandle);

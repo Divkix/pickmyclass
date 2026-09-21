@@ -10,8 +10,8 @@ const { cacheGet, cacheIsEligible, cachePut } = vi.hoisted(() => ({
 vi.mock('cloudflare:workers', () => ({
   DurableObject: class DurableObject {
     constructor(
-      protected ctx: unknown,
-      protected env: unknown
+      protected ctx: DurableObjectState,
+      protected env: Cloudflare.Env
     ) {}
   },
   env: {},
@@ -35,14 +35,16 @@ const handler = (await import('vinext/server/app-router-entry')).default;
 
 const waitUntil = vi.fn();
 
+// SAFETY: worker.fetch only calls ctx.waitUntil, delegated to the spy asserted below (worker.ts).
 const ctx = {
-  waitUntil,
-  passThroughOnException: vi.fn(),
-} as unknown as ExecutionContext;
+  waitUntil: (promise: Promise<unknown>) => waitUntil(promise),
+  passThroughOnException: () => {},
+} as ExecutionContext;
 
+// SAFETY: the tested fetch paths read only env.CF_VERSION_METADATA.id, which the literal provides.
 const env = {
   CF_VERSION_METADATA: { id: 'version-1', tag: 'tag', timestamp: 'timestamp' },
-} as unknown as Env;
+} as Env;
 
 describe('worker edge HTML cache adapter', () => {
   beforeEach(() => {
@@ -120,8 +122,9 @@ describe('worker edge HTML cache adapter', () => {
     const response = await worker.fetch(request, env, ctx);
 
     expect(response.headers.get('vary')).toBe('Accept');
+    const stored = cachePut.mock.calls[0]?.[2] ?? null;
     // SAFETY: cachePut is an untyped vi.fn stub; the worker passes the response it rendered.
-    const storedHeaders = (cachePut.mock.calls[0]?.[2] as Response).headers;
+    const storedHeaders = (stored as Response).headers;
     expect(storedHeaders.get('vary')).toContain('Accept');
   });
 });
