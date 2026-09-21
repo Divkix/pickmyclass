@@ -65,3 +65,8 @@ sentry.properties
 .dev.vars
 scripts/.clerk-spike-token.txt
 scripts/.clerk-spike-private.pem
+
+# Vendored Oxlint rules are tooling this repo owns and ships; a global
+# `vendor/` ignore must not silently skip them (it did once — the plugin then
+# failed to load on CI while lint passed locally).
+!tools/oxlint/anti-slop/vendor/
