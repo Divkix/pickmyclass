@@ -6,6 +6,7 @@ const workerModule = await import('@/worker');
 const { CronLockDO } = workerModule;
 
 function makeDO() {
+  // SAFETY: CronLockDO touches only ctx.storage on these paths; worker.ts never reads env.
   return new CronLockDO(makeFakeCtx(), {} as Cloudflare.Env);
 }
 
@@ -61,6 +62,7 @@ describe('CronLockDO adapter', () => {
 
   it('persists lifecycle state through the Durable Object storage adapter', async () => {
     const ctx = makeFakeCtx();
+    // SAFETY: CronLockDO touches only ctx.storage on these paths; worker.ts never reads env.
     const lock = new CronLockDO(ctx, {} as Cloudflare.Env);
 
     await lock.acquireLock('worker-a');

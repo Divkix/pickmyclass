@@ -4,6 +4,7 @@ import { handleDLQMessage } from './lib/queue/dlq-consumer';
 import { processSection } from './lib/queue/process-section';
 import type { Env } from './lib/types/env';
 import type { ClassCheckMessage } from './lib/types/queue';
+import type { JsonValue } from './lib/api/wire';
 import { createCronLockLifecycle } from './lib/worker/cron-lock';
 import { withJsonApiError } from './lib/worker/api-errors';
 import { edgeHtmlCache } from './lib/worker/edge-html-cache';
@@ -45,7 +46,7 @@ export class CronLockDO extends DurableObject<Cloudflare.Env> {
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);
     this.lock = createCronLockLifecycle({
-      load: () => this.ctx.storage.get('lock_state'),
+      load: () => this.ctx.storage.get<JsonValue>('lock_state'),
       save: (state) => this.ctx.storage.put('lock_state', state),
     });
     this.ctx.blockConcurrencyWhile(() => this.lock.initialize());

@@ -1,18 +1,18 @@
-import { isRecord, type WirePayload } from '@/lib/api/wire';
+import { z } from 'zod';
+import { isRecord, type JsonValue, type WirePayload } from '@/lib/api/wire';
 
 const CRON_LOCK_NAME = 'pickmyclass-cron-lock';
 
 const CRON_LOCK_TIMEOUT_MS = 25 * 60 * 1000;
 
-interface CronLockState {
+export type CronLockState = {
   locked: boolean;
   lockAcquiredAt: number | null;
   lockHolder: string | null;
-}
+};
 
 interface CronLockStore {
-  // SAFETY: DO storage returns untyped wire value; decoded via isStoredState guard at boundary
-  load(): Promise<unknown>;
+  load(): Promise<JsonValue | undefined>;
   save(state: CronLockState): Promise<void>;
 }
 
@@ -36,20 +36,18 @@ function unlockedState(): CronLockState {
   return { locked: false, lockAcquiredAt: null, lockHolder: null };
 }
 
+const storedStateSchema = z.union([
+  z.object({ locked: z.literal(false), lockAcquiredAt: z.null(), lockHolder: z.null() }),
+  z.object({
+    locked: z.literal(true),
+    lockAcquiredAt: z.number(),
+    lockHolder: z.string().min(1),
+  }),
+]);
+
 // SAFETY: type guard validates unknown DO storage value before narrowing to CronLockState
 function isStoredState(value: unknown): value is CronLockState {
-  if (!isRecord(value) || typeof value.locked !== 'boolean') return false;
-
-  if (!value.locked) {
-    return value.lockAcquiredAt === null && value.lockHolder === null;
-  }
-
-  return (
-    typeof value.lockAcquiredAt === 'number' &&
-    Number.isFinite(value.lockAcquiredAt) &&
-    typeof value.lockHolder === 'string' &&
-    value.lockHolder.length > 0
-  );
+  return storedStateSchema.safeParse(value).success;
 }
 
 export function createCronLockLifecycle(
@@ -174,32 +172,45 @@ async function readWireResponse(response: Response): Promise<WirePayload> {
   return payload;
 }
 
+const acquireResponseSchema = z.object({
+  acquired: z.boolean(),
+  message: z.string(),
+  lockHolder: z.string().optional(),
+});
+
 function isAcquireResponse(
   payload: WirePayload
 ): payload is WirePayload & { acquired: boolean; message: string } {
-  return typeof payload.acquired === 'boolean' && typeof payload.message === 'string';
+  return acquireResponseSchema.safeParse(payload).success;
 }
+
+const releaseResponseSchema = z.object({ released: z.boolean(), message: z.string() });
 
 function isReleaseResponse(
   payload: WirePayload
 ): payload is WirePayload & { released: boolean; message: string } {
-  return typeof payload.released === 'boolean' && typeof payload.message === 'string';
+  return releaseResponseSchema.safeParse(payload).success;
 }
+
+const statusResponseSchema = z.object({
+  locked: z.boolean(),
+  lockHolder: z.string().nullable(),
+  lockAcquiredAt: z.number().nullable(),
+  timeHeldMs: z.number().nullable(),
+  expiresAt: z.number().nullable(),
+});
 
 function isStatusResponse(payload: WirePayload): payload is WirePayload & CronLockStatus {
-  return (
-    typeof payload.locked === 'boolean' &&
-    (payload.lockHolder === null || typeof payload.lockHolder === 'string') &&
-    (payload.lockAcquiredAt === null ||
-      (typeof payload.lockAcquiredAt === 'number' && Number.isFinite(payload.lockAcquiredAt))) &&
-    (payload.timeHeldMs === null ||
-      (typeof payload.timeHeldMs === 'number' && Number.isFinite(payload.timeHeldMs))) &&
-    (payload.expiresAt === null ||
-      (typeof payload.expiresAt === 'number' && Number.isFinite(payload.expiresAt)))
-  );
+  return statusResponseSchema.safeParse(payload).success;
 }
 
-export function createCronLockClient(namespace?: DurableObjectNamespace) {
+/** The slice of `DurableObjectNamespace` the lock client needs, generic over the object id. */
+export interface CronLockNamespace<Id = DurableObjectId> {
+  idFromName(name: string): Id;
+  get(id: Id): { fetch(input: string, init?: RequestInit): Promise<Response> };
+}
+
+export function createCronLockClient<Id = DurableObjectId>(namespace?: CronLockNamespace<Id>) {
   function stub() {
     if (!namespace) return null;
 
@@ -230,11 +241,14 @@ export function createCronLockClient(namespace?: DurableObjectNamespace) {
 
       const acquired = payload.acquired;
 
+      // SAFETY: acquire schema validated lockHolder as string-or-absent; currentHolder is optional
+      const currentHolder = payload.lockHolder as string;
+
       return {
         configured: true,
         acquired,
         message: payload.message,
-        currentHolder: typeof payload.lockHolder === 'string' ? payload.lockHolder : undefined,
+        currentHolder,
         async release() {
           if (!acquired) return;
 
@@ -245,13 +259,9 @@ export function createCronLockClient(namespace?: DurableObjectNamespace) {
 
           const releasePayload = await readWireResponse(releaseResponse);
 
-          if (!isReleaseResponse(releasePayload) || releasePayload.released !== true) {
-            throw new Error(
-              typeof releasePayload.message === 'string'
-                ? releasePayload.message
-                : 'Invalid cron lock response'
-            );
-          }
+          if (!isReleaseResponse(releasePayload)) throw new Error('Invalid cron lock response');
+
+          if (!releasePayload.released) throw new Error(releasePayload.message);
         },
       };
     },

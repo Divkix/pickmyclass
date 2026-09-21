@@ -61,7 +61,7 @@ describe('edgeHtmlCache', () => {
   it('uses a dev cache namespace when deploy metadata is unavailable', async () => {
     await cache.get(get('/'), undefined);
 
-    expect((match.mock.calls[0]![0] as Request).url).toBe('https://edge-cache.internal/dev/');
+    expect(match.mock.calls[0]![0].url).toBe('https://edge-cache.internal/dev/');
   });
 
   it('resolves the Cloudflare default cache lazily in the production singleton', async () => {
@@ -82,8 +82,8 @@ describe('edgeHtmlCache', () => {
 
     expect(write).not.toBeNull();
     await write;
-    expect((put.mock.calls[0]![0] as Request).url).toBe('https://edge-cache.internal/version-1/');
-    const stored = put.mock.calls[0]![1] as Response;
+    expect(put.mock.calls[0]![0].url).toBe('https://edge-cache.internal/version-1/');
+    const stored = put.mock.calls[0]![1];
     expect(stored.headers.get('cache-control')).toBe('public, s-maxage=3600');
     expect(stored.headers.get('content-security-policy')).toBe("script-src 'nonce-abc'");
     expect(await stored.text()).toContain('nonce="abc"');
