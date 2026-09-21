@@ -20,7 +20,7 @@ export function resetAnalyticsIdentity(): void {
   posthog.reset();
 }
 
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Error boundaries can throw any JavaScript value.
+// Error boundaries can throw any JavaScript value.
 export function captureAnalyticsError(error: unknown, properties?: AnalyticsProperties): void {
   posthog.captureException(error, properties);
 }

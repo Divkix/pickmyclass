@@ -11,7 +11,7 @@ export type ClassWatchCreationInput = {
 };
 
 type Request = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: type guard validates unknown payload shape for ClassWatchRow before narrowing
+// SAFETY: type guard validates unknown payload shape for ClassWatchRow before narrowing
 function isClassWatchRow(value: unknown): value is ClassWatchRow {
   return (
     isRecord(value) &&

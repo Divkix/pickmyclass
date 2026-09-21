@@ -281,7 +281,6 @@ function backendUserFrom(json: UserJSON): BackendUserDouble {
 }
 
 function backendUser(json: UserJSON): User {
-  // eslint-disable-next-line anti-slop/no-chained-type-assertions
   return backendUserFrom(json) as unknown as User;
 }
 
@@ -527,7 +526,6 @@ describe('repairUserMirror', () => {
       }
     );
 
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const result = await repairUserMirror(double.db, APP_USER_ID, untouched as unknown as User);
 
     expect(result).toEqual({ hasConsent: true });

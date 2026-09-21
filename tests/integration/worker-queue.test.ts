@@ -5,9 +5,7 @@ import type { Env } from '@/lib/types/env';
 vi.mock('cloudflare:workers', () => ({
   DurableObject: class DurableObject {
     constructor(
-      // eslint-disable-next-line anti-slop/no-unknown-parameters
       protected ctx: unknown,
-      // eslint-disable-next-line anti-slop/no-unknown-parameters
       protected env: unknown
     ) {}
   },
@@ -55,12 +53,10 @@ function makeBatch(
   messages: ReturnType<typeof makeMessage>[],
   queue = 'pickmyclass-queue'
 ): MessageBatch<ClassCheckMessage> {
-  // eslint-disable-next-line anti-slop/no-known-value-widening
   const raw: unknown = {
     queue,
     messages,
   };
-  // eslint-disable-next-line anti-slop/no-widen-then-assert
   return raw as MessageBatch<ClassCheckMessage>;
 }
 
@@ -186,12 +182,10 @@ const mockEnv = {
   NOTIFICATION_FROM_EMAIL: 'no-reply@test.com',
 } as Parameters<(typeof import('@/worker'))['default']['queue']>[1];
 
-// eslint-disable-next-line anti-slop/no-known-value-widening
 const rawTestCtx: unknown = {
   waitUntil: vi.fn(),
   passThroughOnException: vi.fn(),
 };
-// eslint-disable-next-line anti-slop/no-widen-then-assert
 const testCtx = rawTestCtx as ExecutionContext;
 
 describe('worker queue handler — direct processSection call ack/retry mapping', () => {

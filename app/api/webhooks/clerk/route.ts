@@ -21,7 +21,7 @@ import { log } from '@/lib/log';
 
 export async function POST(request: Request) {
   // SAFETY: provisioned via `wrangler secret put CLERK_WEBHOOK_SIGNING_SECRET`.
-  // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: Cloudflare Env has string-indexed bindings; narrow to known secret shape for optional chaining
+  // SAFETY: Cloudflare Env has string-indexed bindings; narrow to known secret shape for optional chaining
   const { CLERK_WEBHOOK_SIGNING_SECRET } = env as unknown as {
     CLERK_WEBHOOK_SIGNING_SECRET?: string;
   };

@@ -194,11 +194,9 @@ describe('ClassWatchCard', () => {
           };
 
         act(() => {
-          // eslint-disable-next-line anti-slop/no-chained-type-assertions
           handlers().onTouchStart({ touches: [{ clientX: 200 }] } as unknown as React.TouchEvent);
         });
         act(() => {
-          // eslint-disable-next-line anti-slop/no-chained-type-assertions
           handlers().onTouchMove({ touches: [{ clientX: 80 }] } as unknown as React.TouchEvent);
         });
         act(() => {

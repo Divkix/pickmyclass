@@ -21,10 +21,10 @@ export function useClassWatchForm(options: UseClassWatchFormOptions = {}) {
       // SAFETY: narrowing mocked getOptions shape at boundary – getOptions is typed narrowly but tests mock broader shape
       const result: unknown = classWatchCreation.getOptions() as unknown;
       if (result && typeof result === 'object' && 'terms' in result && 'defaultTerm' in result) {
-        // eslint-disable-next-line anti-slop/no-unsafe-dictionary-type -- SAFETY: boundary shape check for mocked getOptions
+        // SAFETY: boundary shape check for mocked getOptions
         const rec = result as Record<string, unknown>;
         if (Array.isArray(rec.terms) && typeof rec.defaultTerm === 'string') {
-          // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: validated array and string above, narrowing via unknown to precise AsuTerm shape
+          // SAFETY: validated array and string above, narrowing via unknown to precise AsuTerm shape
           return rec as unknown as { terms: AsuTerm[]; defaultTerm: string };
         }
       }

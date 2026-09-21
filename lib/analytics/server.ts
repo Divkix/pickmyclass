@@ -46,7 +46,6 @@ export function captureServerEvent<E extends keyof AnalyticsEventMap>(
 }
 
 // Server instrumentation receives arbitrary thrown JavaScript values by contract.
-// oxlint-disable anti-slop/no-unknown-parameters
 export async function captureServerException(
   error: unknown,
   properties?: AnalyticsProperties
@@ -61,4 +60,3 @@ export async function captureServerException(
     await client.shutdown(SHUTDOWN_TIMEOUT_MS);
   }
 }
-// oxlint-enable anti-slop/no-unknown-parameters
