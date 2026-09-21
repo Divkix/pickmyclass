@@ -68,14 +68,7 @@ function createDbDouble() {
       if (outcome instanceof Error) {
         const reject = (): Promise<never> => Promise.reject(outcome);
 
-        return {
-          then: (
-            onFulfilled?: (value: never) => PromiseLike<never>,
-            onRejected?: (reason: Error) => PromiseLike<never>
-          ) => reject().then(onFulfilled, onRejected),
-          catch: (onRejected: (reason: Error) => PromiseLike<never>) => reject().catch(onRejected),
-          values: reject,
-        };
+        return Object.assign(reject(), { values: reject });
       }
 
       return pendingRows(outcome ?? []);
@@ -86,6 +79,7 @@ function createDbDouble() {
   };
 
   const client: PostgresJsSeam = scriptedClient;
+  // SAFETY: options/unsafe/begin are the only Sql members drizzle touches — drizzle-orm/postgres-js.
   const db = drizzle(client as Database['$client'], { schema });
 
   return {

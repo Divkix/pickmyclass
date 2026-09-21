@@ -8,7 +8,7 @@ import {
 
 const verifiedUser = { email_confirmed_at: '2024-01-01T00:00:00Z' };
 
-const unverifiedUser = { email_confirmed_at: null as string | null };
+const unverifiedUser = { email_confirmed_at: null };
 
 const adminConsent = { is_admin: true, is_disabled: false, has_consent: true };
 

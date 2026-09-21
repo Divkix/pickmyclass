@@ -6,15 +6,14 @@ vi.mock('@/lib/db/queries', () => ({
 
 const mockSend = vi.fn();
 
-const mockEmailBinding: SendEmail = {
-  send: mockSend,
-} as SendEmail;
+const mockEmailBinding: SendEmail = { send: mockSend };
 
 import type { Database } from '@/lib/db';
-import { getClassWatchers } from '@/lib/db/queries';
+import { type ClassWatcher, getClassWatchers } from '@/lib/db/queries';
 import { handleDLQMessage } from '@/lib/queue/dlq-consumer';
 import type { ClassCheckMessage } from '@/lib/types/queue';
 
+// SAFETY: getClassWatchers is mocked here, so db is never read — dlq-consumer.ts:28.
 const db = {} as Database;
 
 function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMessage {
@@ -26,9 +25,9 @@ function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMes
   };
 }
 
-const mockGetClassWatchers = getClassWatchers as ReturnType<typeof vi.fn>;
+const mockGetClassWatchers = vi.mocked(getClassWatchers);
 
-function mockWatchers(watchers: unknown[]) {
+function mockWatchers(watchers: ClassWatcher[]) {
   mockGetClassWatchers.mockResolvedValue(watchers);
 }
 

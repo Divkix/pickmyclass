@@ -12,7 +12,7 @@ const {
   mockCaptureExceptionImmediate: vi.fn(),
   mockPostHog: vi.fn(),
   mockShutdown: vi.fn(),
-  mockWaitUntil: vi.fn(),
+  mockWaitUntil: vi.fn<(promise: Promise<void>) => void>(),
   mockWarn: vi.fn(),
 }));
 
@@ -44,7 +44,7 @@ async function registeredPromise(index = 0, expectedCalls = 1): Promise<void> {
   expect(mockWaitUntil).toHaveBeenCalledTimes(expectedCalls);
   expect(mockWaitUntil).toHaveBeenCalledWith(expect.any(Promise));
 
-  return mockWaitUntil.mock.calls[index][0] as Promise<void>;
+  return mockWaitUntil.mock.calls[index][0];
 }
 
 describe('server-side analytics boundary', () => {

@@ -2,13 +2,16 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import AddClassPage from '@/app/dashboard/add/page';
 
-const { mockPush, mockReplace, captured } = vi.hoisted(() => ({
+type AddClassWatchProps = {
+  onCreated: (watch: { id: string }, input: { term: string; class_nbr: string }) => void;
+};
+
+const { mockPush, mockReplace } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockReplace: vi.fn(),
-  captured: {} as {
-    onCreated?: (watch: { id: string }, input: { term: string; class_nbr: string }) => void;
-  },
 }));
+
+const captured = vi.hoisted<Partial<AddClassWatchProps>>(() => ({}));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -48,11 +51,7 @@ vi.mock('@/components/ui/skeleton', () => ({
 }));
 
 vi.mock('@/components/AddClassWatch', () => ({
-  AddClassWatch: ({
-    onCreated,
-  }: {
-    onCreated: (watch: { id: string }, input: { term: string; class_nbr: string }) => void;
-  }) => {
+  AddClassWatch: ({ onCreated }: AddClassWatchProps) => {
     captured.onCreated = onCreated;
 
     return <div data-testid="add-class-watch-form" />;

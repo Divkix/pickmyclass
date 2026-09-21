@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ApiError, AuthError, NotFoundError, RateLimitError } from '@/lib/asu/api';
 import { processSection } from '@/lib/queue/process-section';
 import type { ClassDetails } from '@/lib/types/class';
-import type { Env, SendEmail } from '@/lib/types/env';
+import type { Env } from '@/lib/types/env';
 import { createScriptedPostgres } from '../db/scripted-postgres';
 
 const REF = { class_nbr: '42737', term: '2261' };
@@ -46,7 +46,9 @@ function oldStateRow(
 }
 
 function buildSend() {
-  return vi.fn().mockResolvedValue({ messageId: 'msg_test' });
+  return vi
+    .fn<(message: EmailMessage | EmailMessageBuilder) => Promise<EmailSendResult>>()
+    .mockResolvedValue({ messageId: 'msg_test' });
 }
 
 function buildEnv(
@@ -55,7 +57,7 @@ function buildEnv(
   return {
     ASU_API_BASE_URL: 'https://asu.example.test',
     ASU_API_TOKEN: 'test-token',
-    EMAIL: { send } as unknown as SendEmail,
+    EMAIL: { send },
     NOTIFICATION_FROM_EMAIL: FROM_EMAIL,
   };
 }
@@ -191,7 +193,7 @@ describe('processSection behavior (interface only)', () => {
     });
     expect(outcome.result.emailsSent).toBe(1);
     expect(send).toHaveBeenCalledTimes(1);
-    const firstSend = send.mock.calls[0][0] as { to: string };
+    const firstSend = send.mock.calls[0][0];
     expect(firstSend.to).toBe('alice@example.com');
     expect(upsertsAtSend).toBe(1);
     const upserts = upsertStatements(h);
@@ -241,7 +243,7 @@ describe('processSection behavior (interface only)', () => {
     expect(outcome.disposition).toBe('ack');
     expect(outcome.result.emailsSent).toBe(1);
     expect(send).toHaveBeenCalledTimes(1);
-    const firstSend = send.mock.calls[0][0] as { to: string };
+    const firstSend = send.mock.calls[0][0];
     expect(firstSend.to).toBe('alice@example.com');
   });
 
@@ -334,7 +336,7 @@ describe('processSection behavior (interface only)', () => {
       emailsSucceeded: 1,
     });
     expect(send).toHaveBeenCalledTimes(1);
-    const firstSend = send.mock.calls[0][0] as { to: string };
+    const firstSend = send.mock.calls[0][0];
     expect(firstSend.to).toBe('alice@example.com');
   });
 

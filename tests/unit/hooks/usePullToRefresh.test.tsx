@@ -26,7 +26,7 @@ function TestComponent({
 }
 
 const createTouchEvent = (type: string, clientY: number): TouchEvent => {
-  const touch = {
+  const touch: Touch = {
     clientY,
     clientX: 0,
     identifier: 0,
@@ -34,7 +34,7 @@ const createTouchEvent = (type: string, clientY: number): TouchEvent => {
     pageY: clientY,
     screenX: 0,
     screenY: clientY,
-    target: null as unknown as EventTarget,
+    target: document.body,
     radiusX: 0,
     radiusY: 0,
     rotationAngle: 0,
@@ -42,9 +42,9 @@ const createTouchEvent = (type: string, clientY: number): TouchEvent => {
   };
 
   return new TouchEvent(type, {
-    touches: type === 'touchend' || type === 'touchcancel' ? [] : [touch as Touch],
-    targetTouches: type === 'touchend' || type === 'touchcancel' ? [] : [touch as Touch],
-    changedTouches: [touch as Touch],
+    touches: type === 'touchend' || type === 'touchcancel' ? [] : [touch],
+    targetTouches: type === 'touchend' || type === 'touchcancel' ? [] : [touch],
+    changedTouches: [touch],
     bubbles: true,
     cancelable: true,
   });

@@ -24,7 +24,7 @@ describe('SimplifiedWatchForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     onCreated = vi.fn().mockResolvedValue(undefined);
-    mockCreateWatch.mockResolvedValue({ id: 'watch-1' } as ClassWatchRow);
+    mockCreateWatch.mockResolvedValue({ id: 'watch-1' });
     mockGetOptions.mockReturnValue({
       terms: [{ code: '2264', label: 'Summer 2026' }],
       defaultTerm: '2264',
@@ -66,9 +66,9 @@ describe('SimplifiedWatchForm', () => {
   });
 
   it('reports the complete creation lifecycle to its container', async () => {
-    let resolveCreate!: (watch: ClassWatchRow) => void;
+    let resolveCreate!: (watch: { id: string }) => void;
     mockCreateWatch.mockReturnValue(
-      new Promise<ClassWatchRow>((resolve) => {
+      new Promise<{ id: string }>((resolve) => {
         resolveCreate = resolve;
       })
     );
@@ -79,7 +79,7 @@ describe('SimplifiedWatchForm', () => {
     fireEvent.submit(screen.getByRole('button', { name: 'Start Watching' }).closest('form')!);
 
     expect(onSubmittingChange).toHaveBeenCalledWith(true);
-    resolveCreate({ id: 'watch-1' } as ClassWatchRow);
+    resolveCreate({ id: 'watch-1' });
     await waitFor(() => expect(onSubmittingChange).toHaveBeenLastCalledWith(false));
   });
 
