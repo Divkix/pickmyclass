@@ -193,7 +193,7 @@ function pushTable(blocks: string[], rows: string[][]): void {
 /**
  * True when the client explicitly asks for Markdown and does not rank HTML higher.
  *
- * A wildcard-only `Accept` (`*​/*`) is not enough: browsers and plain HTTP clients
+ * A wildcard-only `Accept` (`*\/*`) is not enough: browsers and plain HTTP clients
  * send it, and they must keep receiving HTML.
  */
 export function prefersMarkdown(accept: string | null): boolean {
