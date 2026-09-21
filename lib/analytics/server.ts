@@ -45,16 +45,17 @@ export function captureServerEvent<E extends keyof AnalyticsEventMap>(
   );
 }
 
-// Server instrumentation receives arbitrary thrown JavaScript values by contract.
+// Server instrumentation receives arbitrary thrown JavaScript values by contract;
+// `cause` is the caught value forwarded to PostHog.
 export async function captureServerException(
-  error: unknown,
+  cause: unknown,
   properties?: AnalyticsProperties
 ): Promise<void> {
   const client = createClient();
 
   try {
     // SAFETY: metadata must occupy the third slot — the second is the optional distinct id.
-    await client.captureExceptionImmediate(error, undefined, properties);
+    await client.captureExceptionImmediate(cause, undefined, properties);
   } catch (sendError) {
     log('Analytics').warn('Failed to send analytics exception:', sendError);
   } finally {

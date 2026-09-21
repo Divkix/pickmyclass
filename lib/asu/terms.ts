@@ -244,7 +244,7 @@ function isEntryPast(termEntry: AsuTerm, today: DateParts): boolean {
 export function getPastTermCodes(now: Date = new Date()): string[] {
   const today = getPhoenixDateParts(now);
 
-  return ASU_TERM_CALENDAR.filter((t) => isEntryPast(t, today)).map((t) => t.code);
+  return ASU_TERM_CALENDAR.flatMap((t) => (isEntryPast(t, today) ? [t.code] : []));
 }
 
 export function formatTermOption(termEntry: AsuTerm): string {

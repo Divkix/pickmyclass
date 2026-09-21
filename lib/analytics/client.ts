@@ -20,7 +20,7 @@ export function resetAnalyticsIdentity(): void {
   posthog.reset();
 }
 
-// Error boundaries can throw any JavaScript value.
-export function captureAnalyticsError(error: unknown, properties?: AnalyticsProperties): void {
-  posthog.captureException(error, properties);
+// Error boundaries can throw any JavaScript value; `cause` is the caught value.
+export function captureAnalyticsError(cause: unknown, properties?: AnalyticsProperties): void {
+  posthog.captureException(cause, properties);
 }

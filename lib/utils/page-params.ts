@@ -4,7 +4,7 @@ export function param(
 ): string {
   const v = searchParams[key];
 
-  return typeof v === 'string' ? v : '';
+  return v === undefined || Array.isArray(v) ? '' : v;
 }
 
 export function parsePageParam(value: string | undefined, fallback = 1): number {
