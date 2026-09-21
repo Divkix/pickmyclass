@@ -74,6 +74,7 @@ interface AdminSeamDb {
 }
 
 function asDatabaseHandle(seam: Database | AdminSeamDb): Database {
+  // SAFETY: the seam double implements only the members these admin queries read.
   return seam as Database;
 }
 

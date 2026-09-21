@@ -1,4 +1,5 @@
 import { and, count, eq, gte, inArray, ne, sql } from 'drizzle-orm';
+import { z } from 'zod';
 
 import type { Database } from '@/lib/db';
 import { driverErrorMessage } from '@/lib/db/pg-errors';
@@ -38,17 +39,23 @@ function normalizeIsoTimestamp(value: DriverTimestamp): string | undefined {
 
 type DriverStringArray = readonly string[] | string;
 
+const arrayLiteralSchema = z.string().startsWith('{').endsWith('}');
+
 function normalizeStringArray(value: DriverStringArray | null | undefined): string[] {
   if (Array.isArray(value)) return value.map(String);
 
-  if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
-    const inner = value.slice(1, -1);
+  const literal = arrayLiteralSchema.safeParse(value);
+
+  if (literal.success) {
+    const inner = literal.data.slice(1, -1);
 
     return inner.length === 0 ? [] : inner.split(',');
   }
 
   return [];
 }
+
+const incrementCountSchema = z.number();
 
 async function incrementConsecutiveNotFoundViaRpc(db: Database, ref: SectionRef): Promise<number> {
   // The RPC creates the placeholder row itself when the section has never been
@@ -58,12 +65,13 @@ async function incrementConsecutiveNotFoundViaRpc(db: Database, ref: SectionRef)
   );
 
   const newCount = rows[0]?.new_count;
+  const parsedCount = incrementCountSchema.safeParse(newCount);
 
-  if (typeof newCount !== 'number' || !Number.isFinite(newCount)) {
+  if (!parsedCount.success) {
     throw new Error(`Invalid increment result: ${String(newCount)}`);
   }
 
-  return newCount;
+  return parsedCount.data;
 }
 
 export async function getClassWatchers(db: Database, ref: SectionRef): Promise<ClassWatcher[]> {

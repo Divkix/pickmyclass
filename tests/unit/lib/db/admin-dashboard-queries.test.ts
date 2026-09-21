@@ -1,6 +1,7 @@
 import { getTableName, type SQL } from 'drizzle-orm';
 import { PgDialect, type PgTable } from 'drizzle-orm/pg-core';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
 
 import type { Database } from '@/lib/db';
 
@@ -29,6 +30,7 @@ interface AdminSeamDb {
 }
 
 function asDatabaseHandle(seam: Database | AdminSeamDb): Database {
+  // SAFETY: the seam double implements only the members the dashboard queries read.
   return seam as Database;
 }
 
@@ -252,7 +254,7 @@ describe('admin dashboard query helpers', () => {
       seat_emails: 1,
       instructor_emails: 0,
     });
-    expect(typeof result.rows[0].watch_count).toBe('number');
+    expect(z.number().safeParse(result.rows[0].watch_count).success).toBe(true);
     expect(result.rows[0].created_at).toBe('2026-05-01T00:00:00.000Z');
     expect(result.rows[0].last_sign_in_at).toBeNull();
   });

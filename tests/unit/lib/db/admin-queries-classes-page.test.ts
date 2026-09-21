@@ -1,6 +1,7 @@
 import { type SQL } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
 import type { Database } from '@/lib/db';
 import { expectRpcFailure } from './rpc-failure';
 
@@ -38,6 +39,7 @@ interface ClassesPageSeamDb {
 }
 
 function asDatabaseHandle(seam: Database | ClassesPageSeamDb): Database {
+  // SAFETY: the seam double implements only the members the classes-page query reads.
   return seam as Database;
 }
 
@@ -149,7 +151,7 @@ describe('getClassesPage', () => {
       instructor_emails: 1,
       consecutive_not_found_count: 0,
     });
-    expect(typeof result.rows[0].watcher_count).toBe('number');
+    expect(z.number().safeParse(result.rows[0].watcher_count).success).toBe(true);
     expect(result.rows[0].last_checked_at).toBe('2026-08-01T00:00:00.000Z');
   });
 

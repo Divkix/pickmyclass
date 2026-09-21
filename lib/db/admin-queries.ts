@@ -1,4 +1,5 @@
 import { and, count, desc, eq, sql } from 'drizzle-orm';
+import { z } from 'zod';
 
 import { TtlCache } from '@/lib/cache/ttl-cache';
 import { ADMIN_CACHE_TTL_MS } from '@/lib/config';
@@ -22,10 +23,12 @@ function toIsoTimestamp(value: string): string {
 
 type ConsecutiveCountRow = { consecutive_not_found_count?: number };
 
-function normalizeConsecutiveCount(row: ConsecutiveCountRow): number {
-  const count = row.consecutive_not_found_count;
+const consecutiveCountSchema = z.number();
 
-  return typeof count === 'number' ? count : 0;
+function normalizeConsecutiveCount(row: ConsecutiveCountRow): number {
+  const parsed = consecutiveCountSchema.safeParse(row.consecutive_not_found_count);
+
+  return parsed.success ? parsed.data : 0;
 }
 
 type CountRpcRow = { count: string };

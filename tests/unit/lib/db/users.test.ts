@@ -64,6 +64,7 @@ interface BuilderRecorder {
 type UsersSeamDb = Database | BuilderRecorder;
 
 function asDatabaseHandle(seam: UsersSeamDb): Database {
+  // SAFETY: the seam double implements only the members the code paths under test read.
   return seam as Database;
 }
 
@@ -298,7 +299,8 @@ function backendUserFrom(json: UserJSON): BackendUserDouble {
 }
 
 function backendUser(json: UserJSON): User {
-  return backendUserFrom(json) as unknown as User;
+  // SAFETY: the double implements every member repairUserMirror reads, and only those members.
+  return backendUserFrom(json) as User;
 }
 
 let double: DbDouble;
@@ -545,7 +547,8 @@ describe('repairUserMirror', () => {
       }
     );
 
-    const result = await repairUserMirror(double.db, APP_USER_ID, untouched as unknown as User);
+    // SAFETY: the proxy throws on any read, so the cache-hit path must not touch the user.
+    const result = await repairUserMirror(double.db, APP_USER_ID, untouched as User);
 
     expect(result).toEqual({ hasConsent: true });
     expect(double.ops()).toHaveLength(1);

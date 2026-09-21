@@ -32,6 +32,7 @@ interface ScriptedTransport {
 type PostgresClient = Database['$client'] | ScriptedTransport;
 
 function asPostgresClient(client: PostgresClient): Database['$client'] {
+  // SAFETY: the scripted transport implements only the postgres-js surface drizzle reads.
   return client as Database['$client'];
 }
 

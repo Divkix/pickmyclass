@@ -41,15 +41,16 @@ interface StatementFailure {
   cause: unknown;
 }
 
+const statementFailureSchema = z
+  .object({
+    query: z.unknown(),
+    params: z.unknown(),
+    cause: z.unknown(),
+  })
+  .refine((value) => value.cause !== undefined);
+
 function isStatementFailure(value: unknown): value is StatementFailure {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'query' in value &&
-    'params' in value &&
-    'cause' in value &&
-    value.cause !== undefined
-  );
+  return statementFailureSchema.safeParse(value).success;
 }
 
 interface CaughtDriverView {
@@ -58,8 +59,8 @@ interface CaughtDriverView {
   message: string;
 }
 
-function viewCaughtDriver(error: unknown): CaughtDriverView {
-  let current: unknown = error;
+function viewCaughtDriver(cause: unknown): CaughtDriverView {
+  let current: unknown = cause;
 
   for (let depth = 0; depth < 5 && isStatementFailure(current); depth += 1) {
     current = current.cause;
@@ -74,16 +75,16 @@ function viewCaughtDriver(error: unknown): CaughtDriverView {
   };
 }
 
-export function getPgError(error: unknown): PgError | null {
-  return viewCaughtDriver(error).pgError;
+export function getPgError(cause: unknown): PgError | null {
+  return viewCaughtDriver(cause).pgError;
 }
 
-export function driverErrorMessage(error: unknown): string {
-  return viewCaughtDriver(error).message;
+export function driverErrorMessage(cause: unknown): string {
+  return viewCaughtDriver(cause).message;
 }
 
-export function isUniqueViolation(error: unknown): boolean {
-  const { leaf, pgError } = viewCaughtDriver(error);
+export function isUniqueViolation(cause: unknown): boolean {
+  const { leaf, pgError } = viewCaughtDriver(cause);
 
   if (pgError?.code === PG_UNIQUE_VIOLATION) return true;
   const parsedMessage = errorMessageSchema.safeParse(leaf);
@@ -91,10 +92,10 @@ export function isUniqueViolation(error: unknown): boolean {
   return parsedMessage.success && parsedMessage.data.message.includes('duplicate key value');
 }
 
-export function isRaisedException(error: unknown): boolean {
-  return viewCaughtDriver(error).pgError?.code === PG_RAISE_EXCEPTION;
+export function isRaisedException(cause: unknown): boolean {
+  return viewCaughtDriver(cause).pgError?.code === PG_RAISE_EXCEPTION;
 }
 
-export function isUndefinedFunction(error: unknown): boolean {
-  return viewCaughtDriver(error).pgError?.code === PG_UNDEFINED_FUNCTION;
+export function isUndefinedFunction(cause: unknown): boolean {
+  return viewCaughtDriver(cause).pgError?.code === PG_UNDEFINED_FUNCTION;
 }
