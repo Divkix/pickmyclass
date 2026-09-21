@@ -5,7 +5,6 @@ allowBuilds:
   esbuild: true
   sharp: true
   workerd: true
-confirmModulesPurge: false
 minimumReleaseAge: 0
 trustPolicy: no-downgrade
 overrides:

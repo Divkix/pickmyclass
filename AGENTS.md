@@ -16,7 +16,7 @@ When you discover something non-obvious — an invariant, gotcha, decision and i
 
 ## What this is
 
-**PickMyClass** notifies ASU students by email when a seat opens or instructor is assigned in a watched section. **Next.js 16 App Router** (React 19, TS strict) on **Cloudflare Workers via `vinext`** (Vite-based, not next-on-pages), **PlanetScale Postgres via Hyperdrive** (request-scoped Drizzle/postgres-js, `--caching-disabled`) + **Clerk** (`jwtKey`, `ext_id`) + **polling** (`docs/adr/0014`), **Cloudflare Email + Queues + Durable Object** for notifications. `pnpm@11.10.0`, `Vite+ (vp)`.
+**PickMyClass** notifies ASU students by email when a seat opens or instructor is assigned in a watched section. **Next.js 16 App Router** (React 19, TS strict) on **Cloudflare Workers via `vinext`** (Vite-based, not next-on-pages), **PlanetScale Postgres via Hyperdrive** (request-scoped Drizzle/postgres-js, `--caching-disabled`) + **Clerk** (`jwtKey`, `ext_id`) + **polling** (`docs/adr/0014`), **Cloudflare Email + Queues + Durable Object** for notifications. `pnpm@12.5.1`, `Vite+ (vp)`.
 
 Two systems to understand first: **seat-check notification pipeline** and **auth/account lifecycle** — details in ADRs, invariants below.
 
@@ -61,7 +61,7 @@ public/       # static + llms.txt, llms-full.txt
 
 ## Build, test & dev
 
-Through `vinext` + `vp` — don't use `next`/`vitest`/`eslint` directly. `pnpm@11.10.0`.
+Through `vinext` + `vp` — don't use `next`/`vitest`/`eslint` directly. `pnpm@12.5.1`.
 
 ```bash
 pnpm run dev              # vinext dev :3000
@@ -102,6 +102,8 @@ Two tsconfigs: `tsconfig.json` (app, excludes worker.ts) + `tsconfig.worker.json
 - **`non_reserved_seats` populated since #198** (`Math.max(0, enrlCap-enrlTot-waitTot)`), fallback `non_reserved_seats ?? seats_available` in `detectChanges`.
 - **`lib/asu/terms.ts` needs yearly August update** or new watch creation silently blocks.
 - **Never add dynamic API (`headers()`/`cookies()`) to `app/layout.tsx`** — static pages 500. `useSearchParams` needs `<Suspense>`.
+- **`pnpm-lock.yaml` is multi-document** — first document is the env lockfile (`packageManagerDependencies`), second is the project lockfile. Expected; don't merge or strip it.
+- **Bumping `packageManager` requires regenerating the lockfile** — `--frozen-lockfile` (CI `validate-lockfile`) fails with `ERR_PNPM_FROZEN_LOCKFILE_WITH_OUTDATED_LOCKFILE` otherwise. pnpm 12 also *fails* (not warns) on unrecognized `pnpm-workspace.yaml` keys while the pin matches the running pnpm (`ERR_PNPM_UNRECOGNIZED_WORKSPACE_SETTINGS`), so a stale v11 setting breaks install outright.
 
 ## Known doc drift
 
