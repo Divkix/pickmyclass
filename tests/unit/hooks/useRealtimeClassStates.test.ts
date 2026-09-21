@@ -25,6 +25,7 @@ function makeRow(
 }
 
 function fetchResponse(classStates: ClassStateRow[]): Response {
+  // SAFETY: the hook reads only ok/status/json — lib/hooks/useRealtimeClassStates.ts:58-72.
   return {
     ok: true,
     status: 200,
@@ -73,6 +74,7 @@ describe('useRealtimeClassStates hook', () => {
         expect(global.fetch).toHaveBeenCalledTimes(1);
       });
 
+      // SAFETY: hook calls fetch with a template-literal URL string — useRealtimeClassStates.ts:53.
       const calledUrl = vi.mocked(global.fetch).mock.calls[0]![0] as string;
       expect(calledUrl).toContain('/api/class-watches/states');
       expect(calledUrl).toContain('classNumbers=12345%2C67890');
@@ -201,6 +203,7 @@ describe('useRealtimeClassStates hook', () => {
 
   describe('error handling', () => {
     it('sets error when fetch returns a non-ok response', async () => {
+      // SAFETY: the hook reads only ok/status/json — lib/hooks/useRealtimeClassStates.ts:58-72.
       vi.mocked(global.fetch).mockResolvedValue({
         ok: false,
         status: 500,
@@ -239,6 +242,7 @@ describe('useRealtimeClassStates hook', () => {
         expect(result.current.classStates['2261:12345']).toBeDefined();
       });
 
+      // SAFETY: the hook reads only ok/status/json — lib/hooks/useRealtimeClassStates.ts:58-72.
       vi.mocked(global.fetch).mockResolvedValueOnce({
         ok: false,
         status: 403,

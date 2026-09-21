@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
 import AboutPage from '@/app/about/page';
 import ASUClassSeatTrackerPost from '@/app/blog/asu-class-seat-tracker/page';
 import ASURegistrationTipsPost from '@/app/blog/asu-registration-tips/page';
@@ -32,9 +33,20 @@ type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
+const jsonLdSchema = z.looseObject({
+  '@type': z.string().optional(),
+  itemListElement: z.array(z.looseObject({})).optional(),
+});
+
+const readJsonLd = (script: Element) => {
+  const parsed = jsonLdSchema.safeParse(JSON.parse(script.textContent ?? '{}'));
+
+  return parsed.success ? parsed.data : {};
+};
+
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: LinkProps) => (
-    <a href={typeof href === 'string' ? href : (href.pathname ?? '#')} {...props}>
+    <a href={href instanceof Object ? (href.pathname ?? '#') : href} {...props}>
       {children}
     </a>
   ),
@@ -66,11 +78,14 @@ vi.mock('framer-motion', () => ({
 }));
 
 beforeAll(() => {
-  global.IntersectionObserver = class IntersectionObserver {
-    observe = vi.fn();
-    unobserve = vi.fn();
-    disconnect = vi.fn();
-  } as unknown as typeof IntersectionObserver;
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+    }
+  );
 });
 
 type MotionTag = 'div' | 'button' | 'h1' | 'p' | 'ul' | 'li' | 'article' | 'span' | 'section';
@@ -205,17 +220,7 @@ describe('blog pages', () => {
     expect(articleLinks).toHaveLength(blogPosts.length);
 
     const schemas = [...document.querySelectorAll('script[type="application/ld+json"]')].map(
-      (script) => {
-        return JSON.parse(script.textContent ?? '{}') as {
-          '@type'?: string;
-          itemListElement?: {
-            '@type': string;
-            position: number;
-            name: string;
-            item?: string;
-          }[];
-        };
-      }
+      readJsonLd
     );
 
     const breadcrumbs = schemas.find((schema) => schema['@type'] === 'BreadcrumbList');
@@ -257,7 +262,7 @@ describe('blog pages', () => {
     expect(document.querySelector('main#main article')).toBeInTheDocument();
 
     const schemas = [...document.querySelectorAll('script[type="application/ld+json"]')].map(
-      (script) => JSON.parse(script.textContent ?? '{}') as { '@type'?: string }
+      readJsonLd
     );
 
     expect(schemas.some((schema) => schema['@type'] === 'FAQPage')).toBe(true);

@@ -48,6 +48,7 @@ function makeDb(rowsFor: RowsFor) {
 
   const scriptedClient = { unsafe, options: { parsers: {}, serializers: {} } };
   const client: PostgresJsSeam = scriptedClient;
+  // SAFETY: no transaction here; options/unsafe are all drizzle touches — drizzle-orm/postgres-js.
   const db = drizzle(client as postgres.Sql, { schema });
 
   return { db, queries };
@@ -187,6 +188,7 @@ describe('lib/onboarding', () => {
       await applyFirstWatchGuard(db, 'user-1');
       const after = new Date().getTime();
 
+      // SAFETY: applyFirstWatchGuard binds the ISO timestamp as param[0] — lib/onboarding.ts.
       const timestamp = new Date(queries[0].params[0] as string).getTime();
       expect(timestamp).toBeGreaterThanOrEqual(before);
       expect(timestamp).toBeLessThanOrEqual(after);

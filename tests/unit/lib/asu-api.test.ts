@@ -95,6 +95,7 @@ describe('fetchClassFromASU', () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0];
+    // SAFETY: fetch is called with buildClassSearchUrl's string result — lib/asu/api.ts:171.
     const parsedUrl = new URL(url as string);
 
     expect(parsedUrl.pathname).toBe('/catalog-microservices/api/v1/search/classes');
@@ -129,6 +130,7 @@ describe('fetchClassFromASU', () => {
     );
 
     const [url, init] = fetchSpy.mock.calls[0];
+    // SAFETY: fetch is called with buildClassSearchUrl's string result — lib/asu/api.ts:171.
     const parsedUrl = new URL(url as string);
 
     expect(parsedUrl.pathname).toBe('/catalog-microservices/api/v1/search/classes');
@@ -142,7 +144,7 @@ describe('fetchClassFromASU', () => {
     ['token', { ASU_API_BASE_URL: 'https://example.com/api/v1', ASU_API_TOKEN: '' }],
   ])('should reject when the ASU API %s is missing', async (_field, env) => {
     await expect(fetchClassFromASU({ class_nbr: '42737', term: '2264' }, env)).rejects.toSatisfy(
-      (error: unknown) => {
+      (error) => {
         return error instanceof ApiError && error.message.includes('not configured');
       }
     );
@@ -201,7 +203,7 @@ describe('fetchClassFromASU', () => {
           ASU_API_TOKEN: 'test-token',
         }
       )
-    ).rejects.toSatisfy((error: unknown) => {
+    ).rejects.toSatisfy((error) => {
       return error instanceof ApiError && error.status === 408;
     });
   });
@@ -255,7 +257,7 @@ describe('fetchClassFromASU', () => {
           ASU_API_TOKEN: 'test-token',
         }
       )
-    ).rejects.toSatisfy((error: unknown) => {
+    ).rejects.toSatisfy((error) => {
       return error instanceof ErrorClass && error.message.includes(message);
     });
   });
@@ -482,7 +484,7 @@ describe('fetchClassFromASU', () => {
           ASU_API_TOKEN: 'test-token',
         }
       )
-    ).rejects.toSatisfy((error: unknown) => {
+    ).rejects.toSatisfy((error) => {
       return error instanceof Error && error.message.includes('Section 99999 not found');
     });
   });

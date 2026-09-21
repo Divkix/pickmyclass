@@ -12,9 +12,11 @@ vi.mock('@/lib/email/unsubscribe-token', () => ({
 import { sendBatchEmailsOptimized } from '@/lib/email/send';
 import type { ClassInfo } from '@/lib/types/class';
 
+type SendEmailFn = (message: EmailMessageBuilder & EmailMessage) => Promise<EmailSendResult>;
+
 function createMockSendEmail() {
   return {
-    send: vi.fn().mockResolvedValue({ messageId: 'msg_test123' }),
+    send: vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg_test123' }),
   };
 }
 
@@ -31,7 +33,7 @@ function buildClassInfo(overrides: Partial<ClassInfo> = {}): ClassInfo {
     location: 'TMP 101',
     meeting_times: 'MWF 10:00-10:50',
     ...overrides,
-  } as ClassInfo;
+  };
 }
 
 describe('sendBatchEmailsOptimized', () => {
@@ -41,7 +43,7 @@ describe('sendBatchEmailsOptimized', () => {
 
   it('returns empty array for empty batch', async () => {
     const sendEmail = createMockSendEmail();
-    const results = await sendBatchEmailsOptimized([], sendEmail as SendEmail);
+    const results = await sendBatchEmailsOptimized([], sendEmail);
     expect(results).toEqual([]);
     expect(sendEmail.send).not.toHaveBeenCalled();
   });
@@ -64,7 +66,7 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    const results = await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
+    const results = await sendBatchEmailsOptimized(emails, sendEmail);
 
     expect(results).toHaveLength(2);
     expect(results[0]).toEqual({ success: true, messageId: 'msg_test123' });
@@ -84,7 +86,7 @@ describe('sendBatchEmailsOptimized', () => {
           type: 'seat_available',
         },
       ],
-      sendEmail as SendEmail,
+      sendEmail,
       { fromEmail: 'alerts@pickmyclass.app' }
     );
 
@@ -98,7 +100,7 @@ describe('sendBatchEmailsOptimized', () => {
   it('captures per-email errors without stopping the batch', async () => {
     const sendEmail = {
       send: vi
-        .fn()
+        .fn<SendEmailFn>()
         .mockRejectedValueOnce(new Error('Transient failure'))
         .mockResolvedValueOnce({ messageId: 'msg_ok' }),
     };
@@ -118,7 +120,7 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    const results = await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
+    const results = await sendBatchEmailsOptimized(emails, sendEmail);
 
     expect(results).toHaveLength(2);
     expect(results[0].success).toBe(false);
@@ -135,7 +137,7 @@ describe('sendBatchEmailsOptimized', () => {
 
     const sendEmail = {
       send: vi
-        .fn()
+        .fn<SendEmailFn>()
         .mockResolvedValueOnce({ messageId: 'msg_1' })
         .mockRejectedValueOnce(rateLimitError)
         .mockResolvedValueOnce({ messageId: 'msg_3' }),
@@ -147,7 +149,7 @@ describe('sendBatchEmailsOptimized', () => {
       { to: 'c@t.com', userId: 'u3', classInfo: buildClassInfo(), type: 'seat_available' as const },
     ];
 
-    const results = await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
+    const results = await sendBatchEmailsOptimized(emails, sendEmail);
 
     expect(results).toHaveLength(3);
     expect(results[0].success).toBe(true);
@@ -170,7 +172,7 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
+    await sendBatchEmailsOptimized(emails, sendEmail);
 
     expect(sendEmail.send).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -194,7 +196,7 @@ describe('sendBatchEmailsOptimized', () => {
       },
     ];
 
-    await sendBatchEmailsOptimized(emails, sendEmail as SendEmail);
+    await sendBatchEmailsOptimized(emails, sendEmail);
 
     expect(sendEmail.send).toHaveBeenCalledWith(
       expect.objectContaining({

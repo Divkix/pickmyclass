@@ -7,7 +7,7 @@ import { UsersTable } from '@/components/admin/UsersTable';
 import type { ClassWithWatchers, UserWithWatchCount } from '@/lib/db/admin-queries';
 
 const { mockPush, mockSearchParams } = vi.hoisted(() => ({
-  mockPush: vi.fn(),
+  mockPush: vi.fn<(url: string) => void>(),
   mockSearchParams: new URLSearchParams(),
 }));
 
@@ -190,6 +190,7 @@ describe('admin table components (server-driven)', () => {
   it('navigates to class detail page on row click', () => {
     render(<ClassesTable {...defaultClassProps} classes={classes} total={2} />);
 
+    // SAFETY: rows render through TableRow, whose root element is <tr> — components/ui/table.tsx:35.
     fireEvent.click(screen.getByText('Calculus I').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/classes/2261/23456');
   });
@@ -199,7 +200,7 @@ describe('admin table components (server-driven)', () => {
 
     fireEvent.click(screen.getByText('Class #'));
     expect(mockPush).toHaveBeenCalled();
-    const callArg: string = mockPush.mock.calls[0][0] as string;
+    const callArg: string = mockPush.mock.calls[0][0];
     expect(callArg).toContain('sort=class_nbr');
   });
 
@@ -223,7 +224,7 @@ describe('admin table components (server-driven)', () => {
 
     fireEvent.click(screen.getByText('subject mat'));
     expect(mockPush).toHaveBeenCalled();
-    const callArg: string = mockPush.mock.calls[0][0] as string;
+    const callArg: string = mockPush.mock.calls[0][0];
     expect(callArg).toContain('subject=MAT');
   });
 
@@ -245,6 +246,7 @@ describe('admin table components (server-driven)', () => {
   it('navigates to user detail page on row click', () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
 
+    // SAFETY: rows render through TableRow, whose root element is <tr> — components/ui/table.tsx:35.
     fireEvent.click(screen.getByText('student@example.com').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/users/user-1');
   });
@@ -262,7 +264,7 @@ describe('admin table components (server-driven)', () => {
 
     fireEvent.click(screen.getByText('Email'));
     expect(mockPush).toHaveBeenCalled();
-    const callArg: string = mockPush.mock.calls[0][0] as string;
+    const callArg: string = mockPush.mock.calls[0][0];
     expect(callArg).toContain('sort=email');
   });
 
@@ -281,7 +283,7 @@ describe('admin table components (server-driven)', () => {
 
     fireEvent.click(screen.getByText('role admin'));
     expect(mockPush).toHaveBeenCalled();
-    const callArg: string = mockPush.mock.calls[0][0] as string;
+    const callArg: string = mockPush.mock.calls[0][0];
     expect(callArg).toContain('role=admin');
   });
 

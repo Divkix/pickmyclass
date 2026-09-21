@@ -29,10 +29,7 @@ describe('ConsentPage', () => {
   }
 
   it('requires both statements and records consent before continuing', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ success: true }),
-    } as Response);
+    vi.mocked(global.fetch).mockResolvedValueOnce(Response.json({ success: true }));
     render(<ConsentPage />);
 
     const continueButton = screen.getByRole('button', { name: /save and continue/i });
@@ -52,10 +49,9 @@ describe('ConsentPage', () => {
   });
 
   it('keeps the gate open and explains persistence failures', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce({
-      ok: false,
-      json: () => Promise.resolve({ error: 'Could not save consent' }),
-    } as Response);
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      Response.json({ error: 'Could not save consent' }, { status: 500 })
+    );
     render(<ConsentPage />);
 
     confirmStatements();
@@ -67,10 +63,7 @@ describe('ConsentPage', () => {
 
   it('does not follow an external next URL', async () => {
     mockUseSearchParams.mockReturnValue(new URLSearchParams('next=https://evil.test'));
-    vi.mocked(global.fetch).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ success: true }),
-    } as Response);
+    vi.mocked(global.fetch).mockResolvedValueOnce(Response.json({ success: true }));
     render(<ConsentPage />);
 
     confirmStatements();

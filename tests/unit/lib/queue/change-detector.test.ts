@@ -170,10 +170,7 @@ describe('detectChanges', () => {
   it('handles undefined instructor in newData', () => {
     const oldState = mockOldState({ instructor_name: 'Staff' });
 
-    const result = detectChanges(
-      oldState,
-      mockClassDetails({ instructor_name: undefined as unknown as string })
-    );
+    const result = detectChanges(oldState, mockClassDetails({ instructor_name: undefined }));
 
     expect(result.instructorAssigned).toBe(false);
   });

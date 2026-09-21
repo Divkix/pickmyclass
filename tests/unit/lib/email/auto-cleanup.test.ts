@@ -5,7 +5,6 @@ import {
   EMAIL_BATCH_SIZE,
   NOTIFICATION_FROM_EMAIL,
 } from '@/lib/config';
-import type { SendEmail } from '@/lib/types/env';
 
 vi.mock('@/lib/email/unsubscribe-token', () => ({
   generateUnsubscribeUrl: vi.fn(
@@ -20,6 +19,8 @@ import {
   sendAutoCleanupRemovalEmails,
 } from '@/lib/email/templates/auto-cleanup';
 
+type SendEmailFn = (message: EmailMessageBuilder & EmailMessage) => Promise<EmailSendResult>;
+
 describe('buildAutoCleanupRemovedEmail', () => {
   const originalEnv = process.env.NEXT_PUBLIC_SITE_URL;
 
@@ -33,8 +34,9 @@ describe('buildAutoCleanupRemovedEmail', () => {
     vi.restoreAllMocks();
 
     if (originalEnv === undefined)
+      // SAFETY: cloudflare-env.d.ts pins this key as required; delete needs string | undefined.
       delete (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL;
-    else (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL = originalEnv;
+    else process.env.NEXT_PUBLIC_SITE_URL = originalEnv;
   });
 
   it('escapes HTML in subject, term, title and includes dashboard link', () => {
@@ -64,6 +66,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
   });
 
   it('includes dashboard link with default site URL when env not set', () => {
+    // SAFETY: cloudflare-env.d.ts pins this key as required; delete needs string | undefined.
     delete (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL;
 
     const email = buildAutoCleanupRemovedEmail({
@@ -183,8 +186,9 @@ describe('buildAutoCleanupRemovedEmail', () => {
   });
 
   it('handles trailing slash in site URL for dashboard link', () => {
+    // SAFETY: cloudflare-env.d.ts pins this key to the default URL; this view widens it.
     (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL =
-      'https://pickmyclass.app///' as string;
+      'https://pickmyclass.app///';
 
     const email = buildAutoCleanupRemovedEmail({
       classNbr: '42737',
@@ -220,13 +224,14 @@ describe('sendAutoCleanupRemovalEmails', () => {
       watch_id: `w${i}`,
     }));
 
-    const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    const emailBinding = { send: sendMock } as unknown as SendEmail;
+    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
+    const emailBinding = { send: sendMock };
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const realSetTimeout = globalThis.setTimeout;
     vi.spyOn(globalThis, 'setTimeout').mockImplementation((cb: () => void) => {
       cb();
 
-      return {} as unknown as ReturnType<typeof setTimeout>;
+      return realSetTimeout(() => {}, 0);
     });
 
     const results = await sendAutoCleanupRemovalEmails(
@@ -247,14 +252,14 @@ describe('sendAutoCleanupRemovalEmails', () => {
     expect(results.filter((r) => r.attempted).length).toBe(sendMock.mock.calls.length);
     expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({ to: watchers[0].email }));
     expect(sendMock).not.toHaveBeenCalledWith(expect.objectContaining({ to: watchers[cap].email }));
-    const sentEmails = sendMock.mock.calls.map((c) => (c[0] as { to: string }).to);
+    const sentEmails = sendMock.mock.calls.map((c) => c[0].to);
     expect(sentEmails).not.toContain(watchers[cap].email);
     expect(sentEmails).toContain(watchers[0].email);
     expect(sentEmails).toContain(watchers[cap - 1].email);
 
-    const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
-      (c) => String(c[0]) + ' ' + String(c[1] ?? '')
-    );
+    const warnCalls = vi
+      .mocked(console.warn)
+      .mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
 
     expect(warnCalls.some((s) => s.includes('exceeds cap') && s.includes('truncating'))).toBe(true);
   });
@@ -265,8 +270,8 @@ describe('sendAutoCleanupRemovalEmails', () => {
       { user_id: 'u2', email: 'b@example.com', watch_id: 'w2' },
     ];
 
-    const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    const emailBinding = { send: sendMock } as unknown as SendEmail;
+    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
+    const emailBinding = { send: sendMock };
 
     const results = await sendAutoCleanupRemovalEmails(
       {
@@ -284,8 +289,8 @@ describe('sendAutoCleanupRemovalEmails', () => {
   });
 
   it('returns empty when no watchers', async () => {
-    const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    const emailBinding = { send: sendMock } as unknown as SendEmail;
+    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
+    const emailBinding = { send: sendMock };
 
     const results = await sendAutoCleanupRemovalEmails(
       {
@@ -312,10 +317,10 @@ describe('sendAutoCleanupRemovalEmails', () => {
     ];
 
     const sendMock = vi
-      .fn()
+      .fn<SendEmailFn>()
       .mockRejectedValue(Object.assign(new Error(message), { code: fatalCode }));
 
-    const emailBinding = { send: sendMock } as unknown as SendEmail;
+    const emailBinding = { send: sendMock };
 
     const results = await sendAutoCleanupRemovalEmails(
       {
@@ -356,14 +361,14 @@ describe('sendAutoCleanupRemovalEmails', () => {
     ];
 
     const sendMock = vi
-      .fn()
+      .fn<SendEmailFn>()
       .mockResolvedValueOnce({ messageId: 'm1' })
       .mockRejectedValueOnce(
         Object.assign(new Error('smtp hiccup'), { code: 'E_CONNECTION_CLOSED' })
       )
       .mockResolvedValueOnce({ messageId: 'm3' });
 
-    const emailBinding = { send: sendMock } as unknown as SendEmail;
+    const emailBinding = { send: sendMock };
 
     const results = await sendAutoCleanupRemovalEmails(
       {
@@ -391,8 +396,8 @@ describe('sendAutoCleanupRemovalEmails', () => {
       { user_id: 'user-43', email: 'b@example.com', watch_id: 'w2' },
     ];
 
-    const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    const emailBinding = { send: sendMock } as unknown as SendEmail;
+    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
+    const emailBinding = { send: sendMock };
 
     await sendAutoCleanupRemovalEmails(
       {
@@ -414,7 +419,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
         },
       })
     );
-    const secondPayload = sendMock.mock.calls[1][0] as { html: string; text: string };
+    const secondPayload = sendMock.mock.calls[1][0];
     expect(secondPayload.html).toContain('unsubscribe?token=user-43');
     expect(secondPayload.text).toContain(
       'Unsubscribe: https://pickmyclass.app/unsubscribe?token=user-43'
@@ -428,8 +433,8 @@ describe('sendAutoCleanupRemovalEmails', () => {
       })
     );
 
-    const defaultSend = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    const defaultBinding = { send: defaultSend } as unknown as SendEmail;
+    const defaultSend = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
+    const defaultBinding = { send: defaultSend };
     await sendAutoCleanupRemovalEmails(
       {
         ref: { class_nbr: '42737', term: '2261' },
@@ -450,13 +455,14 @@ describe('sendAutoCleanupRemovalEmails', () => {
       watch_id: `w${i}`,
     }));
 
-    const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    const emailBinding = { send: sendMock } as unknown as SendEmail;
+    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
+    const emailBinding = { send: sendMock };
+    const realSetTimeout = globalThis.setTimeout;
 
     const timeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((cb: () => void) => {
       cb();
 
-      return {} as unknown as ReturnType<typeof setTimeout>;
+      return realSetTimeout(() => {}, 0);
     });
 
     const results = await sendAutoCleanupRemovalEmails(

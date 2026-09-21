@@ -10,12 +10,16 @@ type MotionValue = JsonValue | React.ReactNode | ((e: React.TouchEvent) => void)
 
 type MotionDivState = { current: Record<string, MotionValue> };
 
-const { mockCreateWatch, mockToastError, mockToastSuccess, motionDivProps } = vi.hoisted(() => ({
-  mockCreateWatch: vi.fn(),
-  mockToastError: vi.fn(),
-  mockToastSuccess: vi.fn(),
-  motionDivProps: { current: {} } as MotionDivState,
-}));
+const { mockCreateWatch, mockToastError, mockToastSuccess, motionDivProps } = vi.hoisted(() => {
+  const motionDivProps: MotionDivState = { current: {} };
+
+  return {
+    mockCreateWatch: vi.fn(),
+    mockToastError: vi.fn(),
+    mockToastSuccess: vi.fn(),
+    motionDivProps,
+  };
+});
 
 vi.mock('sonner', () => ({
   toast: {
@@ -31,6 +35,7 @@ vi.mock('@/lib/class-watches/class-watch-creation', () => ({
 vi.mock('framer-motion', () => ({
   m: {
     div: (props: { children?: React.ReactNode }) => {
+      // SAFETY: card props on m.div are JSON, children or handlers — MotionValue (line 9).
       motionDivProps.current = props as Record<string, MotionValue>;
 
       return <div {...props}>{props.children}</div>;
@@ -67,6 +72,16 @@ const mockClassState: ClassStateRow = {
   meeting_times: 'MWF 10:00-11:00',
   last_checked_at: new Date().toISOString(),
   last_changed_at: new Date().toISOString(),
+};
+
+/** The only field the swipe handlers read off a touch event. */
+type TouchEventStub = { touches: unknown };
+
+const createTouchEvent = (clientX: number): React.TouchEvent => {
+  const stub: TouchEventStub = { touches: { 0: { clientX, clientY: 0 } } };
+
+  // SAFETY: the card's swipe handlers read only touches[0].clientX — lib/hooks/useSwipe.ts:39-51.
+  return stub as React.TouchEvent;
 };
 
 describe('ClassWatchCard', () => {
@@ -196,6 +211,7 @@ describe('ClassWatchCard', () => {
           <ClassWatchCard watch={mockWatch} classState={mockClassState} onDelete={onDelete} />
         );
 
+        // SAFETY: line 39 stores the props the card passes m.div, which spread these handlers.
         const handlers = () =>
           motionDivProps.current as {
             onTouchStart: (e: React.TouchEvent) => void;
@@ -204,22 +220,26 @@ describe('ClassWatchCard', () => {
           };
 
         act(() => {
-          handlers().onTouchStart({ touches: [{ clientX: 200 }] } as unknown as React.TouchEvent);
+          handlers().onTouchStart(createTouchEvent(200));
         });
         act(() => {
-          handlers().onTouchMove({ touches: [{ clientX: 80 }] } as unknown as React.TouchEvent);
+          handlers().onTouchMove(createTouchEvent(80));
         });
         act(() => {
           handlers().onTouchEnd();
         });
 
-        expect((motionDivProps.current.animate as { x: number }).x).toBe(-500);
+        // SAFETY: swipeOffset drives animate={{ x }} as a number — ClassWatchCard.tsx:153-155.
+        const startAnimate = motionDivProps.current.animate as { x: number };
+        expect(startAnimate.x).toBe(-500);
 
         await act(async () => {
           vi.advanceTimersByTime(300);
         });
         expect(onDelete).toHaveBeenCalledWith('watch-123');
-        expect((motionDivProps.current.animate as { x: number }).x).toBe(0);
+        // SAFETY: swipeOffset drives animate={{ x }} as a number — ClassWatchCard.tsx:153-155.
+        const settleAnimate = motionDivProps.current.animate as { x: number };
+        expect(settleAnimate.x).toBe(0);
       } finally {
         vi.useRealTimers();
       }

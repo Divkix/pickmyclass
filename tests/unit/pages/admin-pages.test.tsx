@@ -63,7 +63,7 @@ type JsonValue =
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: LinkProps) => (
-    <a href={typeof href === 'string' ? href : (href.pathname ?? '#')} {...props}>
+    <a href={href instanceof Object ? (href.pathname ?? '#') : href} {...props}>
       {children}
     </a>
   ),
@@ -132,6 +132,7 @@ vi.mock('@/lib/db', async () => {
   };
 
   const client: PostgresJsSeam = scriptedClient;
+  // SAFETY: scripted client implements only options/unsafe — what the drizzle session reads.
   const fakeDb = drizzle(client as postgres.Sql, { schema });
 
   return {
@@ -157,11 +158,11 @@ vi.mock('@/lib/db/queries', () => ({
 }));
 
 beforeAll(() => {
-  global.ResizeObserver = class ResizeObserver {
-    observe = vi.fn();
-    unobserve = vi.fn();
-    disconnect = vi.fn();
-  } as typeof ResizeObserver;
+  global.ResizeObserver = vi.fn().mockImplementation(() => ({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+  }));
 });
 
 function createMotionElements() {
@@ -289,7 +290,7 @@ const userRows = [
   },
 ];
 
-const emptySearchParams = Promise.resolve({} as Record<string, string | undefined>);
+const emptySearchParams = Promise.resolve<Record<string, string | undefined>>({});
 
 describe('admin pages', () => {
   const db = getDbFromEnv();
@@ -384,6 +385,7 @@ describe('admin pages', () => {
     expect(mockGetDistinctSubjects).toHaveBeenCalled();
 
     fireEvent.click(screen.getByText('Class #'));
+    // SAFETY: AdminClassesPage renders this cell inside a <tr>; closest('tr') is non-null here.
     fireEvent.click(screen.getByText('67890').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/classes/2261/67890');
   });
@@ -440,6 +442,7 @@ describe('admin pages', () => {
 
     expect(mockGetUsersPage).toHaveBeenCalled();
     fireEvent.click(screen.getByText('Email'));
+    // SAFETY: AdminUsersPage renders this cell inside a <tr>; closest('tr') is non-null here.
     fireEvent.click(screen.getByText('student@example.com').closest('tr') as HTMLTableRowElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/users/user-2');
   });

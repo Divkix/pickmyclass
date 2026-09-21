@@ -4,7 +4,10 @@ import { AuthProvider } from '@/lib/contexts/AuthContext';
 
 const { mockIdentify, clerkUser } = vi.hoisted(() => ({
   mockIdentify: vi.fn(),
-  clerkUser: { current: null as unknown },
+  clerkUser: {
+    // SAFETY: starts signed-out; every assignment below passes satisfies ClerkUserFixture.
+    current: null as ClerkUserFixture | null,
+  },
 }));
 
 vi.mock('@/lib/analytics/client', () => ({

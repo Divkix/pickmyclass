@@ -2,10 +2,14 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { useSwipe } from '@/lib/hooks/useSwipe';
 
+/** The only field the swipe handlers read off a touch event. */
+type TouchEventStub = { touches: unknown };
+
 const createTouchEvent = (clientX: number): React.TouchEvent => {
-  return {
-    touches: [{ clientX }],
-  } as unknown as React.TouchEvent;
+  const stub: TouchEventStub = { touches: { 0: { clientX, clientY: 0 } } };
+
+  // SAFETY: useSwipe's handlers read only touches[0].clientX — lib/hooks/useSwipe.ts:39-51.
+  return stub as React.TouchEvent;
 };
 
 describe('useSwipe hook', () => {

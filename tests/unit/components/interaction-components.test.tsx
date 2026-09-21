@@ -5,7 +5,6 @@ import { AddClassWatch } from '@/components/AddClassWatch';
 import { BottomNav } from '@/components/BottomNav';
 import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator';
-import type { ClassWatchRow } from '@/lib/types/class-watch';
 
 const { mockCreateWatch, mockPathname, mockPush } = vi.hoisted(() => ({
   mockCreateWatch: vi.fn(),
@@ -147,7 +146,7 @@ describe('interactive components', () => {
     vi.clearAllMocks();
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockPathname.mockReturnValue('/dashboard');
-    mockCreateWatch.mockResolvedValue({ id: 'watch-1' } as ClassWatchRow);
+    mockCreateWatch.mockResolvedValue({ id: 'watch-1' });
     global.fetch = vi.fn().mockResolvedValue({ ok: true });
   });
 
@@ -227,6 +226,7 @@ describe('interactive components', () => {
   });
 
   it('surfaces account deletion errors and allows close after error', async () => {
+    // SAFETY: DeleteAccountModal reads only response.ok and json() — DeleteAccountModal.tsx:45-49.
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       json: () => Promise.resolve({ error: 'Deletion failed' }),

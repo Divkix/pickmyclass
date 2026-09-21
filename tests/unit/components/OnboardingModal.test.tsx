@@ -53,8 +53,7 @@ const createdWatch: ClassWatchRow = {
   subject: 'CSE',
   catalog_nbr: '110',
   created_at: '2026-07-11T12:00:00Z',
-  updated_at: '2026-07-11T12:00:00Z',
-} as ClassWatchRow;
+};
 
 const popularClassPayload = {
   class_nbr: '12345',
@@ -96,12 +95,13 @@ describe('OnboardingModal', () => {
         json: () => Promise.resolve(skipResponse),
       });
     });
+    // SAFETY: the modal only reads ok and json() from fetch responses — OnboardingModal.tsx:127,131.
     global.fetch = fetchMock as typeof fetch;
   });
 
   const skipPostCalls = () =>
     fetchMock.mock.calls.filter(
-      ([url, init]) => url === '/api/user/onboarding' && (init as RequestInit)?.method === 'POST'
+      ([url, init]) => url === '/api/user/onboarding' && init?.method === 'POST'
     ).length;
 
   it('renders the welcome (step 1) content when open', async () => {
@@ -179,6 +179,7 @@ describe('OnboardingModal', () => {
     const onSkipped = vi.fn();
     render(<OnboardingModal open={true} onSkipped={onSkipped} />);
 
+    // SAFETY: the dialog backdrop rendered above carries bg-black/80 — components/ui/dialog.tsx:20.
     const overlay = document.querySelector('[class*="bg-black/80"]') as HTMLElement;
     await user.click(overlay);
 
@@ -414,7 +415,7 @@ describe('OnboardingModal', () => {
       await user.click(await screen.findByRole('button', { name: /Track this class/i }));
 
       expect(screen.getByText('Add your first class')).toBeInTheDocument();
-      const classNbrInput = screen.getByLabelText(/class number/i) as HTMLInputElement;
+      const classNbrInput = screen.getByLabelText(/class number/i);
       expect(classNbrInput).toHaveValue('12345');
     });
   });
