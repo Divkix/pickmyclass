@@ -11,6 +11,7 @@ const sizeClasses = {
   sm: 'h-8',
   md: 'h-10',
 };
+
 export function Logo({ variant = 'full', size = 'md', className }: LogoProps) {
   const iconContent = (
     <Image

@@ -79,6 +79,7 @@ describe('usePullToRefresh hook', () => {
       const pullDistance = Number.parseFloat(
         screen.getByTestId('pull-distance').textContent || '0'
       );
+
       expect(pullDistance).toBe(40);
     });
 
@@ -99,6 +100,7 @@ describe('usePullToRefresh hook', () => {
       const pullDistance = Number.parseFloat(
         screen.getByTestId('pull-distance').textContent || '0'
       );
+
       expect(pullDistance).toBe(120);
     });
 
@@ -119,6 +121,7 @@ describe('usePullToRefresh hook', () => {
       const pullDistance = Number.parseFloat(
         screen.getByTestId('pull-distance').textContent || '0'
       );
+
       expect(pullDistance).toBe(20);
     });
 

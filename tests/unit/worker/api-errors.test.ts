@@ -4,6 +4,7 @@ import { withJsonApiError } from '@/lib/worker/api-errors';
 function htmlResponse(status: number): Response {
   const response = new Response('<html><body><h1>404</h1></body></html>', { status });
   response.headers.set('content-type', 'text/html; charset=utf-8');
+
   return response;
 }
 

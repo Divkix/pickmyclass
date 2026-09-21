@@ -4,6 +4,7 @@ import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE, NOTIFICATION_FROM_EMAIL } from 
 import { log } from '@/lib/log';
 import type { NotificationType } from '@/lib/types/notification';
 import { generateUnsubscribeUrl } from './unsubscribe-token';
+
 export type { ClassInfo } from '@/lib/types/class';
 
 function stripHtml(html: string): string {
@@ -97,9 +98,11 @@ export async function sendBatchEmailsOptimized(
 
       if (isFatalEmailCode(errorCode)) {
         results.push({ success: false, error: `${errorCode}: ${errorMessage}` });
+
         for (let j = i + 1; j < emails.length; j++) {
           results.push({ success: false, error: `Skipped: ${errorCode} limit reached` });
         }
+
         log('Email').warn(`Stopped batch after ${errorCode} at email ${i + 1}/${emails.length}`);
         break;
       }

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description:

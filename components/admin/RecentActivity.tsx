@@ -16,6 +16,7 @@ const iconByType = {
 
 function formatNotificationType(notificationType: RecentActivityItem['notificationType']): string {
   if (!notificationType) return '';
+
   return notificationType === 'seat_available' ? 'seat available' : 'instructor assigned';
 }
 
@@ -32,6 +33,7 @@ export function RecentActivity({ items }: RecentActivityProps) {
           <ul className="space-y-3">
             {items.map((item) => {
               const Icon = iconByType[item.type];
+
               return (
                 <li
                   key={`${item.type}-${item.userEmail}-${item.activityAt}`}

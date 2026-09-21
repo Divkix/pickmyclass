@@ -21,6 +21,7 @@ import { sectionRefKey } from '@/lib/section-ref';
 
 export default function DashboardPage() {
   useRequireAuth();
+
   const {
     user,
     authLoading,

@@ -60,10 +60,13 @@ interface CaughtDriverView {
 
 function viewCaughtDriver(error: unknown): CaughtDriverView {
   let current: unknown = error;
+
   for (let depth = 0; depth < 5 && isStatementFailure(current); depth += 1) {
     current = current.cause;
   }
+
   const parsed = pgErrorSchema.safeParse(current);
+
   return {
     leaf: current,
     pgError: parsed.success ? parsed.data : null,
@@ -81,8 +84,10 @@ export function driverErrorMessage(error: unknown): string {
 
 export function isUniqueViolation(error: unknown): boolean {
   const { leaf, pgError } = viewCaughtDriver(error);
+
   if (pgError?.code === PG_UNIQUE_VIOLATION) return true;
   const parsedMessage = errorMessageSchema.safeParse(leaf);
+
   return parsedMessage.success && parsedMessage.data.message.includes('duplicate key value');
 }
 

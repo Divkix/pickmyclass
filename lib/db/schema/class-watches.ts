@@ -25,4 +25,5 @@ export const classWatches = pgTable(
 );
 
 export type ClassWatch = typeof classWatches.$inferSelect;
+
 export type NewClassWatch = typeof classWatches.$inferInsert;

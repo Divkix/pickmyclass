@@ -64,8 +64,10 @@ function createDbDouble() {
     unsafe(query: string, params: unknown[]): ScriptedQueryResult {
       statements.push({ sql: query, params });
       const outcome = outcomes.shift();
+
       if (outcome instanceof Error) {
         const reject = (): Promise<never> => Promise.reject(outcome);
+
         return {
           then: (
             onFulfilled?: (value: never) => PromiseLike<never>,
@@ -75,6 +77,7 @@ function createDbDouble() {
           values: reject,
         };
       }
+
       return pendingRows(outcome ?? []);
     },
     begin<T>(fn: (txClient: PostgresJsSeam) => Promise<T>): Promise<T> {
@@ -98,18 +101,21 @@ function createDbDouble() {
 }
 
 const consentTimestamp = '2026-07-12T00:00:00.000Z';
+
 const adminProfile: ProfileGateRow = {
   is_admin: true,
   is_disabled: false,
   age_verified_at: consentTimestamp,
   agreed_to_terms_at: consentTimestamp,
 };
+
 const regularProfile: ProfileGateRow = {
   is_admin: false,
   is_disabled: false,
   age_verified_at: consentTimestamp,
   agreed_to_terms_at: consentTimestamp,
 };
+
 const adminState: AuthorizationState = {
   is_admin: true,
   is_disabled: false,

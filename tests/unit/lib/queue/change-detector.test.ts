@@ -59,6 +59,7 @@ describe('detectChanges', () => {
 
   it('old full to new open sets seatBecameAvailable', () => {
     const oldState = mockOldState({ non_reserved_seats: 0, seats_available: 0 });
+
     const result = detectChanges(
       oldState,
       mockClassDetails({ seats_available: 5, non_reserved_seats: 3 })
@@ -74,6 +75,7 @@ describe('detectChanges', () => {
 
   it('old open to new full sets seatsFilled', () => {
     const oldState = mockOldState({ non_reserved_seats: 3, seats_available: 5 });
+
     const result = detectChanges(
       oldState,
       mockClassDetails({ seats_available: 0, non_reserved_seats: 0 })
@@ -89,6 +91,7 @@ describe('detectChanges', () => {
 
   it('old full to new full (no change) returns all false', () => {
     const oldState = mockOldState({ non_reserved_seats: 0, seats_available: 0 });
+
     const result = detectChanges(
       oldState,
       mockClassDetails({ seats_available: 0, non_reserved_seats: 0 })
@@ -104,6 +107,7 @@ describe('detectChanges', () => {
 
   it('old Staff to new named instructor sets instructorAssigned', () => {
     const oldState = mockOldState({ instructor_name: 'Staff' });
+
     const result = detectChanges(
       oldState,
       mockClassDetails({ instructor_name: 'Dr. Smith', seats_available: 2, non_reserved_seats: 1 })
@@ -126,6 +130,7 @@ describe('detectChanges', () => {
 
   it('both seat available and instructor assigned simultaneously', () => {
     const oldState = mockOldState({ non_reserved_seats: 0, instructor_name: 'Staff' });
+
     const result = detectChanges(
       oldState,
       mockClassDetails({ seats_available: 10, non_reserved_seats: 5, instructor_name: 'Dr. Smith' })
@@ -141,6 +146,7 @@ describe('detectChanges', () => {
 
   it('uses non_reserved_seats over seats_available when both present', () => {
     const oldState = mockOldState({ non_reserved_seats: 0 });
+
     const result = detectChanges(
       oldState,
       mockClassDetails({ seats_available: 10, non_reserved_seats: 3 })
@@ -151,6 +157,7 @@ describe('detectChanges', () => {
 
   it('falls back to seats_available when non_reserved_seats is null', () => {
     const oldState = mockOldState({ non_reserved_seats: null, seats_available: 0 });
+
     const result = detectChanges(
       oldState,
       mockClassDetails({ seats_available: 7, non_reserved_seats: null })
@@ -162,6 +169,7 @@ describe('detectChanges', () => {
 
   it('handles undefined instructor in newData', () => {
     const oldState = mockOldState({ instructor_name: 'Staff' });
+
     const result = detectChanges(
       oldState,
       mockClassDetails({ instructor_name: undefined as unknown as string })

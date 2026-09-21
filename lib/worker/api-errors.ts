@@ -11,11 +11,14 @@
  * page (the unsubscribe confirmation, for example) keep their own response.
  */
 const API_PREFIX = '/api/';
+
 const ROUTING_FAILURES = new Set([404, 405]);
+
 const DOCS_URL = 'https://pickmyclass.app/openapi.json';
 
 function errorBody(status: number, method: string, pathname: string) {
   const code = status === 404 ? 'not_found' : 'method_not_allowed';
+
   const message =
     status === 404
       ? `No API route matches ${method} ${pathname}`
@@ -37,6 +40,7 @@ export function withJsonApiError(response: Response, pathname: string, method: s
   if (!pathname.startsWith(API_PREFIX) || !ROUTING_FAILURES.has(response.status)) return response;
 
   const isJson = response.headers.get('content-type')?.toLowerCase().includes('json') ?? false;
+
   if (isJson) return response;
 
   return new Response(JSON.stringify(errorBody(response.status, method, pathname)), {

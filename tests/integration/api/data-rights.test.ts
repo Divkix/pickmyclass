@@ -33,6 +33,7 @@ type ScriptedQuery = Promise<DriverRow[]> & { values(): Promise<DriverValue[][]>
 
 function pendingRows(rows: DriverRow[]): ScriptedQuery {
   const query = Promise.resolve(rows);
+
   return Object.assign(query, {
     values: () => Promise.resolve(rows.map((row) => Object.values(row))),
   });
@@ -40,6 +41,7 @@ function pendingRows(rows: DriverRow[]): ScriptedQuery {
 
 function rejectedRows(outcome: Error): ScriptedQuery {
   const rejection = Promise.reject<never>(outcome);
+
   return Object.assign(rejection, { values: () => rejection });
 }
 
@@ -51,6 +53,7 @@ const {
   mockCaptureServerEvent,
 } = vi.hoisted(() => {
   const recorder: TransportRecorder = { statements: [], outcomes: [] };
+
   return {
     recorder,
     mockRequireUser: vi.fn(),
@@ -67,6 +70,7 @@ vi.mock('@/lib/auth/require-user', () => {
       this.name = 'UnauthorizedError';
     }
   }
+
   return { requireUser: mockRequireUser, UnauthorizedError };
 });
 
@@ -92,6 +96,7 @@ function scriptedDatabase(): Database {
     unsafe(query: string, params: ScriptedParam[]): ScriptedQuery {
       recorder.statements.push({ sql: query, params });
       const outcome = recorder.outcomes.shift();
+
       return outcome instanceof Error ? rejectedRows(outcome) : pendingRows(outcome ?? []);
     },
   };
@@ -177,6 +182,7 @@ function scriptExportRows(overrides: {
     watches = [WATCH_ROW],
     notifications = [NOTIFICATION_ROW],
   } = overrides;
+
   recorder.outcomes.push(mirror === null ? [] : [mirror]);
   recorder.outcomes.push(profile === null ? [] : [profile]);
   recorder.outcomes.push(watches);
@@ -332,6 +338,7 @@ describe('user data rights APIs', () => {
       const response = await DELETE(
         new Request('https://pickmyclass.app/api/user/delete', { method: 'DELETE' })
       );
+
       const data = await json(response);
 
       expect(response.status).toBe(401);
@@ -343,6 +350,7 @@ describe('user data rights APIs', () => {
       const response = await DELETE(
         new Request('https://pickmyclass.app/api/user/delete', { method: 'DELETE' })
       );
+
       const data = await json(response);
 
       expect(response.status).toBe(200);
@@ -367,6 +375,7 @@ describe('user data rights APIs', () => {
       const response = await DELETE(
         new Request('https://pickmyclass.app/api/user/delete', { method: 'DELETE' })
       );
+
       const data = await json(response);
 
       expect(response.status).toBe(500);

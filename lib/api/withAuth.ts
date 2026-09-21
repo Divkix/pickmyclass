@@ -8,6 +8,7 @@ export async function withAuth(
 ): Promise<Response> {
   try {
     const { user } = await requireUser(request);
+
     return await handler(user);
   } catch (e) {
     if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);

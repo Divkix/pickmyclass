@@ -121,6 +121,7 @@ describe('createClassWatchSchema term validation', () => {
   it('rejects an expired term', () => {
     const result = createClassWatchSchema.safeParse({ term: '2261', class_nbr: '12345' });
     expect(result.success).toBe(false);
+
     if (!result.success) {
       expect(result.error.issues[0]?.message).toContain('no longer available');
     }

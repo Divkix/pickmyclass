@@ -31,6 +31,7 @@ interface ProcessingResult {
 }
 
 type Disposition = 'ack' | 'retry';
+
 export type SectionCheckOutcome = {
   disposition: Disposition;
   result: ProcessingResult;
@@ -102,6 +103,7 @@ export async function processSection(
       log('ProcessSection').info(
         `Skipping ${classNbr}: last checked at ${oldState.last_checked_at}, cycle ${cycle}`
       );
+
       return ackOutcome({
         success: true,
         classNbr,
@@ -140,6 +142,7 @@ export async function processSection(
       await upsertClassState(db, ref, newData);
     } catch (upsertError) {
       log('ProcessSection').error(`Database error for ${classNbr}:`, upsertError);
+
       return retryOutcome(
         {
           success: false,
@@ -209,8 +212,10 @@ export async function processSection(
     }
 
     let retryStatus: 429 | 502 | 500 = 500;
+
     if (error instanceof RateLimitError) retryStatus = 429;
     else if (error instanceof ApiError) retryStatus = 502;
+
     return retryOutcome(failedResult(classNbr, duration, errorMessage), retryStatus);
   }
 }

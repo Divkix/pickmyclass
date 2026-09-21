@@ -34,6 +34,7 @@ export function AdminNavigation() {
     if (exact) {
       return pathname === href;
     }
+
     return pathname.startsWith(href);
   };
 
@@ -41,6 +42,7 @@ export function AdminNavigation() {
     <>
       {navItems.map((item) => {
         const active = isActive(item.href, item.exact);
+
         return (
           <Link
             key={item.href}

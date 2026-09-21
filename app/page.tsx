@@ -14,6 +14,7 @@ import { faqs } from '@/lib/faqs';
 export const dynamic = 'error';
 
 const homeTitle = 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts';
+
 const homeDescription =
   'Free ASU class seat tracker. Get email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.';
 

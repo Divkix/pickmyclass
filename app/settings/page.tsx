@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { log } from '@/lib/log';
 import { formatAbsoluteDate } from '@/lib/utils/time-format';
 import { useRequireAuth } from '@/lib/hooks/useRequireAuth';
+
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth();
   useRequireAuth();

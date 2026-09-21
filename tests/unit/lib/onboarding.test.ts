@@ -34,18 +34,22 @@ interface PostgresJsSeam {
 
 function makeDb(rowsFor: RowsFor) {
   const queries: RecordedQuery[] = [];
+
   const unsafe = (sql: string, params: unknown[]): ScriptedRows => {
     const query: RecordedQuery = { sql, params };
     queries.push(query);
     const rows = rowsFor(query);
+
     return Object.assign(Promise.resolve(rows), {
       values: async (): Promise<unknown[][]> =>
         rows.map((row) => SELECT_ORDER.map((column) => row[column])),
     });
   };
+
   const scriptedClient = { unsafe, options: { parsers: {}, serializers: {} } };
   const client: PostgresJsSeam = scriptedClient;
   const db = drizzle(client as postgres.Sql, { schema });
+
   return { db, queries };
 }
 
@@ -119,6 +123,7 @@ describe('lib/onboarding', () => {
         onboarding_skipped_at: null,
         needs_onboarding: true,
       };
+
       expect(completeOnFirstWatch(current, now)).toEqual({
         onboarding_completed_at: now,
         onboarding_skipped_at: null,
@@ -132,6 +137,7 @@ describe('lib/onboarding', () => {
         onboarding_skipped_at: '2026-07-11T12:00:00Z',
         needs_onboarding: false,
       };
+
       expect(completeOnFirstWatch(current, now)).toEqual({
         onboarding_completed_at: now,
         onboarding_skipped_at: '2026-07-11T12:00:00Z',
@@ -145,6 +151,7 @@ describe('lib/onboarding', () => {
         onboarding_skipped_at: '2026-07-09T00:00:00Z',
         needs_onboarding: false,
       };
+
       expect(completeOnFirstWatch(current, now)).toEqual(current);
     });
   });
@@ -300,6 +307,7 @@ describe('lib/onboarding', () => {
 
   describe('transition matrix (regression for issue #307)', () => {
     const now = '2026-07-12T00:00:00Z';
+
     const rows = {
       pending: { onboarding_completed_at: null, onboarding_skipped_at: null },
       skipped: { onboarding_completed_at: null, onboarding_skipped_at: '2026-07-11T00:00:00Z' },
@@ -310,6 +318,7 @@ describe('lib/onboarding', () => {
       const after = toOnboardingState({
         ...rows.skipped,
       });
+
       expect(onboardingStatus(rows.pending)).toBe('pending');
       expect(onboardingStatus(after)).toBe('skipped');
       expect(after.needs_onboarding).toBe(false);

@@ -41,15 +41,18 @@ function getClerkEnv(): Required<Pick<ClerkEnv, 'CLERK_SECRET_KEY'>> & ClerkEnv 
   // SAFETY: bindings are declared in wrangler secrets; see lib/cloudflare-env.supplemental.d.ts.
   // SAFETY: Cloudflare Env is string-indexed; narrow to known Clerk shape
   const e = env as unknown as ClerkEnv;
+
   if (!e.CLERK_SECRET_KEY) {
     throw new Error(
       'CLERK_SECRET_KEY is not set. Provision it with `wrangler secret put CLERK_SECRET_KEY`.'
     );
   }
+
   return { ...e, CLERK_SECRET_KEY: e.CLERK_SECRET_KEY };
 }
 
 let cachedClient: ClerkClient | null = null;
+
 let cachedClientKey: string | null = null;
 
 export function getClerkClient(): ClerkClient {
@@ -57,48 +60,63 @@ export function getClerkClient(): ClerkClient {
   // The verifier is built from both keys: dropping CLERK_JWT_KEY (PEM -> JWKS
   // fallback) or rotating it must not reuse a client pinned to the old key.
   const clientKey = `${CLERK_SECRET_KEY}\u0000${CLERK_JWT_KEY ?? ''}`;
+
   if (cachedClient && cachedClientKey === clientKey) {
     return cachedClient;
   }
+
   const clientOptions: Parameters<typeof createClerkClient>[0] = {
     secretKey: CLERK_SECRET_KEY,
     publishableKey: CLERK_PUBLISHABLE_KEY,
   };
+
   if (CLERK_JWT_KEY) clientOptions.jwtKey = CLERK_JWT_KEY;
   cachedClient = createClerkClient(clientOptions);
   cachedClientKey = clientKey;
+
   return cachedClient;
 }
 
 function getAuthorizedParties(): string[] {
   const { NEXT_PUBLIC_SITE_URL } = getClerkEnv();
   const parties = ['http://localhost:3000', 'http://localhost:8788'];
+
   if (NEXT_PUBLIC_SITE_URL) parties.push(NEXT_PUBLIC_SITE_URL);
+
   return parties;
 }
 
 export async function getSessionIdentity(request: Request): Promise<SessionIdentity | null> {
   try {
     const { CLERK_JWT_KEY } = getClerkEnv();
+
     const authenticateOptions: { authorizedParties: string[]; jwtKey?: string } = {
       authorizedParties: getAuthorizedParties(),
     };
+
     if (CLERK_JWT_KEY) authenticateOptions.jwtKey = CLERK_JWT_KEY;
     const auth = await getClerkClient().authenticateRequest(request, authenticateOptions);
+
     if (!auth.isAuthenticated) {
       return null;
     }
+
     const { userId: clerkUserId, sessionId, sessionClaims } = auth.toAuth();
+
     if (!clerkUserId) {
       return null;
     }
+
     // SAFETY: sessionClaims is JwtPayload (indexable); ext_id from own claim template is string when present.
     const claims = sessionClaims as Record<string, unknown> | null;
+
     const extId =
       typeof claims?.ext_id === 'string' && claims.ext_id.length > 0 ? claims.ext_id : null;
+
     return { userId: extId ?? clerkUserId, clerkUserId, sessionId: sessionId ?? null };
   } catch (error) {
     log('Auth').error('Clerk session verification failed:', error);
+
     return null;
   }
 }
@@ -109,6 +127,7 @@ export async function getSessionIdentityFromHeaders(
   const host = headers.get('host') ?? 'localhost';
   const proto = headers.get('x-forwarded-proto') ?? 'https';
   const request = new Request(`${proto}://${host}/`, { headers });
+
   return getSessionIdentity(request);
 }
 

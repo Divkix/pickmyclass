@@ -47,13 +47,17 @@ export function createScriptedPostgres() {
 
   const respond = (): PendingRows => {
     const outcome = outcomes.shift();
+
     if (outcome instanceof Error) {
       const rejected: PendingRows = Object.assign(Promise.reject(outcome), {
         values: (): Promise<never> => Promise.reject(outcome),
       });
+
       rejected.catch(() => {});
+
       return rejected;
     }
+
     return pendingRows(outcome ?? []);
   };
 
@@ -61,10 +65,12 @@ export function createScriptedPostgres() {
     options: { parsers: {}, serializers: {} },
     unsafe(query: string, params: readonly CellValue[]): PendingRows {
       statements.push({ sql: query, params: [...params] });
+
       return respond();
     },
     begin<T>(callback: (tx: ScriptedTransport) => T | Promise<T>): Promise<Awaited<T>> {
       transactionCount += 1;
+
       return Promise.resolve(callback(transport));
     },
   };

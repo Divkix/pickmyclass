@@ -20,12 +20,14 @@ function lastmod(isoDate: string): Date {
 
 function postLastmodIso(post: { publishedAt: string; dateModified?: string }): string {
   const modified = post.dateModified ?? post.publishedAt;
+
   return modified > post.publishedAt ? modified : post.publishedAt;
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const latestPostDate = blogPosts.reduce((latest, post) => {
     const modified = postLastmodIso(post);
+
     return modified > latest ? modified : latest;
   }, '2025-01-01');
 

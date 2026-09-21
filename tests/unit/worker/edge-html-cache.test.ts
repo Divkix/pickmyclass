@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createEdgeHtmlCache, edgeHtmlCache } from '@/lib/worker/edge-html-cache';
 
 const match = vi.fn<(key: Request) => Promise<Response | undefined>>();
+
 const put = vi.fn<(key: Request, response: Response) => Promise<void>>();
 
 function get(path: string, headers?: HeadersInit): Request {
@@ -11,6 +12,7 @@ function get(path: string, headers?: HeadersInit): Request {
 function html(body: string, init?: ResponseInit): Response {
   const response = new Response(body, init);
   response.headers.set('content-type', 'text/html; charset=utf-8');
+
   return response;
 }
 

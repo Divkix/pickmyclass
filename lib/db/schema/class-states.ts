@@ -30,4 +30,5 @@ export const classStates = pgTable(
 );
 
 export type ClassState = typeof classStates.$inferSelect;
+
 export type NewClassState = typeof classStates.$inferInsert;

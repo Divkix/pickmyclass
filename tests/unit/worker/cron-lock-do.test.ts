@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { makeFakeCtx } from '../../mocks/cloudflare-workers';
 
 const workerModule = await import('@/worker');
+
 const { CronLockDO } = workerModule;
 
 function makeDO() {
@@ -20,7 +21,9 @@ describe('CronLockDO adapter', () => {
     const acquire = await lock.fetch(
       new Request('http://localhost/acquire?holder=cron%20run%2F1', { method: 'POST' })
     );
+
     const status = await lock.fetch(new Request('http://localhost/status'));
+
     const release = await lock.fetch(
       new Request('http://localhost/release?holder=cron%20run%2F1', { method: 'POST' })
     );

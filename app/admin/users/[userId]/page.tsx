@@ -22,6 +22,7 @@ import { users } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
 import { formatAbsoluteDate } from '@/lib/utils/time-format';
+
 interface AdminUserDetailPageProps {
   params: Promise<{
     userId: string;
@@ -56,6 +57,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
 
   const formatDate = (timestamp: string | null | undefined): string => {
     if (!timestamp) return 'Never';
+
     return formatAbsoluteDate(timestamp, {
       year: 'numeric',
       month: 'short',
@@ -64,6 +66,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
       minute: '2-digit',
     });
   };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
@@ -201,6 +204,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
               <TableBody>
                 {watches.map((watch) => {
                   const classState = watch.class_state;
+
                   return (
                     <TableRow key={watch.id}>
                       <TableCell className="font-mono font-semibold">

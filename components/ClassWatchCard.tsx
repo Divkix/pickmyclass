@@ -104,6 +104,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   const handleDelete = async () => {
     setIsDeleting(true);
     deletedWatchRef.current = watch;
+
     try {
       await onDelete(watch.id);
       showRemovedToast();
@@ -127,10 +128,12 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   const getBackgroundStyle = () => {
     if (swipeOffset < -10) {
       const opacity = Math.min(Math.abs(swipeOffset) / 120, 1);
+
       return {
         backgroundColor: `color-mix(in oklch, var(--destructive) ${opacity * 10}%, transparent)`,
       };
     }
+
     return {};
   };
 

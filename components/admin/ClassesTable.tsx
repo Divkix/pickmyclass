@@ -58,6 +58,7 @@ export function ClassesTable({
   const buildUrl = useCallback(
     (updates: Record<string, string>) => {
       const params = new URLSearchParams(searchParams.toString());
+
       for (const [k, v] of Object.entries(updates)) {
         if (v === '' || v === 'all') {
           params.delete(k);
@@ -65,7 +66,9 @@ export function ClassesTable({
           params.set(k, v);
         }
       }
+
       const qs = params.toString();
+
       return qs ? `${pathname}?${qs}` : pathname;
     },
     [pathname, searchParams]
@@ -90,7 +93,9 @@ export function ClassesTable({
 
   const renderSortIconFromUrl = (field: ClassSortField) => {
     if (sort !== field) return <ChevronsUpDown className="size-4 ml-1 text-muted-foreground" />;
+
     if (dir === 'asc') return <ChevronUp className="size-4 ml-1" />;
+
     return <ChevronDown className="size-4 ml-1" />;
   };
 

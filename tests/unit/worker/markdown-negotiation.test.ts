@@ -15,6 +15,7 @@ function htmlResponse(html: string, status = 200): Response {
   response.headers.set('content-type', 'text/html; charset=utf-8');
   response.headers.set('content-length', String(html.length));
   response.headers.set('vary', 'Accept-Encoding');
+
   return response;
 }
 

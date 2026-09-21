@@ -12,6 +12,7 @@ export interface UserVerificationState {
 }
 
 const CACHE_TTL_MS = 30 * 1000;
+
 const verificationCache = new TtlCache<UserVerificationState>(CACHE_TTL_MS, 100);
 
 export function clearUserVerificationCache(): void {
@@ -25,6 +26,7 @@ export async function readUserVerification(
 ): Promise<UserVerificationState | null> {
   if (cache) {
     const cached = verificationCache.get(userId);
+
     if (cached !== undefined) return cached;
   }
 
@@ -39,6 +41,7 @@ export async function readUserVerification(
   if (cache && row) {
     verificationCache.set(userId, row);
   }
+
   return row ?? null;
 }
 
@@ -65,6 +68,7 @@ function selectPrimaryEmailAddress(
 ): NormalizedEmailAddress | null {
   const selected =
     addresses.find((address) => address.id === primaryEmailAddressId) ?? addresses[0];
+
   return selected ?? null;
 }
 
@@ -98,6 +102,7 @@ function normalizeClerkUser(input: {
   publicMetadata: RegisterFlowPublicMetadata | null | undefined;
 }): NormalizedClerkUser {
   const selected = selectPrimaryEmailAddress(input.emailAddresses, input.primaryEmailAddressId);
+
   return {
     clerkUserId: input.clerkUserId,
     externalId: input.externalId,
@@ -108,6 +113,7 @@ function normalizeClerkUser(input: {
     ...readConsentFlags(input.publicMetadata),
   };
 }
+
 function normalizeWebhookUser(user: UserJSON): NormalizedClerkUser {
   return normalizeClerkUser({
     clerkUserId: user.id,
@@ -152,7 +158,9 @@ async function readProfileConsent(
     .from(userProfiles)
     .where(eq(userProfiles.user_id, userId))
     .limit(1);
+
   if (!profile) return null;
+
   return {
     hasConsent: profile.age_verified_at !== null && profile.agreed_to_terms_at !== null,
   };
@@ -208,8 +216,10 @@ async function upsertUserMirror(
 export async function syncUserMirrorFromClerkUser(db: Database, user: UserJSON): Promise<boolean> {
   const normalized = normalizeWebhookUser(user);
   const { email } = normalized;
+
   if (!email) return false;
   await upsertUserMirror(db, { ...normalized, email });
+
   return true;
 }
 
@@ -221,7 +231,9 @@ export async function softDeleteUserById(db: Database, userId: string): Promise<
       .select({ id: users.id })
       .from(users)
       .where(or(eq(users.id, userId), eq(users.clerk_user_id, userId)));
+
     const targetIds = [...new Set(mirrors.map((row) => row.id))];
+
     // ponytail: a delete that beats every mirror write is a no-op — the profile
     // FK needs the users row and `users.email` is NOT NULL, so no placeholder
     // row is invented; Clerk already refuses the deleted identity at sign-in.
@@ -267,20 +279,24 @@ export async function repairUserMirror(
   clerkUser: User
 ): Promise<{ hasConsent: boolean } | null> {
   const existing = await readProfileConsent(db, userId);
+
   if (existing) return existing;
 
   const normalized = normalizeBackendUser(clerkUser);
   const { email } = normalized;
+
   if (!email) return null;
   // Read back the row the upsert actually wrote: with a stale `ext_id` claim
   // the canonical app id differs from the requested one.
   const appUserId = await upsertUserMirror(db, { ...normalized, email });
 
   const persisted = await readProfileConsent(db, appUserId);
+
   if (!persisted) {
     throw new Error(
       `repairUserMirror: user_profiles row for user ${appUserId} still missing after mirror upsert`
     );
   }
+
   return persisted;
 }

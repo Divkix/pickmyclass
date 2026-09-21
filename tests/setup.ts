@@ -35,9 +35,13 @@ beforeAll(() => {
 });
 
 vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://test.example.com');
+
 vi.stubEnv('CLERK_SECRET_KEY', 'sk_test_dummy');
+
 vi.stubEnv('CLERK_PUBLISHABLE_KEY', 'pk_test_dummy');
+
 vi.stubEnv('CLERK_JWT_KEY', 'test-jwt-key');
+
 vi.stubEnv('CLERK_WEBHOOK_SIGNING_SECRET', 'whsec_test');
 
 vi.mock('@clerk/react', () => ({

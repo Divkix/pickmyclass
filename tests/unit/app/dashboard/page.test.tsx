@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import DashboardPage from '@/app/dashboard/page';
 
 type RealtimeOpts = { classNumbers: string[]; enabled?: boolean };
+
 type JsonValue =
   | string
   | number
@@ -12,7 +13,9 @@ type JsonValue =
   | undefined
   | JsonValue[]
   | { [key: string]: JsonValue };
+
 const mockReplace = vi.fn();
+
 const mockRouter = {
   replace: mockReplace,
 };
@@ -60,6 +63,7 @@ vi.mock('@/lib/contexts/AuthContext', () => ({
 }));
 
 const mockUseRealtimeClassStates = vi.fn();
+
 const mockRefetchClassStates = vi.fn();
 
 vi.mock('@/lib/hooks/useRealtimeClassStates', () => ({
@@ -71,6 +75,7 @@ let lastRefreshHandler: (() => Promise<void>) | null = null;
 vi.mock('@/lib/hooks/usePullToRefresh', () => ({
   usePullToRefresh: (opts: { onRefresh: () => Promise<void> }) => {
     lastRefreshHandler = opts.onRefresh;
+
     return {
       pullDistance: 0,
       isRefreshing: false,

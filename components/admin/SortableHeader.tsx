@@ -24,6 +24,7 @@ export function SortableHeader<F extends string>({
 }: SortableHeaderProps<F>) {
   const justifyClass =
     align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : '';
+
   const textAlignClass = align === 'left' ? 'text-left' : '';
 
   return (

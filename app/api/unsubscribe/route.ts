@@ -103,6 +103,7 @@ export async function GET(request: NextRequest) {
 
   const encodedToken = encodeURIComponent(parsed.data.token);
   const escapedAction = escapeHtml(`/api/unsubscribe?token=${encodedToken}`);
+
   return htmlPage(
     'Confirm Unsubscribe',
     `  <h1>Confirm Unsubscribe</h1>
@@ -137,11 +138,14 @@ export async function POST(request: NextRequest) {
   }
 
   const db = getDbFromEnv();
+
   try {
     await unsubscribeUser(db, userId, 'POST');
+
     return ok(null);
   } catch (error) {
     log('Unsubscribe').error('Error processing unsubscribe:', error);
+
     return fail('Internal server error', 500);
   }
 }

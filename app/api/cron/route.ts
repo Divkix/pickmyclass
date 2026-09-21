@@ -13,7 +13,9 @@ import type { StaggerGroup } from '@/lib/types/stagger';
 import { createCronLockClient, type CronLockLease } from '@/lib/worker/cron-lock';
 
 const CF_QUEUE_SEND_BATCH_LIMIT = 100;
+
 const HTTP_MULTI_STATUS = 207;
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
   const lockHolder = `cron-${Date.now()}-${crypto.randomUUID()}`;
@@ -24,24 +26,29 @@ export async function GET(request: NextRequest) {
     // SAFETY: Env reflects wrangler.jsonc bindings validated at deploy; narrowed from unknown
     const cfEnv = rawEnv as Env;
     const cronAuth = requireCronAuth(request, cfEnv.CRON_SECRET);
+
     if (cronAuth) {
       if (cronAuth.status === 500) log('Cron').error('CRON_SECRET not configured');
       else log('Cron').warn('Unauthorized request - invalid or missing authentication');
+
       return cronAuth;
     }
 
     const lockClient = createCronLockClient(cfEnv.PICKMYCLASS_CRON_LOCK_DO);
     lockLease = await lockClient.acquire(lockHolder);
+
     if (!lockLease.configured) {
       log('Cron').warn('PICKMYCLASS_CRON_LOCK_DO not available - proceeding without lock');
     } else {
       if (!lockLease.acquired) {
         log('Cron').warn('Lock acquisition failed:', lockLease.message);
+
         return fail('Another cron job is already running', 409, {
           message: lockLease.message,
           current_holder: lockLease.currentHolder,
         });
       }
+
       log('Cron').info('Lock acquired successfully');
     }
 
@@ -57,6 +64,7 @@ export async function GET(request: NextRequest) {
 
     if (!queue) {
       log('Cron').error('PICKMYCLASS_QUEUE binding not found');
+
       return fail('Queue binding not configured', 500);
     }
 
@@ -66,7 +74,9 @@ export async function GET(request: NextRequest) {
       const expiredRows = await db.execute<{ expired: unknown }>(
         sql`SELECT public.expire_stale_notifications() AS expired`
       );
+
       const expiredCount = Number(expiredRows[0]?.expired ?? 0);
+
       if (expiredCount > 0) log('Cron').info(`Expired ${expiredCount} stale notification records`);
     } catch (error) {
       log('Cron').warn(
@@ -79,6 +89,7 @@ export async function GET(request: NextRequest) {
     const pastTerms = new Set(getPastTermCodes());
     const sections = allSections.filter((s) => !pastTerms.has(s.term));
     const skippedPastTerm = allSections.length - sections.length;
+
     if (skippedPastTerm > 0) {
       log('Cron').info(`Skipped ${skippedPastTerm} past-term sections`);
     }
@@ -87,6 +98,7 @@ export async function GET(request: NextRequest) {
 
     if (sections.length === 0) {
       log('Cron').info('No sections to check');
+
       return ok({
         message: 'No sections to check',
         sections_enqueued: 0,
@@ -128,6 +140,7 @@ export async function GET(request: NextRequest) {
       log('Cron').warn(
         `${initialFailures.length}/${batches.length} batches failed on first attempt — retrying`
       );
+
       const retryResults = await Promise.allSettled(
         initialFailures.map(({ idx }) =>
           queue.sendBatch(batches[idx].map((msg) => ({ body: msg })))
@@ -135,14 +148,17 @@ export async function GET(request: NextRequest) {
       );
 
       batchResults = [...firstPassResults];
+
       for (let i = 0; i < initialFailures.length; i++) {
         batchResults[initialFailures[i].idx] = retryResults[i];
       }
     }
 
     const failedBatches = batchResults.filter((r) => r.status === 'rejected');
+
     if (failedBatches.length > 0) {
       log('Cron').error(`${failedBatches.length}/${batches.length} batches failed to enqueue`);
+
       for (const failed of failedBatches) {
         if (failed.status === 'rejected') {
           log('Cron').error('Batch error:', failed.reason);
@@ -151,6 +167,7 @@ export async function GET(request: NextRequest) {
     }
 
     const successfulBatches = batchResults.filter((r) => r.status === 'fulfilled').length;
+
     const successfullyEnqueuedCount = batchResults.reduce(
       (count, result, idx) => count + (result.status === 'fulfilled' ? batches[idx].length : 0),
       0
@@ -189,6 +206,7 @@ export async function GET(request: NextRequest) {
     if (lockLease?.acquired) {
       try {
         await lockLease.release();
+
         if (lockLease.configured) log('Cron').info('Lock released');
       } catch (error) {
         log('Cron').error('Error releasing lock:', error);

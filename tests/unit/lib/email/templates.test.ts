@@ -55,6 +55,7 @@ describe('notification email templates', () => {
 
   it('renders instructor-assigned emails with availability color branches', () => {
     const availableHtml = InstructorAssignedEmailTemplate(classInfo, 'https://pickmyclass.app/u');
+
     const fullHtml = InstructorAssignedEmailTemplate({
       ...classInfo,
       seats_available: 0,
@@ -98,6 +99,7 @@ describe('getEmailFooter (shared)', () => {
     const footer = getEmailFooter(url);
 
     const seatHtml = SeatAvailableEmailTemplate(classInfo, url);
+
     const removalHtml = buildAutoCleanupRemovedEmail({
       classNbr: '42737',
       term: '2261',

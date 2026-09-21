@@ -13,6 +13,7 @@ const {
   mockRevokeSession,
 } = vi.hoisted(() => {
   const mockExecute = vi.fn();
+
   return {
     dbHandle: { execute: mockExecute },
     mockGetDbFromEnv: vi.fn(() => dbHandle),
@@ -43,14 +44,19 @@ vi.mock('@/lib/db', () => ({
 import proxy from '@/proxy';
 
 const ORIGIN = 'http://localhost:3000';
+
 const IDENTITY = { userId: 'user-1', clerkUserId: 'clerk_1', sessionId: 'sess_1' };
 
 const VERIFIED = { email: 'test@example.com', email_confirmed_at: '2026-01-01T00:00:00Z' };
+
 const UNVERIFIED = { email: 'unverified@example.com', email_confirmed_at: null };
 
 const CONSENTED = { is_admin: false, is_disabled: false, has_consent: true };
+
 const UNCONSENTED = { is_admin: false, is_disabled: false, has_consent: false };
+
 const ADMIN = { is_admin: true, is_disabled: false, has_consent: true };
+
 const DISABLED = { is_admin: false, is_disabled: true, has_consent: true };
 
 function createRequest(pathname: string, cookie?: string): NextRequest {
@@ -141,6 +147,7 @@ describe('proxy', () => {
     expect(mockRevokeSession).toHaveBeenCalledTimes(1);
     expect(mockRevokeSession).toHaveBeenCalledWith('sess_1');
     const setCookie = response.headers.getSetCookie().join('\n');
+
     for (const name of ['__session', '__client_uat']) {
       expect(setCookie).toContain(`${name}=`);
     }

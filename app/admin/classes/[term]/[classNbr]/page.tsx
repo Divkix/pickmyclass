@@ -47,6 +47,7 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
   }
 
   const watchers: ClassWatcher[] = await getClassWatchers(db, { class_nbr: classNbr, term });
+
   const formatDateTime = (timestamp: string): string => {
     return formatAbsoluteDate(timestamp, {
       month: 'short',

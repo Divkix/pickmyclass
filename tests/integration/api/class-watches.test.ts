@@ -55,8 +55,10 @@ function createDbHarness() {
     unsafe(query: string, params: unknown[]): ScriptedQueryResult {
       statements.push({ sql: query, params });
       const outcome = outcomes.shift();
+
       if (outcome instanceof Error) {
         const reject = (): Promise<never> => Promise.reject(outcome);
+
         return {
           then: (
             onFulfilled?: (value: never) => PromiseLike<never>,
@@ -66,6 +68,7 @@ function createDbHarness() {
           values: reject,
         };
       }
+
       return pendingRows(outcome ?? []);
     },
     begin<T>(fn: (txClient: PostgresJsSeam) => Promise<T>): Promise<T> {
@@ -99,7 +102,9 @@ const {
   NotFoundError,
 } = vi.hoisted(() => {
   class MockNotFoundError extends Error {}
+
   class MockAuthError extends Error {}
+
   return {
     mockGetDbFromEnv: vi.fn(),
     mockGetSessionIdentity: vi.fn(),
@@ -140,6 +145,7 @@ import { DELETE, GET, POST } from '@/app/api/class-watches/route';
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 const USER_ID = 'user-123';
+
 const identity = { userId: USER_ID, clerkUserId: 'clerk_123', sessionId: 'sess_123' };
 
 const term = getSelectableTerms()[0].code;
@@ -186,6 +192,7 @@ function driverError(code: string, message: string): Error {
 
 function wrappedDriverError(code: string, message: string): Error {
   const wrapper = new Error(`Failed query: SELECT * FROM create_class_watch_with_limit`);
+
   return Object.assign(wrapper, {
     query: 'SELECT * FROM create_class_watch_with_limit(...)',
     params: [],
@@ -223,6 +230,7 @@ function deleteRequest(id: string | null): NextRequest {
     id === null
       ? 'http://localhost:3000/api/class-watches'
       : `http://localhost:3000/api/class-watches?id=${id}`;
+
   return new NextRequest(url, { method: 'DELETE' });
 }
 
@@ -333,6 +341,7 @@ describe('/api/class-watches', () => {
         catalog_nbr: '240',
         created_at: '2026-06-15T12:00:00Z',
       };
+
       h.next([rpcWatch]);
       h.next([]);
       h.next([]);

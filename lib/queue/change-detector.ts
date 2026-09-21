@@ -12,6 +12,7 @@ function getOpenSeats(
   state: Pick<ClassStateRow, 'non_reserved_seats' | 'seats_available'> | null
 ): number {
   if (!state) return 0;
+
   return state.non_reserved_seats ?? state.seats_available;
 }
 

@@ -13,6 +13,7 @@ import { log } from '@/lib/log';
 export async function POST(request: NextRequest) {
   try {
     const parsed = parseOrFail(consentSchema, await request.json());
+
     if (!parsed.success) {
       return parsed.response;
     }
@@ -23,22 +24,27 @@ export async function POST(request: NextRequest) {
       const db = getDbFromEnv();
       const clerkUser = await getClerkClient().users.getUser(user.clerkUserId);
       const result = await repairUserMirror(db, user.userId, clerkUser);
+
       if (!result) {
         log('Consent').error(`No primary email on Clerk user ${user.clerkUserId}`);
+
         return fail('Account setup incomplete — please try again in a moment', 409);
       }
 
       await db.execute(sql`SELECT public.accept_terms_and_verify_age(${user.userId}::text)`);
     } catch (error) {
       log('Consent').error('Failed to persist consent:', error);
+
       return fail('Could not save consent', 500);
     }
 
     invalidateAuthorizationState(user.userId);
+
     return ok(null);
   } catch (error) {
     if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('Consent').error('Unexpected consent error:', error);
+
     return fail('Could not save consent', 500);
   }
 }

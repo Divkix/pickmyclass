@@ -70,6 +70,7 @@ export function OnboardingModal({
 
   if (open !== previousOpen) {
     setPreviousOpen(open);
+
     if (open) setSession((current) => current + 1);
   }
 
@@ -126,6 +127,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
         if (!response.ok) {
           throw new Error('Failed to load popular class');
         }
+
         return response.json();
       })
       .then((data) => {
@@ -141,6 +143,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
         if (controller.signal.aborted) return;
         setPopularLoading(false);
       });
+
     return () => controller.abort();
   }, []);
 
@@ -148,6 +151,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
     const id = setTimeout(() => {
       titleRef.current?.focus();
     }, 0);
+
     return () => clearTimeout(id);
   }, [step]);
 
@@ -155,13 +159,16 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
     if (skippingRef.current) return;
     skippingRef.current = true;
     setSkipping(true);
+
     try {
       const response = await fetch('/api/user/onboarding', { method: 'POST' });
       // SAFETY: response.json() matches Partial<OnboardingState> with optional error per API contract
       const data = (await response.json()) as Partial<OnboardingState> & { error?: string };
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to skip onboarding');
       }
+
       onSkipped({
         onboarding_completed_at: data.onboarding_completed_at ?? null,
         onboarding_skipped_at: data.onboarding_skipped_at ?? null,
@@ -184,6 +191,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
 
   const handleConfirmClose = () => {
     if (completedRef.current) return;
+
     if (createdWatch) {
       completedRef.current = true;
       onCompleted?.(createdWatch);
@@ -203,8 +211,10 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
   const requestClose = () => {
     if (step === 3) {
       handleConfirmClose();
+
       return;
     }
+
     void handleSkip();
   };
 

@@ -38,6 +38,7 @@ describe('getPgError', () => {
       constraint: 'users_clerk_user_id_key',
       message: 'duplicate key value violates unique constraint "users_clerk_user_id_key"',
     };
+
     expect(getPgError(error)).toStrictEqual({
       code: '23505',
       message: 'duplicate key value violates unique constraint "users_clerk_user_id_key"',

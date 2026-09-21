@@ -4,9 +4,11 @@ import { createCronLockClient, createCronLockLifecycle } from '@/lib/worker/cron
 function createMemoryLock(initial: unknown = null) {
   let stored = initial;
   let now = Date.parse('2026-07-12T12:00:00.000Z');
+
   const save = vi.fn(async (state: unknown) => {
     stored = structuredClone(state);
   });
+
   const lifecycle = createCronLockLifecycle(
     {
       load: async () => stored,
@@ -97,6 +99,7 @@ describe('cron lock lifecycle', () => {
     const save = vi.fn<(state: unknown) => Promise<void>>(async () => {
       throw new Error('storage unavailable');
     });
+
     const lifecycle = createCronLockLifecycle({ load: async () => null, save });
 
     await expect(lifecycle.acquire('worker-a')).rejects.toThrow('storage unavailable');
@@ -124,6 +127,7 @@ describe('cron lock client', () => {
   it('hides DO identity, internal URLs, wire parsing, and release behind a lease', async () => {
     const fetch = vi.fn(async (input: string) => {
       const url = input;
+
       if (url.includes('/acquire')) {
         return Response.json({
           acquired: true,
@@ -132,13 +136,17 @@ describe('cron lock client', () => {
           lockedSince: 100,
         });
       }
+
       return Response.json({ released: true, message: 'Lock released' });
     });
+
     const idFromName = vi.fn(() => 'lock-id');
+
     const rawNamespace: unknown = {
       idFromName,
       get: vi.fn(() => ({ fetch })),
     };
+
     const namespace = rawNamespace as DurableObjectNamespace;
     const client = createCronLockClient(namespace);
 
@@ -174,10 +182,12 @@ describe('cron lock client', () => {
           expiresAt: 200,
         })
       );
+
     const rawNamespace: unknown = {
       idFromName: vi.fn(() => 'lock-id'),
       get: vi.fn(() => ({ fetch })),
     };
+
     const namespace = rawNamespace as DurableObjectNamespace;
     const client = createCronLockClient(namespace);
 
@@ -200,6 +210,7 @@ describe('cron lock client', () => {
       idFromName: vi.fn(() => 'lock-id'),
       get: vi.fn(() => ({ fetch: vi.fn(async () => Response.json({ nope: true })) })),
     };
+
     const namespace = rawNamespace as DurableObjectNamespace;
 
     await expect(createCronLockClient(namespace).acquire('worker-a')).rejects.toThrow(
@@ -214,10 +225,12 @@ describe('cron lock client', () => {
         Response.json({ acquired: true, message: 'acquired', lockHolder: 'worker-a' })
       )
       .mockResolvedValueOnce(Response.json({ released: false, message: 'storage unavailable' }));
+
     const rawNamespace: unknown = {
       idFromName: vi.fn(() => 'lock-id'),
       get: vi.fn(() => ({ fetch })),
     };
+
     const namespace = rawNamespace as DurableObjectNamespace;
     const lease = await createCronLockClient(namespace).acquire('worker-a');
 

@@ -7,6 +7,7 @@ import { log } from '@/lib/log';
 export async function POST(request: NextRequest) {
   try {
     const identity = await getSessionIdentity(request);
+
     if (identity?.sessionId) {
       try {
         await revokeSession(identity.sessionId);
@@ -19,8 +20,10 @@ export async function POST(request: NextRequest) {
   }
 
   const response = ok(null);
+
   for (const name of CLERK_COOKIES_TO_CLEAR) {
     response.cookies.set(name, '', { path: '/', maxAge: 0 });
   }
+
   return response;
 }

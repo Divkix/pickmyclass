@@ -9,6 +9,7 @@ import type { UserSortField } from '@/lib/db/admin-queries';
 import { param, parsePageParam } from '@/lib/utils/page-params';
 
 const PAGE_SIZE = 25;
+
 const USER_SORT_FIELDS: readonly UserSortField[] = [
   'email',
   'created_at',

@@ -159,6 +159,7 @@ describe('interactive components', () => {
     const { rerender, container } = render(
       <PullToRefreshIndicator pullDistance={0} isRefreshing={false} threshold={80} />
     );
+
     expect(container.firstChild).toBeNull();
 
     rerender(<PullToRefreshIndicator pullDistance={20} isRefreshing={false} threshold={80} />);

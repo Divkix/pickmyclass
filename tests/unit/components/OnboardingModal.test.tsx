@@ -32,6 +32,7 @@ vi.mock('@/lib/class-watches/class-watch-creation', () => ({
 vi.mock('@/components/ui/dialog', async () => {
   const actual =
     await vi.importActual<typeof import('@/components/ui/dialog')>('@/components/ui/dialog');
+
   return {
     ...actual,
     DialogPortal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -54,6 +55,7 @@ const createdWatch: ClassWatchRow = {
   created_at: '2026-07-11T12:00:00Z',
   updated_at: '2026-07-11T12:00:00Z',
 } as ClassWatchRow;
+
 const popularClassPayload = {
   class_nbr: '12345',
   term: '2267',
@@ -88,6 +90,7 @@ describe('OnboardingModal', () => {
           json: () => Promise.resolve(popularClassResponse),
         });
       }
+
       return Promise.resolve({
         ok: skipOk,
         json: () => Promise.resolve(skipResponse),
@@ -258,9 +261,11 @@ describe('OnboardingModal', () => {
       await waitFor(() => {
         expect(mockTrack).toHaveBeenCalledWith('onboarding_completed', {});
       });
+
       const completedCalls = mockTrack.mock.calls.filter(
         (args) => args[0] === 'onboarding_completed'
       );
+
       expect(completedCalls).toHaveLength(1);
     });
 
@@ -381,6 +386,7 @@ describe('OnboardingModal', () => {
         if (url === '/api/onboarding/popular-class') {
           return Promise.reject(new Error('network'));
         }
+
         return Promise.resolve({ ok: true, json: () => Promise.resolve(skipResponse) });
       });
 

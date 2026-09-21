@@ -92,18 +92,23 @@ function createDbDouble(): DbDouble {
         where: undefined,
         limit: null,
       };
+
       ops.push(op);
+
       return {
         from: (table: PgTable) => {
           op.table = table;
+
           return {
             where: (where: SQL) => {
               op.where = where;
               // softDeleteUserById awaits the chain bare; the mirror reads chain .limit(1).
               const rows = Promise.resolve(selectResults.shift() ?? []);
+
               return Object.assign(rows, {
                 limit: (limit: number) => {
                   op.limit = limit;
+
                   return rows;
                 },
               });
@@ -115,16 +120,20 @@ function createDbDouble(): DbDouble {
     insert: (table: PgTable) => {
       const op: InsertOp = { method: 'insert', table, values: {}, conflict: null };
       ops.push(op);
+
       return {
         values: (values: RecordedRowMap) => {
           op.values = values;
+
           return {
             onConflictDoNothing: (config: { target?: PgColumn } = {}) => {
               op.conflict = config;
+
               return insertResults.shift() ?? Promise.resolve([]);
             },
             onConflictDoUpdate: (config: { target?: PgColumn; set: RecordedRowMap }) => {
               op.conflict = config;
+
               return insertResults.shift() ?? Promise.resolve([]);
             },
           };
@@ -157,6 +166,7 @@ const dialect = new PgDialect();
 
 function renderSql(fragment: RecordedValue): string {
   if (!(fragment instanceof SQL)) throw new Error('Expected a SQL fragment');
+
   return dialect.sqlToQuery(fragment).sql;
 }
 
@@ -168,6 +178,7 @@ interface RenderedCondition {
 function renderWhere(where: SQL | undefined): RenderedCondition {
   if (where === undefined) throw new Error('Expected a where condition');
   const { sql, params } = dialect.sqlToQuery(where);
+
   return { sql, params };
 }
 
@@ -186,13 +197,19 @@ interface BackendUserDouble {
 }
 
 const CLERK_USER_ID = 'user_2abc123';
+
 const MIGRATED_APP_ID = 'b7c9d1e2-3f40-4a51-8b62-old-supabase';
+
 const EMAIL_PRIMARY_ID = 'idn_email_primary';
+
 const EMAIL_SECONDARY_ID = 'idn_email_secondary';
 
 const CREATED_AT_MS = 1_700_000_000_000;
+
 const LAST_SIGN_IN_MS = 1_700_012_345_678;
+
 const CREATED_AT_ISO = new Date(CREATED_AT_MS).toISOString();
+
 const LAST_SIGN_IN_ISO = new Date(LAST_SIGN_IN_MS).toISOString();
 
 const ISO_LIKE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
@@ -458,6 +475,7 @@ describe('syncUserMirrorFromClerkUser', () => {
     for (const mirror of [firstMirror, secondMirror]) {
       expect(String(mirror.values.email_confirmed_at)).toMatch(ISO_LIKE);
     }
+
     for (const profile of [firstProfile, secondProfile]) {
       const ageAt = String(profile.values.age_verified_at);
       const termsAt = String(profile.values.agreed_to_terms_at);
@@ -517,6 +535,7 @@ describe('repairUserMirror', () => {
         agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
       },
     ]);
+
     const untouched = new Proxy(
       {},
       {
@@ -569,6 +588,7 @@ describe('repairUserMirror', () => {
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: true, agreed_to_terms: true },
     });
+
     double.nextRows([]);
     double.nextRows([
       {
@@ -599,6 +619,7 @@ describe('repairUserMirror', () => {
       last_sign_in_at: null,
       public_metadata: {},
     });
+
     double.nextRows([]);
     double.nextRows([{ age_verified_at: null, agreed_to_terms_at: null }]);
 
@@ -633,6 +654,7 @@ describe('repairUserMirror', () => {
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: true, agreed_to_terms: true },
     });
+
     double.nextRows([]);
     double.nextRows([
       {
@@ -649,6 +671,7 @@ describe('repairUserMirror', () => {
     const [reRead] = double.selects().slice(-1);
     expect(renderWhere(reRead.where).params).toEqual([APP_USER_ID]);
     const reReadIndex = double.ops().indexOf(reRead);
+
     for (const insert of double.inserts()) {
       expect(double.ops().indexOf(insert)).toBeLessThan(reReadIndex);
     }
@@ -659,6 +682,7 @@ describe('repairUserMirror', () => {
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: false, agreed_to_terms: false },
     });
+
     double.nextRows([]);
     double.nextRows([
       {
@@ -679,6 +703,7 @@ describe('repairUserMirror', () => {
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: true, agreed_to_terms: true },
     });
+
     await expect(
       repairUserMirror(double.db, APP_USER_ID, backendUser(clerkUser))
     ).rejects.toThrow();

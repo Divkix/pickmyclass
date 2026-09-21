@@ -23,6 +23,7 @@ type DriverTimestamp = string | Date | null | undefined;
 
 function normalizeIsoTimestamp(value: DriverTimestamp): string | undefined {
   if (value === null || value === undefined) return undefined;
+
   const date =
     value instanceof Date
       ? value
@@ -31,6 +32,7 @@ function normalizeIsoTimestamp(value: DriverTimestamp): string | undefined {
             .replace(' ', 'T')
             .replace(/([+-]\d{2})$/, '$1:00')
         );
+
   return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
 }
 
@@ -38,10 +40,13 @@ type DriverStringArray = readonly string[] | string;
 
 function normalizeStringArray(value: DriverStringArray | null | undefined): string[] {
   if (Array.isArray(value)) return value.map(String);
+
   if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
     const inner = value.slice(1, -1);
+
     return inner.length === 0 ? [] : inner.split(',');
   }
+
   return [];
 }
 
@@ -51,10 +56,13 @@ async function incrementConsecutiveNotFoundViaRpc(db: Database, ref: SectionRef)
   const rows = await db.execute<{ new_count: unknown }>(
     sql`SELECT public.increment_consecutive_not_found(${ref.class_nbr}::text, ${ref.term}::text) AS new_count`
   );
+
   const newCount = rows[0]?.new_count;
+
   if (typeof newCount !== 'number' || !Number.isFinite(newCount)) {
     throw new Error(`Invalid increment result: ${String(newCount)}`);
   }
+
   return newCount;
 }
 
@@ -69,6 +77,7 @@ export async function getClassWatchers(db: Database, ref: SectionRef): Promise<C
       sql`SELECT user_id, email, watch_id, created_at
           FROM public.get_class_watchers(${ref.class_nbr}::text, ${ref.term}::text)`
     );
+
     return rows.map((row) => ({
       user_id: row.user_id,
       email: row.email,
@@ -102,6 +111,7 @@ export async function getNotificationWatchers(
       sql`SELECT user_id, email, watch_id
           FROM public.get_watchers_for_sections(ARRAY[${ref.class_nbr}::text], ${ref.term}::text)`
     );
+
     return rows.map((row) => ({
       user_id: row.user_id,
       email: row.email,
@@ -124,7 +134,9 @@ export async function getSectionsToCheck(
     const rows = await db.execute<{ class_nbr: string; term: string }>(
       sql`SELECT class_nbr, term FROM public.get_sections_to_check(${staggerType}::text)`
     );
+
     log('DB').info(`Found ${rows.length} sections to check (stagger: ${staggerType})`);
+
     return rows.map((row) => ({ class_nbr: row.class_nbr, term: row.term }));
   } catch (error) {
     log('DB').error(`Error fetching sections to check:`, error);
@@ -137,8 +149,11 @@ export async function getMostWatchedClass(db: Database, term: string): Promise<S
     const rows = await db.execute<{ class_nbr: string; term: string }>(
       sql`SELECT class_nbr, term FROM public.get_most_watched_class(${term}::text)`
     );
+
     const row = rows[0];
+
     if (!row) return null;
+
     return { class_nbr: row.class_nbr, term: row.term };
   } catch (error) {
     log('DB').error(`Error fetching most watched class for term ${term}:`, error);
@@ -157,6 +172,7 @@ export async function resetNotificationsForSection(
     const rows = await db.execute<{ deleted: unknown }>(
       sql`SELECT public.reset_section_notifications(${ref.class_nbr}::text, ${ref.term}::text, ${notificationType}::text) AS deleted`
     );
+
     const deleted = Number(rows[0]?.deleted ?? 0);
     log('DB').info(
       `Reset ${notificationType} notifications for section ${ref.class_nbr} (${deleted} records deleted)`
@@ -173,17 +189,21 @@ export async function deleteNotificationRecords(
   notificationType: NotificationType
 ): Promise<number> {
   if (watchIds.length === 0) return 0;
+
   try {
     // Array-bound RPC: JS-array binds are unserializable under this driver
     // config (live-proven 22P02 through both drizzle and the native
     // postgres-js template). Compose the array server-side from
     // separately-bound scalars; watchIds is guarded non-empty above.
     const idParams = watchIds.map((id) => sql`${id}::uuid`);
+
     const rows = await db.execute<{ deleted: unknown }>(
       sql`SELECT public.delete_notification_records(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text) AS deleted`
     );
+
     const deleted = Number(rows[0]?.deleted ?? 0);
     log('DB').info(`Deleted ${deleted} notification records for ${watchIds.length} watches`);
+
     return deleted;
   } catch (error) {
     log('DB').error('Error deleting notification records:', error);
@@ -196,15 +216,19 @@ export async function deleteNotificationRecordsByIds(
   notificationIds: string[]
 ): Promise<number> {
   if (notificationIds.length === 0) return 0;
+
   try {
     // Same array-bind constraint as the RPCs above: compose the uuid[] server-side
     // from separately-bound scalars (notificationIds guarded non-empty above).
     const idParams = notificationIds.map((id) => sql`${id}::uuid`);
+
     const rows = await db.execute<{ deleted: unknown }>(
       sql`SELECT public.delete_notification_records_by_ids(ARRAY[${sql.join(idParams, sql`, `)}]) AS deleted`
     );
+
     const deleted = Number(rows[0]?.deleted ?? 0);
     log('DB').info(`Deleted ${deleted} notification records by id (${notificationIds.length} ids)`);
+
     return deleted;
   } catch (error) {
     log('DB').error('Error deleting notification records by id:', error);
@@ -218,6 +242,7 @@ export async function getNotificationRecordIds(
   notificationType: NotificationType
 ): Promise<Map<string, string>> {
   if (watchIds.length === 0) return new Map();
+
   try {
     const rows = await db
       .select({ id: notificationsSent.id, class_watch_id: notificationsSent.class_watch_id })
@@ -229,6 +254,7 @@ export async function getNotificationRecordIds(
           eq(notificationsSent.is_active, true)
         )
       );
+
     return new Map(rows.map((row) => [row.class_watch_id, row.id]));
   } catch (error) {
     log('DB').error('Error reading notification record ids:', error);
@@ -238,12 +264,15 @@ export async function getNotificationRecordIds(
 
 export async function deletePastTermWatches(db: Database, termCodes: string[]): Promise<number> {
   if (termCodes.length === 0) return 0;
+
   try {
     const deleted = await db
       .delete(classWatches)
       .where(inArray(classWatches.term, termCodes))
       .returning({ id: classWatches.id });
+
     log('DB').info(`Deleted ${deleted.length} past-term watches for ${termCodes.length} terms`);
+
     return deleted.length;
   } catch (error) {
     log('DB').error('Error deleting past-term watches:', error);
@@ -258,6 +287,7 @@ export async function tryRecordNotificationsBatch(
   expiresHours: number = 24
 ): Promise<Set<string>> {
   if (watchIds.length === 0) return new Set();
+
   try {
     // Array-bound both ways: uuid[] in, claimed uuid[] out. JS-array binds
     // are unserializable under this driver config (live-proven 22P02), so the
@@ -265,11 +295,14 @@ export async function tryRecordNotificationsBatch(
     // (watchIds guarded non-empty above) while the returned uuid[] column
     // normalizes through normalizeStringArray below.
     const idParams = watchIds.map((id) => sql`${id}::uuid`);
+
     const rows = await db.execute<{ recorded: DriverStringArray | null }>(
       sql`SELECT public.try_record_notifications_batch(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text, ${expiresHours}::integer) AS recorded`
     );
+
     const recordedIds = new Set(normalizeStringArray(rows[0]?.recorded));
     log('DB').info(`Batch ${notificationType}: ${recordedIds.size}/${watchIds.length} recorded`);
+
     return recordedIds;
   } catch (error) {
     log('DB').error('Error in batch notification check:', error);
@@ -343,6 +376,7 @@ export async function incrementConsecutiveNotFound(db: Database, ref: SectionRef
     log('DB').info(
       `Incremented consecutive_not_found_count to ${newCount} for ${ref.class_nbr} (term ${ref.term}) via atomic RPC`
     );
+
     return newCount;
   } catch (error) {
     log('DB').error(
@@ -406,6 +440,7 @@ export async function readAutoCleanupBreakerCounts(db: Database): Promise<{
         .from(classStates)
         .where(gte(classStates.consecutive_not_found_count, 1)),
     ]);
+
     return {
       total: Number(totalRows[0]?.value ?? 0),
       flagged: Number(flaggedRows[0]?.value ?? 0),
@@ -458,6 +493,7 @@ export async function readSectionRemovalClassInfo(
       .from(classStates)
       .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))
       .limit(1);
+
     return rows[0] ?? null;
   } catch (error) {
     log('DB').error(
@@ -497,8 +533,11 @@ export async function readSectionCheckState(
       .from(classStates)
       .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))
       .limit(1);
+
     const row = rows[0];
+
     if (!row) return null;
+
     return { ...row, last_checked_at: normalizeIsoTimestamp(row.last_checked_at) };
   } catch (error) {
     log('DB').error(

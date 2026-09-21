@@ -61,6 +61,7 @@ describe('GET /api/cron', () => {
       class_nbr: String(10000 + i),
       term: '2261',
     }));
+
     vi.mocked(getSectionsToCheck).mockResolvedValue(mockSections);
 
     const { env } = await import('cloudflare:workers');
@@ -76,6 +77,7 @@ describe('GET /api/cron', () => {
       success: boolean;
       details?: { batches_failed: number; batches_total: number };
     };
+
     expect(responseData.success).toBe(false);
     expect(responseData.details?.batches_failed).toBeGreaterThan(0);
     expect(responseData.details?.batches_total).toBeGreaterThan(0);
@@ -86,6 +88,7 @@ describe('GET /api/cron', () => {
       class_nbr: String(10000 + i),
       term: '2261',
     }));
+
     vi.mocked(getSectionsToCheck).mockResolvedValue(mockSections);
 
     const { env } = await import('cloudflare:workers');
@@ -102,6 +105,7 @@ describe('GET /api/cron', () => {
       batches_failed: number;
       sections_enqueued: number;
     };
+
     expect(responseData.success).toBe(true);
     expect(responseData.batches_failed).toBe(0);
     expect(responseData.sections_enqueued).toBe(50);
@@ -112,6 +116,7 @@ describe('GET /api/cron', () => {
       .mock.calls.flatMap((call) =>
         Array.from(call[0]).map((entry) => entry.body as { cycle?: string })
       );
+
     expect(sentMessages).toHaveLength(50);
     expect(sentMessages.every((message) => message.cycle === '2024-01-15T12:00:00.000Z:even')).toBe(
       true
@@ -123,6 +128,7 @@ describe('GET /api/cron', () => {
       class_nbr: String(10000 + i),
       term: '2261',
     }));
+
     vi.mocked(getSectionsToCheck).mockResolvedValue(mockSections);
 
     const { env } = await import('cloudflare:workers');
@@ -130,9 +136,11 @@ describe('GET /api/cron', () => {
     // oxlint-disable-next-line typescript/unbound-method
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockImplementation(() => {
       callCount++;
+
       if (callCount === 2) {
         return Promise.reject(new Error('Transient error'));
       }
+
       return Promise.resolve({ metadata: {} } as QueueSendBatchResponse);
     });
 
@@ -144,6 +152,7 @@ describe('GET /api/cron', () => {
       batches_failed: number;
       batches_total: number;
     };
+
     expect(responseData.success).toBe(true);
     expect(responseData.batches_failed).toBe(0);
     expect(responseData.batches_total).toBe(2);
@@ -155,6 +164,7 @@ describe('GET /api/cron', () => {
       class_nbr: String(10000 + i),
       term: '2261',
     }));
+
     vi.mocked(getSectionsToCheck).mockResolvedValue(mockSections);
 
     const { env } = await import('cloudflare:workers');
@@ -162,9 +172,11 @@ describe('GET /api/cron', () => {
     // oxlint-disable-next-line typescript/unbound-method
     vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch).mockImplementation(() => {
       callCount++;
+
       if (callCount !== 1) {
         return Promise.reject(new Error('Persistent error'));
       }
+
       return Promise.resolve({ metadata: {} } as QueueSendBatchResponse);
     });
 
@@ -175,6 +187,7 @@ describe('GET /api/cron', () => {
       success: boolean;
       details?: { batches_failed: number; batches_total: number };
     };
+
     expect(responseData.success).toBe(false);
     expect(responseData.details?.batches_failed).toBe(1);
     expect(responseData.details?.batches_total).toBe(2);
@@ -201,9 +214,11 @@ describe('GET /api/cron', () => {
 
     // oxlint-disable-next-line typescript/unbound-method
     const sendBatch = vi.mocked(env.PICKMYCLASS_QUEUE.sendBatch);
+
     const enqueuedTerms = sendBatch.mock.calls.flatMap(([batch]) =>
       (batch as { body: { term: string } }[]).map((m) => m.body.term)
     );
+
     expect(enqueuedTerms).toEqual(['2271']);
   });
 
@@ -212,6 +227,7 @@ describe('GET /api/cron', () => {
       class_nbr: String(10000 + i),
       term: '2261',
     }));
+
     vi.mocked(getSectionsToCheck).mockResolvedValue(mockSections);
 
     const { env } = await import('cloudflare:workers');
@@ -223,6 +239,7 @@ describe('GET /api/cron', () => {
     vi.setSystemTime(new Date('2024-01-15T12:30:00Z'));
 
     const scheduledTime = new Date('2024-01-15T12:00:00Z').getTime();
+
     const request = new NextRequest('http://localhost:3000/api/cron', {
       method: 'GET',
       headers: {
@@ -230,6 +247,7 @@ describe('GET /api/cron', () => {
         'X-Cron-Scheduled-Time': String(scheduledTime),
       },
     });
+
     await GET(request);
 
     expect(getSectionsToCheck).toHaveBeenCalledWith(

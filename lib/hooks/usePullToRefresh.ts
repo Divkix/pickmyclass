@@ -51,11 +51,13 @@ export function usePullToRefresh({
 
       if (pullDelta > 0) {
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
+
         if (scrollTop > 0) {
           isAtTop.current = false;
           touchStartY.current = 0;
           setPullDistance(0);
           currentPullDistance.current = 0;
+
           return;
         }
 
@@ -76,6 +78,7 @@ export function usePullToRefresh({
       touchStartY.current = 0;
       setPullDistance(0);
       currentPullDistance.current = 0;
+
       return;
     }
 
@@ -88,9 +91,11 @@ export function usePullToRefresh({
         log('PullToRefresh').error('Refresh failed:', error);
       } finally {
         setIsRefreshing(false);
+
         if (resetTimeoutRef.current) {
           clearTimeout(resetTimeoutRef.current);
         }
+
         resetTimeoutRef.current = setTimeout(() => {
           setPullDistance(0);
           currentPullDistance.current = 0;
@@ -107,6 +112,7 @@ export function usePullToRefresh({
 
   useEffect(() => {
     const container = containerRef.current;
+
     if (!container) return;
 
     container.addEventListener('touchstart', handleTouchStart, { passive: true });
@@ -118,6 +124,7 @@ export function usePullToRefresh({
       if (resetTimeoutRef.current) {
         clearTimeout(resetTimeoutRef.current);
       }
+
       container.removeEventListener('touchstart', handleTouchStart);
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);

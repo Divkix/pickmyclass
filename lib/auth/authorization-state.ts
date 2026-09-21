@@ -12,6 +12,7 @@ export interface AuthorizationState {
 }
 
 const CACHE_TTL_MS = 30 * 1000;
+
 const authorizationStateCache = new TtlCache<AuthorizationState>(CACHE_TTL_MS, 100);
 
 export function clearAuthorizationStateCache(): void {
@@ -33,6 +34,7 @@ export async function readAuthorizationState(
 ): Promise<AuthorizationState | null> {
   if (cache) {
     const cached = authorizationStateCache.get(userId);
+
     if (cached) return cached;
   }
 
@@ -63,6 +65,7 @@ export async function readAuthorizationState(
     return state;
   } catch (error) {
     log('Auth').error('Error reading authorization state:', error);
+
     // Unknown, not disabled: a transient DB failure must not revoke sessions.
     return null;
   }

@@ -16,18 +16,23 @@ export type OnboardingState = {
 };
 
 export type OnboardingPayload = OnboardingState & Record<string, JsonValue>;
+
 export type OnboardingStatus = 'pending' | 'skipped' | 'completed';
 
 export function onboardingStatus(row: OnboardingRow | null): OnboardingStatus {
   if (!row) return 'completed';
+
   if (row.onboarding_completed_at) return 'completed';
+
   if (row.onboarding_skipped_at) return 'skipped';
+
   return 'pending';
 }
 
 export function toOnboardingState(row: OnboardingRow | null): OnboardingPayload {
   const completedAt = row?.onboarding_completed_at ?? null;
   const skippedAt = row?.onboarding_skipped_at ?? null;
+
   return {
     onboarding_completed_at: completedAt,
     onboarding_skipped_at: skippedAt,
@@ -42,6 +47,7 @@ export function completeOnFirstWatch(
   if (onboardingStatus(current) === 'completed') {
     return { ...current };
   }
+
   return {
     onboarding_completed_at: now,
     onboarding_skipped_at: current.onboarding_skipped_at,
@@ -68,6 +74,7 @@ export async function readOnboardingState(
     .from(userProfiles)
     .where(eq(userProfiles.user_id, userId))
     .limit(1);
+
   return toOnboardingState(rows[0] ?? null);
 }
 
@@ -77,6 +84,8 @@ export async function skipOnboarding(
 ): Promise<OnboardingPayload | null> {
   const rows = await db.execute<OnboardingRow>(sql`SELECT * FROM skip_onboarding(${userId}::text)`);
   const row = rows[0];
+
   if (!row) return null;
+
   return toOnboardingState(row);
 }

@@ -52,8 +52,10 @@ function createDbHarness() {
     unsafe(query: string, params: unknown[]): ScriptedQueryResult {
       statements.push({ sql: query, params });
       const outcome = outcomes.shift();
+
       if (outcome instanceof Error) {
         const reject = (): Promise<never> => Promise.reject(outcome);
+
         return {
           then: (
             onFulfilled?: (value: never) => PromiseLike<never>,
@@ -63,6 +65,7 @@ function createDbHarness() {
           values: reject,
         };
       }
+
       return pendingRows(outcome ?? []);
     },
     begin<T>(fn: (txClient: PostgresJsSeam) => Promise<T>): Promise<T> {
@@ -102,6 +105,7 @@ vi.mock('@/lib/db', () => ({
 import { GET } from '@/app/api/class-watches/states/route';
 
 const USER_ID = 'user-123';
+
 const identity = { userId: USER_ID, clerkUserId: 'clerk_123', sessionId: 'sess_123' };
 
 const stateRow: ClassStateRow = {
@@ -133,6 +137,7 @@ function getRequest(classNumbers?: string): NextRequest {
     classNumbers === undefined
       ? 'http://localhost:3000/api/class-watches/states'
       : `http://localhost:3000/api/class-watches/states?classNumbers=${encodeURIComponent(classNumbers)}`;
+
   return new NextRequest(url);
 }
 

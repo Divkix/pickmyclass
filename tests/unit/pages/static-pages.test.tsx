@@ -17,10 +17,12 @@ import Home from '@/app/page';
 import { blogPosts } from '@/lib/blog/posts';
 
 type LinkHref = string | { pathname?: string };
+
 type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   href: LinkHref;
   children: ReactNode;
 };
+
 type JsonValue =
   | string
   | number
@@ -215,6 +217,7 @@ describe('blog pages', () => {
         };
       }
     );
+
     const breadcrumbs = schemas.find((schema) => schema['@type'] === 'BreadcrumbList');
     expect(breadcrumbs?.itemListElement).toEqual([
       { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
@@ -252,9 +255,11 @@ describe('blog pages', () => {
     render(await renderPage());
 
     expect(document.querySelector('main#main article')).toBeInTheDocument();
+
     const schemas = [...document.querySelectorAll('script[type="application/ld+json"]')].map(
       (script) => JSON.parse(script.textContent ?? '{}') as { '@type'?: string }
     );
+
     expect(schemas.some((schema) => schema['@type'] === 'FAQPage')).toBe(true);
   });
 });

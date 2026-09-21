@@ -1,4 +1,5 @@
 'use client';
+
 import { SignUp } from '@clerk/react';
 import { Header } from '@/components/Header';
 

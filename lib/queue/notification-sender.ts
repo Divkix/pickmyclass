@@ -39,6 +39,7 @@ async function rollbackClaims(
 ): Promise<void> {
   try {
     const rowIds = await getNotificationRecordIds(db, watchIds, notificationType);
+
     if (rowIds.size === 0) return;
     await deleteNotificationRecordsByIds(db, [...rowIds.values()]);
   } catch (rollbackError) {
@@ -59,6 +60,7 @@ export async function sendSectionNotifications(
 
   if (watchers.length === 0) {
     log('NotificationSender').info(`No watchers found for ${scope}`);
+
     return [];
   }
 
@@ -80,27 +82,34 @@ export async function sendSectionNotifications(
   );
 
   const firstRejection = claimResults.find((r) => r.status === 'rejected');
+
   if (firstRejection) {
     for (const [i, { type, changed }] of claimTypes.entries()) {
       const result = claimResults[i];
+
       if (changed && result?.status === 'fulfilled' && result.value.size > 0) {
         await rollbackClaims(db, [...result.value], type);
       }
     }
+
     // SAFETY: find() returned a rejected settled result; narrow to read its reason for rethrow
     const reason = (firstRejection as PromiseRejectedResult).reason;
     throw reason instanceof Error ? reason : new Error(String(reason));
   }
+
   const claimedByType = {
     seat_available: new Set<string>(),
     instructor_assigned: new Set<string>(),
   };
+
   claimTypes.forEach(({ type }, i) => {
     const result = claimResults[i];
+
     if (result?.status === 'fulfilled') claimedByType[type] = result.value;
   });
 
   const emailsToSend: Array<OutboundEmail & { watchId: string }> = [];
+
   for (const watcher of watchers) {
     for (const { type } of claimTypes) {
       if (claimedByType[type].has(watcher.watch_id)) {
@@ -120,6 +129,7 @@ export async function sendSectionNotifications(
       `No emails to send for ${scope}` +
         ` (seat: ${claimedByType.seat_available.size}, instructor: ${claimedByType.instructor_assigned.size})`
     );
+
     return [];
   }
 
@@ -136,6 +146,7 @@ export async function sendSectionNotifications(
       const failedWatchIds = failedEmails
         .filter((e) => e.email.type === type)
         .map((e) => e.email.watchId);
+
       if (failedWatchIds.length > 0) {
         await rollbackClaims(db, failedWatchIds, type);
       }
@@ -151,6 +162,7 @@ export async function sendSectionNotifications(
 
   const successCount = sentResults.filter((r) => r.success).length;
   const failCount = sentResults.length - successCount;
+
   if (failCount > 0) {
     log('NotificationSender').warn(
       `${failCount}/${sentResults.length} notifications failed for ${scope}`
