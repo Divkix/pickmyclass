@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { useSwipe } from '@/lib/hooks/useSwipe';
 
 const createTouchEvent = (clientX: number): React.TouchEvent => {
-  // eslint-disable-next-line anti-slop/no-chained-type-assertions
   return {
     touches: [{ clientX }],
   } as unknown as React.TouchEvent;

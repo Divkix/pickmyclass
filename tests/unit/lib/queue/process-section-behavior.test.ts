@@ -54,7 +54,6 @@ function buildEnv(
   return {
     ASU_API_BASE_URL: 'https://asu.example.test',
     ASU_API_TOKEN: 'test-token',
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     EMAIL: { send } as unknown as SendEmail,
     NOTIFICATION_FROM_EMAIL: FROM_EMAIL,
   };

@@ -34,7 +34,6 @@ const createTouchEvent = (type: string, clientY: number): TouchEvent => {
     pageY: clientY,
     screenX: 0,
     screenY: clientY,
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     target: null as unknown as EventTarget,
     radiusX: 0,
     radiusY: 0,

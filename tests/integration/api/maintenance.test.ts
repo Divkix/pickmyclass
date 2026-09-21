@@ -27,7 +27,6 @@ vi.mock('cloudflare:workers', () => ({
 }));
 
 function createRequest(cronSecret?: string): NextRequest {
-  // eslint-disable-next-line anti-slop/no-known-value-widening
   const headers: Record<string, string> = {
     'User-Agent': 'Cloudflare-Workers-Cron',
   };

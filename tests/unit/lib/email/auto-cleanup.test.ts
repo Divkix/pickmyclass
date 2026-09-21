@@ -174,9 +174,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
   });
 
   it('handles trailing slash in site URL for dashboard link', () => {
-    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
     (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL =
-      // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
       'https://pickmyclass.app///' as string;
     const email = buildAutoCleanupRemovedEmail({
       classNbr: '42737',
@@ -211,16 +209,12 @@ describe('sendAutoCleanupRemovalEmails', () => {
     }));
 
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    vi.spyOn(globalThis, 'setTimeout')
-      // eslint-disable-next-line anti-slop/no-unknown-parameters
-      .mockImplementation((cb: () => void) => {
-        cb();
-        // eslint-disable-next-line anti-slop/no-chained-type-assertions
-        return {} as unknown as ReturnType<typeof setTimeout>;
-      });
+    vi.spyOn(globalThis, 'setTimeout').mockImplementation((cb: () => void) => {
+      cb();
+      return {} as unknown as ReturnType<typeof setTimeout>;
+    });
 
     const results = await sendAutoCleanupRemovalEmails(
       {
@@ -240,12 +234,10 @@ describe('sendAutoCleanupRemovalEmails', () => {
     expect(results.filter((r) => r.attempted).length).toBe(sendMock.mock.calls.length);
     expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({ to: watchers[0].email }));
     expect(sendMock).not.toHaveBeenCalledWith(expect.objectContaining({ to: watchers[cap].email }));
-    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
     const sentEmails = sendMock.mock.calls.map((c) => (c[0] as { to: string }).to);
     expect(sentEmails).not.toContain(watchers[cap].email);
     expect(sentEmails).toContain(watchers[0].email);
     expect(sentEmails).toContain(watchers[cap - 1].email);
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => String(c[0]) + ' ' + String(c[1] ?? '')
     );
@@ -258,7 +250,6 @@ describe('sendAutoCleanupRemovalEmails', () => {
       { user_id: 'u2', email: 'b@example.com', watch_id: 'w2' },
     ];
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
     const results = await sendAutoCleanupRemovalEmails(
       {
@@ -277,7 +268,6 @@ describe('sendAutoCleanupRemovalEmails', () => {
 
   it('returns empty when no watchers', async () => {
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
     const results = await sendAutoCleanupRemovalEmails(
       {
@@ -305,7 +295,6 @@ describe('sendAutoCleanupRemovalEmails', () => {
     const sendMock = vi
       .fn()
       .mockRejectedValue(Object.assign(new Error(message), { code: fatalCode }));
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
 
     const results = await sendAutoCleanupRemovalEmails(
@@ -352,7 +341,6 @@ describe('sendAutoCleanupRemovalEmails', () => {
         Object.assign(new Error('smtp hiccup'), { code: 'E_CONNECTION_CLOSED' })
       )
       .mockResolvedValueOnce({ messageId: 'm3' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
 
     const results = await sendAutoCleanupRemovalEmails(
@@ -381,7 +369,6 @@ describe('sendAutoCleanupRemovalEmails', () => {
       { user_id: 'user-43', email: 'b@example.com', watch_id: 'w2' },
     ];
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
 
     await sendAutoCleanupRemovalEmails(
@@ -404,7 +391,6 @@ describe('sendAutoCleanupRemovalEmails', () => {
         },
       })
     );
-    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
     const secondPayload = sendMock.mock.calls[1][0] as { html: string; text: string };
     expect(secondPayload.html).toContain('unsubscribe?token=user-43');
     expect(secondPayload.text).toContain(
@@ -420,7 +406,6 @@ describe('sendAutoCleanupRemovalEmails', () => {
     );
 
     const defaultSend = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const defaultBinding = { send: defaultSend } as unknown as SendEmail;
     await sendAutoCleanupRemovalEmails(
       {
@@ -442,16 +427,11 @@ describe('sendAutoCleanupRemovalEmails', () => {
       watch_id: `w${i}`,
     }));
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
-    // eslint-disable-next-line anti-slop/no-chained-type-assertions
     const emailBinding = { send: sendMock } as unknown as SendEmail;
-    const timeoutSpy = vi
-      .spyOn(globalThis, 'setTimeout')
-      // eslint-disable-next-line anti-slop/no-unknown-parameters
-      .mockImplementation((cb: () => void) => {
-        cb();
-        // eslint-disable-next-line anti-slop/no-chained-type-assertions
-        return {} as unknown as ReturnType<typeof setTimeout>;
-      });
+    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((cb: () => void) => {
+      cb();
+      return {} as unknown as ReturnType<typeof setTimeout>;
+    });
 
     const results = await sendAutoCleanupRemovalEmails(
       {

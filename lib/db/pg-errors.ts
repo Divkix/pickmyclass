@@ -24,7 +24,6 @@ const pgErrorSchema = z.object({
 export type PgError = z.infer<typeof pgErrorSchema>;
 
 // Caught JavaScript values are arbitrary by contract; every export narrows them here.
-// oxlint-disable anti-slop/no-unknown-parameters
 
 const errorMessageSchema = z.object({
   message: z.string(),
@@ -94,4 +93,3 @@ export function isRaisedException(error: unknown): boolean {
 export function isUndefinedFunction(error: unknown): boolean {
   return viewCaughtDriver(error).pgError?.code === PG_UNDEFINED_FUNCTION;
 }
-// oxlint-enable anti-slop/no-unknown-parameters

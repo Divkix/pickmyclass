@@ -9,7 +9,7 @@ interface CronLockState {
 }
 
 interface CronLockStore {
-  // eslint-disable-next-line anti-slop/no-unknown-returns -- SAFETY: DO storage returns untyped wire value; decoded via isStoredState guard at boundary
+  // SAFETY: DO storage returns untyped wire value; decoded via isStoredState guard at boundary
   load(): Promise<unknown>;
   save(state: CronLockState): Promise<void>;
 }
@@ -34,7 +34,7 @@ function unlockedState(): CronLockState {
   return { locked: false, lockAcquiredAt: null, lockHolder: null };
 }
 
-// eslint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: type guard validates unknown DO storage value before narrowing to CronLockState
+// SAFETY: type guard validates unknown DO storage value before narrowing to CronLockState
 function isStoredState(value: unknown): value is CronLockState {
   if (!isRecord(value) || typeof value.locked !== 'boolean') return false;
   if (!value.locked) {

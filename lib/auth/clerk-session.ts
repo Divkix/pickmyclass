@@ -39,7 +39,7 @@ interface ClerkEnv {
 
 function getClerkEnv(): Required<Pick<ClerkEnv, 'CLERK_SECRET_KEY'>> & ClerkEnv {
   // SAFETY: bindings are declared in wrangler secrets; see lib/cloudflare-env.supplemental.d.ts.
-  // eslint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: Cloudflare Env is string-indexed; narrow to known Clerk shape
+  // SAFETY: Cloudflare Env is string-indexed; narrow to known Clerk shape
   const e = env as unknown as ClerkEnv;
   if (!e.CLERK_SECRET_KEY) {
     throw new Error(

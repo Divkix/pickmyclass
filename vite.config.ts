@@ -67,29 +67,12 @@ export default defineConfig(({ mode }) => {
         '.pi/**',
         '.roo/**',
         '.windsurf/**',
-        'tools/oxlint/anti-slop/**',
       ],
     },
     lint: {
-      jsPlugins: [
-        { name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' },
-        { name: 'anti-slop', specifier: './tools/oxlint/anti-slop/index.ts' },
-      ],
+      jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }],
       rules: {
         'vite-plus/prefer-vite-plus-imports': 'error',
-        'anti-slop/no-chained-type-assertions': 'error',
-        'anti-slop/no-conditional-empty-object-spread': 'error',
-        'anti-slop/no-object-parameters': 'error',
-        'anti-slop/no-reflect-apply': 'error',
-        'anti-slop/no-reflect-get': 'error',
-        'anti-slop/no-unknown-parameters': 'error',
-        'anti-slop/no-unknown-returns': 'error',
-        'anti-slop/no-unknown-type-aliases': 'error',
-        'anti-slop/require-safety-comment-for-type-assertion': 'error',
-        'anti-slop/no-module-mocking': 'error',
-        'anti-slop/no-known-value-widening': 'warn',
-        'anti-slop/no-widen-then-assert': 'warn',
-        'anti-slop/no-unsafe-dictionary-type': 'warn',
         'no-console': 'error',
       },
       overrides: [
@@ -99,19 +82,11 @@ export default defineConfig(({ mode }) => {
             'no-console': 'off',
           },
         },
-        {
-          files: ['tests/**'],
-          rules: {
-            'anti-slop/no-module-mocking': 'off',
-            'anti-slop/require-safety-comment-for-type-assertion': 'warn',
-          },
-        },
       ],
       ignorePatterns: [
         '**/cloudflare-env.d.ts',
         'worker.ts',
         'scripts/**',
-        'tools/**',
         '.agent/**',
         '.agents/**',
         '.claude/**',
@@ -123,7 +98,6 @@ export default defineConfig(({ mode }) => {
         '.pi/**',
         '.roo/**',
         '.windsurf/**',
-        'tools/oxlint/anti-slop/**',
       ],
     },
     staged: {

@@ -64,7 +64,6 @@ vi.mock('framer-motion', () => ({
 }));
 
 beforeAll(() => {
-  // eslint-disable-next-line anti-slop/no-chained-type-assertions
   global.IntersectionObserver = class IntersectionObserver {
     observe = vi.fn();
     unobserve = vi.fn();

@@ -3,7 +3,7 @@
   "project": ["**/*.{ts,tsx}"],
   "entry": ["scripts/verify-migration.ts"],
   "ignore": ["components/ui/**", "tests/mocks/**"],
-  "ignoreDependencies": ["tailwindcss", "tw-animate-css", "cloudflare", "oxlint"],
+  "ignoreDependencies": ["tailwindcss", "tw-animate-css", "cloudflare"],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false,
   "ignoreIssues": {

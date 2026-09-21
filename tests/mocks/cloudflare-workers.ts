@@ -21,7 +21,6 @@ export function makeFakeCtx(): DurableObjectState {
       async get<T>(key: string): Promise<T | undefined> {
         return store.get(key) as T | undefined;
       },
-      // eslint-disable-next-line anti-slop/no-unknown-parameters
       async put(key: string, value: unknown): Promise<void> {
         store.set(key, value);
       },

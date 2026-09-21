@@ -164,7 +164,6 @@ describe('detectChanges', () => {
     const oldState = mockOldState({ instructor_name: 'Staff' });
     const result = detectChanges(
       oldState,
-      // eslint-disable-next-line anti-slop/no-chained-type-assertions
       mockClassDetails({ instructor_name: undefined as unknown as string })
     );
 

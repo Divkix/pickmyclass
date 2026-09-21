@@ -24,7 +24,6 @@ function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMes
     ...overrides,
   };
 }
-// eslint-disable-next-line anti-slop/no-known-value-widening
 const mockGetClassWatchers = getClassWatchers as ReturnType<typeof vi.fn>;
 function mockWatchers(watchers: unknown[]) {
   mockGetClassWatchers.mockResolvedValue(watchers);

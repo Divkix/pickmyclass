@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sectionRefKey } from '@/lib/section-ref';
 import type { ClassStateRow } from '@/lib/types/class-watch';
 
-// eslint-disable-next-line anti-slop/no-unknown-parameters, ts-no-tiny-functions -- SAFETY: 3+ call sites need lockstep fallback (fetch + dedup); centralizes ??0 invariant for consecutive_not_found_count
+// eslint-disable-next-line ts-no-tiny-functions -- SAFETY: 3+ call sites need lockstep fallback (fetch + dedup); centralizes ??0 invariant for consecutive_not_found_count
 function normalizeConsecutiveCount(row: unknown): number {
   // SAFETY: API response may omit column; narrow to optional count shape — fallback to 0 preserves invariant
   return (row as { consecutive_not_found_count?: number | null }).consecutive_not_found_count ?? 0;
