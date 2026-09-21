@@ -66,9 +66,13 @@ function createDbDouble() {
       const outcome = outcomes.shift();
 
       if (outcome instanceof Error) {
-        const reject = (): Promise<never> => Promise.reject(outcome);
+        const rejected = Promise.reject(outcome);
+        // Drizzle reads either the query promise or `.values()`; marking this
+        // rejection handled keeps an unobserved copy from tripping the runner's
+        // unhandled-rejection guard while an awaiting caller still sees it.
+        rejected.catch(() => undefined);
 
-        return Object.assign(reject(), { values: reject });
+        return Object.assign(rejected, { values: () => Promise.reject(outcome) });
       }
 
       return pendingRows(outcome ?? []);
