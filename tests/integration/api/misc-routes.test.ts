@@ -44,6 +44,7 @@ describe('misc API routes', () => {
     const req = new NextRequest('https://pickmyclass.app/api/auth/signout', {
       method: 'POST',
     });
+
     const response = await postSignout(req);
     const data = await json(response);
 
@@ -56,9 +57,11 @@ describe('misc API routes', () => {
 
   it('still returns 200 when session revocation fails', async () => {
     mockRevokeSession.mockRejectedValue(new Error('clerk unreachable'));
+
     const req = new NextRequest('https://pickmyclass.app/api/auth/signout', {
       method: 'POST',
     });
+
     const response = await postSignout(req);
 
     expect(response.status).toBe(200);
@@ -82,6 +85,7 @@ describe('misc API routes', () => {
     const missingParams = await redirectToUniversity(get('https://pickmyclass.app/go/asu'), {
       params: Promise.resolve({ uni: 'asu' }),
     });
+
     const unsupported = await redirectToUniversity(
       get('https://pickmyclass.app/go/uofa?classNbr=12345&term=2261'),
       { params: Promise.resolve({ uni: 'uofa' }) }

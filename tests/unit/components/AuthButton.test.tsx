@@ -48,6 +48,7 @@ vi.mock('@clerk/react', () => ({
 
 vi.mock('@/lib/contexts/AuthContext', async (importOriginal) => {
   const actual = await importOriginal<typeof AuthContextModule>();
+
   return {
     ...actual,
     useAuth: () =>
@@ -108,6 +109,7 @@ describe('AuthButton', () => {
       if (init?.method === 'POST') {
         order.push('server-revoke-post');
       }
+
       return { ok: true, status: 200, json: async () => ({}) };
     });
 

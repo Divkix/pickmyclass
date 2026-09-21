@@ -30,6 +30,7 @@ export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalPro
   const handleDelete = async () => {
     if (confirmText !== 'DELETE') {
       setError('Please type DELETE to confirm');
+
       return;
     }
 

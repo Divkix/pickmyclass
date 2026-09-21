@@ -10,6 +10,7 @@ import { getDbFromEnv } from '@/lib/db';
 import { param, parsePageParam } from '@/lib/utils/page-params';
 
 const PAGE_SIZE = 25;
+
 const CLASS_SORT_FIELDS: readonly ClassSortField[] = [
   'class_nbr',
   'subject',
@@ -47,6 +48,7 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
   const seatStatus = (param(sp, 'seatStatus') || 'all') as 'all' | 'full' | 'limited' | 'available';
   // SAFETY: param helper + 'all' fallback keeps allowed union; DB handles invalid gracefully
   const instructor = (param(sp, 'instructor') || 'all') as 'all' | 'staff' | 'named';
+
   // SAFETY: param helper + 'all' fallback keeps allowed union; DB handles invalid gracefully
   const watcherCount = (param(sp, 'watcherCount') || 'all') as
     | 'all'

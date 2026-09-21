@@ -7,8 +7,11 @@ export function formatRelativeTime(timestamp: string): string {
   const diffDays = Math.floor(diffHours / 24);
 
   if (diffMins < 1) return 'Just now';
+
   if (diffMins < 60) return `${diffMins}m ago`;
+
   if (diffHours < 24) return `${diffHours}h ago`;
+
   return `${diffDays}d ago`;
 }
 
@@ -22,10 +25,13 @@ export function formatRelativeDate(dateString: string | null): string | null {
 
   if (diffDays === 0) {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
     if (diffHours === 0) {
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
       return diffMinutes <= 1 ? 'Just now' : `${diffMinutes} minutes ago`;
     }
+
     return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
   }
 
@@ -35,6 +41,7 @@ export function formatRelativeDate(dateString: string | null): string | null {
 
   return null;
 }
+
 export function formatAbsoluteDate(d: string | Date, opts?: Intl.DateTimeFormatOptions): string {
   return new Date(d).toLocaleString('en-US', {
     year: 'numeric',

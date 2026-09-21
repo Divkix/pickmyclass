@@ -5,7 +5,9 @@ import { ClassWatchCard } from '@/components/ClassWatchCard';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 type MotionValue = JsonValue | React.ReactNode | ((e: React.TouchEvent) => void) | (() => void);
+
 type MotionDivState = { current: Record<string, MotionValue> };
 
 const { mockCreateWatch, mockToastError, mockToastSuccess, motionDivProps } = vi.hoisted(() => ({
@@ -30,6 +32,7 @@ vi.mock('framer-motion', () => ({
   m: {
     div: (props: { children?: React.ReactNode }) => {
       motionDivProps.current = props as Record<string, MotionValue>;
+
       return <div {...props}>{props.children}</div>;
     },
     button: ({ children, ...props }: { children: React.ReactNode }) => (
@@ -76,6 +79,7 @@ describe('ClassWatchCard', () => {
     it('should reset isDeleting state after successful delete', async () => {
       const user = userEvent.setup();
       let resolveDelete: () => void;
+
       const deletePromise = new Promise<void>((resolve) => {
         resolveDelete = resolve;
       });
@@ -87,6 +91,7 @@ describe('ClassWatchCard', () => {
       const deleteButton = screen.getByRole('button', {
         name: /stop watching/i,
       });
+
       await user.click(deleteButton);
 
       const confirmButton = screen.getByRole('button', { name: /stop watching/i });
@@ -116,6 +121,7 @@ describe('ClassWatchCard', () => {
     it('should reset isDeleting state after failed delete', async () => {
       const user = userEvent.setup();
       let rejectDelete: (error: Error) => void;
+
       const deletePromise = new Promise<void>((_, reject) => {
         rejectDelete = reject;
       });
@@ -127,6 +133,7 @@ describe('ClassWatchCard', () => {
       const deleteButton = screen.getByRole('button', {
         name: /stop watching/i,
       });
+
       await user.click(deleteButton);
 
       const confirmButton = screen.getByRole('button', { name: /stop watching/i });
@@ -137,6 +144,7 @@ describe('ClassWatchCard', () => {
 
       await act(async () => {
         rejectDelete(new Error('Delete failed'));
+
         try {
           await deletePromise;
         } catch {}
@@ -169,6 +177,7 @@ describe('ClassWatchCard', () => {
       const removedToast = mockToastSuccess.mock.calls.find(
         ([message]) => message === 'Class watch removed'
       );
+
       await removedToast?.[1].action.onClick();
 
       expect(mockCreateWatch).toHaveBeenCalledWith({ term: '2241', class_nbr: '12345' });
@@ -180,6 +189,7 @@ describe('ClassWatchCard', () => {
   describe('swipe-to-delete', () => {
     it('keeps the slide-out open after a swipe-left delete instead of snapping back', async () => {
       vi.useFakeTimers();
+
       try {
         const onDelete = vi.fn().mockResolvedValue(undefined);
         render(

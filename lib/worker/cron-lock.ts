@@ -1,7 +1,9 @@
 import { isRecord, type WirePayload } from '@/lib/api/wire';
 
 const CRON_LOCK_NAME = 'pickmyclass-cron-lock';
+
 const CRON_LOCK_TIMEOUT_MS = 25 * 60 * 1000;
+
 interface CronLockState {
   locked: boolean;
   lockAcquiredAt: number | null;
@@ -37,9 +39,11 @@ function unlockedState(): CronLockState {
 // SAFETY: type guard validates unknown DO storage value before narrowing to CronLockState
 function isStoredState(value: unknown): value is CronLockState {
   if (!isRecord(value) || typeof value.locked !== 'boolean') return false;
+
   if (!value.locked) {
     return value.lockAcquiredAt === null && value.lockHolder === null;
   }
+
   return (
     typeof value.lockAcquiredAt === 'number' &&
     Number.isFinite(value.lockAcquiredAt) &&
@@ -67,20 +71,25 @@ export function createCronLockLifecycle(
   return {
     async initialize(): Promise<void> {
       const stored = await store.load();
+
       if (isStoredState(stored)) {
         state = { ...stored };
       } else {
         state = unlockedState();
+
         if (stored !== null && stored !== undefined) await store.save(state);
       }
+
       await expireIfNeeded();
     },
 
     async acquire(holder: string = 'unknown') {
       await expireIfNeeded();
+
       if (state.locked) {
         const timeHeld = state.lockAcquiredAt === null ? 0 : now() - state.lockAcquiredAt;
         const timeRemaining = Math.max(0, CRON_LOCK_TIMEOUT_MS - timeHeld);
+
         return {
           acquired: false,
           message: `Cron lock already held by ${state.lockHolder}. Time remaining: ${Math.ceil(timeRemaining / 1000)}s`,
@@ -96,8 +105,10 @@ export function createCronLockLifecycle(
         lockAcquiredAt: now(),
         lockHolder: holder,
       };
+
       await store.save(acquiredState);
       state = acquiredState;
+
       return {
         acquired: true,
         message: 'Lock acquired successfully',
@@ -108,9 +119,11 @@ export function createCronLockLifecycle(
 
     async release(holder: string = 'unknown') {
       await expireIfNeeded();
+
       if (!state.locked) {
         return { released: false, message: 'Lock was not held' };
       }
+
       if (state.lockHolder !== holder) {
         return {
           released: false,
@@ -121,6 +134,7 @@ export function createCronLockLifecycle(
       const timeHeld = state.lockAcquiredAt === null ? 0 : now() - state.lockAcquiredAt;
       state = unlockedState();
       await store.save(state);
+
       return {
         released: true,
         message: `Lock released after ${Math.floor(timeHeld / 1000)}s`,
@@ -130,8 +144,10 @@ export function createCronLockLifecycle(
     async status(): Promise<CronLockStatus> {
       await expireIfNeeded();
       const timeHeldMs = state.lockAcquiredAt === null ? null : now() - state.lockAcquiredAt;
+
       const expiresAt =
         state.lockAcquiredAt === null ? null : state.lockAcquiredAt + CRON_LOCK_TIMEOUT_MS;
+
       return {
         locked: state.locked,
         lockHolder: state.lockHolder,
@@ -146,12 +162,15 @@ export function createCronLockLifecycle(
 async function readWireResponse(response: Response): Promise<WirePayload> {
   if (!response.ok) throw new Error(`Cron lock request failed (${response.status})`);
   let payload: unknown;
+
   try {
     payload = await response.json();
   } catch {
     throw new Error('Invalid cron lock response');
   }
+
   if (!isRecord(payload)) throw new Error('Invalid cron lock response');
+
   return payload;
 }
 
@@ -183,12 +202,14 @@ function isStatusResponse(payload: WirePayload): payload is WirePayload & CronLo
 export function createCronLockClient(namespace?: DurableObjectNamespace) {
   function stub() {
     if (!namespace) return null;
+
     return namespace.get(namespace.idFromName(CRON_LOCK_NAME));
   }
 
   return {
     async acquire(holder: string): Promise<CronLockLease> {
       const lockStub = stub();
+
       if (!lockStub) {
         return {
           configured: false,
@@ -202,10 +223,13 @@ export function createCronLockClient(namespace?: DurableObjectNamespace) {
         `http://do/acquire?holder=${encodeURIComponent(holder)}`,
         { method: 'POST' }
       );
+
       const payload = await readWireResponse(response);
+
       if (!isAcquireResponse(payload)) throw new Error('Invalid cron lock response');
 
       const acquired = payload.acquired;
+
       return {
         configured: true,
         acquired,
@@ -213,11 +237,14 @@ export function createCronLockClient(namespace?: DurableObjectNamespace) {
         currentHolder: typeof payload.lockHolder === 'string' ? payload.lockHolder : undefined,
         async release() {
           if (!acquired) return;
+
           const releaseResponse = await lockStub.fetch(
             `http://do/release?holder=${encodeURIComponent(holder)}`,
             { method: 'POST' }
           );
+
           const releasePayload = await readWireResponse(releaseResponse);
+
           if (!isReleaseResponse(releasePayload) || releasePayload.released !== true) {
             throw new Error(
               typeof releasePayload.message === 'string'
@@ -231,9 +258,12 @@ export function createCronLockClient(namespace?: DurableObjectNamespace) {
 
     async status(): Promise<CronLockStatus | null> {
       const lockStub = stub();
+
       if (!lockStub) return null;
       const payload = await readWireResponse(await lockStub.fetch('http://do/status'));
+
       if (!isStatusResponse(payload)) throw new Error('Invalid cron lock response');
+
       return payload;
     },
   };

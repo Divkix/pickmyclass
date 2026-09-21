@@ -23,6 +23,7 @@ export async function handleDLQMessage(
   );
 
   let watcherCount = 0;
+
   try {
     const watchers = await getClassWatchers(db, { class_nbr, term });
     watcherCount = watchers.length;

@@ -57,6 +57,7 @@ describe('classWatchCreation', () => {
         headers: { 'content-type': 'application/json' },
       })
     );
+
     const client = createClassWatchClient(request);
 
     await expect(client.create({ term: '2267', class_nbr: '12345' })).resolves.toEqual(watch);
@@ -87,12 +88,14 @@ describe('classWatchCreation', () => {
     const nonJsonRequest = vi
       .fn()
       .mockResolvedValue(new Response('upstream unavailable', { status: 503 }));
+
     const missingWatchRequest = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ success: true }), {
         status: 201,
         headers: { 'content-type': 'application/json' },
       })
     );
+
     const mismatchedWatchRequest = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ success: true, watch: { ...watch, class_nbr: '99999' } }), {
         status: 201,
@@ -116,6 +119,7 @@ describe('classWatchCreation', () => {
 
   it('uses the same fallback for network failures and empty API errors', async () => {
     const networkFailure = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+
     const emptyError = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ success: false, error: '   ' }), {
         status: 500,

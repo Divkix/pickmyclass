@@ -12,7 +12,9 @@ export class UnauthorizedError extends Error {
 
 export async function requireUser(request: Request): Promise<{ user: SessionIdentity }> {
   const user = await getSessionIdentity(request);
+
   if (!user) throw new UnauthorizedError();
+
   return { user };
 }
 
@@ -22,7 +24,9 @@ export function verifyCronSecret(
 ): boolean {
   if (!cronSecret) return false;
   const authHeader = request.headers.get('authorization');
+
   if (!authHeader) return false;
+
   return timingSafeCompare(authHeader, `Bearer ${cronSecret}`);
 }
 
@@ -33,8 +37,10 @@ export function requireCronAuth(
   if (!cronSecret) {
     return fail('Server configuration error', 500);
   }
+
   if (!verifyCronSecret(request, cronSecret)) {
     return fail('Unauthorized', 401);
   }
+
   return null;
 }

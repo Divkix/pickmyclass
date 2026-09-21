@@ -16,6 +16,7 @@ const {
   const mockExecute = vi.fn();
   const mockGetUser = vi.fn();
   const mockGetClerkClient = vi.fn(() => ({ users: { getUser: mockGetUser } }));
+
   return {
     dbHandle: { execute: mockExecute },
     mockExecute,
@@ -48,7 +49,9 @@ vi.mock('@/lib/auth/authorization-state', () => ({
 import { GET } from '@/app/auth/post-oauth/route';
 
 const ORIGIN = 'https://pickmyclass.app';
+
 const IDENTITY = { userId: 'user-1', clerkUserId: 'clerk_user_1', sessionId: 'sess_1' };
+
 const CLERK_USER = { id: 'clerk_user_1' };
 
 function getRequest(search = '', headers: Record<string, string> = {}): NextRequest {
@@ -58,6 +61,7 @@ function getRequest(search = '', headers: Record<string, string> = {}): NextRequ
 function locationOf(response: Response): string {
   const location = response.headers.get('location');
   expect(location, 'expected a redirect response').not.toBeNull();
+
   return location as string;
 }
 
@@ -185,6 +189,7 @@ describe('GET /auth/post-oauth', () => {
     const protocolRelative = await GET(
       getRequest(`?next=${encodeURIComponent('//evil.example/pwn')}`)
     );
+
     const backslash = await GET(getRequest(`?next=${encodeURIComponent('/\\evil.example/pwn')}`));
 
     expect(locationOf(protocolRelative)).toBe(`${ORIGIN}/`);
@@ -206,6 +211,7 @@ describe('GET /auth/post-oauth', () => {
     expect(locationOf(unauthenticated)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
     expect(locationOf(consentGate)).toBe(`${ORIGIN}/consent?next=%2Fdashboard`);
     expect(locationOf(success)).toBe(`${ORIGIN}/dashboard`);
+
     for (const response of [unauthenticated, consentGate, success]) {
       expect(locationOf(response)).toMatch(/^https:\/\/pickmyclass\.app\//);
       expect(locationOf(response)).not.toContain('evil.example');

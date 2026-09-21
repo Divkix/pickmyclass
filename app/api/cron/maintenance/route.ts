@@ -16,18 +16,23 @@ export async function GET(request: NextRequest) {
   // SAFETY: Env reflects wrangler.jsonc bindings validated at deploy; narrowed from unknown
   const cfEnv = rawEnv as Env;
   let lockLease: CronLockLease | null = null;
+
   try {
     const cronAuth = requireCronAuth(request, cfEnv.CRON_SECRET);
+
     if (cronAuth) {
       if (cronAuth.status === 500) log('Maintenance').error('CRON_SECRET not configured');
+
       return cronAuth;
     }
 
     lockLease = await createCronLockClient(cfEnv.PICKMYCLASS_CRON_LOCK_DO).acquire(
       `maintenance-${Date.now()}-${crypto.randomUUID()}`
     );
+
     if (lockLease.configured && !lockLease.acquired) {
       log('Maintenance').warn('Skipping sweep, cron lock held:', lockLease.message);
+
       return ok({ skipped: 'cron_lock_held', duration_ms: Date.now() - startTime });
     }
 
@@ -37,6 +42,7 @@ export async function GET(request: NextRequest) {
       const rows = await db.execute<{ expired: unknown }>(
         sql`SELECT public.expire_stale_notifications() AS expired`
       );
+
       const expiredCount = Number(rows[0]?.expired ?? 0);
       log('Maintenance').info(`Expired ${expiredCount} stale notification records`);
     } catch (error) {
@@ -47,6 +53,7 @@ export async function GET(request: NextRequest) {
     }
 
     const pastTermCodes = getPastTermCodes();
+
     if (pastTermCodes.length > 0) {
       try {
         const sweptCount = await deletePastTermWatches(db, pastTermCodes);
@@ -65,6 +72,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     log('Maintenance').error('Fatal error:', message);
+
     return fail(message, 500, { duration_ms: Date.now() - startTime });
   } finally {
     if (lockLease?.acquired) {

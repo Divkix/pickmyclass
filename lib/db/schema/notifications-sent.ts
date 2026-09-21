@@ -40,4 +40,5 @@ export const notificationsSent = pgTable(
 );
 
 export type NotificationSent = typeof notificationsSent.$inferSelect;
+
 export type NewNotificationSent = typeof notificationsSent.$inferInsert;

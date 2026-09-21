@@ -53,13 +53,17 @@ async function isAutoCleanupSuppressed(db: Database): Promise<boolean> {
     log('SectionRetirement').info(
       `Breaker check total=${total} flagged=${flagged} ratio=${ratio.toFixed(3)} threshold=${AUTO_CLEANUP_BREAKER_RATIO}`
     );
+
     if (ratio > AUTO_CLEANUP_BREAKER_RATIO) {
       log('SectionRetirement').warn('Auto-cleanup suppressed — breaker tripped');
+
       return true;
     }
+
     return false;
   } catch (e) {
     log('SectionRetirement').warn('Auto-cleanup breaker check threw, failing open:', e);
+
     return false;
   }
 }
@@ -71,10 +75,12 @@ export async function retireClassSection(
   const scope = sectionRefKey(ref);
 
   let strikeCount: number;
+
   try {
     strikeCount = await incrementConsecutiveNotFound(db, ref);
   } catch (incrementError) {
     log('SectionRetirement').error(`Auto-cleanup increment failed for ${scope}:`, incrementError);
+
     return {
       status: 'increment-failed',
       strikeCount: null,
@@ -85,6 +91,7 @@ export async function retireClassSection(
       emailsSucceeded: 0,
     };
   }
+
   log('SectionRetirement').warn(`Auto-cleanup increment ${scope} count=${strikeCount}`);
 
   if (strikeCount < AUTO_CLEANUP_THRESHOLD) {
@@ -100,6 +107,7 @@ export async function retireClassSection(
   }
 
   const suppressed = await isAutoCleanupSuppressed(db);
+
   if (suppressed) {
     try {
       await capConsecutiveNotFound(db, ref, AUTO_CLEANUP_THRESHOLD - 1);
@@ -109,6 +117,7 @@ export async function retireClassSection(
         capError
       );
     }
+
     return {
       status: 'suppressed',
       strikeCount,
@@ -122,6 +131,7 @@ export async function retireClassSection(
 
   let watchers: ClassWatcher[];
   let classInfo: SectionRemovalClassInfo | null;
+
   try {
     [watchers, classInfo] = await Promise.all([
       getClassWatchers(db, ref),
@@ -132,6 +142,7 @@ export async function retireClassSection(
       `Auto-cleanup: failed to fetch watchers for ${scope}:`,
       watcherError
     );
+
     return {
       status: 'watcher-read-failed',
       strikeCount,
@@ -144,11 +155,13 @@ export async function retireClassSection(
   }
 
   let watchesDeleted = 0;
+
   try {
     const delResult = await deleteSectionAndWatches(db, ref);
     watchesDeleted = delResult.watchesDeleted;
   } catch (deleteError) {
     log('SectionRetirement').error(`Auto-cleanup delete failed for ${scope}:`, deleteError);
+
     return {
       status: 'delete-failed',
       strikeCount,
@@ -162,6 +175,7 @@ export async function retireClassSection(
 
   let emailsAttempted = 0;
   let emailsSucceeded = 0;
+
   if (watchesDeleted > 0) {
     try {
       const results = await sendAutoCleanupRemovalEmails(
@@ -169,6 +183,7 @@ export async function retireClassSection(
         emailBinding,
         fromEmail
       );
+
       emailsAttempted = results.filter((r) => r.attempted).length;
       emailsSucceeded = results.filter((r) => r.success).length;
     } catch (emailError) {

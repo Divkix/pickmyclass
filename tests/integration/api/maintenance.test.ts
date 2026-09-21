@@ -11,6 +11,7 @@ const { mockGetDbFromEnv, mockExecute } = vi.hoisted(() => ({
   mockGetDbFromEnv: vi.fn(),
   mockExecute: vi.fn(),
 }));
+
 vi.mock('@/lib/db', () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));
@@ -18,6 +19,7 @@ vi.mock('@/lib/db', () => ({
 const dbHandle = { execute: mockExecute };
 
 const mockDeletePastTermWatches = vi.hoisted(() => vi.fn());
+
 vi.mock('@/lib/db/queries', () => ({
   deletePastTermWatches: mockDeletePastTermWatches,
 }));
@@ -30,14 +32,17 @@ function createRequest(cronSecret?: string): NextRequest {
   const headers: Record<string, string> = {
     'User-Agent': 'Cloudflare-Workers-Cron',
   };
+
   if (cronSecret) {
     headers.Authorization = `Bearer ${cronSecret}`;
   }
+
   return new NextRequest('http://localhost/api/cron/maintenance', {
     method: 'GET',
     headers,
   });
 }
+
 async function parseResponse(response: Response): Promise<MaintenanceResponse> {
   return (await response.json()) as MaintenanceResponse;
 }
@@ -119,6 +124,7 @@ describe('GET /api/cron/maintenance', () => {
     it('hard-deletes class_watches for terms that have ended', async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-09-01T19:00:00Z'));
+
       try {
         mockDeletePastTermWatches.mockResolvedValue(3);
 
@@ -139,6 +145,7 @@ describe('GET /api/cron/maintenance', () => {
     it('skips the delete when no term has ended', async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2025-01-01T19:00:00Z'));
+
       try {
         const response = await GET(createRequest('test-cron-secret'));
 
@@ -152,6 +159,7 @@ describe('GET /api/cron/maintenance', () => {
     it('does not fail the daily job when the sweep errors', async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-09-01T19:00:00Z'));
+
       try {
         mockDeletePastTermWatches.mockRejectedValue(new Error('db down'));
 

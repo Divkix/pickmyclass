@@ -15,6 +15,7 @@ const siteBase = new URL(rootMetadata.metadataBase ?? DEFAULT_SITE_URL);
 function resolveMetadataUrl(value: string | URL | null | undefined): string | undefined {
   if (!value) return undefined;
   const resolved = new URL(value, siteBase);
+
   return resolved.pathname === '/' && resolved.search === '' && resolved.hash === ''
     ? resolved.origin
     : resolved.href;
@@ -68,8 +69,10 @@ describe('per-route open graph and twitter', () => {
 describe('sitemap lastmod', () => {
   it('emits a lastmod per URL instead of one shared stamp', async () => {
     const entries = await sitemap();
+
     const lastMods = entries.map((entry) => {
       const value = entry.lastModified;
+
       return value instanceof Date ? value.toISOString() : String(value);
     });
 

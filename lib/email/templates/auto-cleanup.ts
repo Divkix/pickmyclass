@@ -42,6 +42,7 @@ export function buildAutoCleanupRemovedEmail(
   const rawSubject = subject?.trim() || '';
   const rawCatalog = catalogNbr?.trim() || '';
   const rawTitle = title?.trim() || '';
+
   const rawLabel = rawSubject
     ? rawCatalog
       ? `${rawSubject} ${rawCatalog}`
@@ -52,8 +53,10 @@ export function buildAutoCleanupRemovedEmail(
 
   const rawIdentifier = (catalogNbr || classNbr).replace(/[<>"'&]/g, (c) => {
     const map: Record<string, string> = { '<': '', '>': '', '"': '', "'": '', '&': '' };
+
     return map[c] ?? '';
   });
+
   const emailSubject = `Watched class ${rawIdentifier} removed — no longer in ASU catalog`;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
@@ -66,6 +69,7 @@ export function buildAutoCleanupRemovedEmail(
       : safeSubject || safeCatalogNbr || safeClassNbr;
 
   const titleLine = safeTitle ? `: ${safeTitle}` : '';
+
   const bodyHtml = `
     <p style="font-size: 16px; margin-top: 0;">
       A class you were watching is no longer listed in the ASU catalog.
@@ -105,6 +109,7 @@ export function buildAutoCleanupRemovedEmail(
   `.trim();
 
   const preheader = `Watched class ${rawIdentifier} was removed — no longer in ASU catalog`;
+
   const html = buildClassEmailShell({
     variant: 'removed',
     title: escapeHtml(emailSubject),
@@ -170,6 +175,7 @@ export async function sendAutoCleanupRemovalEmails(
 
   if (watchers.length === 0) {
     log('Email').info(`Auto-cleanup: no watchers to notify for ${ref.term}:${ref.class_nbr}`);
+
     return [];
   }
 
@@ -240,6 +246,7 @@ export async function sendAutoCleanupRemovalEmails(
             attempted: false,
           });
         }
+
         log('Email').warn(
           `Stopped auto-cleanup batch after ${errorCode} at email ${i + 1}/${watchers.length}`
         );

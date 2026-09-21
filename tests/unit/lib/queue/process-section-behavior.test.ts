@@ -7,6 +7,7 @@ import type { Env, SendEmail } from '@/lib/types/env';
 import { createScriptedPostgres } from '../db/scripted-postgres';
 
 const REF = { class_nbr: '42737', term: '2261' };
+
 const FROM_EMAIL = 'notifications@pickmyclass.app';
 
 function buildDetails(overrides: Partial<ClassDetails> = {}): ClassDetails {
@@ -83,6 +84,7 @@ describe('processSection behavior (interface only)', () => {
     h.next([]); // upsertClassState baseline
 
     const send = buildSend();
+
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () =>
         buildDetails({
@@ -115,6 +117,7 @@ describe('processSection behavior (interface only)', () => {
 
     const send = buildSend();
     const fetchClass = vi.fn();
+
     const outcome = await processSection(
       h.db,
       { ...REF, cycle: '2026-09-18T14:30:00.000Z:even' },
@@ -145,6 +148,7 @@ describe('processSection behavior (interface only)', () => {
 
     const send = buildSend();
     const fetchClass = vi.fn().mockResolvedValue(buildDetails({ instructor_name: 'Staff' }));
+
     const outcome = await processSection(
       h.db,
       { ...REF, cycle: '2026-09-18T14:30:00.000Z:even' },
@@ -171,6 +175,7 @@ describe('processSection behavior (interface only)', () => {
     const send = buildSend();
     send.mockImplementation(async () => {
       upsertsAtSend = upsertStatements(h).length;
+
       return { messageId: 'msg_test' };
     });
 
@@ -201,6 +206,7 @@ describe('processSection behavior (interface only)', () => {
     h.next([]); // upsertClassState
 
     const send = buildSend();
+
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () =>
         buildDetails({ seats_available: 0, non_reserved_seats: 0, instructor_name: 'Staff' }),
@@ -227,6 +233,7 @@ describe('processSection behavior (interface only)', () => {
     h.next([{ recorded: '{watch-1}' }]); // watch-2 already notified within 24h
 
     const send = buildSend();
+
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => buildDetails({ instructor_name: 'Staff' }),
     });
@@ -258,9 +265,11 @@ describe('processSection behavior (interface only)', () => {
     expect(outcome.result.success).toBe(true);
     expect(outcome.result.emailsSent).toBe(0);
     expect(send).toHaveBeenCalledTimes(1);
+
     const rollbacks = h.statements.filter((s) =>
       s.sql.includes('delete_notification_records_by_ids')
     );
+
     expect(rollbacks).toHaveLength(1);
     expect(rollbacks[0].params).toContain('notif-row-1');
     expect(rollbacks[0].params).not.toContain('watch-1');
@@ -272,6 +281,7 @@ describe('processSection behavior (interface only)', () => {
     h.next([{ new_count: 1 }]); // increment_consecutive_not_found
 
     const send = buildSend();
+
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
         throw new NotFoundError('Section 42737 not found');
@@ -304,6 +314,7 @@ describe('processSection behavior (interface only)', () => {
     h.next([{ id: 'state-1' }]); // deleted state
 
     const send = buildSend();
+
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
         throw new NotFoundError('Section 42737 not found');
@@ -332,6 +343,7 @@ describe('processSection behavior (interface only)', () => {
     h.next([oldStateRow()]);
 
     const send = buildSend();
+
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
         throw new RateLimitError('ASU API rate limit hit');
@@ -350,6 +362,7 @@ describe('processSection behavior (interface only)', () => {
     h.next([oldStateRow()]);
 
     const send = buildSend();
+
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
         throw new ApiError('ASU API 502 Bad Gateway', 502);
@@ -367,6 +380,7 @@ describe('processSection behavior (interface only)', () => {
     h.next([oldStateRow()]);
 
     const send = buildSend();
+
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
         throw new Error('Unexpected internal error');
@@ -384,6 +398,7 @@ describe('processSection behavior (interface only)', () => {
     h.next([oldStateRow()]);
 
     const send = buildSend();
+
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
         throw new AuthError('ASU API token expired or invalid');

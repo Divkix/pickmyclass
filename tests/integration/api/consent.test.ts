@@ -15,6 +15,7 @@ const {
   const mockExecute = vi.fn();
   const mockGetUser = vi.fn();
   const mockGetClerkClient = vi.fn(() => ({ users: { getUser: mockGetUser } }));
+
   return {
     dbHandle: { execute: mockExecute },
     mockExecute,
@@ -37,6 +38,7 @@ vi.mock('@/lib/auth/require-user', () => {
       this.name = 'UnauthorizedError';
     }
   }
+
   return { requireUser: mockRequireUser, UnauthorizedError };
 });
 
@@ -72,6 +74,7 @@ function request(body: Record<string, JsonValue>): NextRequest {
 }
 
 const CONSENT_BODY = { ageVerified: true, agreedToTerms: true };
+
 const CLERK_USER = { id: 'clerk-1' };
 
 describe('POST /api/auth/consent', () => {

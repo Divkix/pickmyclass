@@ -13,22 +13,27 @@ vi.mock('cloudflare:workers', () => ({
 }));
 
 const mockHandleDLQMessage = vi.fn();
+
 vi.mock('@/lib/queue/dlq-consumer', () => ({
   handleDLQMessage: (...args: unknown[]) => mockHandleDLQMessage(...args),
 }));
 
 const mockProcessSection = vi.fn();
+
 vi.mock('@/lib/queue/process-section', () => ({
   processSection: (...args: unknown[]) => mockProcessSection(...args),
 }));
 
 const DB_HANDLE = { __dbHandle: 'queue-invocation-db' } as const;
+
 const mockGetDb = vi.fn((_hyperdrive: CloudflareEnv['HYPERDRIVE']) => DB_HANDLE);
+
 vi.mock('@/lib/db', () => ({
   getDb: (hyperdrive: CloudflareEnv['HYPERDRIVE']) => mockGetDb(hyperdrive),
 }));
 
 const workerModule = await import('@/worker');
+
 const workerDefault = workerModule.default;
 
 const handlerMock = await import('vinext/server/app-router-entry');
@@ -57,6 +62,7 @@ function makeBatch(
     queue,
     messages,
   };
+
   return raw as MessageBatch<ClassCheckMessage>;
 }
 
@@ -186,6 +192,7 @@ const rawTestCtx: unknown = {
   waitUntil: vi.fn(),
   passThroughOnException: vi.fn(),
 };
+
 const testCtx = rawTestCtx as ExecutionContext;
 
 describe('worker queue handler — direct processSection call ack/retry mapping', () => {
@@ -310,6 +317,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     expect(mockGetDb).toHaveBeenCalledTimes(1);
     expect(mockGetDb).toHaveBeenCalledWith(mockEnv.HYPERDRIVE);
     expect(mockProcessSection).toHaveBeenCalledTimes(2);
+
     for (const call of mockProcessSection.mock.calls) {
       expect(call[0]).toBe(DB_HANDLE);
     }
@@ -378,6 +386,7 @@ describe('worker.ts scheduled handler', () => {
 
   it('passes X-Cron-Scheduled-Time header with scheduled time', async () => {
     const scheduledTime = 1718446800000;
+
     const fetchSpy = vi
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));

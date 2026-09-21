@@ -19,8 +19,11 @@ export function PullToRefreshIndicator({
 
   const getMessage = () => {
     if (isRefreshing) return 'Refreshing...';
+
     if (pullDistance >= threshold) return 'Release to refresh';
+
     if (pullDistance > 0) return 'Pull to refresh';
+
     return '';
   };
 

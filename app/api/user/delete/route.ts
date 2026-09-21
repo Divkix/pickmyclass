@@ -28,6 +28,7 @@ export async function DELETE(request: Request) {
             .where(eq(userProfiles.user_id, user.userId));
         } catch (updateError) {
           log('User').error('Error disabling account:', updateError);
+
           return fail('Failed to delete account', 500);
         }
 
@@ -49,11 +50,13 @@ export async function DELETE(request: Request) {
         });
       } catch (error) {
         log('User').error('Delete account error:', error);
+
         return fail('Failed to delete account', 500);
       }
     });
   } catch (error) {
     log('User').error('Delete account error:', error);
+
     return fail('Failed to delete account', 500);
   }
 }

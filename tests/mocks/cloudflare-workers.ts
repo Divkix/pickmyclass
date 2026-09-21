@@ -1,5 +1,7 @@
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 type MockEnv = Record<string, JsonValue>;
+
 export const env: MockEnv = {};
 
 export function waitUntil(_promise: Promise<unknown>): void {}
@@ -16,6 +18,7 @@ export class DurableObject<_Env = unknown> {
 
 export function makeFakeCtx(): DurableObjectState {
   const store = new Map<string, unknown>();
+
   return {
     storage: {
       async get<T>(key: string): Promise<T | undefined> {

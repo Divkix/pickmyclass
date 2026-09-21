@@ -39,6 +39,7 @@ export function useRealtimeClassStates({
     if (!key) {
       setClassStates({});
       setLoading(false);
+
       return;
     }
 
@@ -60,6 +61,7 @@ export function useRealtimeClassStates({
         if (!controller.signal.aborted) {
           setClassStates({});
         }
+
         throw new Error(`Failed to fetch class states: ${response.status}`);
       }
 
@@ -69,13 +71,16 @@ export function useRealtimeClassStates({
       };
 
       const typedRows = data.classStates || [];
+
       const statesMap = typedRows.reduce(
         (acc, state) => {
           const normalized: ClassStateRow = {
             ...state,
             consecutive_not_found_count: normalizeConsecutiveCount(state),
           };
+
           acc[sectionRefKey(normalized)] = normalized;
+
           return acc;
         },
         // SAFETY: empty object is the initial typed accumulator for the keyed map
@@ -87,6 +92,7 @@ export function useRealtimeClassStates({
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
+
       if (!controller.signal.aborted) {
         setError(err instanceof Error ? err : new Error('Failed to fetch class states'));
       }

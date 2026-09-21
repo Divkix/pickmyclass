@@ -12,6 +12,7 @@ describe('DeleteConfirmDialog', () => {
     it('should wait for async onConfirm to complete before closing dialog', async () => {
       const user = userEvent.setup();
       let resolveDelete: () => void;
+
       const deletePromise = new Promise<void>((resolve) => {
         resolveDelete = resolve;
       });

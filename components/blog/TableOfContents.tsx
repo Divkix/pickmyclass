@@ -29,6 +29,7 @@ export function TableOfContents({ items }: TableOfContentsProps) {
 
     items.forEach((item) => {
       const element = document.getElementById(item.id);
+
       if (element) observer.observe(element);
     });
 
@@ -37,6 +38,7 @@ export function TableOfContents({ items }: TableOfContentsProps) {
 
   const handleClick = (id: string) => {
     const element = document.getElementById(id);
+
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }

@@ -50,8 +50,10 @@ function createDbHarness() {
     unsafe(query: string, params: unknown[]): ScriptedQueryResult {
       statements.push({ sql: query, params });
       const outcome = outcomes.shift();
+
       if (outcome instanceof Error) {
         const reject = (): Promise<never> => Promise.reject(outcome);
+
         return {
           then: (
             onFulfilled?: (value: never) => PromiseLike<never>,
@@ -61,6 +63,7 @@ function createDbHarness() {
           values: reject,
         };
       }
+
       return pendingRows(outcome ?? []);
     },
     begin<T>(fn: (txClient: PostgresJsSeam) => Promise<T>): Promise<T> {

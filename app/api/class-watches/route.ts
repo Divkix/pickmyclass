@@ -83,12 +83,14 @@ export async function GET(request: NextRequest) {
 
         const onboarding = await readOnboardingState(db, user.userId).catch((error) => {
           log('API').error('Failed to read onboarding state:', error);
+
           return toOnboardingState(null);
         });
 
         const statesMap = joinedStates.reduce(
           (acc, state) => {
             acc[`${state.term}:${state.class_nbr}`] = state;
+
             return acc;
           },
           // SAFETY: empty object is the initial typed accumulator for the keyed map
@@ -107,11 +109,13 @@ export async function GET(request: NextRequest) {
         });
       } catch (error) {
         log('API').error('Error fetching class watches:', error);
+
         return fail('Failed to fetch class watches', 500);
       }
     });
   } catch (error) {
     log('API').error('Error fetching class watches:', error);
+
     return fail('Failed to fetch class watches', 500);
   }
 }
@@ -131,6 +135,7 @@ export async function POST(request: NextRequest) {
         // SAFETY: env is Cloudflare Workers bindings; ASU_API_BASE_URL and ASU_API_TOKEN are required secrets validated at deploy
         const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
         let classDetails: ClassDetails;
+
         try {
           // Freshness matters: this snapshot seeds a brand-new row, and the
           // pipeline compares against it on the next check.
@@ -139,17 +144,22 @@ export async function POST(request: NextRequest) {
           if (error instanceof NotFoundError) {
             return fail('Class section not found', 404);
           }
+
           if (error instanceof AuthError) {
             log('API').error('ASU API auth error:', error instanceof Error ? error.message : error);
+
             return fail('Service temporarily unavailable', 503);
           }
+
           log('API').error('Failed to fetch class details:', error);
+
           return fail('Failed to fetch class details', 500);
         }
 
         const db = getDbFromEnv();
 
         let watchDataRaw: ClassWatchRow | null = null;
+
         try {
           const rows = await db.execute<ClassWatchRow>(
             sql`SELECT * FROM public.create_class_watch_with_limit(
@@ -161,6 +171,7 @@ export async function POST(request: NextRequest) {
               ${MAX_WATCHES_PER_USER}::int
             )`
           );
+
           watchDataRaw = rows[0] ?? null;
         } catch (insertError) {
           if (isUniqueViolation(insertError)) {
@@ -168,6 +179,7 @@ export async function POST(request: NextRequest) {
           }
 
           const pgError = getPgError(insertError);
+
           if (
             pgError?.code === PG_RAISE_EXCEPTION &&
             typeof pgError.message === 'string' &&
@@ -205,11 +217,13 @@ export async function POST(request: NextRequest) {
         return ok({ watch: watchDataRaw }, { status: 201 });
       } catch (error) {
         log('API').error('Error creating class watch:', error);
+
         return fail('Failed to create class watch', 500);
       }
     });
   } catch (error) {
     log('API').error('Error creating class watch:', error);
+
     return fail('Failed to create class watch', 500);
   }
 }
@@ -240,11 +254,13 @@ export async function DELETE(request: NextRequest) {
         return ok(undefined);
       } catch (error) {
         log('API').error('Error deleting class watch:', error);
+
         return fail('Failed to delete class watch', 500);
       }
     });
   } catch (error) {
     log('API').error('Error deleting class watch:', error);
+
     return fail('Failed to delete class watch', 500);
   }
 }

@@ -51,6 +51,7 @@ export async function captureServerException(
   properties?: AnalyticsProperties
 ): Promise<void> {
   const client = createClient();
+
   try {
     // SAFETY: metadata must occupy the third slot — the second is the optional distinct id.
     await client.captureExceptionImmediate(error, undefined, properties);

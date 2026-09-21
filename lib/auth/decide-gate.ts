@@ -36,6 +36,7 @@ export function isProtectedRoute(pathname: string): boolean {
 
 export function getRedirectPath(authState: AuthorizationState | null): string {
   if (authState && !authState.has_consent) return '/consent';
+
   return authState?.is_admin ? '/admin' : '/dashboard';
 }
 
@@ -67,8 +68,10 @@ export function decideGate(input: {
   // /sign-in and the protected page. API routes keep their own checks.
   if (user && !authState && !pathname.startsWith('/api/')) {
     const isRepairPath = [REPAIR_PATH, '/sign-in'].some((path) => isPathPrefix(pathname, path));
+
     if (!isRepairPath && pathname !== '/') {
       const next = `${pathname}${search}`;
+
       return { kind: 'redirect', to: `${REPAIR_PATH}?next=${encodeURIComponent(next)}` };
     }
   }
@@ -76,6 +79,7 @@ export function decideGate(input: {
   if (user && !user.email_confirmed_at) {
     const allowedPaths = [REPAIR_PATH, '/sign-in'];
     const isAllowedPath = allowedPaths.some((p) => isPathPrefix(pathname, p));
+
     if (!isAllowedPath && pathname !== '/') {
       return { kind: 'redirect', to: '/sign-in' };
     }
@@ -89,6 +93,7 @@ export function decideGate(input: {
 
   if (lacksConsent && isProtected && pathname !== '/consent') {
     const next = `${pathname}${search}`;
+
     return { kind: 'redirect', to: `/consent?next=${encodeURIComponent(next)}` };
   }
 
@@ -106,8 +111,10 @@ export function decideGate(input: {
   }
 
   const isAuthPage = AUTH_PAGES.some((route) => isPathPrefix(pathname, route));
+
   if (isVerified && isAuthPage) {
     const redirectPath = getRedirectPath(authState);
+
     if (pathname !== redirectPath) {
       return { kind: 'redirect', to: redirectPath };
     }

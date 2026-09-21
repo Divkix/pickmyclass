@@ -10,14 +10,17 @@ export async function GET(request: Request) {
     return await withAuth(request, async (user) => {
       try {
         const payload = await readOnboardingState(getDbFromEnv(), user.userId);
+
         return ok(payload);
       } catch (error) {
         log('Onboarding').error('Get onboarding state error:', error);
+
         return fail('Failed to load onboarding state', 500);
       }
     });
   } catch (error) {
     log('Onboarding').error('Get onboarding state error:', error);
+
     return fail('Failed to load onboarding state', 500);
   }
 }
@@ -30,6 +33,7 @@ export async function POST(request: Request) {
 
         if (!payload) {
           log('Onboarding').error('Error skipping onboarding: no result returned');
+
           return fail('Failed to skip onboarding', 500);
         }
 
@@ -38,11 +42,13 @@ export async function POST(request: Request) {
         return ok(payload);
       } catch (error) {
         log('Onboarding').error('Skip onboarding error:', error);
+
         return fail('Failed to skip onboarding', 500);
       }
     });
   } catch (error) {
     log('Onboarding').error('Skip onboarding error:', error);
+
     return fail('Failed to skip onboarding', 500);
   }
 }

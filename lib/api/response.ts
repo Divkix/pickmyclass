@@ -10,7 +10,9 @@ export function ok<T extends (ApiData & { success?: never }) | null | undefined>
   if (data == null) {
     return NextResponse.json({ success: true }, init);
   }
+
   const responseData = { ...data, success: true as const } satisfies ApiData;
+
   return NextResponse.json(responseData, init);
 }
 
@@ -20,6 +22,8 @@ export function fail(error: string, status: number, details?: JsonValue): NextRe
     error: string;
     details?: JsonValue;
   };
+
   if (details !== undefined) Object.assign(body, { details });
+
   return NextResponse.json(body, { status });
 }

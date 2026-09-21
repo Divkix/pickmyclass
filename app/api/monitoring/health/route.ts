@@ -44,6 +44,7 @@ export async function GET(request: Request) {
   }
 
   const startTime = Date.now();
+
   const health: HealthStatus = {
     timestamp: new Date().toISOString(),
     status: 'healthy',
@@ -52,6 +53,7 @@ export async function GET(request: Request) {
 
   const escalateStatus = (newStatus: 'degraded' | 'unhealthy') => {
     const precedence = { healthy: 0, degraded: 1, unhealthy: 2 } as const;
+
     if (precedence[newStatus] > precedence[health.status]) {
       health.status = newStatus;
     }
@@ -62,6 +64,7 @@ export async function GET(request: Request) {
       try {
         const db = getDbFromEnv();
         await db.select({ id: classWatches.id }).from(classWatches).limit(1);
+
         return { kind: 'db_ok' as const, latency_ms: Date.now() - startTime };
       } catch (error) {
         return {
@@ -75,9 +78,11 @@ export async function GET(request: Request) {
         // SAFETY: ASU credentials are required secrets validated at deploy; shape matches wrangler.jsonc contract
         const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
         await fetchClassFromASU({ class_nbr: '10001', term: '2251' }, asuEnv);
+
         return { kind: 'asu_ok' as const };
       } catch (error) {
         if (error instanceof NotFoundError) return { kind: 'asu_ok' as const };
+
         return {
           kind: 'asu_error' as const,
           message: error instanceof Error ? error.message : 'Unknown error',
@@ -90,7 +95,9 @@ export async function GET(request: Request) {
         const cfEnv = env as {
           PICKMYCLASS_CRON_LOCK_DO?: DurableObjectNamespace;
         };
+
         const lockStatus = await createCronLockClient(cfEnv?.PICKMYCLASS_CRON_LOCK_DO).status();
+
         return { kind: 'cron_ok' as const, lockStatus };
       } catch (error) {
         return {
@@ -103,6 +110,7 @@ export async function GET(request: Request) {
 
   if (dbResult.status === 'fulfilled') {
     const v = dbResult.value;
+
     if (v.kind === 'db_ok') {
       health.checks.database = { status: 'healthy', latency_ms: v.latency_ms };
     } else {
@@ -119,6 +127,7 @@ export async function GET(request: Request) {
 
   if (asuResult.status === 'fulfilled') {
     const v = asuResult.value;
+
     if (v.kind === 'asu_ok') {
       health.checks.asu_api = { name: 'ASU API', status: 'healthy' };
     } else {
@@ -127,6 +136,7 @@ export async function GET(request: Request) {
     }
   } else {
     const msg = asuResult.reason instanceof Error ? asuResult.reason.message : 'Unknown error';
+
     if (asuResult.reason instanceof NotFoundError) {
       health.checks.asu_api = { name: 'ASU API', status: 'healthy' };
     } else {
@@ -137,8 +147,10 @@ export async function GET(request: Request) {
 
   if (cronResult.status === 'fulfilled') {
     const v = cronResult.value;
+
     if (v.kind === 'cron_ok') {
       const lockStatus = v.lockStatus;
+
       if (lockStatus) {
         health.checks.cron_lock = {
           status: 'healthy',
@@ -194,10 +206,12 @@ export async function GET(request: Request) {
   const emailEnv = env as { EMAIL?: SendEmail };
   const emailConfigured = !!emailEnv.EMAIL;
   const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || cfRecord.NOTIFICATION_FROM_EMAIL;
+
   const missingEmailConfig = [
     ...(!emailConfigured ? ['EMAIL binding'] : []),
     ...(!fromEmail ? ['NOTIFICATION_FROM_EMAIL'] : []),
   ];
+
   health.checks.email = {
     status: emailConfigured && fromEmail ? 'healthy' : 'unhealthy',
     configured: emailConfigured && !!fromEmail,

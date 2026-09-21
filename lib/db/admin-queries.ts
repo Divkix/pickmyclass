@@ -13,6 +13,7 @@ const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS, 100);
 type NotificationStatus = 'active' | 'unsubscribed' | 'bounced' | 'spam' | 'disabled';
 
 type SortDirection = 'asc' | 'desc';
+
 type WatchCountFilter = 'all' | 'none' | '1-5' | '6-10' | '10+';
 
 function toIsoTimestamp(value: string): string {
@@ -23,6 +24,7 @@ type ConsecutiveCountRow = { consecutive_not_found_count?: number };
 
 function normalizeConsecutiveCount(row: ConsecutiveCountRow): number {
   const count = row.consecutive_not_found_count;
+
   return typeof count === 'number' ? count : 0;
 }
 
@@ -31,12 +33,14 @@ type CountRpcRow = { count: string };
 export async function getTotalEmailsSent(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('total-emails-sent') as number | undefined;
+
   if (cached !== undefined) return cached;
 
   try {
     const [row] = await db.select({ value: count() }).from(notificationsSent);
     const result = Number(row?.value ?? 0);
     adminCache.set('total-emails-sent', result);
+
     return result;
   } catch (error) {
     log('Admin').error('Error fetching total emails sent:', error);
@@ -47,14 +51,17 @@ export async function getTotalEmailsSent(db: Database): Promise<number> {
 export async function getTotalUsers(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('total-users') as number | undefined;
+
   if (cached !== undefined) return cached;
 
   try {
     const [row] = await db.execute<CountRpcRow>(
       sql`SELECT public.count_all_users()::text AS count`
     );
+
     const result = Number(row?.count ?? 0);
     adminCache.set('total-users', result);
+
     return result;
   } catch (error) {
     log('Admin').error('Error counting users:', error);
@@ -65,6 +72,7 @@ export async function getTotalUsers(db: Database): Promise<number> {
 export async function getAdminCount(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('admin-count') as number | undefined;
+
   if (cached !== undefined) return cached;
 
   try {
@@ -72,8 +80,10 @@ export async function getAdminCount(db: Database): Promise<number> {
       .select({ value: count() })
       .from(userProfiles)
       .where(eq(userProfiles.is_admin, true));
+
     const result = Number(row?.value ?? 0);
     adminCache.set('admin-count', result);
+
     return result;
   } catch (error) {
     log('Admin').error('Error fetching admin count:', error);
@@ -84,15 +94,18 @@ export async function getAdminCount(db: Database): Promise<number> {
 export async function getTotalClassesWatched(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
   const cached = adminCache.get('total-classes-watched') as number | undefined;
+
   if (cached !== undefined) return cached;
 
   try {
     const [row] = await db.execute<CountRpcRow>(
       sql`SELECT public.count_distinct_classes_watched()::text AS count`
     );
+
     const result = Number(row?.count ?? 0);
     log('Admin').info(`Counted ${result} unique classes being watched`);
     adminCache.set('total-classes-watched', result);
+
     return result;
   } catch (error) {
     log('Admin').error('Error counting distinct classes watched:', error);
@@ -153,6 +166,7 @@ export interface ClassesPage {
 }
 
 type ClassState = typeof classStates.$inferSelect;
+
 type ClassWatch = typeof classWatches.$inferSelect;
 
 export interface ClassWithWatchers extends ClassState {
@@ -240,6 +254,7 @@ export async function getUsersPage(
     const total = rows.length > 0 ? Number(rows[0].total_count ?? 0) : 0;
 
     log('Admin').info(`Fetched ${mapped.length} users (page ${page}, total ${total})`);
+
     return { rows: mapped, total };
   } catch (error) {
     log('Admin').error(`Error fetching users page:`, error);
@@ -329,6 +344,7 @@ export async function getClassesPage(
     const fullClasses = rows.length > 0 ? Number(rows[0].full_classes ?? 0) : 0;
 
     log('Admin').info(`Fetched ${mapped.length} classes (page ${page}, total ${total})`);
+
     return { rows: mapped, total, totalWatchers, fullClasses };
   } catch (error) {
     log('Admin').error(`Error fetching classes page:`, error);
@@ -339,14 +355,17 @@ export async function getClassesPage(
 export async function getDistinctSubjects(db: Database): Promise<string[]> {
   // SAFETY: adminCache stores unknown; narrowing to string[] via cache key contract
   const cached = adminCache.get('distinct-subjects') as string[] | undefined;
+
   if (cached !== undefined) return cached;
 
   try {
     const rows = await db.execute<{ subject: string }>(
       sql`SELECT * FROM public.get_distinct_subjects()`
     );
+
     const result = rows.map((r) => r.subject);
     adminCache.set('distinct-subjects', result);
+
     return result;
   } catch (error) {
     log('Admin').error('Error fetching distinct subjects:', error);
@@ -383,11 +402,13 @@ export async function getRecentActivity(
   if (!Number.isFinite(limit) || limit <= 0) {
     throw new TypeError('Invalid limit: must be a finite positive integer');
   }
+
   const sanitizedLimit = Math.min(500, Math.max(1, Math.floor(limit)));
 
   const cacheKey = `recent-activity-${sanitizedLimit}`;
   // SAFETY: adminCache stores unknown; narrowing to RecentActivityItem[] via cache key contract
   const cached = adminCache.get(cacheKey) as RecentActivityItem[] | undefined;
+
   if (cached !== undefined) return cached;
 
   try {
@@ -408,12 +429,14 @@ export async function getRecentActivity(
     }));
 
     adminCache.set(cacheKey, items);
+
     return items;
   } catch (error) {
     if (isUndefinedFunction(error)) {
       const fallback: RecentActivityItem[] = [];
       log('Admin').warn('Recent activity RPC is unavailable; rendering an empty activity feed');
       adminCache.set(cacheKey, fallback);
+
       return fallback;
     }
 
@@ -439,6 +462,7 @@ export async function getUserWatches(db: Database, userId: string): Promise<Watc
 
     if (rows.length === 0) {
       log('Admin').info(`No watches found for user ${userId}`);
+
       return [];
     }
 
@@ -453,6 +477,7 @@ export async function getUserWatches(db: Database, userId: string): Promise<Watc
     }));
 
     log('Admin').info(`Fetched ${watchesWithClass.length} watches for user ${userId}`);
+
     return watchesWithClass;
   } catch (error) {
     log('Admin').error(`Error fetching watches for user ${userId}:`, error);

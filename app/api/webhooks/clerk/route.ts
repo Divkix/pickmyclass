@@ -25,33 +25,41 @@ export async function POST(request: Request) {
   const { CLERK_WEBHOOK_SIGNING_SECRET } = env as unknown as {
     CLERK_WEBHOOK_SIGNING_SECRET?: string;
   };
+
   if (!CLERK_WEBHOOK_SIGNING_SECRET) {
     log('ClerkWebhook').error('CLERK_WEBHOOK_SIGNING_SECRET is not set');
+
     return fail('Webhook not configured', 500);
   }
 
   let event;
+
   try {
     event = await verifyWebhook(request, { signingSecret: CLERK_WEBHOOK_SIGNING_SECRET });
   } catch (error) {
     log('ClerkWebhook').warn('Signature verification failed:', error);
+
     return fail('Invalid signature', 400);
   }
 
   try {
     const db = getDbFromEnv();
+
     if (event.type === 'user.created' || event.type === 'user.updated') {
       const synced = await syncUserMirrorFromClerkUser(db, event.data);
+
       if (!synced) {
         log('ClerkWebhook').warn(
           `Event ${event.type} for ${event.data.id} has no email — skipping`
         );
       }
+
       return ok(null);
     }
 
     if (event.type === 'user.deleted') {
       const id = event.data.id;
+
       if (id) {
         await softDeleteUserById(db, id);
         // The event only carries the Clerk id while the gate caches by app id
@@ -60,12 +68,14 @@ export async function POST(request: Request) {
         // rare; the cost is re-reading state on the next request.
         clearAuthorizationStateCache();
       }
+
       return ok(null);
     }
 
     return ok(null);
   } catch (error) {
     log('ClerkWebhook').error(`Failed to process ${event.type}:`, error);
+
     return fail('Webhook processing failed', 500);
   }
 }

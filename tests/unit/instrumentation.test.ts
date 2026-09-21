@@ -18,6 +18,7 @@ describe('root request instrumentation', () => {
   it('forwards only path/method/route context to the analytics boundary', () => {
     const error = new Error('render exploded');
     const sentinel = Promise.resolve();
+
     const requestWithHeaders = {
       path: '/dashboard/[id]',
       method: 'GET',
@@ -53,6 +54,7 @@ describe('root request instrumentation', () => {
       method: 'DELETE',
       headers: { authorization: 'Bearer secret', cookie: 'session=abc' },
     };
+
     onRequestError(new Error('route failed'), requestWithHeaders, {
       routerKind: 'App Router',
       routePath: '/api/user/delete',

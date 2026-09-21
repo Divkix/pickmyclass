@@ -52,6 +52,7 @@ import { classStates, classWatches, notificationsSent, userProfiles, users } fro
 import { readOnboardingState, skipOnboarding } from '@/lib/onboarding';
 
 const DATABASE_URL = process.env.DATABASE_URL;
+
 if (!DATABASE_URL) {
   throw new Error(
     'DATABASE_URL must point at a disposable PostgreSQL carrying ' +
@@ -66,46 +67,79 @@ const db = getDb(hyperdrive);
 const RUN = `dlv-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
 
 const TERM = `${RUN}-t1`;
+
 const TERM_OTHER = `${RUN}-t2`;
+
 const TERM_EMPTY = `${RUN}-t3`;
+
 const SUBJECT = `ZZ${RUN}`;
 
 const REF_A = { class_nbr: `${RUN}0`, term: TERM };
+
 const REF_B = { class_nbr: `${RUN}2`, term: TERM };
+
 const REF_C = { class_nbr: `${RUN}4`, term: TERM };
+
 const REF_FULL = { class_nbr: `${RUN}6`, term: TERM };
+
 const REF_ODD = { class_nbr: `${RUN}3`, term: TERM };
+
 const REF_B_OTHER_TERM = { class_nbr: `${RUN}2`, term: TERM_OTHER };
+
 const REF_INC = { class_nbr: `${RUN}5`, term: TERM };
+
 const REF_SEED = { class_nbr: `${RUN}7`, term: TERM };
+
 const REF_LIMIT_1 = { class_nbr: `${RUN}8`, term: TERM };
+
 const REF_LIMIT_2 = { class_nbr: `${RUN}9`, term: TERM };
 
 const uid = (tag: string) => `${RUN}_u_${tag}`;
+
 const mail = (tag: string) => `${RUN}.${tag}@emails.example.test`;
 
 const U_MAIN = uid('main');
+
 const U_BOUNCED = uid('bounced');
+
 const U_DISABLED = uid('disabled');
+
 const U_UNSUB = uid('unsub');
+
 const U_SPAM = uid('spam');
+
 const U_XT = uid('xterm');
+
 const U_ODD = uid('odd');
+
 const U_LIMIT = uid('limit');
+
 const U_TX = uid('tx');
+
 const U_ONBOARD = uid('onboard');
+
 const U_WEBHOOK = uid('webhook');
+
 const U_ADMIN = uid('admin');
+
 const U_CRUD = uid('crud');
 
 let W_A_MAIN: string;
+
 let W_A_BOUNCED: string;
+
 let W_A_DISABLED: string;
+
 let W_B_MAIN: string;
+
 let W_B_SPAM: string;
+
 let W_XT: string;
+
 let W_C_1: string;
+
 let W_C_2: string;
+
 let W_ODD: string;
 
 beforeAll(async () => {
@@ -162,6 +196,7 @@ beforeAll(async () => {
     location: 'TEMPE',
     meeting_times: 'MW 10:00-11:15',
   });
+
   await upsertClassState(db, REF_A, stateDetails(7));
   await upsertClassState(db, REF_B, stateDetails(5));
   await upsertClassState(db, REF_C, stateDetails(3));
@@ -178,8 +213,10 @@ beforeAll(async () => {
         catalog_nbr: '310',
       })
       .returning({ id: classWatches.id });
+
     return row.id;
   };
+
   W_A_MAIN = await watch(U_MAIN, REF_A);
   W_A_BOUNCED = await watch(U_BOUNCED, REF_A);
   W_A_DISABLED = await watch(U_DISABLED, REF_A);
@@ -211,6 +248,7 @@ async function capture<T>(run: () => Promise<T>): Promise<Error | null> {
   } catch (error) {
     return error instanceof Error ? error : new Error(String(error));
   }
+
   return null;
 }
 
@@ -218,6 +256,7 @@ type TimestampCell = string | null | undefined;
 
 function temporal(value: TimestampCell): boolean {
   if (value === null || value === undefined) return false;
+
   return !Number.isNaN(new Date(value).getTime());
 }
 
@@ -233,6 +272,7 @@ interface CountRow {
 
 async function scalarCount(query: PromiseLike<CountRow[]>): Promise<number> {
   const rows = await query;
+
   return Number(rows[0]?.n ?? 0);
 }
 
@@ -247,6 +287,7 @@ type CreatedWatchRow = {
 };
 
 const CREATED_MS = 1_750_000_000_000;
+
 const LAST_SIGN_IN_MS = 1_750_000_001_000;
 
 function emailAddress(
@@ -265,6 +306,7 @@ function emailAddress(
           attempts: null,
           expire_at: null,
         };
+
   return {
     object: 'email_address',
     id,
@@ -335,6 +377,7 @@ describe('SQLSTATE helpers against real driver errors', () => {
         catalog_nbr: '310',
       })
     );
+
     expect(isUniqueViolation(error)).toBe(true);
     expect(getPgError(error)?.code).toBe(PG_UNIQUE_VIOLATION);
   });
@@ -363,6 +406,7 @@ describe('SQLSTATE helpers against real driver errors', () => {
         )`
       )
     );
+
     expect(error).not.toBeNull();
     expect(driverErrorMessage(error)).toMatch(/Invalid watch limit/);
     expect(isRaisedException(error)).toBe(true);
@@ -389,6 +433,7 @@ describe('wire formats under prepare:false / fetch_types:false', () => {
     const rows = await db.execute<{ c: string }>(
       sql`SELECT COUNT(*)::bigint AS c FROM class_watches`
     );
+
     expect(typeof rows[0]?.c).toBe('string');
     expect(String(rows[0]?.c)).toMatch(/^\d+$/);
   });
@@ -413,6 +458,7 @@ describe('Drizzle builder CRUD row shapes', () => {
         email: mail('crud-b'),
       })
       .returning();
+
     expect(Object.keys(inserted).sort()).toEqual(
       ['clerk_user_id', 'created_at', 'email', 'email_confirmed_at', 'id', 'last_sign_in_at'].sort()
     );
@@ -427,9 +473,11 @@ describe('Drizzle builder CRUD row shapes', () => {
     expect(new Date(String(reread.last_sign_in_at)).getTime()).toBe(new Date(stamp).getTime());
 
     await db.delete(users).where(eq(users.id, inserted.id));
+
     const remaining = await scalarCount(
       db.select({ n: count() }).from(users).where(eq(users.id, inserted.id))
     );
+
     expect(remaining).toBe(0);
   });
 
@@ -479,6 +527,7 @@ describe('Drizzle builder CRUD row shapes', () => {
         catalog_nbr: '310',
       })
       .returning();
+
     expect(watch.id).toMatch(UUID_RE);
     expect(temporal(watch.created_at)).toBe(true);
 
@@ -491,12 +540,14 @@ describe('Drizzle builder CRUD row shapes', () => {
         catalog_nbr: '310',
       })
     );
+
     expect(isUniqueViolation(duplicate)).toBe(true);
 
     const deleted = await db
       .delete(classWatches)
       .where(eq(classWatches.id, watch.id))
       .returning({ id: classWatches.id });
+
     expect(deleted).toHaveLength(1);
   });
 
@@ -505,6 +556,7 @@ describe('Drizzle builder CRUD row shapes', () => {
       .select()
       .from(classStates)
       .where(and(eq(classStates.class_nbr, REF_A.class_nbr), eq(classStates.term, TERM)));
+
     expect(Object.keys(state).sort()).toEqual(
       [
         'class_nbr',
@@ -572,6 +624,7 @@ describe('upsertClassState / section-check pipeline ops', () => {
     const concurrent = await Promise.all(
       Array.from({ length: 4 }, () => incrementConsecutiveNotFound(db, REF_INC))
     );
+
     expect([...concurrent].sort((a, b) => a - b)).toEqual([3, 4, 5, 6]);
 
     const state = await readSectionCheckState(db, REF_INC);
@@ -636,6 +689,7 @@ describe('upsertClassState / section-check pipeline ops', () => {
         .where(
           and(eq(classStates.class_nbr, REF_SEED.class_nbr), eq(classStates.term, REF_SEED.term))
         );
+
       return row;
     };
 
@@ -685,8 +739,10 @@ describe('create_class_watch_with_limit RPC', () => {
         ${1}::integer
       )`
     );
+
     const row = rows[0];
     expect(row).toBeDefined();
+
     for (const key of [
       'id',
       'user_id',
@@ -698,6 +754,7 @@ describe('create_class_watch_with_limit RPC', () => {
     ]) {
       expect(Object.keys(row)).toContain(key);
     }
+
     expect(row.user_id).toBe(U_LIMIT);
     expect(row.class_nbr).toBe(REF_LIMIT_1.class_nbr);
     expect(row.term).toBe(TERM);
@@ -718,6 +775,7 @@ describe('create_class_watch_with_limit RPC', () => {
         )`
       )
     );
+
     expect(error).not.toBeNull();
     expect(driverErrorMessage(error)).toMatch(/MAX_WATCHES_EXCEEDED/);
     expect(isRaisedException(error)).toBe(true);
@@ -795,10 +853,13 @@ describe('notification dedup lifecycle', () => {
       .update(notificationsSent)
       .set({ expires_at: '2020-01-01T00:00:00.000Z' })
       .where(inArray(notificationsSent.class_watch_id, [W_C_1, W_C_2]));
+
     const swept = await db.execute<{ n: string }>(
       sql`SELECT public.expire_stale_notifications() AS n`
     );
+
     expect(Number(swept[0]?.n)).toBeGreaterThanOrEqual(2);
+
     const inactive = await scalarCount(
       db
         .select({ n: count() })
@@ -810,6 +871,7 @@ describe('notification dedup lifecycle', () => {
           )
         )
     );
+
     expect(inactive).toBe(2);
 
     const third = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], 'seat_available');
@@ -819,6 +881,7 @@ describe('notification dedup lifecycle', () => {
   it('rolls back failed sends by deleting only active claims', async () => {
     const deleted = await deleteNotificationRecords(db, [W_C_1], 'seat_available');
     expect(deleted).toBe(1);
+
     const activeLeft = await scalarCount(
       db
         .select({ n: count() })
@@ -830,6 +893,7 @@ describe('notification dedup lifecycle', () => {
           )
         )
     );
+
     expect(activeLeft).toBe(1);
   });
 
@@ -839,6 +903,7 @@ describe('notification dedup lifecycle', () => {
         .insert(notificationsSent)
         .values({ class_watch_id: W_C_2, notification_type: 'seat_available' })
     );
+
     expect(isUniqueViolation(activeDup)).toBe(true);
 
     await db.insert(notificationsSent).values({
@@ -846,6 +911,7 @@ describe('notification dedup lifecycle', () => {
       notification_type: 'seat_available',
       is_active: false,
     });
+
     const history = await scalarCount(
       db
         .select({ n: count() })
@@ -857,6 +923,7 @@ describe('notification dedup lifecycle', () => {
           )
         )
     );
+
     expect(history).toBeGreaterThanOrEqual(2);
   });
 
@@ -866,6 +933,7 @@ describe('notification dedup lifecycle', () => {
       notification_type: 'seat_available',
     });
     await resetNotificationsForSection(db, REF_A, 'seat_available');
+
     const left = await scalarCount(
       db
         .select({ n: count() })
@@ -877,6 +945,7 @@ describe('notification dedup lifecycle', () => {
           )
         )
     );
+
     expect(left).toBe(0);
   });
 });
@@ -889,6 +958,7 @@ describe('deleteSectionAndWatches transactional cleanup', () => {
         .from(classWatches)
         .where(and(eq(classWatches.class_nbr, REF_C.class_nbr), eq(classWatches.term, TERM)))
     );
+
     expect(before).toBe(2);
 
     const result = await deleteSectionAndWatches(db, REF_C);
@@ -900,14 +970,17 @@ describe('deleteSectionAndWatches transactional cleanup', () => {
         .from(classWatches)
         .where(and(eq(classWatches.class_nbr, REF_C.class_nbr), eq(classWatches.term, TERM)))
     );
+
     expect(watchesLeft).toBe(0);
     expect(await readSectionCheckState(db, REF_C)).toBeNull();
+
     const notificationsLeft = await scalarCount(
       db
         .select({ n: count() })
         .from(notificationsSent)
         .where(inArray(notificationsSent.class_watch_id, [W_C_1, W_C_2]))
     );
+
     expect(notificationsLeft).toBe(0);
   });
 
@@ -931,15 +1004,18 @@ describe('deleteSectionAndWatches transactional cleanup', () => {
         .from(classWatches)
         .where(and(eq(classWatches.user_id, U_TX), eq(classWatches.term, TERM)))
     );
+
     expect(left).toBe(0);
   });
 
   it('hard-deletes watches for past terms by term code', async () => {
     const deleted = await deletePastTermWatches(db, [TERM_OTHER]);
     expect(deleted).toBe(1);
+
     const left = await scalarCount(
       db.select({ n: count() }).from(classWatches).where(eq(classWatches.term, TERM_OTHER))
     );
+
     expect(left).toBe(0);
   });
 });
@@ -954,6 +1030,7 @@ describe('users mirror lifecycle', () => {
         public_metadata: { age_verified: true, agreed_to_terms: true },
       })
     );
+
     expect(synced).toBe(true);
 
     const verification = await readUserVerification(db, APP_ID, { cache: false });
@@ -1035,6 +1112,7 @@ describe('admin queries (representative RPC + builder results)', () => {
         .from(users)
         .where(like(users.id, `%${RUN}%`))
     );
+
     const mainWatches = await scalarCount(
       db.select({ n: count() }).from(classWatches).where(eq(classWatches.user_id, U_MAIN))
     );
@@ -1092,6 +1170,7 @@ describe('admin queries (representative RPC + builder results)', () => {
         .from(classWatches)
         .where(like(classWatches.user_id, `%${RUN}%`))
     ).map((row) => row.id);
+
     const expectedEmails =
       myWatchIds.length > 0
         ? await scalarCount(
@@ -1110,6 +1189,7 @@ describe('admin queries (representative RPC + builder results)', () => {
         .from(userProfiles)
         .where(like(userProfiles.user_id, `%${RUN}%`))
     );
+
     expect(await getTotalUsers(db)).toBeGreaterThanOrEqual(expectedProfiles);
     expect(await getAdminCount(db)).toBeGreaterThanOrEqual(1);
 
@@ -1121,6 +1201,7 @@ describe('admin queries (representative RPC + builder results)', () => {
           .where(like(classWatches.user_id, `%${RUN}%`))
       ).map((row) => row.class_nbr)
     );
+
     expect(await getTotalClassesWatched(db)).toBeGreaterThanOrEqual(distinctMine.size);
   });
 
@@ -1137,11 +1218,13 @@ describe('admin queries (representative RPC + builder results)', () => {
     const registration = feed.find(
       (item) => item.type === 'user_registration' && item.userEmail === mail('admin')
     );
+
     expect(registration).toBeDefined();
 
     const aWatchFeed = feed.filter(
       (item) => item.type === 'new_watch' && item.classNbr === REF_A.class_nbr
     );
+
     expect(aWatchFeed.map((item) => item.userEmail).sort()).toEqual(
       [mail('main'), mail('bounced'), mail('disabled')].sort()
     );
@@ -1149,6 +1232,7 @@ describe('admin queries (representative RPC + builder results)', () => {
     const emailSent = feed.find(
       (item) => item.type === 'email_sent' && item.classNbr === REF_ODD.class_nbr
     );
+
     expect(emailSent).toBeDefined();
     expect(emailSent?.notificationType).toBe('seat_available');
   });
@@ -1156,6 +1240,7 @@ describe('admin queries (representative RPC + builder results)', () => {
   it('joins user watches with their class state (and null for stateless sections)', async () => {
     const mainWatches = await getUserWatches(db, U_MAIN);
     expect(mainWatches.map((w) => w.id).sort()).toEqual([W_A_MAIN, W_B_MAIN].sort());
+
     for (const watch of mainWatches) {
       expect(isIsoZ(watch.created_at)).toBe(true);
       expect(watch.class_state).not.toBeNull();
@@ -1179,11 +1264,13 @@ describe('notification claim races', () => {
         catalog_nbr: '310',
       })
       .returning({ id: classWatches.id });
+
     return row.id;
   };
 
   it('lets exactly one of two concurrent claims win a watch', async () => {
     const watchId = await seedWatch(REF_LIMIT_2);
+
     try {
       const [first, second] = await Promise.all([
         tryRecordNotificationsBatch(db, [watchId], 'seat_available'),
@@ -1191,6 +1278,7 @@ describe('notification claim races', () => {
       ]);
 
       expect(first.size + second.size).toBe(1);
+
       const activeClaims = await scalarCount(
         db
           .select({ n: count() })
@@ -1202,6 +1290,7 @@ describe('notification claim races', () => {
             )
           )
       );
+
       expect(activeClaims).toBe(1);
     } finally {
       await db.delete(classWatches).where(eq(classWatches.id, watchId));
@@ -1210,6 +1299,7 @@ describe('notification claim races', () => {
 
   it('claims a free slot again when only an inactive history row is left unexpired', async () => {
     const watchId = await seedWatch(REF_LIMIT_1);
+
     try {
       await db.insert(notificationsSent).values({
         class_watch_id: watchId,
@@ -1228,6 +1318,7 @@ describe('notification claim races', () => {
   it('skips a watch deleted mid-claim instead of failing the whole batch', async () => {
     const doomedId = await seedWatch(REF_LIMIT_1);
     const survivorId = await seedWatch(REF_LIMIT_2);
+
     try {
       await db.delete(classWatches).where(eq(classWatches.id, doomedId));
 

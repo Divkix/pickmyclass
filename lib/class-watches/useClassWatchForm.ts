@@ -15,19 +15,23 @@ export type UseClassWatchFormOptions = {
   onSubmittingChange?: (submitting: boolean) => void;
   resetOnSuccess?: boolean;
 };
+
 export function useClassWatchForm(options: UseClassWatchFormOptions = {}) {
   const { terms, defaultTerm: derivedDefaultTerm } = useMemo(() => {
     try {
       // SAFETY: narrowing mocked getOptions shape at boundary – getOptions is typed narrowly but tests mock broader shape
       const result: unknown = classWatchCreation.getOptions() as unknown;
+
       if (result && typeof result === 'object' && 'terms' in result && 'defaultTerm' in result) {
         // SAFETY: boundary shape check for mocked getOptions
         const rec = result as Record<string, unknown>;
+
         if (Array.isArray(rec.terms) && typeof rec.defaultTerm === 'string') {
           // SAFETY: validated array and string above, narrowing via unknown to precise AsuTerm shape
           return rec as unknown as { terms: AsuTerm[]; defaultTerm: string };
         }
       }
+
       // SAFETY: narrowing mocked getOptions shape at boundary – fallback empty state for missing shape
       return { terms: [] as AsuTerm[], defaultTerm: '' as string };
     } catch {
@@ -35,6 +39,7 @@ export function useClassWatchForm(options: UseClassWatchFormOptions = {}) {
       return { terms: [] as AsuTerm[], defaultTerm: '' as string };
     }
   }, []);
+
   const {
     defaultClassNbr = '',
     defaultTerm = derivedDefaultTerm,
@@ -54,10 +59,12 @@ export function useClassWatchForm(options: UseClassWatchFormOptions = {}) {
       setError(null);
       setIsSubmitting(true);
       onSubmittingChange?.(true);
+
       try {
         const input: ClassWatchCreationInput = { term, class_nbr: classNbr };
         const watch = await classWatchCreation.create(input);
         await onCreated?.(watch, input);
+
         if (resetOnSuccess) {
           setTerm(derivedDefaultTerm);
           setClassNbr('');

@@ -44,6 +44,7 @@ function formatDate(dateString: string | null): string {
   if (!dateString) return 'Never';
 
   const relative = formatRelativeDate(dateString);
+
   if (relative) return relative;
 
   return formatAbsoluteDate(dateString);
@@ -69,6 +70,7 @@ export function UsersTable({
   const buildUrl = useCallback(
     (updates: Record<string, string>) => {
       const params = new URLSearchParams(searchParams.toString());
+
       for (const [k, v] of Object.entries(updates)) {
         if (v === '' || v === 'all') {
           params.delete(k);
@@ -76,7 +78,9 @@ export function UsersTable({
           params.set(k, v);
         }
       }
+
       const qs = params.toString();
+
       return qs ? `${pathname}?${qs}` : pathname;
     },
     [pathname, searchParams]
@@ -101,13 +105,16 @@ export function UsersTable({
 
   const renderSortIconFromUrl = (field: UserSortField) => {
     if (sort !== field) return <ChevronsUpDown className="size-4 ml-1 text-muted-foreground" />;
+
     if (dir === 'asc') return <ChevronUp className="size-4 ml-1" />;
+
     return <ChevronDown className="size-4 ml-1" />;
   };
 
   const handleRowClick = (userId: string, event: React.MouseEvent) => {
     // SAFETY: row click target is HTMLElement per table cell DOM contract
     const target = event.target as HTMLElement;
+
     if (target.tagName === 'A' || target.closest('a')) return;
     router.push(`/admin/users/${userId}`);
   };

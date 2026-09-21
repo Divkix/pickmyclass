@@ -54,6 +54,7 @@ vi.mock('@/components/AddClassWatch', () => ({
     onCreated: (watch: { id: string }, input: { term: string; class_nbr: string }) => void;
   }) => {
     captured.onCreated = onCreated;
+
     return <div data-testid="add-class-watch-form" />;
   },
 }));

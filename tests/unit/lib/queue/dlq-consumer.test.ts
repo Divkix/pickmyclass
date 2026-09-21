@@ -5,6 +5,7 @@ vi.mock('@/lib/db/queries', () => ({
 }));
 
 const mockSend = vi.fn();
+
 const mockEmailBinding: SendEmail = {
   send: mockSend,
 } as SendEmail;
@@ -24,7 +25,9 @@ function buildMessage(overrides: Partial<ClassCheckMessage> = {}): ClassCheckMes
     ...overrides,
   };
 }
+
 const mockGetClassWatchers = getClassWatchers as ReturnType<typeof vi.fn>;
+
 function mockWatchers(watchers: unknown[]) {
   mockGetClassWatchers.mockResolvedValue(watchers);
 }

@@ -46,10 +46,12 @@ const {
 }));
 
 type LinkHref = string | { pathname?: string };
+
 type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   href: LinkHref;
   children: ReactNode;
 };
+
 type JsonValue =
   | string
   | number
@@ -119,15 +121,19 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/db', async () => {
   const { drizzle } = await vi.importActual<typeof DrizzlePostgresJs>('drizzle-orm/postgres-js');
   const schema = await vi.importActual<typeof DbSchema>('@/lib/db/schema');
+
   interface PostgresJsSeam {
     unsafe(query: string, params: unknown[]): { values(): Promise<unknown[]> };
   }
+
   const scriptedClient = {
     options: { parsers: {}, serializers: {} },
     unsafe: (text: string, params: unknown[]) => ({ values: async () => mockUnsafe(text, params) }),
   };
+
   const client: PostgresJsSeam = scriptedClient;
   const fakeDb = drizzle(client as postgres.Sql, { schema });
+
   return {
     getDb: vi.fn(() => fakeDb),
     getDbFromEnv: vi.fn(() => fakeDb),
@@ -333,13 +339,17 @@ describe('admin pages', () => {
       if (text.includes('from "users"')) {
         const userId = params[0];
         const user = userRows.find((u) => u.id === userId) ?? null;
+
         return user ? [USER_DETAIL_COLUMNS.map((c) => user[c])] : [];
       }
+
       if (text.includes('from "class_states"')) {
         const [classNbr, term] = params;
         const state = classStateFixtures.find((r) => r.class_nbr === classNbr && r.term === term);
+
         return state ? [CLASS_STATE_COLUMNS.map((c) => state[c])] : [];
       }
+
       return [];
     });
   });
@@ -450,6 +460,7 @@ describe('admin pages', () => {
       dir: 'asc',
       role: 'admin',
     } satisfies Record<string, string | undefined>);
+
     await AdminUsersPage({ searchParams: sp });
     expect(mockGetUsersPage).toHaveBeenCalledWith(
       db,
@@ -470,6 +481,7 @@ describe('admin pages', () => {
       subject: 'CSE',
       seatStatus: 'full',
     } satisfies Record<string, string | undefined>);
+
     await AdminClassesPage({ searchParams: sp });
 
     expect(mockGetClassesPage).toHaveBeenCalledWith(

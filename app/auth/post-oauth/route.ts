@@ -12,8 +12,10 @@ import { repairUserMirror } from '@/lib/db/users';
 // influence where OAuth callbacks send the user.
 function consentRedirect(base: string, next: string, saveFailed = false): NextResponse {
   const url = new URL('/consent', base);
+
   if (saveFailed) url.searchParams.set('error', 'save_failed');
   url.searchParams.set('next', next);
+
   return NextResponse.redirect(url);
 }
 
@@ -23,6 +25,7 @@ export async function GET(request: Request) {
   const next = safeInternalPath(searchParams.get('next'), '/');
 
   const identity = await getSessionIdentity(request);
+
   if (!identity) {
     return NextResponse.redirect(`${origin}/sign-in?error=oauth_failed`);
   }
@@ -34,8 +37,10 @@ export async function GET(request: Request) {
     const db = getDbFromEnv();
     const clerkUser = await getClerkClient().users.getUser(identity.clerkUserId);
     const repairResult = await repairUserMirror(db, userId, clerkUser);
+
     if (!repairResult) {
       log('Auth').error(`No primary email on Clerk user ${identity.clerkUserId}`);
+
       return consentRedirect(base, next, true);
     }
 
@@ -53,6 +58,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${base}${next}`);
   } catch (error) {
     log('Auth').error('post-oauth handling failed:', error);
+
     return NextResponse.redirect(`${origin}/sign-in?error=oauth_failed`);
   }
 }

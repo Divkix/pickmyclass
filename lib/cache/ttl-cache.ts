@@ -8,6 +8,7 @@ export class TtlCache<T> {
 
   private evictExpired(): void {
     const now = Date.now();
+
     for (const [key, entry] of this.cache) {
       if (now > entry.expiry) this.cache.delete(key);
     }
@@ -15,10 +16,12 @@ export class TtlCache<T> {
 
   get(key: string): T | undefined {
     const entry = this.cache.get(key);
+
     if (!entry) return undefined;
 
     if (Date.now() > entry.expiry) {
       this.cache.delete(key);
+
       return undefined;
     }
 
@@ -27,10 +30,13 @@ export class TtlCache<T> {
 
   set(key: string, data: T): void {
     this.cache.set(key, { data, expiry: Date.now() + this.ttlMs });
+
     if (this.cache.size > this.maxSize) {
       this.evictExpired();
+
       while (this.cache.size > this.maxSize) {
         const oldestKey = this.cache.keys().next().value;
+
         if (oldestKey === undefined) break;
         this.cache.delete(oldestKey);
       }

@@ -85,8 +85,10 @@ interface MockDbOptions {
 function createDb({ rows = [], error }: MockDbOptions = {}) {
   const execute = vi.fn(async (_query: SQL): Promise<RecentActivityWireRow[]> => {
     if (error !== undefined) throw error;
+
     return rows;
   });
+
   return { db: asDatabaseHandle({ execute }), execute };
 }
 
@@ -97,21 +99,26 @@ function createJoinDb(joinedRows: JoinedWatchRow[]) {
     const chain: RecordingChain<JoinedWatchRow> = Object.assign(Promise.resolve(joinedRows), {
       from: (table: PgTable): RecordingChain<JoinedWatchRow> => {
         calls.from.push(table);
+
         return chain;
       },
       leftJoin: (table: PgTable, on: SQL): RecordingChain<JoinedWatchRow> => {
         calls.leftJoin.push([table, on]);
+
         return chain;
       },
       where: (condition: SQL): RecordingChain<JoinedWatchRow> => {
         calls.where.push(condition);
+
         return chain;
       },
       orderBy: (condition: SQL): RecordingChain<JoinedWatchRow> => {
         calls.orderBy.push(condition);
+
         return chain;
       },
     });
+
     return chain;
   });
 
@@ -121,15 +128,20 @@ function createJoinDb(joinedRows: JoinedWatchRow[]) {
 function columnsIn(chunk: SQLChunk | Column, acc: Column[] = []): Column[] {
   if (is(chunk, Column)) {
     acc.push(chunk);
+
     return acc;
   }
+
   if (Array.isArray(chunk)) {
     for (const child of chunk) columnsIn(child, acc);
+
     return acc;
   }
+
   if (chunk instanceof SQL) {
     for (const child of chunk.queryChunks) columnsIn(child, acc);
   }
+
   return acc;
 }
 
@@ -171,6 +183,7 @@ describe('getRecentActivity', () => {
         notification_type: 'seat_available',
       },
     ];
+
     const { db, execute } = createDb({ rows: mockData });
 
     const result = await getRecentActivity(db, 10);
@@ -254,6 +267,7 @@ describe('getRecentActivity', () => {
       new Error('function get_recent_activity(integer) does not exist'),
       { code: '42883' }
     );
+
     const { db, execute } = createDb({ error: missingRpcError });
 
     const result = await getRecentActivity(db, 42);
@@ -268,6 +282,7 @@ describe('getRecentActivity', () => {
     const cause = Object.assign(new Error('function get_recent_activity(integer) does not exist'), {
       code: '42883',
     });
+
     const wrapped = Object.assign(
       new Error('Failed query: SELECT * FROM public.get_recent_activity($1::int)'),
       {
@@ -276,6 +291,7 @@ describe('getRecentActivity', () => {
         cause,
       }
     );
+
     const { db, execute } = createDb({ error: wrapped });
 
     const result = await getRecentActivity(db, 43);
@@ -370,6 +386,7 @@ describe('getUserWatches', () => {
         },
       },
     ];
+
     const { db, calls, select } = createJoinDb(joinedRows);
 
     const result = await getUserWatches(db, 'u1');
@@ -439,6 +456,7 @@ describe('getUserWatches', () => {
     const select = vi.fn(() => {
       throw new Error('Database connection failed');
     });
+
     const db = asDatabaseHandle({ select });
 
     await expect(getUserWatches(db, 'u3')).rejects.toThrow(

@@ -83,17 +83,24 @@ function formatTime(time: string): string {
   let hour = Number.parseInt(hourStr, 10);
   const minute = minuteStr || '00';
   const period = hour >= 12 ? 'PM' : 'AM';
+
   if (hour === 0) hour = 12;
   else if (hour > 12) hour -= 12;
+
   return `${hour}:${minute} ${period}`;
 }
 
 function composeMeetingTimes(item: AsuApiClassItem): string {
   const days: string[] = [];
+
   if (item.MON === 'Y') days.push('M');
+
   if (item.TUES === 'Y') days.push('Tu');
+
   if (item.WED === 'Y') days.push('W');
+
   if (item.THURS === 'Y') days.push('Th');
+
   if (item.FRI === 'Y') days.push('F');
 
   if (days.length === 0 || !item.STARTTIME || !item.ENDTIME) {
@@ -130,8 +137,11 @@ function buildClassSearchUrl(baseUrl: string, classNbr: string, term: string): s
 
 function normalizeAuthHeader(token: string): string {
   const trimmed = token.trim();
+
   if (trimmed.length === 0) return trimmed;
+
   if (/^Bearer\s+/i.test(trimmed)) return trimmed;
+
   return `Bearer ${trimmed}`;
 }
 
@@ -155,12 +165,14 @@ export async function fetchClassFromASU(
 
   const cacheKey = sectionRefKey(ref);
   const cached = opts.useCache === false ? undefined : asuApiCache.get(cacheKey);
+
   if (cached) return cached;
 
   const url = buildClassSearchUrl(env.ASU_API_BASE_URL, classNbr, term);
   const authHeader = normalizeAuthHeader(env.ASU_API_TOKEN);
 
   let response: Response;
+
   try {
     response = await fetch(url, {
       headers: { Authorization: authHeader },
@@ -170,15 +182,18 @@ export async function fetchClassFromASU(
     if (error instanceof DOMException && error.name === 'TimeoutError') {
       throw new ApiError('ASU API request timed out', 408);
     }
+
     throw error;
   }
 
   if (response.status === 401 || response.status === 403) {
     throw new AuthError('ASU API token expired or invalid');
   }
+
   if (response.status === 429) {
     throw new RateLimitError('ASU API rate limit hit');
   }
+
   if (!response.ok) {
     throw new ApiError(`ASU API returned ${response.status}`, response.status);
   }
@@ -192,11 +207,13 @@ export async function fetchClassFromASU(
   }
 
   const matchingHit = hits.find((h) => h._source.CLASSNBR === classNbr);
+
   if (!matchingHit) {
     throw new NotFoundError(`Section ${classNbr} not found in response`);
   }
 
   const result = mapToClassDetails(matchingHit._source);
   asuApiCache.set(cacheKey, result);
+
   return result;
 }

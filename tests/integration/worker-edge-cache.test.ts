@@ -18,7 +18,9 @@ vi.mock('cloudflare:workers', () => ({
 }));
 
 vi.mock('@/lib/queue/dlq-consumer', () => ({ handleDLQMessage: vi.fn() }));
+
 vi.mock('@/lib/queue/process-section', () => ({ processSection: vi.fn() }));
+
 vi.mock('@/lib/worker/edge-html-cache', () => ({
   edgeHtmlCache: {
     isEligible: cacheIsEligible,
@@ -28,13 +30,16 @@ vi.mock('@/lib/worker/edge-html-cache', () => ({
 }));
 
 const worker = (await import('@/worker')).default;
+
 const handler = (await import('vinext/server/app-router-entry')).default;
 
 const waitUntil = vi.fn();
+
 const ctx = {
   waitUntil,
   passThroughOnException: vi.fn(),
 } as unknown as ExecutionContext;
+
 const env = {
   CF_VERSION_METADATA: { id: 'version-1', tag: 'tag', timestamp: 'timestamp' },
 } as unknown as Env;
@@ -90,6 +95,7 @@ describe('worker edge HTML cache adapter', () => {
     const request = new Request('https://pickmyclass.app/', {
       headers: { accept: 'text/markdown' },
     });
+
     const rendered = new Response('<main><h1>Open seats</h1></main>');
     rendered.headers.set('content-type', 'text/html; charset=utf-8');
     cacheIsEligible.mockReturnValue(true);

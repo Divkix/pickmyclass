@@ -132,6 +132,7 @@ function term(
   sessionEnd: DateParts
 ): AsuTerm {
   const code = encodeTermCode(year, season);
+
   return {
     code,
     label: `${SEASON_LABEL[season]} ${year}`,
@@ -145,12 +146,15 @@ function term(
 
 export function encodeTermCode(year: number, season: AsuSeason): string {
   const yy = year % 100;
+
   return `2${String(yy).padStart(2, '0')}${SEASON_SUFFIX[season]}`;
 }
 
 function compareDateParts(a: DateParts, b: DateParts): number {
   if (a.year !== b.year) return a.year - b.year;
+
   if (a.month !== b.month) return a.month - b.month;
+
   return a.day - b.day;
 }
 
@@ -223,11 +227,13 @@ export function getSelectableTerms(now: Date = new Date()): AsuTerm[] {
 
 export function isTermSelectable(code: string, now: Date = new Date()): boolean {
   const termEntry = findTermByCode(code);
+
   if (!termEntry) {
     return false;
   }
 
   const today = getPhoenixDateParts(now);
+
   return isSelectable(termEntry, today);
 }
 
@@ -237,6 +243,7 @@ function isEntryPast(termEntry: AsuTerm, today: DateParts): boolean {
 
 export function getPastTermCodes(now: Date = new Date()): string[] {
   const today = getPhoenixDateParts(now);
+
   return ASU_TERM_CALENDAR.filter((t) => isEntryPast(t, today)).map((t) => t.code);
 }
 

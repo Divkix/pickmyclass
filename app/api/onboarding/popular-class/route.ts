@@ -13,17 +13,20 @@ export interface PopularClass {
   term: string;
   details: ClassDetails;
 }
+
 export async function GET(request: Request) {
   try {
     await requireUser(request);
 
     const selectableTerms = getSelectableTerms();
     const currentTerm = selectableTerms[0]?.code;
+
     if (!currentTerm) {
       return ok({ popularClass: null });
     }
 
     const popular = await getMostWatchedClass(getDbFromEnv(), currentTerm);
+
     if (!popular) {
       return ok({ popularClass: null });
     }
@@ -32,6 +35,7 @@ export async function GET(request: Request) {
     const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
 
     let details: ClassDetails;
+
     try {
       details = await fetchClassFromASU(popular, asuEnv);
     } catch (error) {
@@ -39,6 +43,7 @@ export async function GET(request: Request) {
         `Popular class ${popular.class_nbr} (term ${popular.term}) failed ASU validation:`,
         error instanceof Error ? error.message : error
       );
+
       return ok({ popularClass: null });
     }
 
@@ -46,6 +51,7 @@ export async function GET(request: Request) {
   } catch (error) {
     if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
     log('Onboarding').error('Popular class error:', error);
+
     return ok({ popularClass: null });
   }
 }

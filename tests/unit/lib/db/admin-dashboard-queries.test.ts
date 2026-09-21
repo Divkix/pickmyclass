@@ -41,7 +41,9 @@ function createDb({ selectRows = {}, executeRows = [] }: MockDbOptions = {}) {
   const execute = vi.fn(async (query: SQL): Promise<DashboardRow[]> => {
     const text = builtSql(query);
     const hit = executeRows.find((candidate) => candidate.match.test(text));
+
     if (!hit) throw new Error(`Unexpected admin-queries SQL: ${text}`);
+
     return hit.rows;
   });
 
@@ -49,6 +51,7 @@ function createDb({ selectRows = {}, executeRows = [] }: MockDbOptions = {}) {
 
   const select = vi.fn((): RecordingChain => {
     let pendingRows: DashboardRow[] = [];
+
     const chain: RecordingChain = Object.assign(
       Promise.resolve().then(() => pendingRows),
       {
@@ -56,6 +59,7 @@ function createDb({ selectRows = {}, executeRows = [] }: MockDbOptions = {}) {
           const name = getTableName(table);
           selectedTables.push(name);
           pendingRows = selectRows[name] ?? [];
+
           return chain;
         },
         leftJoin: (): RecordingChain => chain,
@@ -63,6 +67,7 @@ function createDb({ selectRows = {}, executeRows = [] }: MockDbOptions = {}) {
         orderBy: (): RecordingChain => chain,
       }
     );
+
     return chain;
   });
 

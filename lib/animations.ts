@@ -9,11 +9,14 @@ export const reduceMotion = (variants: Variants): Variants => {
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
   ) {
     const reduced: Variants = {};
+
     for (const [key, value] of Object.entries(variants)) {
       reduced[key] = { ...value, transition: { duration: 0.01 } };
     }
+
     return reduced;
   }
+
   return variants;
 };
 

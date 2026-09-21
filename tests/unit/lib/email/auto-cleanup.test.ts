@@ -6,6 +6,7 @@ import {
   NOTIFICATION_FROM_EMAIL,
 } from '@/lib/config';
 import type { SendEmail } from '@/lib/types/env';
+
 vi.mock('@/lib/email/unsubscribe-token', () => ({
   generateUnsubscribeUrl: vi.fn(
     (userId: string) => `https://pickmyclass.app/unsubscribe?token=${userId}`
@@ -30,6 +31,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+
     if (originalEnv === undefined)
       delete (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL;
     else (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL = originalEnv;
@@ -84,6 +86,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
       catalogNbr: '110',
       title: null,
     });
+
     expect(withCatalog.subject).toBe('Watched class 110 removed — no longer in ASU catalog');
 
     const withoutCatalog = buildAutoCleanupRemovedEmail({
@@ -93,6 +96,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
       catalogNbr: null,
       title: null,
     });
+
     expect(withoutCatalog.subject).toBe(
       'Watched class 42737bad removed — no longer in ASU catalog'
     );
@@ -107,6 +111,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
       catalogNbr: '12"34&56',
       title: null,
     });
+
     expect(email.subject).toBe('Watched class 123456 removed — no longer in ASU catalog');
   });
 
@@ -118,6 +123,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
       catalogNbr: '110',
       title: 'Principles',
     });
+
     expect(withTitle.text).toContain('Section: 42737');
     expect(withTitle.text).toContain('Term: 2261');
     expect(withTitle.text).toContain('Title: Principles');
@@ -130,6 +136,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
       catalogNbr: '110',
       title: null,
     });
+
     expect(withoutTitle.text).not.toContain('Title:');
     expect(withoutTitle.html).not.toContain('<strong>Title:</strong>');
   });
@@ -143,6 +150,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
       title: 'T',
       unsubscribeUrl: 'https://pickmyclass.app/unsubscribe?token=abc',
     });
+
     expect(email.html).toContain('https://pickmyclass.app/unsubscribe?token=abc');
     expect(email.text).toContain('Unsubscribe: https://pickmyclass.app/unsubscribe?token=abc');
   });
@@ -169,6 +177,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
       catalogNbr: '110',
       title: 'T',
     });
+
     expect(email.html).not.toContain('Unsubscribe</a>');
     expect(email.text).not.toContain('Unsubscribe:');
   });
@@ -176,6 +185,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
   it('handles trailing slash in site URL for dashboard link', () => {
     (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL =
       'https://pickmyclass.app///' as string;
+
     const email = buildAutoCleanupRemovedEmail({
       classNbr: '42737',
       term: '2261',
@@ -183,6 +193,7 @@ describe('buildAutoCleanupRemovedEmail', () => {
       catalogNbr: null,
       title: null,
     });
+
     expect(email.html).toContain('https://pickmyclass.app/dashboard');
     expect(email.html).not.toContain('///dashboard');
   });
@@ -202,6 +213,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
   it('defensively caps watchers at AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE and logs warn', async () => {
     const cap = AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE;
     const overCap = cap + 10;
+
     const watchers = Array.from({ length: overCap }, (_, i) => ({
       user_id: `u${i}`,
       email: `user${i}@example.com`,
@@ -213,6 +225,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(globalThis, 'setTimeout').mockImplementation((cb: () => void) => {
       cb();
+
       return {} as unknown as ReturnType<typeof setTimeout>;
     });
 
@@ -238,9 +251,11 @@ describe('sendAutoCleanupRemovalEmails', () => {
     expect(sentEmails).not.toContain(watchers[cap].email);
     expect(sentEmails).toContain(watchers[0].email);
     expect(sentEmails).toContain(watchers[cap - 1].email);
+
     const warnCalls = (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => String(c[0]) + ' ' + String(c[1] ?? '')
     );
+
     expect(warnCalls.some((s) => s.includes('exceeds cap') && s.includes('truncating'))).toBe(true);
   });
 
@@ -249,8 +264,10 @@ describe('sendAutoCleanupRemovalEmails', () => {
       { user_id: 'u1', email: 'a@example.com', watch_id: 'w1' },
       { user_id: 'u2', email: 'b@example.com', watch_id: 'w2' },
     ];
+
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
     const emailBinding = { send: sendMock } as unknown as SendEmail;
+
     const results = await sendAutoCleanupRemovalEmails(
       {
         ref: { class_nbr: '42737', term: '2261' },
@@ -269,6 +286,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
   it('returns empty when no watchers', async () => {
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
     const emailBinding = { send: sendMock } as unknown as SendEmail;
+
     const results = await sendAutoCleanupRemovalEmails(
       {
         ref: { class_nbr: '42737', term: '2261' },
@@ -292,9 +310,11 @@ describe('sendAutoCleanupRemovalEmails', () => {
       { user_id: 'u2', email: 'b@example.com', watch_id: 'w2' },
       { user_id: 'u3', email: 'c@example.com', watch_id: 'w3' },
     ];
+
     const sendMock = vi
       .fn()
       .mockRejectedValue(Object.assign(new Error(message), { code: fatalCode }));
+
     const emailBinding = { send: sendMock } as unknown as SendEmail;
 
     const results = await sendAutoCleanupRemovalEmails(
@@ -334,6 +354,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
       { user_id: 'u2', email: 'b@example.com', watch_id: 'w2' },
       { user_id: 'u3', email: 'c@example.com', watch_id: 'w3' },
     ];
+
     const sendMock = vi
       .fn()
       .mockResolvedValueOnce({ messageId: 'm1' })
@@ -341,6 +362,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
         Object.assign(new Error('smtp hiccup'), { code: 'E_CONNECTION_CLOSED' })
       )
       .mockResolvedValueOnce({ messageId: 'm3' });
+
     const emailBinding = { send: sendMock } as unknown as SendEmail;
 
     const results = await sendAutoCleanupRemovalEmails(
@@ -368,6 +390,7 @@ describe('sendAutoCleanupRemovalEmails', () => {
       { user_id: 'user-42', email: 'a@example.com', watch_id: 'w1' },
       { user_id: 'user-43', email: 'b@example.com', watch_id: 'w2' },
     ];
+
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
     const emailBinding = { send: sendMock } as unknown as SendEmail;
 
@@ -426,10 +449,13 @@ describe('sendAutoCleanupRemovalEmails', () => {
       email: `user${i}@example.com`,
       watch_id: `w${i}`,
     }));
+
     const sendMock = vi.fn().mockResolvedValue({ messageId: 'msg' });
     const emailBinding = { send: sendMock } as unknown as SendEmail;
+
     const timeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((cb: () => void) => {
       cb();
+
       return {} as unknown as ReturnType<typeof setTimeout>;
     });
 

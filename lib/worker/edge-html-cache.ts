@@ -2,6 +2,7 @@ import { hasClerkSessionCookiesInHeader } from '@/lib/auth/clerk-cookies';
 import { EDGE_HTML_CACHE_TTL_S } from '@/lib/config';
 
 const EDGE_CACHE_EXACT_PATHS = new Set(['/', '/faq', '/about', '/blog', '/legal']);
+
 const EDGE_CACHE_PREFIXES = ['/blog/', '/legal/'];
 
 interface EdgeCacheStore {
@@ -18,6 +19,7 @@ function isCacheablePath(pathname: string): boolean {
 
 function cacheKey(request: Request, versionId?: string): Request {
   const pathname = new URL(request.url).pathname;
+
   return new Request(`https://edge-cache.internal/${versionId ?? 'dev'}${pathname}`);
 }
 
@@ -26,6 +28,7 @@ function defaultCache(): EdgeCacheStore {
   const rawCaches: unknown = caches;
   // SAFETY: rawCaches is CacheStorage with default property per Cloudflare runtime; shaped as EdgeCacheStore by contract
   const cacheWithDefault = rawCaches as { default: EdgeCacheStore };
+
   return cacheWithDefault.default;
 }
 
@@ -49,12 +52,14 @@ export function createEdgeHtmlCache(resolveCache: () => EdgeCacheStore) {
 
     put(request: Request, versionId: string | undefined, response: Response): Promise<void> | null {
       const isHtml = response.headers.get('content-type')?.toLowerCase().includes('text/html');
+
       if (response.status !== 200 || !isHtml || response.headers.has('set-cookie')) {
         return null;
       }
 
       const toStore = new Response(response.clone().body, response);
       toStore.headers.set('Cache-Control', `public, s-maxage=${EDGE_HTML_CACHE_TTL_S}`);
+
       return resolveCache().put(cacheKey(request, versionId), toStore);
     },
   };

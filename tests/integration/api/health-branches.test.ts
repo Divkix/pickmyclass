@@ -18,6 +18,7 @@ type HealthRouteOptions = {
   doThrows?: boolean;
   lockTimestamps?: { acquiredAt: number; expiresAt: number };
 };
+
 const baseEnv = {
   ASU_API_BASE_URL: 'https://classes.example.test',
   ASU_API_TOKEN: 'test-token',
@@ -32,6 +33,7 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
   vi.resetModules();
 
   const doBinding = {};
+
   const env = {
     ...baseEnv,
     PICKMYCLASS_CRON_LOCK_DO: doBinding,
@@ -42,7 +44,9 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
 
   const lockStatus = vi.fn(async () => {
     if (options.doThrows) throw new Error('DO down');
+
     if (!env.PICKMYCLASS_CRON_LOCK_DO) return null;
+
     return {
       locked: true,
       lockHolder: 'cron-run',
@@ -51,16 +55,20 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
       expiresAt: options.lockTimestamps?.expiresAt ?? Date.now() + 1000,
     };
   });
+
   const createCronLockClient = vi.fn(() => ({ status: lockStatus }));
   vi.doMock('@/lib/worker/cron-lock', () => ({ createCronLockClient }));
 
   class MockNotFoundError extends Error {}
+
   const fetchClassFromASU = vi.fn();
+
   if (options.asuError) {
     fetchClassFromASU.mockRejectedValue(options.asuError);
   } else {
     fetchClassFromASU.mockRejectedValue(new MockNotFoundError('not found but reachable'));
   }
+
   vi.doMock('@/lib/asu/api', () => ({
     fetchClassFromASU,
     NotFoundError: MockNotFoundError,
@@ -70,17 +78,22 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
     if (options.dbThrows) {
       throw new Error('service unavailable');
     }
+
     if (options.dbResult?.error) {
       throw new Error(options.dbResult.error.message);
     }
+
     return [{ id: 'probe-row' }];
   });
+
   const getDbFromEnv = vi.fn(() => ({
     select: () => ({ from: () => ({ limit: dbProbe }) }),
   }));
+
   vi.doMock('@/lib/db', () => ({ getDbFromEnv }));
 
   const mod = await import('@/app/api/monitoring/health/route');
+
   return {
     GET: mod.GET,
     createCronLockClient,
@@ -124,6 +137,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
     const { GET, createCronLockClient, doBinding, lockStatus } = await loadHealthRoute();
 
     const response = await GET(request());
+
     const data = (await response.json()) as {
       status: string;
       checks: {
@@ -156,6 +170,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
     });
 
     const response = await GET(request());
+
     const data = (await response.json()) as {
       checks: {
         cron_lock: { lock_acquired_at: string | null; expires_at: string | null };
@@ -174,6 +189,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
     });
 
     const response = await GET(request());
+
     const data = (await response.json()) as {
       status: string;
       checks: Record<string, { status?: string; error?: string }>;
@@ -204,6 +220,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
     });
 
     const response = await GET(request());
+
     const data = (await response.json()) as {
       status: string;
       checks: Record<string, { status?: string; missing_vars?: string[]; missing?: string[] }>;

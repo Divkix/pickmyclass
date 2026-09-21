@@ -20,6 +20,7 @@ vi.mock('posthog-node', () => ({
   PostHog: class {
     constructor(...args: unknown[]) {
       mockPostHog(...args);
+
       return {
         captureImmediate: mockCaptureImmediate,
         captureExceptionImmediate: mockCaptureExceptionImmediate,
@@ -42,6 +43,7 @@ import { captureServerEvent, captureServerException } from '@/lib/analytics/serv
 async function registeredPromise(index = 0, expectedCalls = 1): Promise<void> {
   expect(mockWaitUntil).toHaveBeenCalledTimes(expectedCalls);
   expect(mockWaitUntil).toHaveBeenCalledWith(expect.any(Promise));
+
   return mockWaitUntil.mock.calls[index][0] as Promise<void>;
 }
 

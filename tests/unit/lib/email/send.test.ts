@@ -48,6 +48,7 @@ describe('sendBatchEmailsOptimized', () => {
 
   it('sends emails sequentially and returns success results', async () => {
     const sendEmail = createMockSendEmail();
+
     const emails = [
       {
         to: 'user1@test.com',
@@ -159,6 +160,7 @@ describe('sendBatchEmailsOptimized', () => {
 
   it('includes List-Unsubscribe headers in each email', async () => {
     const sendEmail = createMockSendEmail();
+
     const emails = [
       {
         to: 'user@test.com',
@@ -182,6 +184,7 @@ describe('sendBatchEmailsOptimized', () => {
 
   it('includes plain-text fallback alongside HTML', async () => {
     const sendEmail = createMockSendEmail();
+
     const emails = [
       {
         to: 'user@test.com',

@@ -34,6 +34,7 @@ type ScriptedQuery = Promise<DriverRow[]> & { values(): Promise<DriverValue[][]>
 
 function pendingRows(rows: DriverRow[]): ScriptedQuery {
   const query = Promise.resolve(rows);
+
   return Object.assign(query, {
     values: () => Promise.resolve(rows.map((row) => Object.values(row))),
   });
@@ -41,11 +42,13 @@ function pendingRows(rows: DriverRow[]): ScriptedQuery {
 
 function rejectedRows(outcome: Error): ScriptedQuery {
   const rejection = Promise.reject<never>(outcome);
+
   return Object.assign(rejection, { values: () => rejection });
 }
 
 const { recorder, mockVerifyUnsubscribeToken, mockCaptureServerEvent } = vi.hoisted(() => {
   const recorder: TransportRecorder = { statements: [], outcomes: [] };
+
   return {
     recorder,
     mockVerifyUnsubscribeToken: vi.fn(),
@@ -71,6 +74,7 @@ function scriptedDatabase(): Database {
     unsafe(query: string, params: ScriptedParam[]): ScriptedQuery {
       recorder.statements.push({ sql: query, params });
       const outcome = recorder.outcomes.shift();
+
       return outcome instanceof Error ? rejectedRows(outcome) : pendingRows(outcome ?? []);
     },
   };
@@ -153,6 +157,7 @@ describe('/api/unsubscribe', () => {
     const response = await POST(
       request('https://pickmyclass.app/api/unsubscribe?token=bad', 'POST')
     );
+
     const data = await json(response);
 
     expect(response.status).toBe(400);
@@ -164,6 +169,7 @@ describe('/api/unsubscribe', () => {
     const response = await POST(
       request('https://pickmyclass.app/api/unsubscribe?token=good', 'POST')
     );
+
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -184,6 +190,7 @@ describe('/api/unsubscribe', () => {
     const response = await POST(
       request('https://pickmyclass.app/api/unsubscribe?token=good', 'POST')
     );
+
     const data = await json(response);
 
     expect(response.status).toBe(500);

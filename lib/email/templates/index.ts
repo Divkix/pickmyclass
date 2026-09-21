@@ -31,6 +31,7 @@ function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
   const catalogUrl = buildUrl(siteUrl, '/go/asu', { classNbr: safeClassNbrUrl, term: safeTerm });
+
   return {
     subject: safeSubject,
     catalogNbr: safeCatalogNbr,

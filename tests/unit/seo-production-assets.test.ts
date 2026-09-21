@@ -8,6 +8,7 @@ const root = process.cwd();
 function readPublicFile(fileName: string): string {
   const filePath = join(root, 'public', fileName);
   expect(existsSync(filePath), `${fileName} should be published from public/`).toBe(true);
+
   return readFileSync(filePath, 'utf8');
 }
 

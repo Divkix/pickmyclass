@@ -37,6 +37,7 @@ export async function GET(request: Request) {
         const db = getDbFromEnv();
 
         const mirrorRows = await db.select().from(users).where(eq(users.id, user.userId)).limit(1);
+
         const [profileRows, watches, notifications] = await Promise.all([
           db.select().from(userProfiles).where(eq(userProfiles.user_id, user.userId)),
           db
@@ -70,6 +71,7 @@ export async function GET(request: Request) {
 
         const mirror = mirrorRows[0] ?? null;
         const profile = profileRows[0] ?? null;
+
         const exportData = {
           export_info: {
             exported_at: new Date().toISOString(),
@@ -117,11 +119,13 @@ export async function GET(request: Request) {
         });
       } catch (error) {
         log('User').error('Export error:', error);
+
         return fail('Failed to export data', 500);
       }
     });
   } catch (error) {
     log('User').error('Export error:', error);
+
     return fail('Failed to export data', 500);
   }
 }

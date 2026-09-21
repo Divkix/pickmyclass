@@ -43,6 +43,7 @@ function asDatabaseHandle(seam: Database | ClassesPageSeamDb): Database {
 
 function createDb(executeRows: ClassPageWireRow[]) {
   const execute = vi.fn(async (_query: SQL): Promise<ClassPageWireRow[]> => executeRows);
+
   return { db: asDatabaseHandle({ execute }), execute };
 }
 
@@ -105,6 +106,7 @@ describe('getClassesPage', () => {
         instructor_emails: 0,
       }),
     ];
+
     const { db, execute } = createDb(rows);
 
     const result = await getClassesPage(db, {
@@ -168,6 +170,7 @@ describe('getClassesPage', () => {
       full_classes: _omittedFull,
       ...staleRow
     } = classPageRow();
+
     const { db } = createDb([staleRow]);
 
     const result = await getClassesPage(db);
@@ -187,9 +190,11 @@ describe('getClassesPage', () => {
         cause: new Error('Database connection failed'),
       }
     );
+
     const execute = vi.fn(async () => {
       throw drizzleError;
     });
+
     const db = asDatabaseHandle({ execute });
 
     await expectRpcFailure(
@@ -203,6 +208,7 @@ describe('getClassesPage', () => {
     const execute = vi.fn(async () => {
       throw new Error('Database connection failed');
     });
+
     const db = asDatabaseHandle({ execute });
 
     await expectRpcFailure(

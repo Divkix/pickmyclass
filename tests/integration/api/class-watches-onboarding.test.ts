@@ -55,8 +55,10 @@ function createDbHarness() {
     unsafe(query: string, params: unknown[]): ScriptedQueryResult {
       statements.push({ sql: query, params });
       const outcome = outcomes.shift();
+
       if (outcome instanceof Error) {
         const reject = (): Promise<never> => Promise.reject(outcome);
+
         return {
           then: (
             onFulfilled?: (value: never) => PromiseLike<never>,
@@ -66,6 +68,7 @@ function createDbHarness() {
           values: reject,
         };
       }
+
       return pendingRows(outcome ?? []);
     },
     begin<T>(fn: (txClient: PostgresJsSeam) => Promise<T>): Promise<T> {
@@ -98,7 +101,9 @@ const {
   NotFoundError,
 } = vi.hoisted(() => {
   class MockAuthError extends Error {}
+
   class MockNotFoundError extends Error {}
+
   return {
     mockGetSessionIdentity: vi.fn(),
     mockFetchClassFromASU: vi.fn(),
@@ -136,6 +141,7 @@ vi.mock('cloudflare:workers', () => ({
 import { GET, POST } from '@/app/api/class-watches/route';
 
 const USER_ID = 'user-123';
+
 const identity = {
   userId: USER_ID,
   clerkUserId: 'user_test_clerk_123',
@@ -246,11 +252,13 @@ describe('/api/class-watches onboarding wiring', () => {
       const upsert = h.statements.find((statement) =>
         statement.sql.includes('insert into "class_states"')
       );
+
       expect(upsert?.sql).toContain('on conflict');
 
       const guard = h.statements.find((statement) =>
         statement.sql.includes('update "user_profiles"')
       );
+
       expect(guard?.sql).toContain('onboarding_completed_at');
       expect(guard?.params).toContain(USER_ID);
 

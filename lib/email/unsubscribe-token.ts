@@ -5,12 +5,14 @@ import { timingSafeCompare } from '@/lib/utils/crypto';
 
 function getSigningSecret(): string {
   const secret = process.env.UNSUBSCRIBE_SIGNING_SECRET;
+
   if (!secret) {
     throw new Error(
       'UNSUBSCRIBE_SIGNING_SECRET is not set. ' +
         'Required for HMAC token signing. Set this via wrangler secret put UNSUBSCRIBE_SIGNING_SECRET.'
     );
   }
+
   return secret;
 }
 
@@ -36,6 +38,7 @@ export function verifyUnsubscribeToken(token: string): string | null {
 
     if (parts.length !== 3) {
       log('UnsubscribeToken').warn('Invalid token format');
+
       return null;
     }
 
@@ -44,6 +47,7 @@ export function verifyUnsubscribeToken(token: string): string | null {
 
     if (Date.now() > expiresAt) {
       log('UnsubscribeToken').warn('Token expired');
+
       return null;
     }
 
@@ -53,12 +57,14 @@ export function verifyUnsubscribeToken(token: string): string | null {
 
     if (!timingSafeCompare(providedSignature, expectedSignature)) {
       log('UnsubscribeToken').warn('Invalid signature');
+
       return null;
     }
 
     return userId;
   } catch (error) {
     log('UnsubscribeToken').error('Error verifying token:', error);
+
     return null;
   }
 }
@@ -66,5 +72,6 @@ export function verifyUnsubscribeToken(token: string): string | null {
 export function generateUnsubscribeUrl(userId: string, baseUrl?: string): string {
   const token = generateUnsubscribeToken(userId);
   const url = baseUrl || process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
+
   return `${url}/api/unsubscribe?token=${token}`;
 }

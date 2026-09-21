@@ -17,6 +17,7 @@ function ConsentForm() {
   const [ageVerified, setAgeVerified] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [saving, setSaving] = useState(false);
+
   const [error, setError] = useState<string | null>(
     searchParams.get('error') === 'save_failed'
       ? 'We could not save your confirmation. Please try again.'
@@ -25,20 +26,25 @@ function ConsentForm() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
     if (!ageVerified || !agreedToTerms) return;
 
     setSaving(true);
     setError(null);
+
     try {
       const response = await fetch('/api/auth/consent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ageVerified, agreedToTerms }),
       });
+
       // SAFETY: /api/auth/consent returns JSON with optional error string per API contract
       const data = (await response.json()) as { error?: string };
+
       if (!response.ok) {
         setError(data.error || 'Could not save consent');
+
         return;
       }
 

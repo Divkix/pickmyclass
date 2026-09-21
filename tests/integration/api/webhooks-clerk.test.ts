@@ -13,8 +13,10 @@ const {
   const webhookEnv: { CLERK_WEBHOOK_SIGNING_SECRET?: string } = {
     CLERK_WEBHOOK_SIGNING_SECRET: 'whsec_test_binding',
   };
+
   const dbHandle = {};
   const mockGetDbFromEnv = vi.fn(() => dbHandle);
+
   return {
     webhookEnv,
     dbHandle,
@@ -43,10 +45,13 @@ vi.mock('@/lib/db', () => ({
 import { POST } from '@/app/api/webhooks/clerk/route';
 
 const WEBHOOK_SIGNING_SECRET = 'whsec_test_binding';
+
 const CLERK_USER_ID = 'user_2webhookfixture';
+
 const PRIMARY_EMAIL_ID = 'idn_email_primary';
 
 type UserUpsertEvent = Extract<WebhookEvent, { type: 'user.created' | 'user.updated' }>;
+
 type UserDeletedEvent = Extract<WebhookEvent, { type: 'user.deleted' }>;
 
 const svixDelivery = {
@@ -153,12 +158,14 @@ describe('POST /api/webhooks/clerk', () => {
 
   it('delegates user.created payloads verbatim to the mirror sync and acknowledges', async () => {
     const user = clerkUserFixture();
+
     const event: UserUpsertEvent = {
       type: 'user.created',
       object: 'event',
       data: user,
       ...svixDelivery,
     };
+
     mockVerifyWebhook.mockResolvedValue(event);
     mockSyncUserMirrorFromClerkUser.mockResolvedValue(true);
 
@@ -176,12 +183,14 @@ describe('POST /api/webhooks/clerk', () => {
 
   it('routes user.updated through the same mirror sync seam', async () => {
     const user = clerkUserFixture({ id: 'user_2updated' });
+
     const event: UserUpsertEvent = {
       type: 'user.updated',
       object: 'event',
       data: user,
       ...svixDelivery,
     };
+
     mockVerifyWebhook.mockResolvedValue(event);
 
     const response = await POST(signedRequest());
@@ -203,6 +212,7 @@ describe('POST /api/webhooks/clerk', () => {
       data: clerkUserFixture(),
       ...svixDelivery,
     };
+
     mockVerifyWebhook.mockResolvedValue(event);
     mockSyncUserMirrorFromClerkUser.mockRejectedValue(new Error('users mirror connection reset'));
 
@@ -234,6 +244,7 @@ describe('POST /api/webhooks/clerk', () => {
       },
       ...svixDelivery,
     };
+
     mockVerifyWebhook.mockResolvedValue(event);
 
     const response = await POST(signedRequest());
@@ -247,12 +258,14 @@ describe('POST /api/webhooks/clerk', () => {
 
   it('still acknowledges 200 when the sync reports there was no email to store', async () => {
     const user = clerkUserFixture({ email_addresses: [], primary_email_address_id: null });
+
     const event: UserUpsertEvent = {
       type: 'user.updated',
       object: 'event',
       data: user,
       ...svixDelivery,
     };
+
     mockVerifyWebhook.mockResolvedValue(event);
     mockSyncUserMirrorFromClerkUser.mockResolvedValue(false);
 
@@ -277,6 +290,7 @@ describe('POST /api/webhooks/clerk', () => {
       } satisfies UserDeletedJSON,
       ...svixDelivery,
     };
+
     mockVerifyWebhook.mockResolvedValue(event);
     mockSoftDeleteUserById.mockResolvedValue(1);
 
@@ -298,6 +312,7 @@ describe('POST /api/webhooks/clerk', () => {
       data: { object: 'user', deleted: true },
       ...svixDelivery,
     };
+
     mockVerifyWebhook.mockResolvedValue(event);
 
     const response = await POST(signedRequest());

@@ -22,6 +22,7 @@ interface ClassesTableFiltersProps {
   watcherCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
   onNavigate: (updates: Record<string, string>) => void;
 }
+
 export function ClassesTableFiltersComponent({
   subjects,
   search,

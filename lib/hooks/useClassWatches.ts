@@ -53,6 +53,7 @@ export function useClassWatches() {
       setError(null);
 
       const response = await fetch('/api/class-watches');
+
       if (!response.ok) {
         throw new Error('Failed to fetch class watches');
       }
@@ -61,7 +62,9 @@ export function useClassWatches() {
       const data = (await response.json()) as GetClassWatchesResponse;
       setWatches(data.watches || []);
       setMaxWatches(data.maxWatches || 10);
+
       if (data.onboarding) setOnboarding(data.onboarding);
+
       return data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load class watches';
@@ -91,6 +94,7 @@ export function useClassWatches() {
         hour: 'numeric',
         minute: '2-digit',
       });
+
       toast.success(`Dashboard refreshed at ${timeString}`, {
         description: `Updated ${watchCount} class watch${watchCount !== 1 ? 'es' : ''}`,
       });
@@ -128,8 +132,10 @@ export function useClassWatches() {
     if (!searchQuery.trim()) return watches;
 
     const query = searchQuery.toLowerCase();
+
     return watches.filter((watch) => {
       const liveState = classStates[sectionRefKey(watch)] || watch.class_state;
+
       return (
         watch.class_nbr.toLowerCase().includes(query) ||
         watch.subject?.toLowerCase().includes(query) ||
@@ -142,12 +148,16 @@ export function useClassWatches() {
 
   const stats = useMemo(() => {
     const totalWatches = watches.length;
+
     const availableSeats = watches.filter((watch) => {
       const liveState = classStates[sectionRefKey(watch)] || watch.class_state;
+
       return liveState && liveState.seats_available > 0;
     }).length;
+
     const fullClasses = watches.filter((watch) => {
       const liveState = classStates[sectionRefKey(watch)] || watch.class_state;
+
       return liveState && liveState.seats_available === 0;
     }).length;
 

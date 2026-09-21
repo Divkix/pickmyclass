@@ -121,9 +121,12 @@ function decodeEntities(text: string): string {
     if (entity.startsWith('#')) {
       const hex = entity[1] === 'x' || entity[1] === 'X';
       const code = Number.parseInt(hex ? entity.slice(2) : entity.slice(1), hex ? 16 : 10);
+
       if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return match;
+
       return String.fromCodePoint(code);
     }
+
     return lookup(ENTITIES, entity.toLowerCase()) ?? match;
   });
 }
@@ -134,6 +137,7 @@ function tokenize(html: string): Token[] {
 
   for (const match of html.matchAll(TOKEN_PATTERN)) {
     const start = match.index ?? 0;
+
     if (start > cursor) tokens.push({ kind: 'text', value: html.slice(cursor, start) });
     cursor = start + match[0].length;
 
@@ -147,6 +151,7 @@ function tokenize(html: string): Token[] {
   }
 
   if (cursor < html.length) tokens.push({ kind: 'text', value: html.slice(cursor) });
+
   return tokens;
 }
 
@@ -154,15 +159,18 @@ function readAttribute(attrs: string, name: string): string {
   const pattern = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i');
   const match = attrs.match(pattern);
   const value = match?.[1] ?? match?.[2] ?? match?.[3] ?? '';
+
   return decodeEntities(value).trim();
 }
 
 /** Content the page actually renders, without the shell around it. */
 function extractContent(html: string): string {
   const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i);
+
   if (main?.[1]) return main[1];
 
   const body = html.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
+
   if (body?.[1]) return body[1];
 
   return html.replace(/<head\b[^>]*>[\s\S]*?<\/head>/i, '');
@@ -170,6 +178,7 @@ function extractContent(html: string): string {
 
 function pushTable(blocks: string[], rows: string[][]): void {
   const [header, ...body] = rows;
+
   if (!header) return;
 
   const lines = [
@@ -177,6 +186,7 @@ function pushTable(blocks: string[], rows: string[][]): void {
     `| ${header.map(() => '---').join(' | ')} |`,
     ...body.map((row) => `| ${row.join(' | ')} |`),
   ];
+
   blocks.push(lines.join('\n'));
 }
 
@@ -190,18 +200,23 @@ export function prefersMarkdown(accept: string | null): boolean {
   if (!accept) return false;
 
   const ranges: MediaRange[] = [];
+
   for (const part of accept.split(',')) {
     const [range, ...params] = part.split(';');
     const [type, subtype] = range.trim().toLowerCase().split('/');
+
     if (!type || !subtype) continue;
 
     let quality = 1;
+
     for (const param of params) {
       const [name, value] = param.split('=');
+
       if (name?.trim().toLowerCase() !== 'q') continue;
       const parsed = Number.parseFloat((value ?? '').trim());
       quality = Number.isFinite(parsed) ? parsed : 0;
     }
+
     ranges.push({ type, subtype, quality });
   }
 
@@ -211,22 +226,27 @@ export function prefersMarkdown(accept: string | null): boolean {
       (range.subtype === 'markdown' || range.subtype === 'x-markdown') &&
       range.quality > 0
   );
+
   if (!explicit) return false;
 
   const qualityOf = (type: string, subtype: string, fallback: boolean): number => {
     let best = fallback ? 1 : 0;
+
     for (const range of ranges) {
       const matches =
         (range.type === '*' && range.subtype === '*') ||
         (range.type === type && range.subtype === '*') ||
         (range.type === type && range.subtype === subtype);
+
       if (matches) best = Math.max(best, range.quality);
     }
+
     return best;
   };
 
   // A missing `text/html` range scores 0 unless a wildcard covers it.
   const wildcard = ranges.some((range) => range.type === '*' && range.subtype === '*');
+
   return qualityOf('text', 'markdown', false) >= qualityOf('text', 'html', wildcard);
 }
 
@@ -237,8 +257,10 @@ export function isHtmlResponse(response: Response): boolean {
 /** Appends a value to `Vary` without duplicating or clobbering the existing list. */
 export function appendVary(headers: Headers, value: string): void {
   const existing = headers.get('vary');
+
   if (!existing) {
     headers.set('vary', value);
+
     return;
   }
 
@@ -246,6 +268,7 @@ export function appendVary(headers: Headers, value: string): void {
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean);
+
   if (values.some((entry) => entry.toLowerCase() === value.toLowerCase())) return;
 
   values.push(value);
@@ -266,15 +289,20 @@ export function markdownSourcePath(pathname: string): string | null {
   if (!pathname.toLowerCase().endsWith('.md')) return null;
 
   const trimmed = pathname.slice(0, -3);
+
   if (!trimmed || trimmed === '/' || trimmed === '/index' || trimmed === 'index') return '/';
+
   return trimmed;
 }
 
 /** Path of a page's `.md` twin, used to advertise the Markdown representation. */
 export function markdownAlternatePath(pathname: string): string | null {
   if (pathname.toLowerCase().endsWith('.md')) return null;
+
   if (pathname === '/') return '/index.md';
+
   if (pathname.endsWith('/')) return `${pathname}index.md`;
+
   return `${pathname}.md`;
 }
 
@@ -282,20 +310,26 @@ export function markdownAlternatePath(pathname: string): string | null {
 export function pageLinkHeader(pathname: string): string {
   const parts = ['</sitemap.xml>; rel="sitemap"'];
   const alternate = markdownAlternatePath(pathname);
+
   if (alternate) parts.push(`<${alternate}>; rel="alternate"; type="text/markdown"`);
+
   return parts.join(', ');
 }
 
 /** Last-resort body for pages that render no convertible content. */
 function fallbackFromHtml(html: string): string {
   const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+
   const description = html.match(
     /<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["']/i
   )?.[1];
 
   const parts: string[] = [];
+
   if (title) parts.push(`# ${decodeEntities(title).trim()}`);
+
   if (description) parts.push(decodeEntities(description).trim());
+
   return parts.join('\n\n');
 }
 
@@ -324,6 +358,7 @@ export function markdownResponse({ response, html, url }: MarkdownResponseInput)
   // document title first want a top-level heading.
   if (body && !/^#\s/.test(body)) {
     const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+
     if (title) body = `# ${decodeEntities(title).trim()}\n\n${body}`;
   }
 
@@ -367,6 +402,7 @@ export function htmlToMarkdown(html: string): string {
 
   const flush = (): void => {
     const text = inline.replace(/\s+/g, ' ').trim();
+
     if (!text) return;
 
     const marker = `${'> '.repeat(Math.max(quoteDepth, 0))}${prefix}`;
@@ -374,17 +410,20 @@ export function htmlToMarkdown(html: string): string {
     prefix = '';
 
     const inList = listStack.length > 0;
+
     if (inList && tight && blocks.length > 0) {
       blocks[blocks.length - 1] = `${blocks[blocks.length - 1]}\n${marker}${text}`;
     } else {
       blocks.push(marker + text);
     }
+
     tight = inList;
   };
 
   for (const token of tokenize(extractContent(html))) {
     if (token.kind === 'text') {
       if (skipped.length > 0) continue;
+
       if (preText !== null) preText += token.value;
       else if (cell !== null) cell += decodeEntities(token.value);
       else inline += decodeEntities(token.value);
@@ -398,6 +437,7 @@ export function htmlToMarkdown(html: string): string {
         if (closing) skipped.pop();
         else skipped.push(tag);
       }
+
       continue;
     }
 
@@ -405,12 +445,15 @@ export function htmlToMarkdown(html: string): string {
       if (tag === 'pre' && closing) {
         flush();
         const code = preText.replace(/^\n+|\s+$/g, '');
+
         if (code) {
           const ticks = code.includes('```') ? '````' : '```';
           blocks.push(`${ticks}\n${code}\n${ticks}`);
         }
+
         preText = null;
       }
+
       continue;
     }
 
@@ -432,6 +475,7 @@ export function htmlToMarkdown(html: string): string {
         row = null;
         cell = null;
       }
+
       continue;
     }
 
@@ -442,12 +486,14 @@ export function htmlToMarkdown(html: string): string {
 
     if (tag === 'table') {
       flush();
+
       if (!closing) table = [];
       continue;
     }
 
     if (tag === 'ul' || tag === 'ol') {
       flush();
+
       if (closing) listStack.pop();
       else listStack.push({ ordered: tag === 'ol', index: 0 });
       continue;
@@ -455,13 +501,16 @@ export function htmlToMarkdown(html: string): string {
 
     if (tag === 'li') {
       flush();
+
       if (!closing) {
         const list = listStack[listStack.length - 1];
+
         if (list) {
           list.index += 1;
           prefix = `${'  '.repeat(Math.max(listStack.length - 1, 0))}${list.ordered ? `${list.index}.` : '-'} `;
         }
       }
+
       continue;
     }
 
@@ -472,8 +521,10 @@ export function htmlToMarkdown(html: string): string {
     }
 
     const heading = lookup(HEADING_TAGS, tag);
+
     if (heading) {
       flush();
+
       if (!closing) prefix = `${'#'.repeat(heading)} `;
       continue;
     }
@@ -486,6 +537,7 @@ export function htmlToMarkdown(html: string): string {
 
     if (tag === 'pre') {
       flush();
+
       if (!closing) preText = '';
       continue;
     }
@@ -498,16 +550,19 @@ export function htmlToMarkdown(html: string): string {
     if (tag === 'img') {
       if (!closing) {
         const src = readAttribute(attrs, 'src');
+
         if (src && !src.startsWith('data:')) {
           inline += `![${readAttribute(attrs, 'alt')}](${src})`;
         }
       }
+
       continue;
     }
 
     if (tag === 'a') {
       if (closing) {
         const link = linkStack.pop();
+
         if (link?.href) {
           const text = inline.slice(link.start).trim() || link.href;
           inline = `${inline.slice(0, link.start)}[${text}](${link.href})`;
@@ -519,13 +574,16 @@ export function htmlToMarkdown(html: string): string {
           href: href && !/^javascript:/i.test(href) ? href : '',
         });
       }
+
       continue;
     }
 
     const marker = lookup(INLINE_MARKERS, tag);
+
     if (marker) {
       if (closing) {
         const styled = styleStack.pop();
+
         if (styled) {
           const text = inline.slice(styled.start).trim();
           inline = text
@@ -535,6 +593,7 @@ export function htmlToMarkdown(html: string): string {
       } else {
         styleStack.push({ start: inline.length, marker });
       }
+
       continue;
     }
 
@@ -545,6 +604,7 @@ export function htmlToMarkdown(html: string): string {
   }
 
   flush();
+
   return blocks
     .join('\n\n')
     .replace(/\n{3,}/g, '\n\n')

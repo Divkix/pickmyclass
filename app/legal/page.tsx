@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 export const metadata: Metadata = {
   title: 'Legal Documents',
   description:
