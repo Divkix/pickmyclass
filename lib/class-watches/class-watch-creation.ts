@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { createClassWatchSchema } from '@/lib/api/schemas';
 import { parseOrThrow } from '@/lib/api/validation';
 import { isRecord, type WirePayload } from '@/lib/api/wire';
@@ -13,18 +14,21 @@ export type ClassWatchCreationInput = {
 
 type Request = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
+const classWatchRowSchema = z.object({
+  catalog_nbr: z.string(),
+  created_at: z.string(),
+  id: z.string(),
+  subject: z.string(),
+  term: z.string(),
+  class_nbr: z.string(),
+  user_id: z.string(),
+});
+
+const errorEnvelopeSchema = z.object({ error: z.string() });
+
 // SAFETY: type guard validates unknown payload shape for ClassWatchRow before narrowing
 function isClassWatchRow(value: unknown): value is ClassWatchRow {
-  return (
-    isRecord(value) &&
-    typeof value.catalog_nbr === 'string' &&
-    typeof value.created_at === 'string' &&
-    typeof value.id === 'string' &&
-    typeof value.subject === 'string' &&
-    typeof value.term === 'string' &&
-    typeof value.class_nbr === 'string' &&
-    typeof value.user_id === 'string'
-  );
+  return classWatchRowSchema.safeParse(value).success;
 }
 
 async function readPayload(response: Response): Promise<WirePayload | null> {
@@ -72,7 +76,8 @@ export function createClassWatchClient(request?: Request) {
       const payload = await readPayload(response);
 
       if (!response.ok) {
-        const error = typeof payload?.error === 'string' ? payload.error.trim() : '';
+        const parsedError = errorEnvelopeSchema.safeParse(payload);
+        const error = parsedError.success ? parsedError.data.error.trim() : '';
         throw new Error(error || CREATE_CLASS_WATCH_ERROR);
       }
 

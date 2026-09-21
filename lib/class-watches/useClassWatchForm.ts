@@ -1,12 +1,19 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { z } from 'zod';
 import type { AsuTerm } from '@/lib/asu/terms';
 import {
   classWatchCreation,
   type ClassWatchCreationInput,
 } from '@/lib/class-watches/class-watch-creation';
 import type { ClassWatchRow } from '@/lib/types/class-watch';
+
+// Partial on purpose: term elements validate only the fields TermSelect reads (code, label).
+const watchOptionsSchema = z.object({
+  terms: z.array(z.object({ code: z.string(), label: z.string() })),
+  defaultTerm: z.string(),
+});
 
 export type UseClassWatchFormOptions = {
   defaultClassNbr?: string;
@@ -19,17 +26,11 @@ export type UseClassWatchFormOptions = {
 export function useClassWatchForm(options: UseClassWatchFormOptions = {}) {
   const { terms, defaultTerm: derivedDefaultTerm } = useMemo(() => {
     try {
-      // SAFETY: narrowing mocked getOptions shape at boundary – getOptions is typed narrowly but tests mock broader shape
-      const result: unknown = classWatchCreation.getOptions() as unknown;
+      const parsed = watchOptionsSchema.safeParse(classWatchCreation.getOptions());
 
-      if (result && typeof result === 'object' && 'terms' in result && 'defaultTerm' in result) {
-        // SAFETY: boundary shape check for mocked getOptions
-        const rec = result as Record<string, unknown>;
-
-        if (Array.isArray(rec.terms) && typeof rec.defaultTerm === 'string') {
-          // SAFETY: validated array and string above, narrowing via unknown to precise AsuTerm shape
-          return rec as unknown as { terms: AsuTerm[]; defaultTerm: string };
-        }
+      if (parsed.success) {
+        // SAFETY: schema checked code/label/defaultTerm — every member the watch form reads.
+        return parsed.data as { terms: AsuTerm[]; defaultTerm: string };
       }
 
       // SAFETY: narrowing mocked getOptions shape at boundary – fallback empty state for missing shape
