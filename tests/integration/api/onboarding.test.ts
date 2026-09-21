@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
 
 import type { Database } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
@@ -19,21 +20,10 @@ type PgWireValue =
 
 type DriverRowSet = Array<Record<string, PgWireValue>>;
 
-interface ScriptedPendingRows {
-  then(
-    onFulfilled?: (value: never) => PromiseLike<never>,
-    onRejected?: (reason: Error) => PromiseLike<never>
-  ): Promise<never>;
-  catch(onRejected: (reason: Error) => PromiseLike<never>): Promise<never>;
-  values(): PromiseLike<never[]>;
-}
-
 type ScriptedRows = Promise<DriverRowSet> & { values(): PromiseLike<unknown[][]> };
 
-type ScriptedQueryResult = ScriptedPendingRows | ScriptedRows;
-
 interface PostgresJsSeam {
-  unsafe(query: string, params: unknown[]): ScriptedQueryResult;
+  unsafe(query: string, params: unknown[]): ScriptedRows;
 }
 
 function createDbHarness() {
@@ -47,21 +37,14 @@ function createDbHarness() {
 
   const scriptedClient = {
     options: { parsers: {}, serializers: {} },
-    unsafe(query: string, params: unknown[]): ScriptedQueryResult {
+    unsafe(query: string, params: unknown[]): ScriptedRows {
       statements.push({ sql: query, params });
       const outcome = outcomes.shift();
 
       if (outcome instanceof Error) {
-        const reject = (): Promise<never> => Promise.reject(outcome);
+        const rejected = Promise.reject<never>(outcome);
 
-        return {
-          then: (
-            onFulfilled?: (value: never) => PromiseLike<never>,
-            onRejected?: (reason: Error) => PromiseLike<never>
-          ) => reject().then(onFulfilled, onRejected),
-          catch: (onRejected: (reason: Error) => PromiseLike<never>) => reject().catch(onRejected),
-          values: reject,
-        };
+        return Object.assign(rejected, { values: () => rejected });
       }
 
       return pendingRows(outcome ?? []);
@@ -72,6 +55,7 @@ function createDbHarness() {
   };
 
   const client: PostgresJsSeam = scriptedClient;
+  // SAFETY: the double implements the postgres-js seam drizzle drives: options, unsafe, begin.
   const db = drizzle(client as Database['$client'], { schema });
 
   return {
@@ -118,10 +102,16 @@ function post(url: string): Request {
   return new Request(url, { method: 'POST' });
 }
 
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+const onboardingBody = z.object({
+  success: z.boolean().optional(),
+  error: z.string().optional(),
+  onboarding_completed_at: z.string().nullable().optional(),
+  onboarding_skipped_at: z.string().nullable().optional(),
+  needs_onboarding: z.boolean().optional(),
+});
 
 async function json(response: Response) {
-  return response.json() as Promise<Record<string, JsonValue>>;
+  return onboardingBody.parse(await response.json());
 }
 
 describe('/api/user/onboarding', () => {

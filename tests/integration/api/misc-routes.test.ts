@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
 
 const { mockGetSessionIdentity, mockRevokeSession } = vi.hoisted(() => ({
   mockGetSessionIdentity: vi.fn(),
@@ -18,8 +19,10 @@ function get(url: string): NextRequest {
   return new NextRequest(url);
 }
 
+const miscBody = z.object({ success: z.boolean().optional(), error: z.string().optional() });
+
 async function json(response: Response) {
-  return response.json() as Promise<Record<string, unknown>>;
+  return miscBody.parse(await response.json());
 }
 
 describe('misc API routes', () => {

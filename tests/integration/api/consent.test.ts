@@ -12,7 +12,7 @@ const {
   mockRepairUserMirror,
   mockInvalidateAuthorizationState,
 } = vi.hoisted(() => {
-  const mockExecute = vi.fn();
+  const mockExecute = vi.fn<(query: SQL) => Promise<unknown[]>>();
   const mockGetUser = vi.fn();
   const mockGetClerkClient = vi.fn(() => ({ users: { getUser: mockGetUser } }));
 
@@ -179,7 +179,7 @@ describe('POST /api/auth/consent', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ success: true });
     expect(mockExecute).toHaveBeenCalledTimes(1);
-    const query = mockExecute.mock.calls[0][0] as SQL;
+    const query = mockExecute.mock.calls[0][0];
     expect(builtSql(query)).toBe('SELECT public.accept_terms_and_verify_age($1::text)');
     expect(dialect.sqlToQuery(query).params).toEqual(['user-1']);
     expect(mockInvalidateAuthorizationState).toHaveBeenCalledTimes(1);

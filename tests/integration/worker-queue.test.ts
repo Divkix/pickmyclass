@@ -5,8 +5,8 @@ import type { Env } from '@/lib/types/env';
 vi.mock('cloudflare:workers', () => ({
   DurableObject: class DurableObject {
     constructor(
-      protected ctx: unknown,
-      protected env: unknown
+      protected ctx: DurableObjectState,
+      protected env: CloudflareEnv
     ) {}
   },
   env: {},
@@ -40,6 +40,9 @@ const handlerMock = await import('vinext/server/app-router-entry');
 
 function makeMessage(class_nbr: string, term = '2261') {
   return {
+    id: `${class_nbr}-${term}`,
+    timestamp: new Date(),
+    attempts: 1,
     body: {
       class_nbr,
       term,
@@ -47,23 +50,20 @@ function makeMessage(class_nbr: string, term = '2261') {
     },
     ack: vi.fn(),
     retry: vi.fn(),
-  } satisfies {
-    body: ClassCheckMessage;
-    ack: ReturnType<typeof vi.fn>;
-    retry: ReturnType<typeof vi.fn>;
-  };
+  } satisfies Message<ClassCheckMessage>;
 }
 
 function makeBatch(
   messages: ReturnType<typeof makeMessage>[],
   queue = 'pickmyclass-queue'
 ): MessageBatch<ClassCheckMessage> {
-  const raw: unknown = {
+  return {
     queue,
     messages,
+    metadata: { metrics: { backlogCount: 0, backlogBytes: 0 } },
+    retryAll: vi.fn(),
+    ackAll: vi.fn(),
   };
-
-  return raw as MessageBatch<ClassCheckMessage>;
 }
 
 const successOutcome = (classNbr: string) => ({
@@ -179,6 +179,7 @@ const apiErrorOutcome = (classNbr: string) => ({
   retryable: true as const,
 });
 
+// SAFETY: the queue handler reads only HYPERDRIVE, EMAIL and NOTIFICATION_FROM_EMAIL.
 const mockEnv = {
   CRON_SECRET: 'test-secret',
   ASU_API_BASE_URL: 'https://api.asu.edu',
@@ -188,12 +189,9 @@ const mockEnv = {
   NOTIFICATION_FROM_EMAIL: 'no-reply@test.com',
 } as Parameters<(typeof import('@/worker'))['default']['queue']>[1];
 
-const rawTestCtx: unknown = {
-  waitUntil: vi.fn(),
-  passThroughOnException: vi.fn(),
-};
-
-const testCtx = rawTestCtx as ExecutionContext;
+// SAFETY: worker.ts queue/scheduled declare `_ctx` and never read it (lines 174,215);
+// no code under test reads or calls any member of this context double.
+const testCtx = {} as ExecutionContext;
 
 describe('worker queue handler — direct processSection call ack/retry mapping', () => {
   let worker: (typeof import('@/worker'))['default'];
@@ -212,7 +210,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(successOutcome('12345'));
 
     const msg = makeMessage('12345');
-    await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
+    await worker.queue(makeBatch([msg]), mockEnv, testCtx);
 
     expect(msg.ack).toHaveBeenCalledOnce();
     expect(msg.retry).not.toHaveBeenCalled();
@@ -229,7 +227,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(dbFailOutcome('12345'));
 
     const msg = makeMessage('12345');
-    await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
+    await worker.queue(makeBatch([msg]), mockEnv, testCtx);
 
     expect(msg.retry).toHaveBeenCalledOnce();
     expect(msg.ack).not.toHaveBeenCalled();
@@ -239,7 +237,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(authErrorOutcome('12345'));
 
     const msg = makeMessage('12345');
-    await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
+    await worker.queue(makeBatch([msg]), mockEnv, testCtx);
 
     expect(msg.ack).toHaveBeenCalledOnce();
     expect(msg.retry).not.toHaveBeenCalled();
@@ -249,7 +247,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(notFoundOutcome('99999'));
 
     const msg = makeMessage('99999');
-    await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
+    await worker.queue(makeBatch([msg]), mockEnv, testCtx);
 
     expect(msg.ack).toHaveBeenCalledOnce();
     expect(msg.retry).not.toHaveBeenCalled();
@@ -259,7 +257,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(rateLimitOutcome('12345'));
 
     const msg = makeMessage('12345');
-    await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
+    await worker.queue(makeBatch([msg]), mockEnv, testCtx);
 
     expect(msg.retry).toHaveBeenCalledOnce();
     expect(msg.ack).not.toHaveBeenCalled();
@@ -269,7 +267,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockResolvedValue(apiErrorOutcome('12345'));
 
     const msg = makeMessage('12345');
-    await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
+    await worker.queue(makeBatch([msg]), mockEnv, testCtx);
 
     expect(msg.retry).toHaveBeenCalledOnce();
     expect(msg.ack).not.toHaveBeenCalled();
@@ -279,7 +277,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockProcessSection.mockRejectedValue(new Error('Unexpected internal error'));
 
     const msg = makeMessage('12345');
-    await worker.queue(makeBatch([msg]), mockEnv, {} as ExecutionContext);
+    await worker.queue(makeBatch([msg]), mockEnv, testCtx);
 
     expect(msg.retry).toHaveBeenCalledOnce();
     expect(msg.ack).not.toHaveBeenCalled();
@@ -295,7 +293,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     const msg2 = makeMessage('22222');
     const msg3 = makeMessage('33333');
 
-    await worker.queue(makeBatch([msg1, msg2, msg3]), mockEnv, {} as ExecutionContext);
+    await worker.queue(makeBatch([msg1, msg2, msg3]), mockEnv, testCtx);
 
     expect(msg1.ack).toHaveBeenCalledOnce();
     expect(msg1.retry).not.toHaveBeenCalled();
@@ -312,7 +310,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
 
     const msg1 = makeMessage('11111');
     const msg2 = makeMessage('22222');
-    await worker.queue(makeBatch([msg1, msg2]), mockEnv, {} as ExecutionContext);
+    await worker.queue(makeBatch([msg1, msg2]), mockEnv, testCtx);
 
     expect(mockGetDb).toHaveBeenCalledTimes(1);
     expect(mockGetDb).toHaveBeenCalledWith(mockEnv.HYPERDRIVE);
@@ -327,7 +325,7 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     mockHandleDLQMessage.mockResolvedValue(undefined);
 
     const msg = makeMessage('12345');
-    await worker.queue(makeBatch([msg], 'pickmyclass-dlq'), mockEnv, {} as ExecutionContext);
+    await worker.queue(makeBatch([msg], 'pickmyclass-dlq'), mockEnv, testCtx);
 
     expect(mockProcessSection).not.toHaveBeenCalled();
     expect(msg.ack).toHaveBeenCalledOnce();
@@ -356,6 +354,7 @@ describe('worker.ts scheduled handler', () => {
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));
 
+    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
     await workerDefault.scheduled(
       { cron: '5 4 * * *', scheduledTime: Date.now() },
       scheduledEnv as Env,
@@ -363,7 +362,7 @@ describe('worker.ts scheduled handler', () => {
     );
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const calledRequest = fetchSpy.mock.calls[0]![0] as Request;
+    const calledRequest = fetchSpy.mock.calls[0]![0];
     expect(calledRequest.url).toContain('/api/cron/maintenance');
     expect(calledRequest.headers.get('Authorization')).toBe('Bearer test-cron-secret');
   });
@@ -373,6 +372,7 @@ describe('worker.ts scheduled handler', () => {
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));
 
+    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
     await workerDefault.scheduled(
       { cron: '0,30 * * * *', scheduledTime: Date.now() },
       scheduledEnv as Env,
@@ -380,7 +380,7 @@ describe('worker.ts scheduled handler', () => {
     );
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const calledRequest = fetchSpy.mock.calls[0]![0] as Request;
+    const calledRequest = fetchSpy.mock.calls[0]![0];
     expect(calledRequest.url).toBe('http://localhost/api/cron');
   });
 
@@ -391,13 +391,14 @@ describe('worker.ts scheduled handler', () => {
       .spyOn(handlerMock.default, 'fetch')
       .mockResolvedValueOnce(new Response('ok', { status: 200 }));
 
+    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
     await workerDefault.scheduled(
       { cron: '0,30 * * * *', scheduledTime },
       scheduledEnv as Env,
       testCtx
     );
 
-    const calledRequest = fetchSpy.mock.calls[0]![0] as Request;
+    const calledRequest = fetchSpy.mock.calls[0]![0];
     expect(calledRequest.headers.get('X-Cron-Scheduled-Time')).toBe(String(scheduledTime));
   });
 
@@ -406,6 +407,7 @@ describe('worker.ts scheduled handler', () => {
       new Response('Internal error', { status: 500 })
     );
 
+    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
     await expect(
       workerDefault.scheduled(
         { cron: '0,30 * * * *', scheduledTime: Date.now() },
@@ -418,6 +420,7 @@ describe('worker.ts scheduled handler', () => {
   it('does not throw when handler throws an error', async () => {
     vi.spyOn(handlerMock.default, 'fetch').mockRejectedValueOnce(new Error('Handler crashed'));
 
+    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
     await expect(
       workerDefault.scheduled(
         { cron: '0,30 * * * *', scheduledTime: Date.now() },
@@ -434,6 +437,7 @@ describe('worker.ts scheduled handler', () => {
       new Response('partial', { status: 207 })
     );
 
+    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
     await workerDefault.scheduled(
       { cron: '0,30 * * * *', scheduledTime: Date.now() },
       scheduledEnv as Env,

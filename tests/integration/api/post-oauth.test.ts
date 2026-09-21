@@ -13,7 +13,7 @@ const {
   mockRepairUserMirror,
   mockInvalidateAuthorizationState,
 } = vi.hoisted(() => {
-  const mockExecute = vi.fn();
+  const mockExecute = vi.fn<(query: SQL) => Promise<unknown[]>>();
   const mockGetUser = vi.fn();
   const mockGetClerkClient = vi.fn(() => ({ users: { getUser: mockGetUser } }));
 
@@ -62,7 +62,11 @@ function locationOf(response: Response): string {
   const location = response.headers.get('location');
   expect(location, 'expected a redirect response').not.toBeNull();
 
-  return location as string;
+  if (location === null) {
+    throw new Error('expected a redirect response');
+  }
+
+  return location;
 }
 
 describe('GET /auth/post-oauth', () => {
@@ -161,7 +165,7 @@ describe('GET /auth/post-oauth', () => {
     const response = await GET(getRequest('?next=/dashboard&consent=confirmed'));
 
     expect(mockExecute).toHaveBeenCalledTimes(1);
-    const query = mockExecute.mock.calls[0][0] as SQL;
+    const query = mockExecute.mock.calls[0][0];
     expect(new PgDialect().sqlToQuery(query).sql.replace(/\s+/g, ' ').trim()).toBe(
       'SELECT public.accept_terms_and_verify_age($1::text)'
     );

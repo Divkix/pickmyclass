@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
 
 type JsonValue =
   | string
@@ -111,6 +112,25 @@ function request(auth = 'Bearer test-cron-secret') {
   });
 }
 
+const healthCheck = z.object({
+  status: z.string().optional(),
+  error: z.string().optional(),
+  configured: z.boolean().optional(),
+  locked: z.boolean().optional(),
+  lock_holder: z.string().nullable().optional(),
+  lock_acquired_at: z.string().nullable().optional(),
+  expires_at: z.string().nullable().optional(),
+  missing_vars: z.array(z.string()).optional(),
+  missing: z.array(z.string()).optional(),
+});
+
+const healthResponse = z.object({
+  status: z.string(),
+  checks: z.record(z.string(), healthCheck),
+});
+
+const livenessResponse = z.object({ status: z.string() });
+
 describe('GET /api/monitoring/health branch coverage', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -124,7 +144,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
     const { GET, getDbFromEnv, dbProbe } = await loadHealthRoute();
 
     const response = await GET(request(''));
-    const data = (await response.json()) as { status: string };
+    const data = livenessResponse.parse(await response.json());
 
     expect(response.status).toBe(200);
     expect(data.status).toBe('ok');
@@ -138,16 +158,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
 
     const response = await GET(request());
 
-    const data = (await response.json()) as {
-      status: string;
-      checks: {
-        database: { status: string };
-        asu_api: { status: string };
-        configuration: { status: string };
-        email: { status: string; configured: boolean };
-        cron_lock: { status: string; locked: boolean; lock_holder: string };
-      };
-    };
+    const data = healthResponse.parse(await response.json());
 
     expect(response.status).toBe(200);
     expect(data.status).toBe('healthy');
@@ -171,11 +182,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
 
     const response = await GET(request());
 
-    const data = (await response.json()) as {
-      checks: {
-        cron_lock: { lock_acquired_at: string | null; expires_at: string | null };
-      };
-    };
+    const data = healthResponse.parse(await response.json());
 
     expect(data.checks.cron_lock.lock_acquired_at).toBe('1970-01-01T00:00:00.000Z');
     expect(data.checks.cron_lock.expires_at).toBe('1970-01-01T00:00:00.001Z');
@@ -190,10 +197,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
 
     const response = await GET(request());
 
-    const data = (await response.json()) as {
-      status: string;
-      checks: Record<string, { status?: string; error?: string }>;
-    };
+    const data = healthResponse.parse(await response.json());
 
     expect(response.status).toBe(503);
     expect(data.status).toBe('degraded');
@@ -221,10 +225,7 @@ describe('GET /api/monitoring/health branch coverage', () => {
 
     const response = await GET(request());
 
-    const data = (await response.json()) as {
-      status: string;
-      checks: Record<string, { status?: string; missing_vars?: string[]; missing?: string[] }>;
-    };
+    const data = healthResponse.parse(await response.json());
 
     expect(response.status).toBe(500);
     expect(data.status).toBe('unhealthy');

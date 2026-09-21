@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { z } from 'zod';
 
 import type { Database } from '@/lib/db';
 import { getSelectableTerms } from '@/lib/asu/terms';
@@ -24,21 +25,10 @@ type PgWireValue =
 
 type DriverRowSet = Array<Record<string, PgWireValue>>;
 
-interface ScriptedPendingRows {
-  then(
-    onFulfilled?: (value: never) => PromiseLike<never>,
-    onRejected?: (reason: Error) => PromiseLike<never>
-  ): Promise<never>;
-  catch(onRejected: (reason: Error) => PromiseLike<never>): Promise<never>;
-  values(): PromiseLike<never[]>;
-}
-
 type ScriptedRows = Promise<DriverRowSet> & { values(): PromiseLike<unknown[][]> };
 
-type ScriptedQueryResult = ScriptedPendingRows | ScriptedRows;
-
 interface PostgresJsSeam {
-  unsafe(query: string, params: unknown[]): ScriptedQueryResult;
+  unsafe(query: string, params: unknown[]): ScriptedRows;
 }
 
 function createDbHarness() {
@@ -52,21 +42,14 @@ function createDbHarness() {
 
   const scriptedClient = {
     options: { parsers: {}, serializers: {} },
-    unsafe(query: string, params: unknown[]): ScriptedQueryResult {
+    unsafe(query: string, params: unknown[]): ScriptedRows {
       statements.push({ sql: query, params });
       const outcome = outcomes.shift();
 
       if (outcome instanceof Error) {
-        const reject = (): Promise<never> => Promise.reject(outcome);
+        const rejected = Promise.reject<never>(outcome);
 
-        return {
-          then: (
-            onFulfilled?: (value: never) => PromiseLike<never>,
-            onRejected?: (reason: Error) => PromiseLike<never>
-          ) => reject().then(onFulfilled, onRejected),
-          catch: (onRejected: (reason: Error) => PromiseLike<never>) => reject().catch(onRejected),
-          values: reject,
-        };
+        return Object.assign(rejected, { values: () => rejected });
       }
 
       return pendingRows(outcome ?? []);
@@ -77,6 +60,7 @@ function createDbHarness() {
   };
 
   const client: PostgresJsSeam = scriptedClient;
+  // SAFETY: the double implements the postgres-js seam drizzle drives: options, unsafe, begin.
   const db = drizzle(client as Database['$client'], { schema });
 
   return {
@@ -216,6 +200,7 @@ function postRequest(body: { term: string; class_nbr: string }): NextRequest {
 }
 
 async function json<T>(response: Response): Promise<T> {
+  // SAFETY: T is the route's documented response contract — each call site names it.
   return (await response.json()) as T;
 }
 
@@ -318,7 +303,7 @@ describe('/api/class-watches onboarding wiring', () => {
         class_state: expect.objectContaining({ class_nbr: '12345', term }),
       });
       expect(body.watches?.[1]?.class_state).toBeNull();
-      expect(typeof body.maxWatches).toBe('number');
+      expect(z.number().safeParse(body.maxWatches).success).toBe(true);
 
       expect(errorSpy).toHaveBeenCalled();
       expect(body.onboarding).toEqual({
