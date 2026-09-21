@@ -51,11 +51,7 @@ export function buildAutoCleanupRemovedEmail(
       ? `${rawCatalog} ${classNbr}`
       : classNbr;
 
-  const rawIdentifier = (catalogNbr || classNbr).replace(/[<>"'&]/g, (c) => {
-    const map: Record<string, string> = { '<': '', '>': '', '"': '', "'": '', '&': '' };
-
-    return map[c] ?? '';
-  });
+  const rawIdentifier = (catalogNbr || classNbr).replace(/[<>"'&]/g, '');
 
   const emailSubject = `Watched class ${rawIdentifier} removed — no longer in ASU catalog`;
 
