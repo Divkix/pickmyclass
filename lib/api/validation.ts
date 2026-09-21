@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { ZodError, ZodType } from 'zod';
 import { fail } from '@/lib/api/response';
+import type { JsonValue } from '@/lib/api/wire';
 
 export type ValidationIssueDetail = {
   field: string;
@@ -18,8 +19,9 @@ function validationFail(error: ZodError): NextResponse {
   return fail('Invalid input', 400, mapValidationIssues(error));
 }
 
-// SAFETY: `data` is untrusted request input; schema.safeParse validates at this boundary before any domain use.
-function tryParse<T>(schema: ZodType<T>, data: unknown): { data: T } | { error: ZodError } {
+// SAFETY: `data` is a wire JSON value from the request body; the schema is the decoder
+// at this boundary before any domain use.
+function tryParse<T>(schema: ZodType<T>, data: JsonValue): { data: T } | { error: ZodError } {
   const result = schema.safeParse(data);
 
   if (!result.success) return { error: result.error };
@@ -29,8 +31,9 @@ function tryParse<T>(schema: ZodType<T>, data: unknown): { data: T } | { error: 
 
 export function parseOrFail<T>(
   schema: ZodType<T>,
-  // SAFETY: `data` is untrusted request input; schema.safeParse validates at this boundary before any domain use.
-  data: unknown
+  // SAFETY: `data` is a wire JSON value from the request body; the schema is the decoder
+  // at this boundary before any domain use.
+  data: JsonValue
 ): { success: true; data: T } | { success: false; response: NextResponse } {
   const parsed = tryParse(schema, data);
 
@@ -43,8 +46,9 @@ export function parseOrFail<T>(
 
 export function parseOrThrow<T>(
   schema: ZodType<T>,
-  // SAFETY: `data` is untrusted input; validated via schema.safeParse before throw-or-return.
-  data: unknown
+  // SAFETY: `data` is a wire JSON value from the request body; the schema is the decoder
+  // before throw-or-return.
+  data: JsonValue
 ): T {
   const parsed = tryParse(schema, data);
 

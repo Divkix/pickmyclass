@@ -22,6 +22,7 @@
 
 import { type ClerkClient, createClerkClient } from '@clerk/backend';
 import { env } from 'cloudflare:workers';
+import { z } from 'zod';
 import { CLERK_PUBLISHABLE_KEY } from '@/lib/clerk/config';
 import { log } from '@/lib/log';
 
@@ -37,10 +38,15 @@ interface ClerkEnv {
   NEXT_PUBLIC_SITE_URL?: string;
 }
 
+const clerkEnvSchema = z.object({
+  CLERK_SECRET_KEY: z.string().optional(),
+  CLERK_JWT_KEY: z.string().optional(),
+  NEXT_PUBLIC_SITE_URL: z.string().optional(),
+});
+
 function getClerkEnv(): Required<Pick<ClerkEnv, 'CLERK_SECRET_KEY'>> & ClerkEnv {
   // SAFETY: bindings are declared in wrangler secrets; see lib/cloudflare-env.supplemental.d.ts.
-  // SAFETY: Cloudflare Env is string-indexed; narrow to known Clerk shape
-  const e = env as unknown as ClerkEnv;
+  const e = clerkEnvSchema.parse(env);
 
   if (!e.CLERK_SECRET_KEY) {
     throw new Error(
@@ -90,11 +96,12 @@ export async function getSessionIdentity(request: Request): Promise<SessionIdent
   try {
     const { CLERK_JWT_KEY } = getClerkEnv();
 
-    const authenticateOptions: { authorizedParties: string[]; jwtKey?: string } = {
-      authorizedParties: getAuthorizedParties(),
-    };
+    const authorizedParties = getAuthorizedParties();
 
-    if (CLERK_JWT_KEY) authenticateOptions.jwtKey = CLERK_JWT_KEY;
+    const authenticateOptions = CLERK_JWT_KEY
+      ? { authorizedParties, jwtKey: CLERK_JWT_KEY }
+      : { authorizedParties };
+
     const auth = await getClerkClient().authenticateRequest(request, authenticateOptions);
 
     if (!auth.isAuthenticated) {
@@ -107,11 +114,10 @@ export async function getSessionIdentity(request: Request): Promise<SessionIdent
       return null;
     }
 
-    // SAFETY: sessionClaims is JwtPayload (indexable); ext_id from own claim template is string when present.
-    const claims = sessionClaims as Record<string, unknown> | null;
+    // ext_id is this app's own claim-template value, used verbatim (no trim) as the identity PK.
+    const extIdClaim = z.string().min(1).nullish().safeParse(sessionClaims?.ext_id);
 
-    const extId =
-      typeof claims?.ext_id === 'string' && claims.ext_id.length > 0 ? claims.ext_id : null;
+    const extId = extIdClaim.success ? (extIdClaim.data ?? null) : null;
 
     return { userId: extId ?? clerkUserId, clerkUserId, sessionId: sessionId ?? null };
   } catch (error) {
