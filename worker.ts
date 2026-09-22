@@ -215,8 +215,6 @@ export default {
     env: Env,
     _ctx: ExecutionContext
   ): Promise<void> {
-    const db = getDb(env.HYPERDRIVE);
-
     const startTime = Date.now();
     const isDLQ = batch.queue === 'pickmyclass-dlq';
     queueLog.info(
@@ -226,9 +224,7 @@ export default {
     if (isDLQ) {
       for (const message of batch.messages) {
         try {
-          await handleDLQMessage(db, message.body, env.EMAIL, {
-            fromEmail: env.NOTIFICATION_FROM_EMAIL,
-          });
+          handleDLQMessage(message.body);
         } catch (error) {
           dlqLog.error(`Unexpected error processing ${message.body.class_nbr}:`, error);
         }
@@ -237,6 +233,8 @@ export default {
       dlqLog.info(`Processed ${batch.messages.length} DLQ messages in ${Date.now() - startTime}ms`);
       return;
     }
+
+    const db = getDb(env.HYPERDRIVE);
 
     const results = await Promise.allSettled(
       batch.messages.map(async (message) => {

@@ -1,7 +1,5 @@
 export const NOTIFICATION_FROM_EMAIL = 'notifications@pickmyclass.app';
 
-export const ALERTS_FROM_EMAIL = 'alerts@pickmyclass.app';
-
 export const DEFAULT_SITE_URL = 'https://pickmyclass.app';
 
 export const ASU_CACHE_TTL_MS = 2 * 60 * 1000;

@@ -329,10 +329,8 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
 
     expect(mockProcessSection).not.toHaveBeenCalled();
     expect(msg.ack).toHaveBeenCalledOnce();
-    expect(mockGetDb).toHaveBeenCalledTimes(1);
-    expect(mockHandleDLQMessage).toHaveBeenCalledWith(DB_HANDLE, msg.body, mockEnv.EMAIL, {
-      fromEmail: mockEnv.NOTIFICATION_FROM_EMAIL,
-    });
+    expect(mockGetDb).not.toHaveBeenCalled();
+    expect(mockHandleDLQMessage).toHaveBeenCalledWith(msg.body);
   });
 });
 
