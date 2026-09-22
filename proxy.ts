@@ -9,10 +9,11 @@ import { type UserVerificationState, readUserVerification } from '@/lib/db/users
 import { CLERK_CSP } from '@/lib/clerk/config';
 
 // Clerk CSP (manual — the Next SDK auto-injection is unavailable on vinext):
-// script-src/connect-src allow the FAPI hosts (clerk-js loads from the FAPI
-// host), connect-src allows the Cloudflare-challenge and *.protect.clerk.com
-// hosts (the trailing :* is mandatory), frame-src allows the challenge hosts
-// for bot-protection iframes, worker-src 'self' blob: for clerk-js workers.
+// script-src allows the FAPI host plus Turnstile and *.protect.clerk.com
+// (sign-up loads challenges.cloudflare.com/turnstile/v0/api.js; omitting it
+// from script-src fails every signup with captcha_invalid). connect-src uses
+// the protect host with a trailing :* (those hosts are not on 443). frame-src
+// allows the Turnstile and protect hosts. worker-src is 'self' blob:.
 const PERMISSIONS_POLICY =
   'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()';
 
@@ -33,10 +34,21 @@ const CSP_CONNECT_SRC = [
   'https://s.pickmyclass.app',
   ...CLERK_CSP.fapiHosts,
   ...CLERK_CSP.challengeHosts,
+  ...CLERK_CSP.protectConnectHosts,
+].join(' ');
+
+const CSP_CLERK_SCRIPT_HOSTS = [
+  ...CLERK_CSP.fapiHosts,
+  ...CLERK_CSP.challengeHosts,
   ...CLERK_CSP.protectHosts,
 ].join(' ');
 
-const CSP_FRAME_SRC = ['frame-src', ...CLERK_CSP.challengeHosts, "'self'"].join(' ');
+const CSP_FRAME_SRC = [
+  'frame-src',
+  ...CLERK_CSP.challengeHosts,
+  ...CLERK_CSP.protectHosts,
+  "'self'",
+].join(' ');
 
 const CSP_WORKER_SRC = "worker-src 'self' blob:";
 
@@ -51,7 +63,7 @@ const CSP_NEXT_THEMES_HASH = "'sha256-jGCia7LAT8V5tk83CgiiU5FMqw9uEVddMT+0ZQDzVA
 function buildProductionCsp(nonce: string): string {
   return [
     CSP_DEFAULT_SRC,
-    `script-src 'self' 'nonce-${nonce}' ${CSP_NEXT_THEMES_HASH} https://static.cloudflareinsights.com https://analytics.divkix.me ${CLERK_CSP.fapiHosts.join(' ')}`,
+    `script-src 'self' 'nonce-${nonce}' ${CSP_NEXT_THEMES_HASH} https://static.cloudflareinsights.com https://analytics.divkix.me ${CSP_CLERK_SCRIPT_HOSTS}`,
     CSP_STYLE_SRC,
     CSP_IMG_SRC,
     CSP_FONT_SRC,
@@ -66,7 +78,7 @@ function buildProductionCsp(nonce: string): string {
 
 const DEV_CSP = [
   CSP_DEFAULT_SRC,
-  `script-src 'self' 'unsafe-eval' 'unsafe-inline' ${CLERK_CSP.fapiHosts.join(' ')}`,
+  `script-src 'self' 'unsafe-eval' 'unsafe-inline' ${CSP_CLERK_SCRIPT_HOSTS}`,
   CSP_STYLE_SRC,
   CSP_IMG_SRC,
   CSP_FONT_SRC,

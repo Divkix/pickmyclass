@@ -80,6 +80,30 @@ describe('proxy', () => {
     vi.clearAllMocks();
   });
 
+  it('allows the Turnstile script and Clerk fraud hosts that sign-up loads', async () => {
+    const response = await proxy(createRequest('/sign-up'));
+    const csp = response.headers.get('content-security-policy') ?? '';
+
+    const directive = (name: string) =>
+      csp
+        .split(';')
+        .map((part) => part.trim())
+        .find((part) => part.startsWith(`${name} `)) ?? '';
+
+    const scriptSrc = directive('script-src');
+    const frameSrc = directive('frame-src');
+    const connectSrc = directive('connect-src');
+
+    expect(scriptSrc).toContain('https://challenges.cloudflare.com');
+    expect(scriptSrc).toContain('https://*.protect.clerk.com');
+    expect(scriptSrc).not.toContain('https://*.protect.clerk.com:*');
+    expect(frameSrc).toContain('https://challenges.cloudflare.com');
+    expect(frameSrc).toContain('https://*.protect.clerk.com');
+    expect(frameSrc).not.toContain('https://*.protect.clerk.com:*');
+    expect(connectSrc).toContain('https://challenges.cloudflare.com');
+    expect(connectSrc).toContain('https://*.protect.clerk.com:*');
+  });
+
   it('fast-paths public routes without session cookies before any session or database work', async () => {
     const response = await proxy(createRequest('/'));
 
