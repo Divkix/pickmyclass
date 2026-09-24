@@ -70,3 +70,4 @@ scripts/.clerk-spike-private.pem
 # `vendor/` ignore must not silently skip them (it did once — the plugin then
 # failed to load on CI while lint passed locally).
 !tools/oxlint/anti-slop/vendor/
+.vitest/

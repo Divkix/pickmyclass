@@ -20,7 +20,7 @@
     "test": "vp test",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "test:db": "vitest run --config vitest.db.config.ts",
+    "test:db": "vp test run --config vitest.db.config.ts",
     "test:run": "vp test run",
     "test:coverage": "vp test run --coverage",
     "test:ui": "vp test --ui",
@@ -55,7 +55,6 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.59.0",
-    "@oxlint/plugins": "1.85.0",
     "@posthog/rollup-plugin": "^1.6.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/postcss": "^4.3.3",
