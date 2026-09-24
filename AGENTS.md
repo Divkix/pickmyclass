@@ -16,7 +16,7 @@ When you discover something non-obvious — an invariant, gotcha, decision and i
 
 ## What this is
 
-**PickMyClass** notifies ASU students by email when a seat opens or instructor is assigned in a watched section. **Next.js 16 App Router** (React 19, TS strict) on **Cloudflare Workers via `vinext`** (Vite-based, not next-on-pages), **PlanetScale Postgres via Hyperdrive** (request-scoped Drizzle/postgres-js, `--caching-disabled`) + **Clerk** (`jwtKey`, `ext_id`) + **polling** (`docs/adr/0014`), **Cloudflare Email + Queues + Durable Object** for notifications. `pnpm@12.5.1`, `Vite+ (vp)`.
+**PickMyClass** notifies ASU students by email when a seat opens or instructor is assigned in a watched section. **Next.js 16 App Router** (React 19, TS strict) on **Cloudflare Workers via `vinext`** (Vite-based, not next-on-pages), **PlanetScale Postgres via Hyperdrive** (request-scoped Drizzle/postgres-js, `--caching-disabled`) + **Clerk** (`jwtKey`, `ext_id`) + **polling** (`docs/adr/0014`) + **Cloudflare Email + Queues + Durable Object** for notifications. `pnpm@12.6.0`, `Vite+ (vp)`.
 
 Two systems to understand first: **seat-check notification pipeline** and **auth/account lifecycle** — details in ADRs, invariants below.
 
@@ -61,7 +61,7 @@ public/       # static + llms.txt, llms-full.txt
 
 ## Build, test & dev
 
-Through `vinext` + `vp` — don't use `next`/`vitest`/`eslint` directly. `pnpm@12.5.1`.
+Through `vinext` + `vp` — don't use `next`/`vitest`/`eslint` directly. `pnpm@12.6.0`.
 
 ```bash
 pnpm run dev              # vinext dev :3000
@@ -70,6 +70,7 @@ pnpm run preview          # real Worker locally
 pnpm run deploy           # build + wrangler deploy + triggers deploy
 pnpm run check            # format+lint+app type-check (excludes worker.ts/scripts — see below)
 pnpm run check:fix
+pnpm run verify           # check + app/worker type-check + knip (pre-commit and CI gate)
 pnpm run test / test:run / test:coverage  # vitest, 80% threshold
 pnpm run type-check       # AUTHORITATIVE: tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
 ```
@@ -80,7 +81,7 @@ Two tsconfigs: `tsconfig.json` (app, excludes worker.ts) + `tsconfig.worker.json
 
 ## CI (`.github/workflows/ci.yml`)
 
-`validate-lockfile` -> `quality`/`test`/`check` in parallel -> `ci-success` (required). Dependabot ignores the vite-plus toolchain (`vite-plus`, `vite`, `vitest`, `@vitest/*`, `@voidzero-dev/vite-plus-core`) — bump via `vp migrate` only, never solo (solo bumps desync core/vitest and break types/coverage).
+validate-lockfile -> quality/test/check in parallel -> ci-success (required). The quality job runs pnpm run verify (Vite+ check, app/worker type-check, Knip); the check job preserves the production build. Dependabot ignores the vite-plus toolchain (vite-plus, vite, vitest, @vitest/*, @voidzero-dev/vite-plus-core) — bump via vp migrate only, never solo (solo bumps desync core/vitest and break types/coverage).
 
 ## Conventions
 

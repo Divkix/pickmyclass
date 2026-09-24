@@ -1,7 +1,9 @@
+set -e
+
 if [ -n "$CI" ]; then
   echo "CI detected, skipping pre-commit hooks"
   exit 0
 fi
 
 vp staged
-pnpm run type-check
+pnpm run verify

@@ -11,7 +11,7 @@ Be respectful, inclusive, and constructive. We welcome contributors of all exper
 ### Prerequisites
 
 - [pnpm](https://pnpm.io/) >= 9.0
-- [Node.js](https://nodejs.org/) >= 20 (for some tooling)
+- [Node.js](https://nodejs.org/) 22.22.1+ (pinned in .node-version)
 - Git
 
 ### Development Setup
@@ -87,6 +87,9 @@ pnpm run check:fix
 # Check only (no fixes)
 pnpm run check
 
+# Full pre-commit and CI gate (check + app/worker type-check + unused-code check)
+pnpm run verify
+
 # Lint only
 pnpm run lint:fix
 
@@ -116,27 +119,22 @@ When modifying dependencies in `package.json`:
 
 Before submitting a PR:
 
-1. **Run the linter**
+1. **Run the full verification gate**
    ```bash
-   pnpm run lint
+   pnpm run verify
    ```
 
-2. **Check for unused exports**
-   ```bash
-   pnpm run knip
-   ```
-
-3. **Build the project**
+2. **Build the project**
    ```bash
    pnpm run build
    ```
 
-4. **Test with Cloudflare Workers locally**
+3. **Test with Cloudflare Workers locally**
    ```bash
    pnpm run preview
    ```
 
-5. **Run tests**
+4. **Run tests**
    ```bash
    pnpm run test:run
    ```
