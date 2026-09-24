@@ -27,6 +27,10 @@ export interface SentNotification {
   error?: string;
 }
 
+function noClaims(): Promise<ClaimedNotification[]> {
+  return Promise.resolve([]);
+}
+
 // Delete the notification ids returned by the claim. Looking the active row up
 // again can hit a newer claim that replaced ours after a reset. Best-effort:
 // a failed rollback only means those users stay suppressed for the dedup window.
@@ -65,9 +69,7 @@ export async function sendSectionNotifications(
 
   const claimResults = await Promise.allSettled(
     claimTypes.map(({ type, changed }) =>
-      changed
-        ? tryRecordNotificationsBatch(db, allWatchIds, type)
-        : Promise.resolve([] as ClaimedNotification[])
+      changed ? tryRecordNotificationsBatch(db, allWatchIds, type) : noClaims()
     )
   );
 
@@ -139,6 +141,7 @@ export async function sendSectionNotifications(
       const failedWatchIds = new Set(
         failedEmails.filter((e) => e.email.type === type).map((e) => e.email.watchId)
       );
+
       const failedNotificationIds = claimedByType[type]
         .filter((claim) => failedWatchIds.has(claim.watchId))
         .map((claim) => claim.notificationId);
