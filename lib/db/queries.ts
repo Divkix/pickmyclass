@@ -37,24 +37,6 @@ function normalizeIsoTimestamp(value: DriverTimestamp): string | undefined {
   return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
 }
 
-type DriverStringArray = readonly string[] | string;
-
-const arrayLiteralSchema = z.string().startsWith('{').endsWith('}');
-
-function normalizeStringArray(value: DriverStringArray | null | undefined): string[] {
-  if (Array.isArray(value)) return value.map(String);
-
-  const literal = arrayLiteralSchema.safeParse(value);
-
-  if (literal.success) {
-    const inner = literal.data.slice(1, -1);
-
-    return inner.length === 0 ? [] : inner.split(',');
-  }
-
-  return [];
-}
-
 const incrementCountSchema = z.number();
 
 async function incrementConsecutiveNotFoundViaRpc(db: Database, ref: SectionRef): Promise<number> {
@@ -288,46 +270,64 @@ export async function deletePastTermWatches(db: Database, termCodes: string[]): 
   }
 }
 
+export type ClaimedNotification = {
+  notificationId: string;
+  watchId: string;
+};
+
+const claimedNotificationSchema = z.object({
+  notification_id: z.string().min(1),
+  class_watch_id: z.string().min(1),
+});
+
 export async function tryRecordNotificationsBatch(
   db: Database,
   watchIds: string[],
   notificationType: NotificationType,
   expiresHours: number = 24
-): Promise<Set<string>> {
-  if (watchIds.length === 0) return new Set();
+): Promise<ClaimedNotification[]> {
+  if (watchIds.length === 0) return [];
 
   try {
-    // Array-bound both ways: uuid[] in, claimed uuid[] out. JS-array binds
-    // are unserializable under this driver config (live-proven 22P02), so the
-    // input array composes server-side from separately-bound scalars
-    // (watchIds guarded non-empty above) while the returned uuid[] column
-    // normalizes through normalizeStringArray below.
+    // uuid[] in is composed server-side: JS-array binds are unserializable
+    // under this driver (live-proven 22P02). The function returns one row per
+    // new claim so the notification id is known at insert time.
     const idParams = watchIds.map((id) => sql`${id}::uuid`);
 
-    const rows = await db.execute<{ recorded: DriverStringArray | null }>(
-      sql`SELECT public.try_record_notifications_batch(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text, ${expiresHours}::integer) AS recorded`
+    const rows = await db.execute<{ notification_id: unknown; class_watch_id: unknown }>(
+      sql`SELECT notification_id, class_watch_id
+          FROM public.try_record_notifications_batch(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text, ${expiresHours}::integer)`
     );
 
-    const recordedIds = new Set(normalizeStringArray(rows[0]?.recorded));
-    log('DB').info(`Batch ${notificationType}: ${recordedIds.size}/${watchIds.length} recorded`);
+    const claimed = rows.flatMap((row) => {
+      const parsed = claimedNotificationSchema.safeParse(row);
 
-    return recordedIds;
+      return parsed.success
+        ? [{ notificationId: parsed.data.notification_id, watchId: parsed.data.class_watch_id }]
+        : [];
+    });
+    log('DB').info(`Batch ${notificationType}: ${claimed.length}/${watchIds.length} recorded`);
+
+    return claimed;
   } catch (error) {
     log('DB').error('Error in batch notification check:', error);
     throw new Error(`Failed to batch record notifications: ${driverErrorMessage(error)}`);
   }
 }
 
+const upsertAppliedSchema = z.object({ applied: z.boolean() });
+
 export async function upsertClassState(
   db: Database,
   ref: SectionRef,
-  details: ClassDetails
-): Promise<void> {
+  details: ClassDetails,
+  observedAt: Date
+): Promise<boolean> {
   try {
     // RPC, not a drizzle upsert: the write takes a SectionRef advisory lock
-    // server-side, so a check and a strike for the same section serialize
-    // instead of interleaving (see db/migrations/20260918000001_state_fix.sql).
-    await db.execute(
+    // and applies only when observedAt is at least last_checked_at, so a
+    // slower check cannot clobber a newer observation or its strike count.
+    const rows = await db.execute<{ applied: unknown }>(
       sql`SELECT public.upsert_class_state_locked(
         ${ref.class_nbr}::text,
         ${ref.term}::text,
@@ -339,10 +339,20 @@ export async function upsertClassState(
         ${details.seats_capacity || 0}::integer,
         ${details.non_reserved_seats ?? null}::integer,
         ${details.location || null}::text,
-        ${details.meeting_times || null}::text
-      )`
+        ${details.meeting_times || null}::text,
+        ${observedAt.toISOString()}::timestamptz
+      ) AS applied`
     );
+
+    const parsed = upsertAppliedSchema.safeParse(rows[0]);
+
+    if (!parsed.success) {
+      throw new Error(`Invalid upsert result: ${String(rows[0]?.applied)}`);
+    }
+
+    return parsed.data.applied;
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Invalid upsert result:')) throw error;
     throw new Error(`Failed to upsert class state: ${driverErrorMessage(error)}`);
   }
 }

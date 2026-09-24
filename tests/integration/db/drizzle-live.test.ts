@@ -199,10 +199,10 @@ beforeAll(async () => {
     meeting_times: 'MW 10:00-11:15',
   });
 
-  await upsertClassState(db, REF_A, stateDetails(7));
-  await upsertClassState(db, REF_B, stateDetails(5));
-  await upsertClassState(db, REF_C, stateDetails(3));
-  await upsertClassState(db, REF_FULL, stateDetails(0));
+  await upsertClassState(db, REF_A, stateDetails(7), new Date());
+  await upsertClassState(db, REF_B, stateDetails(5), new Date());
+  await upsertClassState(db, REF_C, stateDetails(3), new Date());
+  await upsertClassState(db, REF_FULL, stateDetails(0), new Date());
 
   const watch = async (userId: string, ref: { class_nbr: string; term: string }) => {
     const [row] = await db
@@ -592,17 +592,22 @@ describe('Drizzle builder CRUD row shapes', () => {
 
 describe('upsertClassState / section-check pipeline ops', () => {
   it('updates an existing section without duplicating it', async () => {
-    await upsertClassState(db, REF_A, {
-      subject: SUBJECT,
-      catalog_nbr: '310',
-      title: `Live Probe ${RUN} II`,
-      instructor_name: 'Dr. Fixture',
-      seats_available: 11,
-      seats_capacity: 30,
-      non_reserved_seats: 9,
-      location: 'TEMPE',
-      meeting_times: 'MW 10:00-11:15',
-    });
+    await upsertClassState(
+      db,
+      REF_A,
+      {
+        subject: SUBJECT,
+        catalog_nbr: '310',
+        title: `Live Probe ${RUN} II`,
+        instructor_name: 'Dr. Fixture',
+        seats_available: 11,
+        seats_capacity: 30,
+        non_reserved_seats: 9,
+        location: 'TEMPE',
+        meeting_times: 'MW 10:00-11:15',
+      },
+      new Date()
+    );
     const baseline = await readSectionCheckState(db, REF_A);
     expect(baseline).toMatchObject({
       class_nbr: REF_A.class_nbr,
@@ -699,12 +704,12 @@ describe('upsertClassState / section-check pipeline ops', () => {
     };
 
     const before = await selectStamps();
-    await upsertClassState(db, REF_SEED, details({ title: 'Renamed Probe' }));
+    await upsertClassState(db, REF_SEED, details({ title: 'Renamed Probe' }), new Date());
     const afterRename = await selectStamps();
     // mode: 'string' columns come back as driver text, so compare parsed dates.
     expect(afterRename?.last_changed_at).toBe(before?.last_changed_at);
 
-    await upsertClassState(db, REF_SEED, details({ non_reserved_seats: 4 }));
+    await upsertClassState(db, REF_SEED, details({ non_reserved_seats: 4 }), new Date());
     const afterSeats = await selectStamps();
     expect(new Date(afterSeats?.last_changed_at ?? 0).getTime()).toBeGreaterThan(
       new Date(afterRename?.last_changed_at ?? 0).getTime()
@@ -850,10 +855,10 @@ describe('watcher reads and eligibility RPCs', () => {
 describe('notification dedup lifecycle', () => {
   it('claims each watch once, frees expired slots, and rolls back claims', async () => {
     const first = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], 'seat_available');
-    expect([...first].sort()).toEqual([W_C_1, W_C_2].sort());
+    expect(first.map((c) => c.watchId).sort()).toEqual([W_C_1, W_C_2].sort());
 
     const second = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], 'seat_available');
-    expect(second.size).toBe(0);
+    expect(second).toHaveLength(0);
 
     await db
       .update(notificationsSent)
@@ -881,7 +886,7 @@ describe('notification dedup lifecycle', () => {
     expect(inactive).toBe(2);
 
     const third = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], 'seat_available');
-    expect([...third].sort()).toEqual([W_C_1, W_C_2].sort());
+    expect(third.map((c) => c.watchId).sort()).toEqual([W_C_1, W_C_2].sort());
   });
 
   it('rolls back failed sends by deleting only active claims', async () => {
@@ -1283,7 +1288,7 @@ describe('notification claim races', () => {
         tryRecordNotificationsBatch(db, [watchId], 'seat_available'),
       ]);
 
-      expect(first.size + second.size).toBe(1);
+      expect(first.length + second.length).toBe(1);
 
       const activeClaims = await scalarCount(
         db

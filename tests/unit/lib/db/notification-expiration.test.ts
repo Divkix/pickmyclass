@@ -16,9 +16,12 @@ afterEach(() => {
 
 describe('Notification Expiration (Issue #157)', () => {
   describe('tryRecordNotificationsBatch', () => {
-    it('composes the batch server-side as an ARRAY of scalar binds and returns claimed ids', async () => {
+    it('composes the batch server-side as an ARRAY of scalar binds and returns claim rows', async () => {
       const h = createScriptedPostgres();
-      h.next([{ recorded: ['watch-1', 'watch-2'] }]);
+      h.next([
+        { notification_id: 'row-1', class_watch_id: 'watch-1' },
+        { notification_id: 'row-2', class_watch_id: 'watch-2' },
+      ]);
 
       const result = await tryRecordNotificationsBatch(
         h.db,
@@ -26,7 +29,10 @@ describe('Notification Expiration (Issue #157)', () => {
         'seat_available'
       );
 
-      expect(result).toEqual(new Set(['watch-1', 'watch-2']));
+      expect(result).toEqual([
+        { notificationId: 'row-1', watchId: 'watch-1' },
+        { notificationId: 'row-2', watchId: 'watch-2' },
+      ]);
       expect(h.statements).toHaveLength(1);
       expect(h.statements[0].sql).toContain('public.try_record_notifications_batch');
       expect(h.statements[0].sql).toContain('ARRAY[');
@@ -35,7 +41,7 @@ describe('Notification Expiration (Issue #157)', () => {
 
     it('handles instructor_assigned with a custom expiry window', async () => {
       const h = createScriptedPostgres();
-      h.next([{ recorded: ['watch-1'] }]);
+      h.next([{ notification_id: 'row-1', class_watch_id: 'watch-1' }]);
 
       const result = await tryRecordNotificationsBatch(
         h.db,
@@ -44,13 +50,13 @@ describe('Notification Expiration (Issue #157)', () => {
         48
       );
 
-      expect(result).toEqual(new Set(['watch-1']));
+      expect(result).toEqual([{ notificationId: 'row-1', watchId: 'watch-1' }]);
       expect(h.statements[0].params).toEqual(['watch-1', 'instructor_assigned', 48]);
     });
 
-    it('parses the raw {…} wire text when the driver returns the uuid[] column unparsed', async () => {
+    it('returns an empty list when every slot was already claimed', async () => {
       const h = createScriptedPostgres();
-      h.next([{ recorded: '{watch-1,watch-2}' }]);
+      h.next([]);
 
       const result = await tryRecordNotificationsBatch(
         h.db,
@@ -58,25 +64,12 @@ describe('Notification Expiration (Issue #157)', () => {
         'seat_available'
       );
 
-      expect(result).toEqual(new Set(['watch-1', 'watch-2']));
+      expect(result).toEqual([]);
     });
 
-    it('returns an empty set when every slot was already claimed', async () => {
+    it('returns only the newly claimed rows — that set is the authorization to email', async () => {
       const h = createScriptedPostgres();
-      h.next([{ recorded: [] }]);
-
-      const result = await tryRecordNotificationsBatch(
-        h.db,
-        ['watch-1', 'watch-2'],
-        'seat_available'
-      );
-
-      expect(result).toEqual(new Set());
-    });
-
-    it('returns only the newly claimed watch ids — that set is the authorization to email', async () => {
-      const h = createScriptedPostgres();
-      h.next([{ recorded: ['watch-2'] }]);
+      h.next([{ notification_id: 'row-2', class_watch_id: 'watch-2' }]);
 
       const result = await tryRecordNotificationsBatch(
         h.db,
@@ -84,7 +77,7 @@ describe('Notification Expiration (Issue #157)', () => {
         'seat_available'
       );
 
-      expect(result).toEqual(new Set(['watch-2']));
+      expect(result).toEqual([{ notificationId: 'row-2', watchId: 'watch-2' }]);
     });
 
     it('handles empty watch id arrays without issuing a query', async () => {
@@ -92,17 +85,17 @@ describe('Notification Expiration (Issue #157)', () => {
 
       const result = await tryRecordNotificationsBatch(h.db, [], 'seat_available');
 
-      expect(result).toEqual(new Set());
+      expect(result).toEqual([]);
       expect(h.statements).toHaveLength(0);
     });
 
-    it('treats a non-array scalar column as no claims (defensive against driver shape drift)', async () => {
+    it('drops a row that is missing its notification id', async () => {
       const h = createScriptedPostgres();
-      h.next([{ recorded: null }]);
+      h.next([{ notification_id: null, class_watch_id: 'watch-1' }]);
 
       const result = await tryRecordNotificationsBatch(h.db, ['watch-1'], 'seat_available');
 
-      expect(result).toEqual(new Set());
+      expect(result).toEqual([]);
     });
 
     it('throws the translated error when the RPC fails', async () => {
@@ -118,7 +111,7 @@ describe('Notification Expiration (Issue #157)', () => {
 
     it('uses the default expiration of 24 hours', async () => {
       const h = createScriptedPostgres();
-      h.next([{ recorded: ['watch-1'] }]);
+      h.next([{ notification_id: 'row-1', class_watch_id: 'watch-1' }]);
 
       await tryRecordNotificationsBatch(h.db, ['watch-1'], 'seat_available');
 
@@ -129,7 +122,11 @@ describe('Notification Expiration (Issue #157)', () => {
   describe('Notification Expiration Edge Cases', () => {
     it('claims the full batch with custom expiration', async () => {
       const h = createScriptedPostgres();
-      h.next([{ recorded: ['watch-1', 'watch-2', 'watch-3'] }]);
+      h.next([
+        { notification_id: 'row-1', class_watch_id: 'watch-1' },
+        { notification_id: 'row-2', class_watch_id: 'watch-2' },
+        { notification_id: 'row-3', class_watch_id: 'watch-3' },
+      ]);
 
       const result = await tryRecordNotificationsBatch(
         h.db,
@@ -138,7 +135,7 @@ describe('Notification Expiration (Issue #157)', () => {
         48
       );
 
-      expect(result.size).toBe(3);
+      expect(result).toHaveLength(3);
       expect(h.statements[0].params).toEqual([
         'watch-1',
         'watch-2',
@@ -150,7 +147,10 @@ describe('Notification Expiration (Issue #157)', () => {
 
     it('supports partial success in batch recording', async () => {
       const h = createScriptedPostgres();
-      h.next([{ recorded: ['watch-1', 'watch-3'] }]);
+      h.next([
+        { notification_id: 'row-1', class_watch_id: 'watch-1' },
+        { notification_id: 'row-3', class_watch_id: 'watch-3' },
+      ]);
 
       const result = await tryRecordNotificationsBatch(
         h.db,
@@ -158,7 +158,7 @@ describe('Notification Expiration (Issue #157)', () => {
         'instructor_assigned'
       );
 
-      expect(result).toEqual(new Set(['watch-1', 'watch-3']));
+      expect(result.map((claim) => claim.watchId)).toEqual(['watch-1', 'watch-3']);
     });
   });
 });

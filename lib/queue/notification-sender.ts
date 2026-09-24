@@ -1,7 +1,7 @@
 import type { Database } from '@/lib/db';
 import {
+  type ClaimedNotification,
   deleteNotificationRecordsByIds,
-  getNotificationRecordIds,
   getNotificationWatchers,
   tryRecordNotificationsBatch,
 } from '@/lib/db/queries';
@@ -27,26 +27,16 @@ export interface SentNotification {
   error?: string;
 }
 
-// Row-id-scoped rollback: deleting by (watch_id, type) deletes whatever active row
-// occupies the slot now, which can be a newer claim that replaced ours. Best-effort —
+// Delete the notification ids returned by the claim. Looking the active row up
+// again can hit a newer claim that replaced ours after a reset. Best-effort:
 // a failed rollback only means those users stay suppressed for the dedup window.
-// ponytail: the id map is resolved at rollback time, so a reset + re-claim inside the
-// email window can still be mapped; resolve it next to the claim if that ever bites.
-async function rollbackClaims(
-  db: Database,
-  watchIds: string[],
-  notificationType: NotificationType
-): Promise<void> {
-  try {
-    const rowIds = await getNotificationRecordIds(db, watchIds, notificationType);
+async function rollbackClaims(db: Database, notificationIds: string[]): Promise<void> {
+  if (notificationIds.length === 0) return;
 
-    if (rowIds.size === 0) return;
-    await deleteNotificationRecordsByIds(db, [...rowIds.values()]);
+  try {
+    await deleteNotificationRecordsByIds(db, notificationIds);
   } catch (rollbackError) {
-    log('NotificationSender').warn(
-      `Failed to rollback ${notificationType} notification records:`,
-      rollbackError
-    );
+    log('NotificationSender').warn('Failed to rollback notification records:', rollbackError);
   }
 }
 
@@ -77,18 +67,21 @@ export async function sendSectionNotifications(
     claimTypes.map(({ type, changed }) =>
       changed
         ? tryRecordNotificationsBatch(db, allWatchIds, type)
-        : Promise.resolve(new Set<string>())
+        : Promise.resolve([] as ClaimedNotification[])
     )
   );
 
   const firstRejection = claimResults.find((r) => r.status === 'rejected');
 
   if (firstRejection) {
-    for (const [i, { type, changed }] of claimTypes.entries()) {
+    for (const [i, { changed }] of claimTypes.entries()) {
       const result = claimResults[i];
 
-      if (changed && result?.status === 'fulfilled' && result.value.size > 0) {
-        await rollbackClaims(db, [...result.value], type);
+      if (changed && result?.status === 'fulfilled' && result.value.length > 0) {
+        await rollbackClaims(
+          db,
+          result.value.map((claim) => claim.notificationId)
+        );
       }
     }
 
@@ -97,9 +90,9 @@ export async function sendSectionNotifications(
     throw reason instanceof Error ? reason : new Error(String(reason));
   }
 
-  const claimedByType = {
-    seat_available: new Set<string>(),
-    instructor_assigned: new Set<string>(),
+  const claimedByType: Record<NotificationType, ClaimedNotification[]> = {
+    seat_available: [],
+    instructor_assigned: [],
   };
 
   claimTypes.forEach(({ type }, i) => {
@@ -112,7 +105,7 @@ export async function sendSectionNotifications(
 
   for (const watcher of watchers) {
     for (const { type } of claimTypes) {
-      if (claimedByType[type].has(watcher.watch_id)) {
+      if (claimedByType[type].some((claim) => claim.watchId === watcher.watch_id)) {
         emailsToSend.push({
           to: watcher.email,
           userId: watcher.user_id,
@@ -127,7 +120,7 @@ export async function sendSectionNotifications(
   if (emailsToSend.length === 0) {
     log('NotificationSender').info(
       `No emails to send for ${scope}` +
-        ` (seat: ${claimedByType.seat_available.size}, instructor: ${claimedByType.instructor_assigned.size})`
+        ` (seat: ${claimedByType.seat_available.length}, instructor: ${claimedByType.instructor_assigned.length})`
     );
 
     return [];
@@ -143,12 +136,15 @@ export async function sendSectionNotifications(
 
   if (failedEmails.length > 0) {
     for (const { type } of claimTypes) {
-      const failedWatchIds = failedEmails
-        .filter((e) => e.email.type === type)
-        .map((e) => e.email.watchId);
+      const failedWatchIds = new Set(
+        failedEmails.filter((e) => e.email.type === type).map((e) => e.email.watchId)
+      );
+      const failedNotificationIds = claimedByType[type]
+        .filter((claim) => failedWatchIds.has(claim.watchId))
+        .map((claim) => claim.notificationId);
 
-      if (failedWatchIds.length > 0) {
-        await rollbackClaims(db, failedWatchIds, type);
+      if (failedNotificationIds.length > 0) {
+        await rollbackClaims(db, failedNotificationIds);
       }
     }
   }

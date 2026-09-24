@@ -83,7 +83,7 @@ describe('processSection behavior (interface only)', () => {
   it('first observation persists the baseline but suppresses seat and instructor email', async () => {
     const h = createScriptedPostgres();
     h.next([]); // readSectionCheckState -> no row yet
-    h.next([]); // upsertClassState baseline
+    h.next([{ applied: true }]); // upsertClassState baseline
 
     const send = buildSend();
 
@@ -146,7 +146,7 @@ describe('processSection behavior (interface only)', () => {
         last_checked_at: '2026-09-18T13:59:59.000Z',
       },
     ]);
-    h.next([]); // upsertClassState
+    h.next([{ applied: true }]); // upsertClassState
 
     const send = buildSend();
     const fetchClass = vi.fn().mockResolvedValue(buildDetails({ instructor_name: 'Staff' }));
@@ -169,9 +169,9 @@ describe('processSection behavior (interface only)', () => {
   it('seat opens: persists the new state before any email sends', async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]); // persisted baseline, section was full
-    h.next([]); // upsertClassState
+    h.next([{ applied: true }]); // upsertClassState
     h.next([{ user_id: 'user-1', email: 'alice@example.com', watch_id: 'watch-1' }]); // watchers
-    h.next([{ recorded: '{watch-1}' }]); // seat_available claim
+    h.next([{ notification_id: 'notif-row-1', class_watch_id: 'watch-1' }]); // seat claim
 
     let upsertsAtSend = -1;
     const send = buildSend();
@@ -204,8 +204,8 @@ describe('processSection behavior (interface only)', () => {
   it('seats fill: resets seat notifications and sends no email', async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow({ seats_available: 3, non_reserved_seats: 2 })]); // was open
+    h.next([{ applied: true }]); // upsertClassState
     h.next([{ deleted: 1 }]); // reset_section_notifications RPC
-    h.next([]); // upsertClassState
 
     const send = buildSend();
 
@@ -227,12 +227,12 @@ describe('processSection behavior (interface only)', () => {
   it('emails only the claimed watcher IDs', async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);
-    h.next([]); // upsertClassState
+    h.next([{ applied: true }]); // upsertClassState
     h.next([
       { user_id: 'user-1', email: 'alice@example.com', watch_id: 'watch-1' },
       { user_id: 'user-2', email: 'bob@example.com', watch_id: 'watch-2' },
     ]);
-    h.next([{ recorded: '{watch-1}' }]); // watch-2 already notified within 24h
+    h.next([{ notification_id: 'notif-row-1', class_watch_id: 'watch-1' }]); // watch-2 already claimed
 
     const send = buildSend();
 
@@ -250,10 +250,9 @@ describe('processSection behavior (interface only)', () => {
   it('rolls back the claim by notification row id when the send fails', async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);
-    h.next([]); // upsertClassState
+    h.next([{ applied: true }]); // upsertClassState
     h.next([{ user_id: 'user-1', email: 'alice@example.com', watch_id: 'watch-1' }]);
-    h.next([{ recorded: '{watch-1}' }]); // claim
-    h.next([{ id: 'notif-row-1', class_watch_id: 'watch-1' }]); // active claim row lookup
+    h.next([{ notification_id: 'notif-row-1', class_watch_id: 'watch-1' }]); // claim returns its row id
     h.next([{ deleted: 1 }]); // delete_notification_records_by_ids rollback
 
     const send = buildSend();
@@ -275,6 +274,48 @@ describe('processSection behavior (interface only)', () => {
     expect(rollbacks).toHaveLength(1);
     expect(rollbacks[0].params).toContain('notif-row-1');
     expect(rollbacks[0].params).not.toContain('watch-1');
+  });
+
+  it('does not reset or email when a newer observation already won', async () => {
+    const h = createScriptedPostgres();
+    h.next([oldStateRow({ seats_available: 3, non_reserved_seats: 2 })]);
+    h.next([{ applied: false }]);
+
+    const send = buildSend();
+
+    const outcome = await processSection(h.db, REF, buildEnv(send), {
+      fetchClass: async () =>
+        buildDetails({ seats_available: 0, non_reserved_seats: 0, instructor_name: 'Staff' }),
+    });
+
+    expect(outcome.disposition).toBe('ack');
+    expect(outcome.result.emailsSent).toBe(0);
+    expect(send).not.toHaveBeenCalled();
+    expect(h.statements.some((s) => s.sql.includes('public.reset_section_notifications'))).toBe(
+      false
+    );
+  });
+
+  it('leaves the instructor claim in place when the upsert fails after a Staff reversion', async () => {
+    const h = createScriptedPostgres();
+    h.next([
+      oldStateRow({ instructor_name: 'Dr. Smith', seats_available: 0, non_reserved_seats: 0 }),
+    ]);
+    h.failNext(new Error('upsert failed'));
+
+    const send = buildSend();
+
+    const outcome = await processSection(h.db, REF, buildEnv(send), {
+      fetchClass: async () =>
+        buildDetails({ seats_available: 0, non_reserved_seats: 0, instructor_name: 'Staff' }),
+    });
+
+    expect(outcome.disposition).toBe('retry');
+    expect(outcome.httpStatus).toBe(500);
+    expect(send).not.toHaveBeenCalled();
+    expect(h.statements.some((s) => s.sql.includes('public.reset_section_notifications'))).toBe(
+      false
+    );
   });
 
   it('first NotFound tracks strike 1 with ack and deletes nothing', async () => {

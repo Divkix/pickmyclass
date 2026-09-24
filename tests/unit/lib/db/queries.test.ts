@@ -401,11 +401,14 @@ describe('readSectionCheckState', () => {
   });
 });
 
+const OBSERVED_AT = new Date('2026-09-24T12:00:00.000Z');
+
 describe('upsertClassState', () => {
   it('calls upsert_class_state_locked with the SectionRef and the ASU details', async () => {
     const h = createScriptedPostgres();
+    h.next([{ applied: true }]);
 
-    await upsertClassState(h.db, { class_nbr: '12345', term: '2261' }, buildDetails());
+    await upsertClassState(h.db, { class_nbr: '12345', term: '2261' }, buildDetails(), OBSERVED_AT);
 
     expect(h.statements).toHaveLength(1);
     expect(normalizeSql(h.statements[0].sql)).toContain('public.upsert_class_state_locked');
@@ -421,11 +424,14 @@ describe('upsertClassState', () => {
       2,
       'BYAO 210',
       'MWF 9:00-9:50am',
+      '2026-09-24T12:00:00.000Z',
     ]);
   });
 
   it('preserves the legacy falsy coercions: empty strings become null, zero stays zero', async () => {
     const h = createScriptedPostgres();
+
+    h.next([{ applied: true }]);
 
     await upsertClassState(
       h.db,
@@ -437,7 +443,8 @@ describe('upsertClassState', () => {
         meeting_times: '',
         seats_available: 0,
         seats_capacity: 0,
-      })
+      }),
+      OBSERVED_AT
     );
 
     const params = h.statements[0].params;
@@ -454,7 +461,7 @@ describe('upsertClassState', () => {
     h.failNext(new Error('connection refused'));
 
     await expect(
-      upsertClassState(h.db, { class_nbr: '12345', term: '2261' }, buildDetails())
+      upsertClassState(h.db, { class_nbr: '12345', term: '2261' }, buildDetails(), OBSERVED_AT)
     ).rejects.toThrow('Failed to upsert class state: connection refused');
   });
 });
