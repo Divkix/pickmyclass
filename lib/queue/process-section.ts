@@ -114,6 +114,7 @@ export async function processSection(
     }
 
     newData = await fetchClass(ref, env, { useCache: false });
+    const observedAt = new Date();
 
     changes = detectChanges(oldState, newData);
 
@@ -122,24 +123,19 @@ export async function processSection(
       changes.instructorAssigned = false;
     }
 
-    if (changes.seatsFilled) {
-      await resetNotificationsForSection(db, ref, 'seat_available');
-    }
-
     // Staff -> X -> Staff -> X must re-notify: when the instructor reverts to Staff,
     // free the instructor_assigned slot. Without this, the next assignment is still
-    // suppressed for the remainder of the 24h dedup window.
+    // suppressed for the remainder of the 24h dedup window. Reset only after the
+    // upsert sticks, so a failed write cannot drop the claim.
     const instructorRevertedToStaff =
       oldState !== null &&
       (oldState.instructor_name ?? 'Staff') !== 'Staff' &&
       newData.instructor_name === 'Staff';
 
-    if (instructorRevertedToStaff) {
-      await resetNotificationsForSection(db, ref, 'instructor_assigned');
-    }
+    let applied: boolean;
 
     try {
-      await upsertClassState(db, ref, newData);
+      applied = await upsertClassState(db, ref, newData, observedAt);
     } catch (upsertError) {
       log('ProcessSection').error(`Database error for ${classNbr}:`, upsertError);
 
@@ -154,6 +150,26 @@ export async function processSection(
         },
         500
       );
+    }
+
+    if (!applied) {
+      log('ProcessSection').info(`Skipping ${classNbr}: a newer observation is already stored`);
+
+      return ackOutcome({
+        success: true,
+        classNbr,
+        changes: emptyChanges(),
+        emailsSent: 0,
+        processingTimeMs: Date.now() - startTime,
+      });
+    }
+
+    if (changes.seatsFilled) {
+      await resetNotificationsForSection(db, ref, 'seat_available');
+    }
+
+    if (instructorRevertedToStaff) {
+      await resetNotificationsForSection(db, ref, 'instructor_assigned');
     }
 
     if (changes.seatBecameAvailable || changes.instructorAssigned) {

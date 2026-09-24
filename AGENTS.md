@@ -94,8 +94,8 @@ Two tsconfigs: `tsconfig.json` (app, excludes worker.ts) + `tsconfig.worker.json
 
 ## Critical invariants & gotchas
 
-- **`processSection` order** reset -> **upsert `class_states` before send** — moving send earlier double-sends on retry.
-- **Email only the IDs returned by `tryRecordNotificationsBatch`** (claimed set) and **rollback failed sends** via `deleteNotificationRecordsByIds` (row-id scoped through `getNotificationRecordIds`), or users suppressed 24h.
+- **`processSection` order** conditional upsert (`observedAt` vs `last_checked_at`) -> reset -> send. A rejected upsert skips reset and send. Moving send earlier double-sends on retry; resetting before the upsert drops a claim when the write fails.
+- **Email only the watch IDs returned by `tryRecordNotificationsBatch`** and **rollback failed sends** with the notification row ids from that same claim (`deleteNotificationRecordsByIds`). A later lookup of the active row can delete a newer claim.
 - **`expire_stale_notifications()` on every 30-min cron tail + 04:05 maintenance sweep + past-term watch delete is load-bearing** — without it re-notifications stop.
 - **`processSection` owns `ack`/`retry`** (`SectionCheckOutcome`); callers only translate to transport. HTTP route returns `200` for `ack` on purpose.
 - **`class_states` key is `(class_nbr, term)`** — always include term.
