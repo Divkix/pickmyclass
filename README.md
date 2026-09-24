@@ -119,7 +119,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 
 ### Prerequisites
 
-- [pnpm](https://pnpm.io/) 12.5.1
+- [pnpm](https://pnpm.io/) 12.6.0
 - [PlanetScale](https://planetscale.com/) Postgres (PS-5) + Cloudflare Hyperdrive (`--caching-disabled`)
 - [Clerk](https://clerk.com/) (Hobby free ≤50k MRU) — OAuth app for Google, custom domain `clerk.your-domain.com`
 - [Cloudflare Account](https://cloudflare.com/) (Workers, Queues, KV, Email Service)
@@ -229,10 +229,12 @@ pnpm run preview          # vinext build + wrangler dev (real Worker locally)
 
 ```bash
 pnpm run build            # Build application
+pnpm run check            # Vite+ format, lint, and app type-check
+pnpm run verify           # check + app/worker type-check + Knip (pre-commit and CI gate)
 pnpm run lint             # Run Oxlint linter
 pnpm run lint:fix         # Fix lint issues
 pnpm run format           # Format code with Oxfmt
-pnpm run knip             # Find unused exports/dependencies
+pnpm run knip             # Find unused exports/dependencies (verify sets a safe DATABASE_URL)
 pnpm run cf-typegen       # Generate TypeScript types for Cloudflare env (lib/cloudflare-env.d.ts)
 pnpm run type-check       # tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
 ```
@@ -326,7 +328,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/my-feature`
 3. Make your changes
-4. Run linting: `pnpm run lint:fix`
+4. Run verification with pnpm run verify
 5. Commit with conventional commits: `git commit -m "feat: add new feature"`
 6. Push and open a PR
 

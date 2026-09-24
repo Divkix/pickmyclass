@@ -1,9 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "project": ["**/*.{ts,tsx}"],
+  "project": ["**/*.{ts,tsx,css}"],
   "entry": ["scripts/verify-migration.ts", "vitest.db.config.ts"],
-  "ignore": ["components/ui/**", "tests/mocks/**", "tools/oxlint/anti-slop/**"],
-  "ignoreDependencies": ["tailwindcss", "tw-animate-css", "cloudflare"],
+  "ignore": ["tests/mocks/**", "tools/oxlint/anti-slop/**"],
+  "ignoreDependencies": ["cloudflare"],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false,
   "ignoreIssues": {

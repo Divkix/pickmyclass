@@ -14,6 +14,7 @@
     "check": "vp check",
     "check:fix": "vp check --fix",
     "knip": "knip",
+    "verify": "pnpm run check && pnpm run type-check && DATABASE_URL=postgres://user:pass@localhost:5432/db pnpm run knip",
     "preview": "vinext build && wrangler dev",
     "deploy": "POSTHOG_UPLOAD_SOURCEMAPS=true vinext build && wrangler deploy && wrangler triggers deploy",
     "cf-typegen": "wrangler types --config wrangler.jsonc --env-file /dev/null --env-interface CloudflareEnv lib/cloudflare-env.d.ts",
@@ -81,5 +82,5 @@
     "vitest": "catalog:",
     "wrangler": "^4.138.0"
   },
-  "packageManager": "pnpm@12.5.1"
+  "packageManager": "pnpm@12.6.0"
 }
