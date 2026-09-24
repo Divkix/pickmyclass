@@ -253,7 +253,7 @@ describe('DashboardPage', () => {
 
       const errorAlert = await screen.findByTestId('alert');
       expect(errorAlert).toBeInTheDocument();
-      expect(errorAlert).toHaveTextContent(/Failed to fetch class states/);
+      expect(errorAlert).toHaveTextContent('Failed to fetch class states');
     });
 
     it('should not display error alert when useRealtimeClassStates has no error', async () => {

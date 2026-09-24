@@ -8,8 +8,8 @@ allowBuilds:
 minimumReleaseAge: 0
 trustPolicy: no-downgrade
 overrides:
-  vite-plus: 0.3.1
-  '@vitest/coverage-v8': 4.1.11
+  vite-plus: 1.0.0-rc.0
+  '@vitest/coverage-v8': 5.0.1
   postcss: 8.5.26
   vite@*: 'catalog:'
   vitest@*: 'catalog:'
@@ -33,7 +33,7 @@ minimumReleaseAgeExclude:
   - '@vitest/*'
   - posthog-js
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@0.3.1
-  vitest: 4.1.11
-  vite-plus: 0.3.1
-  '@vitest/coverage-v8': 4.1.11
+  vite: npm:@voidzero-dev/vite-plus-core@1.0.0-rc.0
+  vitest: 5.0.1
+  vite-plus: 1.0.0-rc.0
+  '@vitest/coverage-v8': 5.0.1
