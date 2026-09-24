@@ -306,6 +306,7 @@ export async function tryRecordNotificationsBatch(
         ? [{ notificationId: parsed.data.notification_id, watchId: parsed.data.class_watch_id }]
         : [];
     });
+
     log('DB').info(`Batch ${notificationType}: ${claimed.length}/${watchIds.length} recorded`);
 
     return claimed;
