@@ -32,7 +32,7 @@ describe('browser instrumentation', () => {
       expect.objectContaining({
         api_host: 'https://s.pickmyclass.app',
         ui_host: 'https://us.posthog.com',
-        defaults: '2026-05-30',
+        defaults: '2026-08-30',
         capture_exceptions: true,
       })
     );
