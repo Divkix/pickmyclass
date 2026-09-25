@@ -1,8 +1,11 @@
 import posthogPlugin from '@posthog/rollup-plugin';
 import { cloudflare } from '@cloudflare/vite-plugin';
 import vinext from 'vinext';
-import { defineConfig, loadEnv, type PluginOption } from 'vite-plus';
-import { shouldUploadPosthogSourcemaps } from './lib/analytics/sourcemap-upload';
+import { defineConfig, loadEnv, type Plugin, type PluginOption } from 'vite-plus';
+import {
+  failOpenSourcemapUpload,
+  shouldUploadPosthogSourcemaps,
+} from './lib/analytics/sourcemap-upload';
 import { log } from './lib/log';
 
 export default defineConfig(({ mode }) => {
@@ -33,7 +36,7 @@ export default defineConfig(({ mode }) => {
 
     // SAFETY: The PostHog plugin uses standard Rollup hooks supported by
     // Vite+'s Rolldown compatibility layer; only the package contexts differ.
-    plugins.push(plugin as PluginOption);
+    plugins.push(failOpenSourcemapUpload(plugin as Plugin));
   } else if (uploadRequested) {
     log('vite').warn(
       'POSTHOG_UPLOAD_SOURCEMAPS=true but POSTHOG_API_KEY/POSTHOG_PROJECT_ID are unset; skipping source-map upload.'
