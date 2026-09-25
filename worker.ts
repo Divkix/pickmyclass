@@ -67,7 +67,7 @@ export default {
 
       const target = new URL(request.url);
       target.pathname = markdownPath;
-      const response = await handler.fetch(new Request(target, request));
+      const response = await handler.fetch(new Request(target, request), env, ctx);
       if (!isHtmlResponse(response)) return response;
 
       return markdownResponse({ response, html: await response.text(), url: request.url });
@@ -76,7 +76,7 @@ export default {
     if (prefersMarkdown(request.headers.get('accept'))) {
       // Markdown requests never touch the edge cache: it stores one HTML
       // representation per path, and the conversion is cheap for agent traffic.
-      const response = await handler.fetch(request);
+      const response = await handler.fetch(request, env, ctx);
       if (!isHtmlResponse(response)) return response;
 
       return markdownResponse({ response, html: await response.text(), url: request.url });
@@ -84,7 +84,7 @@ export default {
 
     if (!edgeHtmlCache.isEligible(request)) {
       return withAgentHeaders(
-        withJsonApiError(await handler.fetch(request), url.pathname, request.method),
+        withJsonApiError(await handler.fetch(request, env, ctx), url.pathname, request.method),
         url.pathname
       );
     }
@@ -96,7 +96,7 @@ export default {
     }
 
     const response = withAgentHeaders(
-      withJsonApiError(await handler.fetch(request), url.pathname, request.method),
+      withJsonApiError(await handler.fetch(request, env, ctx), url.pathname, request.method),
       url.pathname
     );
 

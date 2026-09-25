@@ -50,7 +50,7 @@ describe('worker edge HTML cache adapter', () => {
 
     expect(cacheIsEligible).toHaveBeenCalledWith(request);
     expect(cacheGet).not.toHaveBeenCalled();
-    expect(render).toHaveBeenCalledWith(request);
+    expect(render).toHaveBeenCalledWith(request, env, ctx);
   });
 
   it('returns a cache hit without rendering', async () => {
