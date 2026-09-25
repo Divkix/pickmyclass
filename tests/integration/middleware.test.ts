@@ -65,6 +65,19 @@ function createRequest(pathname: string, cookie?: string): NextRequest {
   });
 }
 
+function cspDirective(csp: string | null, name: string): string {
+  return (
+    (csp ?? '')
+      .split(';')
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(`${name} `)) ?? ''
+  );
+}
+
+function scriptSrcOf(csp: string | null): string {
+  return cspDirective(csp, 'script-src');
+}
+
 function seedAuthenticated(
   identity: SessionIdentity = IDENTITY,
   verification: UserVerificationState = VERIFIED,
@@ -82,17 +95,11 @@ describe('proxy', () => {
 
   it('allows the Turnstile script and Clerk fraud hosts that sign-up loads', async () => {
     const response = await proxy(createRequest('/sign-up'));
-    const csp = response.headers.get('content-security-policy') ?? '';
+    const csp = response.headers.get('content-security-policy');
 
-    const directive = (name: string) =>
-      csp
-        .split(';')
-        .map((part) => part.trim())
-        .find((part) => part.startsWith(`${name} `)) ?? '';
-
-    const scriptSrc = directive('script-src');
-    const frameSrc = directive('frame-src');
-    const connectSrc = directive('connect-src');
+    const scriptSrc = cspDirective(csp, 'script-src');
+    const frameSrc = cspDirective(csp, 'frame-src');
+    const connectSrc = cspDirective(csp, 'connect-src');
 
     expect(scriptSrc).toContain('https://challenges.cloudflare.com');
     expect(scriptSrc).toContain('https://*.protect.clerk.com');
@@ -114,6 +121,15 @@ describe('proxy', () => {
     expect(mockReadUserVerification).not.toHaveBeenCalled();
   });
 
+  it('lets cached public pages run inline framework scripts without an unusable nonce', async () => {
+    const response = await proxy(createRequest('/'));
+    const scriptSrc = scriptSrcOf(response.headers.get('content-security-policy'));
+
+    expect(scriptSrc).toContain("'unsafe-inline'");
+    expect(scriptSrc).not.toContain("'nonce-");
+    expect(scriptSrc).not.toContain("'sha256-");
+  });
+
   it('redirects anonymous requests away from protected routes without creating a database handle', async () => {
     const response = await proxy(createRequest('/dashboard'));
 
@@ -122,6 +138,18 @@ describe('proxy', () => {
     expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     expect(mockReadAuthorizationState).not.toHaveBeenCalled();
     expect(mockReadUserVerification).not.toHaveBeenCalled();
+  });
+
+  it('gives session requests a fresh script nonce instead of inline allowance', async () => {
+    seedAuthenticated();
+
+    const first = await proxy(createRequest('/dashboard', '__session=token'));
+    const second = await proxy(createRequest('/dashboard', '__session=token'));
+    const firstScriptSrc = scriptSrcOf(first.headers.get('content-security-policy'));
+
+    expect(firstScriptSrc).toMatch(/'nonce-[0-9a-f-]{36}'/);
+    expect(firstScriptSrc).not.toContain("'unsafe-inline'");
+    expect(firstScriptSrc).not.toBe(scriptSrcOf(second.headers.get('content-security-policy')));
   });
 
   it('allows consented verified users through and shares one handle across both gate reads', async () => {
