@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth as useClerkAuth, useClerk, useUser } from '@clerk/react';
-import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import {
   identifyAnalyticsUser,
   resetAnalyticsIdentity,
@@ -61,16 +61,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const analyticsUserId = clerkUser ? (clerkUser.externalId ?? clerkUser.id) : null;
   const analyticsEmail = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
+  // Reset only on a signed-in → signed-out transition, so sessions that end
+  // outside signOut() (expiry, sign-out in another tab) stop attributing events
+  // to the previous user. Resetting on every anonymous load would mint a new
+  // anonymous distinct id per page view and split one visitor into many.
+  const wasIdentified = useRef(false);
   useEffect(() => {
     if (analyticsUserId) {
       identifyAnalyticsUser(analyticsUserId, { email: analyticsEmail });
+      wasIdentified.current = true;
+    } else if (!loading && wasIdentified.current) {
+      resetAnalyticsIdentity();
+      wasIdentified.current = false;
     }
-  }, [analyticsUserId, analyticsEmail]);
+  }, [analyticsUserId, analyticsEmail, loading]);
 
   const signOut = useCallback(async () => {
     try {
       trackAnalyticsEvent('user_logged_out', {});
       resetAnalyticsIdentity();
+      wasIdentified.current = false;
       await clerk.signOut();
       await fetch('/api/auth/signout', { method: 'POST' });
     } catch (error) {

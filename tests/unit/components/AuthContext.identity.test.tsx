@@ -1,9 +1,10 @@
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { AuthProvider } from '@/lib/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/lib/contexts/AuthContext';
 
-const { mockIdentify, clerkUser } = vi.hoisted(() => ({
+const { mockIdentify, mockReset, clerkUser } = vi.hoisted(() => ({
   mockIdentify: vi.fn(),
+  mockReset: vi.fn(),
   clerkUser: {
     // SAFETY: starts signed-out; every assignment below passes satisfies ClerkUserFixture.
     current: null as ClerkUserFixture | null,
@@ -12,14 +13,22 @@ const { mockIdentify, clerkUser } = vi.hoisted(() => ({
 
 vi.mock('@/lib/analytics/client', () => ({
   identifyAnalyticsUser: mockIdentify,
-  resetAnalyticsIdentity: vi.fn(),
+  resetAnalyticsIdentity: mockReset,
   trackAnalyticsEvent: vi.fn(),
 }));
 
 vi.mock('@clerk/react', () => ({
-  useUser: () => ({ isLoaded: true, isSignedIn: true, user: clerkUser.current }),
+  useUser: () => ({
+    isLoaded: true,
+    isSignedIn: clerkUser.current !== null,
+    user: clerkUser.current,
+  }),
   useAuth: () => ({ isLoaded: true, isSignedIn: true, sessionId: 'sess_test' }),
-  useClerk: () => ({ signOut: vi.fn().mockResolvedValue(undefined) }),
+  useClerk: () => ({
+    signOut: vi.fn(async () => {
+      clerkUser.current = null;
+    }),
+  }),
 }));
 
 interface ClerkUserFixture {
@@ -76,5 +85,72 @@ describe('analytics identity rule', () => {
     expect(mockIdentify).toHaveBeenCalledWith('user_clerk_456', {
       email: 'newstudent@example.com',
     });
+  });
+
+  it('resets identity when the session ends outside signOut (expiry, other tab)', async () => {
+    clerkUser.current = {
+      id: 'user_clerk_789',
+      externalId: null,
+      primaryEmailAddress: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      lastSignInAt: null,
+    } satisfies ClerkUserFixture;
+
+    const { rerender } = render(<AuthProvider>{null}</AuthProvider>);
+
+    await waitFor(() => expect(mockIdentify).toHaveBeenCalled());
+    expect(mockReset).not.toHaveBeenCalled();
+
+    clerkUser.current = null;
+    rerender(<AuthProvider>{null}</AuthProvider>);
+
+    await waitFor(() => expect(mockReset).toHaveBeenCalledTimes(1));
+  });
+
+  it('never resets an anonymous visitor who was not signed in', async () => {
+    clerkUser.current = null;
+
+    render(<AuthProvider>{null}</AuthProvider>);
+
+    await waitFor(() => expect(mockIdentify).not.toHaveBeenCalled());
+    expect(mockReset).not.toHaveBeenCalled();
+  });
+
+  it('resets exactly once when the user signs out through signOut()', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null)));
+    clerkUser.current = {
+      id: 'user_clerk_321',
+      externalId: null,
+      primaryEmailAddress: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      lastSignInAt: null,
+    } satisfies ClerkUserFixture;
+
+    let signOut: (() => Promise<void>) | undefined;
+
+    function SignOutProbe() {
+      signOut = useAuth().signOut;
+
+      return null;
+    }
+
+    const { rerender } = render(
+      <AuthProvider>
+        <SignOutProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(mockIdentify).toHaveBeenCalled());
+    await act(async () => {
+      await signOut?.();
+    });
+    rerender(
+      <AuthProvider>
+        <SignOutProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(mockReset).toHaveBeenCalledTimes(1));
+    vi.unstubAllGlobals();
   });
 });
