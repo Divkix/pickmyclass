@@ -27,6 +27,12 @@ const POSTHOG_COOKIE_NAME = `ph_${POSTHOG_PROJECT_TOKEN}_posthog`;
 
 const posthogCookieSchema = z.object({ distinct_id: z.string().min(1) });
 
+function shutdownClient(client: PostHog): Promise<void> {
+  return client.shutdown(SHUTDOWN_TIMEOUT_MS).catch((error) => {
+    log('Analytics').warn('Failed to shut down analytics client:', error);
+  });
+}
+
 function createClient(): PostHog {
   return new PostHog(POSTHOG_PROJECT_TOKEN, {
     host: POSTHOG_API_HOST,
@@ -49,7 +55,7 @@ export function captureServerEvent<E extends keyof AnalyticsEventMap>(
       .catch((error) => {
         log('Analytics').warn('Failed to send analytics event:', error);
       })
-      .finally(() => client.shutdown(SHUTDOWN_TIMEOUT_MS))
+      .finally(() => shutdownClient(client))
   );
 }
 
@@ -100,6 +106,6 @@ export async function captureServerException(
   } catch (sendError) {
     log('Analytics').warn('Failed to send analytics exception:', sendError);
   } finally {
-    await client.shutdown(SHUTDOWN_TIMEOUT_MS);
+    await shutdownClient(client);
   }
 }

@@ -130,6 +130,36 @@ describe('server-side analytics boundary', () => {
   });
 });
 
+describe('analytics client shutdown failures', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCaptureImmediate.mockResolvedValue(undefined);
+    mockCaptureExceptionImmediate.mockResolvedValue(undefined);
+  });
+
+  it('never rejects the waitUntil promise when shutdown fails after an event', async () => {
+    mockShutdown.mockRejectedValueOnce(new Error('shutdown timed out'));
+
+    captureServerEvent('user-1', 'account_deleted', {});
+
+    await expect(registeredPromise()).resolves.toBeUndefined();
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Failed to shut down analytics client:',
+      expect.any(Error)
+    );
+  });
+
+  it('never rejects the exception capture when shutdown fails', async () => {
+    mockShutdown.mockRejectedValueOnce(new Error('shutdown timed out'));
+
+    await expect(captureServerException(new Error('boom'))).resolves.toBeUndefined();
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Failed to shut down analytics client:',
+      expect.any(Error)
+    );
+  });
+});
+
 describe('server exception attribution', () => {
   type PostHogCookieValue = { distinct_id?: string; $sesid?: number[] };
 
