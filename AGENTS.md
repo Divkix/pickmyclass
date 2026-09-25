@@ -103,6 +103,7 @@ validate-lockfile -> quality/test/check in parallel -> ci-success (required). Th
 - **`processSection` owns `ack`/`retry`** (`SectionCheckOutcome`); callers only translate to transport. ASU 429 retries use `retryDelaySeconds()` (60s doubling, honours `Retry-After`, 15-min cap).
 - **`class_states` key is `(class_nbr, term)`** — always include term.
 - **`proxy.ts` is THE auth gate** (Clerk `jwtKey`, `hasClerkSessionCookies`, `ext_id` claim, `readAuthorizationState` 30s cache). Invalidate via `invalidateAuthorizationState` after consent/admin changes.
+- **CSP has two production shapes in `proxy.ts`:** session requests get a per-request `'nonce-…'` (vinext reads it from the CSP header and stamps its inline scripts); session-less public pages are edge-cached, so they get `'unsafe-inline'` with **no** nonce/hash (either makes browsers ignore `'unsafe-inline'`). An empty `'nonce-'` there blanked the homepage for anonymous visitors and Googlebot's renderer (Aug–Sep 2026).
 - **First-observation guard** (`!oldState`) suppresses false seat emails — keep it.
 - **`non_reserved_seats` populated since #198** (`Math.max(0, enrlCap-enrlTot-waitTot)`), fallback `non_reserved_seats ?? seats_available` in `detectChanges`.
 - **`lib/asu/terms.ts` needs yearly August update** or new watch creation silently blocks.

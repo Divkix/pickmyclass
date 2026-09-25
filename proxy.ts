@@ -60,10 +60,10 @@ const CSP_FORM_ACTION = "form-action 'self'";
 
 const CSP_NEXT_THEMES_HASH = "'sha256-jGCia7LAT8V5tk83CgiiU5FMqw9uEVddMT+0ZQDzVAM='";
 
-function buildProductionCsp(nonce: string): string {
+function buildProductionCsp(inlineScriptSource: string): string {
   return [
     CSP_DEFAULT_SRC,
-    `script-src 'self' 'nonce-${nonce}' ${CSP_NEXT_THEMES_HASH} https://static.cloudflareinsights.com https://analytics.divkix.me ${CSP_CLERK_SCRIPT_HOSTS}`,
+    `script-src 'self' ${inlineScriptSource} https://static.cloudflareinsights.com https://analytics.divkix.me ${CSP_CLERK_SCRIPT_HOSTS}`,
     CSP_STYLE_SRC,
     CSP_IMG_SRC,
     CSP_FONT_SRC,
@@ -75,6 +75,18 @@ function buildProductionCsp(nonce: string): string {
     CSP_FORM_ACTION,
   ].join('; ');
 }
+
+function buildNonceCsp(nonce: string): string {
+  return buildProductionCsp(`'nonce-${nonce}' ${CSP_NEXT_THEMES_HASH}`);
+}
+
+// Session-less public pages are edge-cached and replayed to every visitor, and
+// vinext skips its page cache whenever the CSP carries a nonce, so these pages
+// cannot have a per-request nonce. They allow inline scripts instead. Never put
+// a nonce or hash beside 'unsafe-inline': browsers then ignore it, and an empty
+// 'nonce-' here once blocked vinext's inline bootstrap and blanked the homepage
+// for anonymous visitors and Googlebot's renderer.
+const PUBLIC_CSP = buildProductionCsp("'unsafe-inline'");
 
 const DEV_CSP = [
   CSP_DEFAULT_SRC,
@@ -124,7 +136,7 @@ export async function proxy(request: NextRequest) {
   const routeIsPublic = isPublicRoute(pathname);
 
   if (routeIsPublic && !hasClerkSessionCookies(request.cookies.getAll().map((c) => c.name))) {
-    const csp = isDevelopment ? DEV_CSP : buildProductionCsp('');
+    const csp = isDevelopment ? DEV_CSP : PUBLIC_CSP;
     const response = NextResponse.next();
     addSecurityHeaders(response, isDevelopment, csp);
 
@@ -133,7 +145,7 @@ export async function proxy(request: NextRequest) {
 
   // crypto.randomUUID() is available in both Node.js 19+ and Cloudflare Workers.
   const nonce = !isDevelopment ? crypto.randomUUID() : '';
-  const csp = isDevelopment ? DEV_CSP : buildProductionCsp(nonce);
+  const csp = isDevelopment ? DEV_CSP : buildNonceCsp(nonce);
 
   const requestHeadersWithNonce = new Headers(request.headers);
 
