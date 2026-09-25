@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const { mockCaptureServerException } = vi.hoisted(() => ({
+const { mockCaptureServerException, mockDistinctIdFromCookieHeader } = vi.hoisted(() => ({
   mockCaptureServerException: vi.fn(),
+  mockDistinctIdFromCookieHeader: vi.fn(),
 }));
 
 vi.mock('@/lib/analytics/server', () => ({
   captureServerException: mockCaptureServerException,
+  distinctIdFromCookieHeader: mockDistinctIdFromCookieHeader,
 }));
 
 import { onRequestError } from '../../instrumentation';
@@ -44,8 +46,23 @@ describe('root request instrumentation', () => {
         route_path: '/dashboard/[id]',
         route_type: 'render',
         router_kind: 'App Router',
-      })
+      }),
+      undefined
     );
+  });
+
+  it('attributes the exception to the distinct id recovered from the cookie header', () => {
+    mockDistinctIdFromCookieHeader.mockReturnValueOnce('anon-123');
+    const cookie = 'ph_phc_x_posthog=%7B%7D';
+
+    onRequestError(
+      new Error('render exploded'),
+      { path: '/x', method: 'GET', headers: { cookie } },
+      { routerKind: 'App Router', routePath: '/x', routeType: 'render' }
+    );
+
+    expect(mockDistinctIdFromCookieHeader).toHaveBeenCalledWith(cookie);
+    expect(mockCaptureServerException.mock.calls[0][2]).toBe('anon-123');
   });
 
   it('never sends request headers or their values as properties', () => {
