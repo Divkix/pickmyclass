@@ -28,7 +28,7 @@
     "lib/api/wire.ts",
     "lib/email/templates/footer.ts",
     "lib/queue/section-retirement.ts",
-    "lib/worker/cron-lock.ts",
+    "lib/workflows/cron-workflows.ts",
     "lib/worker/api-errors.ts",
     "lib/worker/edge-html-cache.ts",
     "lib/worker/markdown-negotiation.ts",

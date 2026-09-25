@@ -19,3 +19,8 @@ export const AUTO_CLEANUP_THRESHOLD = 3;
 export const AUTO_CLEANUP_BREAKER_RATIO = 0.2;
 
 export const AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE = 500;
+
+/** Queue retry delay after an ASU 429: doubles per attempt from the base, capped. */
+export const RATE_LIMIT_RETRY_BASE_S = 60;
+
+export const RATE_LIMIT_RETRY_MAX_S = 15 * 60;

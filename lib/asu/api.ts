@@ -20,10 +20,29 @@ export class AuthError extends ApiError {
 }
 
 export class RateLimitError extends ApiError {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    public retryAfterSeconds?: number
+  ) {
     super(message, 429);
     this.name = 'RateLimitError';
   }
+}
+
+/** `Retry-After` as delta-seconds or an HTTP date; undefined when absent or unparseable. */
+export function parseRetryAfterSeconds(
+  header: string | null,
+  now = Date.now()
+): number | undefined {
+  if (!header) return undefined;
+
+  const seconds = Number(header);
+
+  if (Number.isFinite(seconds)) return Math.max(0, Math.ceil(seconds));
+
+  const date = Date.parse(header);
+
+  return Number.isNaN(date) ? undefined : Math.max(0, Math.ceil((date - now) / 1000));
 }
 
 export class NotFoundError extends ApiError {
@@ -191,7 +210,10 @@ export async function fetchClassFromASU(
   }
 
   if (response.status === 429) {
-    throw new RateLimitError('ASU API rate limit hit');
+    throw new RateLimitError(
+      'ASU API rate limit hit',
+      parseRetryAfterSeconds(response.headers.get('retry-after'))
+    );
   }
 
   if (!response.ok) {

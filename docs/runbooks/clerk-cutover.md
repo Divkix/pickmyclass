@@ -93,7 +93,7 @@ curl -I https://pickmyclass.app --resolve clerk... # 200 + CSP *.clerk.accounts.
 3. **Unverified resume** → signed-in but unverified user hitting a protected page bounces to `/sign-in`, where the hosted flow offers the verification step (`/sign-in` is allow-listed in `decideGate` rule ② to avoid a self-redirect loop).
 4. **Sign-in** → hosted `/sign-in` (`<SignIn>`), password checked by Clerk → dashboard. **Lockout** is Clerk Attack Protection's job now — no `/api/auth/login` ticket flow, no 423, no `check-lockout` endpoint.
 5. **Google OAuth** → hosted connection → lands on `/auth/post-oauth` via the SignUp fallback redirect → mirror-race repair + re-link by verified email (`externalId` mapping from the 2026-08-22 import still keys this).
-12. **Health** → `GET /api/monitoring/health` DB + ASU API + CronLock + email + config 200.
+12. **Health** → `GET /api/monitoring/health` DB + ASU API + email + config 200.
 13. **Sign-out** → `AuthButton` `await clerk.signOut()` (clears `__session` client) → `POST /api/auth/signout` (`revokeSession` + `CLERK_COOKIES_TO_CLEAR`) → `window.location.href='/sign-in'` hard redirect (not bounce; server-revoke-only used to leave client `__session` alive).
 
 ## Unfreeze

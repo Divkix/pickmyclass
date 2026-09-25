@@ -27,9 +27,9 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Change Detection** — The algorithm that compares old and new section data to determine if seats became available, seats filled, or an instructor was assigned. The seat signal is `non_reserved_seats ?? seats_available`; `non_reserved_seats` is computed as `Math.max(0, enrlCap - enrlTot - waitTot)` in `lib/asu/api.ts` and persisted via `upsertClassState` (`lib/db/queries.ts`), with fallback `non_reserved_seats ?? seats_available` when `NULL` (no waitlist data) — see `docs/adr/0005-non-reserved-seats-dormant-column.md` (pre-#198 wording is historical).
 
-- **Cron Cycle** — The every-30-minute scheduled job (`/api/cron`) that enqueues Section Checks. Partitioned by Stagger Group.
+- **Cron Cycle** — One `SectionCheckWorkflow` instance, started every 30 minutes by its Workflow `schedules`, that enqueues Section Checks. Partitioned by Stagger Group.
 
-- **Stagger Group** — Even/odd class_nbr partitioning to spread checks across two cron triggers (:00 = even, :30 = odd). Reduces load on the ASU API.
+- **Stagger Group** — Even/odd class_nbr partitioning to spread checks across the two half-hourly runs (:00 = even, :30 = odd). Reduces load on the ASU API.
 
 - **Queue Message** — A `ClassCheckMessage` containing `class_nbr`, `term`, `enqueued_at`, and the Cron Cycle stamp `cycle` (`<scheduledTime>:<stagger group>`) used to skip redeliveries. Sent to Cloudflare Queue for parallel processing.
 
@@ -75,9 +75,10 @@ This document defines domain terms used throughout the codebase. New modules sho
 - **Clerk Webhook** — Svix `verifyWebhook` at `POST /api/webhooks/clerk` for `user.created/updated/deleted` (secret `whsec_...`, 2xx fast; retries on 4xx/5xx).
 - **Data Plane** — PlanetScale Postgres via Hyperdrive (`pg` 8.23, `--caching-disabled`, 5-conn pool `lib/db/client.ts`, `docs/adr/0013-data-access-hyperdrive.md`), not Supabase PostgREST.
 
-## Durable Objects
+## Workflows
 
-- **CronLockDO** — Durable Object that prevents duplicate cron executions. Auto-expires after 25 minutes.
+- **SectionCheckWorkflow** — The Cron Cycle (`lib/workflows/cron-workflows.ts`). Retried steps; no lock (duplicates are made safe by the `cycle` stamp).
+- **MaintenanceWorkflow** — Daily 04:05 UTC: expire stale notifications + delete past-term watches.
 
 ## Onboarding
  
@@ -108,4 +109,4 @@ This document defines domain terms used throughout the codebase. New modules sho
 ## Infrastructure
 
 - **Queue Consumer** — Cloudflare Queue consumer (`max_concurrency: 20`, `max_batch_size: 5`). `worker.ts queue()` calls `processSection()` directly (no HTTP); tests exercise `processSection()` directly (`docs/adr/0006-queue-ack-retry-contract.md`). Data plane is PlanetScale via Hyperdrive (`lib/db/client.ts`), not Supabase; live dashboard is polling (`docs/adr/0014-realtime-to-polling.md`).
-- **Dead Letter Queue (DLQ)** — Queue for failed messages that exceeded max retries. Always ack after a `DLQ_SECTION_FAILED` log. No email. The next cron cycle enqueues a fresh check.
+- **Dead Letter Queue (DLQ)** — Queue for failed messages that exceeded max retries. No consumer: messages stay there to inspect or redrive (24h retention on Workers Free). No email. The next cron cycle enqueues a fresh check.

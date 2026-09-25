@@ -24,7 +24,7 @@ Two systems to understand first: **seat-check notification pipeline** and **auth
 
 ```
 Browser -> vinext Worker (worker.ts) -> PlanetScale via Hyperdrive (polling)
-             |  Cron 0,30 * * * * + 5 4 * * * -> worker.ts scheduled() -> /api/cron -> Queue -> worker.ts queue() -> processSection() -> ASU API + Email
+             |  Workflow schedules 0,30 * * * * (SectionCheckWorkflow) + 5 4 * * * (MaintenanceWorkflow) -> Queue -> worker.ts queue() -> processSection() -> ASU API + Email
              |  Clerk FAPI (jwtKey verify)    -> polling GET /api/class-watches/states
 ```
 
@@ -32,7 +32,7 @@ Queue consumer `worker.ts queue()` calls `processSection()` directly (not HTTP);
 
 ## Core systems (pointers, not copies)
 
-- **Seat-check pipeline:** `worker.ts` + `app/api/cron/route.ts` + `lib/queue/process-section.ts` + `lib/asu/api.ts` + `lib/db/queries.ts` + `lib/email/`. Flow: Cron -> CronLockDO (25min lease) -> `getSectionsToCheck` (even/odd stagger) -> Queue (batch 100, one retry) -> `processSection()` (read baseline -> fetch ASU -> detectChanges -> first-observation guard -> upsert class_states before send -> notify). Full ordering and dedup in `docs/adr/0004`, `0006`, `0011`.
+- **Seat-check pipeline:** `worker.ts` + `lib/workflows/cron-workflows.ts` + `lib/queue/process-section.ts` + `lib/asu/api.ts` + `lib/db/queries.ts` + `lib/email/`. Flow: `SectionCheckWorkflow` (Workflow `schedules`, no lock) -> `getSectionsToCheck` (even/odd stagger) -> Queue (one retried `step.do` per 100-message batch) -> `processSection()` (read baseline -> fetch ASU -> detectChanges -> first-observation guard -> upsert class_states before send -> notify). Full ordering and dedup in `docs/adr/0004`, `0006`, `0015`.
 - **Auth:** Clerk hosted `<SignIn>/<SignUp>` at `/sign-in`/`/sign-up` (`lib/clerk/config.ts` literal key). Sessions via `lib/auth/clerk-session.ts` (`ext_id` claim), `lib/auth/clerk-cookies.ts`, `proxy.ts` gate + `lib/auth/decide-gate.ts`. Webhook `POST /api/webhooks/clerk` -> `lib/db/users.ts` mirror. See `docs/adr/0012`, `0001`.
 - **Data:** Single seam `lib/db/index.ts` (`getDb(hyperdrive)` request-scoped). RPC-first (`SECURITY DEFINER` functions). `class_states` unique on `(class_nbr, term)`. `user_profiles` 1:1 mirror. See `docs/adr/0013`.
 
@@ -43,7 +43,7 @@ app/          # Routes, pages, API endpoints (App Router)
 lib/          # Core logic (asu/, api/, auth/, clerk/, class-watches/, db/, queue/, worker/, email/, cache/, hooks/, contexts/, types/, blog/)
 components/   # React (ui/, admin/, landing/, blog/)
 tests/        # unit/, integration/, mocks/
-worker.ts     # CF Worker (fetch, scheduled, queue, CronLockDO)
+worker.ts     # CF Worker (fetch, queue) + re-exported Workflow classes
 proxy.ts      # vinext middleware — THE auth gate + CSP nonce
 db/migrations/ # timestamped SQL history (plain PG)
 public/       # static + llms.txt, llms-full.txt
@@ -53,11 +53,12 @@ public/       # static + llms.txt, llms-full.txt
 
 ## Cloudflare Workers runtime
 
-- `worker.ts` wraps vinext + `scheduled`/`queue`/`CronLockDO` (`lib/worker/cron-lock.ts`). Keep DO exports and `wrangler.jsonc` migration `v2` aligned.
-- Bindings `wrangler.jsonc` + `lib/types/env.ts`: `HYPERDRIVE`, `PICKMYCLASS_QUEUE` -> `pickmyclass-queue` + DLQ `pickmyclass-dlq`, `PICKMYCLASS_CRON_LOCK_DO`, `EMAIL`, `ASSETS`, `CF_VERSION_METADATA`. Vars: `MAX_WATCHES_PER_USER` (10).
+- `worker.ts` wraps vinext + `queue` and re-exports `SectionCheckWorkflow`/`MaintenanceWorkflow` (`lib/workflows/cron-workflows.ts`); their `class_name`s in `wrangler.jsonc` `workflows` must match. Cron lives in each binding's `schedules` (not `triggers.crons`, kept `[]`). `CronLockDO` was deleted by migration `v3` — never reuse the name.
+- Bindings `wrangler.jsonc` + `lib/types/env.ts`: `HYPERDRIVE`, `PICKMYCLASS_QUEUE` -> `pickmyclass-queue` + DLQ `pickmyclass-dlq` (no consumer: inspect/redrive in dashboard, 24h retention on Free), `SECTION_CHECK_WORKFLOW`, `MAINTENANCE_WORKFLOW`, `EMAIL`, `ASSETS`, `CF_VERSION_METADATA`. Vars: `MAX_WATCHES_PER_USER` (10).
 - Secrets via `wrangler secret put` (never in jsonc): `CLERK_*`, `ASU_API_*`, `CRON_SECRET`, `UNSUBSCRIBE_SIGNING_SECRET`.
 - Access bindings via `import { env } from 'cloudflare:workers'` + `as unknown as Env`.
-- Config: `main ./worker.ts`, `compatibility_date 2026-05-07`, `placement: smart`, stateless, 128MB, 30s HTTP / 15min cron. Always `pnpm run preview` before deploy.
+- Config: `main ./worker.ts`, `compatibility_date 2026-05-07`, `placement: smart`, stateless, 128MB, 30s HTTP. Workers **Free** plan: Workflow steps get 10ms CPU and 1,024 steps/instance — keep steps I/O-bound and small; Queues get 10k ops/day (~3 per message). Always `pnpm run preview` before deploy.
+- `pnpm run cf-typegen` also regenerates the whole runtime-types section from the installed workerd; keep only the binding hunks unless intentionally bumping runtime types.
 
 ## Build, test & dev
 
@@ -87,7 +88,7 @@ validate-lockfile -> quality/test/check in parallel -> ci-success (required). Th
 
 - **API responses:** `ok()`/`fail()` from `lib/api/response.ts` (except `monitoring/health`, `queue/process-section`).
 - **Validation:** zod `safeParse` + `mapValidationIssues` -> `fail(400)`. Schemas in `lib/api/schemas.ts`.
-- **Auth in routes:** `requireUser(request)` / `getSessionIdentity` -> `UnauthorizedError(401)`; cron/queue -> `verifyCronSecret`.
+- **Auth in routes:** `requireUser(request)` / `getSessionIdentity` -> `UnauthorizedError(401)`; detailed health -> `verifyCronSecret`.
 - **Style:** Oxfmt/Oxlint, 2-space, width 100, single quotes, semicolons, camelCase/PascalCase, imports auto-organized. `pnpm run check:fix`.
 - **Tests:** under `tests/`, `*.test.ts(x)` / `*.spec.ts(x)`.
 - **Config:** constants in `lib/config.ts`; logging via `log('Scope').info|warn|error` not `console.*`.
@@ -97,8 +98,9 @@ validate-lockfile -> quality/test/check in parallel -> ci-success (required). Th
 
 - **`processSection` order** conditional upsert (`observedAt` vs `last_checked_at`) -> reset -> send. A rejected upsert skips reset and send. Moving send earlier double-sends on retry; resetting before the upsert drops a claim when the write fails.
 - **Email only the watch IDs returned by `tryRecordNotificationsBatch`** and **rollback failed sends** with the notification row ids from that same claim (`deleteNotificationRecordsByIds`). A later lookup of the active row can delete a newer claim.
-- **`expire_stale_notifications()` on every 30-min cron tail + 04:05 maintenance sweep + past-term watch delete is load-bearing** — without it re-notifications stop.
-- **`processSection` owns `ack`/`retry`** (`SectionCheckOutcome`); callers only translate to transport. HTTP route returns `200` for `ack` on purpose.
+- **`expire_stale_notifications()` in every `SectionCheckWorkflow` run + 04:05 `MaintenanceWorkflow` + past-term watch delete is load-bearing** — without it re-notifications stop.
+- **No cron lock by design** — duplicate/overlapping workflow instances are made safe by the message `cycle` stamp + conditional `class_states` upsert. Don't reintroduce a lock; keep those two guards.
+- **`processSection` owns `ack`/`retry`** (`SectionCheckOutcome`); callers only translate to transport. ASU 429 retries use `retryDelaySeconds()` (60s doubling, honours `Retry-After`, 15-min cap).
 - **`class_states` key is `(class_nbr, term)`** — always include term.
 - **`proxy.ts` is THE auth gate** (Clerk `jwtKey`, `hasClerkSessionCookies`, `ext_id` claim, `readAuthorizationState` 30s cache). Invalidate via `invalidateAuthorizationState` after consent/admin changes.
 - **First-observation guard** (`!oldState`) suppresses false seat emails — keep it.

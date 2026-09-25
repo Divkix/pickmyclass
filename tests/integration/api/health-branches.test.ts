@@ -16,8 +16,6 @@ type HealthRouteOptions = {
   dbThrows?: boolean;
   dbResult?: { error: { message: string } | null } | null;
   asuError?: Error;
-  doThrows?: boolean;
-  lockTimestamps?: { acquiredAt: number; expiresAt: number };
 };
 
 const baseEnv = {
@@ -33,32 +31,9 @@ const baseEnv = {
 async function loadHealthRoute(options: HealthRouteOptions = {}) {
   vi.resetModules();
 
-  const doBinding = {};
-
-  const env = {
-    ...baseEnv,
-    PICKMYCLASS_CRON_LOCK_DO: doBinding,
-    ...options.envOverrides,
-  };
+  const env = { ...baseEnv, ...options.envOverrides };
 
   vi.doMock('cloudflare:workers', () => ({ env }));
-
-  const lockStatus = vi.fn(async () => {
-    if (options.doThrows) throw new Error('DO down');
-
-    if (!env.PICKMYCLASS_CRON_LOCK_DO) return null;
-
-    return {
-      locked: true,
-      lockHolder: 'cron-run',
-      lockAcquiredAt: options.lockTimestamps?.acquiredAt ?? Date.now() - 1000,
-      timeHeldMs: 1000,
-      expiresAt: options.lockTimestamps?.expiresAt ?? Date.now() + 1000,
-    };
-  });
-
-  const createCronLockClient = vi.fn(() => ({ status: lockStatus }));
-  vi.doMock('@/lib/worker/cron-lock', () => ({ createCronLockClient }));
 
   class MockNotFoundError extends Error {}
 
@@ -97,12 +72,9 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
 
   return {
     GET: mod.GET,
-    createCronLockClient,
-    doBinding,
     fetchClassFromASU,
     getDbFromEnv,
     dbProbe,
-    lockStatus,
   };
 }
 
@@ -116,10 +88,6 @@ const healthCheck = z.object({
   status: z.string().optional(),
   error: z.string().optional(),
   configured: z.boolean().optional(),
-  locked: z.boolean().optional(),
-  lock_holder: z.string().nullable().optional(),
-  lock_acquired_at: z.string().nullable().optional(),
-  expires_at: z.string().nullable().optional(),
   missing_vars: z.array(z.string()).optional(),
   missing: z.array(z.string()).optional(),
 });
@@ -152,9 +120,9 @@ describe('GET /api/monitoring/health branch coverage', () => {
     expect(dbProbe).not.toHaveBeenCalled();
   });
 
-  it('reports healthy detailed checks with a configured cron lock durable object', async () => {
+  it('reports healthy detailed checks', async () => {
     vi.stubEnv('CRON_SECRET', '');
-    const { GET, createCronLockClient, doBinding, lockStatus } = await loadHealthRoute();
+    const { GET } = await loadHealthRoute();
 
     const response = await GET(request());
 
@@ -166,33 +134,13 @@ describe('GET /api/monitoring/health branch coverage', () => {
     expect(data.checks.asu_api.status).toBe('healthy');
     expect(data.checks.configuration.status).toBe('healthy');
     expect(data.checks.email).toEqual({ status: 'healthy', configured: true });
-    expect(data.checks.cron_lock).toMatchObject({
-      status: 'healthy',
-      locked: true,
-      lock_holder: 'cron-run',
-    });
-    expect(createCronLockClient).toHaveBeenCalledWith(doBinding);
-    expect(lockStatus).toHaveBeenCalledOnce();
+    expect(data.checks.cron_lock).toBeUndefined();
   });
 
-  it('formats epoch lock timestamps instead of treating them as absent', async () => {
-    const { GET } = await loadHealthRoute({
-      lockTimestamps: { acquiredAt: 0, expiresAt: 1 },
-    });
-
-    const response = await GET(request());
-
-    const data = healthResponse.parse(await response.json());
-
-    expect(data.checks.cron_lock.lock_acquired_at).toBe('1970-01-01T00:00:00.000Z');
-    expect(data.checks.cron_lock.expires_at).toBe('1970-01-01T00:00:00.001Z');
-  });
-
-  it('reports degraded checks when database, ASU, and cron lock checks fail', async () => {
+  it('reports degraded checks when database and ASU checks fail', async () => {
     const { GET } = await loadHealthRoute({
       dbResult: { error: { message: 'database rejected query' } },
       asuError: new Error('ASU unavailable'),
-      doThrows: true,
     });
 
     const response = await GET(request());
@@ -206,7 +154,6 @@ describe('GET /api/monitoring/health branch coverage', () => {
       error: 'database rejected query',
     });
     expect(data.checks.asu_api).toMatchObject({ status: 'unhealthy', error: 'ASU unavailable' });
-    expect(data.checks.cron_lock).toMatchObject({ status: 'unhealthy', error: 'DO down' });
   });
 
   it('reports unhealthy checks for service exceptions and missing config', async () => {
@@ -219,7 +166,6 @@ describe('GET /api/monitoring/health branch coverage', () => {
         SUPABASE_SEND_EMAIL_HOOK_SECRET: undefined,
         EMAIL: undefined,
         NOTIFICATION_FROM_EMAIL: undefined,
-        PICKMYCLASS_CRON_LOCK_DO: undefined,
       },
     });
 

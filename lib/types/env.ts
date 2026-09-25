@@ -5,11 +5,7 @@ export type SendEmail = Cloudflare.Env['EMAIL'];
 export interface Env extends Record<string, unknown> {
   ASSETS: Fetcher;
 
-  CRON_SECRET: string;
-
   PICKMYCLASS_QUEUE: Queue<ClassCheckMessage>;
-
-  PICKMYCLASS_CRON_LOCK_DO: DurableObjectNamespace;
 
   HYPERDRIVE: Hyperdrive;
 
