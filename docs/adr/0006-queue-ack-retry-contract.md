@@ -8,6 +8,6 @@ One entry point (direct worker call) owns the retry verdict. Centralizing the ve
 
 ## Consequences
 
-- **Transport translation:** consumer maps `ack→message.ack()`, `retry→message.retry()`.
+- **Transport translation:** consumer maps `ack→message.ack()`, `retry→message.retry()`; a 429 retry passes `delaySeconds` from `retryDelaySeconds()` (exponential, `Retry-After`-aware, 15-minute cap — see `0015`).
 - The decision table (now inside `lib/queue/process-section.ts`, returns `SectionCheckOutcome`): success ⇒ `ack` (200); `{success:false}` (DB upsert error) ⇒ `retry` (500); `AuthError`/`NotFoundError` ⇒ `ack` (200, retryable:false); `RateLimitError` ⇒ `retry` (429); `ApiError` ⇒ `retry` (502); unknown ⇒ `retry` (500, defensive).
 - `README.md`/`CONTEXT.md` historically claimed the consumer uses **internal HTTP**; corrected to the direct `processSection()` call. Watch for that phrasing creeping back in.

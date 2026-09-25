@@ -12,13 +12,7 @@ function isPathPrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
-const API_PUBLIC_PREFIXES = [
-  '/api/auth',
-  '/api/cron',
-  '/api/webhooks',
-  '/api/monitoring',
-  '/api/unsubscribe',
-];
+const API_PUBLIC_PREFIXES = ['/api/auth', '/api/webhooks', '/api/monitoring', '/api/unsubscribe'];
 
 export function isPublicRoute(pathname: string): boolean {
   return (

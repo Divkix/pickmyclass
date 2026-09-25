@@ -29,7 +29,7 @@ Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hype
 
 ### Native Primitives for Scalability
 - **Cloudflare Queues**: Reliable message queue for processing class checks at scale
-- **Durable Objects**: Distributed coordination for cron locks (CronLockDO)
+- **Workflows**: Scheduled, durable, per-step-retried cron jobs (`SectionCheckWorkflow`, `MaintenanceWorkflow`)
 - **Hyperdrive**: Postgres connection pooling to PlanetScale (request-scoped Drizzle over postgres-js in `lib/db/index.ts`, `--caching-disabled`)
 - **Clerk**: Edge JWT verification (`@clerk/backend` `authenticateRequest` with `jwtKey` PEM, `ext_id` claim) + webhook `user.created/updated/deleted` (`lib/auth/clerk-session.ts`, `lib/db/users.ts` mirror)
 
@@ -43,10 +43,10 @@ vinext App (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (Drizz
       |         |                               ^
       |         | Clerk FAPI (clerk.*)          | polling GET /api/class-watches/states
       v         v                               | (30–60s, sectionRefKey)
-Cloudflare Cron (every 30 min + 04:05 maintenance)  |
+Workflow schedules (every 30 min + 04:05 maintenance)  |
       |
       v
-CronLockDO (Durable Object) - prevents duplicate executions
+SectionCheckWorkflow (retried steps; enqueues in batches of 100)
       |
       v
 Cloudflare Queue (pickmyclass-queue)
@@ -68,10 +68,9 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 
 | Component | Purpose |
 |-----------|---------|
-| `worker.ts` | Custom Cloudflare Worker with cron, queue handlers, and Durable Objects |
-| `lib/worker/cron-lock.ts` | Cron lock lifecycle, status semantics, and Durable Object client |
+| `worker.ts` | Custom Cloudflare Worker with fetch and queue handlers; re-exports the Workflow classes |
+| `lib/workflows/cron-workflows.ts` | `SectionCheckWorkflow` (enqueue checks) and `MaintenanceWorkflow` (daily sweeps) |
 | `lib/worker/edge-html-cache.ts` | Edge HTML cache eligibility, keying, lookup, and storage rules |
-| `app/api/cron/route.ts` | Cron job entry point - enqueues sections to queue |
 | `lib/db/index.ts` | Request-scoped Drizzle over postgres-js (`getDb`/`getDbFromEnv` via the `HYPERDRIVE` binding) |
 | `lib/db/queries.ts` | Database query helpers (Drizzle builders for CRUD, typed SQL for SECURITY DEFINER RPCs) |
 | `lib/db/users.ts` | Clerk user mirror (`clerk_user_id`, `syncUserMirrorFromClerkUser`/`repairUserMirror`) |
@@ -80,7 +79,6 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/clerk/config.ts` | Committed `CLERK_PUBLISHABLE_KEY` literal + CSP |
 | `lib/asu/api.ts` | ASU Class Search API client (direct HTTP) |
 | `lib/queue/process-section.ts` | Section processing orchestrator |
-| `lib/queue/dlq-consumer.ts` | Dead Letter Queue consumer |
 | `lib/queue/change-detector.ts` | Change detection logic |
 | `lib/queue/notification-sender.ts` | Notification sending with atomic deduplication |
 | `lib/email/send.ts` | Cloudflare Email Service batch sender |
@@ -100,20 +98,16 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `app/auth/post-oauth/route.ts` | GET | OAuth consent + `repairUserMirror` |
 | `app/api/class-watches/route.ts` | GET, POST, DELETE | Create, read, and delete class watches (no update) |
 | `app/api/class-watches/states/route.ts` | GET | Polling endpoint for live class states |
-| `app/api/cron/route.ts` | GET | Cron job entry - enqueues sections with staggered groups and Durable Object lock |
-| `app/api/cron/maintenance/route.ts` | GET | Daily maintenance sweeps: notification expiry + past-term watch deletion |
-| `app/api/monitoring/health/route.ts` | GET | System health check (DB, ASU API, Cron Lock, email, config) |
+| `app/api/monitoring/health/route.ts` | GET | System health check (DB, ASU API, email, config) |
 | `app/api/unsubscribe/route.ts` | GET, POST | CAN-SPAM/RFC 8058 compliant email unsubscribe |
 | `app/api/user/delete/route.ts` | DELETE | Soft-delete account (CCPA, 30-day retention) |
 | `app/api/user/export/route.ts` | GET | Export all user data in JSON (CCPA) |
 | `app/api/user/onboarding/route.ts` | GET, POST | Onboarding state (`pending→skipped→completed`) |
 | `app/api/onboarding/popular-class/route.ts` | GET | `get_most_watched_class` → ASU validate → `popularClass: null` fail-open |
 
-### Durable Objects
+### Workflows
 
-**CronLockDO** - Prevents duplicate cron executions
-- Auto-expires after 25 minutes
-- Ensures only one cron job runs at a time across all isolates
+**SectionCheckWorkflow** (`0,30 * * * *`) and **MaintenanceWorkflow** (`5 4 * * *`) run from `schedules` on their bindings in `wrangler.jsonc`. Each step retries on its own; runs are listed in Dashboard → Workers & Pages → Workflows. Trigger one by hand with `wrangler workflows trigger pickmyclass-section-check`.
 
 ## Self-Hosting Guide
 
@@ -164,7 +158,7 @@ Copy `.env.example` to `.env.local` (or `.dev.vars` for `wrangler dev`):
 | `CLERK_WEBHOOK_SIGNING_SECRET` | Svix webhook secret (`whsec_...`) | Clerk Dashboard → Webhooks → Signing Secret |
 | `ASU_API_BASE_URL` | Base URL for ASU Class Search API | ASU API endpoint |
 | `ASU_API_TOKEN` | Auth token for ASU API | ASU (external) |
-| `CRON_SECRET` | Auth for cron endpoint | `openssl rand -hex 32` |
+| `CRON_SECRET` | Unlocks the detailed `/api/monitoring/health` response | `openssl rand -hex 32` |
 | `NOTIFICATION_FROM_EMAIL` | Sender address for email notifications | Cloudflare Email Service-enabled sender |
 | `UNSUBSCRIBE_SIGNING_SECRET` | Signs unsubscribe tokens (CAN-SPAM, 90-day expiry) | `openssl rand -hex 32` |
 
@@ -191,7 +185,7 @@ App live at `https://your-worker.workers.dev` or custom domain.
 
 ### 7. Set Up Cloudflare Queues
 
-Queues `pickmyclass-queue` + `pickmyclass-dlq` are created by `wrangler deploy` (via `wrangler.jsonc` `queues`). Verify in Dashboard → Workers & Pages → Queues.
+Queues `pickmyclass-queue` + `pickmyclass-dlq` are created by `wrangler deploy` (via `wrangler.jsonc` `queues`). The DLQ has no consumer: failed messages wait there to inspect or redrive. Verify in Dashboard → Workers & Pages → Queues.
 
 ### 8. Customize Legal Pages (Optional)
 
@@ -254,7 +248,7 @@ psql "postgresql://postgres:postgres@localhost:5432/postgres" -f db/migrations/2
 - **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (Drizzle ORM over postgres-js) via Hyperdrive, Clerk (`@clerk/backend` 3.16.10 edge JWT), Supabase Realtime **removed** (polling only)
 - **Data Source**: ASU Class Search API (direct HTTP)
 - **Email**: Cloudflare Email Service
-- **Deployment**: Cloudflare Workers + Queues + Durable Object (CronLockDO)
+- **Deployment**: Cloudflare Workers + Queues + Workflows
 
 ## Project Structure
 
@@ -288,7 +282,7 @@ lib/
   ├── db/                    # Drizzle schema + request-scoped accessor + queries + admin-queries + users mirror
   ├── email/                 # Email templates + Cloudflare Email Service
   ├── hooks/                 # React hooks (polling useRealtimeClassStates, pull-to-refresh, swipe)
-  ├── queue/                 # Queue processing (change detection, notification sending, DLQ)
+  ├── queue/                 # Queue processing (change detection, notification sending, section retirement)
   ├── types/                 # TypeScript type definitions
   ├── utils/                 # Utility functions (crypto, rate-my-professor, seat badge, time format)
   └── utils.ts               # shadcn/ui utility (cn function)

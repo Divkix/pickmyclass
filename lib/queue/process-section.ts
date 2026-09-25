@@ -10,6 +10,7 @@ import {
   resetNotificationsForSection,
   upsertClassState,
 } from '@/lib/db/queries';
+import { RATE_LIMIT_RETRY_BASE_S, RATE_LIMIT_RETRY_MAX_S } from '@/lib/config';
 import type { Database } from '@/lib/db';
 import { log } from '@/lib/log';
 import { type SectionRef } from '@/lib/section-ref';
@@ -37,6 +38,8 @@ export type SectionCheckOutcome = {
   result: ProcessingResult;
   httpStatus: 200 | 429 | 502 | 500;
   retryable: boolean;
+  /** ASU's `Retry-After`, when a 429 carried one. */
+  retryAfterSeconds?: number;
 };
 
 export type ProcessSectionDeps = {
@@ -227,11 +230,32 @@ export async function processSection(
       return ackOutcome(failedResult(classNbr, duration, errorMessage));
     }
 
-    let retryStatus: 429 | 502 | 500 = 500;
+    if (error instanceof RateLimitError) {
+      return {
+        ...retryOutcome(failedResult(classNbr, duration, errorMessage), 429),
+        retryAfterSeconds: error.retryAfterSeconds,
+      };
+    }
 
-    if (error instanceof RateLimitError) retryStatus = 429;
-    else if (error instanceof ApiError) retryStatus = 502;
+    const retryStatus = error instanceof ApiError ? 502 : 500;
 
     return retryOutcome(failedResult(classNbr, duration, errorMessage), retryStatus);
   }
+}
+
+/**
+ * Queue redelivery delay for a retry outcome. Rate-limited checks back off
+ * exponentially per delivery attempt (honouring a longer `Retry-After`), capped
+ * so the retry still lands before the section's next cycle. Other retries use
+ * the consumer's configured `retry_delay` (undefined).
+ */
+export function retryDelaySeconds(
+  outcome: SectionCheckOutcome,
+  attempts: number
+): number | undefined {
+  if (outcome.httpStatus !== 429) return undefined;
+
+  const backoff = RATE_LIMIT_RETRY_BASE_S * 2 ** Math.max(0, attempts - 1);
+
+  return Math.min(RATE_LIMIT_RETRY_MAX_S, Math.max(backoff, outcome.retryAfterSeconds ?? 0));
 }

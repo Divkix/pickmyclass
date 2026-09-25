@@ -1,11 +1,8 @@
-import { DurableObject } from 'cloudflare:workers';
 import handler from 'vinext/server/app-router-entry';
-import { handleDLQMessage } from './lib/queue/dlq-consumer';
-import { processSection } from './lib/queue/process-section';
+import { processSection, retryDelaySeconds } from './lib/queue/process-section';
 import type { Env } from './lib/types/env';
 import type { ClassCheckMessage } from './lib/types/queue';
-import type { JsonValue } from './lib/api/wire';
-import { createCronLockLifecycle } from './lib/worker/cron-lock';
+import { MaintenanceWorkflow, SectionCheckWorkflow } from './lib/workflows/cron-workflows';
 import { withJsonApiError } from './lib/worker/api-errors';
 import { edgeHtmlCache } from './lib/worker/edge-html-cache';
 import {
@@ -21,9 +18,7 @@ import { getDb } from './lib/db';
 import { log } from './lib/log';
 
 const workerLog = log('Worker');
-const scheduledLog = log('Scheduled');
 const queueLog = log('Queue');
-const dlqLog = log('Queue/DLQ');
 
 /**
  * Advertises the Markdown representation on HTML responses so shared caches
@@ -40,70 +35,12 @@ function withAgentHeaders(response: Response, pathname: string): Response {
   return varied;
 }
 
-export class CronLockDO extends DurableObject<Cloudflare.Env> {
-  private readonly lock;
-
-  constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
-    super(ctx, env);
-    this.lock = createCronLockLifecycle({
-      load: () => this.ctx.storage.get<JsonValue>('lock_state'),
-      save: (state) => this.ctx.storage.put('lock_state', state),
-    });
-    this.ctx.blockConcurrencyWhile(() => this.lock.initialize());
-  }
-
-  async acquireLock(holder: string = 'unknown') {
-    return this.lock.acquire(holder);
-  }
-
-  async releaseLock(holder: string = 'unknown') {
-    return this.lock.release(holder);
-  }
-
-  async getStatus() {
-    return this.lock.status();
-  }
-
-  async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const holder = url.searchParams.get('holder') || 'http-request';
-
-    switch (url.pathname) {
-      case '/acquire':
-        if (request.method !== 'POST') {
-          return new Response('Method not allowed', { status: 405 });
-        }
-        return Response.json(await this.acquireLock(holder));
-
-      case '/release':
-        if (request.method !== 'POST') {
-          return new Response('Method not allowed', { status: 405 });
-        }
-        return Response.json(await this.releaseLock(holder));
-
-      case '/status':
-        return Response.json(await this.getStatus());
-
-      default:
-        return new Response('Not found', { status: 404 });
-    }
-  }
-}
-
 /**
- * Force Durable Object exports to prevent tree-shaking
- *
- * esbuild removes exports that aren't directly used in the code path.
- * These classes are only referenced via wrangler.jsonc bindings, not in code,
- * so we create a runtime reference to keep them in the bundle.
+ * Workflow classes are referenced only by `wrangler.jsonc` bindings (their
+ * `schedules` replace a `scheduled()` handler), so they must stay exported
+ * from the Worker entry module.
  */
-export const __durableObjectExports = {
-  CronLockDO,
-} as const;
-
-if (typeof __durableObjectExports === 'undefined') {
-  throw new Error('Durable Object exports missing');
-}
+export { MaintenanceWorkflow, SectionCheckWorkflow };
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -169,70 +106,15 @@ export default {
     return response;
   },
 
-  async scheduled(
-    event: Pick<ScheduledController, 'cron' | 'scheduledTime'>,
-    env: Env,
-    _ctx: ExecutionContext
-  ): Promise<void> {
-    const startTime = Date.now();
-    scheduledLog.info('Cron triggered at:', new Date(event.scheduledTime).toISOString());
-    scheduledLog.info('Cron pattern:', event.cron);
-
-    const cronRoute = event.cron === '5 4 * * *' ? '/api/cron/maintenance' : '/api/cron';
-
-    try {
-      const request = new Request(`http://localhost${cronRoute}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${env.CRON_SECRET}`,
-          'User-Agent': 'Cloudflare-Workers-Cron',
-          'X-Cron-Scheduled-Time': String(event.scheduledTime),
-        },
-      });
-
-      const response = await handler.fetch(request);
-      const body = await response.text();
-      const duration = Date.now() - startTime;
-
-      scheduledLog.info('Cron completed in', duration, 'ms');
-      scheduledLog.info('Response:', body);
-
-      if (!response.ok || response.status === 207) {
-        // Surface partial or full enqueue failures with a greppable tag so they appear
-        // in `wrangler tail` logs. Cloudflare cron has no auto-retry, so the goal is
-        // visibility rather than recovery — we log rather than throw to avoid marking
-        // the entire cron invocation as failed for partial batch failures.
-        scheduledLog.error('CRON_PARTIAL_FAILURE status:', response.status, 'body:', body);
-      }
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      scheduledLog.error('Fatal error after', duration, 'ms:', error);
-    }
-  },
-
   async queue(
     batch: MessageBatch<ClassCheckMessage>,
     env: Env,
     _ctx: ExecutionContext
   ): Promise<void> {
     const startTime = Date.now();
-    const isDLQ = batch.queue === 'pickmyclass-dlq';
     queueLog.info(
       `Processing batch of ${batch.messages.length} messages from queue: ${batch.queue}`
     );
-
-    if (isDLQ) {
-      for (const message of batch.messages) {
-        try {
-          handleDLQMessage(message.body);
-        } catch (error) {
-          dlqLog.error(`Unexpected error processing ${message.body.class_nbr}:`, error);
-        }
-        message.ack();
-      }
-      dlqLog.info(`Processed ${batch.messages.length} DLQ messages in ${Date.now() - startTime}ms`);
-      return;
-    }
 
     const db = getDb(env.HYPERDRIVE);
 
@@ -267,7 +149,8 @@ export default {
             `Failed to process ${message.body.class_nbr} in ${duration}ms:`,
             outcome.result.error
           );
-          message.retry();
+          const delaySeconds = retryDelaySeconds(outcome, message.attempts);
+          message.retry(delaySeconds === undefined ? undefined : { delaySeconds });
           return { success: false, class_nbr: message.body.class_nbr, duration };
         } catch (error) {
           const duration = Date.now() - msgStartTime;
@@ -286,6 +169,4 @@ export default {
       `Batch complete in ${totalDuration}ms: ${successful} successful, ${failed} failed`
     );
   },
-
-  CronLockDO,
-} satisfies ExportedHandler<Env, ClassCheckMessage> & { CronLockDO: typeof CronLockDO };
+} satisfies ExportedHandler<Env, ClassCheckMessage>;

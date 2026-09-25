@@ -17,11 +17,25 @@
   "placement": {
     "mode": "smart",
   },
-  // IMPORTANT: Cron triggers require explicit deployment via 'wrangler triggers deploy'
-  // This is automatically included in 'pnpm run deploy' script
+  // Schedules live on the Workflow bindings below. The empty list clears the Worker cron
+  // triggers that used to call scheduled(); 'pnpm run deploy' runs 'wrangler triggers deploy'.
   "triggers": {
-    "crons": ["0,30 * * * *", "5 4 * * *"],
+    "crons": [],
   },
+  "workflows": [
+    {
+      "name": "pickmyclass-section-check",
+      "binding": "SECTION_CHECK_WORKFLOW",
+      "class_name": "SectionCheckWorkflow",
+      "schedules": ["0,30 * * * *"],
+    },
+    {
+      "name": "pickmyclass-maintenance",
+      "binding": "MAINTENANCE_WORKFLOW",
+      "class_name": "MaintenanceWorkflow",
+      "schedules": ["5 4 * * *"],
+    },
+  ],
   "queues": {
     "producers": [
       {
@@ -37,20 +51,9 @@
         "max_concurrency": 20,
         "max_retries": 3,
         "retry_delay": 60,
+        // No consumer on the DLQ: exhausted messages stay there to inspect or
+        // redrive from the dashboard (24h retention on Workers Free).
         "dead_letter_queue": "pickmyclass-dlq",
-      },
-      {
-        "queue": "pickmyclass-dlq",
-        "max_batch_size": 1,
-        "max_retries": 0,
-      },
-    ],
-  },
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "PICKMYCLASS_CRON_LOCK_DO",
-        "class_name": "CronLockDO",
       },
     ],
   },
@@ -61,6 +64,11 @@
     {
       "tag": "v2",
       "new_classes": ["CronLockDO"],
+    },
+    {
+      // CronLockDO replaced by Workflow schedules; deleting the class drops its storage.
+      "tag": "v3",
+      "deleted_classes": ["CronLockDO"],
     },
   ],
   "logpush": false,

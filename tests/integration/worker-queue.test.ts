@@ -1,26 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { ClassCheckMessage } from '@/lib/types/queue';
-import type { Env } from '@/lib/types/env';
-
-vi.mock('cloudflare:workers', () => ({
-  DurableObject: class DurableObject {
-    constructor(
-      protected ctx: DurableObjectState,
-      protected env: CloudflareEnv
-    ) {}
-  },
-  env: {},
-}));
-
-const mockHandleDLQMessage = vi.fn();
-
-vi.mock('@/lib/queue/dlq-consumer', () => ({
-  handleDLQMessage: (...args: unknown[]) => mockHandleDLQMessage(...args),
-}));
 
 const mockProcessSection = vi.fn();
 
-vi.mock('@/lib/queue/process-section', () => ({
+vi.mock('@/lib/queue/process-section', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/queue/process-section')>()),
   processSection: (...args: unknown[]) => mockProcessSection(...args),
 }));
 
@@ -32,17 +16,11 @@ vi.mock('@/lib/db', () => ({
   getDb: (hyperdrive: CloudflareEnv['HYPERDRIVE']) => mockGetDb(hyperdrive),
 }));
 
-const workerModule = await import('@/worker');
-
-const workerDefault = workerModule.default;
-
-const handlerMock = await import('vinext/server/app-router-entry');
-
-function makeMessage(class_nbr: string, term = '2261') {
+function makeMessage(class_nbr: string, term = '2261', attempts = 1) {
   return {
     id: `${class_nbr}-${term}`,
     timestamp: new Date(),
-    attempts: 1,
+    attempts,
     body: {
       class_nbr,
       term,
@@ -53,12 +31,9 @@ function makeMessage(class_nbr: string, term = '2261') {
   } satisfies Message<ClassCheckMessage>;
 }
 
-function makeBatch(
-  messages: ReturnType<typeof makeMessage>[],
-  queue = 'pickmyclass-queue'
-): MessageBatch<ClassCheckMessage> {
+function makeBatch(messages: ReturnType<typeof makeMessage>[]): MessageBatch<ClassCheckMessage> {
   return {
-    queue,
+    queue: 'pickmyclass-queue',
     messages,
     metadata: { metrics: { backlogCount: 0, backlogBytes: 0 } },
     retryAll: vi.fn(),
@@ -141,7 +116,7 @@ const notFoundOutcome = (classNbr: string) => ({
   retryable: false as const,
 });
 
-const rateLimitOutcome = (classNbr: string) => ({
+const rateLimitOutcome = (classNbr: string, retryAfterSeconds?: number) => ({
   disposition: 'retry' as const,
   result: {
     success: false,
@@ -158,6 +133,7 @@ const rateLimitOutcome = (classNbr: string) => ({
   },
   httpStatus: 429 as const,
   retryable: true as const,
+  retryAfterSeconds,
 });
 
 const apiErrorOutcome = (classNbr: string) => ({
@@ -181,7 +157,6 @@ const apiErrorOutcome = (classNbr: string) => ({
 
 // SAFETY: the queue handler reads only HYPERDRIVE, EMAIL and NOTIFICATION_FROM_EMAIL.
 const mockEnv = {
-  CRON_SECRET: 'test-secret',
   ASU_API_BASE_URL: 'https://api.asu.edu',
   ASU_API_TOKEN: 'test-token',
   HYPERDRIVE: { connectionString: 'postgresql://hyperdrive.test/pickmyclass' },
@@ -229,7 +204,8 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     const msg = makeMessage('12345');
     await worker.queue(makeBatch([msg]), mockEnv, testCtx);
 
-    expect(msg.retry).toHaveBeenCalledOnce();
+    // Non-429 retries fall back to the consumer's configured retry_delay.
+    expect(msg.retry).toHaveBeenCalledWith(undefined);
     expect(msg.ack).not.toHaveBeenCalled();
   });
 
@@ -253,14 +229,29 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     expect(msg.retry).not.toHaveBeenCalled();
   });
 
-  it('retries message when processSection returns retry for RateLimitError', async () => {
+  it('retries a rate-limited message with a delay that doubles per attempt', async () => {
     mockProcessSection.mockResolvedValue(rateLimitOutcome('12345'));
 
-    const msg = makeMessage('12345');
-    await worker.queue(makeBatch([msg]), mockEnv, testCtx);
+    const first = makeMessage('12345', '2261', 1);
+    const third = makeMessage('12345', '2261', 3);
+    await worker.queue(makeBatch([first, third]), mockEnv, testCtx);
 
-    expect(msg.retry).toHaveBeenCalledOnce();
-    expect(msg.ack).not.toHaveBeenCalled();
+    expect(first.retry).toHaveBeenCalledWith({ delaySeconds: 60 });
+    expect(third.retry).toHaveBeenCalledWith({ delaySeconds: 240 });
+    expect(first.ack).not.toHaveBeenCalled();
+  });
+
+  it('honours a longer Retry-After, capped at 15 minutes', async () => {
+    mockProcessSection
+      .mockResolvedValueOnce(rateLimitOutcome('11111', 300))
+      .mockResolvedValueOnce(rateLimitOutcome('22222', 7200));
+
+    const msg1 = makeMessage('11111');
+    const msg2 = makeMessage('22222');
+    await worker.queue(makeBatch([msg1, msg2]), mockEnv, testCtx);
+
+    expect(msg1.retry).toHaveBeenCalledWith({ delaySeconds: 300 });
+    expect(msg2.retry).toHaveBeenCalledWith({ delaySeconds: 900 });
   });
 
   it('retries message when processSection returns retry for ApiError (upstream failure)', async () => {
@@ -319,137 +310,5 @@ describe('worker queue handler — direct processSection call ack/retry mapping'
     for (const call of mockProcessSection.mock.calls) {
       expect(call[0]).toBe(DB_HANDLE);
     }
-  });
-
-  it('routes DLQ messages to DLQ handler without calling processSection', async () => {
-    mockHandleDLQMessage.mockResolvedValue(undefined);
-
-    const msg = makeMessage('12345');
-    await worker.queue(makeBatch([msg], 'pickmyclass-dlq'), mockEnv, testCtx);
-
-    expect(mockProcessSection).not.toHaveBeenCalled();
-    expect(msg.ack).toHaveBeenCalledOnce();
-    expect(mockGetDb).not.toHaveBeenCalled();
-    expect(mockHandleDLQMessage).toHaveBeenCalledWith(msg.body);
-  });
-});
-
-describe('worker.ts scheduled handler', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
-  const scheduledEnv: Partial<Env> = {
-    CRON_SECRET: 'test-cron-secret',
-  };
-
-  it('routes "5 4 * * *" cron to /api/cron/maintenance', async () => {
-    const fetchSpy = vi
-      .spyOn(handlerMock.default, 'fetch')
-      .mockResolvedValueOnce(new Response('ok', { status: 200 }));
-
-    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
-    await workerDefault.scheduled(
-      { cron: '5 4 * * *', scheduledTime: Date.now() },
-      scheduledEnv as Env,
-      testCtx
-    );
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const calledRequest = fetchSpy.mock.calls[0]![0];
-    expect(calledRequest.url).toContain('/api/cron/maintenance');
-    expect(calledRequest.headers.get('Authorization')).toBe('Bearer test-cron-secret');
-  });
-
-  it('routes all other cron patterns to /api/cron', async () => {
-    const fetchSpy = vi
-      .spyOn(handlerMock.default, 'fetch')
-      .mockResolvedValueOnce(new Response('ok', { status: 200 }));
-
-    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
-    await workerDefault.scheduled(
-      { cron: '0,30 * * * *', scheduledTime: Date.now() },
-      scheduledEnv as Env,
-      testCtx
-    );
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const calledRequest = fetchSpy.mock.calls[0]![0];
-    expect(calledRequest.url).toBe('http://localhost/api/cron');
-  });
-
-  it('passes X-Cron-Scheduled-Time header with scheduled time', async () => {
-    const scheduledTime = 1718446800000;
-
-    const fetchSpy = vi
-      .spyOn(handlerMock.default, 'fetch')
-      .mockResolvedValueOnce(new Response('ok', { status: 200 }));
-
-    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
-    await workerDefault.scheduled(
-      { cron: '0,30 * * * *', scheduledTime },
-      scheduledEnv as Env,
-      testCtx
-    );
-
-    const calledRequest = fetchSpy.mock.calls[0]![0];
-    expect(calledRequest.headers.get('X-Cron-Scheduled-Time')).toBe(String(scheduledTime));
-  });
-
-  it('does not throw when handler returns error status', async () => {
-    vi.spyOn(handlerMock.default, 'fetch').mockResolvedValueOnce(
-      new Response('Internal error', { status: 500 })
-    );
-
-    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
-    await expect(
-      workerDefault.scheduled(
-        { cron: '0,30 * * * *', scheduledTime: Date.now() },
-        scheduledEnv as Env,
-        testCtx
-      )
-    ).resolves.toBeUndefined();
-  });
-
-  it('does not throw when handler throws an error', async () => {
-    vi.spyOn(handlerMock.default, 'fetch').mockRejectedValueOnce(new Error('Handler crashed'));
-
-    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
-    await expect(
-      workerDefault.scheduled(
-        { cron: '0,30 * * * *', scheduledTime: Date.now() },
-        scheduledEnv as Env,
-        testCtx
-      )
-    ).resolves.toBeUndefined();
-  });
-
-  it('logs CRON_PARTIAL_FAILURE to console.error when cron response is 207', async () => {
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    vi.spyOn(handlerMock.default, 'fetch').mockResolvedValueOnce(
-      new Response('partial', { status: 207 })
-    );
-
-    // SAFETY: the scheduled handler reads only CRON_SECRET (worker.ts:186).
-    await workerDefault.scheduled(
-      { cron: '0,30 * * * *', scheduledTime: Date.now() },
-      scheduledEnv as Env,
-      testCtx
-    );
-
-    expect(errSpy).toHaveBeenCalledWith(
-      '[Scheduled]',
-      expect.stringMatching(/CRON_PARTIAL_FAILURE/),
-      207,
-      'body:',
-      'partial'
-    );
-
-    errSpy.mockRestore();
   });
 });

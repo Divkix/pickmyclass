@@ -246,12 +246,11 @@ How did you test these changes?
 
 ### Cloudflare Workers Considerations
 
-- **No global state**: Workers are stateless; use Durable Objects for shared state
+- **No global state**: Workers are stateless; keep shared state in Postgres
 - **Memory limits**: Workers have 128MB memory limit
-- **Execution time**: 30 seconds for HTTP, 15 minutes for cron
+- **Execution time**: 30 seconds for HTTP; Workflow steps retry independently
 - **Queue consumers**: `max_concurrency: 20`, `max_batch_size: 5` for queue processing
-- **CronLockDO**: Durable Object that prevents duplicate cron executions across Worker isolates
-- **maintenance cron**: Runs daily at 4 AM UTC for maintenance sweeps (notification expiry + past-term watch deletion)
+- **Scheduled work**: `SectionCheckWorkflow` (every 30 min) and `MaintenanceWorkflow` (04:05 UTC: notification expiry + past-term watch deletion) run from Workflow `schedules` in `wrangler.jsonc`
 - **Test with preview**: Always test with `pnpm run preview` before deploying
 
 ### Email Templates

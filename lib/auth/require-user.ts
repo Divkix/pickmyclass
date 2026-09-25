@@ -1,6 +1,4 @@
-import type { NextResponse } from 'next/server';
 import { getSessionIdentity, type SessionIdentity } from '@/lib/auth/clerk-session';
-import { fail } from '@/lib/api/response';
 import { timingSafeCompare } from '@/lib/utils/crypto';
 
 export class UnauthorizedError extends Error {
@@ -28,19 +26,4 @@ export function verifyCronSecret(
   if (!authHeader) return false;
 
   return timingSafeCompare(authHeader, `Bearer ${cronSecret}`);
-}
-
-export function requireCronAuth(
-  request: { headers: { get(name: string): string | null } },
-  cronSecret: string | undefined
-): NextResponse | null {
-  if (!cronSecret) {
-    return fail('Server configuration error', 500);
-  }
-
-  if (!verifyCronSecret(request, cronSecret)) {
-    return fail('Unauthorized', 401);
-  }
-
-  return null;
 }

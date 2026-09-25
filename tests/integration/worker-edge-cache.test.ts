@@ -7,18 +7,6 @@ const { cacheGet, cacheIsEligible, cachePut } = vi.hoisted(() => ({
   cachePut: vi.fn(),
 }));
 
-vi.mock('cloudflare:workers', () => ({
-  DurableObject: class DurableObject {
-    constructor(
-      protected ctx: DurableObjectState,
-      protected env: Cloudflare.Env
-    ) {}
-  },
-  env: {},
-}));
-
-vi.mock('@/lib/queue/dlq-consumer', () => ({ handleDLQMessage: vi.fn() }));
-
 vi.mock('@/lib/queue/process-section', () => ({ processSection: vi.fn() }));
 
 vi.mock('@/lib/worker/edge-html-cache', () => ({

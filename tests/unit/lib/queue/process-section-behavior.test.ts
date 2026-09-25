@@ -400,6 +400,20 @@ describe('processSection behavior (interface only)', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it('passes the ASU Retry-After through on a rate-limit retry', async () => {
+    const h = createScriptedPostgres();
+    h.next([oldStateRow()]);
+
+    const outcome = await processSection(h.db, REF, buildEnv(buildSend()), {
+      fetchClass: async () => {
+        throw new RateLimitError('ASU API rate limit hit', 300);
+      },
+    });
+
+    expect(outcome.httpStatus).toBe(429);
+    expect(outcome.retryAfterSeconds).toBe(300);
+  });
+
   it('upstream ApiError retries with 502', async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);

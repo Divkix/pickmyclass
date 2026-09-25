@@ -5,6 +5,7 @@ import {
   clearAsuApiCache,
   fetchClassFromASU,
   NotFoundError,
+  parseRetryAfterSeconds,
   RateLimitError,
 } from '@/lib/asu/api';
 
@@ -260,6 +261,21 @@ describe('fetchClassFromASU', () => {
     ).rejects.toSatisfy((error) => {
       return error instanceof ErrorClass && error.message.includes(message);
     });
+  });
+
+  it('carries the 429 Retry-After on RateLimitError', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response('{}', { status: 429, headers: { 'Retry-After': '120' } })
+    );
+
+    await expect(
+      fetchClassFromASU(
+        { class_nbr: '42737', term: '2264' },
+        { ASU_API_BASE_URL: 'https://asu.example.test/api', ASU_API_TOKEN: 'test-token' }
+      )
+    ).rejects.toSatisfy(
+      (error) => error instanceof RateLimitError && error.retryAfterSeconds === 120
+    );
   });
 
   it.each([
@@ -620,5 +636,22 @@ describe('fetchClassFromASU', () => {
 
     expect(result.title).toBe('Unknown');
     expect(result.meeting_times).toBe('TBD');
+  });
+});
+
+describe('parseRetryAfterSeconds', () => {
+  const now = Date.parse('2026-09-24T12:00:00Z');
+
+  it.each([
+    [null, undefined],
+    ['', undefined],
+    ['90', 90],
+    ['1.2', 2],
+    ['-5', 0],
+    ['Thu, 24 Sep 2026 12:02:00 GMT', 120],
+    ['Thu, 24 Sep 2026 11:00:00 GMT', 0],
+    ['soon', undefined],
+  ])('parses %j as %j', (header, expected) => {
+    expect(parseRetryAfterSeconds(header, now)).toBe(expected);
   });
 });

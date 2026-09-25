@@ -5,20 +5,12 @@ import { getDbFromEnv } from '@/lib/db';
 import { classWatches } from '@/lib/db/schema';
 import { verifyCronSecret } from '@/lib/auth/require-user';
 import type { JsonValue } from '@/lib/api/wire';
-import { createCronLockClient } from '@/lib/worker/cron-lock';
 
 type HealthCheckResult = {
   status: string;
   latency_ms?: number;
   error?: string;
   name?: string;
-  type?: string;
-  locked?: boolean;
-  lock_holder?: string | null;
-  time_held_ms?: number | null;
-  lock_acquired_at?: string | null;
-  expires_at?: string | null;
-  message?: string;
   missing_vars?: string[];
   configured?: boolean;
   missing?: string[];
@@ -59,7 +51,7 @@ export async function GET(request: Request) {
     }
   };
 
-  const [dbResult, asuResult, cronResult] = await Promise.allSettled([
+  const [dbResult, asuResult] = await Promise.allSettled([
     (async () => {
       try {
         const db = getDbFromEnv();
@@ -85,23 +77,6 @@ export async function GET(request: Request) {
 
         return {
           kind: 'asu_error' as const,
-          message: error instanceof Error ? error.message : 'Unknown error',
-        };
-      }
-    })(),
-    (async () => {
-      try {
-        // SAFETY: DO namespace is an optional binding; shape matches wrangler.jsonc contract
-        const cfEnv = env as {
-          PICKMYCLASS_CRON_LOCK_DO?: DurableObjectNamespace;
-        };
-
-        const lockStatus = await createCronLockClient(cfEnv?.PICKMYCLASS_CRON_LOCK_DO).status();
-
-        return { kind: 'cron_ok' as const, lockStatus };
-      } catch (error) {
-        return {
-          kind: 'cron_error' as const,
           message: error instanceof Error ? error.message : 'Unknown error',
         };
       }
@@ -143,50 +118,6 @@ export async function GET(request: Request) {
       health.checks.asu_api = { name: 'ASU API', status: 'unhealthy', error: msg };
       escalateStatus('degraded');
     }
-  }
-
-  if (cronResult.status === 'fulfilled') {
-    const v = cronResult.value;
-
-    if (v.kind === 'cron_ok') {
-      const lockStatus = v.lockStatus;
-
-      if (lockStatus) {
-        health.checks.cron_lock = {
-          status: 'healthy',
-          type: 'durable_object',
-          locked: lockStatus.locked,
-          lock_holder: lockStatus.lockHolder,
-          time_held_ms: lockStatus.timeHeldMs,
-          lock_acquired_at:
-            lockStatus.lockAcquiredAt !== null
-              ? new Date(lockStatus.lockAcquiredAt).toISOString()
-              : null,
-          expires_at:
-            lockStatus.expiresAt !== null ? new Date(lockStatus.expiresAt).toISOString() : null,
-        };
-      } else {
-        health.checks.cron_lock = {
-          status: 'not_configured',
-          type: 'durable_object',
-          message: 'PICKMYCLASS_CRON_LOCK_DO binding not available',
-        };
-      }
-    } else {
-      health.checks.cron_lock = {
-        status: 'unhealthy',
-        type: 'durable_object',
-        error: v.message,
-      };
-      escalateStatus('degraded');
-    }
-  } else {
-    health.checks.cron_lock = {
-      status: 'unhealthy',
-      type: 'durable_object',
-      error: cronResult.reason instanceof Error ? cronResult.reason.message : 'Unknown error',
-    };
-    escalateStatus('degraded');
   }
 
   const requiredEnvVars = ['ASU_API_BASE_URL', 'ASU_API_TOKEN', 'CRON_SECRET'];

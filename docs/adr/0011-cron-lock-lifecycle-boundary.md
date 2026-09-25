@@ -1,5 +1,7 @@
 # Cron lock lifecycle boundary
 
+**Status:** Superseded by `0015-cron-on-workflow-schedules.md` — `CronLockDO` and `lib/worker/cron-lock.ts` were removed.
+
 `lib/worker/cron-lock.ts` owns the distributed cron lock's lifecycle and client semantics. `CronLockDO` in `worker.ts` remains the Cloudflare adapter: it supplies Durable Object storage, exposes the HTTP dispatcher, and retains the named/default/tree-shaking-guard exports required by Wrangler.
 
 ## Decision
