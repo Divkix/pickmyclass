@@ -38,7 +38,12 @@ vi.mock('@/lib/log', () => ({
   log: vi.fn(() => ({ warn: mockWarn })),
 }));
 
-import { captureServerEvent, captureServerException } from '@/lib/analytics/server';
+import { POSTHOG_PROJECT_TOKEN } from '@/lib/analytics/config';
+import {
+  captureServerEvent,
+  captureServerException,
+  distinctIdFromCookieHeader,
+} from '@/lib/analytics/server';
 
 async function registeredPromise(index = 0, expectedCalls = 1): Promise<void> {
   expect(mockWaitUntil).toHaveBeenCalledTimes(expectedCalls);
@@ -122,5 +127,48 @@ describe('server-side analytics boundary', () => {
     expect(mockWarn).toHaveBeenCalledWith('Failed to send analytics exception:', expect.any(Error));
     expect(mockShutdown).toHaveBeenCalledTimes(1);
     expect(mockShutdown).toHaveBeenCalledWith(1_000);
+  });
+});
+
+describe('server exception attribution', () => {
+  type PostHogCookieValue = { distinct_id?: string; $sesid?: number[] };
+
+  const phCookie = (value: PostHogCookieValue, token = POSTHOG_PROJECT_TOKEN) =>
+    `ph_${token}_posthog=${encodeURIComponent(JSON.stringify(value))}`;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCaptureExceptionImmediate.mockResolvedValue(undefined);
+    mockShutdown.mockResolvedValue(undefined);
+  });
+
+  it("forwards the distinct id in posthog-node's distinct-id slot", async () => {
+    await captureServerException(new Error('boom'), { path: '/x' }, 'anon-123');
+
+    expect(mockCaptureExceptionImmediate).toHaveBeenCalledWith(expect.any(Error), 'anon-123', {
+      path: '/x',
+    });
+  });
+
+  it("reads distinct_id from this project's posthog-js cookie", () => {
+    expect(
+      distinctIdFromCookieHeader(`__session=abc; ${phCookie({ distinct_id: 'anon-123' })}; x=1`)
+    ).toBe('anon-123');
+  });
+
+  it('accepts the array form of the cookie header', () => {
+    expect(distinctIdFromCookieHeader(['a=1', phCookie({ distinct_id: 'user_9' })])).toBe('user_9');
+  });
+
+  it("ignores another project's PostHog cookie", () => {
+    expect(distinctIdFromCookieHeader(phCookie({ distinct_id: 'x' }, 'phc_other'))).toBeUndefined();
+  });
+
+  it('returns undefined for missing, malformed, or id-less cookies', () => {
+    expect(distinctIdFromCookieHeader(undefined)).toBeUndefined();
+    expect(
+      distinctIdFromCookieHeader(`ph_${POSTHOG_PROJECT_TOKEN}_posthog=%7Bnot-json`)
+    ).toBeUndefined();
+    expect(distinctIdFromCookieHeader(phCookie({ $sesid: [1] }))).toBeUndefined();
   });
 });
