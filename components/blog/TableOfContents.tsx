@@ -46,7 +46,7 @@ export function TableOfContents({ items }: TableOfContentsProps) {
 
   return (
     <div className="not-prose rounded-lg border border-border bg-card p-6 my-8">
-      <h3 className="font-semibold text-foreground mb-4">Table of Contents</h3>
+      <h2 className="font-semibold text-foreground mb-4">Table of Contents</h2>
       <nav className="space-y-2">
         {items.map((item) => (
           <button
