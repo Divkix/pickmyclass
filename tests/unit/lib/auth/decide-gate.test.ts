@@ -427,6 +427,7 @@ describe('isPublicRoute', () => {
     expect(isPublicRoute('/api/unsubscribe')).toBe(true);
     expect(isPublicRoute('/sitemap.xml')).toBe(true);
     expect(isPublicRoute('/robots.txt')).toBe(true);
+    expect(isPublicRoute('/llms-full.txt')).toBe(true);
     expect(isPublicRoute('/dashboard')).toBe(false);
     expect(isPublicRoute('/api/class-watches')).toBe(false);
   });

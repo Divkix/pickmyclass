@@ -1,7 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vite-plus/test';
+import { GET as getLlmsFull } from '@/app/llms-full.txt/route';
 import { blogPosts } from '@/lib/blog/posts';
+import { CURATED_GUIDE_SLUGS, buildLlmsFullTxt } from '@/lib/seo/llms-full';
+import { PUBLIC_PAGES, absoluteUrl } from '@/lib/seo/public-pages';
 
 const root = process.cwd();
 
@@ -33,17 +36,37 @@ describe('production SEO and AI discovery assets', () => {
     }
   });
 
-  it('publishes llms-full.txt with every public guide and public crawl target', () => {
-    const full = readPublicFile('llms-full.txt');
+  it('generates llms-full.txt with every public guide and public crawl target', () => {
+    const full = buildLlmsFullTxt();
+
+    expect(full.startsWith('# PickMyClass Full AI Search Reference\n')).toBe(true);
+    expect(full).not.toContain('undefined');
 
     for (const post of blogPosts) {
-      expect(full).toContain(`https://pickmyclass.app/blog/${post.slug}`);
-      expect(full).toContain(post.title);
+      expect(full).toContain(`URL: https://pickmyclass.app/blog/${post.slug}`);
+      expect(full).toContain(`### ${post.title}`);
     }
 
-    for (const path of ['/', '/faq', '/blog', '/legal/terms', '/legal/privacy']) {
-      expect(full).toContain(`https://pickmyclass.app${path === '/' ? '/' : path}`);
+    for (const page of PUBLIC_PAGES) {
+      expect(full).toContain(`- ${page.label}: ${absoluteUrl(page.path)}\n`);
     }
+  });
+
+  it('only curates llms-full.txt summaries for published posts, each once', () => {
+    const slugs = new Set(blogPosts.map((post) => post.slug));
+
+    for (const slug of CURATED_GUIDE_SLUGS) expect(slugs.has(slug)).toBe(true);
+
+    expect(new Set(CURATED_GUIDE_SLUGS).size).toBe(CURATED_GUIDE_SLUGS.length);
+  });
+
+  it('serves /llms-full.txt as cacheable UTF-8 plain text', async () => {
+    const response = getLlmsFull();
+
+    expect(response.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+    expect(response.headers.get('cache-control')).toContain('max-age=3600');
+    expect(await response.text()).toBe(buildLlmsFullTxt());
+    expect(existsSync(join(root, 'public', 'llms-full.txt'))).toBe(false);
   });
 
   it('falls back hero ATF copy to opacity 1 without JS and for reduced motion', () => {
