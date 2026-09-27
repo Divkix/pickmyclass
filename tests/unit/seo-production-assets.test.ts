@@ -82,6 +82,7 @@ describe('production SEO and AI discovery assets', () => {
   it.each([
     ['llms.txt', buildLlmsTxt],
     ['llms-full.txt', buildLlmsFullTxt],
+    ['pricing.md', () => readFileSync(join(root, 'public', 'pricing.md'), 'utf8')],
   ])('links only to served paths from %s', (_name, build) => {
     const paths = sitePaths(build());
 

@@ -19,4 +19,4 @@ PickMyClass is a free ASU class seat tracker. There is one plan and it costs not
 - PickMyClass never asks for your MyASU password; it only reads public class data.
 - Not affiliated with Arizona State University.
 
-Sign up: https://pickmyclass.app/register
+Sign up: https://pickmyclass.app/sign-up
