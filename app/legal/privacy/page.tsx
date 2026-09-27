@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -23,7 +23,7 @@ export default async function PrivacyPolicyPage() {
         <div className="mx-auto w-full max-w-4xl space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-3xl">Privacy Policy</CardTitle>
+              <h1 className="text-3xl leading-none font-semibold">Privacy Policy</h1>
               <p className="text-sm text-muted-foreground">Last Updated: October 24, 2025</p>
             </CardHeader>
             <CardContent className="prose prose-zinc dark:prose-invert max-w-none space-y-6">

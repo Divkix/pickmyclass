@@ -203,9 +203,11 @@ describe('static marketing and legal pages', () => {
 
     rerender(await PrivacyPolicyPage());
     expect(document.querySelector('main#main')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeInTheDocument();
 
     rerender(await TermsOfServicePage());
     expect(document.querySelector('main#main')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeInTheDocument();
   });
 });
 
