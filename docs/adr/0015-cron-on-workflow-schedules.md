@@ -8,7 +8,7 @@ The 30-minute section check and the 04:05 maintenance sweep ran as Worker cron t
 
 ## Decision
 
-- **`SectionCheckWorkflow` and `MaintenanceWorkflow`** (`lib/workflows/cron-workflows.ts`) are started by `schedules` on their `wrangler.jsonc` Workflow bindings (`0,30 * * * *`, `5 4 * * *`). No `scheduled()` handler, no `/api/cron*` routes, no `triggers.crons` (kept as `[]` so deploys clear the old triggers).
+- **`SectionCheckWorkflow` and `MaintenanceWorkflow`** (`lib/workflows/cron-workflows.ts`) are started by `schedules` on their `wrangler.jsonc` Workflow bindings (`0,15,30,45 * * * *`, `5 4 * * *`). No `scheduled()` handler, no `/api/cron*` routes, no `triggers.crons` (kept as `[]` so deploys clear the old triggers).
 - **Each unit of work is a `step.do`** with 5 exponential retries (10s base, 2-minute timeout): expire stale notifications, load sections, and one step per `sendBatch` of 100. A batch that fails after its retries errors the instance *after* the other batches have been enqueued, so a run is visible as failed in the Workflows dashboard.
 - **The stale-notification sweep is best-effort in the section check** (caught and logged) but a hard step in maintenance. Maintenance's two steps run independently; either failing errors the instance.
 - **No lock.** Duplicate or overlapping instances are safe: every message carries the `cycle` stamp (`<scheduledTime ISO>:<stagger>`) that `processSection` uses to skip an already-checked section, and the conditional `class_states` upsert rejects stale writes. Stagger and cycle come from `event.schedule.scheduledTime` (the trigger time for a manual `wrangler workflows trigger`).

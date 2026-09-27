@@ -27,7 +27,7 @@
       "name": "pickmyclass-section-check",
       "binding": "SECTION_CHECK_WORKFLOW",
       "class_name": "SectionCheckWorkflow",
-      "schedules": ["0,30 * * * *"],
+      "schedules": ["0,15,30,45 * * * *"],
     },
     {
       "name": "pickmyclass-maintenance",

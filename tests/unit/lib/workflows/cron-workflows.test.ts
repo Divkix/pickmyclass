@@ -55,7 +55,7 @@ function scheduledEvent(scheduledTime: string): WorkflowEvent<unknown> {
     timestamp: new Date(),
     instanceId: 'instance-1',
     workflowName: 'pickmyclass-section-check',
-    schedule: { cron: '0,30 * * * *', scheduledTime: Date.parse(scheduledTime) },
+    schedule: { cron: '0,15,30,45 * * * *', scheduledTime: Date.parse(scheduledTime) },
   };
 }
 
@@ -78,9 +78,11 @@ beforeEach(() => {
 });
 
 describe('staggerGroupFor', () => {
-  it('alternates by half hour', () => {
+  it('alternates by quarter hour so each group runs every 30 minutes', () => {
     expect(staggerGroupFor(new Date('2026-09-24T12:00:00Z'))).toBe('even');
-    expect(staggerGroupFor(new Date('2026-09-24T12:30:00Z'))).toBe('odd');
+    expect(staggerGroupFor(new Date('2026-09-24T12:15:00Z'))).toBe('odd');
+    expect(staggerGroupFor(new Date('2026-09-24T12:30:00Z'))).toBe('even');
+    expect(staggerGroupFor(new Date('2026-09-24T12:45:00Z'))).toBe('odd');
   });
 });
 
@@ -89,7 +91,7 @@ describe('SectionCheckWorkflow', () => {
     mockGetSectionsToCheck.mockResolvedValue(sections(250));
 
     const result = await new SectionCheckWorkflow(ctx, env).run(
-      scheduledEvent('2026-09-24T12:30:00.000Z'),
+      scheduledEvent('2026-09-24T12:15:00.000Z'),
       step
     );
 
@@ -99,7 +101,7 @@ describe('SectionCheckWorkflow', () => {
     expect(sentBodies()[0]).toMatchObject({
       class_nbr: '10000',
       term: '2261',
-      cycle: '2026-09-24T12:30:00.000Z:odd',
+      cycle: '2026-09-24T12:15:00.000Z:odd',
     });
     expect(stepNames).toEqual([
       'expire stale notifications',
@@ -109,7 +111,7 @@ describe('SectionCheckWorkflow', () => {
       'enqueue batch 3/3',
     ]);
     expect(result).toEqual({
-      cycle: '2026-09-24T12:30:00.000Z:odd',
+      cycle: '2026-09-24T12:15:00.000Z:odd',
       sections_enqueued: 250,
       batches: 3,
     });

@@ -27,9 +27,9 @@ This document defines domain terms used throughout the codebase. New modules sho
 
 - **Change Detection** — The algorithm that compares old and new section data to determine if seats became available, seats filled, or an instructor was assigned. The seat signal is `non_reserved_seats ?? seats_available`; `non_reserved_seats` is computed as `Math.max(0, enrlCap - enrlTot - waitTot)` in `lib/asu/api.ts` and persisted via `upsertClassState` (`lib/db/queries.ts`), with fallback `non_reserved_seats ?? seats_available` when `NULL` (no waitlist data) — see `docs/adr/0005-non-reserved-seats-dormant-column.md` (pre-#198 wording is historical).
 
-- **Cron Cycle** — One `SectionCheckWorkflow` instance, started every 30 minutes by its Workflow `schedules`, that enqueues Section Checks. Partitioned by Stagger Group.
+- **Cron Cycle** — One `SectionCheckWorkflow` instance, started every 15 minutes by its Workflow `schedules`, that enqueues Section Checks. Partitioned by Stagger Group.
 
-- **Stagger Group** — Even/odd class_nbr partitioning to spread checks across the two half-hourly runs (:00 = even, :30 = odd). Reduces load on the ASU API.
+- **Stagger Group** — Even/odd class_nbr partitioning to alternate checks across the quarter-hourly runs (:00 and :30 = even, :15 and :45 = odd), so each section is checked every 30 minutes. Reduces load on the ASU API.
 
 - **Queue Message** — A `ClassCheckMessage` containing `class_nbr`, `term`, `enqueued_at`, and the Cron Cycle stamp `cycle` (`<scheduledTime>:<stagger group>`) used to skip redeliveries. Sent to Cloudflare Queue for parallel processing.
 

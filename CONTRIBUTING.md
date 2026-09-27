@@ -250,7 +250,7 @@ How did you test these changes?
 - **Memory limits**: Workers have 128MB memory limit
 - **Execution time**: 30 seconds for HTTP; Workflow steps retry independently
 - **Queue consumers**: `max_concurrency: 20`, `max_batch_size: 5` for queue processing
-- **Scheduled work**: `SectionCheckWorkflow` (every 30 min) and `MaintenanceWorkflow` (04:05 UTC: notification expiry + past-term watch deletion) run from Workflow `schedules` in `wrangler.jsonc`
+- **Scheduled work**: `SectionCheckWorkflow` (every 15 min; each section every 30 min) and `MaintenanceWorkflow` (04:05 UTC: notification expiry + past-term watch deletion) run from Workflow `schedules` in `wrangler.jsonc`
 - **Test with preview**: Always test with `pnpm run preview` before deploying
 
 ### Email Templates
