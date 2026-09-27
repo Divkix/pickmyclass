@@ -11,6 +11,12 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/legal',
   },
+  // Link hub for the two policies: nothing here to rank on its own, so keep it out of the
+  // index (and the sitemap) while still letting crawlers follow through to the documents.
+  robots: {
+    index: false,
+    follow: true,
+  },
 };
 
 export const dynamic = 'error';

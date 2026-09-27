@@ -84,10 +84,12 @@ describe('sitemap lastmod', () => {
       'https://pickmyclass.app/blog/asu-class-seat-tracker',
       'https://pickmyclass.app/blog/asu-waitlist-guide',
       'https://pickmyclass.app/faq',
-      'https://pickmyclass.app/legal',
+      'https://pickmyclass.app/legal/privacy',
     ]) {
       expect(byUrl.get(url)).toBeDefined();
     }
+
+    expect(byUrl.has('https://pickmyclass.app/legal')).toBe(false);
 
     for (const post of blogPosts) {
       expect(byUrl.get(`https://pickmyclass.app/blog/${post.slug}`)).toBeDefined();
