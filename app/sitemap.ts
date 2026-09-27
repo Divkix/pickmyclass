@@ -1,17 +1,10 @@
 import type { MetadataRoute } from 'next';
 import { blogPosts } from '@/lib/blog/posts';
+// Stamped by the pre-commit hook (scripts/bump-lastmod.ts) when a page's
+// content is committed; edit by hand only to backdate.
+import STATIC_PAGE_LASTMOD from '@/lib/seo/static-page-lastmod.json';
 
 const baseUrl = 'https://pickmyclass.app';
-
-const STATIC_PAGE_LASTMOD = {
-  '/': '2026-08-28',
-  '/faq': '2026-08-22',
-  '/about': '2026-08-22',
-  '/contact': '2026-09-19',
-  '/docs': '2026-09-19',
-  '/legal/terms': '2025-10-24',
-  '/legal/privacy': '2025-10-24',
-} as const;
 
 function lastmod(isoDate: string): Date {
   return new Date(`${isoDate}T00:00:00.000Z`);

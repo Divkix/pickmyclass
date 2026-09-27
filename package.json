@@ -27,6 +27,7 @@
     "test:ui": "vp test --ui",
     "type-check": "tsc --noEmit && tsc -p tsconfig.worker.json --noEmit",
     "generate:og": "tsx scripts/generate-og-image.ts",
+    "seo:lastmod": "tsx scripts/bump-lastmod.ts",
     "prepare": "vp config"
   },
   "dependencies": {
