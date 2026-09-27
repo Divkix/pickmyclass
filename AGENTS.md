@@ -46,7 +46,7 @@ tests/        # unit/, integration/, mocks/
 worker.ts     # CF Worker (fetch, queue) + re-exported Workflow classes
 proxy.ts      # vinext middleware — THE auth gate + CSP nonce
 db/migrations/ # timestamped SQL history (plain PG)
-public/       # static + llms.txt, llms-full.txt
+public/       # static assets, pricing.md, IndexNow key (llms*.txt are routes)
 ```
 
 `lib/utils.ts` = shadcn `cn()` only; `lib/utils/` = custom utils — by design, don't deduplicate.
@@ -68,7 +68,7 @@ Through `vinext` + `vp` — don't use `next`/`vitest`/`eslint` directly. `pnpm@1
 pnpm run dev              # vinext dev :3000
 pnpm run build
 pnpm run preview          # real Worker locally
-pnpm run deploy           # build + wrangler deploy + triggers deploy
+pnpm run deploy           # build + wrangler deploy + triggers deploy + IndexNow ping
 pnpm run check            # format+lint+app type-check (excludes worker.ts/scripts — see below)
 pnpm run check:fix
 pnpm run verify           # check + app/worker type-check + knip (pre-commit and CI gate)
@@ -94,6 +94,7 @@ validate-lockfile -> quality/test/check in parallel -> ci-success (required). Th
 - **Config:** constants in `lib/config.ts`; logging via `log('Scope').info|warn|error` not `console.*`.
 - **Email:** all template data through `escapeHtml`; unsubscribe tokens are stateless HMAC (90d, not single-use).
 - **SEO metadata:** rendered `<title>` ≤60 chars (root and blog templates both append ` | PickMyClass`; use `{ absolute }` when the title already names the brand), description ≤160. Shorten only `metadata.title`; H1/`og:title`/Article `headline` keep full wording. New indexable pages go in the `search snippet lengths` table in `tests/unit/seo-on-page.test.tsx`. Headings descend one level at a time (blog asides are `h2`). `/legal` is a `noindex, follow` hub kept out of the sitemap on purpose.
+- **SEO automation:** new indexable pages go in `PUBLIC_PAGES` (`lib/seo/public-pages.ts`), which feeds the sitemap and `/llms-full.txt`; non-blog pages also need a date in `lib/seo/static-page-lastmod.json`, which the pre-commit hook (`scripts/bump-lastmod.ts`) re-stamps when a mapped page file is staged (map in `lib/seo/lastmod-routes.ts`; no git history at build time — Workers Builds clones shallow). `/llms.txt` and `/llms-full.txt` are route handlers (`lib/seo/llms*.ts`, curated prose + code facts); never add `public/llms*.txt` — static assets win and would shadow them. They are excluded from the `proxy.ts` matcher like `sitemap.xml`. `pricing.md` stays static (no `/pricing` page to twin). `pnpm run deploy` ends with `seo:indexnow` (live sitemap -> IndexNow, always exits 0); the key is `INDEXNOW_KEY` in `lib/seo/indexnow.ts` and must match `public/<key>.txt`.
 
 ## Critical invariants & gotchas
 

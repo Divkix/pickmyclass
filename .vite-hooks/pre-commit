@@ -5,5 +5,6 @@ if [ -n "$CI" ]; then
   exit 0
 fi
 
+pnpm run --silent seo:lastmod
 vp staged
 pnpm run verify
