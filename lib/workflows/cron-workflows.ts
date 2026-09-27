@@ -40,7 +40,7 @@ function firedAt(event: Readonly<WorkflowEvent<unknown>>): Date {
 }
 
 export function staggerGroupFor(time: Date): StaggerGroup {
-  return Math.floor(time.getMinutes() / 30) % 2 === 0 ? 'even' : 'odd';
+  return Math.floor(time.getMinutes() / 15) % 2 === 0 ? 'even' : 'odd';
 }
 
 function rejectedReasons(results: PromiseSettledResult<unknown>[]): string[] {
@@ -52,7 +52,7 @@ function rejectedReasons(results: PromiseSettledResult<unknown>[]): string[] {
 }
 
 /**
- * Every 30 minutes (`schedules` in wrangler.jsonc): expire stale notification
+ * Every 15 minutes (`schedules` in wrangler.jsonc), so each stagger group is checked every 30 minutes: expire stale notification
  * claims, load the stagger group's sections, and enqueue one Section Check per
  * section. Each step retries on its own; a batch that still fails after its
  * retries errors the instance after the other batches are enqueued.

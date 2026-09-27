@@ -43,7 +43,7 @@ vinext App (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (Drizz
       |         |                               ^
       |         | Clerk FAPI (clerk.*)          | polling GET /api/class-watches/states
       v         v                               | (30–60s, sectionRefKey)
-Workflow schedules (every 30 min + 04:05 maintenance)  |
+Workflow schedules (every 15 min + 04:05 maintenance)  |
       |
       v
 SectionCheckWorkflow (retried steps; enqueues in batches of 100)
@@ -107,7 +107,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 
 ### Workflows
 
-**SectionCheckWorkflow** (`0,30 * * * *`) and **MaintenanceWorkflow** (`5 4 * * *`) run from `schedules` on their bindings in `wrangler.jsonc`. Each step retries on its own; runs are listed in Dashboard → Workers & Pages → Workflows. Trigger one by hand with `wrangler workflows trigger pickmyclass-section-check`.
+**SectionCheckWorkflow** (`0,15,30,45 * * * *`) and **MaintenanceWorkflow** (`5 4 * * *`) run from `schedules` on their bindings in `wrangler.jsonc`. Each step retries on its own; runs are listed in Dashboard → Workers & Pages → Workflows. Trigger one by hand with `wrangler workflows trigger pickmyclass-section-check`.
 
 ## Self-Hosting Guide
 
@@ -306,7 +306,7 @@ wrangler.jsonc               # Cloudflare Workers config (HYPERDRIVE, CLERK_* se
 ## How It Works
 
 1. **User adds class watch** - Student enters section number on dashboard
-2. **Every 30 minutes** - Cloudflare cron triggers enqueue all watched sections (even/odd stagger)
+2. **Every 15 minutes** - Workflow schedules enqueue half the watched sections (even/odd stagger), so each section is checked every 30 minutes
 3. **Queue consumers process** - 20 concurrent Workers query ASU API in parallel
 4. **Change detection** - Compare new state with PostgreSQL cached state (`non_reserved_seats ?? seats_available`)
 5. **Atomic deduplication** - a partial unique index (`is_active=TRUE`) + `try_record_notifications_batch` claims recipients; an `expire_stale_notifications()` sweep on every cron tail + the 04:05 maintenance run frees expired slots

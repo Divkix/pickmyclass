@@ -24,7 +24,7 @@ Two systems to understand first: **seat-check notification pipeline** and **auth
 
 ```
 Browser -> vinext Worker (worker.ts) -> PlanetScale via Hyperdrive (polling)
-             |  Workflow schedules 0,30 * * * * (SectionCheckWorkflow) + 5 4 * * * (MaintenanceWorkflow) -> Queue -> worker.ts queue() -> processSection() -> ASU API + Email
+             |  Workflow schedules 0,15,30,45 * * * * (SectionCheckWorkflow) + 5 4 * * * (MaintenanceWorkflow) -> Queue -> worker.ts queue() -> processSection() -> ASU API + Email
              |  Clerk FAPI (jwtKey verify)    -> polling GET /api/class-watches/states
 ```
 
