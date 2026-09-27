@@ -16,7 +16,7 @@
     "knip": "knip",
     "verify": "pnpm run check && pnpm run type-check && DATABASE_URL=postgres://user:pass@localhost:5432/db pnpm run knip",
     "preview": "vinext build && wrangler dev",
-    "deploy": "POSTHOG_UPLOAD_SOURCEMAPS=true vinext build && wrangler deploy && wrangler triggers deploy",
+    "deploy": "POSTHOG_UPLOAD_SOURCEMAPS=true vinext build && wrangler deploy && wrangler triggers deploy && pnpm run seo:indexnow",
     "cf-typegen": "wrangler types --config wrangler.jsonc --env-file /dev/null --env-interface CloudflareEnv lib/cloudflare-env.d.ts",
     "test": "vp test",
     "db:generate": "drizzle-kit generate",
@@ -28,6 +28,7 @@
     "type-check": "tsc --noEmit && tsc -p tsconfig.worker.json --noEmit",
     "generate:og": "tsx scripts/generate-og-image.ts",
     "seo:lastmod": "tsx scripts/bump-lastmod.ts",
+    "seo:indexnow": "tsx scripts/submit-indexnow.ts",
     "prepare": "vp config"
   },
   "dependencies": {
