@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     template: '%s | PickMyClass',
   },
   description:
-    'Get a free email the moment a seat opens in a full ASU class. PickMyClass tracks ASU class search every 30 minutes so you stop refreshing MyASU. Trusted by 2,400+ Sun Devils.',
+    'Get a free email the moment a seat opens in a full ASU class. PickMyClass checks every 30 minutes so you stop refreshing MyASU. Trusted by 2,400+ Sun Devils.',
   openGraph: {
     type: 'website',
     locale: 'en_US',

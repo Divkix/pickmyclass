@@ -61,7 +61,7 @@ const resources: Resource[] = [
 export const metadata: Metadata = {
   title: { absolute: 'PickMyClass Developer & Agent Resources' },
   description:
-    'Machine-readable surfaces for the PickMyClass ASU class seat tracker: llms.txt, llms-full.txt, sitemap.xml, pricing.md, the blog RSS feed, and the public health endpoint.',
+    'Machine-readable PickMyClass surfaces for agents and crawlers: llms.txt, llms-full.txt, sitemap.xml, pricing.md, the blog RSS feed, and a health endpoint.',
   alternates: {
     canonical: '/docs',
   },

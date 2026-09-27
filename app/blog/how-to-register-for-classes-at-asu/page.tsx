@@ -16,7 +16,7 @@ import { JsonLd } from '@/components/landing/JsonLd';
 export const metadata: Metadata = {
   title: 'How to Register for Classes at ASU (2026)',
   description:
-    'A step-by-step guide to registering for classes at ASU. Find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block you.',
+    'Step-by-step guide to ASU registration: find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block you.',
   alternates: {
     canonical: '/blog/how-to-register-for-classes-at-asu',
   },
@@ -38,7 +38,7 @@ const articleSchema = {
   '@type': 'Article',
   headline: 'How to Register for Classes at ASU: Step-by-Step (2026)',
   description:
-    'A step-by-step guide to registering for classes at ASU. Find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block you.',
+    'Step-by-step guide to ASU registration: find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block you.',
   datePublished: '2026-06-18T00:00:00Z',
   dateModified: '2026-06-18T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },

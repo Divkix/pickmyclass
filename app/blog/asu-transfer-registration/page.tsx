@@ -16,7 +16,7 @@ import { JsonLd } from '@/components/landing/JsonLd';
 export const metadata: Metadata = {
   title: 'ASU Transfer Student Registration Guide',
   description:
-    'Everything transfer students need to know about ASU registration. How transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.',
+    'ASU registration for transfer students: how transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.',
   alternates: {
     canonical: '/blog/asu-transfer-registration',
   },
@@ -37,7 +37,7 @@ const articleSchema = {
   '@type': 'Article',
   headline: 'ASU Transfer Student Registration: Complete Guide for MyPath2ASU Students',
   description:
-    'Everything transfer students need to know about ASU registration. How transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.',
+    'ASU registration for transfer students: how transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.',
   datePublished: '2026-04-26T00:00:00Z',
   dateModified: '2026-06-18T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },

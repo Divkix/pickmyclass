@@ -16,7 +16,7 @@ import { JsonLd } from '@/components/landing/JsonLd';
 export const metadata: Metadata = {
   title: 'ASU Class Search: Find Open Classes Fast',
   description:
-    'A student guide to ASU Class Search. Find open sections, filter by campus and seats, decode the section number, and get alerted the second a full class opens up.',
+    'A student guide to ASU Class Search. Find open sections, filter by campus and seats, decode the section number, and get alerted when a full class opens up.',
   alternates: {
     canonical: '/blog/asu-class-search',
   },
@@ -38,7 +38,7 @@ const articleSchema = {
   '@type': 'Article',
   headline: 'ASU Class Search: How to Find Open Classes Fast (2026 Guide)',
   description:
-    'A student guide to ASU Class Search. Find open sections, filter by campus and seats, decode the section number, and get alerted the second a full class opens up.',
+    'A student guide to ASU Class Search. Find open sections, filter by campus and seats, decode the section number, and get alerted when a full class opens up.',
   datePublished: '2026-06-18T00:00:00Z',
   dateModified: '2026-06-18T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },

@@ -16,7 +16,7 @@ import { JsonLd } from '@/components/landing/JsonLd';
 export const metadata: Metadata = {
   title: 'ASU Waitlist Guide: Full Classes & No Waitlist',
   description:
-    "Class full? Here's how to add yourself to an ASU waitlist when one exists, how the 24-hour rule works, and the faster backup that gets you a seat when there's no waitlist.",
+    "Class full? How to join an ASU waitlist when one exists, how the 24-hour rule works, and the faster backup that gets you a seat when there's no waitlist.",
   alternates: {
     canonical: '/blog/asu-waitlist-guide',
   },
@@ -38,7 +38,7 @@ const articleSchema = {
   '@type': 'Article',
   headline: "How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)",
   description:
-    "Class full? Here's how to add yourself to an ASU waitlist when one exists, how the 24-hour rule works, and the faster backup that gets you a seat when there's no waitlist.",
+    "Class full? How to join an ASU waitlist when one exists, how the 24-hour rule works, and the faster backup that gets you a seat when there's no waitlist.",
   datePublished: '2026-04-26T00:00:00Z',
   dateModified: '2026-06-18T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
