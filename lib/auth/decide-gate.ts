@@ -19,6 +19,8 @@ export function isPublicRoute(pathname: string): boolean {
     pathname === '/' ||
     pathname === '/sitemap.xml' ||
     pathname === '/robots.txt' ||
+    pathname === '/llms.txt' ||
+    pathname === '/llms-full.txt' ||
     PUBLIC_ROUTES.some((route) => isPathPrefix(pathname, route)) ||
     API_PUBLIC_PREFIXES.some((prefix) => isPathPrefix(pathname, prefix))
   );
