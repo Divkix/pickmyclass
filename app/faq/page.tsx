@@ -4,7 +4,7 @@ import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
 export const metadata: Metadata = {
-  title: 'Frequently Asked Questions — ASU Class Seat Notifications',
+  title: 'FAQ: ASU Class Seat Notifications',
   description:
     'Everything you need to know about PickMyClass, the free ASU class seat notification service. How it works, notification timing, campus support, and more.',
   alternates: {

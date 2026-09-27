@@ -15,7 +15,7 @@ import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
 export const metadata: Metadata = {
-  title: 'ASU Registration Tips: Build Your Perfect Schedule',
+  title: 'ASU Registration Tips: Build Your Schedule',
   description:
     'Everything you need to know about ASU class registration. Enrollment appointment tips, class search strategies, and tools to help you get the schedule you want.',
   alternates: {

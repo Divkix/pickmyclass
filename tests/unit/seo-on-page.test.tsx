@@ -1,9 +1,25 @@
 import { render, screen } from '@testing-library/react';
+import type { Metadata } from 'next';
 import { describe, expect, it } from 'vite-plus/test';
+import { z } from 'zod';
 import { metadata as aboutMetadata } from '@/app/about/page';
+import { metadata as asuClassSearchMetadata } from '@/app/blog/asu-class-search/page';
+import { metadata as asuClassSeatTrackerMetadata } from '@/app/blog/asu-class-seat-tracker/page';
+import { metadata as asuRegistrationTipsMetadata } from '@/app/blog/asu-registration-tips/page';
+import { metadata as asuTransferRegistrationMetadata } from '@/app/blog/asu-transfer-registration/page';
+import { metadata as asuWaitlistGuideMetadata } from '@/app/blog/asu-waitlist-guide/page';
+import { metadata as bestSeatTrackerMetadata } from '@/app/blog/best-asu-class-seat-tracker/page';
+import { metadata as fullClassesMetadata } from '@/app/blog/how-to-get-into-full-asu-classes/page';
+import { metadata as howToRegisterMetadata } from '@/app/blog/how-to-register-for-classes-at-asu/page';
+import { metadata as blogLayoutMetadata } from '@/app/blog/layout';
+import { metadata as myasuSearchTipsMetadata } from '@/app/blog/myasu-search-tips/page';
 import { metadata as blogMetadata } from '@/app/blog/page';
+import { metadata as contactMetadata } from '@/app/contact/page';
+import { metadata as docsMetadata } from '@/app/docs/page';
 import { metadata as faqMetadata } from '@/app/faq/page';
 import { metadata as rootMetadata } from '@/app/layout';
+import { metadata as privacyMetadata } from '@/app/legal/privacy/page';
+import { metadata as termsMetadata } from '@/app/legal/terms/page';
 import { metadata as homeMetadata } from '@/app/page';
 import sitemap from '@/app/sitemap';
 import { SkipToContent } from '@/components/SkipToContent';
@@ -84,13 +100,90 @@ describe('sitemap lastmod', () => {
       'https://pickmyclass.app/blog/asu-class-seat-tracker',
       'https://pickmyclass.app/blog/asu-waitlist-guide',
       'https://pickmyclass.app/faq',
-      'https://pickmyclass.app/legal',
+      'https://pickmyclass.app/legal/privacy',
     ]) {
       expect(byUrl.get(url)).toBeDefined();
     }
 
+    expect(byUrl.has('https://pickmyclass.app/legal')).toBe(false);
+
     for (const post of blogPosts) {
       expect(byUrl.get(`https://pickmyclass.app/blog/${post.slug}`)).toBeDefined();
     }
+  });
+});
+
+const layoutTitle = z.looseObject({ template: z.string() });
+
+// Mirrors Next's resolution: a plain string goes through the nearest layout template,
+// `absolute` bypasses it.
+const pageTitle = z.union([
+  z.string().transform((title) => ({ title, absolute: false })),
+  z.looseObject({ absolute: z.string() }).transform(({ absolute }) => ({
+    title: absolute,
+    absolute: true,
+  })),
+]);
+
+function renderedTitle(metadata: Metadata, template: string): string {
+  const { title, absolute } = pageTitle.parse(metadata.title);
+
+  return absolute ? title : template.replace('%s', title);
+}
+
+describe('search snippet lengths', () => {
+  const rootTemplate = layoutTitle.parse(rootMetadata.title).template;
+  const blogTemplate = layoutTitle.parse(blogLayoutMetadata.title).template;
+
+  it.each([
+    { path: '/', metadata: homeMetadata, template: rootTemplate },
+    { path: '/about', metadata: aboutMetadata, template: rootTemplate },
+    { path: '/contact', metadata: contactMetadata, template: rootTemplate },
+    { path: '/docs', metadata: docsMetadata, template: rootTemplate },
+    { path: '/faq', metadata: faqMetadata, template: rootTemplate },
+    { path: '/legal/privacy', metadata: privacyMetadata, template: rootTemplate },
+    { path: '/legal/terms', metadata: termsMetadata, template: rootTemplate },
+    { path: '/blog', metadata: blogMetadata, template: blogTemplate },
+    { path: '/blog/asu-class-search', metadata: asuClassSearchMetadata, template: blogTemplate },
+    {
+      path: '/blog/asu-class-seat-tracker',
+      metadata: asuClassSeatTrackerMetadata,
+      template: blogTemplate,
+    },
+    {
+      path: '/blog/asu-registration-tips',
+      metadata: asuRegistrationTipsMetadata,
+      template: blogTemplate,
+    },
+    {
+      path: '/blog/asu-transfer-registration',
+      metadata: asuTransferRegistrationMetadata,
+      template: blogTemplate,
+    },
+    {
+      path: '/blog/asu-waitlist-guide',
+      metadata: asuWaitlistGuideMetadata,
+      template: blogTemplate,
+    },
+    {
+      path: '/blog/best-asu-class-seat-tracker',
+      metadata: bestSeatTrackerMetadata,
+      template: blogTemplate,
+    },
+    {
+      path: '/blog/how-to-get-into-full-asu-classes',
+      metadata: fullClassesMetadata,
+      template: blogTemplate,
+    },
+    {
+      path: '/blog/how-to-register-for-classes-at-asu',
+      metadata: howToRegisterMetadata,
+      template: blogTemplate,
+    },
+    { path: '/blog/myasu-search-tips', metadata: myasuSearchTipsMetadata, template: blogTemplate },
+  ])('keeps $path title <= 60 and description <= 160 chars', ({ metadata, template }) => {
+    expect(renderedTitle(metadata, template).length).toBeLessThanOrEqual(60);
+    expect(metadata.description?.length ?? 0).toBeGreaterThan(0);
+    expect(metadata.description?.length ?? 0).toBeLessThanOrEqual(160);
   });
 });

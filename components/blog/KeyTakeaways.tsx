@@ -16,7 +16,7 @@ export function KeyTakeaways({ title = 'Key Takeaways', items }: KeyTakeawaysPro
         <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-accent-foreground">
           <Lightbulb className="size-4" aria-hidden="true" />
         </span>
-        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
       </div>
       <ul className="space-y-2">
         {items.map((item, index) => (

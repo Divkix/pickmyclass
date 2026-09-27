@@ -93,6 +93,7 @@ validate-lockfile -> quality/test/check in parallel -> ci-success (required). Th
 - **Tests:** under `tests/`, `*.test.ts(x)` / `*.spec.ts(x)`.
 - **Config:** constants in `lib/config.ts`; logging via `log('Scope').info|warn|error` not `console.*`.
 - **Email:** all template data through `escapeHtml`; unsubscribe tokens are stateless HMAC (90d, not single-use).
+- **SEO metadata:** rendered `<title>` ≤60 chars (root and blog templates both append ` | PickMyClass`; use `{ absolute }` when the title already names the brand), description ≤160. Shorten only `metadata.title`; H1/`og:title`/Article `headline` keep full wording. New indexable pages go in the `search snippet lengths` table in `tests/unit/seo-on-page.test.tsx`. Headings descend one level at a time (blog asides are `h2`). `/legal` is a `noindex, follow` hub kept out of the sitemap on purpose.
 
 ## Critical invariants & gotchas
 
