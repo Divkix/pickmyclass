@@ -4,7 +4,7 @@
 
 A high-performance, scalable class seat notification system for university students. Monitor class availability, get notified when seats open up, and track instructor assignments.
 
-Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hyperdrive + Clerk, and deployed on Cloudflare Workers for edge performance. See `CLAUDE.md` (authoritative map) and `docs/adr/0012-auth-plane-clerk.md` / `0013-data-access-hyperdrive.md` / `0014-realtime-to-polling.md`.
+Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hyperdrive + Clerk, and deployed on Cloudflare Workers for edge performance. See `AGENTS.md` (authoritative map) and `docs/adr/0012-auth-plane-clerk.md` / `0013-data-access-hyperdrive.md` / `0014-realtime-to-polling.md`.
 
 ## Features
 

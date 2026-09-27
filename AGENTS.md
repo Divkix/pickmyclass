@@ -1,146 +1,98 @@
-# Repository Guidelines
+# AGENTS.md
 
-> **Audience: AI coding agents and contributors.** This file is the onboarding map for working in this repo. Read it before touching code — it explains how the system works, how it's built and tested, and the invariants you must not break.
+PickMyClass emails ASU students when a watched class section gains an open seat or gets a named instructor. It is a Next.js 16 App Router app (React 19, strict TS) built by **vinext** (Vite-based) and deployed as one **Cloudflare Worker**, with PlanetScale Postgres through Hyperdrive (request-scoped Drizzle over postgres-js), Clerk auth, Cloudflare Workflows + Queues for scheduled seat checks, and Cloudflare Email for delivery. Features, architecture diagram, and self-hosting are in [README.md](README.md); domain vocabulary is in [CONTEXT.md](CONTEXT.md); design decisions are in [docs/adr/](docs/adr/). Read the ADRs covering an area before changing it, and use CONTEXT.md terms (`SectionRef`, Section Check, Cron Cycle) in code, tests and issues.
 
-## Keeping this file current
+When code and this file disagree, code wins: fix this file in the same change.
 
-When you discover something non-obvious — an invariant, gotcha, decision and its *why* — **record it here and consolidate**: merge into closest existing point, delete what your change made false, keep entries terse. One deduplicated map, not an append-only log. Don't record transient state or secrets. When doc and code disagree, code wins.
+## Commands
 
-> `AGENTS.md` is canonical. Former `CLAUDE.md` symlink removed — `AGENTS.md` is the source (add `CLAUDE.md -> AGENTS.md` symlink if you need Claude Code compatibility).
+Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through the `pnpm run` scripts; tests import from `vite-plus/test`.
 
-## Agent skills
+| Task | Command |
+| --- | --- |
+| Install | `pnpm install` (pnpm 12.6.0, Node from `.node-version`) |
+| Dev server | `pnpm run dev` (vinext; one instance per checkout: a second one exits and prints the running server's URL) |
+| Build | `pnpm run build` |
+| Real Worker locally | `pnpm run preview` (build + `wrangler dev`); run before any deploy |
+| All tests | `pnpm run test:run` · with coverage gate (80% lines/branches/functions/statements): `pnpm run test:coverage` |
+| One file | `pnpm run test:run tests/unit/lib/crypto.test.ts` |
+| One test | `pnpm run test:run tests/unit/lib/crypto.test.ts -t "identical"` |
+| Live DB test | `DATABASE_URL=… pnpm run test:db` (excluded from the normal run) |
+| Format + lint | `pnpm run check` · autofix: `pnpm run check:fix` |
+| Type-check | `pnpm run type-check` (two passes: app `tsconfig.json`, then `tsconfig.worker.json`) |
+| Full gate | `pnpm run verify` = check + type-check + knip. Same as the pre-commit hook and CI `quality` job |
+| Deploy | `pnpm run deploy` (build, `wrangler deploy`, `wrangler triggers deploy`, IndexNow ping) |
 
-- **Issue tracker:** GitHub Issues on `Divkix/pickmyclass` via `gh` CLI. See `docs/agents/issue-tracker.md`.
-- **Triage labels:** `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
-- **Domain docs:** `CONTEXT.md` + `docs/adr/` at root. See `docs/agents/domain.md`.
+Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `build`, single-file and `-t` runs all exit 0.
 
-## What this is
+## Repo map (non-obvious parts only)
 
-**PickMyClass** notifies ASU students by email when a seat opens or instructor is assigned in a watched section. **Next.js 16 App Router** (React 19, TS strict) on **Cloudflare Workers via `vinext`** (Vite-based, not next-on-pages), **PlanetScale Postgres via Hyperdrive** (request-scoped Drizzle/postgres-js, `--caching-disabled`) + **Clerk** (`jwtKey`, `ext_id`) + **polling** (`docs/adr/0014`) + **Cloudflare Email + Queues + Durable Object** for notifications. `pnpm@12.6.0`, `Vite+ (vp)`.
+- `worker.ts`: the Worker entry. Wraps vinext `fetch`, adds `queue()`, re-exports the Workflow classes. Queue messages call `processSection()` directly, with no HTTP hop.
+- `proxy.ts`: vinext middleware. This is **the** auth gate and the CSP builder (decision logic in `lib/auth/decide-gate.ts`).
+- `lib/workflows/cron-workflows.ts`: `SectionCheckWorkflow` (every 15 min, even/odd stagger, so each section is checked every 30 min) and `MaintenanceWorkflow` (04:05 UTC).
+- `lib/queue/`: the seat-check pipeline (`process-section.ts` orchestrates, `change-detector.ts`, `notification-sender.ts`, `section-retirement.ts`).
+- `lib/db/index.ts`: the only DB seam (`getDb(hyperdrive)` / `getDbFromEnv()`, request-scoped). `lib/db/queries.ts` holds the Drizzle builders and typed SQL calls to `SECURITY DEFINER` RPCs. `lib/db/schema/` is the TS mirror of the SQL.
+- `db/migrations/*.sql`: hand-written, timestamp-prefixed plain PG, applied by hand with `psql`. Last definition wins. To change an applied function, add a new file with `CREATE OR REPLACE`; never edit an applied file. `pnpm run db:generate` writes to `migrations_pg/`, which is not the real migration history.
+- `lib/utils.ts` is shadcn's `cn()` only. Custom helpers go in `lib/utils/`. The split is intentional, so leave both.
+- `lib/seo/`: sitemap, `/llms.txt` and `/llms-full.txt` route handlers, lastmod map, IndexNow.
+- `tests/unit`, `tests/integration`: all tests live here, not next to source. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through aliases in `vitest.config.ts`. `tests/unit/lib/db/scripted-postgres.ts` is a fake postgres-js transport for query tests.
+- `tools/oxlint/anti-slop/`: vendored lint plugin (see Gotchas).
+- `docs/agents/`: issue-tracker (`gh` on `Divkix/pickmyclass`) and triage-label conventions used by skills.
 
-Two systems to understand first: **seat-check notification pipeline** and **auth/account lifecycle** — details in ADRs, invariants below.
+## Conventions (enforced by lint or used everywhere)
 
-## Architecture at a glance
+- **API routes:** wrap handlers in `withAuth(request, async (user) => …)` from `lib/api/withAuth.ts` (401 on `UnauthorizedError`). Validate with `parseOrFail(schema, body)` from `lib/api/validation.ts` (schemas in `lib/api/schemas.ts`). Respond with `ok()` / `fail(msg, status)` from `lib/api/response.ts`. `app/api/class-watches/route.ts` shows the full pattern. `monitoring/health` authenticates with `verifyCronSecret`.
+- **Bindings:** `import { env } from 'cloudflare:workers'`. DB access goes through `getDbFromEnv()`, not a module-level client.
+- **Logging:** `log('Scope').info|warn|error` from `lib/log.ts`. `no-console` is a lint error outside `lib/log.ts` and `tests/`.
+- **Type assertions** need a `// SAFETY: …` comment directly above them (`anti-slop/require-safety-comment-for-type-assertion`). Chained `as unknown as X` is banned outright. Other anti-slop rules to know: no object-shaped parameters, no `unknown` params or returns, no `.filter().map()`, no spread-accumulating `reduce`. The full list is in `vite.config.ts` → `lint.rules`.
+- **Imports:** `@/…` path alias. `vite-plus/test` instead of `vitest` (the `vite-plus/prefer-vite-plus-imports` rule enforces it).
+- **Constants** go in `lib/config.ts`. Style: 2 spaces, width 100, single quotes, semicolons, ES5 trailing commas (Oxfmt; `check:fix` applies it).
+- **Email:** every template value passes through `escapeHtml` (`lib/utils/escape-html.ts`). Unsubscribe tokens are stateless HMAC, valid 90 days, reusable.
+- **Tests** inject dependencies (e.g. `processSection(..., { fetchClass })`, `createScriptedPostgres`) rather than hitting real services. Name files `*.test.ts(x)` under `tests/`.
+- **Commits:** Conventional Commits, `type(scope): summary`.
 
-```
-Browser -> vinext Worker (worker.ts) -> PlanetScale via Hyperdrive (polling)
-             |  Workflow schedules 0,15,30,45 * * * * (SectionCheckWorkflow) + 5 4 * * * (MaintenanceWorkflow) -> Queue -> worker.ts queue() -> processSection() -> ASU API + Email
-             |  Clerk FAPI (jwtKey verify)    -> polling GET /api/class-watches/states
-```
+## Gotchas and invariants
 
-Queue consumer `worker.ts queue()` calls `processSection()` directly (not HTTP); the former `app/api/queue/process-section/route.ts` mirror was deleted (#380 Phase 1) — tests exercise `processSection()` directly. See `docs/adr/0006`.
+**Seat-check pipeline** (ADRs 0004, 0006, 0015):
+- `processSection` order is: conditional `class_states` upsert (`observedAt` vs `last_checked_at`) → reset notifications → send. A rejected upsert skips both reset and send. Sending earlier double-sends on retry; resetting before the upsert drops a claim when the write fails.
+- Email only the watch IDs returned by `tryRecordNotificationsBatch`. Roll back failed sends with the row IDs from that same claim (`deleteNotificationRecordsByIds`), never by re-looking-up the active row, which can delete a newer claim.
+- The first-observation guard (`!oldState` → no seat email) prevents false alerts. Keep it.
+- There is deliberately no cron lock. Overlapping Workflow instances are made safe by the message `cycle` stamp plus the conditional upsert. Keep both guards and don't add a lock.
+- `processSection` owns ack/retry (`SectionCheckOutcome`); callers only translate it for the transport. ASU 429s back off via `retryDelaySeconds()` (60s doubling, honours `Retry-After`, 15-min cap).
+- `expire_stale_notifications()` runs in every `SectionCheckWorkflow` run and in `MaintenanceWorkflow`. Re-notifications stop without it.
+- `class_states` is keyed on `(class_nbr, term)`. Always carry both (`SectionRef`).
+- `lib/asu/terms.ts` holds a hand-maintained ASU term calendar. Extend it every August, or creating new watches silently blocks.
+- Seat signal is `non_reserved_seats ?? seats_available` (ADR 0005).
 
-## Core systems (pointers, not copies)
+**Auth and edge** (ADRs 0001, 0003, 0012):
+- After consent or admin changes, call `invalidateAuthorizationState`. `proxy.ts` caches `readAuthorizationState` for 30s.
+- CSP has two production shapes in `proxy.ts`. Session requests get a per-request nonce. Session-less public pages are edge-cached and get `'unsafe-inline'` with **no** nonce or hash, because either one makes browsers ignore `'unsafe-inline'`. An empty `'nonce-'` once blanked the homepage for anonymous users and Googlebot.
+- Never add `headers()` / `cookies()` to `app/layout.tsx`: static pages then 500. `useSearchParams` needs a `<Suspense>` boundary.
+- `lib/clerk/config.ts` and `lib/analytics/config.ts` hold public keys as **string literals** on purpose. `process.env.NEXT_PUBLIC_*` does not get inlined into the Worker build.
 
-- **Seat-check pipeline:** `worker.ts` + `lib/workflows/cron-workflows.ts` + `lib/queue/process-section.ts` + `lib/asu/api.ts` + `lib/db/queries.ts` + `lib/email/`. Flow: `SectionCheckWorkflow` (Workflow `schedules`, no lock) -> `getSectionsToCheck` (even/odd stagger) -> Queue (one retried `step.do` per 100-message batch) -> `processSection()` (read baseline -> fetch ASU -> detectChanges -> first-observation guard -> upsert class_states before send -> notify). Full ordering and dedup in `docs/adr/0004`, `0006`, `0015`.
-- **Auth:** Clerk hosted `<SignIn>/<SignUp>` at `/sign-in`/`/sign-up` (`lib/clerk/config.ts` literal key). Sessions via `lib/auth/clerk-session.ts` (`ext_id` claim), `lib/auth/clerk-cookies.ts`, `proxy.ts` gate + `lib/auth/decide-gate.ts`. Webhook `POST /api/webhooks/clerk` -> `lib/db/users.ts` mirror. See `docs/adr/0012`, `0001`.
-- **Data:** Single seam `lib/db/index.ts` (`getDb(hyperdrive)` request-scoped). RPC-first (`SECURITY DEFINER` functions). `class_states` unique on `(class_nbr, term)`. `user_profiles` 1:1 mirror. See `docs/adr/0013`.
+**Cloudflare config:**
+- Workflow `class_name`s in `wrangler.jsonc` must match the classes re-exported from `worker.ts`. Cron schedules live on the Workflow bindings; `triggers.crons` stays `[]`. `CronLockDO` was deleted in migration `v3`, so never reuse that name.
+- Workers Free plan limits: Workflow steps get 10ms CPU and 1,024 steps per instance, so keep steps small and I/O-bound. Queues allow roughly 10k ops/day (~3 per message). The DLQ `pickmyclass-dlq` has no consumer; inspect or redrive it from the dashboard.
+- Secrets (`CLERK_*`, `ASU_API_*`, `CRON_SECRET`, `UNSUBSCRIBE_SIGNING_SECRET`) are set with `wrangler secret put`, never in `wrangler.jsonc`. Local values go in `.dev.vars` and `.env.local`, both gitignored; `.env.example` lists them.
+- `lib/cloudflare-env.d.ts` is **generated** by `pnpm run cf-typegen`, which also rewrites the whole runtime-types section. Commit only the binding hunks unless you mean to bump runtime types. Hand-written additions go in `lib/cloudflare-env.supplemental.d.ts`.
+- A new file imported by `worker.ts` must be added to `tsconfig.worker.json` → `include`, or it is never type-checked. `worker.ts` and `scripts/` are also excluded from lint.
+- Local `dev` / `preview` reach Postgres at `wrangler.jsonc`'s `localConnectionString` (`localhost:5432`); override with `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`.
 
-## Project structure
+**SEO** (tests in `tests/unit/seo-on-page.test.tsx` enforce these):
+- A new indexable page needs an entry in `PUBLIC_PAGES` (`lib/seo/public-pages.ts`), the snippet-length table in that test, and, for non-blog pages, a date in `lib/seo/static-page-lastmod.json`. The pre-commit hook re-stamps that date via `lib/seo/lastmod-routes.ts`.
+- Rendered `<title>` must be ≤60 chars (templates append ` | PickMyClass`; use `{ absolute }` when the title already names the brand). Descriptions must be ≤160 chars.
+- `/llms.txt` and `/llms-full.txt` are route handlers. Never add `public/llms*.txt`, because the static file would shadow the route. `public/<key>.txt` must match `INDEXNOW_KEY`.
 
-```
-app/          # Routes, pages, API endpoints (App Router)
-lib/          # Core logic (asu/, api/, auth/, clerk/, class-watches/, db/, queue/, worker/, email/, cache/, hooks/, contexts/, types/, blog/)
-components/   # React (ui/, admin/, landing/, blog/)
-tests/        # unit/, integration/, mocks/
-worker.ts     # CF Worker (fetch, queue) + re-exported Workflow classes
-proxy.ts      # vinext middleware — THE auth gate + CSP nonce
-db/migrations/ # timestamped SQL history (plain PG)
-public/       # static assets, pricing.md, IndexNow key (llms*.txt are routes)
-```
+**Toolchain:**
+- Bump `vite-plus`, `vite`, `vitest` and `@vitest/*` together with `vp migrate`, never one at a time: a solo bump desyncs them and breaks types and coverage. Dependabot ignores them. `@oxlint/plugins` is pinned to the `oxlint` version vite-plus resolves, so move it only in a toolchain bump.
+- `tools/oxlint/anti-slop/` is vendored and excluded from lint, fmt, tsc and knip on purpose. `vendor/` is un-ignored in `.gitignore`; keep the whole tree committed (CI lint can't load the plugin otherwise).
+- `pnpm-lock.yaml` contains two YAML documents (env lockfile, then project lockfile). That is expected. Changing `packageManager` requires regenerating the lockfile, or CI's `--frozen-lockfile` fails. pnpm 12 errors on unknown `pnpm-workspace.yaml` keys.
 
-`lib/utils.ts` = shadcn `cn()` only; `lib/utils/` = custom utils — by design, don't deduplicate.
+## Definition of done
 
-## Cloudflare Workers runtime
-
-- `worker.ts` wraps vinext + `queue` and re-exports `SectionCheckWorkflow`/`MaintenanceWorkflow` (`lib/workflows/cron-workflows.ts`); their `class_name`s in `wrangler.jsonc` `workflows` must match. Cron lives in each binding's `schedules` (not `triggers.crons`, kept `[]`). `CronLockDO` was deleted by migration `v3` — never reuse the name.
-- Bindings `wrangler.jsonc` + `lib/types/env.ts`: `HYPERDRIVE`, `PICKMYCLASS_QUEUE` -> `pickmyclass-queue` + DLQ `pickmyclass-dlq` (no consumer: inspect/redrive in dashboard, 24h retention on Free), `SECTION_CHECK_WORKFLOW`, `MAINTENANCE_WORKFLOW`, `EMAIL`, `ASSETS`, `CF_VERSION_METADATA`. Vars: `MAX_WATCHES_PER_USER` (10).
-- Secrets via `wrangler secret put` (never in jsonc): `CLERK_*`, `ASU_API_*`, `CRON_SECRET`, `UNSUBSCRIBE_SIGNING_SECRET`.
-- Access bindings via `import { env } from 'cloudflare:workers'` + `as unknown as Env`.
-- Config: `main ./worker.ts`, `compatibility_date 2026-05-07`, `placement: smart`, stateless, 128MB, 30s HTTP. Workers **Free** plan: Workflow steps get 10ms CPU and 1,024 steps/instance — keep steps I/O-bound and small; Queues get 10k ops/day (~3 per message). Always `pnpm run preview` before deploy.
-- `pnpm run cf-typegen` also regenerates the whole runtime-types section from the installed workerd; keep only the binding hunks unless intentionally bumping runtime types.
-
-## Build, test & dev
-
-Through `vinext` + `vp` — don't use `next`/`vitest`/`eslint` directly. `pnpm@12.6.0`.
-
-```bash
-pnpm run dev              # vinext dev :3000
-pnpm run build
-pnpm run preview          # real Worker locally
-pnpm run deploy           # build + wrangler deploy + triggers deploy + IndexNow ping
-pnpm run check            # format+lint+app type-check (excludes worker.ts/scripts — see below)
-pnpm run check:fix
-pnpm run verify           # check + app/worker type-check + knip (pre-commit and CI gate)
-pnpm run test / test:run / test:coverage  # vitest, 80% threshold
-pnpm run type-check       # AUTHORITATIVE: tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
-```
-
-Two tsconfigs: `tsconfig.json` (app, excludes worker.ts) + `tsconfig.worker.json` (Workers, add new worker files to `include` or they're un-typechecked). Tests import from `vite-plus/test`, mock `cloudflare:workers`/`vinext` via `tests/mocks`.
-
-**Anti-slop lint rules are vendored:** `tools/oxlint/anti-slop/` (provenance + snapshot digest in its `UPSTREAM.md`) loads into `vp lint` via `vite.config.ts`, and is excluded from lint, fmt, `tsc`, and knip on purpose — it is tooling, and its `.ts`-suffixed relative imports fail TS5097. `@oxlint/plugins` is pinned exactly to the `oxlint` version `vite-plus` resolves: move it in the same change that bumps the toolchain, never alone. `effect/` ships unregistered (no direct `effect` dependency). The whole tree must stay committed — `vendor/` is un-ignored in `.gitignore` because a global `vendor/` ignore dropped it once: local lint kept working off the working copy while CI's lint could not load the plugin at all.
-
-## CI (`.github/workflows/ci.yml`)
-
-validate-lockfile -> quality/test/check in parallel -> ci-success (required). The quality job runs pnpm run verify (Vite+ check, app/worker type-check, Knip); the check job preserves the production build. Dependabot ignores the vite-plus toolchain (vite-plus, vite, vitest, @vitest/*, @voidzero-dev/vite-plus-core) — bump via vp migrate only, never solo (solo bumps desync core/vitest and break types/coverage).
-
-## Conventions
-
-- **API responses:** `ok()`/`fail()` from `lib/api/response.ts` (except `monitoring/health`, `queue/process-section`).
-- **Validation:** zod `safeParse` + `mapValidationIssues` -> `fail(400)`. Schemas in `lib/api/schemas.ts`.
-- **Auth in routes:** `requireUser(request)` / `getSessionIdentity` -> `UnauthorizedError(401)`; detailed health -> `verifyCronSecret`.
-- **Style:** Oxfmt/Oxlint, 2-space, width 100, single quotes, semicolons, camelCase/PascalCase, imports auto-organized. `pnpm run check:fix`.
-- **Tests:** under `tests/`, `*.test.ts(x)` / `*.spec.ts(x)`.
-- **Config:** constants in `lib/config.ts`; logging via `log('Scope').info|warn|error` not `console.*`.
-- **Email:** all template data through `escapeHtml`; unsubscribe tokens are stateless HMAC (90d, not single-use).
-- **SEO metadata:** rendered `<title>` ≤60 chars (root and blog templates both append ` | PickMyClass`; use `{ absolute }` when the title already names the brand), description ≤160. Shorten only `metadata.title`; H1/`og:title`/Article `headline` keep full wording. New indexable pages go in the `search snippet lengths` table in `tests/unit/seo-on-page.test.tsx`. Headings descend one level at a time (blog asides are `h2`). `/legal` is a `noindex, follow` hub kept out of the sitemap on purpose.
-- **SEO automation:** new indexable pages go in `PUBLIC_PAGES` (`lib/seo/public-pages.ts`), which feeds the sitemap and `/llms-full.txt`; non-blog pages also need a date in `lib/seo/static-page-lastmod.json`, which the pre-commit hook (`scripts/bump-lastmod.ts`) re-stamps when a mapped page file is staged (map in `lib/seo/lastmod-routes.ts`; no git history at build time — Workers Builds clones shallow). `/llms.txt` and `/llms-full.txt` are route handlers (`lib/seo/llms*.ts`, curated prose + code facts); never add `public/llms*.txt` — static assets win and would shadow them. They are excluded from the `proxy.ts` matcher like `sitemap.xml`. `pricing.md` stays static (no `/pricing` page to twin). `pnpm run deploy` ends with `seo:indexnow` (live sitemap -> IndexNow, always exits 0); the key is `INDEXNOW_KEY` in `lib/seo/indexnow.ts` and must match `public/<key>.txt`.
-
-## Critical invariants & gotchas
-
-- **`processSection` order** conditional upsert (`observedAt` vs `last_checked_at`) -> reset -> send. A rejected upsert skips reset and send. Moving send earlier double-sends on retry; resetting before the upsert drops a claim when the write fails.
-- **Email only the watch IDs returned by `tryRecordNotificationsBatch`** and **rollback failed sends** with the notification row ids from that same claim (`deleteNotificationRecordsByIds`). A later lookup of the active row can delete a newer claim.
-- **`expire_stale_notifications()` in every `SectionCheckWorkflow` run + 04:05 `MaintenanceWorkflow` + past-term watch delete is load-bearing** — without it re-notifications stop.
-- **No cron lock by design** — duplicate/overlapping workflow instances are made safe by the message `cycle` stamp + conditional `class_states` upsert. Don't reintroduce a lock; keep those two guards.
-- **`processSection` owns `ack`/`retry`** (`SectionCheckOutcome`); callers only translate to transport. ASU 429 retries use `retryDelaySeconds()` (60s doubling, honours `Retry-After`, 15-min cap).
-- **`class_states` key is `(class_nbr, term)`** — always include term.
-- **`proxy.ts` is THE auth gate** (Clerk `jwtKey`, `hasClerkSessionCookies`, `ext_id` claim, `readAuthorizationState` 30s cache). Invalidate via `invalidateAuthorizationState` after consent/admin changes.
-- **CSP has two production shapes in `proxy.ts`:** session requests get a per-request `'nonce-…'` (vinext reads it from the CSP header and stamps its inline scripts); session-less public pages are edge-cached, so they get `'unsafe-inline'` with **no** nonce/hash (either makes browsers ignore `'unsafe-inline'`). An empty `'nonce-'` there blanked the homepage for anonymous visitors and Googlebot's renderer (Aug–Sep 2026).
-- **First-observation guard** (`!oldState`) suppresses false seat emails — keep it.
-- **`non_reserved_seats` populated since #198** (`Math.max(0, enrlCap-enrlTot-waitTot)`), fallback `non_reserved_seats ?? seats_available` in `detectChanges`.
-- **`lib/asu/terms.ts` needs yearly August update** or new watch creation silently blocks.
-- **Never add dynamic API (`headers()`/`cookies()`) to `app/layout.tsx`** — static pages 500. `useSearchParams` needs `<Suspense>`.
-- **`pnpm-lock.yaml` is multi-document** — first document is the env lockfile (`packageManagerDependencies`), second is the project lockfile. Expected; don't merge or strip it.
-- **Bumping `packageManager` requires regenerating the lockfile** — `--frozen-lockfile` (CI `validate-lockfile`) fails with `ERR_PNPM_FROZEN_LOCKFILE_WITH_OUTDATED_LOCKFILE` otherwise. pnpm 12 also *fails* (not warns) on unrecognized `pnpm-workspace.yaml` keys while the pin matches the running pnpm (`ERR_PNPM_UNRECOGNIZED_WORKSPACE_SETTINGS`), so a stale v11 setting breaks install outright.
-
-## Known doc drift
-
-`README.md`/`CONTEXT.md` drift-pruned 2026-08-22 for Hyperdrive+Clerk+polling. Remaining risk is hard numbers — verify against `wrangler.jsonc`/code.
-
-<!--VITE PLUS START-->
-
-# Using Vite+, the Unified Toolchain for the Web
-
-This project is using Vite+, a unified toolchain built on top of Vite, Rolldown, Vitest, tsdown, Oxlint, Oxfmt, and Vite Task. Vite+ wraps runtime management, package management, and frontend tooling in a single global CLI called `vp`. Vite+ is distinct from Vite, and it invokes Vite through `vp dev` and `vp build`. Run `vp help` to print a list of commands and `vp <command> --help` for information about a specific command.
-
-Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.dev/guide/.
-
-## Built-in Commands vs Scripts
-
-`vp <name>` runs a built-in command. `vp run <name>` runs a `package.json` script or a `vite.config.ts` task. Scripts cannot overwrite built-ins, so `vp dev` and `vp run dev` may do different things. Check `package.json` and `vite.config.ts` first, and run `vp run <name>` when the project defines a script or task with that name.
-
-## Tool Versions
-
-Run `vp toolchain` to show versions and relationships in the active Vite+
-release. Add a tool name to select part of the graph. For example, run
-`vp toolchain vite`. Use `--global` to ignore the local `vite-plus` package. Use
-`vp why <package>` to show the package-manager dependency graph.
-
-## Review Checklist
-
-- [ ] Run `vp install` after pulling remote changes and before getting started.
-- [ ] Run `vp check` and `vp test` to format, lint, type check and test changes.
-- [ ] Check if there are `vite.config.ts` tasks or `package.json` scripts necessary for validation, run via `vp run <script>`.
-- [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
-
-<!--VITE PLUS END-->
+1. `pnpm run verify` passes. This is the CI `quality` gate and the pre-commit hook.
+2. `pnpm run test:coverage` passes, including the 80% thresholds (CI `test` job).
+3. `pnpm run build` passes (CI `check` job).
+4. If you touched `worker.ts`, `wrangler.jsonc`, the Workflows or the queue path, run `pnpm run preview` as well.
+5. SQL changes ship as a new `db/migrations/` file with `lib/db/schema/` updated to match.
+6. Update this file if the change made anything here false.
