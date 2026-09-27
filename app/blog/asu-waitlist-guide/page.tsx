@@ -14,7 +14,7 @@ import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
 export const metadata: Metadata = {
-  title: "How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)",
+  title: 'ASU Waitlist Guide: Full Classes & No Waitlist',
   description:
     "Class full? Here's how to add yourself to an ASU waitlist when one exists, how the 24-hour rule works, and the faster backup that gets you a seat when there's no waitlist.",
   alternates: {

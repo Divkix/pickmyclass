@@ -13,7 +13,7 @@ import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
 export const metadata: Metadata = {
-  title: "MyASU Class Search: 10 Hidden Features Most Students Don't Know",
+  title: 'MyASU Class Search: 10 Hidden Features',
   description:
     'Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips to find the perfect classes faster.',
   alternates: {

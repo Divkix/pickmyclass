@@ -15,7 +15,7 @@ import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
 export const metadata: Metadata = {
-  title: 'How to Get Into Full Classes at ASU: 7 Strategies That Work',
+  title: 'How to Get Into Full ASU Classes: 7 Strategies',
   description:
     'Practical strategies to get into full ASU classes during registration and add/drop period. From waitlist tips to automated seat tracking tools.',
   alternates: {

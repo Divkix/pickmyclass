@@ -7,7 +7,7 @@ import { blogPosts } from '@/lib/blog/posts';
 import { formatAbsoluteDate } from '@/lib/utils/time-format';
 
 export const metadata: Metadata = {
-  title: 'ASU Registration Tips & Guides: Class Search, Waitlists & Open Seats',
+  title: 'ASU Registration Tips & Class Search Guides',
   description:
     'Real guides for ASU class registration. Find open classes, beat waitlists, get into full sections, and track seats so you stop refreshing MyASU.',
   alternates: {

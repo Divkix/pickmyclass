@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Header } from '@/components/Header';
 
 export const metadata: Metadata = {
-  title: 'Contact PickMyClass — Support Email & Bug Reports',
+  title: { absolute: 'Contact PickMyClass — Support & Bug Reports' },
   description:
     'Reach the PickMyClass team: support@pickmyclass.app for account and alert questions, or open an issue on GitHub for bugs. Here is what to include so we can reproduce it fast.',
   alternates: {

@@ -15,7 +15,7 @@ import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
 export const metadata: Metadata = {
-  title: 'Best ASU Class Seat Tracker in 2026 (Free vs Paid, Compared)',
+  title: 'Best ASU Class Seat Tracker 2026: Free vs Paid',
   description:
     'Comparing ASU class seat trackers: PickMyClass, ASUClassFinder, SeatSignal, Courseer, and manual checking. See which open-seat alert tool is free, fast, and worth it.',
   alternates: {

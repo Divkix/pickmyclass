@@ -14,7 +14,7 @@ import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
 export const metadata: Metadata = {
-  title: 'ASU Class Search: How to Find Open Classes Fast (2026 Guide)',
+  title: 'ASU Class Search: Find Open Classes Fast',
   description:
     'A student guide to ASU Class Search. Find open sections, filter by campus and seats, decode the section number, and get alerted the second a full class opens up.',
   alternates: {

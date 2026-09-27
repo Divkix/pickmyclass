@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | PickMyClass Blog',
+    template: '%s | PickMyClass',
     default: 'Blog — ASU Class Registration Tips & Guides',
   },
   description:

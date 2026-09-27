@@ -4,7 +4,7 @@ import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
 export const metadata: Metadata = {
-  title: 'About PickMyClass — Built by ASU Students, for ASU Students',
+  title: { absolute: 'About PickMyClass — Built by ASU Students' },
   description:
     "PickMyClass is a free ASU class seat tracker built by students who've been there. Learn about our story, mission, and why 2,400+ Sun Devils trust us.",
   alternates: {

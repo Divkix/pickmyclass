@@ -14,7 +14,7 @@ import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
 export const metadata: Metadata = {
-  title: 'ASU Transfer Student Registration: Complete Guide for MyPath2ASU Students',
+  title: 'ASU Transfer Student Registration Guide',
   description:
     'Everything transfer students need to know about ASU registration. How transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.',
   alternates: {

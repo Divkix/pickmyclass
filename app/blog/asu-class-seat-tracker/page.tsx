@@ -14,7 +14,7 @@ import { Header } from '@/components/Header';
 import { JsonLd } from '@/components/landing/JsonLd';
 
 export const metadata: Metadata = {
-  title: 'ASU Class Seat Tracker: How to Get Notified When Seats Open',
+  title: 'ASU Class Seat Tracker: Get Open Seat Alerts',
   description:
     'Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.',
   alternates: {
