@@ -32,8 +32,8 @@
     "prepare": "vp config"
   },
   "dependencies": {
-    "@clerk/backend": "^3.19.0",
-    "@clerk/react": "^6.17.0",
+    "@clerk/backend": "^3.20.1",
+    "@clerk/react": "^6.17.2",
     "@radix-ui/react-avatar": "^1.2.6",
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-label": "^2.1.15",
@@ -48,7 +48,7 @@
     "next": "^16.3.6",
     "next-themes": "^0.4.6",
     "postgres": "^3.4.9",
-    "posthog-js": "^1.434.12",
+    "posthog-js": "^1.434.13",
     "posthog-node": "^5.53.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -57,7 +57,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.59.0",
+    "@cloudflare/vite-plugin": "^1.60.0",
     "@posthog/rollup-plugin": "^1.6.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/postcss": "^4.3.3",
@@ -82,7 +82,7 @@
     "vite": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:",
-    "wrangler": "^4.138.0"
+    "wrangler": "^4.139.0"
   },
   "packageManager": "pnpm@12.6.0"
 }
