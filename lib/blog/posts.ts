@@ -66,9 +66,9 @@ export const blogPosts: BlogPost[] = [
     slug: 'asu-waitlist-guide',
     title: "How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)",
     description:
-      "Class full? How to join an ASU waitlist when one exists, how the 24-hour rule works, and the faster backup that gets you a seat when there's no waitlist.",
+      'Full ASU class? Check for a waitlist, next steps if none appears, and where to verify deadlines or seat restrictions. ASU guidance checked 28 Sep 2026.',
     publishedAt: '2026-04-26',
-    dateModified: '2026-06-18',
+    dateModified: '2026-09-28',
     readingTime: '6 min read',
   },
   {
