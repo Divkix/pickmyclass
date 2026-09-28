@@ -1,9 +1,8 @@
 'use client';
 
-import posthog from 'posthog-js/dist/module.no-external';
 import { ArrowRight, CheckCircle2, ExternalLink, Lightbulb, Mail, Sparkles } from 'lucide-react';
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { trackAnalyticsEvent } from '@/lib/analytics/client';
+import { getPostHogSessionHeaders, trackAnalyticsEvent } from '@/lib/analytics/client';
 import {
   Dialog,
   DialogContent,
@@ -162,12 +161,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
     setSkipping(true);
 
     try {
-      const sessionId = posthog.get_session_id();
-      const requestOptions: RequestInit = { method: 'POST' };
-
-      if (sessionId) {
-        requestOptions.headers = { 'X-PostHog-Session-Id': sessionId };
-      }
+      const requestOptions: RequestInit = { method: 'POST', headers: getPostHogSessionHeaders() };
 
       const response = await fetch('/api/user/onboarding', requestOptions);
 

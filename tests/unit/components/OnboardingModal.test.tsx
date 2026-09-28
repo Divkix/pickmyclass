@@ -20,9 +20,12 @@ vi.mock('posthog-js/dist/module.no-external', () => ({
   default: { get_session_id: mockGetSessionId },
 }));
 
-vi.mock('@/lib/analytics/client', () => ({
-  trackAnalyticsEvent: mockTrack,
-}));
+vi.mock('@/lib/analytics/client', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/lib/analytics/client')>('@/lib/analytics/client');
+
+  return { ...actual, trackAnalyticsEvent: mockTrack };
+});
 
 vi.mock('@/lib/class-watches/class-watch-creation', () => ({
   classWatchCreation: {
@@ -169,6 +172,25 @@ describe('OnboardingModal', () => {
     });
   });
 
+  it('continues skipping onboarding when reading the PostHog session ID throws', async () => {
+    mockGetSessionId.mockImplementation(() => {
+      throw new Error('storage unavailable');
+    });
+    const user = userEvent.setup();
+    const onSkipped = vi.fn();
+    render(<OnboardingModal open={true} onSkipped={onSkipped} />);
+
+    await user.click(screen.getByRole('button', { name: 'Skip for now' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', {
+        method: 'POST',
+        headers: {},
+      });
+      expect(onSkipped).toHaveBeenCalledWith(skippedState);
+    });
+  });
+
   it('skips onboarding when the Escape key is pressed on step 1', async () => {
     const onSkipped = vi.fn();
     render(<OnboardingModal open={true} onSkipped={onSkipped} />);
@@ -176,7 +198,10 @@ describe('OnboardingModal', () => {
     fireEvent.keyDown(screen.getByText('Welcome to PickMyClass'), { key: 'Escape' });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', { method: 'POST' });
+      expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', {
+        method: 'POST',
+        headers: {},
+      });
     });
     expect(skipPostCalls()).toBe(1);
     await waitFor(() => {
@@ -194,7 +219,10 @@ describe('OnboardingModal', () => {
     await user.click(overlay);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', { method: 'POST' });
+      expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', {
+        method: 'POST',
+        headers: {},
+      });
     });
     expect(skipPostCalls()).toBe(1);
     await waitFor(() => {

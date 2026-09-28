@@ -101,6 +101,26 @@ describe('classWatchCreation', () => {
     expect(new Headers(requestOptions?.headers).get('X-PostHog-Session-Id')).toBe(sessionId);
   });
 
+  it('creates a watch when reading the PostHog session ID throws', async () => {
+    mockGetSessionId.mockImplementation(() => {
+      throw new Error('storage unavailable');
+    });
+
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, watch }), {
+        status: 201,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+    await expect(
+      createClassWatchClient(request).create({ term: '2267', class_nbr: '12345' })
+    ).resolves.toEqual(watch);
+
+    expect(request).toHaveBeenCalledOnce();
+    expect(new Headers(request.mock.calls[0]?.[1]?.headers).get('X-PostHog-Session-Id')).toBeNull();
+  });
+
   it('uses the API error message when creation is rejected', async () => {
     const request = vi.fn().mockResolvedValue(
       new Response(
