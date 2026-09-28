@@ -2,6 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ClassWatchRow } from '@/lib/types/class-watch';
 import { createClassWatchClient } from '@/lib/class-watches/class-watch-creation';
 
+const { mockGetSessionId } = vi.hoisted(() => ({
+  mockGetSessionId: vi.fn(),
+}));
+
+vi.mock('posthog-js/dist/module.no-external', () => ({
+  default: { get_session_id: mockGetSessionId },
+}));
 const watch: ClassWatchRow = {
   id: 'watch-1',
   user_id: 'user-1',
@@ -14,6 +21,7 @@ const watch: ClassWatchRow = {
 
 describe('classWatchCreation', () => {
   beforeEach(() => {
+    mockGetSessionId.mockReturnValue(undefined);
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-12T12:00:00.000Z'));
   });
@@ -66,6 +74,28 @@ describe('classWatchCreation', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ term: '2267', class_nbr: '12345' }),
     });
+  });
+
+  it('sends the active PostHog session ID with a creation request', async () => {
+    mockGetSessionId.mockReturnValue('c56a4180-65aa-42ec-a945-5fd21dec0538');
+    const request = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, watch }), {
+        status: 201,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+    await expect(
+      createClassWatchClient(request).create({ term: '2267', class_nbr: '12345' })
+    ).resolves.toEqual(watch);
+    expect(request).toHaveBeenCalledWith(
+      '/api/class-watches',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-PostHog-Session-Id': 'c56a4180-65aa-42ec-a945-5fd21dec0538',
+        }),
+      })
+    );
   });
 
   it('uses the API error message when creation is rejected', async () => {

@@ -10,9 +10,14 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-const { mockTrack, mockCreateWatch } = vi.hoisted(() => ({
+const { mockTrack, mockCreateWatch, mockGetSessionId } = vi.hoisted(() => ({
   mockTrack: vi.fn(),
   mockCreateWatch: vi.fn(),
+  mockGetSessionId: vi.fn(),
+}));
+
+vi.mock('posthog-js/dist/module.no-external', () => ({
+  default: { get_session_id: mockGetSessionId },
 }));
 
 vi.mock('@/lib/analytics/client', () => ({
@@ -78,6 +83,7 @@ describe('OnboardingModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetSessionId.mockReturnValue(undefined);
     popularClassResponse = { popularClass: null };
     mockCreateWatch.mockResolvedValue(createdWatch);
     skipResponse = { ...skippedState };
@@ -145,6 +151,7 @@ describe('OnboardingModal', () => {
   });
 
   it('skips onboarding via the Skip for now button on step 1 and calls onSkipped', async () => {
+    mockGetSessionId.mockReturnValue('c56a4180-65aa-42ec-a945-5fd21dec0538');
     const user = userEvent.setup();
     const onSkipped = vi.fn();
 
@@ -152,7 +159,10 @@ describe('OnboardingModal', () => {
 
     await user.click(screen.getByRole('button', { name: 'Skip for now' }));
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', { method: 'POST' });
+    expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', {
+      method: 'POST',
+      headers: { 'X-PostHog-Session-Id': 'c56a4180-65aa-42ec-a945-5fd21dec0538' },
+    });
     expect(skipPostCalls()).toBe(1);
     await waitFor(() => {
       expect(onSkipped).toHaveBeenCalledWith(skippedState);

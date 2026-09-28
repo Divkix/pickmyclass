@@ -1,5 +1,6 @@
 'use client';
 
+import posthog from 'posthog-js/dist/module.no-external';
 import { ArrowRight, CheckCircle2, ExternalLink, Lightbulb, Mail, Sparkles } from 'lucide-react';
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { trackAnalyticsEvent } from '@/lib/analytics/client';
@@ -161,7 +162,11 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
     setSkipping(true);
 
     try {
-      const response = await fetch('/api/user/onboarding', { method: 'POST' });
+      const sessionId = posthog.get_session_id();
+      const response = await fetch('/api/user/onboarding', {
+        method: 'POST',
+        ...(sessionId ? { headers: { 'X-PostHog-Session-Id': sessionId } } : {}),
+      });
       // SAFETY: response.json() matches Partial<OnboardingState> with optional error per API contract
       const data = (await response.json()) as Partial<OnboardingState> & { error?: string };
 

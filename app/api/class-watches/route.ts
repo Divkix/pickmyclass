@@ -11,6 +11,7 @@ import { getPgError, isUniqueViolation, PG_RAISE_EXCEPTION } from '@/lib/db/pg-e
 import { insertClassStateIfMissing } from '@/lib/db/queries';
 import { classStates, classWatches } from '@/lib/db/schema';
 import { log } from '@/lib/log';
+import { postHogSessionIdFromHeaders } from '@/lib/analytics/session-id';
 import { captureServerEvent } from '@/lib/analytics/server';
 import type { JsonValue } from '@/lib/api/wire';
 import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
@@ -213,7 +214,12 @@ export async function POST(request: NextRequest) {
           log('API').error('Failed to mark onboarding complete:', dbError);
         }
 
-        captureServerEvent(user.userId, 'class_watch_created', { term, class_nbr });
+        const sessionId = postHogSessionIdFromHeaders(request.headers);
+        captureServerEvent(user.userId, 'class_watch_created', {
+          term,
+          class_nbr,
+          ...(sessionId ? { $session_id: sessionId } : {}),
+        });
 
         return ok({ watch: watchDataRaw }, { status: 201 });
       } catch (error) {

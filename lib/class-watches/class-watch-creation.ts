@@ -1,3 +1,4 @@
+import posthog from 'posthog-js/dist/module.no-external';
 import { z } from 'zod';
 import { createClassWatchSchema } from '@/lib/api/schemas';
 import { parseOrThrow } from '@/lib/api/validation';
@@ -64,9 +65,13 @@ export function createClassWatchClient(request?: Request) {
       let response: Response;
 
       try {
+        const sessionId = posthog.get_session_id();
         response = await (request ?? globalThis.fetch)('/api/class-watches', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(sessionId ? { 'X-PostHog-Session-Id': sessionId } : {}),
+          },
           body: JSON.stringify(validated),
         });
       } catch {
