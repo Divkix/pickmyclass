@@ -12,10 +12,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     '/api/*',
     '/auth',
     '/auth/*',
-    '/sign-in',
-    '/sign-in/*',
-    '/sign-up',
-    '/sign-up/*',
     '/settings',
     '/go/*',
   ];
