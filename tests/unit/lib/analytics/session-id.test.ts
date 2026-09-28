@@ -9,8 +9,8 @@ describe('postHogSessionIdFromHeaders', () => {
     expect(
       postHogSessionIdFromHeaders(new Headers({ 'X-PostHog-Session-Id': 'not-a-session-id' }))
     ).toBeUndefined();
-    expect(
-      postHogSessionIdFromHeaders(new Headers({ 'X-PostHog-Session-Id': sessionId }))
-    ).toBe(sessionId);
+    expect(postHogSessionIdFromHeaders(new Headers({ 'X-PostHog-Session-Id': sessionId }))).toBe(
+      sessionId
+    );
   });
 });

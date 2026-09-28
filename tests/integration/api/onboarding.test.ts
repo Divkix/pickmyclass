@@ -99,10 +99,13 @@ function get(url: string): Request {
 }
 
 function post(url: string, sessionId?: string): Request {
-  return new Request(url, {
-    method: 'POST',
-    ...(sessionId ? { headers: { 'X-PostHog-Session-Id': sessionId } } : {}),
-  });
+  const requestOptions: RequestInit = { method: 'POST' };
+
+  if (sessionId) {
+    requestOptions.headers = { 'X-PostHog-Session-Id': sessionId };
+  }
+
+  return new Request(url, requestOptions);
 }
 
 const onboardingBody = z.object({
@@ -193,11 +196,9 @@ describe('/api/user/onboarding', () => {
       h.next([{ onboarding_completed_at: null, onboarding_skipped_at: '2026-07-11T12:00:00Z' }]);
 
       const response = await POST(
-        post(
-          'https://pickmyclass.app/api/user/onboarding',
-          'c56a4180-65aa-42ec-a945-5fd21dec0538'
-        )
+        post('https://pickmyclass.app/api/user/onboarding', 'c56a4180-65aa-42ec-a945-5fd21dec0538')
       );
+
       const data = await json(response);
 
       expect(response.status).toBe(200);

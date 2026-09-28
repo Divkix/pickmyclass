@@ -163,10 +163,14 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
 
     try {
       const sessionId = posthog.get_session_id();
-      const response = await fetch('/api/user/onboarding', {
-        method: 'POST',
-        ...(sessionId ? { headers: { 'X-PostHog-Session-Id': sessionId } } : {}),
-      });
+      const requestOptions: RequestInit = { method: 'POST' };
+
+      if (sessionId) {
+        requestOptions.headers = { 'X-PostHog-Session-Id': sessionId };
+      }
+
+      const response = await fetch('/api/user/onboarding', requestOptions);
+
       // SAFETY: response.json() matches Partial<OnboardingState> with optional error per API contract
       const data = (await response.json()) as Partial<OnboardingState> & { error?: string };
 

@@ -60,11 +60,11 @@ const CSP_FORM_ACTION = "form-action 'self'";
 
 const CSP_NEXT_THEMES_HASH = "'sha256-jGCia7LAT8V5tk83CgiiU5FMqw9uEVddMT+0ZQDzVAM='";
 
-const LEGACY_REDIRECTS: Record<string, string> = {
-  '/faq/page': '/faq',
-  '/register': '/sign-up',
-  '/login': '/sign-in',
-};
+const LEGACY_REDIRECTS = new Map([
+  ['/faq/page', '/faq'],
+  ['/register', '/sign-up'],
+  ['/login', '/sign-in'],
+]);
 
 function buildProductionCsp(inlineScriptSource: string): string {
   return [
@@ -137,7 +137,7 @@ function clearClerkCookies(response: NextResponse): void {
 }
 
 export async function proxy(request: NextRequest) {
-  const legacyDestination = LEGACY_REDIRECTS[request.nextUrl.pathname];
+  const legacyDestination = LEGACY_REDIRECTS.get(request.nextUrl.pathname);
 
   if (legacyDestination) {
     const url = request.nextUrl.clone();

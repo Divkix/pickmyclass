@@ -66,12 +66,13 @@ export function createClassWatchClient(request?: Request) {
 
       try {
         const sessionId = posthog.get_session_id();
+        const headers = new Headers({ 'Content-Type': 'application/json' });
+
+        if (sessionId) headers.set('X-PostHog-Session-Id', sessionId);
+
         response = await (request ?? globalThis.fetch)('/api/class-watches', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(sessionId ? { 'X-PostHog-Session-Id': sessionId } : {}),
-          },
+          headers,
           body: JSON.stringify(validated),
         });
       } catch {

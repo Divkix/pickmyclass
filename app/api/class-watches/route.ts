@@ -11,6 +11,7 @@ import { getPgError, isUniqueViolation, PG_RAISE_EXCEPTION } from '@/lib/db/pg-e
 import { insertClassStateIfMissing } from '@/lib/db/queries';
 import { classStates, classWatches } from '@/lib/db/schema';
 import { log } from '@/lib/log';
+import type { AnalyticsEventMap } from '@/lib/analytics/events';
 import { postHogSessionIdFromHeaders } from '@/lib/analytics/session-id';
 import { captureServerEvent } from '@/lib/analytics/server';
 import type { JsonValue } from '@/lib/api/wire';
@@ -215,11 +216,12 @@ export async function POST(request: NextRequest) {
         }
 
         const sessionId = postHogSessionIdFromHeaders(request.headers);
-        captureServerEvent(user.userId, 'class_watch_created', {
-          term,
-          class_nbr,
-          ...(sessionId ? { $session_id: sessionId } : {}),
-        });
+
+        const eventProperties: AnalyticsEventMap['class_watch_created'] = { term, class_nbr };
+
+        if (sessionId) eventProperties.$session_id = sessionId;
+
+        captureServerEvent(user.userId, 'class_watch_created', eventProperties);
 
         return ok({ watch: watchDataRaw }, { status: 201 });
       } catch (error) {

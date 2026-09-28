@@ -201,13 +201,14 @@ function getRequest(): NextRequest {
 }
 
 function postRequest(body: Record<string, JsonValue>, sessionId?: string): NextRequest {
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+
+  if (sessionId) headers.set('X-PostHog-Session-Id', sessionId);
+
   return new NextRequest('http://localhost:3000/api/class-watches', {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: {
-      'Content-Type': 'application/json',
-      ...(sessionId ? { 'X-PostHog-Session-Id': sessionId } : {}),
-    },
+    headers,
   });
 }
 
@@ -336,6 +337,7 @@ describe('/api/class-watches', () => {
       const response = await POST(
         postRequest({ term, class_nbr: '12345' }, 'c56a4180-65aa-42ec-a945-5fd21dec0538')
       );
+
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(201);
