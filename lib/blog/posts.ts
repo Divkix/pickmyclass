@@ -10,12 +10,12 @@ export interface BlogPost {
 export const blogPosts: BlogPost[] = [
   {
     slug: 'best-asu-class-seat-tracker',
-    title: 'Best ASU Class Seat Tracker in 2026 (Free vs Paid, Compared)',
+    title: 'Best ASU Class Seat Tracker 2026: Free vs Paid',
     description:
-      'Comparing ASU seat trackers: PickMyClass, ASUClassFinder, SeatSignal, Courseer, and manual checking. See which alert tool is free, fast, and worth it.',
+      'Compare ASU seat trackers by published price, campus coverage, alert channel, check cadence and limits. Details checked September 28, 2026.',
     publishedAt: '2026-06-18',
-    dateModified: '2026-06-18',
-    readingTime: '7 min read',
+    dateModified: '2026-09-28',
+    readingTime: '8 min read',
   },
   {
     slug: 'asu-class-search',

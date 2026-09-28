@@ -1,14 +1,9 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import {
   BlogAuthor,
-  BlogCTA,
-  BlogFAQ,
   BlogPostHeader,
   ComparisonTable,
-  KeyTakeaways,
   RelatedArticles,
-  ShortAnswer,
   TableOfContents,
 } from '@/components/blog';
 import { Header } from '@/components/Header';
@@ -17,17 +12,17 @@ import { JsonLd } from '@/components/landing/JsonLd';
 export const metadata: Metadata = {
   title: 'Best ASU Class Seat Tracker 2026: Free vs Paid',
   description:
-    'Comparing ASU seat trackers: PickMyClass, ASUClassFinder, SeatSignal, Courseer, and manual checking. See which alert tool is free, fast, and worth it.',
+    'Compare ASU seat trackers by published price, campus coverage, alert channel, check cadence and limits. Details checked September 28, 2026.',
   alternates: {
     canonical: '/blog/best-asu-class-seat-tracker',
   },
   openGraph: {
-    title: 'Best ASU Class Seat Tracker in 2026 (Free vs Paid, Compared)',
+    title: 'Best ASU Class Seat Tracker 2026: Free vs Paid',
     description:
-      'PickMyClass vs ASUClassFinder vs SeatSignal vs Courseer vs manual checking. See which ASU open-seat alert tool is free, fast, and worth it.',
+      'Compare ASU seat trackers by published price, campus coverage, alert channel, check cadence and limits. Details checked September 28, 2026.',
     type: 'article',
     publishedTime: '2026-06-18T00:00:00Z',
-    modifiedTime: '2026-06-18T00:00:00Z',
+    modifiedTime: '2026-09-28T00:00:00Z',
     images: ['/og-image.png'],
   },
 };
@@ -37,11 +32,11 @@ export const dynamic = 'error';
 const articleSchema = {
   '@context': 'https://schema.org',
   '@type': 'Article',
-  headline: 'Best ASU Class Seat Tracker in 2026 (Free vs Paid, Compared)',
+  headline: 'Best ASU Class Seat Tracker in 2026 (Free vs Paid)',
   description:
-    'Comparing ASU seat trackers: PickMyClass, ASUClassFinder, SeatSignal, Courseer, and manual checking. See which alert tool is free, fast, and worth it.',
+    'Compare ASU seat trackers by published price, campus coverage, alert channel, check cadence and limits. Details checked September 28, 2026.',
   datePublished: '2026-06-18T00:00:00Z',
-  dateModified: '2026-06-18T00:00:00Z',
+  dateModified: '2026-09-28T00:00:00Z',
   author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
   publisher: {
     '@type': 'Organization',
@@ -62,96 +57,80 @@ const breadcrumbSchema = {
 };
 
 const tocItems = [
-  { id: 'what-to-look-for', text: 'What Makes a Good Seat Tracker', level: 2 },
-  { id: 'comparison', text: 'ASU Seat Trackers Compared', level: 2 },
-  { id: 'pickmyclass', text: 'PickMyClass', level: 2 },
-  { id: 'others', text: 'ASUClassFinder, SeatSignal & Courseer', level: 2 },
-  { id: 'manual', text: 'Manual Checking (the Free-but-Painful Option)', level: 2 },
-  { id: 'verdict', text: 'The Verdict', level: 2 },
-  { id: 'faq', text: 'Frequently Asked Questions', level: 2 },
+  { id: 'comparison', text: 'ASU trackers compared', level: 2 },
+  { id: 'method', text: 'How to read the comparison', level: 2 },
+  { id: 'pick-a-class', text: 'Pick A Class status', level: 2 },
+  { id: 'choose', text: 'Which option fits your needs?', level: 2 },
+  { id: 'faq', text: 'Common questions', level: 2 },
 ];
 
 const comparisonColumns = [
-  { key: 'tool', label: 'Tool' },
-  { key: 'cost', label: 'Cost' },
-  { key: 'alerts', label: 'Alerts' },
-  { key: 'instructor', label: 'Instructor Alerts' },
-  { key: 'effort', label: 'Effort' },
+  { key: 'tool', label: 'Tracker' },
+  { key: 'coverage', label: 'Coverage and setup' },
+  { key: 'price', label: 'Published price' },
+  { key: 'alerts', label: 'Alert channel' },
+  { key: 'cadence', label: 'Published check cadence' },
+  { key: 'limits', label: 'Limits and caveats' },
 ];
 
 const comparisonRows = [
   {
     tool: 'PickMyClass',
-    cost: '100% free',
-    alerts: 'Email, every 30 min',
-    instructor: 'Yes',
-    effort: 'None',
+    coverage: 'ASU; search by section number and add sections to a watchlist.',
+    price: 'Free; no paid tiers listed.',
+    alerts:
+      'Email notifications for seat availability and instructor assignments; no SMS is listed on the pages checked.',
+    cadence: '30 minutes (site claim; scheduler uses two staggered groups).',
+    limits:
+      'Email alerts only; you still register through ASU. Does not ask for MyASU credentials.',
     highlight: true,
   },
   {
     tool: 'ASUClassFinder',
-    cost: 'Free + paid tiers',
-    alerts: 'Email & text',
-    instructor: 'No',
-    effort: 'None',
+    coverage: 'ASU; public pages describe monitoring selected classes.',
+    price: 'Basic $2/mo (1 class); Silver $3/mo (3); Gold $7/mo (10).',
+    alerts: 'Email and text; site advertises instant alerts.',
+    cadence: 'Site says 24/7 monitoring; exact polling interval not stated.',
+    limits: 'Plans cap the number of tracked classes; no delivery-time guarantee is stated.',
   },
   {
     tool: 'SeatSignal',
-    cost: 'Free + paid tiers',
-    alerts: 'Email & text',
-    instructor: 'No',
-    effort: 'None',
+    coverage: 'ASU and Texas A&M; choose a school and track classes.',
+    price:
+      'Current amount not visible on the public purchase page checked. Its May 2023 post lists $2/$3/$5 per term (historical).',
+    alerts: 'Email and text with a direct enrollment link (ASU page).',
+    cadence: '1-minute checks claimed on the ASU page; not independently timed.',
+    limits:
+      'The exact current price was not verified; older prices should not be treated as current.',
   },
   {
     tool: 'Courseer',
-    cost: 'Paid',
-    alerts: 'Text',
-    instructor: 'No',
-    effort: 'None',
+    coverage: 'ASU; add classes to a watchlist.',
+    price: 'Free: 1 class; Gold $4/mo (up to 4); Sparky $9/mo (up to 8).',
+    alerts: 'Text; plan-dependent delayed, priority, or instant notifications.',
+    cadence: 'Exact polling interval not stated; site says it tracks regularly.',
+    limits: 'The free plan says delayed texts may arrive up to 14 minutes after a seat opens.',
   },
   {
-    tool: 'Manual MyASU',
-    cost: 'Free',
-    alerts: 'None (you check)',
-    instructor: 'No',
-    effort: 'High',
+    tool: 'Pick A Class (pickaclass.app)',
+    coverage: 'ASU seat-notification product historically; its own site now says it is closed.',
+    price: 'Not available as an active service.',
+    alerts:
+      'No current alerts; ASU News described the service as notifying students when a filled class had a spot.',
+    cadence: 'No current cadence published.',
+    limits: 'Not an active option on the 28 Sep 2026 check date.',
+  },
+  {
+    tool: 'Manual ASU search',
+    coverage: 'ASU; open the class search and check sections yourself.',
+    price: 'No tracker plan; you check manually.',
+    alerts: 'None from manual checking.',
+    cadence: 'Whenever you check.',
+    limits: 'No automatic notification; use ASU’s registration flow to enroll.',
   },
 ];
 
-const faqItems = [
-  {
-    question: 'What is the best free ASU class seat tracker?',
-    answer:
-      'PickMyClass is a fully free ASU class seat tracker. It checks ASU Class Search every 30 minutes and emails you when a seat opens, with no paid tiers, no ads, and no credit card required. Other tools offer free trials but gate faster checks or text alerts behind paid plans.',
-  },
-  {
-    question: 'Do ASU seat trackers actually work?',
-    answer:
-      'Yes. They monitor the same public ASU Class Search data you would check by hand and alert you when seat counts change. The main differences between tools are how often they check, how they notify you, and what they cost.',
-  },
-  {
-    question: 'Is it safe to use a third-party ASU seat tracker?',
-    answer:
-      'A reputable tracker never asks for your MyASU password. PickMyClass only reads public class data and only needs an email to send alerts. Avoid any tool that asks you to hand over your ASU login credentials.',
-  },
-  {
-    question: 'What is the difference between PickMyClass and ASUClassFinder?',
-    answer:
-      'PickMyClass is completely free and also alerts you when a "Staff" section gets a named instructor. ASUClassFinder offers text alerts but puts its faster, fuller features behind paid tiers. For most students, free email alerts every 30 minutes are enough.',
-  },
-  {
-    question: 'Do I still register myself, or does the tracker do it?',
-    answer:
-      'You register yourself. Every legitimate ASU seat tracker, including PickMyClass, sends an alert so you can register through MyASU. None of them log in and grab the seat for you, since that would require your ASU credentials.',
-  },
-  {
-    question: 'Can a tracker guarantee I get the seat?',
-    answer:
-      'No tool can guarantee a seat. Popular classes can fill within minutes of opening. The faster you are notified and the faster you register, the better your odds, which is why a tracker that checks frequently beats manual checking.',
-  },
-];
-
-export default async function BestASUSeatTrackerPost() {
+export default function BestASUSeatTrackerPost() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
@@ -162,148 +141,283 @@ export default async function BestASUSeatTrackerPost() {
             title="Best ASU Class Seat Tracker in 2026 (Free vs Paid)"
             dateTime="2026-06-18"
             date="June 18, 2026"
-            readTime="7 min read"
+            updated="Updated September 28, 2026"
+            readTime="8 min read"
           />
 
           <p className="text-lg text-muted-foreground leading-relaxed">
-            A few tools promise to watch ASU Class Search and ping you when a full class opens up.
-            They are not all the same. Here is an honest look at the main ones, what they cost, and
-            which one is worth your time.
+            There is no single best tracker for every ASU student. PickMyClass lists free email
+            alerts and a 30-minute check cycle; ASUClassFinder and SeatSignal publish text-alert
+            options; and Courseer has a free one-class plan plus paid tiers. This independent
+            comparison checks each vendor’s published price, coverage, setup, alert channel,
+            cadence, and stated limits.
           </p>
-
-          <ShortAnswer>
-            For most ASU students, the best seat tracker is the free one that checks often and
-            respects your inbox. PickMyClass checks ASU Class Search every 30 minutes, emails you
-            when a seat opens, flags instructor changes, and costs nothing. Paid tools like
-            ASUClassFinder, SeatSignal, and Courseer add text alerts but charge for their better
-            tiers.
-          </ShortAnswer>
-
-          <KeyTakeaways
-            items={[
-              {
-                text: 'PickMyClass is free, checks every 30 minutes, and alerts on instructor changes',
-              },
-              {
-                text: 'ASUClassFinder and SeatSignal offer text alerts but gate features behind paid tiers',
-              },
-              { text: 'Courseer focuses on paid text alerts' },
-              {
-                text: 'Manual checking is free but you will miss seats that open while you are busy',
-              },
-              { text: 'No tracker should ever ask for your MyASU password' },
-            ]}
-          />
+          <p className="text-sm text-muted-foreground">Last checked: 28 Sep 2026</p>
+          <p className="text-muted-foreground leading-relaxed">
+            Disclosure: PickMyClass publishes this page and is included in the comparison.
+            PickMyClass says it is not affiliated with, endorsed by, or sponsored by Arizona State
+            University. The vendor descriptions below are self-reported; we did not independently
+            measure alert delivery speed or verify enrollment outcomes.{' '}
+            <a
+              href="https://pickmyclass.app/faq"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80"
+            >
+              PickMyClass affiliation and service FAQ
+            </a>
+          </p>
 
           <TableOfContents items={tocItems} />
 
-          <h2 id="what-to-look-for" className="text-2xl font-semibold text-foreground mt-10 mb-4">
-            What Makes a Good Seat Tracker
+          <h2 id="comparison" className="text-2xl font-semibold text-foreground mt-10 mb-4">
+            ASU trackers compared
           </h2>
-          <p className="text-muted-foreground leading-relaxed">
-            Before the comparison, here is what actually matters when a class you need is full:
-          </p>
+          <ComparisonTable
+            columns={comparisonColumns}
+            rows={comparisonRows}
+            caption="Vendor-published claims checked 28 Sep 2026. ‘Not stated’ means the linked public pages did not specify it."
+          />
+          <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">Primary sources</h3>
           <ul className="space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Check frequency.</strong> Seats open and close in
-              minutes. A tracker that checks often catches more of them.
+              PickMyClass:{' '}
+              <a href="https://pickmyclass.app/" target="_blank" rel="noopener noreferrer">
+                overview
+              </a>{' '}
+              and{' '}
+              <a href="https://pickmyclass.app/faq" target="_blank" rel="noopener noreferrer">
+                FAQ
+              </a>
+              .
             </li>
             <li>
-              <strong className="text-foreground">Cost.</strong> You are a student. Free that works
-              beats paid that works slightly better.
+              ASUClassFinder:{' '}
+              <a href="https://www.asuclassfinder.com/" target="_blank" rel="noopener noreferrer">
+                product page
+              </a>{' '}
+              and{' '}
+              <a
+                href="https://www.asuclassfinder.com/pricing/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                pricing page
+              </a>
+              .
             </li>
             <li>
-              <strong className="text-foreground">Instructor alerts.</strong> Knowing when
-              &ldquo;Staff&rdquo; becomes a real professor lets you check RateMyProfessors before
-              committing.
+              SeatSignal:{' '}
+              <a href="https://seatsignal.com/" target="_blank" rel="noopener noreferrer">
+                school list
+              </a>
+              ,{' '}
+              <a
+                href="https://seatsignal.com/arizona-state"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                ASU product page
+              </a>
+              ,{' '}
+              <a href="https://seatsignal.com/purchase" target="_blank" rel="noopener noreferrer">
+                purchase page
+              </a>
+              , and{' '}
+              <a
+                href="https://seatsignal.com/blog/introducing-seatsignal"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                May 2023 product post
+              </a>
+              .
             </li>
             <li>
-              <strong className="text-foreground">Safety.</strong> It should never ask for your ASU
-              login. Public class data is all a tracker needs.
+              Courseer:{' '}
+              <a href="https://courseer.co/" target="_blank" rel="noopener noreferrer">
+                current product and plan details
+              </a>
+              .
+            </li>
+            <li>
+              Pick A Class:{' '}
+              <a
+                href="https://news.asu.edu/20231205-entrepreneurship-entrepreneurial-ventures-win-more-100k-funding-asu-demo-day"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                ASU News product description
+              </a>{' '}
+              and{' '}
+              <a href="https://www.pickaclass.app/" target="_blank" rel="noopener noreferrer">
+                the product’s closure notice
+              </a>
+              .
+            </li>
+            <li>
+              Manual registration:{' '}
+              <a
+                href="https://registrar.asu.edu/faq/how-do-i-register-classes-how-do-i-dropaddswap-class"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                ASU Registrar instructions
+              </a>
+              .
             </li>
           </ul>
 
-          <h2 id="comparison" className="text-2xl font-semibold text-foreground mt-10 mb-4">
-            ASU Seat Trackers Compared
+          <h2 id="method" className="text-2xl font-semibold text-foreground mt-10 mb-4">
+            How to read the comparison
           </h2>
-          <ComparisonTable columns={comparisonColumns} rows={comparisonRows} />
           <p className="text-muted-foreground leading-relaxed">
-            Details and pricing change, so check each tool&apos;s site for the latest. The pattern
-            holds though: the paid tools compete on text alerts, while PickMyClass keeps the core
-            email tracking free for everyone.
+            We compared public product and pricing pages, not hands-on timing tests. A vendor’s
+            “instant” or “real-time” wording is presented as its claim, not a guarantee. For
+            SeatSignal, the current purchase route did not show a price before sign-in; the older
+            vendor post is labeled historical rather than treated as a current plan. Prices and plan
+            details can change after this check.
+          </p>
+          <p className="text-muted-foreground leading-relaxed">
+            PickMyClass’s 30-minute claim was also checked against the repository’s schedule: the
+            section workflow runs on 15-minute triggers and alternates two groups, so each group is
+            scheduled every 30 minutes. The change detector and notification sender cover newly
+            available seats and assigned instructors. See <code>wrangler.jsonc</code>,{' '}
+            <code>lib/workflows/cron-workflows.ts</code>, <code>lib/queue/change-detector.ts</code>,
+            and <code>lib/queue/notification-sender.ts</code>.
           </p>
 
-          <h2 id="pickmyclass" className="text-2xl font-semibold text-foreground mt-10 mb-4">
-            PickMyClass
+          <h2 id="pick-a-class" className="text-2xl font-semibold text-foreground mt-10 mb-4">
+            Pick A Class status
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            <Link href="/" className="text-primary hover:text-primary/80 font-medium">
-              PickMyClass
-            </Link>{' '}
-            checks ASU Class Search every 30 minutes and emails you the moment a seat opens in a
-            section you are watching. It is completely free, with no premium tier holding back the
-            useful parts. It also detects instructor changes, which none of the others do, and it
-            never asks for your MyASU password. Built by ASU students, used by more than 2,400 Sun
-            Devils.
-          </p>
-          <p className="text-muted-foreground leading-relaxed">
-            The honest trade-off: alerts are email, not text. If you live in your inbox or have push
-            notifications on, that is plenty. If you must have an SMS, a paid tool may suit you
-            better.
-          </p>
-
-          <h2 id="others" className="text-2xl font-semibold text-foreground mt-10 mb-4">
-            ASUClassFinder, SeatSignal &amp; Courseer
-          </h2>
-          <p className="text-muted-foreground leading-relaxed">
-            These tools all monitor ASU classes and send alerts. Their main draw is{' '}
-            <strong className="text-foreground">text notifications</strong>, which can reach you
-            faster than email if you are away from a computer. The catch is cost: their better
-            features (faster checks, more classes, SMS) generally sit behind paid tiers. If text
-            alerts are non-negotiable for you, they are worth a look. For most students, free email
-            alerts do the job.
-          </p>
-
-          <h2 id="manual" className="text-2xl font-semibold text-foreground mt-10 mb-4">
-            Manual Checking (the Free-but-Painful Option)
-          </h2>
-          <p className="text-muted-foreground leading-relaxed">
-            You can always refresh{' '}
-            <Link
-              href="/blog/asu-class-search"
-              className="text-primary hover:text-primary/80 font-medium"
+            “Pick A Class” was a real ASU student venture: ASU News described it in 2023 as a
+            platform that notified students when a spot opened in a filled class. Its own site now
+            says the service is closed and gives a refund deadline of October 1, 2025, so it is not
+            an active tracker on this page’s check date. It is different from{' '}
+            <a
+              href="https://pickaclass.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80"
             >
-              ASU Class Search
-            </Link>{' '}
-            yourself. It costs nothing and works, in theory. In practice you cannot check at 2 a.m.,
-            during a lecture, or at work, which is exactly when seats open. Manual checking is fine
-            as a backup, not as your whole plan.
+              PickAClass.com
+            </a>
+            , whose current homepage describes an online learning-course catalog, not an ASU seat
+            tracker.
           </p>
 
-          <h2 id="verdict" className="text-2xl font-semibold text-foreground mt-10 mb-4">
-            The Verdict
+          <h2 id="choose" className="text-2xl font-semibold text-foreground mt-10 mb-4">
+            Which option fits your needs?
           </h2>
-          <p className="text-muted-foreground leading-relaxed">
-            If you want text alerts and do not mind paying, the paid trackers are reasonable. For
-            everyone else, the math is simple: PickMyClass does the core job, checks frequently,
-            adds instructor alerts, and costs nothing. Start there, and only pay if you find you
-            genuinely need SMS.
-          </p>
-
-          <BlogCTA
-            heading="Try the free one first"
-            description="PickMyClass tracks your ASU classes and emails you when seats open. No cost, no catch."
-          />
+          <ul className="space-y-2 text-muted-foreground">
+            <li>
+              If free email notifications and a stated 30-minute check cycle fit, compare
+              PickMyClass’s{' '}
+              <a
+                href="https://pickmyclass.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:text-primary/80"
+              >
+                published details
+              </a>{' '}
+              with the other services’ plan limits.
+            </li>
+            <li>
+              If you specifically want text alerts, compare the current plan prices and published
+              cadence for{' '}
+              <a
+                href="https://www.asuclassfinder.com/pricing/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:text-primary/80"
+              >
+                ASUClassFinder
+              </a>
+              ,{' '}
+              <a
+                href="https://seatsignal.com/arizona-state"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:text-primary/80"
+              >
+                SeatSignal
+              </a>
+              , and{' '}
+              <a
+                href="https://courseer.co/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:text-primary/80"
+              >
+                Courseer
+              </a>
+              . SeatSignal’s current public price was not verifiable at this check.
+            </li>
+            <li>
+              If you only need to look up a section, use ASU’s{' '}
+              <a
+                href="https://registrar.asu.edu/faq/how-do-i-register-classes-how-do-i-dropaddswap-class"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:text-primary/80"
+              >
+                registration instructions
+              </a>{' '}
+              and verify enrollment in My ASU. An alert tells you to check a seat; it does not
+              enroll you.
+            </li>
+          </ul>
 
           <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">
-            Frequently Asked Questions
+            Common questions
           </h2>
-          <BlogFAQ items={faqItems} />
+          <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">
+            Which tracker is fastest?
+          </h3>
+          <p className="text-muted-foreground leading-relaxed">
+            The published claims are not a controlled speed test. SeatSignal says it checks each
+            minute; PickMyClass lists 30 minutes; ASUClassFinder says it monitors 24/7 but does not
+            state an exact interval; and Courseer does not publish an exact check interval on its
+            page. The linked sources above show what each vendor states.
+          </p>
+          <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">
+            Will a tracker register me when a seat opens?
+          </h3>
+          <p className="text-muted-foreground leading-relaxed">
+            No. These services describe notifications so you can act; use ASU’s own registration
+            flow to enroll. Seat availability can change before you complete registration.
+          </p>
+          <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">
+            Is Pick A Class still available?
+          </h3>
+          <p className="text-muted-foreground leading-relaxed">
+            No. The{' '}
+            <a
+              href="https://www.pickaclass.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80"
+            >
+              Pick A Class site
+            </a>{' '}
+            says it is closed. The online learning catalog at{' '}
+            <a
+              href="https://pickaclass.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80"
+            >
+              PickAClass.com
+            </a>{' '}
+            is a separate, similarly named service.
+          </p>
 
           <BlogAuthor
             name="PickMyClass Team"
-            title="PickMyClass Founder"
-            bio="Built PickMyClass after missing registration for a required class. Now helping thousands of Sun Devils get the classes they need."
+            title="Independent product comparison"
+            bio="Sources, dates, and comparison limits are shown above."
           />
 
           <RelatedArticles
