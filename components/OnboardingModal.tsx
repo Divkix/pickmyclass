@@ -2,7 +2,7 @@
 
 import { ArrowRight, CheckCircle2, ExternalLink, Lightbulb, Mail, Sparkles } from 'lucide-react';
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { trackAnalyticsEvent } from '@/lib/analytics/client';
+import { getPostHogSessionHeaders, trackAnalyticsEvent } from '@/lib/analytics/client';
 import {
   Dialog,
   DialogContent,
@@ -161,7 +161,10 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
     setSkipping(true);
 
     try {
-      const response = await fetch('/api/user/onboarding', { method: 'POST' });
+      const requestOptions: RequestInit = { method: 'POST', headers: getPostHogSessionHeaders() };
+
+      const response = await fetch('/api/user/onboarding', requestOptions);
+
       // SAFETY: response.json() matches Partial<OnboardingState> with optional error per API contract
       const data = (await response.json()) as Partial<OnboardingState> & { error?: string };
 

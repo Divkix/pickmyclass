@@ -10,21 +10,21 @@ export interface BlogPost {
 export const blogPosts: BlogPost[] = [
   {
     slug: 'best-asu-class-seat-tracker',
-    title: 'Best ASU Class Seat Tracker in 2026 (Free vs Paid, Compared)',
+    title: 'Best ASU Class Seat Tracker 2026: Free vs Paid',
     description:
-      'Comparing ASU seat trackers: PickMyClass, ASUClassFinder, SeatSignal, Courseer, and manual checking. See which alert tool is free, fast, and worth it.',
+      'Compare ASU seat trackers by published price, campus coverage, alert channel, check cadence and limits. Details checked September 28, 2026.',
     publishedAt: '2026-06-18',
-    dateModified: '2026-06-18',
-    readingTime: '7 min read',
+    dateModified: '2026-09-28',
+    readingTime: '8 min read',
   },
   {
     slug: 'asu-class-search',
-    title: 'ASU Class Search: How to Find Open Classes Fast (2026 Guide)',
+    title: 'Find Open ASU Classes: Search Sections and Track Full Courses',
     description:
-      'A student guide to ASU Class Search. Find open sections, filter by campus and seats, decode the section number, and get alerted when a full class opens up.',
+      "Use ASU Class Search to review sections and availability. If a section is full, check ASU's options or track it for seat-opening email alerts.",
     publishedAt: '2026-06-18',
-    dateModified: '2026-06-18',
-    readingTime: '7 min read',
+    dateModified: '2026-09-28',
+    readingTime: '4 min read',
   },
   {
     slug: 'how-to-register-for-classes-at-asu',
@@ -66,9 +66,9 @@ export const blogPosts: BlogPost[] = [
     slug: 'asu-waitlist-guide',
     title: "How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)",
     description:
-      "Class full? How to join an ASU waitlist when one exists, how the 24-hour rule works, and the faster backup that gets you a seat when there's no waitlist.",
+      'Full ASU class? Check for a waitlist, next steps if none appears, and where to verify deadlines or seat restrictions. ASU guidance checked 28 Sep 2026.',
     publishedAt: '2026-04-26',
-    dateModified: '2026-06-18',
+    dateModified: '2026-09-28',
     readingTime: '6 min read',
   },
   {

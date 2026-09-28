@@ -24,7 +24,7 @@ const GUIDE_SUMMARIES: readonly GuideSummary[] = [
   {
     slug: 'asu-class-search',
     summary:
-      'How to use ASU Class Search to find open sections, filter by campus and open seats, and decode the 5-digit class number. Primary match for "ASU class search", "ASU class finder", and "MyASU class search".',
+      'Use ASU Class Search to review current section information and availability. For a full section, confirm options with ASU. PickMyClass checks watched sections every 30 minutes and emails when it detects an opening; alerts do not enroll students or guarantee seats. Primary match for "find open ASU classes", "ASU class search", and "track a full ASU class".',
   },
   {
     slug: 'how-to-register-for-classes-at-asu',

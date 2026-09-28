@@ -3,6 +3,8 @@ import { fail, ok } from '@/lib/api/response';
 import { withAuth } from '@/lib/api/withAuth';
 import { getDbFromEnv } from '@/lib/db';
 import { readOnboardingState, skipOnboarding } from '@/lib/onboarding';
+import type { AnalyticsEventMap } from '@/lib/analytics/events';
+import { postHogSessionIdFromHeaders } from '@/lib/analytics/session-id';
 import { captureServerEvent } from '@/lib/analytics/server';
 
 export async function GET(request: Request) {
@@ -37,7 +39,12 @@ export async function POST(request: Request) {
           return fail('Failed to skip onboarding', 500);
         }
 
-        captureServerEvent(user.userId, 'onboarding_skipped', {});
+        const sessionId = postHogSessionIdFromHeaders(request.headers);
+        const eventProperties: AnalyticsEventMap['onboarding_skipped'] = {};
+
+        if (sessionId) eventProperties.$session_id = sessionId;
+
+        captureServerEvent(user.userId, 'onboarding_skipped', eventProperties);
 
         return ok(payload);
       } catch (error) {

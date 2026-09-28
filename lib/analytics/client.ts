@@ -5,6 +5,16 @@ export type { AnalyticsEventMap, AnalyticsProperties };
 
 export type AnalyticsUserTraits = Record<string, string | number | boolean | null>;
 
+export function getPostHogSessionHeaders(): Record<string, string> {
+  try {
+    const sessionId = posthog.get_session_id();
+
+    return sessionId ? { 'X-PostHog-Session-Id': sessionId } : {};
+  } catch {
+    return {};
+  }
+}
+
 export function trackAnalyticsEvent<E extends keyof AnalyticsEventMap>(
   event: E,
   properties: AnalyticsEventMap[E]

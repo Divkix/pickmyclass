@@ -98,8 +98,14 @@ function get(url: string): Request {
   return new Request(url);
 }
 
-function post(url: string): Request {
-  return new Request(url, { method: 'POST' });
+function post(url: string, sessionId?: string): Request {
+  const requestOptions: RequestInit = { method: 'POST' };
+
+  if (sessionId) {
+    requestOptions.headers = { 'X-PostHog-Session-Id': sessionId };
+  }
+
+  return new Request(url, requestOptions);
 }
 
 const onboardingBody = z.object({
@@ -189,7 +195,10 @@ describe('/api/user/onboarding', () => {
     it('skips onboarding via the RPC and captures exactly one analytics event', async () => {
       h.next([{ onboarding_completed_at: null, onboarding_skipped_at: '2026-07-11T12:00:00Z' }]);
 
-      const response = await POST(post('https://pickmyclass.app/api/user/onboarding'));
+      const response = await POST(
+        post('https://pickmyclass.app/api/user/onboarding', 'c56a4180-65aa-42ec-a945-5fd21dec0538')
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(200);
@@ -203,7 +212,9 @@ describe('/api/user/onboarding', () => {
       expect(h.statements[0].params).toEqual(['user-123']);
 
       expect(mockCaptureServerEvent).toHaveBeenCalledTimes(1);
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith('user-123', 'onboarding_skipped', {});
+      expect(mockCaptureServerEvent).toHaveBeenCalledWith('user-123', 'onboarding_skipped', {
+        $session_id: 'c56a4180-65aa-42ec-a945-5fd21dec0538',
+      });
     });
 
     it('returns 500 when the skip RPC produces no rows and fires no analytics', async () => {

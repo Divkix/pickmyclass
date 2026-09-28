@@ -3,6 +3,7 @@ import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vite-plus/test';
 import { z } from 'zod';
 import AboutPage from '@/app/about/page';
+import ASUClassSearchPost from '@/app/blog/asu-class-search/page';
 import ASUClassSeatTrackerPost from '@/app/blog/asu-class-seat-tracker/page';
 import ASURegistrationTipsPost from '@/app/blog/asu-registration-tips/page';
 import ASUTransferRegistrationPost from '@/app/blog/asu-transfer-registration/page';
@@ -232,7 +233,25 @@ describe('blog pages', () => {
     ]);
   });
 
+  it('links class-search guidance to ASU and related enrollment resources', async () => {
+    const { unmount } = render(await ASUClassSearchPost());
+
+    const articleHrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
+    expect(articleHrefs).toContain('https://catalog.apps.asu.edu/');
+    expect(articleHrefs).toContain('/blog/asu-waitlist-guide');
+    expect(articleHrefs).toContain('/blog/best-asu-class-seat-tracker');
+
+    unmount();
+    render(await ASUWaitlistGuidePost());
+
+    const waitlistHrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
+    expect(waitlistHrefs).toContain('/blog/asu-class-search');
+  });
   it.each([
+    {
+      renderPage: ASUClassSearchPost,
+      heading: 'Find Open ASU Classes: Search Sections and Track Full Courses',
+    },
     {
       renderPage: ASUClassSeatTrackerPost,
       heading: 'ASU Class Seat Tracker: How to Get Notified When Seats Open',

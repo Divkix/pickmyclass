@@ -121,6 +121,19 @@ describe('proxy', () => {
     expect(mockReadUserVerification).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['/faq/page?source=legacy', `${ORIGIN}/faq?source=legacy`],
+    ['/register?source=legacy', `${ORIGIN}/sign-up?source=legacy`],
+    ['/login?source=legacy', `${ORIGIN}/sign-in?source=legacy`],
+  ])('permanently redirects legacy path %s and preserves its query', async (path, target) => {
+    const response = await proxy(createRequest(path, '__session=token'));
+
+    expect(response.status).toBe(301);
+    expect(response.headers.get('location')).toBe(target);
+    expect(mockGetSessionIdentity).not.toHaveBeenCalled();
+    expect(mockGetDbFromEnv).not.toHaveBeenCalled();
+  });
+
   it('lets cached public pages run inline framework scripts without an unusable nonce', async () => {
     const response = await proxy(createRequest('/'));
     const scriptSrc = scriptSrcOf(response.headers.get('content-security-policy'));
