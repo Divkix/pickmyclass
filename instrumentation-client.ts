@@ -7,5 +7,6 @@ posthog.init(POSTHOG_PROJECT_TOKEN, {
   ui_host: POSTHOG_UI_HOST,
   defaults: '2026-08-30',
   capture_exceptions: true,
+  capture_performance: true,
   debug: process.env.NODE_ENV === 'development',
 });

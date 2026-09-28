@@ -108,6 +108,7 @@ export default function RootLayout({
           <Script
             src="https://analytics.divkix.me/s.js"
             data-website-id="f2ef7132-055d-4c9a-8040-dcd07f22e84d"
+            data-performance="true"
             strategy="afterInteractive"
           />
           <JsonLd
