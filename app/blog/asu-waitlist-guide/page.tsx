@@ -329,6 +329,10 @@ export default async function ASUWaitlistGuidePost() {
                 href: '/blog/asu-registration-tips',
                 title: 'ASU Registration Tips: Build Your Perfect Schedule',
               },
+              {
+                href: '/blog/asu-class-search',
+                title: 'Find Open ASU Classes: Search Sections and Track Full Courses',
+              },
             ]}
           />
         </article>

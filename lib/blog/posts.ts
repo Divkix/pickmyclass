@@ -19,12 +19,12 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: 'asu-class-search',
-    title: 'ASU Class Search: How to Find Open Classes Fast (2026 Guide)',
+    title: 'Find Open ASU Classes: Search Sections and Track Full Courses',
     description:
-      'A student guide to ASU Class Search. Find open sections, filter by campus and seats, decode the section number, and get alerted when a full class opens up.',
+      "Use ASU Class Search to review sections and availability. If a section is full, check ASU's options or track it for seat-opening email alerts.",
     publishedAt: '2026-06-18',
-    dateModified: '2026-06-18',
-    readingTime: '7 min read',
+    dateModified: '2026-09-28',
+    readingTime: '4 min read',
   },
   {
     slug: 'how-to-register-for-classes-at-asu',
