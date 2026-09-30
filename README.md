@@ -178,7 +178,7 @@ wrangler secret put UNSUBSCRIBE_SIGNING_SECRET
 ### 6. Deploy
 
 ```bash
-pnpm run deploy   # vinext build + wrangler deploy + wrangler triggers deploy
+pnpm run deploy   # vp build + wrangler deploy + wrangler triggers deploy
 ```
 
 App live at `https://your-worker.workers.dev` or custom domain.
@@ -208,7 +208,7 @@ docker run --name pickmyclass-postgres -e POSTGRES_PASSWORD=postgres -p 5432:543
 # apply migrations in timestamp order (vanilla PG, no CLI):
 psql "postgresql://postgres:postgres@localhost:5432/postgres" -f db/migrations/<file>.sql
 
-pnpm run dev              # vinext dev server (localhost:3000) — uses wrangler.jsonc localConnectionString by default
+pnpm run dev              # Vite+ vinext dev server (localhost:3000) — uses wrangler.jsonc localConnectionString by default
 # override if needed:
 CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://postgres:postgres@localhost:5432/postgres pnpm run dev
 ```
@@ -216,7 +216,7 @@ CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://postgres:p
 ### Preview with Cloudflare
 
 ```bash
-pnpm run preview          # vinext build + wrangler dev (real Worker locally)
+pnpm run preview          # vp build + wrangler dev (real Worker locally)
 ```
 
 ### Other Commands
@@ -226,12 +226,20 @@ pnpm run build            # Build application
 pnpm run check            # Vite+ format, lint, and app type-check
 pnpm run verify           # check + app/worker type-check + Knip (pre-commit and CI gate)
 pnpm run lint             # Run Oxlint linter
-pnpm run lint:fix         # Fix lint issues
+pnpm run fix              # Fix format and lint issues
 pnpm run format           # Format code with Oxfmt
-pnpm run knip             # Find unused exports/dependencies (verify sets a safe DATABASE_URL)
+pnpm run knip             # Find unused exports/dependencies (no DATABASE_URL needed)
 pnpm run cf-typegen       # Generate TypeScript types for Cloudflare env (lib/cloudflare-env.d.ts)
 pnpm run type-check       # tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
+pnpm run test             # Run unit + integration projects (live DB excluded)
+pnpm run test:unit        # Run unit project
+pnpm run test:integration # Run integration project
+pnpm run test:coverage    # Run non-DB projects with the 80% coverage gate
+pnpm run test:watch       # Watch non-DB projects
+pnpm run test:ui          # Interactive non-DB test UI
 ```
+
+Tests and root coverage settings live in the `test` block of `vite.config.ts`. The live database project runs separately with `DATABASE_URL=… pnpm run test:db`.
 
 ### Database Commands
 

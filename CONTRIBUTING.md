@@ -82,7 +82,7 @@ We use [Vite+](https://viteplus.dev/) (Oxlint + Oxfmt) for linting and formattin
 
 ```bash
 # Check and auto-fix everything (format + lint + typecheck)
-pnpm run check:fix
+pnpm run fix
 
 # Check only (no fixes)
 pnpm run check
@@ -91,7 +91,7 @@ pnpm run check
 pnpm run verify
 
 # Lint only
-pnpm run lint:fix
+pnpm run lint
 
 # Format only
 pnpm run format
@@ -100,7 +100,7 @@ pnpm run format
 **Key Style Guidelines:**
 - Use spaces, not tabs (2 spaces)
 - Always use semicolons
-- Single quotes for strings
+- Double quotes for strings (Oxfmt defaults)
 - TypeScript strict mode enabled
 
 ### Adding/Updating Dependencies
@@ -136,14 +136,14 @@ Before submitting a PR:
 
 4. **Run tests**
    ```bash
-   pnpm run test:run
+   pnpm run test
    ```
 
 **Test Guidelines:**
-- All tests are in the `tests/` directory (not colocated with source files)
+- All tests are in `tests/unit/` or `tests/integration/` (not colocated with source files); projects are configured in the `test` block of `vite.config.ts`.
 - Test files: `*.test.ts`, `*.test.tsx`, `*.spec.ts`, or `*.spec.tsx`
 - Use `tests/mocks/` for Cloudflare Workers environment mocks
-- Run single test file: `pnpm exec vitest run tests/unit/lib/utils.test.ts`
+- Run one test file: `pnpm run test tests/unit/lib/crypto.test.ts`. Use `test:unit` or `test:integration` for a project, `test:watch` for watch mode, and `DATABASE_URL=… pnpm run test:db` for the opt-in live database project.
 
 ## Pull Request Process
 
