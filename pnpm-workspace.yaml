@@ -1,15 +1,6 @@
-allowBuilds:
-  "@clerk/shared": true
-  "@posthog/cli": true
-  core-js: true
-  esbuild: true
-  sharp: true
-  workerd: true
-# Supply-chain hardening: hold back fresh releases and reject downgraded trust signals.
-minimumReleaseAge: 1440
-trustPolicy: no-downgrade
-# pnpm >= 11.22 prunes exact-version excludes no longer resolved by the lockfile.
-minimumReleaseAgeExcludePrune: true
+packages:
+  - "."
+
 # Install platform-specific native optional deps for both the CI/build host
 # (Linux x64 glibc — Cloudflare Pages) and local dev (Darwin arm64/x64).
 # Without this, pnpm skips @voidzero-dev/vite-plus-linux-x64-gnu on Linux and
@@ -25,12 +16,29 @@ supportedArchitectures:
   libc:
     - glibc
     - current
+
 overrides:
-  vite-plus: 1.0.0-rc.0
+  # Vite+ 1.0.0-rc.0 bundles Vitest 5.0.1 and refuses to run `--coverage` unless
+  # the installed coverage provider is the exact same version (mixed versions
+  # otherwise fails CI at startup).
   "@vitest/coverage-v8": 5.0.1
+  vite-plus: 1.0.0-rc.0
   postcss: 8.5.26
   vite@*: "catalog:"
   vitest@*: "catalog:"
+
+allowBuilds:
+  "@clerk/shared": true
+  "@posthog/cli": true
+  core-js: true
+  esbuild: true
+  sharp: true
+  workerd: true
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@1.0.0-rc.0
+  vitest: 5.0.1
+  vite-plus: 1.0.0-rc.0
+  "@vitest/coverage-v8": 5.0.1
 peerDependencyRules:
   allowAny:
     - vite
@@ -38,6 +46,17 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
+# Supply-chain hardening: refuse any version whose trust signals (provenance,
+# signatures) regressed versus what we already resolved, and hold back releases
+# that are too fresh to have been vetted.
+#
+# `minimumReleaseAge` holds releases for 1 day (pnpm's default, made strict by
+# setting it explicitly); bump a dependency sooner by adding it to
+# `minimumReleaseAgeExclude`.
+trustPolicy: no-downgrade
+minimumReleaseAge: 1440
+# pnpm >= 11.22 prunes exact-version excludes no longer resolved by the lockfile.
+minimumReleaseAgeExcludePrune: true
 minimumReleaseAgeExclude:
   - vite-plus
   - "@voidzero-dev/*"
@@ -50,8 +69,3 @@ minimumReleaseAgeExclude:
   - vitest
   - "@vitest/*"
   - posthog-js
-catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@1.0.0-rc.0
-  vitest: 5.0.1
-  vite-plus: 1.0.0-rc.0
-  "@vitest/coverage-v8": 5.0.1

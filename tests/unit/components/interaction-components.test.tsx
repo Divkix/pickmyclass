@@ -95,11 +95,7 @@ vi.mock("@/components/ui/dialog", () => ({
       ) : null}
     </div>
   ),
-  DialogContent: ({ children }: { children: ReactNode }) => (
-    <dialog open tabIndex={-1} onClick={(event) => event.stopPropagation()} onKeyDown={() => {}}>
-      {children}
-    </dialog>
-  ),
+  DialogContent: ({ children }: { children: ReactNode }) => <dialog open>{children}</dialog>,
   DialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
   DialogFooter: ({ children }: { children: ReactNode }) => <footer>{children}</footer>,
   DialogHeader: ({ children }: { children: ReactNode }) => <header>{children}</header>,
