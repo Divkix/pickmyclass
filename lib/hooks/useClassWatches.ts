@@ -26,6 +26,17 @@ export interface ClassWatchStats {
   fullClasses: number;
 }
 
+async function requestWatches(): Promise<GetClassWatchesResponse> {
+  const response = await fetch("/api/class-watches");
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch class watches");
+  }
+
+  // SAFETY: /api/class-watches returns JSON shaped as GetClassWatchesResponse per API contract
+  return (await response.json()) as GetClassWatchesResponse;
+}
+
 export function useClassWatches() {
   const { user, loading: authLoading } = useAuth();
   const [watches, setWatches] = useState<ClassWatch[]>([]);
@@ -34,6 +45,16 @@ export function useClassWatches() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
+  const [previousUser, setPreviousUser] = useState(user);
+
+  if (user !== previousUser) {
+    setPreviousUser(user);
+
+    if (user) {
+      setIsLoadingWatches(true);
+      setError(null);
+    }
+  }
 
   const classNumbers = useMemo(() => watches.map((w) => w.class_nbr), [watches]);
 
@@ -47,39 +68,43 @@ export function useClassWatches() {
     enabled: classNumbers.length > 0,
   });
 
+  const loadWatches = useCallback(
+    () =>
+      requestWatches()
+        .then(
+          (data) => {
+            setWatches(data.watches || []);
+            setMaxWatches(data.maxWatches || 10);
+
+            if (data.onboarding) setOnboarding(data.onboarding);
+
+            return data;
+          },
+          (err: Error | string) => {
+            const errorMessage =
+              err instanceof Error ? err.message : "Failed to load class watches";
+
+            setError(errorMessage);
+
+            throw new Error(errorMessage);
+          },
+        )
+        .finally(() => setIsLoadingWatches(false)),
+    [],
+  );
+
   const fetchWatches = useCallback(async (): Promise<GetClassWatchesResponse> => {
-    try {
-      setIsLoadingWatches(true);
-      setError(null);
+    setIsLoadingWatches(true);
+    setError(null);
 
-      const response = await fetch("/api/class-watches");
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch class watches");
-      }
-
-      // SAFETY: /api/class-watches returns JSON shaped as GetClassWatchesResponse per API contract
-      const data = (await response.json()) as GetClassWatchesResponse;
-      setWatches(data.watches || []);
-      setMaxWatches(data.maxWatches || 10);
-
-      if (data.onboarding) setOnboarding(data.onboarding);
-
-      return data;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to load class watches";
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
-      setIsLoadingWatches(false);
-    }
-  }, []);
+    return loadWatches();
+  }, [loadWatches]);
 
   useEffect(() => {
     if (user) {
-      void fetchWatches().catch(() => {});
+      void loadWatches().catch(() => {});
     }
-  }, [user, fetchWatches]);
+  }, [user, loadWatches]);
 
   const handleRefresh = async () => {
     try {
