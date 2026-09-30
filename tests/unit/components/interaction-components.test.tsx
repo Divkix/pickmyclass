@@ -1,10 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { AnchorHTMLAttributes, ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { AddClassWatch } from '@/components/AddClassWatch';
-import { BottomNav } from '@/components/BottomNav';
-import { DeleteAccountModal } from '@/components/DeleteAccountModal';
-import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator';
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { AddClassWatch } from "@/components/AddClassWatch";
+import { BottomNav } from "@/components/BottomNav";
+import { DeleteAccountModal } from "@/components/DeleteAccountModal";
+import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
 
 const { mockCreateWatch, mockPathname, mockPush } = vi.hoisted(() => ({
   mockCreateWatch: vi.fn(),
@@ -14,18 +14,18 @@ const { mockCreateWatch, mockPathname, mockPush } = vi.hoisted(() => ({
 
 const mockSelectableTerms = vi.hoisted(() => [
   {
-    code: '2264',
-    label: 'Summer 2026',
-    season: 'summer' as const,
+    code: "2264",
+    label: "Summer 2026",
+    season: "summer" as const,
     year: 2026,
     catalogAvailable: { year: 2026, month: 2, day: 5 },
     sessionStart: { year: 2026, month: 5, day: 18 },
     sessionEnd: { year: 2026, month: 8, day: 14 },
   },
   {
-    code: '2267',
-    label: 'Fall 2026',
-    season: 'fall' as const,
+    code: "2267",
+    label: "Fall 2026",
+    season: "fall" as const,
     year: 2026,
     catalogAvailable: { year: 2026, month: 2, day: 23 },
     sessionStart: { year: 2026, month: 8, day: 20 },
@@ -33,19 +33,19 @@ const mockSelectableTerms = vi.hoisted(() => [
   },
 ]);
 
-vi.mock('@/lib/asu/terms', () => ({
+vi.mock("@/lib/asu/terms", () => ({
   getSelectableTerms: () => mockSelectableTerms,
   formatTermOption: (term: { label: string; code: string }) => `${term.label} (${term.code})`,
 }));
 
-vi.mock('@/lib/class-watches/class-watch-creation', () => ({
+vi.mock("@/lib/class-watches/class-watch-creation", () => ({
   classWatchCreation: {
     create: mockCreateWatch,
-    getOptions: () => ({ terms: mockSelectableTerms, defaultTerm: '2264' }),
+    getOptions: () => ({ terms: mockSelectableTerms, defaultTerm: "2264" }),
   },
 }));
 
-vi.mock('next/link', () => ({
+vi.mock("next/link", () => ({
   default: ({
     href,
     children,
@@ -65,18 +65,18 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('next/navigation', () => ({
+vi.mock("next/navigation", () => ({
   usePathname: () => mockPathname(),
   useRouter: () => ({
     push: mockPush,
   }),
 }));
 
-vi.mock('@/lib/contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 'user-1' }, loading: false }),
+vi.mock("@/lib/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: { id: "user-1" }, loading: false }),
 }));
 
-vi.mock('@/components/ui/dialog', () => ({
+vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({
     open,
     children,
@@ -106,7 +106,7 @@ vi.mock('@/components/ui/dialog', () => ({
   DialogTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
 }));
 
-vi.mock('@/components/ui/select', () => ({
+vi.mock("@/components/ui/select", () => ({
   Select: ({
     value,
     disabled,
@@ -117,7 +117,7 @@ vi.mock('@/components/ui/select', () => ({
     onValueChange?: (value: string) => void;
   }) => (
     <select
-      aria-label={disabled ? 'University' : 'Term'}
+      aria-label={disabled ? "University" : "Term"}
       value={value}
       disabled={disabled}
       onChange={(event) => onValueChange?.(event.target.value)}
@@ -134,14 +134,14 @@ vi.mock('@/components/ui/select', () => ({
   SelectValue: ({ placeholder }: { placeholder?: string }) => <>{placeholder}</>,
 }));
 
-describe('interactive components', () => {
+describe("interactive components", () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockPathname.mockReturnValue('/dashboard');
-    mockCreateWatch.mockResolvedValue({ id: 'watch-1' });
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockPathname.mockReturnValue("/dashboard");
+    mockCreateWatch.mockResolvedValue({ id: "watch-1" });
     global.fetch = vi.fn().mockResolvedValue({ ok: true });
   });
 
@@ -149,93 +149,93 @@ describe('interactive components', () => {
     errorSpy.mockRestore();
   });
 
-  it('renders pull-to-refresh states based on distance and refresh status', () => {
+  it("renders pull-to-refresh states based on distance and refresh status", () => {
     const { rerender, container } = render(
-      <PullToRefreshIndicator pullDistance={0} isRefreshing={false} threshold={80} />
+      <PullToRefreshIndicator pullDistance={0} isRefreshing={false} threshold={80} />,
     );
 
     expect(container.firstChild).toBeNull();
 
     rerender(<PullToRefreshIndicator pullDistance={20} isRefreshing={false} threshold={80} />);
-    expect(screen.getByText('Pull to refresh')).toBeInTheDocument();
+    expect(screen.getByText("Pull to refresh")).toBeInTheDocument();
 
     rerender(<PullToRefreshIndicator pullDistance={100} isRefreshing={false} threshold={80} />);
-    expect(screen.getByText('Release to refresh')).toBeInTheDocument();
+    expect(screen.getByText("Release to refresh")).toBeInTheDocument();
 
     rerender(<PullToRefreshIndicator pullDistance={80} isRefreshing={true} threshold={80} />);
-    expect(screen.getByText('Refreshing...')).toBeInTheDocument();
+    expect(screen.getByText("Refreshing...")).toBeInTheDocument();
   });
 
-  it('renders bottom navigation links and marks the current page', () => {
-    mockPathname.mockReturnValue('/dashboard/add');
+  it("renders bottom navigation links and marks the current page", () => {
+    mockPathname.mockReturnValue("/dashboard/add");
 
     render(<BottomNav />);
 
-    expect(screen.getByRole('link', { name: /dashboard/i })).toHaveAttribute('href', '/dashboard');
-    expect(screen.getByRole('link', { name: /settings/i })).toHaveAttribute('href', '/settings');
-    expect(screen.getByRole('link', { name: /add class/i })).toHaveAttribute(
-      'aria-current',
-      'page'
+    expect(screen.getByRole("link", { name: /dashboard/i })).toHaveAttribute("href", "/dashboard");
+    expect(screen.getByRole("link", { name: /settings/i })).toHaveAttribute("href", "/settings");
+    expect(screen.getByRole("link", { name: /add class/i })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
   });
 
-  it('submits through the creation module and reports the created watch', async () => {
+  it("submits through the creation module and reports the created watch", async () => {
     const onCreated = vi.fn().mockResolvedValue(undefined);
     render(<AddClassWatch onCreated={onCreated} />);
 
-    fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: '12345' } });
-    fireEvent.submit(screen.getByRole('button', { name: /start watching/i }).closest('form')!);
+    fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: "12345" } });
+    fireEvent.submit(screen.getByRole("button", { name: /start watching/i }).closest("form")!);
     await waitFor(() => {
-      expect(mockCreateWatch).toHaveBeenCalledWith({ term: '2264', class_nbr: '12345' });
-      expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 'watch-1' }), {
-        term: '2264',
-        class_nbr: '12345',
+      expect(mockCreateWatch).toHaveBeenCalledWith({ term: "2264", class_nbr: "12345" });
+      expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: "watch-1" }), {
+        term: "2264",
+        class_nbr: "12345",
       });
     });
   });
 
-  it('shows add-class submission errors', async () => {
-    mockCreateWatch.mockRejectedValue(new Error('Class already watched'));
+  it("shows add-class submission errors", async () => {
+    mockCreateWatch.mockRejectedValue(new Error("Class already watched"));
     render(<AddClassWatch onCreated={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: '12345' } });
-    fireEvent.submit(screen.getByRole('button', { name: /start watching/i }).closest('form')!);
+    fireEvent.change(screen.getByLabelText(/section number/i), { target: { value: "12345" } });
+    fireEvent.submit(screen.getByRole("button", { name: /start watching/i }).closest("form")!);
 
-    expect(await screen.findByText('Class already watched')).toBeInTheDocument();
+    expect(await screen.findByText("Class already watched")).toBeInTheDocument();
   });
 
-  it('requires explicit confirmation before deleting an account', async () => {
+  it("requires explicit confirmation before deleting an account", async () => {
     const onClose = vi.fn();
     render(<DeleteAccountModal open onOpenChange={onClose} />);
 
-    expect(screen.getByRole('button', { name: /delete account/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /delete account/i })).toBeDisabled();
     fireEvent.change(screen.getByLabelText(/type delete to confirm/i), {
-      target: { value: 'DELETE' },
+      target: { value: "DELETE" },
     });
-    fireEvent.click(screen.getByRole('button', { name: /delete account/i }));
+    fireEvent.click(screen.getByRole("button", { name: /delete account/i }));
 
     await waitFor(() =>
-      expect(global.fetch).toHaveBeenCalledWith('/api/user/delete', { method: 'DELETE' })
+      expect(global.fetch).toHaveBeenCalledWith("/api/user/delete", { method: "DELETE" }),
     );
-    expect(mockPush).toHaveBeenCalledWith('/sign-in?message=Account deleted successfully');
+    expect(mockPush).toHaveBeenCalledWith("/sign-in?message=Account deleted successfully");
   });
 
-  it('surfaces account deletion errors and allows close after error', async () => {
+  it("surfaces account deletion errors and allows close after error", async () => {
     // SAFETY: DeleteAccountModal reads only response.ok and json() — DeleteAccountModal.tsx:45-49.
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
-      json: () => Promise.resolve({ error: 'Deletion failed' }),
+      json: () => Promise.resolve({ error: "Deletion failed" }),
     } as Response);
     const onClose = vi.fn();
     render(<DeleteAccountModal open onOpenChange={onClose} />);
 
     fireEvent.change(screen.getByLabelText(/type delete to confirm/i), {
-      target: { value: 'DELETE' },
+      target: { value: "DELETE" },
     });
-    fireEvent.click(screen.getByRole('button', { name: /delete account/i }));
-    expect(await screen.findByText('Deletion failed')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /delete account/i }));
+    expect(await screen.findByText("Deletion failed")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
     expect(onClose).toHaveBeenCalled();
   });
 });

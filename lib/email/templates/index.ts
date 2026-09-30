@@ -1,8 +1,8 @@
-import type { ClassInfo } from '@/lib/types/class';
-import { DEFAULT_SITE_URL } from '@/lib/config';
-import { escapeHtml } from '@/lib/utils/escape-html';
-import { buildUrl } from '@/lib/utils/url';
-import { getEmailFooter } from './footer';
+import type { ClassInfo } from "@/lib/types/class";
+import { DEFAULT_SITE_URL } from "@/lib/config";
+import { escapeHtml } from "@/lib/utils/escape-html";
+import { buildUrl } from "@/lib/utils/url";
+import { getEmailFooter } from "./footer";
 
 interface SanitizedClassInfo {
   subject: string;
@@ -26,11 +26,11 @@ function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
   const safeLocation = classInfo.location ? escapeHtml(classInfo.location) : null;
   const safeMeetingTimes = classInfo.meeting_times ? escapeHtml(classInfo.meeting_times) : null;
 
-  const safeTerm = classInfo.term.replace(/[^0-9]/g, '');
-  const safeClassNbrUrl = classInfo.class_nbr.replace(/[^0-9]/g, '');
+  const safeTerm = classInfo.term.replace(/[^0-9]/g, "");
+  const safeClassNbrUrl = classInfo.class_nbr.replace(/[^0-9]/g, "");
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
-  const catalogUrl = buildUrl(siteUrl, '/go/asu', { classNbr: safeClassNbrUrl, term: safeTerm });
+  const catalogUrl = buildUrl(siteUrl, "/go/asu", { classNbr: safeClassNbrUrl, term: safeTerm });
 
   return {
     subject: safeSubject,
@@ -47,22 +47,22 @@ function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
 }
 
 export function buildClassEmailShell(opts: {
-  variant: 'seat' | 'instructor' | 'removed';
+  variant: "seat" | "instructor" | "removed";
   title: string;
   unsubscribeUrl?: string;
   bodyHtml: string;
   preheader: string;
 }): string {
   const preset =
-    opts.variant === 'seat'
-      ? { gradientFrom: '#8C1D40', gradientTo: '#6E1733', heading: '🎉 Seat Available!' }
-      : opts.variant === 'instructor'
-        ? { gradientFrom: '#f59e0b', gradientTo: '#ea580c', heading: '👨‍🏫 Instructor Assigned!' }
-        : { gradientFrom: '#6b7280', gradientTo: '#374151', heading: 'Class Removed from Catalog' };
+    opts.variant === "seat"
+      ? { gradientFrom: "#8C1D40", gradientTo: "#6E1733", heading: "🎉 Seat Available!" }
+      : opts.variant === "instructor"
+        ? { gradientFrom: "#f59e0b", gradientTo: "#ea580c", heading: "👨‍🏫 Instructor Assigned!" }
+        : { gradientFrom: "#6b7280", gradientTo: "#374151", heading: "Class Removed from Catalog" };
 
   const preheaderHtml = opts.preheader
     ? `<span style="display:none!important;visibility:hidden;mso-hide:all;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${escapeHtml(opts.preheader)}</span>`
-    : '';
+    : "";
 
   return `
 <!DOCTYPE html>
@@ -112,15 +112,15 @@ export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?
       ${
         safe.location
           ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Location:</strong> ${safe.location}</p>`
-          : ''
+          : ""
       }
       ${
         safe.meetingTimes
           ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Meeting Times:</strong> ${safe.meetingTimes}</p>`
-          : ''
+          : ""
       }
       <p style="margin: 15px 0 5px 0; font-size: 18px; color: #10B981; font-weight: bold;">
-        ${classInfo.seats_available} open seat${classInfo.seats_available !== 1 ? 's' : ''} available
+        ${classInfo.seats_available} open seat${classInfo.seats_available !== 1 ? "s" : ""} available
       </p>
     </div>
 
@@ -136,7 +136,7 @@ export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?
   `.trim();
 
   return buildClassEmailShell({
-    variant: 'seat',
+    variant: "seat",
     title: `Seat Available - ${safe.subject} ${safe.catalogNbr}`,
     unsubscribeUrl,
     bodyHtml,
@@ -146,7 +146,7 @@ export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?
 
 export function InstructorAssignedEmailTemplate(
   classInfo: ClassInfo,
-  unsubscribeUrl?: string
+  unsubscribeUrl?: string,
 ): string {
   const safe = sanitizeClassInfo(classInfo);
 
@@ -170,14 +170,14 @@ export function InstructorAssignedEmailTemplate(
       ${
         safe.location
           ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Location:</strong> ${safe.location}</p>`
-          : ''
+          : ""
       }
       ${
         safe.meetingTimes
           ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Meeting Times:</strong> ${safe.meetingTimes}</p>`
-          : ''
+          : ""
       }
-      <p style="margin: 15px 0 5px 0; color: ${classInfo.seats_available > 0 ? '#10B981' : '#dc2626'}; font-size: 14px;">
+      <p style="margin: 15px 0 5px 0; color: ${classInfo.seats_available > 0 ? "#10B981" : "#dc2626"}; font-size: 14px;">
         ${classInfo.seats_available} of ${classInfo.seats_capacity} seats available
       </p>
     </div>
@@ -194,7 +194,7 @@ export function InstructorAssignedEmailTemplate(
   `.trim();
 
   return buildClassEmailShell({
-    variant: 'instructor',
+    variant: "instructor",
     title: `Instructor Assigned - ${safe.subject} ${safe.catalogNbr}`,
     unsubscribeUrl,
     bodyHtml,

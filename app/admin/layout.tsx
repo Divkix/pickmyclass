@@ -1,13 +1,13 @@
-import { BookOpen, LayoutDashboard, Shield, Users } from 'lucide-react';
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { SignOutButton } from '@/components/admin/SignOutButton';
-import { Logo } from '@/components/Logo';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { Button } from '@/components/ui/button';
-import { verifyAdmin } from '@/lib/auth/admin';
-import { getDbFromEnv } from '@/lib/db';
-import { AdminNavigation } from './AdminNavigation';
+import { BookOpen, LayoutDashboard, Shield, Users } from "lucide-react";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { SignOutButton } from "@/components/admin/SignOutButton";
+import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { verifyAdmin } from "@/lib/auth/admin";
+import { getDbFromEnv } from "@/lib/db";
+import { AdminNavigation } from "./AdminNavigation";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
   const db = getDbFromEnv();
 
   const adminUser = await verifyAdmin(db);
-  const userEmail = adminUser.email || 'Admin';
+  const userEmail = adminUser.email || "Admin";
 
   return (
     <div className="flex min-h-screen bg-background">

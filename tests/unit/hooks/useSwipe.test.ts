@@ -1,6 +1,6 @@
-import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { useSwipe } from '@/lib/hooks/useSwipe';
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { useSwipe } from "@/lib/hooks/useSwipe";
 
 /** The only field the swipe handlers read off a touch event. */
 type TouchEventStub = { touches: unknown };
@@ -12,28 +12,28 @@ const createTouchEvent = (clientX: number): React.TouchEvent => {
   return stub as React.TouchEvent;
 };
 
-describe('useSwipe hook', () => {
+describe("useSwipe hook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('initialization', () => {
-    it('should return initial state with offset 0 and not swiping', () => {
+  describe("initialization", () => {
+    it("should return initial state with offset 0 and not swiping", () => {
       const { result } = renderHook(() => useSwipe());
 
       expect(result.current.offset).toBe(0);
       expect(result.current.isSwiping).toBe(false);
     });
 
-    it('should return handlers object with touch event handlers', () => {
+    it("should return handlers object with touch event handlers", () => {
       const { result } = renderHook(() => useSwipe());
 
-      expect(result.current.handlers).toHaveProperty('onTouchStart');
-      expect(result.current.handlers).toHaveProperty('onTouchMove');
-      expect(result.current.handlers).toHaveProperty('onTouchEnd');
+      expect(result.current.handlers).toHaveProperty("onTouchStart");
+      expect(result.current.handlers).toHaveProperty("onTouchMove");
+      expect(result.current.handlers).toHaveProperty("onTouchEnd");
     });
 
-    it('should use default threshold of 100 if not specified', () => {
+    it("should use default threshold of 100 if not specified", () => {
       const onSwipeLeft = vi.fn();
       const { result } = renderHook(() => useSwipe({ onSwipeLeft }));
 
@@ -51,8 +51,8 @@ describe('useSwipe hook', () => {
     });
   });
 
-  describe('swipe left detection', () => {
-    it('should trigger onSwipeLeft when swiping left past threshold', () => {
+  describe("swipe left detection", () => {
+    it("should trigger onSwipeLeft when swiping left past threshold", () => {
       const onSwipeLeft = vi.fn();
       const { result } = renderHook(() => useSwipe({ onSwipeLeft, threshold: 50 }));
 
@@ -69,7 +69,7 @@ describe('useSwipe hook', () => {
       expect(onSwipeLeft).toHaveBeenCalledTimes(1);
     });
 
-    it('should not trigger onSwipeLeft when swipe distance is below threshold', () => {
+    it("should not trigger onSwipeLeft when swipe distance is below threshold", () => {
       const onSwipeLeft = vi.fn();
       const { result } = renderHook(() => useSwipe({ onSwipeLeft, threshold: 100 }));
 
@@ -87,8 +87,8 @@ describe('useSwipe hook', () => {
     });
   });
 
-  describe('swipe right detection', () => {
-    it('should trigger onSwipeRight when swiping right past threshold', () => {
+  describe("swipe right detection", () => {
+    it("should trigger onSwipeRight when swiping right past threshold", () => {
       const onSwipeRight = vi.fn();
       const { result } = renderHook(() => useSwipe({ onSwipeRight, threshold: 50 }));
 
@@ -105,7 +105,7 @@ describe('useSwipe hook', () => {
       expect(onSwipeRight).toHaveBeenCalledTimes(1);
     });
 
-    it('should not trigger onSwipeRight when swipe distance is below threshold', () => {
+    it("should not trigger onSwipeRight when swipe distance is below threshold", () => {
       const onSwipeRight = vi.fn();
       const { result } = renderHook(() => useSwipe({ onSwipeRight, threshold: 100 }));
 
@@ -123,8 +123,8 @@ describe('useSwipe hook', () => {
     });
   });
 
-  describe('swipe lifecycle callbacks', () => {
-    it('should call onSwipeStart when touch begins', () => {
+  describe("swipe lifecycle callbacks", () => {
+    it("should call onSwipeStart when touch begins", () => {
       const onSwipeStart = vi.fn();
       const { result } = renderHook(() => useSwipe({ onSwipeStart }));
 
@@ -135,7 +135,7 @@ describe('useSwipe hook', () => {
       expect(onSwipeStart).toHaveBeenCalledTimes(1);
     });
 
-    it('should call onSwipeMove with offset during swipe', () => {
+    it("should call onSwipeMove with offset during swipe", () => {
       const onSwipeMove = vi.fn();
       const { result } = renderHook(() => useSwipe({ onSwipeMove }));
 
@@ -149,7 +149,7 @@ describe('useSwipe hook', () => {
       expect(onSwipeMove).toHaveBeenCalledWith(50);
     });
 
-    it('should call onSwipeEnd when touch ends', () => {
+    it("should call onSwipeEnd when touch ends", () => {
       const onSwipeEnd = vi.fn();
       const { result } = renderHook(() => useSwipe({ onSwipeEnd }));
 
@@ -167,8 +167,8 @@ describe('useSwipe hook', () => {
     });
   });
 
-  describe('state management', () => {
-    it('should set isSwiping to true on touch start', () => {
+  describe("state management", () => {
+    it("should set isSwiping to true on touch start", () => {
       const { result } = renderHook(() => useSwipe());
 
       act(() => {
@@ -178,7 +178,7 @@ describe('useSwipe hook', () => {
       expect(result.current.isSwiping).toBe(true);
     });
 
-    it('should reset isSwiping to false on touch end', () => {
+    it("should reset isSwiping to false on touch end", () => {
       const { result } = renderHook(() => useSwipe());
 
       act(() => {
@@ -194,7 +194,7 @@ describe('useSwipe hook', () => {
       expect(result.current.isSwiping).toBe(false);
     });
 
-    it('should update offset during swipe', () => {
+    it("should update offset during swipe", () => {
       const { result } = renderHook(() => useSwipe());
 
       act(() => {
@@ -207,7 +207,7 @@ describe('useSwipe hook', () => {
       expect(result.current.offset).toBe(75);
     });
 
-    it('should reset offset to 0 on touch end', () => {
+    it("should reset offset to 0 on touch end", () => {
       const { result } = renderHook(() => useSwipe());
 
       act(() => {
@@ -224,8 +224,8 @@ describe('useSwipe hook', () => {
     });
   });
 
-  describe('edge cases', () => {
-    it('should not update offset when not swiping', () => {
+  describe("edge cases", () => {
+    it("should not update offset when not swiping", () => {
       const { result } = renderHook(() => useSwipe());
 
       act(() => {
@@ -235,7 +235,7 @@ describe('useSwipe hook', () => {
       expect(result.current.offset).toBe(0);
     });
 
-    it('should handle touch end when not swiping', () => {
+    it("should handle touch end when not swiping", () => {
       const onSwipeEnd = vi.fn();
       const { result } = renderHook(() => useSwipe({ onSwipeEnd }));
 
@@ -246,7 +246,7 @@ describe('useSwipe hook', () => {
       expect(onSwipeEnd).not.toHaveBeenCalled();
     });
 
-    it('should handle negative offset (swipe left)', () => {
+    it("should handle negative offset (swipe left)", () => {
       const { result } = renderHook(() => useSwipe());
 
       act(() => {

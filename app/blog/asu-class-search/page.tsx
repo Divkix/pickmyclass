@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
+import type { Metadata } from "next";
+import Link from "next/link";
 import {
   BlogAuthor,
   BlogCTA,
@@ -9,83 +9,83 @@ import {
   RelatedArticles,
   ShortAnswer,
   TableOfContents,
-} from '@/components/blog';
-import { Header } from '@/components/Header';
-import { JsonLd } from '@/components/landing/JsonLd';
+} from "@/components/blog";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/landing/JsonLd";
 
 export const metadata: Metadata = {
-  title: 'Find Open ASU Classes & Track Full Courses',
+  title: "Find Open ASU Classes & Track Full Courses",
   description:
     "Use ASU Class Search to review sections and availability. If a section is full, check ASU's options or track it for seat-opening email alerts.",
   alternates: {
-    canonical: '/blog/asu-class-search',
+    canonical: "/blog/asu-class-search",
   },
   openGraph: {
-    title: 'Find Open ASU Classes: Search Sections and Track Full Courses',
+    title: "Find Open ASU Classes: Search Sections and Track Full Courses",
     description:
       "Use ASU Class Search to review sections and availability. If a section is full, check ASU's options or track it for seat-opening email alerts.",
-    type: 'article',
-    publishedTime: '2026-06-18T00:00:00Z',
-    modifiedTime: '2026-09-28T00:00:00Z',
-    images: ['/og-image.png'],
+    type: "article",
+    publishedTime: "2026-06-18T00:00:00Z",
+    modifiedTime: "2026-09-28T00:00:00Z",
+    images: ["/og-image.png"],
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 const articleSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Article',
-  headline: 'Find Open ASU Classes: Search Sections and Track Full Courses',
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "Find Open ASU Classes: Search Sections and Track Full Courses",
   description:
     "Use ASU Class Search to review sections and availability. If a section is full, check ASU's options or track it for seat-opening email alerts.",
-  datePublished: '2026-06-18T00:00:00Z',
-  dateModified: '2026-09-28T00:00:00Z',
-  author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
+  datePublished: "2026-06-18T00:00:00Z",
+  dateModified: "2026-09-28T00:00:00Z",
+  author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
   publisher: {
-    '@type': 'Organization',
-    name: 'PickMyClass',
-    url: 'https://pickmyclass.app',
+    "@type": "Organization",
+    name: "PickMyClass",
+    url: "https://pickmyclass.app",
   },
-  mainEntityOfPage: 'https://pickmyclass.app/blog/asu-class-search',
+  mainEntityOfPage: "https://pickmyclass.app/blog/asu-class-search",
 };
 
 const breadcrumbSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
   itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
-    { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://pickmyclass.app/blog' },
-    { '@type': 'ListItem', position: 3, name: 'ASU Class Search' },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://pickmyclass.app/" },
+    { "@type": "ListItem", position: 2, name: "Blog", item: "https://pickmyclass.app/blog" },
+    { "@type": "ListItem", position: 3, name: "ASU Class Search" },
   ],
 };
 
 const tocItems = [
-  { id: 'where', text: 'Start With ASU Class Search', level: 2 },
-  { id: 'full-classes', text: 'If a Section Is Full', level: 2 },
-  { id: 'monitoring', text: 'Track a Section for Seat Updates', level: 2 },
-  { id: 'faq', text: 'Frequently Asked Questions', level: 2 },
+  { id: "where", text: "Start With ASU Class Search", level: 2 },
+  { id: "full-classes", text: "If a Section Is Full", level: 2 },
+  { id: "monitoring", text: "Track a Section for Seat Updates", level: 2 },
+  { id: "faq", text: "Frequently Asked Questions", level: 2 },
 ];
 
 const faqItems = [
   {
-    question: 'Where can I review ASU class sections?',
-    answer: 'Use ASU Class Search to review section information and current availability.',
+    question: "Where can I review ASU class sections?",
+    answer: "Use ASU Class Search to review section information and current availability.",
   },
   {
-    question: 'What should I do if a section is full?',
+    question: "What should I do if a section is full?",
     answer:
-      'Confirm with ASU or your advisor which enrollment options, if any, apply to that section.',
+      "Confirm with ASU or your advisor which enrollment options, if any, apply to that section.",
   },
   {
-    question: 'Does PickMyClass register me for a class?',
+    question: "Does PickMyClass register me for a class?",
     answer:
-      'No. PickMyClass checks watched sections every 30 minutes and emails when it detects an opening; you still register through ASU.',
+      "No. PickMyClass checks watched sections every 30 minutes and emails when it detects an opening; you still register through ASU.",
   },
   {
-    question: 'Does an alert guarantee a seat?',
+    question: "Does an alert guarantee a seat?",
     answer:
-      'No. Seat availability can change, and an alert does not reserve a seat or guarantee enrollment.',
+      "No. Seat availability can change, and an alert does not reserve a seat or guarantee enrollment.",
   },
 ];
 
@@ -104,7 +104,7 @@ export default async function ASUClassSearchPost() {
           />
 
           <ShortAnswer>
-            To find an ASU class section, start with the official{' '}
+            To find an ASU class section, start with the official{" "}
             <a
               href="https://catalog.apps.asu.edu/"
               target="_blank"
@@ -112,7 +112,7 @@ export default async function ASUClassSearchPost() {
               className="text-primary hover:text-primary/80"
             >
               ASU Class Search
-            </a>{' '}
+            </a>{" "}
             and review the current availability there. If the section you need is full, confirm with
             ASU which options apply. PickMyClass checks watched sections every 30 minutes and emails
             when it detects an opening; it does not register you or guarantee a seat.
@@ -120,13 +120,13 @@ export default async function ASUClassSearchPost() {
 
           <KeyTakeaways
             items={[
-              { text: 'Use ASU Class Search to review official section information.' },
-              { text: 'Confirm availability with ASU before registering; seat status can change.' },
-              { text: 'Check with ASU which options, if any, apply when a section is full.' },
+              { text: "Use ASU Class Search to review official section information." },
+              { text: "Confirm availability with ASU before registering; seat status can change." },
+              { text: "Check with ASU which options, if any, apply when a section is full." },
               {
-                text: 'PickMyClass checks watched sections every 30 minutes and emails on detected openings.',
+                text: "PickMyClass checks watched sections every 30 minutes and emails on detected openings.",
               },
-              { text: 'An alert does not reserve a seat or guarantee enrollment.' },
+              { text: "An alert does not reserve a seat or guarantee enrollment." },
             ]}
           />
 
@@ -146,13 +146,13 @@ export default async function ASUClassSearchPost() {
           </h2>
           <p className="text-muted-foreground leading-relaxed">
             Enrollment options depend on the specific section and ASU rules. Confirm with ASU or
-            your advisor whether a waitlist or another option applies. Our{' '}
+            your advisor whether a waitlist or another option applies. Our{" "}
             <Link
               href="/blog/asu-waitlist-guide"
               className="text-primary hover:text-primary/80 font-medium"
             >
               ASU waitlist guide
-            </Link>{' '}
+            </Link>{" "}
             explains what to check when a class is full.
           </p>
 
@@ -163,7 +163,7 @@ export default async function ASUClassSearchPost() {
             If you are waiting for a specific section, PickMyClass checks watched sections every 30
             minutes and emails when a check detects an opening. You still complete registration
             through ASU, and a notification does not guarantee that a seat remains available.
-            Compare tools in our{' '}
+            Compare tools in our{" "}
             <Link
               href="/blog/best-asu-class-seat-tracker"
               className="text-primary hover:text-primary/80 font-medium"
@@ -192,16 +192,16 @@ export default async function ASUClassSearchPost() {
           <RelatedArticles
             articles={[
               {
-                href: '/blog/asu-waitlist-guide',
-                title: 'ASU Waitlist Guide: Full Classes and Next Steps',
+                href: "/blog/asu-waitlist-guide",
+                title: "ASU Waitlist Guide: Full Classes and Next Steps",
               },
               {
-                href: '/blog/best-asu-class-seat-tracker',
-                title: 'Best ASU Class Seat Tracker: Compare Your Options',
+                href: "/blog/best-asu-class-seat-tracker",
+                title: "Best ASU Class Seat Tracker: Compare Your Options",
               },
               {
-                href: '/blog/how-to-get-into-full-asu-classes',
-                title: 'How to Get Into Full Classes at ASU',
+                href: "/blog/how-to-get-into-full-asu-classes",
+                title: "How to Get Into Full Classes at ASU",
               },
             ]}
           />

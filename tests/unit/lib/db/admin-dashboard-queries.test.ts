@@ -1,14 +1,14 @@
-import { getTableName, type SQL } from 'drizzle-orm';
-import { PgDialect, type PgTable } from 'drizzle-orm/pg-core';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { z } from 'zod';
+import { getTableName, type SQL } from "drizzle-orm";
+import { PgDialect, type PgTable } from "drizzle-orm/pg-core";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { z } from "zod";
 
-import type { Database } from '@/lib/db';
+import type { Database } from "@/lib/db";
 
 const dialect = new PgDialect();
 
 function builtSql(query: SQL): string {
-  return dialect.sqlToQuery(query).sql.replace(/\s+/g, ' ').trim();
+  return dialect.sqlToQuery(query).sql.replace(/\s+/g, " ").trim();
 }
 
 type DashboardCell = string | number | boolean | null | DashboardCell[] | DashboardRow;
@@ -67,7 +67,7 @@ function createDb({ selectRows = {}, executeRows = [] }: MockDbOptions = {}) {
         leftJoin: (): RecordingChain => chain,
         where: (): RecordingChain => chain,
         orderBy: (): RecordingChain => chain,
-      }
+      },
     );
 
     return chain;
@@ -76,7 +76,7 @@ function createDb({ selectRows = {}, executeRows = [] }: MockDbOptions = {}) {
   return { db: asDatabaseHandle({ select, execute }), execute, select, selectedTables };
 }
 
-vi.mock('@/lib/cache/ttl-cache', () => ({
+vi.mock("@/lib/cache/ttl-cache", () => ({
   TtlCache: class {
     get(_key: string) {
       return undefined;
@@ -97,52 +97,52 @@ import {
   getTotalUsers,
   getUserWatches,
   getUsersPage,
-} from '@/lib/db/admin-queries';
+} from "@/lib/db/admin-queries";
 
-describe('admin dashboard query helpers', () => {
+describe("admin dashboard query helpers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('collects dashboard counts, user page rows, and user watch details', async () => {
+  it("collects dashboard counts, user page rows, and user watch details", async () => {
     const joinedWatches = [
       {
         watch: {
-          id: 'watch-a',
-          user_id: 'user-2',
-          class_nbr: '12345',
-          term: '2261',
-          subject: 'CSE',
-          catalog_nbr: '240',
-          created_at: '2026-05-02 12:00:00+00',
+          id: "watch-a",
+          user_id: "user-2",
+          class_nbr: "12345",
+          term: "2261",
+          subject: "CSE",
+          catalog_nbr: "240",
+          created_at: "2026-05-02 12:00:00+00",
         },
         class_state: {
-          id: 'state-1',
-          class_nbr: '12345',
-          term: '2261',
-          subject: 'CSE',
-          catalog_nbr: '240',
-          title: 'Intro to Programming',
-          instructor_name: 'Prof One',
+          id: "state-1",
+          class_nbr: "12345",
+          term: "2261",
+          subject: "CSE",
+          catalog_nbr: "240",
+          title: "Intro to Programming",
+          instructor_name: "Prof One",
           seats_available: 2,
           seats_capacity: 40,
           non_reserved_seats: null,
-          location: 'Tempe',
-          meeting_times: 'MWF',
-          last_checked_at: '2026-05-01T00:00:00Z',
-          last_changed_at: '2026-05-01T00:00:00Z',
+          location: "Tempe",
+          meeting_times: "MWF",
+          last_checked_at: "2026-05-01T00:00:00Z",
+          last_changed_at: "2026-05-01T00:00:00Z",
           consecutive_not_found_count: 0,
         },
       },
       {
         watch: {
-          id: 'watch-b',
-          user_id: 'user-2',
-          class_nbr: '67890',
-          term: '2261',
-          subject: 'MAT',
-          catalog_nbr: '265',
-          created_at: '2026-05-03T09:30:00Z',
+          id: "watch-b",
+          user_id: "user-2",
+          class_nbr: "67890",
+          term: "2261",
+          subject: "MAT",
+          catalog_nbr: "265",
+          created_at: "2026-05-03T09:30:00Z",
         },
         class_state: null,
       },
@@ -155,64 +155,64 @@ describe('admin dashboard query helpers', () => {
         class_watches: joinedWatches,
       },
       executeRows: [
-        { match: /count_all_users/, rows: [{ count: '7' }] },
-        { match: /count_distinct_classes_watched/, rows: [{ count: '5' }] },
+        { match: /count_all_users/, rows: [{ count: "7" }] },
+        { match: /count_distinct_classes_watched/, rows: [{ count: "5" }] },
       ],
     });
 
     await expect(getTotalEmailsSent(db)).resolves.toBe(9);
 
     await expect(getTotalUsers(db)).resolves.toBe(7);
-    expect(builtSql(execute.mock.calls[0][0])).toContain('public.count_all_users()');
+    expect(builtSql(execute.mock.calls[0][0])).toContain("public.count_all_users()");
 
     await expect(getAdminCount(db)).resolves.toBe(1);
 
     await expect(getTotalClassesWatched(db)).resolves.toBe(5);
     const countTexts = execute.mock.calls.map((call) => builtSql(call[0]));
-    expect(countTexts.some((text) => text.includes('count_distinct_classes_watched'))).toBe(true);
+    expect(countTexts.some((text) => text.includes("count_distinct_classes_watched"))).toBe(true);
 
-    expect(selectedTables.filter((name) => name === 'class_watches')).toHaveLength(0);
+    expect(selectedTables.filter((name) => name === "class_watches")).toHaveLength(0);
 
-    const userWatches = await getUserWatches(db, 'user-2');
+    const userWatches = await getUserWatches(db, "user-2");
     expect(userWatches).toHaveLength(2);
     expect(userWatches[0]).toMatchObject({
-      id: 'watch-a',
-      class_state: { class_nbr: '12345', term: '2261', consecutive_not_found_count: 0 },
+      id: "watch-a",
+      class_state: { class_nbr: "12345", term: "2261", consecutive_not_found_count: 0 },
     });
-    expect(userWatches[0].created_at).toBe('2026-05-02T12:00:00.000Z');
-    expect(userWatches[0].class_state?.last_checked_at).toBe('2026-05-01T00:00:00.000Z');
-    expect(userWatches[1].created_at).toBe('2026-05-03T09:30:00.000Z');
+    expect(userWatches[0].created_at).toBe("2026-05-02T12:00:00.000Z");
+    expect(userWatches[0].class_state?.last_checked_at).toBe("2026-05-01T00:00:00.000Z");
+    expect(userWatches[1].created_at).toBe("2026-05-03T09:30:00.000Z");
     expect(userWatches[1].class_state).toBeNull();
   });
 
-  it('returns an empty user watch list from the single joined query when the user has no watches', async () => {
+  it("returns an empty user watch list from the single joined query when the user has no watches", async () => {
     const { db, execute, select } = createDb({
       selectRows: { class_watches: [] },
     });
 
-    await expect(getUserWatches(db, 'user-without-watches')).resolves.toEqual([]);
+    await expect(getUserWatches(db, "user-without-watches")).resolves.toEqual([]);
     expect(select).toHaveBeenCalledTimes(1);
     expect(execute).not.toHaveBeenCalled();
   });
 
-  it('getUsersPage binds get_users_page parameters positionally with explicit casts', async () => {
+  it("getUsersPage binds get_users_page parameters positionally with explicit casts", async () => {
     const { db, execute } = createDb({
       executeRows: [
         {
           match: /get_users_page/,
           rows: [
             {
-              id: 'user-1',
-              email: 'one@example.com',
-              created_at: '2026-05-01T00:00:00Z',
+              id: "user-1",
+              email: "one@example.com",
+              created_at: "2026-05-01T00:00:00Z",
               last_sign_in_at: null,
-              email_confirmed_at: '2026-05-01T00:00:00Z',
-              watch_count: '2',
+              email_confirmed_at: "2026-05-01T00:00:00Z",
+              watch_count: "2",
               is_admin: false,
-              seat_emails: '1',
-              instructor_emails: '0',
-              notification_status: 'active',
-              total_count: '42',
+              seat_emails: "1",
+              instructor_emails: "0",
+              notification_status: "active",
+              total_count: "42",
             },
           ],
         },
@@ -222,44 +222,44 @@ describe('admin dashboard query helpers', () => {
     const result = await getUsersPage(db, {
       page: 2,
       pageSize: 10,
-      search: 'one',
-      role: 'user',
-      verified: 'verified',
-      watchCount: '1-5',
-      sort: 'email',
-      dir: 'asc',
+      search: "one",
+      role: "user",
+      verified: "verified",
+      watchCount: "1-5",
+      sort: "email",
+      dir: "asc",
     });
 
     expect(execute).toHaveBeenCalledTimes(1);
     const query = execute.mock.calls[0][0];
     expect(builtSql(query)).toBe(
-      'SELECT * FROM public.get_users_page( $1::int, $2::int, $3::text, $4::text, $5::text, $6::text, $7::text, $8::text )'
+      "SELECT * FROM public.get_users_page( $1::int, $2::int, $3::text, $4::text, $5::text, $6::text, $7::text, $8::text )",
     );
     expect(dialect.sqlToQuery(query).params).toEqual([
       2,
       10,
-      'one',
-      'user',
-      'verified',
-      '1-5',
-      'email',
-      'asc',
+      "one",
+      "user",
+      "verified",
+      "1-5",
+      "email",
+      "asc",
     ]);
 
     expect(result.total).toBe(42);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]).toMatchObject({
-      email: 'one@example.com',
+      email: "one@example.com",
       watch_count: 2,
       seat_emails: 1,
       instructor_emails: 0,
     });
     expect(z.number().safeParse(result.rows[0].watch_count).success).toBe(true);
-    expect(result.rows[0].created_at).toBe('2026-05-01T00:00:00.000Z');
+    expect(result.rows[0].created_at).toBe("2026-05-01T00:00:00.000Z");
     expect(result.rows[0].last_sign_in_at).toBeNull();
   });
 
-  it('getUsersPage returns empty page when the RPC returns no rows', async () => {
+  it("getUsersPage returns empty page when the RPC returns no rows", async () => {
     const { db } = createDb({ executeRows: [{ match: /get_users_page/, rows: [] }] });
 
     const result = await getUsersPage(db);
@@ -267,33 +267,33 @@ describe('admin dashboard query helpers', () => {
     expect(result.total).toBe(0);
   });
 
-  it('getClassesPage binds get_classes_page parameters positionally with explicit casts', async () => {
+  it("getClassesPage binds get_classes_page parameters positionally with explicit casts", async () => {
     const { db, execute } = createDb({
       executeRows: [
         {
           match: /get_classes_page/,
           rows: [
             {
-              id: 'state-1',
-              class_nbr: '12345',
-              term: '2261',
-              subject: 'CSE',
-              catalog_nbr: '240',
-              title: 'Intro',
-              instructor_name: 'Dr. X',
+              id: "state-1",
+              class_nbr: "12345",
+              term: "2261",
+              subject: "CSE",
+              catalog_nbr: "240",
+              title: "Intro",
+              instructor_name: "Dr. X",
               seats_available: 5,
               seats_capacity: 30,
               non_reserved_seats: null,
               location: null,
               meeting_times: null,
-              last_checked_at: '2026-05-01 08:00:00+00',
-              last_changed_at: '2026-05-01 08:00:00+00',
-              watcher_count: '7',
-              seat_emails: '3',
-              instructor_emails: '1',
-              total_count: '99',
-              total_watchers: '120',
-              full_classes: '4',
+              last_checked_at: "2026-05-01 08:00:00+00",
+              last_changed_at: "2026-05-01 08:00:00+00",
+              watcher_count: "7",
+              seat_emails: "3",
+              instructor_emails: "1",
+              total_count: "99",
+              total_watchers: "120",
+              full_classes: "4",
             },
           ],
         },
@@ -303,30 +303,30 @@ describe('admin dashboard query helpers', () => {
     const result = await getClassesPage(db, {
       page: 3,
       pageSize: 50,
-      search: 'cse',
-      subject: 'CSE',
-      seatStatus: 'limited',
-      instructor: 'named',
-      watcherCount: '6-10',
-      sort: 'seats_available',
-      dir: 'asc',
+      search: "cse",
+      subject: "CSE",
+      seatStatus: "limited",
+      instructor: "named",
+      watcherCount: "6-10",
+      sort: "seats_available",
+      dir: "asc",
     });
 
     expect(execute).toHaveBeenCalledTimes(1);
     const query = execute.mock.calls[0][0];
     expect(builtSql(query)).toBe(
-      'SELECT * FROM public.get_classes_page( $1::int, $2::int, $3::text, $4::text, $5::text, $6::text, $7::text, $8::text, $9::text )'
+      "SELECT * FROM public.get_classes_page( $1::int, $2::int, $3::text, $4::text, $5::text, $6::text, $7::text, $8::text, $9::text )",
     );
     expect(dialect.sqlToQuery(query).params).toEqual([
       3,
       50,
-      'cse',
-      'CSE',
-      'limited',
-      'named',
-      '6-10',
-      'seats_available',
-      'asc',
+      "cse",
+      "CSE",
+      "limited",
+      "named",
+      "6-10",
+      "seats_available",
+      "asc",
     ]);
 
     expect(result.total).toBe(99);
@@ -334,15 +334,15 @@ describe('admin dashboard query helpers', () => {
     expect(result.fullClasses).toBe(4);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]).toMatchObject({
-      class_nbr: '12345',
+      class_nbr: "12345",
       watcher_count: 7,
       seat_emails: 3,
       instructor_emails: 1,
     });
-    expect(result.rows[0].last_checked_at).toBe('2026-05-01T08:00:00.000Z');
+    expect(result.rows[0].last_checked_at).toBe("2026-05-01T08:00:00.000Z");
   });
 
-  it('getClassesPage returns empty page when the RPC returns no rows', async () => {
+  it("getClassesPage returns empty page when the RPC returns no rows", async () => {
     const { db } = createDb({ executeRows: [{ match: /get_classes_page/, rows: [] }] });
 
     const result = await getClassesPage(db);
@@ -352,28 +352,28 @@ describe('admin dashboard query helpers', () => {
     expect(result.fullClasses).toBe(0);
   });
 
-  it('getTotalClassesWatched uses count_distinct_classes_watched RPC (no table scan)', async () => {
+  it("getTotalClassesWatched uses count_distinct_classes_watched RPC (no table scan)", async () => {
     const { db, execute, select } = createDb({
-      executeRows: [{ match: /count_distinct_classes_watched/, rows: [{ count: '17' }] }],
+      executeRows: [{ match: /count_distinct_classes_watched/, rows: [{ count: "17" }] }],
     });
 
     const count = await getTotalClassesWatched(db);
     expect(count).toBe(17);
     expect(builtSql(execute.mock.calls[0][0])).toBe(
-      'SELECT public.count_distinct_classes_watched()::text AS count'
+      "SELECT public.count_distinct_classes_watched()::text AS count",
     );
     expect(select).not.toHaveBeenCalled();
   });
 
-  it('getTotalUsers uses count_all_users RPC (no auth walk)', async () => {
+  it("getTotalUsers uses count_all_users RPC (no auth walk)", async () => {
     const { db, execute, select } = createDb({
-      executeRows: [{ match: /count_all_users/, rows: [{ count: '500' }] }],
+      executeRows: [{ match: /count_all_users/, rows: [{ count: "500" }] }],
     });
 
     const count = await getTotalUsers(db);
     expect(count).toBe(500);
     expect(builtSql(execute.mock.calls[0][0])).toBe(
-      'SELECT public.count_all_users()::text AS count'
+      "SELECT public.count_all_users()::text AS count",
     );
     expect(select).not.toHaveBeenCalled();
   });

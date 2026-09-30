@@ -1,15 +1,15 @@
-import type { Database } from '@/lib/db';
+import type { Database } from "@/lib/db";
 import {
   type ClaimedNotification,
   deleteNotificationRecordsByIds,
   getNotificationWatchers,
   tryRecordNotificationsBatch,
-} from '@/lib/db/queries';
-import { type ClassInfo, type OutboundEmail, sendBatchEmailsOptimized } from '@/lib/email/send';
-import { log } from '@/lib/log';
-import type { ChangeResult } from '@/lib/queue/change-detector';
-import { type SectionRef, sectionRefKey } from '@/lib/section-ref';
-import type { NotificationType } from '@/lib/types/notification';
+} from "@/lib/db/queries";
+import { type ClassInfo, type OutboundEmail, sendBatchEmailsOptimized } from "@/lib/email/send";
+import { log } from "@/lib/log";
+import type { ChangeResult } from "@/lib/queue/change-detector";
+import { type SectionRef, sectionRefKey } from "@/lib/section-ref";
+import type { NotificationType } from "@/lib/types/notification";
 
 export interface SendSectionNotificationsParams {
   db: Database;
@@ -40,12 +40,12 @@ async function rollbackClaims(db: Database, notificationIds: string[]): Promise<
   try {
     await deleteNotificationRecordsByIds(db, notificationIds);
   } catch (rollbackError) {
-    log('NotificationSender').warn('Failed to rollback notification records:', rollbackError);
+    log("NotificationSender").warn("Failed to rollback notification records:", rollbackError);
   }
 }
 
 export async function sendSectionNotifications(
-  params: SendSectionNotificationsParams
+  params: SendSectionNotificationsParams,
 ): Promise<SentNotification[]> {
   const { db, ref, classInfo, changes, emailBinding, fromEmail } = params;
   const scope = sectionRefKey(ref);
@@ -53,36 +53,36 @@ export async function sendSectionNotifications(
   const watchers = await getNotificationWatchers(db, ref);
 
   if (watchers.length === 0) {
-    log('NotificationSender').info(`No watchers found for ${scope}`);
+    log("NotificationSender").info(`No watchers found for ${scope}`);
 
     return [];
   }
 
-  log('NotificationSender').info(`Found ${watchers.length} watchers for ${scope}`);
+  log("NotificationSender").info(`Found ${watchers.length} watchers for ${scope}`);
 
   const allWatchIds = watchers.map((w) => w.watch_id);
 
   const claimTypes: Array<{ type: NotificationType; changed: boolean }> = [
-    { type: 'seat_available', changed: changes.seatBecameAvailable },
-    { type: 'instructor_assigned', changed: changes.instructorAssigned },
+    { type: "seat_available", changed: changes.seatBecameAvailable },
+    { type: "instructor_assigned", changed: changes.instructorAssigned },
   ];
 
   const claimResults = await Promise.allSettled(
     claimTypes.map(({ type, changed }) =>
-      changed ? tryRecordNotificationsBatch(db, allWatchIds, type) : noClaims()
-    )
+      changed ? tryRecordNotificationsBatch(db, allWatchIds, type) : noClaims(),
+    ),
   );
 
-  const firstRejection = claimResults.find((r) => r.status === 'rejected');
+  const firstRejection = claimResults.find((r) => r.status === "rejected");
 
   if (firstRejection) {
     for (const [i, { changed }] of claimTypes.entries()) {
       const result = claimResults[i];
 
-      if (changed && result?.status === 'fulfilled' && result.value.length > 0) {
+      if (changed && result?.status === "fulfilled" && result.value.length > 0) {
         await rollbackClaims(
           db,
-          result.value.map((claim) => claim.notificationId)
+          result.value.map((claim) => claim.notificationId),
         );
       }
     }
@@ -100,7 +100,7 @@ export async function sendSectionNotifications(
   claimTypes.forEach(({ type }, i) => {
     const result = claimResults[i];
 
-    if (result?.status === 'fulfilled') claimedByType[type] = result.value;
+    if (result?.status === "fulfilled") claimedByType[type] = result.value;
   });
 
   const emailsToSend: Array<OutboundEmail & { watchId: string }> = [];
@@ -120,9 +120,9 @@ export async function sendSectionNotifications(
   }
 
   if (emailsToSend.length === 0) {
-    log('NotificationSender').info(
+    log("NotificationSender").info(
       `No emails to send for ${scope}` +
-        ` (seat: ${claimedByType.seat_available.length}, instructor: ${claimedByType.instructor_assigned.length})`
+        ` (seat: ${claimedByType.seat_available.length}, instructor: ${claimedByType.instructor_assigned.length})`,
     );
 
     return [];
@@ -139,7 +139,7 @@ export async function sendSectionNotifications(
   if (failedEmails.length > 0) {
     for (const { type } of claimTypes) {
       const failedWatchIds = new Set(
-        failedEmails.filter((e) => e.email.type === type).map((e) => e.email.watchId)
+        failedEmails.filter((e) => e.email.type === type).map((e) => e.email.watchId),
       );
 
       const failedNotificationIds = claimedByType[type]
@@ -163,11 +163,11 @@ export async function sendSectionNotifications(
   const failCount = sentResults.length - successCount;
 
   if (failCount > 0) {
-    log('NotificationSender').warn(
-      `${failCount}/${sentResults.length} notifications failed for ${scope}`
+    log("NotificationSender").warn(
+      `${failCount}/${sentResults.length} notifications failed for ${scope}`,
     );
   } else {
-    log('NotificationSender').info(`Sent ${successCount} notifications for ${scope}`);
+    log("NotificationSender").info(`Sent ${successCount} notifications for ${scope}`);
   }
 
   return sentResults;

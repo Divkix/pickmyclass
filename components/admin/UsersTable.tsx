@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { useCallback, useTransition } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useCallback, useTransition } from "react";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -12,12 +12,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import type { UserSortField, UserWithWatchCount } from '@/lib/db/admin-queries';
-import { formatAbsoluteDate, formatRelativeDate } from '@/lib/utils/time-format';
-import { SortableHeader } from './SortableHeader';
-import { UsersTableFiltersComponent } from './UsersTableFilters';
-import { TablePagination } from './TablePagination';
+} from "@/components/ui/table";
+import type { UserSortField, UserWithWatchCount } from "@/lib/db/admin-queries";
+import { formatAbsoluteDate, formatRelativeDate } from "@/lib/utils/time-format";
+import { SortableHeader } from "./SortableHeader";
+import { UsersTableFiltersComponent } from "./UsersTableFilters";
+import { TablePagination } from "./TablePagination";
 
 interface UsersTableProps {
   users: UserWithWatchCount[];
@@ -25,23 +25,23 @@ interface UsersTableProps {
   page: number;
   pageSize: number;
   sort: UserSortField;
-  dir: 'asc' | 'desc';
+  dir: "asc" | "desc";
   search: string;
-  role: 'all' | 'admin' | 'user';
-  verified: 'all' | 'verified' | 'unverified';
-  watchCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
+  role: "all" | "admin" | "user";
+  verified: "all" | "verified" | "unverified";
+  watchCount: "all" | "none" | "1-5" | "6-10" | "10+";
 }
 
 const notificationStatusDisplay = {
-  active: { label: 'Active', variant: 'default' },
-  unsubscribed: { label: 'Unsubscribed', variant: 'warning' },
-  bounced: { label: 'Bounced', variant: 'destructive' },
-  spam: { label: 'Spam complaint', variant: 'destructive' },
-  disabled: { label: 'Disabled', variant: 'destructive' },
+  active: { label: "Active", variant: "default" },
+  unsubscribed: { label: "Unsubscribed", variant: "warning" },
+  bounced: { label: "Bounced", variant: "destructive" },
+  spam: { label: "Spam complaint", variant: "destructive" },
+  disabled: { label: "Disabled", variant: "destructive" },
 } as const;
 
 function formatDate(dateString: string | null): string {
-  if (!dateString) return 'Never';
+  if (!dateString) return "Never";
 
   const relative = formatRelativeDate(dateString);
 
@@ -72,7 +72,7 @@ export function UsersTable({
       const params = new URLSearchParams(searchParams.toString());
 
       for (const [k, v] of Object.entries(updates)) {
-        if (v === '' || v === 'all') {
+        if (v === "" || v === "all") {
           params.delete(k);
         } else {
           params.set(k, v);
@@ -83,7 +83,7 @@ export function UsersTable({
 
       return qs ? `${pathname}?${qs}` : pathname;
     },
-    [pathname, searchParams]
+    [pathname, searchParams],
   );
 
   const navigate = useCallback(
@@ -92,21 +92,21 @@ export function UsersTable({
         router.push(buildUrl(updates));
       });
     },
-    [router, buildUrl]
+    [router, buildUrl],
   );
 
   const handleSortClick = (field: UserSortField) => {
     if (sort === field) {
-      navigate({ sort: field, dir: dir === 'asc' ? 'desc' : 'asc', page: '1' });
+      navigate({ sort: field, dir: dir === "asc" ? "desc" : "asc", page: "1" });
     } else {
-      navigate({ sort: field, dir: 'asc', page: '1' });
+      navigate({ sort: field, dir: "asc", page: "1" });
     }
   };
 
   const renderSortIconFromUrl = (field: UserSortField) => {
     if (sort !== field) return <ChevronsUpDown className="size-4 ml-1 text-muted-foreground" />;
 
-    if (dir === 'asc') return <ChevronUp className="size-4 ml-1" />;
+    if (dir === "asc") return <ChevronUp className="size-4 ml-1" />;
 
     return <ChevronDown className="size-4 ml-1" />;
   };
@@ -115,7 +115,7 @@ export function UsersTable({
     // SAFETY: row click target is HTMLElement per table cell DOM contract
     const target = event.target as HTMLElement;
 
-    if (target.tagName === 'A' || target.closest('a')) return;
+    if (target.tagName === "A" || target.closest("a")) return;
     router.push(`/admin/users/${userId}`);
   };
 
@@ -128,7 +128,7 @@ export function UsersTable({
         role={role}
         verified={verified}
         watchCount={watchCount}
-        onNavigate={(updates) => navigate({ ...updates, page: '1' })}
+        onNavigate={(updates) => navigate({ ...updates, page: "1" })}
       />
 
       <div className="rounded-lg border bg-card">
@@ -229,8 +229,8 @@ export function UsersTable({
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={isVerified ? 'success' : 'warning'} size="sm">
-                        {isVerified ? 'Verified' : 'Unverified'}
+                      <Badge variant={isVerified ? "success" : "warning"} size="sm">
+                        {isVerified ? "Verified" : "Unverified"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">

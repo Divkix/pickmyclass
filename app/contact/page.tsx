@@ -1,30 +1,30 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Header } from '@/components/Header';
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: { absolute: 'Contact PickMyClass — Support & Bug Reports' },
+  title: { absolute: "Contact PickMyClass — Support & Bug Reports" },
   description:
-    'Email support@pickmyclass.app for account and alert questions, or open a GitHub issue for bugs. Here is what to include so we can reproduce it fast.',
+    "Email support@pickmyclass.app for account and alert questions, or open a GitHub issue for bugs. Here is what to include so we can reproduce it fast.",
   alternates: {
-    canonical: '/contact',
+    canonical: "/contact",
   },
   openGraph: {
-    title: 'Contact PickMyClass — Support Email & Bug Reports',
+    title: "Contact PickMyClass — Support Email & Bug Reports",
     description:
-      'Email support@pickmyclass.app or open a GitHub issue. What to include in a bug report, and how quickly a student-run project replies.',
-    type: 'website',
-    url: '/contact',
-    images: ['/og-image.png'],
+      "Email support@pickmyclass.app or open a GitHub issue. What to include in a bug report, and how quickly a student-run project replies.",
+    type: "website",
+    url: "/contact",
+    images: ["/og-image.png"],
   },
   twitter: {
-    title: 'Contact PickMyClass — Support Email & Bug Reports',
+    title: "Contact PickMyClass — Support Email & Bug Reports",
     description:
-      'Email support@pickmyclass.app or open a GitHub issue. What to include in a bug report, and how quickly a student-run project replies.',
+      "Email support@pickmyclass.app or open a GitHub issue. What to include in a bug report, and how quickly a student-run project replies.",
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 export default function ContactPage() {
   return (
@@ -44,10 +44,10 @@ export default function ContactPage() {
 
           <p className="text-muted-foreground leading-relaxed">
             There is no phone line and no chat widget. Everything reaches us through email or
-            GitHub, and both go to the same small team. Pick whichever fits what you need — the{' '}
+            GitHub, and both go to the same small team. Pick whichever fits what you need — the{" "}
             <Link href="/faq" className="text-primary hover:text-primary/80">
               FAQ
-            </Link>{' '}
+            </Link>{" "}
             answers most questions about how tracking, timing, and campuses work before you write
             in.
           </p>
@@ -56,13 +56,13 @@ export default function ContactPage() {
             Email support@pickmyclass.app
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Write to{' '}
+            Write to{" "}
             <a
               href="mailto:support@pickmyclass.app"
               className="text-primary hover:text-primary/80 font-mono text-sm"
             >
               support@pickmyclass.app
-            </a>{' '}
+            </a>{" "}
             for anything tied to your account: a watch that will not save, alerts that stopped
             arriving, a change to the email address we notify, or a data export or deletion request.
             Support is the only channel for account changes, because we never ask for your MyASU
@@ -73,7 +73,7 @@ export default function ContactPage() {
             Report a bug on GitHub
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            PickMyClass is{' '}
+            PickMyClass is{" "}
             <a
               href="https://github.com/Divkix/pickmyclass"
               target="_blank"
@@ -82,7 +82,7 @@ export default function ContactPage() {
             >
               open source
             </a>
-            , so reproducible bugs and feature ideas are welcome in the{' '}
+            , so reproducible bugs and feature ideas are welcome in the{" "}
             <a
               href="https://github.com/Divkix/pickmyclass/issues"
               target="_blank"
@@ -120,7 +120,7 @@ export default function ContactPage() {
               display problem.
             </li>
             <li>
-              <strong className="text-foreground">The exact error text or a screenshot.</strong>{' '}
+              <strong className="text-foreground">The exact error text or a screenshot.</strong>{" "}
               Copy the message as it appears instead of paraphrasing it.
             </li>
           </ul>
@@ -130,7 +130,7 @@ export default function ContactPage() {
             This is a student-run project, not a staffed support desk, so there is no 24/7 queue.
             Most emails get a reply within a couple of business days, and we read GitHub issues as
             they come in. Privacy and data-deletion requests are handled within the response window
-            described in the{' '}
+            described in the{" "}
             <Link href="/legal/privacy" className="text-primary hover:text-primary/80">
               privacy policy
             </Link>

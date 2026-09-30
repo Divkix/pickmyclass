@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { ShieldCheck } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
-import { Header } from '@/components/Header';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { safeInternalPath } from '@/lib/auth/safe-redirect';
+import { ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
+import { Header } from "@/components/Header";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { safeInternalPath } from "@/lib/auth/safe-redirect";
 
 function ConsentForm() {
   const router = useRouter();
@@ -19,9 +19,9 @@ function ConsentForm() {
   const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState<string | null>(
-    searchParams.get('error') === 'save_failed'
-      ? 'We could not save your confirmation. Please try again.'
-      : null
+    searchParams.get("error") === "save_failed"
+      ? "We could not save your confirmation. Please try again."
+      : null,
   );
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -33,9 +33,9 @@ function ConsentForm() {
     setError(null);
 
     try {
-      const response = await fetch('/api/auth/consent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/auth/consent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ageVerified, agreedToTerms }),
       });
 
@@ -43,14 +43,14 @@ function ConsentForm() {
       const data = (await response.json()) as { error?: string };
 
       if (!response.ok) {
-        setError(data.error || 'Could not save consent');
+        setError(data.error || "Could not save consent");
 
         return;
       }
 
-      router.replace(safeInternalPath(searchParams.get('next'), '/dashboard'));
+      router.replace(safeInternalPath(searchParams.get("next"), "/dashboard"));
     } catch {
-      setError('Could not save consent');
+      setError("Could not save consent");
     } finally {
       setSaving(false);
     }
@@ -108,7 +108,7 @@ function ConsentForm() {
                     required
                   />
                   <Label htmlFor="agreedToTerms" className="cursor-pointer font-normal leading-5">
-                    I agree to the{' '}
+                    I agree to the{" "}
                     <Link
                       href="/legal/terms"
                       className="text-primary underline-offset-4 hover:underline"
@@ -116,8 +116,8 @@ function ConsentForm() {
                       rel="noreferrer"
                     >
                       Terms of Service
-                    </Link>{' '}
-                    and{' '}
+                    </Link>{" "}
+                    and{" "}
                     <Link
                       href="/legal/privacy"
                       className="text-primary underline-offset-4 hover:underline"
@@ -135,7 +135,7 @@ function ConsentForm() {
                 className="w-full"
                 disabled={!ageVerified || !agreedToTerms || saving}
               >
-                {saving ? 'Saving...' : 'Save and continue'}
+                {saving ? "Saving..." : "Save and continue"}
               </Button>
             </form>
           </CardContent>

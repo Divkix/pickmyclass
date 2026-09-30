@@ -1,12 +1,12 @@
-import { z } from 'zod';
-import { getPostHogSessionHeaders } from '@/lib/analytics/client';
-import { createClassWatchSchema } from '@/lib/api/schemas';
-import { parseOrThrow } from '@/lib/api/validation';
-import { isRecord, type WirePayload } from '@/lib/api/wire';
-import { getSelectableTerms } from '@/lib/asu/terms';
-import type { ClassWatchRow } from '@/lib/types/class-watch';
+import { z } from "zod";
+import { getPostHogSessionHeaders } from "@/lib/analytics/client";
+import { createClassWatchSchema } from "@/lib/api/schemas";
+import { parseOrThrow } from "@/lib/api/validation";
+import { isRecord, type WirePayload } from "@/lib/api/wire";
+import { getSelectableTerms } from "@/lib/asu/terms";
+import type { ClassWatchRow } from "@/lib/types/class-watch";
 
-const CREATE_CLASS_WATCH_ERROR = 'Failed to add class watch';
+const CREATE_CLASS_WATCH_ERROR = "Failed to add class watch";
 
 export type ClassWatchCreationInput = {
   term: string;
@@ -49,7 +49,7 @@ export function createClassWatchClient(request?: Request) {
 
       return {
         terms,
-        defaultTerm: terms[0]?.code ?? '',
+        defaultTerm: terms[0]?.code ?? "",
       };
     },
 
@@ -66,12 +66,12 @@ export function createClassWatchClient(request?: Request) {
 
       try {
         const headers = new Headers({
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...getPostHogSessionHeaders(),
         });
 
-        response = await (request ?? globalThis.fetch)('/api/class-watches', {
-          method: 'POST',
+        response = await (request ?? globalThis.fetch)("/api/class-watches", {
+          method: "POST",
           headers,
           body: JSON.stringify(validated),
         });
@@ -83,7 +83,7 @@ export function createClassWatchClient(request?: Request) {
 
       if (!response.ok) {
         const parsedError = errorEnvelopeSchema.safeParse(payload);
-        const error = parsedError.success ? parsedError.data.error.trim() : '';
+        const error = parsedError.success ? parsedError.data.error.trim() : "";
         throw new Error(error || CREATE_CLASS_WATCH_ERROR);
       }
 

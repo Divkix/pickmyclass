@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
+import type { Metadata } from "next";
+import Link from "next/link";
 import {
   BlogAuthor,
   BlogCTA,
@@ -10,152 +10,152 @@ import {
   RelatedArticles,
   ShortAnswer,
   TableOfContents,
-} from '@/components/blog';
-import { Header } from '@/components/Header';
-import { JsonLd } from '@/components/landing/JsonLd';
+} from "@/components/blog";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/landing/JsonLd";
 
 export const metadata: Metadata = {
-  title: 'How to Get Into Full ASU Classes: 7 Strategies',
+  title: "How to Get Into Full ASU Classes: 7 Strategies",
   description:
-    'Practical strategies to get into full ASU classes during registration and add/drop period. From waitlist tips to automated seat tracking tools.',
+    "Practical strategies to get into full ASU classes during registration and add/drop period. From waitlist tips to automated seat tracking tools.",
   alternates: {
-    canonical: '/blog/how-to-get-into-full-asu-classes',
+    canonical: "/blog/how-to-get-into-full-asu-classes",
   },
   openGraph: {
-    title: 'How to Get Into Full Classes at ASU: 7 Strategies That Work',
+    title: "How to Get Into Full Classes at ASU: 7 Strategies That Work",
     description:
-      'Practical strategies to get into full ASU classes during registration and add/drop period.',
-    type: 'article',
-    publishedTime: '2026-03-27T00:00:00Z',
-    images: ['/og-image.png'],
+      "Practical strategies to get into full ASU classes during registration and add/drop period.",
+    type: "article",
+    publishedTime: "2026-03-27T00:00:00Z",
+    images: ["/og-image.png"],
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 const articleSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Article',
-  headline: 'How to Get Into Full Classes at ASU: 7 Strategies That Work',
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "How to Get Into Full Classes at ASU: 7 Strategies That Work",
   description:
-    'Practical strategies to get into full ASU classes during registration and add/drop period. From waitlist tips to automated seat tracking tools.',
-  datePublished: '2026-03-27T00:00:00Z',
-  dateModified: '2026-06-18T00:00:00Z',
-  author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
+    "Practical strategies to get into full ASU classes during registration and add/drop period. From waitlist tips to automated seat tracking tools.",
+  datePublished: "2026-03-27T00:00:00Z",
+  dateModified: "2026-06-18T00:00:00Z",
+  author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
   publisher: {
-    '@type': 'Organization',
-    name: 'PickMyClass',
-    url: 'https://pickmyclass.app',
+    "@type": "Organization",
+    name: "PickMyClass",
+    url: "https://pickmyclass.app",
   },
-  mainEntityOfPage: 'https://pickmyclass.app/blog/how-to-get-into-full-asu-classes',
+  mainEntityOfPage: "https://pickmyclass.app/blog/how-to-get-into-full-asu-classes",
 };
 
 const tocItems = [
   {
-    id: 'register-exact-minute',
-    text: '1. Register at the Exact Minute Your Window Opens',
+    id: "register-exact-minute",
+    text: "1. Register at the Exact Minute Your Window Opens",
     level: 2,
   },
-  { id: 'backup-schedule', text: '2. Build a Complete Backup Schedule', level: 2 },
-  { id: 'auto-tracker', text: '3. Monitor Seats Automatically', level: 2 },
-  { id: 'add-drop-week', text: '4. Check During Add/Drop Week', level: 2 },
-  { id: 'talk-professor', text: '5. Talk to the Professor Directly', level: 2 },
-  { id: 'advisor', text: '6. Contact Your Academic Advisor', level: 2 },
-  { id: 'late-sections', text: '7. Look for Late-Added Sections', level: 2 },
-  { id: 'strategy-comparison', text: 'Strategy Comparison Table', level: 2 },
-  { id: 'common-mistakes', text: 'Common Mistakes to Avoid', level: 2 },
-  { id: 'timeline', text: 'When Each Strategy Works Best', level: 2 },
-  { id: 'faq', text: 'Frequently Asked Questions', level: 2 },
+  { id: "backup-schedule", text: "2. Build a Complete Backup Schedule", level: 2 },
+  { id: "auto-tracker", text: "3. Monitor Seats Automatically", level: 2 },
+  { id: "add-drop-week", text: "4. Check During Add/Drop Week", level: 2 },
+  { id: "talk-professor", text: "5. Talk to the Professor Directly", level: 2 },
+  { id: "advisor", text: "6. Contact Your Academic Advisor", level: 2 },
+  { id: "late-sections", text: "7. Look for Late-Added Sections", level: 2 },
+  { id: "strategy-comparison", text: "Strategy Comparison Table", level: 2 },
+  { id: "common-mistakes", text: "Common Mistakes to Avoid", level: 2 },
+  { id: "timeline", text: "When Each Strategy Works Best", level: 2 },
+  { id: "faq", text: "Frequently Asked Questions", level: 2 },
 ];
 
 const strategyColumns = [
-  { key: 'strategy', label: 'Strategy' },
-  { key: 'when', label: 'When to Use' },
-  { key: 'effort', label: 'Effort Level' },
-  { key: 'success', label: 'Success Rate' },
+  { key: "strategy", label: "Strategy" },
+  { key: "when", label: "When to Use" },
+  { key: "effort", label: "Effort Level" },
+  { key: "success", label: "Success Rate" },
 ];
 
 const strategyRows = [
   {
-    strategy: 'Register at window open',
-    when: 'Registration day',
-    effort: 'High (one-time)',
-    success: 'High',
+    strategy: "Register at window open",
+    when: "Registration day",
+    effort: "High (one-time)",
+    success: "High",
   },
-  { strategy: 'Backup schedule', when: 'Before registration', effort: 'Medium', success: 'High' },
+  { strategy: "Backup schedule", when: "Before registration", effort: "Medium", success: "High" },
   {
-    strategy: 'Auto seat tracking',
-    when: 'Anytime',
-    effort: 'Low',
-    success: 'High',
+    strategy: "Auto seat tracking",
+    when: "Anytime",
+    effort: "Low",
+    success: "High",
     highlight: true,
   },
   {
-    strategy: 'Add/drop monitoring',
-    when: 'First week of classes',
-    effort: 'High',
-    success: 'Medium',
+    strategy: "Add/drop monitoring",
+    when: "First week of classes",
+    effort: "High",
+    success: "Medium",
   },
   {
-    strategy: 'Professor outreach',
-    when: 'After classes start',
-    effort: 'Medium',
-    success: 'Medium',
+    strategy: "Professor outreach",
+    when: "After classes start",
+    effort: "Medium",
+    success: "Medium",
   },
-  { strategy: 'Advisor help', when: 'When desperate', effort: 'Medium', success: 'Low-Medium' },
-  { strategy: 'Late section hunting', when: 'Ongoing', effort: 'High', success: 'Low' },
+  { strategy: "Advisor help", when: "When desperate", effort: "Medium", success: "Low-Medium" },
+  { strategy: "Late section hunting", when: "Ongoing", effort: "High", success: "Low" },
 ];
 
 const faqItems = [
   {
-    question: 'Can professors add me to a full class?',
+    question: "Can professors add me to a full class?",
     answer:
       "Sometimes. Professors can issue capacity overrides, especially if you need the class to graduate. Show up on day one, introduce yourself, and be real about your situation. Something like 'I need this to graduate and every section is full' goes a lot further than 'I just like this time slot'.",
   },
   {
-    question: 'Does ASU have a waitlist system?',
+    question: "Does ASU have a waitlist system?",
     answer:
       "For most classes, no. ASU doesn't use traditional waitlists like some schools. Only certain departments, like W. P. Carey business courses, offer them. For everything else, you either manually check for seats or use a tracker.",
   },
   {
-    question: 'What are my chances of getting into a 200-person lecture?',
+    question: "What are my chances of getting into a 200-person lecture?",
     answer:
-      'Better than a small seminar, but still tough. Big lectures see more drops during add/drop week because students are shopping around. Set up tracking and be ready to move during the first week.',
+      "Better than a small seminar, but still tough. Big lectures see more drops during add/drop week because students are shopping around. Set up tracking and be ready to move during the first week.",
   },
   {
-    question: 'Do online classes open up more often?',
+    question: "Do online classes open up more often?",
     answer:
-      'ASU Online sections sometimes have different capacity limits than in-person ones. They can be a solid backup when campus sections fill up. Check both when building your schedule.',
+      "ASU Online sections sometimes have different capacity limits than in-person ones. They can be a solid backup when campus sections fill up. Check both when building your schedule.",
   },
   {
-    question: 'How fast do I need to register when I get an alert?',
+    question: "How fast do I need to register when I get an alert?",
     answer:
-      'As fast as humanly possible. Popular classes can fill in 5-10 minutes. Have MyASU bookmarked, stay logged in, and know the exact section number. Practice the registration flow before you actually need it.',
+      "As fast as humanly possible. Popular classes can fill in 5-10 minutes. Have MyASU bookmarked, stay logged in, and know the exact section number. Practice the registration flow before you actually need it.",
   },
   {
-    question: 'Can I track multiple sections of the same class?',
+    question: "Can I track multiple sections of the same class?",
     answer:
       "Yes, and you absolutely should. Track every section of a required course. Way better odds when you're watching all of them instead of just one.",
   },
   {
-    question: 'What if I miss the notification?',
+    question: "What if I miss the notification?",
     answer:
       "It sucks, but it happens. Stay on the tracker. Students drop classes all semester, especially the first week. The next seat could open in hours or days. Don't give up.",
   },
   {
-    question: 'Is it worth showing up to a full class on day one?',
+    question: "Is it worth showing up to a full class on day one?",
     answer:
       "Definitely, especially if it's required for your major. Professors sometimes help out students who show up prepared and explain their situation like a normal person. Bring an add form just in case.",
   },
 ];
 
 const breadcrumbSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
   itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
-    { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://pickmyclass.app/blog' },
-    { '@type': 'ListItem', position: 3, name: 'How to Get Into Full Classes at ASU' },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://pickmyclass.app/" },
+    { "@type": "ListItem", position: 2, name: "Blog", item: "https://pickmyclass.app/blog" },
+    { "@type": "ListItem", position: 3, name: "How to Get Into Full Classes at ASU" },
   ],
 };
 
@@ -190,16 +190,16 @@ export default async function HowToGetIntoFullClassesPost() {
           <KeyTakeaways
             items={[
               {
-                text: 'Register the exact minute your enrollment window opens with backup schedules ready',
+                text: "Register the exact minute your enrollment window opens with backup schedules ready",
               },
               {
-                text: 'Use automated seat tracking to catch drops without manually refreshing MyASU',
+                text: "Use automated seat tracking to catch drops without manually refreshing MyASU",
               },
-              { text: 'Add/drop week is when most seats open, stay vigilant and act fast' },
+              { text: "Add/drop week is when most seats open, stay vigilant and act fast" },
               {
-                text: 'Talk to professors in person and contact your advisor when a class is required for graduation',
+                text: "Talk to professors in person and contact your advisor when a class is required for graduation",
               },
-              { text: 'Watch for late-added sections throughout the registration period' },
+              { text: "Watch for late-added sections throughout the registration period" },
             ]}
           />
 
@@ -241,10 +241,10 @@ export default async function HowToGetIntoFullClassesPost() {
           <p className="text-muted-foreground leading-relaxed">
             Honestly? This is the most effective strategy for getting into a full class after
             registration day. Instead of refreshing MyASU every five minutes hoping to catch a
-            dropped seat, use an automated tracker like{' '}
+            dropped seat, use an automated tracker like{" "}
             <Link href="/" className="text-primary hover:text-primary/80 font-medium">
               PickMyClass
-            </Link>{' '}
+            </Link>{" "}
             to do it for you.
           </p>
           <p className="text-muted-foreground leading-relaxed">
@@ -263,13 +263,13 @@ export default async function HowToGetIntoFullClassesPost() {
             classes that were previously full.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            If you can't find a seat during regular registration, don't panic. Set up{' '}
+            If you can't find a seat during regular registration, don't panic. Set up{" "}
             <Link
               href="/blog/asu-class-seat-tracker"
               className="text-primary hover:text-primary/80 font-medium"
             >
               automated seat tracking
-            </Link>{' '}
+            </Link>{" "}
             and be ready to act fast during add/drop week. A lot of students get their preferred
             classes during this time.
           </p>
@@ -311,10 +311,10 @@ export default async function HowToGetIntoFullClassesPost() {
             actively monitoring the class search grab them first.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            Keep checking the ASU class search throughout registration, or set up{' '}
+            Keep checking the ASU class search throughout registration, or set up{" "}
             <Link href="/" className="text-primary hover:text-primary/80 font-medium">
               automated monitoring
-            </Link>{' '}
+            </Link>{" "}
             so you don't miss new sections as they appear.
           </p>
 
@@ -443,20 +443,20 @@ export default async function HowToGetIntoFullClassesPost() {
           <RelatedArticles
             articles={[
               {
-                href: '/blog/asu-class-seat-tracker',
-                title: 'ASU Class Seat Tracker: How to Get Notified When Seats Open',
+                href: "/blog/asu-class-seat-tracker",
+                title: "ASU Class Seat Tracker: How to Get Notified When Seats Open",
               },
               {
-                href: '/blog/asu-registration-tips',
-                title: 'ASU Registration Tips: Build Your Perfect Schedule',
+                href: "/blog/asu-registration-tips",
+                title: "ASU Registration Tips: Build Your Perfect Schedule",
               },
               {
-                href: '/blog/asu-waitlist-guide',
-                title: 'How to Add a Full ASU Class to the Waitlist',
+                href: "/blog/asu-waitlist-guide",
+                title: "How to Add a Full ASU Class to the Waitlist",
               },
               {
-                href: '/blog/best-asu-class-seat-tracker',
-                title: 'Best ASU Class Seat Tracker in 2026 (Free vs Paid)',
+                href: "/blog/best-asu-class-seat-tracker",
+                title: "Best ASU Class Seat Tracker in 2026 (Free vs Paid)",
               },
             ]}
           />

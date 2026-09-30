@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { Alert } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { TermSelect } from '@/components/TermSelect';
-import { useClassWatchForm } from '@/lib/class-watches/useClassWatchForm';
-import type { ClassWatchCreationInput } from '@/lib/class-watches/class-watch-creation';
-import type { ClassWatchRow } from '@/lib/types/class-watch';
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { TermSelect } from "@/components/TermSelect";
+import { useClassWatchForm } from "@/lib/class-watches/useClassWatchForm";
+import type { ClassWatchCreationInput } from "@/lib/class-watches/class-watch-creation";
+import type { ClassWatchRow } from "@/lib/types/class-watch";
 
 interface SimplifiedWatchFormProps {
   onCreated: (watch: ClassWatchRow, input: ClassWatchCreationInput) => void | Promise<void>;
@@ -20,8 +20,8 @@ interface SimplifiedWatchFormProps {
 export function SimplifiedWatchForm({
   onCreated,
   onSubmittingChange,
-  defaultClassNbr = '',
-  submitLabel = 'Start Watching',
+  defaultClassNbr = "",
+  submitLabel = "Start Watching",
   submittingLabel = "Checking ASU's class search... hang tight",
 }: SimplifiedWatchFormProps) {
   const { terms, term, setTerm, classNbr, setClassNbr, error, isSubmitting, handleSubmit } =

@@ -1,6 +1,6 @@
-import type { SessionWebhookEvent, UserDeletedJSON, UserJSON, WebhookEvent } from '@clerk/backend';
-import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import type { SessionWebhookEvent, UserDeletedJSON, UserJSON, WebhookEvent } from "@clerk/backend";
+import { NextRequest } from "next/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const {
   webhookEnv,
@@ -14,7 +14,7 @@ const {
 
   // SAFETY: the missing-secret test clears this binding, so the double declares it absent-able.
   const webhookEnv = {
-    CLERK_WEBHOOK_SIGNING_SECRET: 'whsec_test_binding',
+    CLERK_WEBHOOK_SIGNING_SECRET: "whsec_test_binding",
   } as WebhookEnvDouble;
 
   const dbHandle = {};
@@ -30,47 +30,47 @@ const {
   };
 });
 
-vi.mock('@clerk/backend/webhooks', () => ({
+vi.mock("@clerk/backend/webhooks", () => ({
   verifyWebhook: mockVerifyWebhook,
 }));
 
-vi.mock('cloudflare:workers', () => ({ env: webhookEnv }));
+vi.mock("cloudflare:workers", () => ({ env: webhookEnv }));
 
-vi.mock('@/lib/db/users', () => ({
+vi.mock("@/lib/db/users", () => ({
   syncUserMirrorFromClerkUser: mockSyncUserMirrorFromClerkUser,
   softDeleteUserById: mockSoftDeleteUserById,
 }));
 
-vi.mock('@/lib/db', () => ({
+vi.mock("@/lib/db", () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));
 
-import { POST } from '@/app/api/webhooks/clerk/route';
+import { POST } from "@/app/api/webhooks/clerk/route";
 
-const WEBHOOK_SIGNING_SECRET = 'whsec_test_binding';
+const WEBHOOK_SIGNING_SECRET = "whsec_test_binding";
 
-const CLERK_USER_ID = 'user_2webhookfixture';
+const CLERK_USER_ID = "user_2webhookfixture";
 
-const PRIMARY_EMAIL_ID = 'idn_email_primary';
+const PRIMARY_EMAIL_ID = "idn_email_primary";
 
-type UserUpsertEvent = Extract<WebhookEvent, { type: 'user.created' | 'user.updated' }>;
+type UserUpsertEvent = Extract<WebhookEvent, { type: "user.created" | "user.updated" }>;
 
-type UserDeletedEvent = Extract<WebhookEvent, { type: 'user.deleted' }>;
+type UserDeletedEvent = Extract<WebhookEvent, { type: "user.deleted" }>;
 
 const svixDelivery = {
   event_attributes: {
-    http_request: { client_ip: '127.0.0.1', user_agent: 'Svix-Webhooks/1.16' },
+    http_request: { client_ip: "127.0.0.1", user_agent: "Svix-Webhooks/1.16" },
   },
 };
 
 function clerkUserFixture(overrides: Partial<UserJSON> = {}): UserJSON {
   return {
-    object: 'user',
+    object: "user",
     id: CLERK_USER_ID,
     username: null,
-    first_name: 'Primary',
-    last_name: 'User',
-    image_url: 'https://img.clerk.example/u/2.png',
+    first_name: "Primary",
+    last_name: "User",
+    image_url: "https://img.clerk.example/u/2.png",
     has_image: false,
     primary_email_address_id: PRIMARY_EMAIL_ID,
     primary_phone_number_id: null,
@@ -81,9 +81,9 @@ function clerkUserFixture(overrides: Partial<UserJSON> = {}): UserJSON {
     backup_code_enabled: false,
     email_addresses: [
       {
-        object: 'email_address',
+        object: "email_address",
         id: PRIMARY_EMAIL_ID,
-        email_address: 'Primary.User@Example.com',
+        email_address: "Primary.User@Example.com",
         linked_to: [],
         verification: null,
       },
@@ -116,8 +116,8 @@ function clerkUserFixture(overrides: Partial<UserJSON> = {}): UserJSON {
 }
 
 function signedRequest(): NextRequest {
-  return new NextRequest('https://pickmyclass.example/api/webhooks/clerk', {
-    method: 'POST',
+  return new NextRequest("https://pickmyclass.example/api/webhooks/clerk", {
+    method: "POST",
   });
 }
 
@@ -127,14 +127,14 @@ async function responseBody(response: Response): Promise<WebhookEnvelope> {
   return await response.json();
 }
 
-describe('POST /api/webhooks/clerk', () => {
+describe("POST /api/webhooks/clerk", () => {
   let errorSpy: { mockRestore: () => void };
   let warnSpy: { mockRestore: () => void };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -142,15 +142,15 @@ describe('POST /api/webhooks/clerk', () => {
     warnSpy.mockRestore();
   });
 
-  it('rejects unverifiable signatures with 400 before touching the mirror', async () => {
+  it("rejects unverifiable signatures with 400 before touching the mirror", async () => {
     const request = signedRequest();
-    mockVerifyWebhook.mockRejectedValue(new Error('signature mismatch'));
+    mockVerifyWebhook.mockRejectedValue(new Error("signature mismatch"));
 
     const response = await POST(request);
     const data = await responseBody(response);
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ success: false, error: 'Invalid signature' });
+    expect(data).toEqual({ success: false, error: "Invalid signature" });
     expect(mockVerifyWebhook).toHaveBeenCalledWith(request, {
       signingSecret: WEBHOOK_SIGNING_SECRET,
     });
@@ -159,12 +159,12 @@ describe('POST /api/webhooks/clerk', () => {
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
   });
 
-  it('delegates user.created payloads verbatim to the mirror sync and acknowledges', async () => {
+  it("delegates user.created payloads verbatim to the mirror sync and acknowledges", async () => {
     const user = clerkUserFixture();
 
     const event: UserUpsertEvent = {
-      type: 'user.created',
-      object: 'event',
+      type: "user.created",
+      object: "event",
       data: user,
       ...svixDelivery,
     };
@@ -184,12 +184,12 @@ describe('POST /api/webhooks/clerk', () => {
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
   });
 
-  it('routes user.updated through the same mirror sync seam', async () => {
-    const user = clerkUserFixture({ id: 'user_2updated' });
+  it("routes user.updated through the same mirror sync seam", async () => {
+    const user = clerkUserFixture({ id: "user_2updated" });
 
     const event: UserUpsertEvent = {
-      type: 'user.updated',
-      object: 'event',
+      type: "user.updated",
+      object: "event",
       data: user,
       ...svixDelivery,
     };
@@ -208,35 +208,35 @@ describe('POST /api/webhooks/clerk', () => {
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
   });
 
-  it('returns 500 so Svix redelivers when the mirror sync throws', async () => {
+  it("returns 500 so Svix redelivers when the mirror sync throws", async () => {
     const event: UserUpsertEvent = {
-      type: 'user.created',
-      object: 'event',
+      type: "user.created",
+      object: "event",
       data: clerkUserFixture(),
       ...svixDelivery,
     };
 
     mockVerifyWebhook.mockResolvedValue(event);
-    mockSyncUserMirrorFromClerkUser.mockRejectedValue(new Error('users mirror connection reset'));
+    mockSyncUserMirrorFromClerkUser.mockRejectedValue(new Error("users mirror connection reset"));
 
     const response = await POST(signedRequest());
     const data = await responseBody(response);
 
     expect(response.status).toBe(500);
-    expect(data).toEqual({ success: false, error: 'Webhook processing failed' });
+    expect(data).toEqual({ success: false, error: "Webhook processing failed" });
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
   });
 
-  it('acknowledges unrelated event types without touching the mirror seams', async () => {
+  it("acknowledges unrelated event types without touching the mirror seams", async () => {
     const event: SessionWebhookEvent = {
-      type: 'session.created',
-      object: 'event',
+      type: "session.created",
+      object: "event",
       data: {
-        object: 'session',
-        id: 'sess_webhookfixture',
-        client_id: 'client_webhookfixture',
+        object: "session",
+        id: "sess_webhookfixture",
+        client_id: "client_webhookfixture",
         user_id: CLERK_USER_ID,
-        status: 'active',
+        status: "active",
         actor: null,
         last_active_at: 1_755_000_000_000,
         expire_at: 1_755_086_400_000,
@@ -259,12 +259,12 @@ describe('POST /api/webhooks/clerk', () => {
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
   });
 
-  it('still acknowledges 200 when the sync reports there was no email to store', async () => {
+  it("still acknowledges 200 when the sync reports there was no email to store", async () => {
     const user = clerkUserFixture({ email_addresses: [], primary_email_address_id: null });
 
     const event: UserUpsertEvent = {
-      type: 'user.updated',
-      object: 'event',
+      type: "user.updated",
+      object: "event",
       data: user,
       ...svixDelivery,
     };
@@ -282,12 +282,12 @@ describe('POST /api/webhooks/clerk', () => {
     expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][1]).toBe(user);
   });
 
-  it('applies the soft delete to the profile on user.deleted', async () => {
+  it("applies the soft delete to the profile on user.deleted", async () => {
     const event: UserDeletedEvent = {
-      type: 'user.deleted',
-      object: 'event',
+      type: "user.deleted",
+      object: "event",
       data: {
-        object: 'user',
+        object: "user",
         id: CLERK_USER_ID,
         deleted: true,
       } satisfies UserDeletedJSON,
@@ -308,11 +308,11 @@ describe('POST /api/webhooks/clerk', () => {
     expect(mockSyncUserMirrorFromClerkUser).not.toHaveBeenCalled();
   });
 
-  it('acknowledges user.deleted events without an id without deleting anything', async () => {
+  it("acknowledges user.deleted events without an id without deleting anything", async () => {
     const event: UserDeletedEvent = {
-      type: 'user.deleted',
-      object: 'event',
-      data: { object: 'user', deleted: true },
+      type: "user.deleted",
+      object: "event",
+      data: { object: "user", deleted: true },
       ...svixDelivery,
     };
 
@@ -326,7 +326,7 @@ describe('POST /api/webhooks/clerk', () => {
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
   });
 
-  it('fails closed with 500 when the signing secret binding is missing', async () => {
+  it("fails closed with 500 when the signing secret binding is missing", async () => {
     const previousSecret = webhookEnv.CLERK_WEBHOOK_SIGNING_SECRET;
     webhookEnv.CLERK_WEBHOOK_SIGNING_SECRET = undefined;
 
@@ -335,7 +335,7 @@ describe('POST /api/webhooks/clerk', () => {
       const data = await responseBody(response);
 
       expect(response.status).toBe(500);
-      expect(data).toEqual({ success: false, error: 'Webhook not configured' });
+      expect(data).toEqual({ success: false, error: "Webhook not configured" });
       expect(mockVerifyWebhook).not.toHaveBeenCalled();
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
       expect(mockSyncUserMirrorFromClerkUser).not.toHaveBeenCalled();

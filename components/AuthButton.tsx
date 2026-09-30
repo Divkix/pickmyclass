@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/lib/contexts/AuthContext';
-import { log } from '@/lib/log';
+import Link from "next/link";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { log } from "@/lib/log";
 
 export function AuthButton() {
   const { user, loading, signOut } = useAuth();
@@ -16,9 +16,9 @@ export function AuthButton() {
       setSigningOut(true);
       await signOut();
     } catch (error) {
-      log('AuthButton').error('Sign-out failed:', error);
+      log("AuthButton").error("Sign-out failed:", error);
     } finally {
-      window.location.href = '/sign-in';
+      window.location.href = "/sign-in";
     }
   };
 
@@ -56,7 +56,7 @@ export function AuthButton() {
         </span>
       </div>
       <Button onClick={handleSignOut} disabled={signingOut} variant="outline" className="min-h-11">
-        {signingOut ? 'Signing out...' : 'Sign out'}
+        {signingOut ? "Signing out..." : "Sign out"}
       </Button>
     </div>
   );

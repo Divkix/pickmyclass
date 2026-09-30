@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import { Search, X } from 'lucide-react';
-import { useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Search, X } from "lucide-react";
+import { useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { useDebouncedSearchParam } from '@/lib/hooks/useDebouncedSearchParam';
+} from "@/components/ui/select";
+import { useDebouncedSearchParam } from "@/lib/hooks/useDebouncedSearchParam";
 
 interface UsersTableFiltersProps {
   search: string;
-  role: 'all' | 'admin' | 'user';
-  verified: 'all' | 'verified' | 'unverified';
-  watchCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
+  role: "all" | "admin" | "user";
+  verified: "all" | "verified" | "unverified";
+  watchCount: "all" | "none" | "1-5" | "6-10" | "10+";
   onNavigate: (updates: Record<string, string>) => void;
 }
 
@@ -32,11 +32,11 @@ export function UsersTableFiltersComponent({
   const [localSearch, handleSearchChange] = useDebouncedSearchParam(search, onSearchChange, 350);
 
   const clearFilters = () => {
-    onNavigate({ search: '', role: 'all', verified: 'all', watchCount: 'all' });
+    onNavigate({ search: "", role: "all", verified: "all", watchCount: "all" });
   };
 
   const hasActiveFilters =
-    search !== '' || role !== 'all' || verified !== 'all' || watchCount !== 'all';
+    search !== "" || role !== "all" || verified !== "all" || watchCount !== "all";
 
   return (
     <div className="space-y-4">

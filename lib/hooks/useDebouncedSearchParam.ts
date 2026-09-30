@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function useDebouncedSearchParam(
   value: string,
   onChange: (v: string) => void,
-  delayMs = 350
+  delayMs = 350,
 ): [string, (v: string) => void] {
   const [localValue, setLocalValue] = useState(value);
   const [previousValue, setPreviousValue] = useState(value);
@@ -30,7 +30,7 @@ export function useDebouncedSearchParam(
         onChange(v);
       }, delayMs);
     },
-    [onChange, delayMs]
+    [onChange, delayMs],
   );
 
   return [localValue, setValue];

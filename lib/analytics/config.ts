@@ -10,8 +10,8 @@
  * `init(undefined)`, which silently drops every event.
  */
 
-export const POSTHOG_PROJECT_TOKEN = 'phc_rRbMvons2ERXqNoArYFrmJYAwTX5YnWmLsnqPgk58Wwo';
+export const POSTHOG_PROJECT_TOKEN = "phc_rRbMvons2ERXqNoArYFrmJYAwTX5YnWmLsnqPgk58Wwo";
 
-export const POSTHOG_API_HOST = 'https://s.pickmyclass.app';
+export const POSTHOG_API_HOST = "https://s.pickmyclass.app";
 
-export const POSTHOG_UI_HOST = 'https://us.posthog.com';
+export const POSTHOG_UI_HOST = "https://us.posthog.com";

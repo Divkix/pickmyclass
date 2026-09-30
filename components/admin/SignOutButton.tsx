@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { LogOut } from 'lucide-react';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/lib/contexts/AuthContext';
-import { log } from '@/lib/log';
-import { cn } from '@/lib/utils';
+import { LogOut } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { log } from "@/lib/log";
+import { cn } from "@/lib/utils";
 
 interface SignOutButtonProps {
-  variant?: 'full' | 'icon';
+  variant?: "full" | "icon";
   className?: string;
 }
 
-export function SignOutButton({ variant = 'full', className }: SignOutButtonProps) {
+export function SignOutButton({ variant = "full", className }: SignOutButtonProps) {
   const { signOut } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -20,20 +20,20 @@ export function SignOutButton({ variant = 'full', className }: SignOutButtonProp
     try {
       setIsLoading(true);
       await signOut();
-      window.location.href = '/sign-in';
+      window.location.href = "/sign-in";
     } catch (error) {
-      log('AdminSignOut').error('Sign-out failed:', error);
+      log("AdminSignOut").error("Sign-out failed:", error);
     }
   };
 
-  if (variant === 'icon') {
+  if (variant === "icon") {
     return (
       <Button
         variant="ghost"
         size="icon-sm"
         onClick={handleSignOut}
         disabled={isLoading}
-        className={cn('', className)}
+        className={cn("", className)}
         title="Sign Out"
       >
         <LogOut className="size-4" />
@@ -47,10 +47,10 @@ export function SignOutButton({ variant = 'full', className }: SignOutButtonProp
       size="sm"
       onClick={handleSignOut}
       disabled={isLoading}
-      className={cn('w-full justify-start gap-2', className)}
+      className={cn("w-full justify-start gap-2", className)}
     >
       <LogOut className="size-4" />
-      {isLoading ? 'Signing out...' : 'Sign Out'}
+      {isLoading ? "Signing out..." : "Sign Out"}
     </Button>
   );
 }

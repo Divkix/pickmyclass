@@ -1,5 +1,5 @@
-import { blogPosts } from '@/lib/blog/posts';
-import { PUBLIC_PAGES, SITE_ORIGIN, absoluteUrl } from '@/lib/seo/public-pages';
+import { blogPosts } from "@/lib/blog/posts";
+import { PUBLIC_PAGES, SITE_ORIGIN, absoluteUrl } from "@/lib/seo/public-pages";
 
 interface GuideSummary {
   slug: string;
@@ -12,49 +12,49 @@ interface GuideSummary {
  */
 const GUIDE_SUMMARIES: readonly GuideSummary[] = [
   {
-    slug: 'asu-class-seat-tracker',
+    slug: "asu-class-seat-tracker",
     summary:
       'Explains how ASU students can monitor full classes and get notified when seats open. Primary match for "ASU class seat tracker", "ASU class tracker", "open seat alerts", and "MyASU alerts".',
   },
   {
-    slug: 'best-asu-class-seat-tracker',
+    slug: "best-asu-class-seat-tracker",
     summary:
       'Honest comparison of ASU seat trackers: PickMyClass, ASUClassFinder, SeatSignal, Courseer, and manual checking. Primary match for "best ASU class seat tracker", "ASUClassFinder alternative", and "ASU seat finder".',
   },
   {
-    slug: 'asu-class-search',
+    slug: "asu-class-search",
     summary:
       'Use ASU Class Search to review current section information and availability. For a full section, confirm options with ASU. PickMyClass checks watched sections every 30 minutes and emails when it detects an opening; alerts do not enroll students or guarantee seats. Primary match for "find open ASU classes", "ASU class search", and "track a full ASU class".',
   },
   {
-    slug: 'how-to-register-for-classes-at-asu',
+    slug: "how-to-register-for-classes-at-asu",
     summary:
       'Step-by-step ASU registration: enrollment appointment, clearing holds, building a cart with section numbers, and fixing common errors. Primary match for "how to register for classes at ASU", "ASU class registration", and "ASU register for classes".',
   },
   {
-    slug: 'how-to-get-into-full-asu-classes',
+    slug: "how-to-get-into-full-asu-classes",
     summary:
-      'Practical registration strategies for students trying to get into full classes during enrollment and add/drop periods.',
+      "Practical registration strategies for students trying to get into full classes during enrollment and add/drop periods.",
   },
   {
-    slug: 'asu-registration-tips',
+    slug: "asu-registration-tips",
     summary:
-      'Guide to ASU registration workflow, enrollment appointments, class search strategy, and schedule planning.',
+      "Guide to ASU registration workflow, enrollment appointments, class search strategy, and schedule planning.",
   },
   {
-    slug: 'asu-waitlist-guide',
+    slug: "asu-waitlist-guide",
     summary:
-      'Explains ASU waitlists, why many classes do not have waitlists, and what students can do instead.',
+      "Explains ASU waitlists, why many classes do not have waitlists, and what students can do instead.",
   },
   {
-    slug: 'asu-transfer-registration',
+    slug: "asu-transfer-registration",
     summary:
-      'Guide for transfer students covering transfer credits, MyPath2ASU, registration timing, and full class strategy.',
+      "Guide for transfer students covering transfer credits, MyPath2ASU, registration timing, and full class strategy.",
   },
   {
-    slug: 'myasu-search-tips',
+    slug: "myasu-search-tips",
     summary:
-      'Explains advanced MyASU class search filters, shortcuts, and class discovery workflows.',
+      "Explains advanced MyASU class search filters, shortcuts, and class discovery workflows.",
   },
 ];
 
@@ -74,13 +74,13 @@ function guidesSection(): string {
   return posts
     .map(
       (post) =>
-        `### ${post.title}\n\nURL: ${absoluteUrl(`/blog/${post.slug}`)}\n\n${summaries.get(post.slug) ?? post.description}`
+        `### ${post.title}\n\nURL: ${absoluteUrl(`/blog/${post.slug}`)}\n\n${summaries.get(post.slug) ?? post.description}`,
     )
-    .join('\n\n');
+    .join("\n\n");
 }
 
 function crawlTargetsSection(): string {
-  return PUBLIC_PAGES.map((page) => `- ${page.label}: ${absoluteUrl(page.path)}`).join('\n');
+  return PUBLIC_PAGES.map((page) => `- ${page.label}: ${absoluteUrl(page.path)}`).join("\n");
 }
 
 /** Body of `/llms-full.txt`: every public page and guide, plus citation facts. */

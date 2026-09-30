@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
-import { desc, eq, getTableColumns, sql } from 'drizzle-orm';
-import { log } from '@/lib/log';
-import { fail } from '@/lib/api/response';
-import { withAuth } from '@/lib/api/withAuth';
-import { getDbFromEnv } from '@/lib/db';
+import { NextResponse } from "next/server";
+import { desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { log } from "@/lib/log";
+import { fail } from "@/lib/api/response";
+import { withAuth } from "@/lib/api/withAuth";
+import { getDbFromEnv } from "@/lib/db";
 import {
   classWatches,
   notificationsSent,
@@ -11,20 +11,20 @@ import {
   users,
   type ClassState,
   type ClassWatch,
-} from '@/lib/db/schema';
+} from "@/lib/db/schema";
 
 type ExportClassState = Pick<
   ClassState,
-  | 'title'
-  | 'instructor_name'
-  | 'seats_available'
-  | 'seats_capacity'
-  | 'location'
-  | 'meeting_times'
-  | 'last_checked_at'
+  | "title"
+  | "instructor_name"
+  | "seats_available"
+  | "seats_capacity"
+  | "location"
+  | "meeting_times"
+  | "last_checked_at"
 >;
 
-type ExportWatchStub = Pick<ClassWatch, 'term' | 'subject' | 'catalog_nbr' | 'class_nbr'>;
+type ExportWatchStub = Pick<ClassWatch, "term" | "subject" | "catalog_nbr" | "class_nbr">;
 
 function toIsoTimestamp(value: string | null): string | null {
   return value === null ? null : new Date(value).toISOString();
@@ -75,8 +75,8 @@ export async function GET(request: Request) {
         const exportData = {
           export_info: {
             exported_at: new Date().toISOString(),
-            export_format: 'JSON',
-            service: 'PickMyClass',
+            export_format: "JSON",
+            service: "PickMyClass",
           },
           user_account: {
             email: mirror?.email ?? null,
@@ -87,7 +87,7 @@ export async function GET(request: Request) {
           profile: {
             age_verified_at: profile ? toIsoTimestamp(profile.age_verified_at) : undefined,
             agreed_to_terms_at: profile ? toIsoTimestamp(profile.agreed_to_terms_at) : undefined,
-            account_status: profile?.is_disabled ? 'disabled' : 'active',
+            account_status: profile?.is_disabled ? "disabled" : "active",
             disabled_at: profile ? toIsoTimestamp(profile.disabled_at) : undefined,
           },
           class_watches: watches.map((watch) => ({
@@ -106,26 +106,26 @@ export async function GET(request: Request) {
           },
         };
 
-        const timestamp = new Date().toISOString().split('T')[0];
+        const timestamp = new Date().toISOString().split("T")[0];
         const filename = `pickmyclass-data-${timestamp}.json`;
 
         return new NextResponse(JSON.stringify(exportData, null, 2), {
           status: 200,
           headers: {
-            'Content-Type': 'application/json',
-            'Content-Disposition': `attachment; filename="${filename}"`,
-            'Cache-Control': 'no-store',
+            "Content-Type": "application/json",
+            "Content-Disposition": `attachment; filename="${filename}"`,
+            "Cache-Control": "no-store",
           },
         });
       } catch (error) {
-        log('User').error('Export error:', error);
+        log("User").error("Export error:", error);
 
-        return fail('Failed to export data', 500);
+        return fail("Failed to export data", 500);
       }
     });
   } catch (error) {
-    log('User').error('Export error:', error);
+    log("User").error("Export error:", error);
 
-    return fail('Failed to export data', 500);
+    return fail("Failed to export data", 500);
   }
 }

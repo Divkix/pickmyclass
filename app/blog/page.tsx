@@ -1,40 +1,40 @@
-import { Calendar, Clock } from 'lucide-react';
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Header } from '@/components/Header';
-import { JsonLd } from '@/components/landing/JsonLd';
-import { blogPosts } from '@/lib/blog/posts';
-import { formatAbsoluteDate } from '@/lib/utils/time-format';
+import { Calendar, Clock } from "lucide-react";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/landing/JsonLd";
+import { blogPosts } from "@/lib/blog/posts";
+import { formatAbsoluteDate } from "@/lib/utils/time-format";
 
 export const metadata: Metadata = {
-  title: 'ASU Registration Tips & Class Search Guides',
+  title: "ASU Registration Tips & Class Search Guides",
   description:
-    'Real guides for ASU class registration. Find open classes, beat waitlists, get into full sections, and track seats so you stop refreshing MyASU.',
+    "Real guides for ASU class registration. Find open classes, beat waitlists, get into full sections, and track seats so you stop refreshing MyASU.",
   alternates: {
-    canonical: '/blog',
+    canonical: "/blog",
   },
   openGraph: {
-    title: 'ASU Registration Tips & Guides: Class Search, Waitlists & Open Seats',
+    title: "ASU Registration Tips & Guides: Class Search, Waitlists & Open Seats",
     description:
-      'Real guides for ASU class registration. Find open classes, beat waitlists, and track seats so you stop refreshing MyASU.',
-    type: 'website',
-    url: '/blog',
+      "Real guides for ASU class registration. Find open classes, beat waitlists, and track seats so you stop refreshing MyASU.",
+    type: "website",
+    url: "/blog",
   },
   twitter: {
-    title: 'ASU Registration Tips & Guides: Class Search, Waitlists & Open Seats',
+    title: "ASU Registration Tips & Guides: Class Search, Waitlists & Open Seats",
     description:
-      'Real guides for ASU class registration. Find open classes, beat waitlists, and track seats so you stop refreshing MyASU.',
+      "Real guides for ASU class registration. Find open classes, beat waitlists, and track seats so you stop refreshing MyASU.",
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 const breadcrumbSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
   itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
-    { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://pickmyclass.app/blog' },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://pickmyclass.app/" },
+    { "@type": "ListItem", position: 2, name: "Blog", item: "https://pickmyclass.app/blog" },
   ],
 };
 
@@ -81,10 +81,10 @@ export default async function BlogIndexPage() {
                     <Calendar className="size-3.5" />
                     <time dateTime={post.publishedAt}>
                       {formatAbsoluteDate(post.publishedAt, {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        timeZone: 'UTC',
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        timeZone: "UTC",
                       })}
                     </time>
                   </div>

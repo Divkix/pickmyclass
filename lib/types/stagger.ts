@@ -1,1 +1,1 @@
-export type StaggerGroup = 'even' | 'odd' | 'all';
+export type StaggerGroup = "even" | "odd" | "all";

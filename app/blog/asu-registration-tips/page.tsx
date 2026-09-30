@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
+import type { Metadata } from "next";
+import Link from "next/link";
 import {
   BlogAuthor,
   BlogCTA,
@@ -10,145 +10,145 @@ import {
   RelatedArticles,
   ShortAnswer,
   TableOfContents,
-} from '@/components/blog';
-import { Header } from '@/components/Header';
-import { JsonLd } from '@/components/landing/JsonLd';
+} from "@/components/blog";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/landing/JsonLd";
 
 export const metadata: Metadata = {
-  title: 'ASU Registration Tips: Build Your Schedule',
+  title: "ASU Registration Tips: Build Your Schedule",
   description:
-    'Everything you need to know about ASU class registration. Enrollment appointment tips, class search strategies, and tools to help you get the schedule you want.',
+    "Everything you need to know about ASU class registration. Enrollment appointment tips, class search strategies, and tools to help you get the schedule you want.",
   alternates: {
-    canonical: '/blog/asu-registration-tips',
+    canonical: "/blog/asu-registration-tips",
   },
   openGraph: {
-    title: 'ASU Registration Tips: Build Your Perfect Schedule',
+    title: "ASU Registration Tips: Build Your Perfect Schedule",
     description:
-      'Everything you need to know about ASU class registration. Enrollment tips and strategies.',
-    type: 'article',
-    publishedTime: '2026-03-27T00:00:00Z',
-    images: ['/og-image.png'],
+      "Everything you need to know about ASU class registration. Enrollment tips and strategies.",
+    type: "article",
+    publishedTime: "2026-03-27T00:00:00Z",
+    images: ["/og-image.png"],
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 const articleSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Article',
-  headline: 'ASU Registration Tips: Build Your Perfect Schedule',
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "ASU Registration Tips: Build Your Perfect Schedule",
   description:
-    'Everything you need to know about ASU class registration. Enrollment appointment tips, class search strategies, and tools to help you get the schedule you want.',
-  datePublished: '2026-03-27T00:00:00Z',
-  dateModified: '2026-06-18T00:00:00Z',
-  author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
+    "Everything you need to know about ASU class registration. Enrollment appointment tips, class search strategies, and tools to help you get the schedule you want.",
+  datePublished: "2026-03-27T00:00:00Z",
+  dateModified: "2026-06-18T00:00:00Z",
+  author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
   publisher: {
-    '@type': 'Organization',
-    name: 'PickMyClass',
-    url: 'https://pickmyclass.app',
+    "@type": "Organization",
+    name: "PickMyClass",
+    url: "https://pickmyclass.app",
   },
-  mainEntityOfPage: 'https://pickmyclass.app/blog/asu-registration-tips',
+  mainEntityOfPage: "https://pickmyclass.app/blog/asu-registration-tips",
 };
 
 const tocItems = [
-  { id: 'preparation', text: 'Before Registration: Preparation Is Everything', level: 2 },
-  { id: 'during-registration', text: 'During Registration: Speed Matters', level: 2 },
-  { id: 'after-registration', text: "After Registration: Don't Give Up", level: 2 },
-  { id: 'registration-calendar', text: 'Registration Calendar by Student Type', level: 2 },
-  { id: 'prerequisites', text: 'Prerequisites and Holds', level: 2 },
-  { id: 'shopping-cart', text: 'Shopping Cart Power Tips', level: 2 },
-  { id: 'session-comparison', text: 'Session A vs B vs C', level: 2 },
-  { id: 'faq', text: 'Frequently Asked Questions', level: 2 },
+  { id: "preparation", text: "Before Registration: Preparation Is Everything", level: 2 },
+  { id: "during-registration", text: "During Registration: Speed Matters", level: 2 },
+  { id: "after-registration", text: "After Registration: Don't Give Up", level: 2 },
+  { id: "registration-calendar", text: "Registration Calendar by Student Type", level: 2 },
+  { id: "prerequisites", text: "Prerequisites and Holds", level: 2 },
+  { id: "shopping-cart", text: "Shopping Cart Power Tips", level: 2 },
+  { id: "session-comparison", text: "Session A vs B vs C", level: 2 },
+  { id: "faq", text: "Frequently Asked Questions", level: 2 },
 ];
 
 const calendarColumns = [
-  { key: 'type', label: 'Student Type' },
-  { key: 'credits', label: 'Credit Hours' },
-  { key: 'date', label: 'Registration Opens' },
+  { key: "type", label: "Student Type" },
+  { key: "credits", label: "Credit Hours" },
+  { key: "date", label: "Registration Opens" },
 ];
 
 const calendarRows = [
-  { type: 'Graduate/Professional', credits: 'N/A', date: 'March 23, 2026' },
-  { type: 'Senior', credits: '90+', date: 'March 24, 2026' },
-  { type: 'Junior', credits: '60-89', date: 'March 25, 2026' },
-  { type: 'Sophomore', credits: '30-59', date: 'March 26, 2026' },
-  { type: 'Freshman', credits: '0-29', date: 'March 27, 2026' },
-  { type: 'Non-Degree', credits: 'N/A', date: 'April 6, 2026' },
+  { type: "Graduate/Professional", credits: "N/A", date: "March 23, 2026" },
+  { type: "Senior", credits: "90+", date: "March 24, 2026" },
+  { type: "Junior", credits: "60-89", date: "March 25, 2026" },
+  { type: "Sophomore", credits: "30-59", date: "March 26, 2026" },
+  { type: "Freshman", credits: "0-29", date: "March 27, 2026" },
+  { type: "Non-Degree", credits: "N/A", date: "April 6, 2026" },
 ];
 
 const sessionColumns = [
-  { key: 'session', label: 'Session' },
-  { key: 'length', label: 'Length' },
-  { key: 'start', label: 'Typical Start' },
-  { key: 'bestFor', label: 'Best For' },
+  { key: "session", label: "Session" },
+  { key: "length", label: "Length" },
+  { key: "start", label: "Typical Start" },
+  { key: "bestFor", label: "Best For" },
 ];
 
 const sessionRows = [
   {
-    session: 'Session A',
-    length: '15 weeks',
-    start: 'August / January',
-    bestFor: 'Standard full-semester courses',
+    session: "Session A",
+    length: "15 weeks",
+    start: "August / January",
+    bestFor: "Standard full-semester courses",
   },
   {
-    session: 'Session B',
-    length: '7.5 weeks',
-    start: 'August / October / January / March',
-    bestFor: 'Faster-paced, intensive courses',
+    session: "Session B",
+    length: "7.5 weeks",
+    start: "August / October / January / March",
+    bestFor: "Faster-paced, intensive courses",
   },
   {
-    session: 'Session C',
-    length: '7.5 weeks',
-    start: 'August / October / January / March',
-    bestFor: 'Flexible scheduling, work-friendly',
+    session: "Session C",
+    length: "7.5 weeks",
+    start: "August / October / January / March",
+    bestFor: "Flexible scheduling, work-friendly",
   },
 ];
 
 const faqItems = [
   {
-    question: 'How do I check my registration date?',
+    question: "How do I check my registration date?",
     answer:
       'Log into MyASU and look for your "Enrollment Appointment" in the Registration section. It will show the exact date and time when your registration window opens. You can also find this in the ASU mobile app.',
   },
   {
     question: "Why is my friend's registration date earlier?",
     answer:
-      'ASU assigns registration dates based on earned credit hours. Students with more credits (seniors) register before those with fewer credits (freshmen). Athletes, honors students, and some special programs may also have priority registration.',
+      "ASU assigns registration dates based on earned credit hours. Students with more credits (seniors) register before those with fewer credits (freshmen). Athletes, honors students, and some special programs may also have priority registration.",
   },
   {
-    question: 'Can I register for classes at different campuses?',
+    question: "Can I register for classes at different campuses?",
     answer:
       "Yes! You can register for classes at any ASU campus (Tempe, Downtown Phoenix, Polytechnic, West) as well as ASU Online sections. Just be mindful of travel time between physical campuses if you're taking in-person classes.",
   },
   {
     question: "What's the difference between Session A, B, and C?",
     answer:
-      'Session A is the traditional 15-week semester. Sessions B and C are 7.5-week accelerated sessions. Session B typically starts at the beginning of the semester, while Session C starts mid-semester. They allow you to take more classes per semester by splitting them across sessions.',
+      "Session A is the traditional 15-week semester. Sessions B and C are 7.5-week accelerated sessions. Session B typically starts at the beginning of the semester, while Session C starts mid-semester. They allow you to take more classes per semester by splitting them across sessions.",
   },
   {
-    question: 'How do online classes affect my registration?',
+    question: "How do online classes affect my registration?",
     answer:
-      'ASU Online sections are treated like any other class for registration purposes. They often have different capacity limits than in-person sections and can be a good backup option when campus sections fill up.',
+      "ASU Online sections are treated like any other class for registration purposes. They often have different capacity limits than in-person sections and can be a good backup option when campus sections fill up.",
   },
   {
-    question: 'What are the most common holds that prevent registration?',
+    question: "What are the most common holds that prevent registration?",
     answer:
-      'The most common are: Financial holds (unpaid tuition/fees), Immunization holds (missing vaccination records), Advising holds (need to meet with advisor first), and Academic holds (probation or other academic issues). Check MyASU well before your registration date to clear any holds.',
+      "The most common are: Financial holds (unpaid tuition/fees), Immunization holds (missing vaccination records), Advising holds (need to meet with advisor first), and Academic holds (probation or other academic issues). Check MyASU well before your registration date to clear any holds.",
   },
   {
-    question: 'Can I register before my transcript is evaluated?',
+    question: "Can I register before my transcript is evaluated?",
     answer:
       "If you're a new transfer student, your registration date is based on your projected/earned credits. However, your official evaluation may affect your standing. Contact your advisor if there's a discrepancy between projected and actual credits.",
   },
 ];
 
 const breadcrumbSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
   itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
-    { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://pickmyclass.app/blog' },
-    { '@type': 'ListItem', position: 3, name: 'ASU Registration Tips' },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://pickmyclass.app/" },
+    { "@type": "ListItem", position: 2, name: "Blog", item: "https://pickmyclass.app/blog" },
+    { "@type": "ListItem", position: 3, name: "ASU Registration Tips" },
   ],
 };
 
@@ -184,14 +184,14 @@ export default async function ASURegistrationTipsPost() {
           <KeyTakeaways
             items={[
               {
-                text: 'Check MyASU for your exact enrollment appointment and clear any holds at least a week early',
+                text: "Check MyASU for your exact enrollment appointment and clear any holds at least a week early",
               },
-              { text: 'Build 2-3 complete backup schedules before registration opens' },
-              { text: 'Pre-load your shopping cart and enroll the moment your window opens' },
+              { text: "Build 2-3 complete backup schedules before registration opens" },
+              { text: "Pre-load your shopping cart and enroll the moment your window opens" },
               {
-                text: 'Use automated seat tracking for full classes instead of manually refreshing',
+                text: "Use automated seat tracking for full classes instead of manually refreshing",
               },
-              { text: 'Mix Session A, B, and C classes to fit more credits into your semester' },
+              { text: "Mix Session A, B, and C classes to fit more credits into your semester" },
             ]}
           />
 
@@ -215,7 +215,7 @@ export default async function ASURegistrationTipsPost() {
             Use the ASU Class Search Strategically
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            The{' '}
+            The{" "}
             <a
               href="https://catalog.apps.asu.edu/catalog/classes"
               target="_blank"
@@ -223,7 +223,7 @@ export default async function ASURegistrationTipsPost() {
               className="text-primary hover:text-primary/80"
             >
               ASU class search
-            </a>{' '}
+            </a>{" "}
             is your primary tool for finding classes. Before registration opens, use it to:
           </p>
           <ul className="space-y-2 text-muted-foreground">
@@ -293,10 +293,10 @@ export default async function ASURegistrationTipsPost() {
             Set Up Automated Seat Tracking
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            If a class you want is full, do not just accept it. Use{' '}
+            If a class you want is full, do not just accept it. Use{" "}
             <Link href="/" className="text-primary hover:text-primary/80 font-medium">
               PickMyClass
-            </Link>{' '}
+            </Link>{" "}
             to automatically monitor the class for open seats. It checks every 30 minutes and emails
             you when a seat opens up. Over 8,500 students have gotten their seat this way.
           </p>
@@ -307,13 +307,13 @@ export default async function ASURegistrationTipsPost() {
           <p className="text-muted-foreground leading-relaxed">
             ASU departments sometimes add new sections after the initial schedule is published,
             especially for high-demand courses. Keep monitoring the class search throughout the
-            registration period. Setting up{' '}
+            registration period. Setting up{" "}
             <Link
               href="/blog/asu-class-seat-tracker"
               className="text-primary hover:text-primary/80 font-medium"
             >
               automated class tracking
-            </Link>{' '}
+            </Link>{" "}
             helps you catch these additions without checking manually every day.
           </p>
 
@@ -323,13 +323,13 @@ export default async function ASURegistrationTipsPost() {
           <p className="text-muted-foreground leading-relaxed">
             The first week of classes is when the most schedule changes happen. Students drop
             classes, swap sections, and adjust their schedules based on first impressions. This
-            creates a steady stream of openings in previously full classes. Have{' '}
+            creates a steady stream of openings in previously full classes. Have{" "}
             <Link
               href="/blog/how-to-get-into-full-asu-classes"
               className="text-primary hover:text-primary/80 font-medium"
             >
               your strategies
-            </Link>{' '}
+            </Link>{" "}
             ready so you can grab a spot when someone else bails.
           </p>
 
@@ -447,7 +447,7 @@ export default async function ASURegistrationTipsPost() {
               </h3>
               <p className="text-sm text-muted-foreground">
                 Automatically monitors ASU classes and emails you when seats open. Used by 2,400+
-                Sun Devils.{' '}
+                Sun Devils.{" "}
                 <Link href="/" className="text-primary hover:text-primary/80">
                   pickmyclass.app
                 </Link>
@@ -484,10 +484,10 @@ export default async function ASURegistrationTipsPost() {
             <li>Pre-load your MyASU shopping cart</li>
             <li>Verify all prerequisites are met</li>
             <li>
-              Set up{' '}
+              Set up{" "}
               <Link href="/" className="text-primary hover:text-primary/80 font-medium">
                 PickMyClass
-              </Link>{' '}
+              </Link>{" "}
               for classes you expect to fill up
             </li>
             <li>Set an alarm for your enrollment window</li>
@@ -508,16 +508,16 @@ export default async function ASURegistrationTipsPost() {
           <RelatedArticles
             articles={[
               {
-                href: '/blog/asu-class-seat-tracker',
-                title: 'ASU Class Seat Tracker: How to Get Notified When Seats Open',
+                href: "/blog/asu-class-seat-tracker",
+                title: "ASU Class Seat Tracker: How to Get Notified When Seats Open",
               },
               {
-                href: '/blog/how-to-get-into-full-asu-classes',
-                title: 'How to Get Into Full Classes at ASU: 7 Strategies That Work',
+                href: "/blog/how-to-get-into-full-asu-classes",
+                title: "How to Get Into Full Classes at ASU: 7 Strategies That Work",
               },
               {
-                href: '/blog/how-to-register-for-classes-at-asu',
-                title: 'How to Register for Classes at ASU: Step-by-Step',
+                href: "/blog/how-to-register-for-classes-at-asu",
+                title: "How to Register for Classes at ASU: Step-by-Step",
               },
             ]}
           />

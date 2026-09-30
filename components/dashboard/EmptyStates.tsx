@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { m } from 'framer-motion';
-import { Calendar, Plus, Search } from 'lucide-react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { fadeInUp } from '@/lib/animations';
+import { m } from "framer-motion";
+import { Calendar, Plus, Search } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { fadeInUp } from "@/lib/animations";
 
 export function EmptyWatchlist() {
   return (

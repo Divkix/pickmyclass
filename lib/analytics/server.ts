@@ -13,12 +13,12 @@
  * browser's distinct id from the posthog-js cookie instead.
  */
 
-import { waitUntil } from 'cloudflare:workers';
-import { PostHog } from 'posthog-node';
-import { z } from 'zod';
-import { log } from '@/lib/log';
-import { POSTHOG_API_HOST, POSTHOG_PROJECT_TOKEN } from './config';
-import type { AnalyticsEventMap, AnalyticsProperties } from './events';
+import { waitUntil } from "cloudflare:workers";
+import { PostHog } from "posthog-node";
+import { z } from "zod";
+import { log } from "@/lib/log";
+import { POSTHOG_API_HOST, POSTHOG_PROJECT_TOKEN } from "./config";
+import type { AnalyticsEventMap, AnalyticsProperties } from "./events";
 
 const SHUTDOWN_TIMEOUT_MS = 1_000;
 
@@ -29,7 +29,7 @@ const posthogCookieSchema = z.object({ distinct_id: z.string().min(1) });
 
 function shutdownClient(client: PostHog): Promise<void> {
   return client.shutdown(SHUTDOWN_TIMEOUT_MS).catch((error) => {
-    log('Analytics').warn('Failed to shut down analytics client:', error);
+    log("Analytics").warn("Failed to shut down analytics client:", error);
   });
 }
 
@@ -46,16 +46,16 @@ function createClient(): PostHog {
 export function captureServerEvent<E extends keyof AnalyticsEventMap>(
   distinctId: string,
   event: E,
-  properties: AnalyticsEventMap[E]
+  properties: AnalyticsEventMap[E],
 ): void {
   const client = createClient();
   waitUntil(
     client
       .captureImmediate({ distinctId, event, properties })
       .catch((error) => {
-        log('Analytics').warn('Failed to send analytics event:', error);
+        log("Analytics").warn("Failed to send analytics event:", error);
       })
-      .finally(() => shutdownClient(client))
+      .finally(() => shutdownClient(client)),
   );
 }
 
@@ -66,20 +66,20 @@ export function captureServerEvent<E extends keyof AnalyticsEventMap>(
  * Malformed or missing cookies yield undefined (a personless exception).
  */
 export function distinctIdFromCookieHeader(
-  cookieHeader: string | string[] | undefined
+  cookieHeader: string | string[] | undefined,
 ): string | undefined {
   if (!cookieHeader) return undefined;
 
-  const cookies = Array.isArray(cookieHeader) ? cookieHeader.join('; ') : cookieHeader;
+  const cookies = Array.isArray(cookieHeader) ? cookieHeader.join("; ") : cookieHeader;
 
-  for (const cookie of cookies.split(';')) {
-    const separator = cookie.indexOf('=');
+  for (const cookie of cookies.split(";")) {
+    const separator = cookie.indexOf("=");
 
     if (separator === -1 || cookie.slice(0, separator).trim() !== POSTHOG_COOKIE_NAME) continue;
 
     try {
       const parsed = posthogCookieSchema.safeParse(
-        JSON.parse(decodeURIComponent(cookie.slice(separator + 1).trim()))
+        JSON.parse(decodeURIComponent(cookie.slice(separator + 1).trim())),
       );
 
       return parsed.success ? parsed.data.distinct_id : undefined;
@@ -96,7 +96,7 @@ export function distinctIdFromCookieHeader(
 export async function captureServerException(
   cause: unknown,
   properties?: AnalyticsProperties,
-  distinctId?: string
+  distinctId?: string,
 ): Promise<void> {
   const client = createClient();
 
@@ -104,7 +104,7 @@ export async function captureServerException(
     // SAFETY: metadata must occupy the third slot — the second is the optional distinct id.
     await client.captureExceptionImmediate(cause, distinctId, properties);
   } catch (sendError) {
-    log('Analytics').warn('Failed to send analytics exception:', sendError);
+    log("Analytics").warn("Failed to send analytics exception:", sendError);
   } finally {
     await shutdownClient(client);
   }

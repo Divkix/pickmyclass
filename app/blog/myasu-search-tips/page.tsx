@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata } from "next";
 import {
   BlogAuthor,
   BlogCTA,
@@ -8,74 +8,74 @@ import {
   RelatedArticles,
   ShortAnswer,
   TableOfContents,
-} from '@/components/blog';
-import { Header } from '@/components/Header';
-import { JsonLd } from '@/components/landing/JsonLd';
+} from "@/components/blog";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/landing/JsonLd";
 
 export const metadata: Metadata = {
-  title: 'MyASU Class Search: 10 Hidden Features',
+  title: "MyASU Class Search: 10 Hidden Features",
   description:
-    'Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips to find the perfect classes faster.',
+    "Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips to find the perfect classes faster.",
   alternates: {
-    canonical: '/blog/myasu-search-tips',
+    canonical: "/blog/myasu-search-tips",
   },
   openGraph: {
     title: "MyASU Class Search: 10 Hidden Features Most Students Don't Know",
     description:
-      'Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips.',
-    type: 'article',
-    publishedTime: '2026-04-26T00:00:00Z',
-    images: ['/og-image.png'],
+      "Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips.",
+    type: "article",
+    publishedTime: "2026-04-26T00:00:00Z",
+    images: ["/og-image.png"],
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 const articleSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Article',
+  "@context": "https://schema.org",
+  "@type": "Article",
   headline: "MyASU Class Search: 10 Hidden Features Most Students Don't Know",
   description:
-    'Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips to find the perfect classes faster.',
-  datePublished: '2026-04-26T00:00:00Z',
-  dateModified: '2026-06-18T00:00:00Z',
-  author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
+    "Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips to find the perfect classes faster.",
+  datePublished: "2026-04-26T00:00:00Z",
+  dateModified: "2026-06-18T00:00:00Z",
+  author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
   publisher: {
-    '@type': 'Organization',
-    name: 'PickMyClass',
-    url: 'https://pickmyclass.app',
+    "@type": "Organization",
+    name: "PickMyClass",
+    url: "https://pickmyclass.app",
   },
-  mainEntityOfPage: 'https://pickmyclass.app/blog/myasu-search-tips',
+  mainEntityOfPage: "https://pickmyclass.app/blog/myasu-search-tips",
 };
 
 const breadcrumbSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
   itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
-    { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://pickmyclass.app/blog' },
-    { '@type': 'ListItem', position: 3, name: 'MyASU Search Tips' },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://pickmyclass.app/" },
+    { "@type": "ListItem", position: 2, name: "Blog", item: "https://pickmyclass.app/blog" },
+    { "@type": "ListItem", position: 3, name: "MyASU Search Tips" },
   ],
 };
 
 const tocItems = [
-  { id: 'basic', text: 'Basic Search Tips', level: 2 },
-  { id: 'advanced-filters', text: 'Advanced Filters', level: 2 },
-  { id: 'reading-results', text: 'Reading the Results', level: 2 },
-  { id: 'pro-tips', text: 'Pro Tips', level: 2 },
-  { id: 'faq', text: 'Frequently Asked Questions', level: 2 },
+  { id: "basic", text: "Basic Search Tips", level: 2 },
+  { id: "advanced-filters", text: "Advanced Filters", level: 2 },
+  { id: "reading-results", text: "Reading the Results", level: 2 },
+  { id: "pro-tips", text: "Pro Tips", level: 2 },
+  { id: "faq", text: "Frequently Asked Questions", level: 2 },
 ];
 
 const faqItems = [
   {
-    question: 'How do I search for classes with no prerequisites?',
+    question: "How do I search for classes with no prerequisites?",
     answer:
       "Yeah, there's no filter for that. You have to click into each class and read the details. Most 100-level gen ed classes are pretty safe though. If you want easy options, stick to those.",
   },
   {
-    question: 'Can I save my search filters?',
+    question: "Can I save my search filters?",
     answer:
-      'Nope, no save button. But you can bookmark the URL after you set your filters. I know students who keep a spreadsheet of their go-to search combos. Low tech, but it works.',
+      "Nope, no save button. But you can bookmark the URL after you set your filters. I know students who keep a spreadsheet of their go-to search combos. Low tech, but it works.",
   },
   {
     question: 'What does "Staff" mean for instructor?',
@@ -83,12 +83,12 @@ const faqItems = [
       '"Staff" just means they haven\'t picked a professor yet. Usually gets updated 2-4 weeks before the semester starts. PickMyClass will actually notify you when "Staff" gets replaced with a real name, which is nice because sometimes the professor makes or breaks the class.',
   },
   {
-    question: 'How do I find 1-credit or 3-credit classes?',
+    question: "How do I find 1-credit or 3-credit classes?",
     answer:
       "Use the advanced filters and look for a 'Units' or 'Credit Hours' option. You can set it to exactly what you need, like 3-3 for three-credit classes only.",
   },
   {
-    question: 'Can I search for classes that fulfill specific general education requirements?',
+    question: "Can I search for classes that fulfill specific general education requirements?",
     answer:
       "Yep. In advanced search, look for 'General Studies' or 'Requirement Designation.' You can filter by HU, SB, SQ, whatever you need. Way faster than scrolling through everything.",
   },
@@ -98,7 +98,7 @@ const faqItems = [
       '"Open" means seats are available right now. "All" shows everything, including full sections. If you\'re tracking seats with PickMyClass, use "All" so you can find the exact sections you want to monitor.',
   },
   {
-    question: 'How do I find ASU Sync vs fully online classes?',
+    question: "How do I find ASU Sync vs fully online classes?",
     answer:
       'In advanced search, look for "Mode of Instruction." ASU Sync is live remote, Online is do-it-on-your-own-time. Some classes have both options in different sections, so check all of them.',
   },
@@ -145,13 +145,13 @@ export default async function MyASUSearchTipsPost() {
                 text: 'Searching by subject code (like "CSE") shows every course in that department, which is how you stumble on interesting electives',
               },
               {
-                text: 'Advanced filters for campus, session, and instruction mode are the difference between a schedule you tolerate and one you actually like',
+                text: "Advanced filters for campus, session, and instruction mode are the difference between a schedule you tolerate and one you actually like",
               },
               {
                 text: 'Use the "All" status filter when you\'re tracking full classes, not just the "Open" one',
               },
               {
-                text: 'Click into any class to see hidden sections and requirements like labs or special software',
+                text: "Click into any class to see hidden sections and requirements like labs or special software",
               },
               {
                 text: "Bookmark your filtered searches because MyASU won't remember them for you",
@@ -461,16 +461,16 @@ export default async function MyASUSearchTipsPost() {
           <RelatedArticles
             articles={[
               {
-                href: '/blog/asu-class-seat-tracker',
-                title: 'ASU Class Seat Tracker: How to Get Notified When Seats Open',
+                href: "/blog/asu-class-seat-tracker",
+                title: "ASU Class Seat Tracker: How to Get Notified When Seats Open",
               },
               {
-                href: '/blog/asu-registration-tips',
-                title: 'ASU Registration Tips: Build Your Perfect Schedule',
+                href: "/blog/asu-registration-tips",
+                title: "ASU Registration Tips: Build Your Perfect Schedule",
               },
               {
-                href: '/blog/how-to-get-into-full-asu-classes',
-                title: 'How to Get Into Full Classes at ASU: 7 Strategies That Work',
+                href: "/blog/how-to-get-into-full-asu-classes",
+                title: "How to Get Into Full Classes at ASU: 7 Strategies That Work",
               },
             ]}
           />

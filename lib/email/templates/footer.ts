@@ -1,4 +1,4 @@
-import { escapeHtml } from '@/lib/utils/escape-html';
+import { escapeHtml } from "@/lib/utils/escape-html";
 
 export function getEmailFooter(unsubscribeUrl?: string): string {
   if (!unsubscribeUrl) {

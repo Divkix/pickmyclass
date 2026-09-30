@@ -1,6 +1,6 @@
-import { ChevronDown } from 'lucide-react';
-import Link from 'next/link';
-import { faqs } from '@/lib/faqs';
+import { ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { faqs } from "@/lib/faqs";
 
 export function FAQSection() {
   return (

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from "react";
 
 export interface UseSwipeOptions {
   onSwipeLeft?: () => void;
@@ -41,7 +41,7 @@ export function useSwipe(options: UseSwipeOptions = {}): UseSwipeReturn {
       setIsSwiping(true);
       onSwipeStart?.();
     },
-    [onSwipeStart]
+    [onSwipeStart],
   );
 
   const handleTouchMove = useCallback(
@@ -54,7 +54,7 @@ export function useSwipe(options: UseSwipeOptions = {}): UseSwipeReturn {
       setOffset(diff);
       onSwipeMove?.(diff);
     },
-    [isSwiping, onSwipeMove]
+    [isSwiping, onSwipeMove],
   );
 
   const handleTouchEnd = useCallback(() => {

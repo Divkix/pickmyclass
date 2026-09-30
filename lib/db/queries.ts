@@ -1,14 +1,14 @@
-import { and, count, eq, gte, inArray, ne, sql } from 'drizzle-orm';
-import { z } from 'zod';
+import { and, count, eq, gte, inArray, ne, sql } from "drizzle-orm";
+import { z } from "zod";
 
-import type { Database } from '@/lib/db';
-import { driverErrorMessage } from '@/lib/db/pg-errors';
-import { classStates, classWatches, notificationsSent } from '@/lib/db/schema';
-import { log } from '@/lib/log';
-import type { SectionRef } from '@/lib/section-ref';
-import type { ClassDetails } from '@/lib/types/class';
-import type { NotificationType } from '@/lib/types/notification';
-import type { StaggerGroup } from '@/lib/types/stagger';
+import type { Database } from "@/lib/db";
+import { driverErrorMessage } from "@/lib/db/pg-errors";
+import { classStates, classWatches, notificationsSent } from "@/lib/db/schema";
+import { log } from "@/lib/log";
+import type { SectionRef } from "@/lib/section-ref";
+import type { ClassDetails } from "@/lib/types/class";
+import type { NotificationType } from "@/lib/types/notification";
+import type { StaggerGroup } from "@/lib/types/stagger";
 
 export interface EligibleWatcherRpcRow {
   user_id: string;
@@ -30,8 +30,8 @@ function normalizeIsoTimestamp(value: DriverTimestamp): string | undefined {
       ? value
       : new Date(
           String(value)
-            .replace(' ', 'T')
-            .replace(/([+-]\d{2})$/, '$1:00')
+            .replace(" ", "T")
+            .replace(/([+-]\d{2})$/, "$1:00"),
         );
 
   return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
@@ -43,7 +43,7 @@ async function incrementConsecutiveNotFoundViaRpc(db: Database, ref: SectionRef)
   // The RPC creates the placeholder row itself when the section has never been
   // seen, so this is one atomic statement with no insert-fallback race.
   const rows = await db.execute<{ new_count: unknown }>(
-    sql`SELECT public.increment_consecutive_not_found(${ref.class_nbr}::text, ${ref.term}::text) AS new_count`
+    sql`SELECT public.increment_consecutive_not_found(${ref.class_nbr}::text, ${ref.term}::text) AS new_count`,
   );
 
   const newCount = rows[0]?.new_count;
@@ -65,7 +65,7 @@ export async function getClassWatchers(db: Database, ref: SectionRef): Promise<C
       created_at: DriverTimestamp;
     }>(
       sql`SELECT user_id, email, watch_id, created_at
-          FROM public.get_class_watchers(${ref.class_nbr}::text, ${ref.term}::text)`
+          FROM public.get_class_watchers(${ref.class_nbr}::text, ${ref.term}::text)`,
     );
 
     return rows.map((row) => ({
@@ -75,9 +75,9 @@ export async function getClassWatchers(db: Database, ref: SectionRef): Promise<C
       created_at: normalizeIsoTimestamp(row.created_at),
     }));
   } catch (error) {
-    log('DB').error(
+    log("DB").error(
       `Error fetching watchers for section ${ref.class_nbr} (term ${ref.term}):`,
-      error
+      error,
     );
     throw new Error(`Failed to fetch watchers: ${driverErrorMessage(error)}`);
   }
@@ -85,7 +85,7 @@ export async function getClassWatchers(db: Database, ref: SectionRef): Promise<C
 
 export async function getNotificationWatchers(
   db: Database,
-  ref: SectionRef
+  ref: SectionRef,
 ): Promise<EligibleWatcherRpcRow[]> {
   try {
     // Array-bound RPC: neither drizzle's db.execute nor the native postgres-js
@@ -99,7 +99,7 @@ export async function getNotificationWatchers(
       watch_id: string;
     }>(
       sql`SELECT user_id, email, watch_id
-          FROM public.get_watchers_for_sections(ARRAY[${ref.class_nbr}::text], ${ref.term}::text)`
+          FROM public.get_watchers_for_sections(ARRAY[${ref.class_nbr}::text], ${ref.term}::text)`,
     );
 
     return rows.map((row) => ({
@@ -108,9 +108,9 @@ export async function getNotificationWatchers(
       watch_id: row.watch_id,
     }));
   } catch (error) {
-    log('DB').error(
+    log("DB").error(
       `Error fetching notification watchers for section ${ref.class_nbr} (term ${ref.term}):`,
-      error
+      error,
     );
     throw new Error(`Failed to fetch notification watchers: ${driverErrorMessage(error)}`);
   }
@@ -118,18 +118,18 @@ export async function getNotificationWatchers(
 
 export async function getSectionsToCheck(
   db: Database,
-  staggerType: StaggerGroup = 'all'
+  staggerType: StaggerGroup = "all",
 ): Promise<SectionRef[]> {
   try {
     const rows = await db.execute<{ class_nbr: string; term: string }>(
-      sql`SELECT class_nbr, term FROM public.get_sections_to_check(${staggerType}::text)`
+      sql`SELECT class_nbr, term FROM public.get_sections_to_check(${staggerType}::text)`,
     );
 
-    log('DB').info(`Found ${rows.length} sections to check (stagger: ${staggerType})`);
+    log("DB").info(`Found ${rows.length} sections to check (stagger: ${staggerType})`);
 
     return rows.map((row) => ({ class_nbr: row.class_nbr, term: row.term }));
   } catch (error) {
-    log('DB').error(`Error fetching sections to check:`, error);
+    log("DB").error(`Error fetching sections to check:`, error);
     throw new Error(`Failed to fetch sections: ${driverErrorMessage(error)}`);
   }
 }
@@ -137,7 +137,7 @@ export async function getSectionsToCheck(
 export async function getMostWatchedClass(db: Database, term: string): Promise<SectionRef | null> {
   try {
     const rows = await db.execute<{ class_nbr: string; term: string }>(
-      sql`SELECT class_nbr, term FROM public.get_most_watched_class(${term}::text)`
+      sql`SELECT class_nbr, term FROM public.get_most_watched_class(${term}::text)`,
     );
 
     const row = rows[0];
@@ -146,7 +146,7 @@ export async function getMostWatchedClass(db: Database, term: string): Promise<S
 
     return { class_nbr: row.class_nbr, term: row.term };
   } catch (error) {
-    log('DB').error(`Error fetching most watched class for term ${term}:`, error);
+    log("DB").error(`Error fetching most watched class for term ${term}:`, error);
     throw new Error(`Failed to fetch most watched class: ${driverErrorMessage(error)}`);
   }
 }
@@ -154,21 +154,21 @@ export async function getMostWatchedClass(db: Database, term: string): Promise<S
 export async function resetNotificationsForSection(
   db: Database,
   ref: SectionRef,
-  notificationType: NotificationType = 'seat_available'
+  notificationType: NotificationType = "seat_available",
 ): Promise<void> {
   try {
     // Single join-scoped DELETE: a SELECT-then-DELETE by watch id list can outlive a
     // watch row that moved out of the section and delete a foreign active claim.
     const rows = await db.execute<{ deleted: unknown }>(
-      sql`SELECT public.reset_section_notifications(${ref.class_nbr}::text, ${ref.term}::text, ${notificationType}::text) AS deleted`
+      sql`SELECT public.reset_section_notifications(${ref.class_nbr}::text, ${ref.term}::text, ${notificationType}::text) AS deleted`,
     );
 
     const deleted = Number(rows[0]?.deleted ?? 0);
-    log('DB').info(
-      `Reset ${notificationType} notifications for section ${ref.class_nbr} (${deleted} records deleted)`
+    log("DB").info(
+      `Reset ${notificationType} notifications for section ${ref.class_nbr} (${deleted} records deleted)`,
     );
   } catch (error) {
-    log('DB').error('Error resetting notifications:', error);
+    log("DB").error("Error resetting notifications:", error);
     throw new Error(`Failed to reset notifications: ${driverErrorMessage(error)}`);
   }
 }
@@ -176,7 +176,7 @@ export async function resetNotificationsForSection(
 export async function deleteNotificationRecords(
   db: Database,
   watchIds: string[],
-  notificationType: NotificationType
+  notificationType: NotificationType,
 ): Promise<number> {
   if (watchIds.length === 0) return 0;
 
@@ -188,22 +188,22 @@ export async function deleteNotificationRecords(
     const idParams = watchIds.map((id) => sql`${id}::uuid`);
 
     const rows = await db.execute<{ deleted: unknown }>(
-      sql`SELECT public.delete_notification_records(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text) AS deleted`
+      sql`SELECT public.delete_notification_records(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text) AS deleted`,
     );
 
     const deleted = Number(rows[0]?.deleted ?? 0);
-    log('DB').info(`Deleted ${deleted} notification records for ${watchIds.length} watches`);
+    log("DB").info(`Deleted ${deleted} notification records for ${watchIds.length} watches`);
 
     return deleted;
   } catch (error) {
-    log('DB').error('Error deleting notification records:', error);
+    log("DB").error("Error deleting notification records:", error);
     throw new Error(`Failed to delete notification records: ${driverErrorMessage(error)}`);
   }
 }
 
 export async function deleteNotificationRecordsByIds(
   db: Database,
-  notificationIds: string[]
+  notificationIds: string[],
 ): Promise<number> {
   if (notificationIds.length === 0) return 0;
 
@@ -213,15 +213,15 @@ export async function deleteNotificationRecordsByIds(
     const idParams = notificationIds.map((id) => sql`${id}::uuid`);
 
     const rows = await db.execute<{ deleted: unknown }>(
-      sql`SELECT public.delete_notification_records_by_ids(ARRAY[${sql.join(idParams, sql`, `)}]) AS deleted`
+      sql`SELECT public.delete_notification_records_by_ids(ARRAY[${sql.join(idParams, sql`, `)}]) AS deleted`,
     );
 
     const deleted = Number(rows[0]?.deleted ?? 0);
-    log('DB').info(`Deleted ${deleted} notification records by id (${notificationIds.length} ids)`);
+    log("DB").info(`Deleted ${deleted} notification records by id (${notificationIds.length} ids)`);
 
     return deleted;
   } catch (error) {
-    log('DB').error('Error deleting notification records by id:', error);
+    log("DB").error("Error deleting notification records by id:", error);
     throw new Error(`Failed to delete notification records by id: ${driverErrorMessage(error)}`);
   }
 }
@@ -229,7 +229,7 @@ export async function deleteNotificationRecordsByIds(
 export async function getNotificationRecordIds(
   db: Database,
   watchIds: string[],
-  notificationType: NotificationType
+  notificationType: NotificationType,
 ): Promise<Map<string, string>> {
   if (watchIds.length === 0) return new Map();
 
@@ -241,13 +241,13 @@ export async function getNotificationRecordIds(
         and(
           inArray(notificationsSent.class_watch_id, watchIds),
           eq(notificationsSent.notification_type, notificationType),
-          eq(notificationsSent.is_active, true)
-        )
+          eq(notificationsSent.is_active, true),
+        ),
       );
 
     return new Map(rows.map((row) => [row.class_watch_id, row.id]));
   } catch (error) {
-    log('DB').error('Error reading notification record ids:', error);
+    log("DB").error("Error reading notification record ids:", error);
     throw new Error(`Failed to read notification record ids: ${driverErrorMessage(error)}`);
   }
 }
@@ -261,11 +261,11 @@ export async function deletePastTermWatches(db: Database, termCodes: string[]): 
       .where(inArray(classWatches.term, termCodes))
       .returning({ id: classWatches.id });
 
-    log('DB').info(`Deleted ${deleted.length} past-term watches for ${termCodes.length} terms`);
+    log("DB").info(`Deleted ${deleted.length} past-term watches for ${termCodes.length} terms`);
 
     return deleted.length;
   } catch (error) {
-    log('DB').error('Error deleting past-term watches:', error);
+    log("DB").error("Error deleting past-term watches:", error);
     throw new Error(`Failed to delete past-term watches: ${driverErrorMessage(error)}`);
   }
 }
@@ -284,7 +284,7 @@ export async function tryRecordNotificationsBatch(
   db: Database,
   watchIds: string[],
   notificationType: NotificationType,
-  expiresHours: number = 24
+  expiresHours: number = 24,
 ): Promise<ClaimedNotification[]> {
   if (watchIds.length === 0) return [];
 
@@ -296,7 +296,7 @@ export async function tryRecordNotificationsBatch(
 
     const rows = await db.execute<{ notification_id: unknown; class_watch_id: unknown }>(
       sql`SELECT notification_id, class_watch_id
-          FROM public.try_record_notifications_batch(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text, ${expiresHours}::integer)`
+          FROM public.try_record_notifications_batch(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text, ${expiresHours}::integer)`,
     );
 
     const claimed = rows.flatMap((row) => {
@@ -307,11 +307,11 @@ export async function tryRecordNotificationsBatch(
         : [];
     });
 
-    log('DB').info(`Batch ${notificationType}: ${claimed.length}/${watchIds.length} recorded`);
+    log("DB").info(`Batch ${notificationType}: ${claimed.length}/${watchIds.length} recorded`);
 
     return claimed;
   } catch (error) {
-    log('DB').error('Error in batch notification check:', error);
+    log("DB").error("Error in batch notification check:", error);
     throw new Error(`Failed to batch record notifications: ${driverErrorMessage(error)}`);
   }
 }
@@ -322,7 +322,7 @@ export async function upsertClassState(
   db: Database,
   ref: SectionRef,
   details: ClassDetails,
-  observedAt: Date
+  observedAt: Date,
 ): Promise<boolean> {
   try {
     // RPC, not a drizzle upsert: the write takes a SectionRef advisory lock
@@ -342,7 +342,7 @@ export async function upsertClassState(
         ${details.location || null}::text,
         ${details.meeting_times || null}::text,
         ${observedAt.toISOString()}::timestamptz
-      ) AS applied`
+      ) AS applied`,
     );
 
     const parsed = upsertAppliedSchema.safeParse(rows[0]);
@@ -353,7 +353,7 @@ export async function upsertClassState(
 
     return parsed.data.applied;
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Invalid upsert result:')) throw error;
+    if (error instanceof Error && error.message.startsWith("Invalid upsert result:")) throw error;
     throw new Error(`Failed to upsert class state: ${driverErrorMessage(error)}`);
   }
 }
@@ -361,7 +361,7 @@ export async function upsertClassState(
 export async function insertClassStateIfMissing(
   db: Database,
   ref: SectionRef,
-  details: ClassDetails
+  details: ClassDetails,
 ): Promise<void> {
   try {
     await db
@@ -392,25 +392,25 @@ export async function insertClassStateIfMissing(
 export async function incrementConsecutiveNotFound(db: Database, ref: SectionRef): Promise<number> {
   try {
     const newCount = await incrementConsecutiveNotFoundViaRpc(db, ref);
-    log('DB').info(
-      `Incremented consecutive_not_found_count to ${newCount} for ${ref.class_nbr} (term ${ref.term}) via atomic RPC`
+    log("DB").info(
+      `Incremented consecutive_not_found_count to ${newCount} for ${ref.class_nbr} (term ${ref.term}) via atomic RPC`,
     );
 
     return newCount;
   } catch (error) {
-    log('DB').error(
+    log("DB").error(
       `Error incrementing consecutive_not_found_count for ${ref.class_nbr} (term ${ref.term}):`,
-      error
+      error,
     );
     throw new Error(
-      `Failed to increment consecutive_not_found_count: ${driverErrorMessage(error)}`
+      `Failed to increment consecutive_not_found_count: ${driverErrorMessage(error)}`,
     );
   }
 }
 
 export async function deleteSectionAndWatches(
   db: Database,
-  ref: SectionRef
+  ref: SectionRef,
 ): Promise<{ watchesDeleted: number; stateDeleted: boolean }> {
   try {
     const result = await db.transaction(async (tx) => {
@@ -430,13 +430,13 @@ export async function deleteSectionAndWatches(
       };
     });
 
-    log('DB').info(
-      `Deleted ${result.watchesDeleted} watches and ${result.stateDeleted ? 1 : 0} state row for ${ref.class_nbr} (term ${ref.term})`
+    log("DB").info(
+      `Deleted ${result.watchesDeleted} watches and ${result.stateDeleted ? 1 : 0} state row for ${ref.class_nbr} (term ${ref.term})`,
     );
 
     return result;
   } catch (error) {
-    log('DB').error('Error deleting section and watches:', error);
+    log("DB").error("Error deleting section and watches:", error);
     throw new Error(`Failed to delete section: ${driverErrorMessage(error)}`);
   }
 }
@@ -465,7 +465,7 @@ export async function readAutoCleanupBreakerCounts(db: Database): Promise<{
       flagged: Number(flaggedRows[0]?.value ?? 0),
     };
   } catch (error) {
-    log('DB').error('Error reading auto-cleanup breaker counts:', error);
+    log("DB").error("Error reading auto-cleanup breaker counts:", error);
     throw new Error(`Failed to read auto-cleanup breaker counts: ${driverErrorMessage(error)}`);
   }
 }
@@ -473,7 +473,7 @@ export async function readAutoCleanupBreakerCounts(db: Database): Promise<{
 export async function capConsecutiveNotFound(
   db: Database,
   ref: SectionRef,
-  maxCount: number
+  maxCount: number,
 ): Promise<void> {
   try {
     await db
@@ -483,16 +483,16 @@ export async function capConsecutiveNotFound(
         and(
           eq(classStates.class_nbr, ref.class_nbr),
           eq(classStates.term, ref.term),
-          ne(classStates.consecutive_not_found_count, maxCount)
-        )
+          ne(classStates.consecutive_not_found_count, maxCount),
+        ),
       );
-    log('DB').info(
-      `Capped consecutive_not_found_count at ${maxCount} for ${ref.class_nbr} (term ${ref.term})`
+    log("DB").info(
+      `Capped consecutive_not_found_count at ${maxCount} for ${ref.class_nbr} (term ${ref.term})`,
     );
   } catch (error) {
-    log('DB').error(
+    log("DB").error(
       `Error capping consecutive_not_found_count for ${ref.class_nbr} (term ${ref.term}):`,
-      error
+      error,
     );
     throw new Error(`Failed to cap consecutive_not_found_count: ${driverErrorMessage(error)}`);
   }
@@ -500,7 +500,7 @@ export async function capConsecutiveNotFound(
 
 export async function readSectionRemovalClassInfo(
   db: Database,
-  ref: SectionRef
+  ref: SectionRef,
 ): Promise<SectionRemovalClassInfo | null> {
   try {
     const rows = await db
@@ -515,9 +515,9 @@ export async function readSectionRemovalClassInfo(
 
     return rows[0] ?? null;
   } catch (error) {
-    log('DB').error(
+    log("DB").error(
       `Error fetching removal class info for ${ref.class_nbr} (term ${ref.term}):`,
-      error
+      error,
     );
     throw new Error(`Failed to fetch removal class info: ${driverErrorMessage(error)}`);
   }
@@ -536,7 +536,7 @@ export type SectionCheckState = {
 
 export async function readSectionCheckState(
   db: Database,
-  ref: SectionRef
+  ref: SectionRef,
 ): Promise<SectionCheckState | null> {
   try {
     const rows = await db
@@ -559,9 +559,9 @@ export async function readSectionCheckState(
 
     return { ...row, last_checked_at: normalizeIsoTimestamp(row.last_checked_at) };
   } catch (error) {
-    log('DB').error(
+    log("DB").error(
       `Error fetching section check state for ${ref.class_nbr} (term ${ref.term}):`,
-      error
+      error,
     );
     throw new Error(`Failed to fetch section check state: ${driverErrorMessage(error)}`);
   }

@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -11,10 +11,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { log } from '@/lib/log';
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { log } from "@/lib/log";
 
 interface DeleteAccountModalProps {
   open: boolean;
@@ -22,14 +22,14 @@ interface DeleteAccountModalProps {
 }
 
 export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalProps) {
-  const [confirmText, setConfirmText] = useState('');
+  const [confirmText, setConfirmText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const handleDelete = async () => {
-    if (confirmText !== 'DELETE') {
-      setError('Please type DELETE to confirm');
+    if (confirmText !== "DELETE") {
+      setError("Please type DELETE to confirm");
 
       return;
     }
@@ -38,20 +38,20 @@ export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalPro
     setError(null);
 
     try {
-      const response = await fetch('/api/user/delete', {
-        method: 'DELETE',
+      const response = await fetch("/api/user/delete", {
+        method: "DELETE",
       });
 
       if (!response.ok) {
         // SAFETY: /api/user/delete returns { error?: string } on failure per API contract
         const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Failed to delete account');
+        throw new Error(data.error || "Failed to delete account");
       }
 
-      router.push('/sign-in?message=Account deleted successfully');
+      router.push("/sign-in?message=Account deleted successfully");
     } catch (err) {
-      log('DeleteAccount').error('Account deletion failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to delete account');
+      log("DeleteAccount").error("Account deletion failed:", err);
+      setError(err instanceof Error ? err.message : "Failed to delete account");
     } finally {
       setLoading(false);
     }
@@ -59,7 +59,7 @@ export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalPro
 
   const handleClose = () => {
     if (!loading) {
-      setConfirmText('');
+      setConfirmText("");
       setError(null);
       onOpenChange(false);
     }
@@ -124,9 +124,9 @@ export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalPro
             type="button"
             variant="destructive"
             onClick={handleDelete}
-            disabled={loading || confirmText !== 'DELETE'}
+            disabled={loading || confirmText !== "DELETE"}
           >
-            {loading ? 'Deleting...' : 'Delete Account'}
+            {loading ? "Deleting..." : "Delete Account"}
           </Button>
         </DialogFooter>
       </DialogContent>

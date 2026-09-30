@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { log } from '@/lib/log';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { log } from "@/lib/log";
 
 export interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void>;
@@ -37,7 +37,7 @@ export function usePullToRefresh({
         touchStartY.current = e.touches[0].clientY;
       }
     },
-    [isRefreshing]
+    [isRefreshing],
   );
 
   const handleTouchMove = useCallback(
@@ -70,7 +70,7 @@ export function usePullToRefresh({
         }
       }
     },
-    [isRefreshing, threshold, resistance]
+    [isRefreshing, threshold, resistance],
   );
 
   const handleTouchEnd = useCallback(async () => {
@@ -88,7 +88,7 @@ export function usePullToRefresh({
       try {
         await onRefresh();
       } catch (error) {
-        log('PullToRefresh').error('Refresh failed:', error);
+        log("PullToRefresh").error("Refresh failed:", error);
       } finally {
         setIsRefreshing(false);
 
@@ -115,20 +115,20 @@ export function usePullToRefresh({
 
     if (!container) return;
 
-    container.addEventListener('touchstart', handleTouchStart, { passive: true });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd, { passive: true });
-    container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+    container.addEventListener("touchstart", handleTouchStart, { passive: true });
+    container.addEventListener("touchmove", handleTouchMove, { passive: false });
+    container.addEventListener("touchend", handleTouchEnd, { passive: true });
+    container.addEventListener("touchcancel", handleTouchEnd, { passive: true });
 
     return () => {
       if (resetTimeoutRef.current) {
         clearTimeout(resetTimeoutRef.current);
       }
 
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
-      container.removeEventListener('touchcancel', handleTouchEnd);
+      container.removeEventListener("touchstart", handleTouchStart);
+      container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("touchend", handleTouchEnd);
+      container.removeEventListener("touchcancel", handleTouchEnd);
     };
   }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 

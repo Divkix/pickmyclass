@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/contexts/AuthContext';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/contexts/AuthContext";
 
-export function useRedirectIfAuthenticated(redirectTo = '/dashboard') {
+export function useRedirectIfAuthenticated(redirectTo = "/dashboard") {
   const { user, loading } = useAuth();
   const router = useRouter();
 

@@ -8,10 +8,10 @@ export function buildUrl(base: string, path: string, params: Record<string, stri
   const url = new URL(base);
 
   if (path) {
-    if (path.startsWith('/')) {
+    if (path.startsWith("/")) {
       url.pathname = path;
     } else {
-      const trimmedBase = url.pathname.replace(/\/+$/, '');
+      const trimmedBase = url.pathname.replace(/\/+$/, "");
       const normalizedPath = `/${path}`;
 
       const endpoint = trimmedBase.endsWith(normalizedPath)

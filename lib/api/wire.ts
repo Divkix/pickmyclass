@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export type JsonValue =
   | string
@@ -18,7 +18,7 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
     z.null(),
     z.array(jsonValueSchema),
     z.record(z.string(), jsonValueSchema),
-  ])
+  ]),
 );
 
 export const wirePayloadSchema = z.record(z.string(), jsonValueSchema);

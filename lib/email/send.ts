@@ -1,16 +1,16 @@
-import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from './templates';
-import type { ClassInfo } from '@/lib/types/class';
-import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE, NOTIFICATION_FROM_EMAIL } from '@/lib/config';
-import { log } from '@/lib/log';
-import type { NotificationType } from '@/lib/types/notification';
-import { generateUnsubscribeUrl } from './unsubscribe-token';
+import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from "./templates";
+import type { ClassInfo } from "@/lib/types/class";
+import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE, NOTIFICATION_FROM_EMAIL } from "@/lib/config";
+import { log } from "@/lib/log";
+import type { NotificationType } from "@/lib/types/notification";
+import { generateUnsubscribeUrl } from "./unsubscribe-token";
 
-export type { ClassInfo } from '@/lib/types/class';
+export type { ClassInfo } from "@/lib/types/class";
 
 function stripHtml(html: string): string {
   return html
-    .replace(/<[^>]*>/g, '')
-    .replace(/\s+/g, ' ')
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -33,9 +33,9 @@ export interface OutboundEmail {
 
 export function isFatalEmailCode(code: string): boolean {
   return (
-    code === 'E_RATE_LIMIT_EXCEEDED' ||
-    code === 'E_DAILY_LIMIT_EXCEEDED' ||
-    code === 'E_SENDER_NOT_VERIFIED'
+    code === "E_RATE_LIMIT_EXCEEDED" ||
+    code === "E_DAILY_LIMIT_EXCEEDED" ||
+    code === "E_SENDER_NOT_VERIFIED"
   );
 }
 
@@ -50,7 +50,7 @@ export function isFatalEmailCode(code: string): boolean {
 export async function sendBatchEmailsOptimized(
   emails: OutboundEmail[],
   emailBinding: SendEmail,
-  options: SendBatchEmailOptions = {}
+  options: SendBatchEmailOptions = {},
 ): Promise<EmailResult[]> {
   if (emails.length === 0) {
     return [];
@@ -63,7 +63,7 @@ export async function sendBatchEmailsOptimized(
   for (let i = 0; i < emails.length; i++) {
     const email = emails[i];
     const unsubscribeUrl = generateUnsubscribeUrl(email.userId);
-    const isSeatAvailable = email.type === 'seat_available';
+    const isSeatAvailable = email.type === "seat_available";
 
     try {
       const html = isSeatAvailable
@@ -79,8 +79,8 @@ export async function sendBatchEmailsOptimized(
         html,
         text: stripHtml(html),
         headers: {
-          'List-Unsubscribe': `<${unsubscribeUrl}>`,
-          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          "List-Unsubscribe": `<${unsubscribeUrl}>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         },
       });
 
@@ -91,10 +91,10 @@ export async function sendBatchEmailsOptimized(
     } catch (error) {
       // SAFETY: email binding throws object with code/message per Cloudflare Email contract; narrow thrown error
       const errorObj = error as { code?: string; message?: string };
-      const errorMessage = errorObj.message || 'Email send failed';
-      const errorCode = errorObj.code || 'UNKNOWN';
+      const errorMessage = errorObj.message || "Email send failed";
+      const errorCode = errorObj.code || "UNKNOWN";
 
-      log('Email').error(`Failed to send to ${email.to}: ${errorCode} - ${errorMessage}`);
+      log("Email").error(`Failed to send to ${email.to}: ${errorCode} - ${errorMessage}`);
 
       if (isFatalEmailCode(errorCode)) {
         results.push({ success: false, error: `${errorCode}: ${errorMessage}` });
@@ -103,7 +103,7 @@ export async function sendBatchEmailsOptimized(
           results.push({ success: false, error: `Skipped: ${errorCode} limit reached` });
         }
 
-        log('Email').warn(`Stopped batch after ${errorCode} at email ${i + 1}/${emails.length}`);
+        log("Email").warn(`Stopped batch after ${errorCode} at email ${i + 1}/${emails.length}`);
         break;
       }
 
@@ -120,7 +120,7 @@ export async function sendBatchEmailsOptimized(
   }
 
   const successCount = results.filter((r) => r.success).length;
-  log('Email').info(`Batch complete: ${successCount}/${emails.length} sent successfully`);
+  log("Email").info(`Batch complete: ${successCount}/${emails.length} sent successfully`);
 
   return results;
 }

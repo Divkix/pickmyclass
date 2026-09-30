@@ -1,10 +1,10 @@
-import handler from 'vinext/server/app-router-entry';
-import { processSection, retryDelaySeconds } from './lib/queue/process-section';
-import type { Env } from './lib/types/env';
-import type { ClassCheckMessage } from './lib/types/queue';
-import { MaintenanceWorkflow, SectionCheckWorkflow } from './lib/workflows/cron-workflows';
-import { withJsonApiError } from './lib/worker/api-errors';
-import { edgeHtmlCache } from './lib/worker/edge-html-cache';
+import handler from "vinext/server/app-router-entry";
+import { processSection, retryDelaySeconds } from "./lib/queue/process-section";
+import type { Env } from "./lib/types/env";
+import type { ClassCheckMessage } from "./lib/types/queue";
+import { MaintenanceWorkflow, SectionCheckWorkflow } from "./lib/workflows/cron-workflows";
+import { withJsonApiError } from "./lib/worker/api-errors";
+import { edgeHtmlCache } from "./lib/worker/edge-html-cache";
 import {
   appendLinkEntry,
   appendVary,
@@ -13,13 +13,13 @@ import {
   markdownSourcePath,
   pageLinkHeader,
   prefersMarkdown,
-} from './lib/worker/markdown-negotiation';
-import { getDb } from './lib/db';
-import { log } from './lib/log';
+} from "./lib/worker/markdown-negotiation";
+import { getDb } from "./lib/db";
+import { log } from "./lib/log";
 
-const workerLog = log('Worker');
+const workerLog = log("Worker");
 
-const queueLog = log('Queue');
+const queueLog = log("Queue");
 
 /**
  * Advertises the Markdown representation on HTML responses so shared caches
@@ -31,7 +31,7 @@ function withAgentHeaders(response: Response, pathname: string): Response {
   if (!isHtmlResponse(response)) return response;
 
   const varied = new Response(response.body, response);
-  appendVary(varied.headers, 'Accept');
+  appendVary(varied.headers, "Accept");
   appendLinkEntry(varied.headers, pageLinkHeader(pathname));
 
   return varied;
@@ -48,12 +48,12 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Sanitize GET/HEAD requests with bodies - bots sometimes send these
     // Web API spec forbids Request objects with GET/HEAD + body
-    const isGetOrHead = request.method === 'GET' || request.method === 'HEAD';
+    const isGetOrHead = request.method === "GET" || request.method === "HEAD";
     const hasBody = request.body !== null;
 
     if (isGetOrHead && hasBody) {
       workerLog.info(
-        `Sanitizing ${request.method} request with body from ${request.headers.get('cf-connecting-ip') || 'unknown'} to ${request.url}`
+        `Sanitizing ${request.method} request with body from ${request.headers.get("cf-connecting-ip") || "unknown"} to ${request.url}`,
       );
       request = new Request(request, { body: null });
     }
@@ -78,7 +78,7 @@ export default {
       return markdownResponse({ response, html: await response.text(), url: request.url });
     }
 
-    if (prefersMarkdown(request.headers.get('accept'))) {
+    if (prefersMarkdown(request.headers.get("accept"))) {
       // Markdown requests never touch the edge cache: it stores one HTML
       // representation per path, and the conversion is cheap for agent traffic.
       const response = await handler.fetch(request, env, ctx);
@@ -91,7 +91,7 @@ export default {
     if (!edgeHtmlCache.isEligible(request)) {
       return withAgentHeaders(
         withJsonApiError(await handler.fetch(request, env, ctx), url.pathname, request.method),
-        url.pathname
+        url.pathname,
       );
     }
 
@@ -104,7 +104,7 @@ export default {
 
     const response = withAgentHeaders(
       withJsonApiError(await handler.fetch(request, env, ctx), url.pathname, request.method),
-      url.pathname
+      url.pathname,
     );
 
     const cacheWrite = edgeHtmlCache.put(request, versionId, response);
@@ -117,11 +117,11 @@ export default {
   async queue(
     batch: MessageBatch<ClassCheckMessage>,
     env: Env,
-    _ctx: ExecutionContext
+    _ctx: ExecutionContext,
   ): Promise<void> {
     const startTime = Date.now();
     queueLog.info(
-      `Processing batch of ${batch.messages.length} messages from queue: ${batch.queue}`
+      `Processing batch of ${batch.messages.length} messages from queue: ${batch.queue}`,
     );
 
     const db = getDb(env.HYPERDRIVE);
@@ -134,16 +134,16 @@ export default {
           const outcome = await processSection(db, message.body, env);
           const duration = Date.now() - msgStartTime;
 
-          if (outcome.disposition === 'ack') {
+          if (outcome.disposition === "ack") {
             if (!outcome.result.success) {
               queueLog.error(
                 `Non-retryable error for ${message.body.class_nbr} in ${duration}ms:`,
-                outcome.result.error
+                outcome.result.error,
               );
             } else {
               queueLog.info(
                 `Processed ${message.body.class_nbr} in ${duration}ms:`,
-                outcome.result
+                outcome.result,
               );
             }
 
@@ -158,7 +158,7 @@ export default {
 
           queueLog.error(
             `Failed to process ${message.body.class_nbr} in ${duration}ms:`,
-            outcome.result.error
+            outcome.result.error,
           );
           const delaySeconds = retryDelaySeconds(outcome, message.attempts);
           message.retry(delaySeconds === undefined ? undefined : { delaySeconds });
@@ -171,15 +171,15 @@ export default {
 
           return { success: false, class_nbr: message.body.class_nbr, duration, error };
         }
-      })
+      }),
     );
 
-    const successful = results.filter((r) => r.status === 'fulfilled' && r.value.success).length;
+    const successful = results.filter((r) => r.status === "fulfilled" && r.value.success).length;
     const failed = results.length - successful;
     const totalDuration = Date.now() - startTime;
 
     queueLog.info(
-      `Batch complete in ${totalDuration}ms: ${successful} successful, ${failed} failed`
+      `Batch complete in ${totalDuration}ms: ${successful} successful, ${failed} failed`,
     );
   },
 } satisfies ExportedHandler<Env, ClassCheckMessage>;

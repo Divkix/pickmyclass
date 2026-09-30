@@ -1,17 +1,17 @@
-export { BlogAuthor } from './BlogAuthor';
+export { BlogAuthor } from "./BlogAuthor";
 
-export { BlogCTA } from './BlogCTA';
+export { BlogCTA } from "./BlogCTA";
 
-export { BlogFAQ } from './BlogFAQ';
+export { BlogFAQ } from "./BlogFAQ";
 
-export { BlogPostHeader } from './BlogPostHeader';
+export { BlogPostHeader } from "./BlogPostHeader";
 
-export { ComparisonTable } from './ComparisonTable';
+export { ComparisonTable } from "./ComparisonTable";
 
-export { KeyTakeaways } from './KeyTakeaways';
+export { KeyTakeaways } from "./KeyTakeaways";
 
-export { RelatedArticles } from './RelatedArticles';
+export { RelatedArticles } from "./RelatedArticles";
 
-export { ShortAnswer } from './ShortAnswer';
+export { ShortAnswer } from "./ShortAnswer";
 
-export { TableOfContents } from './TableOfContents';
+export { TableOfContents } from "./TableOfContents";

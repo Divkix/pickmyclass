@@ -1,55 +1,55 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useState } from 'react';
-import { trackAnalyticsEvent } from '@/lib/analytics/client';
-import { DeleteAccountModal } from '@/components/DeleteAccountModal';
-import { Header } from '@/components/Header';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/lib/contexts/AuthContext';
-import { log } from '@/lib/log';
-import { formatAbsoluteDate } from '@/lib/utils/time-format';
-import { useRequireAuth } from '@/lib/hooks/useRequireAuth';
+import Link from "next/link";
+import { useState } from "react";
+import { trackAnalyticsEvent } from "@/lib/analytics/client";
+import { DeleteAccountModal } from "@/components/DeleteAccountModal";
+import { Header } from "@/components/Header";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { log } from "@/lib/log";
+import { formatAbsoluteDate } from "@/lib/utils/time-format";
+import { useRequireAuth } from "@/lib/hooks/useRequireAuth";
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth();
   useRequireAuth();
   const [exportLoading, setExportLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const handleExportData = async () => {
     setExportLoading(true);
     setMessage(null);
 
     try {
-      const response = await fetch('/api/user/export', {
-        method: 'GET',
+      const response = await fetch("/api/user/export", {
+        method: "GET",
       });
 
       if (!response.ok) {
-        throw new Error('Export failed');
+        throw new Error("Export failed");
       }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = `pickmyclass-data-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `pickmyclass-data-${new Date().toISOString().split("T")[0]}.json`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      trackAnalyticsEvent('data_exported', {});
-      setMessage({ type: 'success', text: 'Data exported successfully!' });
+      trackAnalyticsEvent("data_exported", {});
+      setMessage({ type: "success", text: "Data exported successfully!" });
     } catch (error) {
-      log('Settings').error('Data export failed:', error);
-      setMessage({ type: 'error', text: 'Failed to export data. Please try again.' });
+      log("Settings").error("Data export failed:", error);
+      setMessage({ type: "error", text: "Failed to export data. Please try again." });
     } finally {
       setExportLoading(false);
     }
@@ -87,8 +87,8 @@ export default function SettingsPage() {
 
           {message && (
             <Alert
-              variant={message.type === 'error' ? 'destructive' : 'default'}
-              role={message.type === 'error' ? 'alert' : 'status'}
+              variant={message.type === "error" ? "destructive" : "default"}
+              role={message.type === "error" ? "alert" : "status"}
             >
               <AlertDescription>{message.text}</AlertDescription>
             </Alert>
@@ -118,7 +118,7 @@ export default function SettingsPage() {
                       Account Created
                     </span>
                     <p className="text-lg">
-                      {user?.created_at ? formatAbsoluteDate(user.created_at) : 'N/A'}
+                      {user?.created_at ? formatAbsoluteDate(user.created_at) : "N/A"}
                     </p>
                   </div>
 
@@ -178,7 +178,7 @@ export default function SettingsPage() {
                     <h3 className="font-medium mb-2">Cookies</h3>
                     <p className="text-sm text-muted-foreground">
                       We only use essential cookies for authentication. No tracking or analytics
-                      cookies. See our{' '}
+                      cookies. See our{" "}
                       <Link
                         href="/legal/privacy#5-cookie-policy"
                         className="text-primary hover:underline"
@@ -206,7 +206,7 @@ export default function SettingsPage() {
                       class watches, and notification history.
                     </p>
                     <Button onClick={handleExportData} disabled={exportLoading} variant="outline">
-                      {exportLoading ? 'Exporting...' : 'Export Data (JSON)'}
+                      {exportLoading ? "Exporting..." : "Export Data (JSON)"}
                     </Button>
                   </div>
 

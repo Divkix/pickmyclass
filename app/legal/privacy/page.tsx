@@ -1,19 +1,19 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Header } from '@/components/Header';
-import { JsonLd } from '@/components/landing/JsonLd';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/landing/JsonLd";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy',
+  title: "Privacy Policy",
   description:
-    'Privacy Policy for PickMyClass. Learn how we protect your data, your CCPA rights, and our cookie and data retention policies.',
+    "Privacy Policy for PickMyClass. Learn how we protect your data, your CCPA rights, and our cookie and data retention policies.",
   alternates: {
-    canonical: '/legal/privacy',
+    canonical: "/legal/privacy",
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 export default async function PrivacyPolicyPage() {
   return (
@@ -129,7 +129,7 @@ export default async function PrivacyPolicyPage() {
                     <strong>Service Providers:</strong> We use third-party services to operate:
                     <ul className="list-circle pl-6 mt-2 space-y-1">
                       <li>
-                        Clerk (authentication and account management) - see{' '}
+                        Clerk (authentication and account management) - see{" "}
                         <a
                           href="https://clerk.com/privacy"
                           className="text-primary underline"
@@ -140,7 +140,7 @@ export default async function PrivacyPolicyPage() {
                         </a>
                       </li>
                       <li>
-                        Cloudflare Email Service (email delivery) - see{' '}
+                        Cloudflare Email Service (email delivery) - see{" "}
                         <a
                           href="https://www.cloudflare.com/privacypolicy/"
                           className="text-primary underline"
@@ -151,7 +151,7 @@ export default async function PrivacyPolicyPage() {
                         </a>
                       </li>
                       <li>
-                        Cloudflare Workers (hosting) - see{' '}
+                        Cloudflare Workers (hosting) - see{" "}
                         <a
                           href="https://www.cloudflare.com/privacypolicy/"
                           className="text-primary underline"
@@ -275,20 +275,20 @@ export default async function PrivacyPolicyPage() {
                 <h3 className="text-lg font-semibold mt-4">7.1 Right to Know</h3>
                 <p>
                   You have the right to request what personal information we have collected about
-                  you in the past 12 months. Use the &quot;Export Data&quot; button in your{' '}
+                  you in the past 12 months. Use the &quot;Export Data&quot; button in your{" "}
                   <Link href="/settings" className="text-primary underline">
                     Settings
-                  </Link>{' '}
+                  </Link>{" "}
                   page.
                 </p>
 
                 <h3 className="text-lg font-semibold mt-4">7.2 Right to Delete</h3>
                 <p>
                   You have the right to request deletion of your personal information. Use the
-                  &quot;Delete Account&quot; button in your{' '}
+                  &quot;Delete Account&quot; button in your{" "}
                   <Link href="/settings" className="text-primary underline">
                     Settings
-                  </Link>{' '}
+                  </Link>{" "}
                   page.
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -308,14 +308,14 @@ export default async function PrivacyPolicyPage() {
                 <p>You can exercise your rights by:</p>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>
-                    Using the self-service tools in your{' '}
+                    Using the self-service tools in your{" "}
                     <Link href="/settings" className="text-primary underline">
                       Settings
-                    </Link>{' '}
+                    </Link>{" "}
                     page (fastest)
                   </li>
                   <li>
-                    Emailing us at:{' '}
+                    Emailing us at:{" "}
                     <span className="font-mono text-sm bg-muted px-2 py-1 rounded">
                       support@pickmyclass.app
                     </span>
@@ -363,7 +363,7 @@ export default async function PrivacyPolicyPage() {
                   personal information, please contact us at
                   <span className="font-mono text-sm bg-muted px-2 py-1 rounded ml-1">
                     support@pickmyclass.app
-                  </span>{' '}
+                  </span>{" "}
                   and we will delete it.
                 </p>
               </section>
@@ -395,7 +395,7 @@ export default async function PrivacyPolicyPage() {
                 </p>
                 <div className="bg-muted p-4 rounded space-y-2 mt-2">
                   <p>
-                    <strong>Support & Legal Inquiries:</strong>{' '}
+                    <strong>Support & Legal Inquiries:</strong>{" "}
                     <span className="font-mono text-sm">support@pickmyclass.app</span>
                   </p>
                   <p>
@@ -417,17 +417,17 @@ export default async function PrivacyPolicyPage() {
       </main>
       <JsonLd
         data={{
-          '@context': 'https://schema.org',
-          '@type': 'BreadcrumbList',
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
           itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://pickmyclass.app/" },
             {
-              '@type': 'ListItem',
+              "@type": "ListItem",
               position: 2,
-              name: 'Legal',
-              item: 'https://pickmyclass.app/legal',
+              name: "Legal",
+              item: "https://pickmyclass.app/legal",
             },
-            { '@type': 'ListItem', position: 3, name: 'Privacy Policy' },
+            { "@type": "ListItem", position: 3, name: "Privacy Policy" },
           ],
         }}
       />

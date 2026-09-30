@@ -1,12 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { createClassWatchSchema } from '@/lib/api/schemas';
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { createClassWatchSchema } from "@/lib/api/schemas";
 import {
   encodeTermCode,
   formatTermOption,
   getPastTermCodes,
   getSelectableTerms,
   isTermSelectable,
-} from '@/lib/asu/terms';
+} from "@/lib/asu/terms";
 
 function phoenixDate(year: number, month: number, day: number): Date {
   // Noon UTC avoids edge cases around midnight in America/Phoenix (UTC-7, no DST)
@@ -17,22 +17,22 @@ function termCodes(terms: ReturnType<typeof getSelectableTerms>): string[] {
   return terms.map((t) => t.code);
 }
 
-describe('encodeTermCode', () => {
-  it('encodes spring, summer, and fall term codes', () => {
-    expect(encodeTermCode(2026, 'spring')).toBe('2261');
-    expect(encodeTermCode(2026, 'summer')).toBe('2264');
-    expect(encodeTermCode(2026, 'fall')).toBe('2267');
+describe("encodeTermCode", () => {
+  it("encodes spring, summer, and fall term codes", () => {
+    expect(encodeTermCode(2026, "spring")).toBe("2261");
+    expect(encodeTermCode(2026, "summer")).toBe("2264");
+    expect(encodeTermCode(2026, "fall")).toBe("2267");
   });
 });
 
-describe('formatTermOption', () => {
-  it('formats term for dropdown display', () => {
+describe("formatTermOption", () => {
+  it("formats term for dropdown display", () => {
     const terms = getSelectableTerms(phoenixDate(2026, 5, 23));
     expect(formatTermOption(terms[0])).toMatch(/\(2264\)/);
   });
 });
 
-describe('getSelectableTerms', () => {
+describe("getSelectableTerms", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -41,43 +41,43 @@ describe('getSelectableTerms', () => {
     vi.useRealTimers();
   });
 
-  it('returns Spring 2026 only before Summer catalog is available', () => {
+  it("returns Spring 2026 only before Summer catalog is available", () => {
     vi.setSystemTime(phoenixDate(2026, 1, 15));
-    expect(termCodes(getSelectableTerms())).toEqual(['2261']);
+    expect(termCodes(getSelectableTerms())).toEqual(["2261"]);
   });
 
-  it('returns Spring and Summer when both are selectable', () => {
+  it("returns Spring and Summer when both are selectable", () => {
     vi.setSystemTime(phoenixDate(2026, 2, 10));
-    expect(termCodes(getSelectableTerms())).toEqual(['2261', '2264']);
+    expect(termCodes(getSelectableTerms())).toEqual(["2261", "2264"]);
   });
 
-  it('returns Summer and Fall during Summer session', () => {
+  it("returns Summer and Fall during Summer session", () => {
     vi.setSystemTime(phoenixDate(2026, 5, 23));
-    expect(termCodes(getSelectableTerms())).toEqual(['2264', '2267']);
+    expect(termCodes(getSelectableTerms())).toEqual(["2264", "2267"]);
   });
 
-  it('returns Fall only before Spring catalog is available', () => {
+  it("returns Fall only before Spring catalog is available", () => {
     vi.setSystemTime(phoenixDate(2026, 8, 25));
-    expect(termCodes(getSelectableTerms())).toEqual(['2267']);
+    expect(termCodes(getSelectableTerms())).toEqual(["2267"]);
   });
 
-  it('returns Fall and Spring 2027 when both are selectable', () => {
+  it("returns Fall and Spring 2027 when both are selectable", () => {
     vi.setSystemTime(phoenixDate(2026, 9, 25));
-    expect(termCodes(getSelectableTerms())).toEqual(['2267', '2271']);
+    expect(termCodes(getSelectableTerms())).toEqual(["2267", "2271"]);
   });
 
-  it('returns Spring 2027 only during winter gap', () => {
+  it("returns Spring 2027 only during winter gap", () => {
     vi.setSystemTime(phoenixDate(2026, 12, 20));
-    expect(termCodes(getSelectableTerms())).toEqual(['2271']);
+    expect(termCodes(getSelectableTerms())).toEqual(["2271"]);
   });
 
-  it('never returns more than two terms', () => {
+  it("never returns more than two terms", () => {
     vi.setSystemTime(phoenixDate(2026, 5, 23));
     expect(getSelectableTerms().length).toBeLessThanOrEqual(2);
   });
 });
 
-describe('isTermSelectable', () => {
+describe("isTermSelectable", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -86,24 +86,24 @@ describe('isTermSelectable', () => {
     vi.useRealTimers();
   });
 
-  it('returns true for a currently selectable term', () => {
+  it("returns true for a currently selectable term", () => {
     vi.setSystemTime(phoenixDate(2026, 5, 23));
-    expect(isTermSelectable('2264')).toBe(true);
-    expect(isTermSelectable('2267')).toBe(true);
+    expect(isTermSelectable("2264")).toBe(true);
+    expect(isTermSelectable("2267")).toBe(true);
   });
 
-  it('returns false for an expired term', () => {
+  it("returns false for an expired term", () => {
     vi.setSystemTime(phoenixDate(2026, 5, 23));
-    expect(isTermSelectable('2261')).toBe(false);
+    expect(isTermSelectable("2261")).toBe(false);
   });
 
-  it('returns false for unknown term codes', () => {
+  it("returns false for unknown term codes", () => {
     vi.setSystemTime(phoenixDate(2026, 5, 23));
-    expect(isTermSelectable('9999')).toBe(false);
+    expect(isTermSelectable("9999")).toBe(false);
   });
 });
 
-describe('createClassWatchSchema term validation', () => {
+describe("createClassWatchSchema term validation", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(phoenixDate(2026, 5, 23));
@@ -113,28 +113,28 @@ describe('createClassWatchSchema term validation', () => {
     vi.useRealTimers();
   });
 
-  it('accepts a selectable term', () => {
-    const result = createClassWatchSchema.safeParse({ term: '2264', class_nbr: '12345' });
+  it("accepts a selectable term", () => {
+    const result = createClassWatchSchema.safeParse({ term: "2264", class_nbr: "12345" });
     expect(result.success).toBe(true);
   });
 
-  it('rejects an expired term', () => {
-    const result = createClassWatchSchema.safeParse({ term: '2261', class_nbr: '12345' });
+  it("rejects an expired term", () => {
+    const result = createClassWatchSchema.safeParse({ term: "2261", class_nbr: "12345" });
     expect(result.success).toBe(false);
 
     if (!result.success) {
-      expect(result.error.issues[0]?.message).toContain('no longer available');
+      expect(result.error.issues[0]?.message).toContain("no longer available");
     }
   });
 });
 
-describe('getPastTermCodes', () => {
-  it('returns every calendar code whose sessionEnd has passed', () => {
+describe("getPastTermCodes", () => {
+  it("returns every calendar code whose sessionEnd has passed", () => {
     const codes = getPastTermCodes(phoenixDate(2026, 9, 1));
-    expect(codes).toEqual(['2251', '2254', '2257', '2261', '2264']);
+    expect(codes).toEqual(["2251", "2254", "2257", "2261", "2264"]);
   });
 
-  it('returns an empty array when no term has ended yet', () => {
+  it("returns an empty array when no term has ended yet", () => {
     expect(getPastTermCodes(phoenixDate(2025, 1, 1))).toEqual([]);
   });
 });

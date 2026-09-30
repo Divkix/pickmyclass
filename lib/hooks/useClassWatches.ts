@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
-import type { OnboardingState } from '@/components/OnboardingModal';
-import { useAuth } from '@/lib/contexts/AuthContext';
-import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh';
-import { useRealtimeClassStates } from '@/lib/hooks/useRealtimeClassStates';
-import { completeOnFirstWatch } from '@/lib/onboarding';
-import { sectionRefKey } from '@/lib/section-ref';
-import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import type { OnboardingState } from "@/components/OnboardingModal";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { usePullToRefresh } from "@/lib/hooks/usePullToRefresh";
+import { useRealtimeClassStates } from "@/lib/hooks/useRealtimeClassStates";
+import { completeOnFirstWatch } from "@/lib/onboarding";
+import { sectionRefKey } from "@/lib/section-ref";
+import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
 
 type ClassWatch = ClassWatchRow & {
   class_state?: ClassStateRow | null;
@@ -32,7 +32,7 @@ export function useClassWatches() {
   const [maxWatches, setMaxWatches] = useState<number>(10);
   const [isLoadingWatches, setIsLoadingWatches] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
 
   const classNumbers = useMemo(() => watches.map((w) => w.class_nbr), [watches]);
@@ -52,10 +52,10 @@ export function useClassWatches() {
       setIsLoadingWatches(true);
       setError(null);
 
-      const response = await fetch('/api/class-watches');
+      const response = await fetch("/api/class-watches");
 
       if (!response.ok) {
-        throw new Error('Failed to fetch class watches');
+        throw new Error("Failed to fetch class watches");
       }
 
       // SAFETY: /api/class-watches returns JSON shaped as GetClassWatchesResponse per API contract
@@ -67,7 +67,7 @@ export function useClassWatches() {
 
       return data;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load class watches';
+      const errorMessage = err instanceof Error ? err.message : "Failed to load class watches";
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -90,17 +90,17 @@ export function useClassWatches() {
 
       const watchCount = watchData?.watches?.length ?? watches.length;
 
-      const timeString = new Date().toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
+      const timeString = new Date().toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
       });
 
       toast.success(`Dashboard refreshed at ${timeString}`, {
-        description: `Updated ${watchCount} class watch${watchCount !== 1 ? 'es' : ''}`,
+        description: `Updated ${watchCount} class watch${watchCount !== 1 ? "es" : ""}`,
       });
     } catch (err) {
-      toast.error('Failed to refresh dashboard', {
-        description: err instanceof Error ? err.message : 'Please try again',
+      toast.error("Failed to refresh dashboard", {
+        description: err instanceof Error ? err.message : "Please try again",
       });
     }
   };
@@ -118,11 +118,11 @@ export function useClassWatches() {
 
   const handleDeleteWatch = async (watchId: string) => {
     const response = await fetch(`/api/class-watches?id=${watchId}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
 
     if (!response.ok) {
-      throw new Error('Failed to delete class watch');
+      throw new Error("Failed to delete class watch");
     }
 
     setWatches((prev) => prev.filter((w) => w.id !== watchId));

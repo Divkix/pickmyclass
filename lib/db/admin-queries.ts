@@ -1,21 +1,21 @@
-import { and, count, desc, eq, sql } from 'drizzle-orm';
-import { z } from 'zod';
+import { and, count, desc, eq, sql } from "drizzle-orm";
+import { z } from "zod";
 
-import { TtlCache } from '@/lib/cache/ttl-cache';
-import { ADMIN_CACHE_TTL_MS } from '@/lib/config';
-import type { Database } from '@/lib/db';
-import { driverErrorMessage, isUndefinedFunction } from '@/lib/db/pg-errors';
-import { classStates, classWatches, notificationsSent, userProfiles } from '@/lib/db/schema';
-import { log } from '@/lib/log';
-import type { NotificationType } from '@/lib/types/notification';
+import { TtlCache } from "@/lib/cache/ttl-cache";
+import { ADMIN_CACHE_TTL_MS } from "@/lib/config";
+import type { Database } from "@/lib/db";
+import { driverErrorMessage, isUndefinedFunction } from "@/lib/db/pg-errors";
+import { classStates, classWatches, notificationsSent, userProfiles } from "@/lib/db/schema";
+import { log } from "@/lib/log";
+import type { NotificationType } from "@/lib/types/notification";
 
 const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS, 100);
 
-type NotificationStatus = 'active' | 'unsubscribed' | 'bounced' | 'spam' | 'disabled';
+type NotificationStatus = "active" | "unsubscribed" | "bounced" | "spam" | "disabled";
 
-type SortDirection = 'asc' | 'desc';
+type SortDirection = "asc" | "desc";
 
-type WatchCountFilter = 'all' | 'none' | '1-5' | '6-10' | '10+';
+type WatchCountFilter = "all" | "none" | "1-5" | "6-10" | "10+";
 
 function toIsoTimestamp(value: string): string {
   return new Date(value).toISOString();
@@ -35,46 +35,46 @@ type CountRpcRow = { count: string };
 
 export async function getTotalEmailsSent(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
-  const cached = adminCache.get('total-emails-sent') as number | undefined;
+  const cached = adminCache.get("total-emails-sent") as number | undefined;
 
   if (cached !== undefined) return cached;
 
   try {
     const [row] = await db.select({ value: count() }).from(notificationsSent);
     const result = Number(row?.value ?? 0);
-    adminCache.set('total-emails-sent', result);
+    adminCache.set("total-emails-sent", result);
 
     return result;
   } catch (error) {
-    log('Admin').error('Error fetching total emails sent:', error);
+    log("Admin").error("Error fetching total emails sent:", error);
     throw new Error(`Failed to fetch email count: ${driverErrorMessage(error)}`);
   }
 }
 
 export async function getTotalUsers(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
-  const cached = adminCache.get('total-users') as number | undefined;
+  const cached = adminCache.get("total-users") as number | undefined;
 
   if (cached !== undefined) return cached;
 
   try {
     const [row] = await db.execute<CountRpcRow>(
-      sql`SELECT public.count_all_users()::text AS count`
+      sql`SELECT public.count_all_users()::text AS count`,
     );
 
     const result = Number(row?.count ?? 0);
-    adminCache.set('total-users', result);
+    adminCache.set("total-users", result);
 
     return result;
   } catch (error) {
-    log('Admin').error('Error counting users:', error);
+    log("Admin").error("Error counting users:", error);
     throw new Error(`Failed to count users: ${driverErrorMessage(error)}`);
   }
 }
 
 export async function getAdminCount(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
-  const cached = adminCache.get('admin-count') as number | undefined;
+  const cached = adminCache.get("admin-count") as number | undefined;
 
   if (cached !== undefined) return cached;
 
@@ -85,60 +85,60 @@ export async function getAdminCount(db: Database): Promise<number> {
       .where(eq(userProfiles.is_admin, true));
 
     const result = Number(row?.value ?? 0);
-    adminCache.set('admin-count', result);
+    adminCache.set("admin-count", result);
 
     return result;
   } catch (error) {
-    log('Admin').error('Error fetching admin count:', error);
+    log("Admin").error("Error fetching admin count:", error);
     throw new Error(`Failed to fetch admin count: ${driverErrorMessage(error)}`);
   }
 }
 
 export async function getTotalClassesWatched(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
-  const cached = adminCache.get('total-classes-watched') as number | undefined;
+  const cached = adminCache.get("total-classes-watched") as number | undefined;
 
   if (cached !== undefined) return cached;
 
   try {
     const [row] = await db.execute<CountRpcRow>(
-      sql`SELECT public.count_distinct_classes_watched()::text AS count`
+      sql`SELECT public.count_distinct_classes_watched()::text AS count`,
     );
 
     const result = Number(row?.count ?? 0);
-    log('Admin').info(`Counted ${result} unique classes being watched`);
-    adminCache.set('total-classes-watched', result);
+    log("Admin").info(`Counted ${result} unique classes being watched`);
+    adminCache.set("total-classes-watched", result);
 
     return result;
   } catch (error) {
-    log('Admin').error('Error counting distinct classes watched:', error);
+    log("Admin").error("Error counting distinct classes watched:", error);
     throw new Error(`Failed to fetch class count: ${driverErrorMessage(error)}`);
   }
 }
 
 export type UserSortField =
-  | 'email'
-  | 'created_at'
-  | 'last_sign_in_at'
-  | 'watch_count'
-  | 'seat_emails'
-  | 'instructor_emails';
+  | "email"
+  | "created_at"
+  | "last_sign_in_at"
+  | "watch_count"
+  | "seat_emails"
+  | "instructor_emails";
 
 export type ClassSortField =
-  | 'class_nbr'
-  | 'subject'
-  | 'seats_available'
-  | 'watcher_count'
-  | 'seat_emails'
-  | 'instructor_emails'
-  | 'last_checked_at';
+  | "class_nbr"
+  | "subject"
+  | "seats_available"
+  | "watcher_count"
+  | "seat_emails"
+  | "instructor_emails"
+  | "last_checked_at";
 
 export interface GetUsersPageParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  role?: 'all' | 'admin' | 'user';
-  verified?: 'all' | 'verified' | 'unverified';
+  role?: "all" | "admin" | "user";
+  verified?: "all" | "verified" | "unverified";
   watchCount?: WatchCountFilter;
   sort?: UserSortField;
   dir?: SortDirection;
@@ -149,8 +149,8 @@ export interface GetClassesPageParams {
   pageSize?: number;
   search?: string;
   subject?: string;
-  seatStatus?: 'all' | 'full' | 'limited' | 'available';
-  instructor?: 'all' | 'staff' | 'named';
+  seatStatus?: "all" | "full" | "limited" | "available";
+  instructor?: "all" | "staff" | "named";
   watcherCount?: WatchCountFilter;
   sort?: ClassSortField;
   dir?: SortDirection;
@@ -211,17 +211,17 @@ type UsersPageRpcRow = {
 
 export async function getUsersPage(
   db: Database,
-  params: GetUsersPageParams = {}
+  params: GetUsersPageParams = {},
 ): Promise<UsersPage> {
   const {
     page = 1,
     pageSize = 25,
-    search = '',
-    role = 'all',
-    verified = 'all',
-    watchCount = 'all',
-    sort = 'created_at',
-    dir = 'desc',
+    search = "",
+    role = "all",
+    verified = "all",
+    watchCount = "all",
+    sort = "created_at",
+    dir = "desc",
   } = params;
 
   try {
@@ -256,11 +256,11 @@ export async function getUsersPage(
 
     const total = rows.length > 0 ? Number(rows[0].total_count ?? 0) : 0;
 
-    log('Admin').info(`Fetched ${mapped.length} users (page ${page}, total ${total})`);
+    log("Admin").info(`Fetched ${mapped.length} users (page ${page}, total ${total})`);
 
     return { rows: mapped, total };
   } catch (error) {
-    log('Admin').error(`Error fetching users page:`, error);
+    log("Admin").error(`Error fetching users page:`, error);
     throw new Error(`Failed to fetch users page: ${driverErrorMessage(error)}`);
   }
 }
@@ -291,18 +291,18 @@ type ClassesPageRpcRow = {
 
 export async function getClassesPage(
   db: Database,
-  params: GetClassesPageParams = {}
+  params: GetClassesPageParams = {},
 ): Promise<ClassesPage> {
   const {
     page = 1,
     pageSize = 25,
-    search = '',
-    subject = 'all',
-    seatStatus = 'all',
-    instructor = 'all',
-    watcherCount = 'all',
-    sort = 'watcher_count',
-    dir = 'desc',
+    search = "",
+    subject = "all",
+    seatStatus = "all",
+    instructor = "all",
+    watcherCount = "all",
+    sort = "watcher_count",
+    dir = "desc",
   } = params;
 
   try {
@@ -346,37 +346,37 @@ export async function getClassesPage(
     const totalWatchers = rows.length > 0 ? Number(rows[0].total_watchers ?? 0) : 0;
     const fullClasses = rows.length > 0 ? Number(rows[0].full_classes ?? 0) : 0;
 
-    log('Admin').info(`Fetched ${mapped.length} classes (page ${page}, total ${total})`);
+    log("Admin").info(`Fetched ${mapped.length} classes (page ${page}, total ${total})`);
 
     return { rows: mapped, total, totalWatchers, fullClasses };
   } catch (error) {
-    log('Admin').error(`Error fetching classes page:`, error);
+    log("Admin").error(`Error fetching classes page:`, error);
     throw new Error(`Failed to fetch classes page: ${driverErrorMessage(error)}`);
   }
 }
 
 export async function getDistinctSubjects(db: Database): Promise<string[]> {
   // SAFETY: adminCache stores unknown; narrowing to string[] via cache key contract
-  const cached = adminCache.get('distinct-subjects') as string[] | undefined;
+  const cached = adminCache.get("distinct-subjects") as string[] | undefined;
 
   if (cached !== undefined) return cached;
 
   try {
     const rows = await db.execute<{ subject: string }>(
-      sql`SELECT * FROM public.get_distinct_subjects()`
+      sql`SELECT * FROM public.get_distinct_subjects()`,
     );
 
     const result = rows.map((r) => r.subject);
-    adminCache.set('distinct-subjects', result);
+    adminCache.set("distinct-subjects", result);
 
     return result;
   } catch (error) {
-    log('Admin').error('Error fetching distinct subjects:', error);
+    log("Admin").error("Error fetching distinct subjects:", error);
     throw new Error(`Failed to fetch subjects: ${driverErrorMessage(error)}`);
   }
 }
 
-type ActivityType = 'user_registration' | 'new_watch' | 'email_sent';
+type ActivityType = "user_registration" | "new_watch" | "email_sent";
 
 export interface RecentActivityItem {
   type: ActivityType;
@@ -400,10 +400,10 @@ type RecentActivityRpcRow = {
 
 export async function getRecentActivity(
   db: Database,
-  limit: number = 50
+  limit: number = 50,
 ): Promise<RecentActivityItem[]> {
   if (!Number.isFinite(limit) || limit <= 0) {
-    throw new TypeError('Invalid limit: must be a finite positive integer');
+    throw new TypeError("Invalid limit: must be a finite positive integer");
   }
 
   const sanitizedLimit = Math.min(500, Math.max(1, Math.floor(limit)));
@@ -416,7 +416,7 @@ export async function getRecentActivity(
 
   try {
     const rows = await db.execute<RecentActivityRpcRow>(
-      sql`SELECT * FROM public.get_recent_activity(${sanitizedLimit}::int)`
+      sql`SELECT * FROM public.get_recent_activity(${sanitizedLimit}::int)`,
     );
 
     const items: RecentActivityItem[] = rows.map((row) => ({
@@ -437,13 +437,13 @@ export async function getRecentActivity(
   } catch (error) {
     if (isUndefinedFunction(error)) {
       const fallback: RecentActivityItem[] = [];
-      log('Admin').warn('Recent activity RPC is unavailable; rendering an empty activity feed');
+      log("Admin").warn("Recent activity RPC is unavailable; rendering an empty activity feed");
       adminCache.set(cacheKey, fallback);
 
       return fallback;
     }
 
-    log('Admin').error('Error fetching recent activity:', error);
+    log("Admin").error("Error fetching recent activity:", error);
     throw new Error(`Failed to fetch recent activity: ${driverErrorMessage(error)}`);
   }
 }
@@ -457,14 +457,14 @@ export async function getUserWatches(db: Database, userId: string): Promise<Watc
         classStates,
         and(
           eq(classWatches.class_nbr, classStates.class_nbr),
-          eq(classWatches.term, classStates.term)
-        )
+          eq(classWatches.term, classStates.term),
+        ),
       )
       .where(eq(classWatches.user_id, userId))
       .orderBy(desc(classWatches.created_at));
 
     if (rows.length === 0) {
-      log('Admin').info(`No watches found for user ${userId}`);
+      log("Admin").info(`No watches found for user ${userId}`);
 
       return [];
     }
@@ -479,11 +479,11 @@ export async function getUserWatches(db: Database, userId: string): Promise<Watc
       },
     }));
 
-    log('Admin').info(`Fetched ${watchesWithClass.length} watches for user ${userId}`);
+    log("Admin").info(`Fetched ${watchesWithClass.length} watches for user ${userId}`);
 
     return watchesWithClass;
   } catch (error) {
-    log('Admin').error(`Error fetching watches for user ${userId}:`, error);
+    log("Admin").error(`Error fetching watches for user ${userId}:`, error);
     throw new Error(`Failed to fetch user watches: ${driverErrorMessage(error)}`);
   }
 }

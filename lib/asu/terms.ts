@@ -1,4 +1,4 @@
-export type AsuSeason = 'spring' | 'summer' | 'fall';
+export type AsuSeason = "spring" | "summer" | "fall";
 
 interface DateParts {
   year: number;
@@ -16,13 +16,13 @@ export interface AsuTerm {
   sessionEnd: DateParts;
 }
 
-const ASU_TIMEZONE = 'America/Phoenix';
+const ASU_TIMEZONE = "America/Phoenix";
 
-const PHOENIX_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+const PHOENIX_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   timeZone: ASU_TIMEZONE,
-  year: 'numeric',
-  month: 'numeric',
-  day: 'numeric',
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
 });
 
 const SEASON_SUFFIX = {
@@ -32,95 +32,95 @@ const SEASON_SUFFIX = {
 } as const satisfies Record<AsuSeason, number>;
 
 const SEASON_LABEL = {
-  spring: 'Spring',
-  summer: 'Summer',
-  fall: 'Fall',
+  spring: "Spring",
+  summer: "Summer",
+  fall: "Fall",
 } as const satisfies Record<AsuSeason, string>;
 
 const ASU_TERM_CALENDAR: AsuTerm[] = [
   term(
     2025,
-    'spring',
+    "spring",
     { year: 2024, month: 9, day: 23 },
     { year: 2025, month: 1, day: 13 },
-    { year: 2025, month: 5, day: 9 }
+    { year: 2025, month: 5, day: 9 },
   ),
   term(
     2025,
-    'summer',
+    "summer",
     { year: 2025, month: 2, day: 6 },
     { year: 2025, month: 5, day: 19 },
-    { year: 2025, month: 8, day: 12 }
+    { year: 2025, month: 8, day: 12 },
   ),
   term(
     2025,
-    'fall',
+    "fall",
     { year: 2025, month: 2, day: 24 },
     { year: 2025, month: 8, day: 21 },
-    { year: 2025, month: 12, day: 13 }
+    { year: 2025, month: 12, day: 13 },
   ),
   term(
     2026,
-    'spring',
+    "spring",
     { year: 2025, month: 9, day: 22 },
     { year: 2026, month: 1, day: 12 },
-    { year: 2026, month: 5, day: 9 }
+    { year: 2026, month: 5, day: 9 },
   ),
   term(
     2026,
-    'summer',
+    "summer",
     { year: 2026, month: 2, day: 5 },
     { year: 2026, month: 5, day: 18 },
-    { year: 2026, month: 8, day: 14 }
+    { year: 2026, month: 8, day: 14 },
   ),
   term(
     2026,
-    'fall',
+    "fall",
     { year: 2026, month: 2, day: 23 },
     { year: 2026, month: 8, day: 20 },
-    { year: 2026, month: 12, day: 12 }
+    { year: 2026, month: 12, day: 12 },
   ),
   term(
     2027,
-    'spring',
+    "spring",
     { year: 2026, month: 9, day: 21 },
     { year: 2027, month: 1, day: 11 },
-    { year: 2027, month: 5, day: 8 }
+    { year: 2027, month: 5, day: 8 },
   ),
   term(
     2027,
-    'summer',
+    "summer",
     { year: 2027, month: 2, day: 4 },
     { year: 2027, month: 5, day: 17 },
-    { year: 2027, month: 8, day: 13 }
+    { year: 2027, month: 8, day: 13 },
   ),
   term(
     2027,
-    'fall',
+    "fall",
     { year: 2027, month: 2, day: 22 },
     { year: 2027, month: 8, day: 19 },
-    { year: 2027, month: 12, day: 11 }
+    { year: 2027, month: 12, day: 11 },
   ),
   term(
     2028,
-    'spring',
+    "spring",
     { year: 2027, month: 9, day: 20 },
     { year: 2028, month: 1, day: 10 },
-    { year: 2028, month: 5, day: 7 }
+    { year: 2028, month: 5, day: 7 },
   ),
   term(
     2028,
-    'summer',
+    "summer",
     { year: 2028, month: 2, day: 3 },
     { year: 2028, month: 5, day: 15 },
-    { year: 2028, month: 8, day: 12 }
+    { year: 2028, month: 8, day: 12 },
   ),
   term(
     2028,
-    'fall',
+    "fall",
     { year: 2028, month: 2, day: 21 },
     { year: 2028, month: 8, day: 17 },
-    { year: 2028, month: 12, day: 10 }
+    { year: 2028, month: 12, day: 10 },
   ),
 ];
 
@@ -129,7 +129,7 @@ function term(
   season: AsuSeason,
   catalogAvailable: DateParts,
   sessionStart: DateParts,
-  sessionEnd: DateParts
+  sessionEnd: DateParts,
 ): AsuTerm {
   const code = encodeTermCode(year, season);
 
@@ -147,7 +147,7 @@ function term(
 export function encodeTermCode(year: number, season: AsuSeason): string {
   const yy = year % 100;
 
-  return `2${String(yy).padStart(2, '0')}${SEASON_SUFFIX[season]}`;
+  return `2${String(yy).padStart(2, "0")}${SEASON_SUFFIX[season]}`;
 }
 
 function compareDateParts(a: DateParts, b: DateParts): number {
@@ -163,9 +163,9 @@ function getPhoenixDateParts(now: Date = new Date()): DateParts {
   const lookup = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
 
   return {
-    year: lookup('year'),
-    month: lookup('month'),
-    day: lookup('day'),
+    year: lookup("year"),
+    month: lookup("month"),
+    day: lookup("day"),
   };
 }
 
@@ -187,12 +187,12 @@ function isSelectable(term: AsuTerm, today: DateParts): boolean {
 
 function getNextSeason(season: AsuSeason, year: number) {
   switch (season) {
-    case 'fall':
-      return { season: 'spring', year: year + 1 } satisfies { season: AsuSeason; year: number };
-    case 'spring':
-      return { season: 'summer', year } satisfies { season: AsuSeason; year: number };
-    case 'summer':
-      return { season: 'fall', year } satisfies { season: AsuSeason; year: number };
+    case "fall":
+      return { season: "spring", year: year + 1 } satisfies { season: AsuSeason; year: number };
+    case "spring":
+      return { season: "summer", year } satisfies { season: AsuSeason; year: number };
+    case "summer":
+      return { season: "fall", year } satisfies { season: AsuSeason; year: number };
   }
 }
 

@@ -1,10 +1,10 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Header } from '@/components/Header';
-import { Button } from '@/components/ui/button';
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Header } from "@/components/Header";
+import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: 'Page Not Found — PickMyClass',
+  title: "Page Not Found — PickMyClass",
   description:
     "The page you were looking for doesn't exist. Return to PickMyClass, the free ASU class seat notification service.",
   robots: {

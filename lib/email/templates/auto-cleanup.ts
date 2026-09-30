@@ -4,14 +4,14 @@ import {
   EMAIL_BATCH_DELAY_MS,
   EMAIL_BATCH_SIZE,
   NOTIFICATION_FROM_EMAIL,
-} from '@/lib/config';
-import { generateUnsubscribeUrl } from '@/lib/email/unsubscribe-token';
-import { isFatalEmailCode } from '@/lib/email/send';
-import { log } from '@/lib/log';
-import type { SectionRef } from '@/lib/section-ref';
-import { escapeHtml } from '@/lib/utils/escape-html';
-import type { ClassWatcher } from '@/lib/db/queries';
-import { buildClassEmailShell } from './index';
+} from "@/lib/config";
+import { generateUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
+import { isFatalEmailCode } from "@/lib/email/send";
+import { log } from "@/lib/log";
+import type { SectionRef } from "@/lib/section-ref";
+import { escapeHtml } from "@/lib/utils/escape-html";
+import type { ClassWatcher } from "@/lib/db/queries";
+import { buildClassEmailShell } from "./index";
 
 export interface BuildAutoCleanupRemovedEmailParams {
   classNbr: string;
@@ -29,19 +29,19 @@ export interface AutoCleanupRemovedEmail {
 }
 
 export function buildAutoCleanupRemovedEmail(
-  params: BuildAutoCleanupRemovedEmailParams
+  params: BuildAutoCleanupRemovedEmailParams,
 ): AutoCleanupRemovedEmail {
   const { classNbr, term, subject, catalogNbr, title, unsubscribeUrl } = params;
 
   const safeClassNbr = escapeHtml(classNbr);
   const safeTerm = escapeHtml(term);
-  const safeSubject = subject ? escapeHtml(subject) : '';
-  const safeCatalogNbr = catalogNbr ? escapeHtml(catalogNbr) : '';
-  const safeTitle = title ? escapeHtml(title) : '';
+  const safeSubject = subject ? escapeHtml(subject) : "";
+  const safeCatalogNbr = catalogNbr ? escapeHtml(catalogNbr) : "";
+  const safeTitle = title ? escapeHtml(title) : "";
 
-  const rawSubject = subject?.trim() || '';
-  const rawCatalog = catalogNbr?.trim() || '';
-  const rawTitle = title?.trim() || '';
+  const rawSubject = subject?.trim() || "";
+  const rawCatalog = catalogNbr?.trim() || "";
+  const rawTitle = title?.trim() || "";
 
   const rawLabel = rawSubject
     ? rawCatalog
@@ -51,12 +51,12 @@ export function buildAutoCleanupRemovedEmail(
       ? `${rawCatalog} ${classNbr}`
       : classNbr;
 
-  const rawIdentifier = (catalogNbr || classNbr).replace(/[<>"'&]/g, '');
+  const rawIdentifier = (catalogNbr || classNbr).replace(/[<>"'&]/g, "");
 
   const emailSubject = `Watched class ${rawIdentifier} removed — no longer in ASU catalog`;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
-  const dashboardUrl = `${siteUrl.replace(/\/+$/, '')}/dashboard`;
+  const dashboardUrl = `${siteUrl.replace(/\/+$/, "")}/dashboard`;
   const safeDashboardUrl = escapeHtml(dashboardUrl);
 
   const classLabel =
@@ -64,7 +64,7 @@ export function buildAutoCleanupRemovedEmail(
       ? `${safeSubject} ${safeCatalogNbr}`
       : safeSubject || safeCatalogNbr || safeClassNbr;
 
-  const titleLine = safeTitle ? `: ${safeTitle}` : '';
+  const titleLine = safeTitle ? `: ${safeTitle}` : "";
 
   const bodyHtml = `
     <p style="font-size: 16px; margin-top: 0;">
@@ -84,7 +84,7 @@ export function buildAutoCleanupRemovedEmail(
       ${
         safeTitle
           ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;"><strong>Title:</strong> ${safeTitle}</p>`
-          : ''
+          : ""
       }
     </div>
 
@@ -107,7 +107,7 @@ export function buildAutoCleanupRemovedEmail(
   const preheader = `Watched class ${rawIdentifier} was removed — no longer in ASU catalog`;
 
   const html = buildClassEmailShell({
-    variant: 'removed',
+    variant: "removed",
     title: escapeHtml(emailSubject),
     unsubscribeUrl,
     bodyHtml,
@@ -117,7 +117,7 @@ export function buildAutoCleanupRemovedEmail(
   const textLines = [
     `A class you were watching is no longer listed in the ASU catalog.`,
     ``,
-    `${rawLabel}${rawTitle ? `: ${rawTitle}` : ''}`,
+    `${rawLabel}${rawTitle ? `: ${rawTitle}` : ""}`,
     `Section: ${classNbr}`,
     `Term: ${term}`,
     ...(rawTitle ? [`Title: ${rawTitle}`] : []),
@@ -128,15 +128,15 @@ export function buildAutoCleanupRemovedEmail(
   ];
 
   if (unsubscribeUrl) {
-    textLines.push('', `Unsubscribe: ${unsubscribeUrl}`);
+    textLines.push("", `Unsubscribe: ${unsubscribeUrl}`);
   }
 
   textLines.push(
-    '',
-    `You're receiving this email because you're watching this class on PickMyClass.`
+    "",
+    `You're receiving this email because you're watching this class on PickMyClass.`,
   );
 
-  const text = textLines.join('\n');
+  const text = textLines.join("\n");
 
   return {
     html,
@@ -163,27 +163,27 @@ export async function sendAutoCleanupRemovalEmails(
     watchers: ClassWatcher[];
   },
   emailBinding: SendEmail,
-  fromEmail?: string
+  fromEmail?: string,
 ): Promise<AutoCleanupSendResult[]> {
   const { ref, classInfo } = params;
   let watchers = params.watchers;
   const from = fromEmail || NOTIFICATION_FROM_EMAIL;
 
   if (watchers.length === 0) {
-    log('Email').info(`Auto-cleanup: no watchers to notify for ${ref.term}:${ref.class_nbr}`);
+    log("Email").info(`Auto-cleanup: no watchers to notify for ${ref.term}:${ref.class_nbr}`);
 
     return [];
   }
 
   if (watchers.length > AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE) {
-    log('Email').warn(
-      `Auto-cleanup cap: ${watchers.length} watchers for ${ref.term}:${ref.class_nbr} exceeds cap ${AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE}, truncating`
+    log("Email").warn(
+      `Auto-cleanup cap: ${watchers.length} watchers for ${ref.term}:${ref.class_nbr} exceeds cap ${AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE}, truncating`,
     );
     watchers = watchers.slice(0, AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE);
   }
 
-  log('Email').info(
-    `Auto-cleanup: notifying ${watchers.length} watcher(s) for removed section ${ref.term}:${ref.class_nbr}`
+  log("Email").info(
+    `Auto-cleanup: notifying ${watchers.length} watcher(s) for removed section ${ref.term}:${ref.class_nbr}`,
   );
 
   const results: AutoCleanupSendResult[] = [];
@@ -209,8 +209,8 @@ export async function sendAutoCleanupRemovalEmails(
         html: built.html,
         text: built.text,
         headers: {
-          'List-Unsubscribe': `<${unsubscribeUrl}>`,
-          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          "List-Unsubscribe": `<${unsubscribeUrl}>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         },
       });
 
@@ -218,11 +218,11 @@ export async function sendAutoCleanupRemovalEmails(
     } catch (error) {
       // SAFETY: unknown catch shape narrowed to optional code/message; fallback preserves invariant
       const errorObj = error as { code?: string; message?: string };
-      const errorMessage = errorObj.message || 'Email send failed';
-      const errorCode = errorObj.code || 'UNKNOWN';
+      const errorMessage = errorObj.message || "Email send failed";
+      const errorCode = errorObj.code || "UNKNOWN";
 
-      log('Email').error(
-        `Failed to send auto-cleanup email to ${watcher.email}: ${errorCode} - ${errorMessage}`
+      log("Email").error(
+        `Failed to send auto-cleanup email to ${watcher.email}: ${errorCode} - ${errorMessage}`,
       );
 
       results.push({
@@ -243,8 +243,8 @@ export async function sendAutoCleanupRemovalEmails(
           });
         }
 
-        log('Email').warn(
-          `Stopped auto-cleanup batch after ${errorCode} at email ${i + 1}/${watchers.length}`
+        log("Email").warn(
+          `Stopped auto-cleanup batch after ${errorCode} at email ${i + 1}/${watchers.length}`,
         );
         break;
       }
@@ -260,8 +260,8 @@ export async function sendAutoCleanupRemovalEmails(
   }
 
   const successCount = results.filter((r) => r.success).length;
-  log('Email').info(
-    `Auto-cleanup batch complete: ${successCount}/${watchers.length} sent successfully`
+  log("Email").info(
+    `Auto-cleanup batch complete: ${successCount}/${watchers.length} sent successfully`,
   );
 
   return results;

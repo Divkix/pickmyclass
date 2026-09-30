@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { captureAnalyticsError } from '@/lib/analytics/client';
-import { Header } from '@/components/Header';
-import { Button } from '@/components/ui/button';
-import { log } from '@/lib/log';
+import { useEffect } from "react";
+import { captureAnalyticsError } from "@/lib/analytics/client";
+import { Header } from "@/components/Header";
+import { Button } from "@/components/ui/button";
+import { log } from "@/lib/log";
 
 export default function ErrorPage({
   error,
@@ -14,8 +14,8 @@ export default function ErrorPage({
   reset: () => void;
 }) {
   useEffect(() => {
-    log('ErrorBoundary').error('Unhandled error:', error);
-    captureAnalyticsError(error, { boundary: 'app' });
+    log("ErrorBoundary").error("Unhandled error:", error);
+    captureAnalyticsError(error, { boundary: "app" });
   }, [error]);
 
   return (

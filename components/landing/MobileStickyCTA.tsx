@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export function MobileStickyCTA() {
   const [showCTA, setShowCTA] = useState(false);
@@ -12,9 +12,9 @@ export function MobileStickyCTA() {
       setShowCTA(window.scrollY > 500);
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
 
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   if (!showCTA) return null;

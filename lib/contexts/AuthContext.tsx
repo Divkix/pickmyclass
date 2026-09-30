@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useAuth as useClerkAuth, useClerk, useUser } from '@clerk/react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import { useAuth as useClerkAuth, useClerk, useUser } from "@clerk/react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import {
   identifyAnalyticsUser,
   resetAnalyticsIdentity,
   trackAnalyticsEvent,
-} from '@/lib/analytics/client';
-import { log } from '@/lib/log';
+} from "@/lib/analytics/client";
+import { log } from "@/lib/log";
 
 interface CompatUser {
   id: string;
@@ -44,19 +44,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: clerkUser.id,
             email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
             email_confirmed_at:
-              clerkUser.primaryEmailAddress?.verification.status === 'verified'
+              clerkUser.primaryEmailAddress?.verification.status === "verified"
                 ? (clerkUser.createdAt?.toISOString() ?? new Date().toISOString())
                 : null,
             created_at: clerkUser.createdAt?.toISOString(),
             last_sign_in_at: clerkUser.lastSignInAt?.toISOString() ?? null,
           }
         : null,
-    [clerkUser]
+    [clerkUser],
   );
 
   const compatSession: CompatSession | null = useMemo(
     () => (sessionId ? { id: sessionId } : null),
-    [sessionId]
+    [sessionId],
   );
 
   const analyticsUserId = clerkUser ? (clerkUser.externalId ?? clerkUser.id) : null;
@@ -78,20 +78,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     try {
-      trackAnalyticsEvent('user_logged_out', {});
+      trackAnalyticsEvent("user_logged_out", {});
       resetAnalyticsIdentity();
       wasIdentified.current = false;
       await clerk.signOut();
-      await fetch('/api/auth/signout', { method: 'POST' });
+      await fetch("/api/auth/signout", { method: "POST" });
     } catch (error) {
-      log('AuthContext').error('Sign-out failed:', error);
+      log("AuthContext").error("Sign-out failed:", error);
       throw error;
     }
   }, [clerk]);
 
   const value = useMemo(
     () => ({ user: compatUser, session: compatSession, loading, signOut }),
-    [compatUser, compatSession, loading, signOut]
+    [compatUser, compatSession, loading, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -101,7 +101,7 @@ export function useAuth() {
   const context = useContext(AuthContext);
 
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
 
   return context;

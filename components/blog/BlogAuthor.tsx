@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface BlogAuthorProps {
   name: string;
@@ -13,9 +13,9 @@ export function BlogAuthor({ name, title, bio, year }: BlogAuthorProps) {
       <Avatar className="size-12">
         <AvatarFallback className="bg-primary/10 text-primary font-semibold">
           {name
-            .split(' ')
+            .split(" ")
             .map((n) => n[0])
-            .join('')}
+            .join("")}
         </AvatarFallback>
       </Avatar>
       <div className="flex-1">

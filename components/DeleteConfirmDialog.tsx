@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { AlertTriangle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 
 interface DeleteConfirmDialogProps {
   open: boolean;
@@ -28,8 +28,8 @@ export function DeleteConfirmDialog({
   onConfirm,
   title,
   description,
-  confirmText = 'Delete',
-  cancelText = 'Cancel',
+  confirmText = "Delete",
+  cancelText = "Cancel",
   isDeleting = false,
 }: DeleteConfirmDialogProps) {
   const handleConfirm = async () => {
@@ -63,7 +63,7 @@ export function DeleteConfirmDialog({
             {cancelText}
           </Button>
           <Button type="button" variant="destructive" onClick={handleConfirm} disabled={isDeleting}>
-            {isDeleting ? 'Deleting...' : confirmText}
+            {isDeleting ? "Deleting..." : confirmText}
           </Button>
         </DialogFooter>
       </DialogContent>

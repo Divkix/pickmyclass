@@ -1,17 +1,17 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import type { AnchorHTMLAttributes, ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { SortableHeader } from '@/components/admin/SortableHeader';
-import { ClassesTable } from '@/components/admin/ClassesTable';
-import { UsersTable } from '@/components/admin/UsersTable';
-import type { ClassWithWatchers, UserWithWatchCount } from '@/lib/db/admin-queries';
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { SortableHeader } from "@/components/admin/SortableHeader";
+import { ClassesTable } from "@/components/admin/ClassesTable";
+import { UsersTable } from "@/components/admin/UsersTable";
+import type { ClassWithWatchers, UserWithWatchCount } from "@/lib/db/admin-queries";
 
 const { mockPush, mockSearchParams } = vi.hoisted(() => ({
   mockPush: vi.fn<(url: string) => void>(),
   mockSearchParams: new URLSearchParams(),
 }));
 
-vi.mock('next/link', () => ({
+vi.mock("next/link", () => ({
   default: ({
     href,
     children,
@@ -31,42 +31,42 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('next/navigation', () => ({
+vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
   }),
-  usePathname: () => '/admin/classes',
+  usePathname: () => "/admin/classes",
   useSearchParams: () => mockSearchParams,
 }));
 
-vi.mock('@/components/admin/ClassesTableFilters', () => ({
+vi.mock("@/components/admin/ClassesTableFilters", () => ({
   ClassesTableFiltersComponent: ({
     onNavigate,
   }: {
     onNavigate: (updates: Record<string, string>) => void;
   }) => (
     <div>
-      <button type="button" onClick={() => onNavigate({ search: 'zzzz' })}>
+      <button type="button" onClick={() => onNavigate({ search: "zzzz" })}>
         class search miss
       </button>
-      <button type="button" onClick={() => onNavigate({ subject: 'MAT' })}>
+      <button type="button" onClick={() => onNavigate({ subject: "MAT" })}>
         subject mat
       </button>
     </div>
   ),
 }));
 
-vi.mock('@/components/admin/UsersTableFilters', () => ({
+vi.mock("@/components/admin/UsersTableFilters", () => ({
   UsersTableFiltersComponent: ({
     onNavigate,
   }: {
     onNavigate: (updates: Record<string, string>) => void;
   }) => (
     <div>
-      <button type="button" onClick={() => onNavigate({ search: 'missing' })}>
+      <button type="button" onClick={() => onNavigate({ search: "missing" })}>
         user search miss
       </button>
-      <button type="button" onClick={() => onNavigate({ role: 'admin' })}>
+      <button type="button" onClick={() => onNavigate({ role: "admin" })}>
         role admin
       </button>
     </div>
@@ -77,43 +77,43 @@ const defaultClassProps = {
   total: 0,
   page: 1,
   pageSize: 25,
-  subjects: ['CSE', 'MAT', 'BIO', 'PHY'],
-  sort: 'watcher_count' as const,
-  dir: 'desc' as const,
-  search: '',
-  subject: 'all',
-  seatStatus: 'all' as const,
-  instructor: 'all' as const,
-  watcherCount: 'all' as const,
+  subjects: ["CSE", "MAT", "BIO", "PHY"],
+  sort: "watcher_count" as const,
+  dir: "desc" as const,
+  search: "",
+  subject: "all",
+  seatStatus: "all" as const,
+  instructor: "all" as const,
+  watcherCount: "all" as const,
 };
 
 const defaultUserProps = {
   total: 0,
   page: 1,
   pageSize: 25,
-  sort: 'created_at' as const,
-  dir: 'desc' as const,
-  search: '',
-  role: 'all' as const,
-  verified: 'all' as const,
-  watchCount: 'all' as const,
+  sort: "created_at" as const,
+  dir: "desc" as const,
+  search: "",
+  role: "all" as const,
+  verified: "all" as const,
+  watchCount: "all" as const,
 };
 
 const classes: ClassWithWatchers[] = [
   {
-    id: 'class-1',
-    class_nbr: '12345',
-    term: '2261',
-    subject: 'CSE',
-    catalog_nbr: '240',
-    title: 'Intro to Programming',
-    instructor_name: 'Dr. Smith',
+    id: "class-1",
+    class_nbr: "12345",
+    term: "2261",
+    subject: "CSE",
+    catalog_nbr: "240",
+    title: "Intro to Programming",
+    instructor_name: "Dr. Smith",
     seats_available: 25,
     seats_capacity: 100,
     non_reserved_seats: 20,
     consecutive_not_found_count: 0,
-    location: 'Tempe',
-    meeting_times: 'MWF',
+    location: "Tempe",
+    meeting_times: "MWF",
     last_checked_at: new Date(Date.now() - 60_000).toISOString(),
     last_changed_at: new Date(Date.now() - 60_000).toISOString(),
     watcher_count: 3,
@@ -121,13 +121,13 @@ const classes: ClassWithWatchers[] = [
     instructor_emails: 1,
   },
   {
-    id: 'class-2',
-    class_nbr: '23456',
-    term: '2261',
-    subject: 'MAT',
-    catalog_nbr: '265',
-    title: 'Calculus I',
-    instructor_name: 'Staff',
+    id: "class-2",
+    class_nbr: "23456",
+    term: "2261",
+    subject: "MAT",
+    catalog_nbr: "265",
+    title: "Calculus I",
+    instructor_name: "Staff",
     seats_available: 0,
     seats_capacity: 80,
     non_reserved_seats: 0,
@@ -144,157 +144,157 @@ const classes: ClassWithWatchers[] = [
 
 const users: UserWithWatchCount[] = [
   {
-    id: 'admin-1',
-    email: 'admin@example.com',
+    id: "admin-1",
+    email: "admin@example.com",
     created_at: new Date(Date.now() - 86_400_000).toISOString(),
     last_sign_in_at: new Date(Date.now() - 60_000).toISOString(),
-    email_confirmed_at: '2026-05-02T00:00:00Z',
+    email_confirmed_at: "2026-05-02T00:00:00Z",
     watch_count: 0,
     is_admin: true,
     seat_emails: 0,
     instructor_emails: 0,
-    notification_status: 'active',
+    notification_status: "active",
   },
   {
-    id: 'user-1',
-    email: 'student@example.com',
-    created_at: '2026-05-01T00:00:00Z',
+    id: "user-1",
+    email: "student@example.com",
+    created_at: "2026-05-01T00:00:00Z",
     last_sign_in_at: null,
     email_confirmed_at: null,
     watch_count: 3,
     is_admin: false,
     seat_emails: 4,
     instructor_emails: 1,
-    notification_status: 'bounced',
+    notification_status: "bounced",
   },
 ];
 
-describe('admin table components (server-driven)', () => {
+describe("admin table components (server-driven)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders the empty classes state when no rows and no active filters', () => {
+  it("renders the empty classes state when no rows and no active filters", () => {
     render(<ClassesTable {...defaultClassProps} classes={[]} />);
-    expect(screen.getByText('No classes found')).toBeInTheDocument();
+    expect(screen.getByText("No classes found")).toBeInTheDocument();
   });
 
-  it('renders provided class rows and shows correct count text', () => {
+  it("renders provided class rows and shows correct count text", () => {
     render(<ClassesTable {...defaultClassProps} classes={classes} total={2} />);
 
-    expect(screen.getByText('Intro to Programming')).toBeInTheDocument();
-    expect(screen.getByText('Calculus I')).toBeInTheDocument();
-    expect(screen.getByText('Showing 1–2 of 2 classes')).toBeInTheDocument();
+    expect(screen.getByText("Intro to Programming")).toBeInTheDocument();
+    expect(screen.getByText("Calculus I")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–2 of 2 classes")).toBeInTheDocument();
   });
 
-  it('navigates to class detail page on row click', () => {
+  it("navigates to class detail page on row click", () => {
     render(<ClassesTable {...defaultClassProps} classes={classes} total={2} />);
 
     // SAFETY: rows render through TableRow, whose root element is <tr> — components/ui/table.tsx:35.
-    fireEvent.click(screen.getByText('Calculus I').closest('tr') as HTMLTableRowElement);
-    expect(mockPush).toHaveBeenCalledWith('/admin/classes/2261/23456');
+    fireEvent.click(screen.getByText("Calculus I").closest("tr") as HTMLTableRowElement);
+    expect(mockPush).toHaveBeenCalledWith("/admin/classes/2261/23456");
   });
 
-  it('sort header clicks update URL searchParams', () => {
+  it("sort header clicks update URL searchParams", () => {
     render(<ClassesTable {...defaultClassProps} classes={classes} total={2} />);
 
-    fireEvent.click(screen.getByText('Class #'));
+    fireEvent.click(screen.getByText("Class #"));
     expect(mockPush).toHaveBeenCalled();
     const callArg: string = mockPush.mock.calls[0][0];
-    expect(callArg).toContain('sort=class_nbr');
+    expect(callArg).toContain("sort=class_nbr");
   });
 
-  it('shows no-results row when classes array is empty but filters are active', () => {
+  it("shows no-results row when classes array is empty but filters are active", () => {
     render(<ClassesTable {...defaultClassProps} classes={[]} total={0} search="zzzz" />);
-    const matches = screen.getAllByText('No classes match the selected filters');
+    const matches = screen.getAllByText("No classes match the selected filters");
     expect(matches.length).toBeGreaterThanOrEqual(1);
     expect(matches[0]).toBeInTheDocument();
   });
 
-  it('renders pagination controls when totalPages > 1', () => {
+  it("renders pagination controls when totalPages > 1", () => {
     render(
-      <ClassesTable {...defaultClassProps} classes={classes} total={50} page={1} pageSize={25} />
+      <ClassesTable {...defaultClassProps} classes={classes} total={50} page={1} pageSize={25} />,
     );
-    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
   });
 
-  it('filter component onNavigate triggers router.push', () => {
+  it("filter component onNavigate triggers router.push", () => {
     render(<ClassesTable {...defaultClassProps} classes={classes} total={2} />);
 
-    fireEvent.click(screen.getByText('subject mat'));
+    fireEvent.click(screen.getByText("subject mat"));
     expect(mockPush).toHaveBeenCalled();
     const callArg: string = mockPush.mock.calls[0][0];
-    expect(callArg).toContain('subject=MAT');
+    expect(callArg).toContain("subject=MAT");
   });
 
-  it('renders provided user rows and shows correct count text', () => {
+  it("renders provided user rows and shows correct count text", () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
 
-    expect(screen.getByText('admin@example.com')).toBeInTheDocument();
-    expect(screen.getByText('student@example.com')).toBeInTheDocument();
-    expect(screen.getByText('Showing 1–2 of 2 users')).toBeInTheDocument();
+    expect(screen.getByText("admin@example.com")).toBeInTheDocument();
+    expect(screen.getByText("student@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–2 of 2 users")).toBeInTheDocument();
   });
 
-  it('renders empty state when no users found', () => {
+  it("renders empty state when no users found", () => {
     render(<UsersTable {...defaultUserProps} users={[]} total={0} />);
-    const matches = screen.getAllByText('No users found');
+    const matches = screen.getAllByText("No users found");
     expect(matches.length).toBeGreaterThanOrEqual(1);
     expect(matches[0]).toBeInTheDocument();
   });
 
-  it('navigates to user detail page on row click', () => {
+  it("navigates to user detail page on row click", () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
 
     // SAFETY: rows render through TableRow, whose root element is <tr> — components/ui/table.tsx:35.
-    fireEvent.click(screen.getByText('student@example.com').closest('tr') as HTMLTableRowElement);
-    expect(mockPush).toHaveBeenCalledWith('/admin/users/user-1');
+    fireEvent.click(screen.getByText("student@example.com").closest("tr") as HTMLTableRowElement);
+    expect(mockPush).toHaveBeenCalledWith("/admin/users/user-1");
   });
 
-  it('does not navigate on email link click (stopPropagation)', () => {
+  it("does not navigate on email link click (stopPropagation)", () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
 
-    fireEvent.click(screen.getByText('student@example.com'));
-    const calls = mockPush.mock.calls.filter((c: string[]) => c[0]?.includes('/admin/users/'));
+    fireEvent.click(screen.getByText("student@example.com"));
+    const calls = mockPush.mock.calls.filter((c: string[]) => c[0]?.includes("/admin/users/"));
     expect(calls.length).toBe(0);
   });
 
-  it('sort header clicks update URL searchParams', () => {
+  it("sort header clicks update URL searchParams", () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
 
-    fireEvent.click(screen.getByText('Email'));
+    fireEvent.click(screen.getByText("Email"));
     expect(mockPush).toHaveBeenCalled();
     const callArg: string = mockPush.mock.calls[0][0];
-    expect(callArg).toContain('sort=email');
+    expect(callArg).toContain("sort=email");
   });
 
-  it('shows Admin badge for admin users', () => {
+  it("shows Admin badge for admin users", () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
-    expect(screen.getByText('Admin')).toBeInTheDocument();
+    expect(screen.getByText("Admin")).toBeInTheDocument();
   });
 
-  it('shows the notification delivery status', () => {
+  it("shows the notification delivery status", () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
-    expect(screen.getByText('Bounced')).toBeInTheDocument();
+    expect(screen.getByText("Bounced")).toBeInTheDocument();
   });
 
-  it('filter component onNavigate triggers router.push', () => {
+  it("filter component onNavigate triggers router.push", () => {
     render(<UsersTable {...defaultUserProps} users={users} total={2} />);
 
-    fireEvent.click(screen.getByText('role admin'));
+    fireEvent.click(screen.getByText("role admin"));
     expect(mockPush).toHaveBeenCalled();
     const callArg: string = mockPush.mock.calls[0][0];
-    expect(callArg).toContain('role=admin');
+    expect(callArg).toContain("role=admin");
   });
 
-  it('renders pagination controls when totalPages > 1', () => {
+  it("renders pagination controls when totalPages > 1", () => {
     render(<UsersTable {...defaultUserProps} users={users} total={50} page={1} pageSize={25} />);
-    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
   });
 
-  describe('SortableHeader', () => {
-    it('calls toggleSort on click', () => {
+  describe("SortableHeader", () => {
+    it("calls toggleSort on click", () => {
       const toggleSort = vi.fn();
       const renderSortIcon = vi.fn(() => null);
 
@@ -310,15 +310,15 @@ describe('admin table components (server-driven)', () => {
               />
             </tr>
           </thead>
-        </table>
+        </table>,
       );
 
-      fireEvent.click(screen.getByText('Email'));
-      expect(toggleSort).toHaveBeenCalledWith('email');
-      expect(renderSortIcon).toHaveBeenCalledWith('email');
+      fireEvent.click(screen.getByText("Email"));
+      expect(toggleSort).toHaveBeenCalledWith("email");
+      expect(renderSortIcon).toHaveBeenCalledWith("email");
     });
 
-    it('renders children icons and the sort icon', () => {
+    it("renders children icons and the sort icon", () => {
       const toggleSort = vi.fn();
       const renderSortIcon = vi.fn(() => <span data-testid="sort-icon" />);
 
@@ -337,12 +337,12 @@ describe('admin table components (server-driven)', () => {
               </SortableHeader>
             </tr>
           </thead>
-        </table>
+        </table>,
       );
 
-      expect(screen.getByTestId('col-icon')).toBeInTheDocument();
-      expect(screen.getByTestId('sort-icon')).toBeInTheDocument();
-      expect(screen.getByText('Watchers')).toBeInTheDocument();
+      expect(screen.getByTestId("col-icon")).toBeInTheDocument();
+      expect(screen.getByTestId("sort-icon")).toBeInTheDocument();
+      expect(screen.getByText("Watchers")).toBeInTheDocument();
     });
   });
 });

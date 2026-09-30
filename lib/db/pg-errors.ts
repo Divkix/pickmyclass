@@ -14,7 +14,7 @@
  *
  * @module lib/db/pg-errors
  */
-import { z } from 'zod';
+import { z } from "zod";
 
 const pgErrorSchema = z.object({
   code: z.string(),
@@ -29,11 +29,11 @@ const errorMessageSchema = z.object({
   message: z.string(),
 });
 
-export const PG_UNIQUE_VIOLATION = '23505';
+export const PG_UNIQUE_VIOLATION = "23505";
 
-export const PG_RAISE_EXCEPTION = 'P0001';
+export const PG_RAISE_EXCEPTION = "P0001";
 
-export const PG_UNDEFINED_FUNCTION = '42883';
+export const PG_UNDEFINED_FUNCTION = "42883";
 
 interface StatementFailure {
   query: unknown;
@@ -89,7 +89,7 @@ export function isUniqueViolation(cause: unknown): boolean {
   if (pgError?.code === PG_UNIQUE_VIOLATION) return true;
   const parsedMessage = errorMessageSchema.safeParse(leaf);
 
-  return parsedMessage.success && parsedMessage.data.message.includes('duplicate key value');
+  return parsedMessage.success && parsedMessage.data.message.includes("duplicate key value");
 }
 
 export function isRaisedException(cause: unknown): boolean {

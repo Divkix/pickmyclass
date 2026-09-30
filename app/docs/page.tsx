@@ -1,6 +1,6 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Header } from '@/components/Header';
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Header } from "@/components/Header";
 
 interface Resource {
   path: string;
@@ -10,77 +10,77 @@ interface Resource {
 
 const resources: Resource[] = [
   {
-    path: '/llms.txt',
-    title: 'llms.txt',
+    path: "/llms.txt",
+    title: "llms.txt",
     returns:
-      'A short Markdown index for agents: what PickMyClass is, the product facts, key pages, the situations it matches, and this resource list.',
+      "A short Markdown index for agents: what PickMyClass is, the product facts, key pages, the situations it matches, and this resource list.",
   },
   {
-    path: '/llms-full.txt',
-    title: 'llms-full.txt',
+    path: "/llms-full.txt",
+    title: "llms-full.txt",
     returns:
-      'The full Markdown corpus of the public guides and pages for agents that want everything in one fetch instead of crawling page by page.',
+      "The full Markdown corpus of the public guides and pages for agents that want everything in one fetch instead of crawling page by page.",
   },
   {
-    path: '/sitemap.xml',
-    title: 'sitemap.xml',
+    path: "/sitemap.xml",
+    title: "sitemap.xml",
     returns:
-      'Every indexable URL with a last-modified date, the canonical list of pages a crawler should visit.',
+      "Every indexable URL with a last-modified date, the canonical list of pages a crawler should visit.",
   },
   {
-    path: '/pricing.md',
-    title: 'pricing.md',
+    path: "/pricing.md",
+    title: "pricing.md",
     returns:
-      'Machine-readable pricing: PickMyClass is free, with no paid tier, no ads, and no upsells to compare against.',
+      "Machine-readable pricing: PickMyClass is free, with no paid tier, no ads, and no upsells to compare against.",
   },
   {
-    path: '/blog/feed.xml',
-    title: 'blog/feed.xml',
+    path: "/blog/feed.xml",
+    title: "blog/feed.xml",
     returns:
-      'An RSS 2.0 feed of the blog, with titles, descriptions, links, and publication dates for ASU registration guides.',
+      "An RSS 2.0 feed of the blog, with titles, descriptions, links, and publication dates for ASU registration guides.",
   },
   {
-    path: '/api/monitoring/health',
-    title: 'api/monitoring/health',
+    path: "/api/monitoring/health",
+    title: "api/monitoring/health",
     returns:
       'A public JSON liveness check. An unauthenticated request answers 200 with { "status": "ok" }; the detailed dependency report behind it is reserved for the operator.',
   },
   {
-    path: '/openapi.json',
-    title: 'openapi.json',
+    path: "/openapi.json",
+    title: "openapi.json",
     returns:
-      'An OpenAPI 3.1 description of the public API: the health endpoint, its response schema, and the JSON error shape every API routing failure returns.',
+      "An OpenAPI 3.1 description of the public API: the health endpoint, its response schema, and the JSON error shape every API routing failure returns.",
   },
   {
-    path: '/.well-known/security.txt',
-    title: '.well-known/security.txt',
-    returns: 'The RFC 9116 security contact for reporting a vulnerability in the service.',
+    path: "/.well-known/security.txt",
+    title: ".well-known/security.txt",
+    returns: "The RFC 9116 security contact for reporting a vulnerability in the service.",
   },
 ];
 
 export const metadata: Metadata = {
-  title: { absolute: 'PickMyClass Developer & Agent Resources' },
+  title: { absolute: "PickMyClass Developer & Agent Resources" },
   description:
-    'Machine-readable PickMyClass surfaces for agents and crawlers: llms.txt, llms-full.txt, sitemap.xml, pricing.md, the blog RSS feed, and a health endpoint.',
+    "Machine-readable PickMyClass surfaces for agents and crawlers: llms.txt, llms-full.txt, sitemap.xml, pricing.md, the blog RSS feed, and a health endpoint.",
   alternates: {
-    canonical: '/docs',
+    canonical: "/docs",
   },
   openGraph: {
-    title: 'PickMyClass Developer & Agent Resources',
+    title: "PickMyClass Developer & Agent Resources",
     description:
-      'Machine-readable surfaces for the PickMyClass ASU class seat tracker, what each one returns, and how watch management works without a public API.',
-    type: 'website',
-    url: '/docs',
-    images: ['/og-image.png'],
+      "Machine-readable surfaces for the PickMyClass ASU class seat tracker, what each one returns, and how watch management works without a public API.",
+    type: "website",
+    url: "/docs",
+    images: ["/og-image.png"],
   },
   twitter: {
-    title: 'PickMyClass Developer & Agent Resources',
+    title: "PickMyClass Developer & Agent Resources",
     description:
-      'Machine-readable surfaces for the PickMyClass ASU class seat tracker, what each one returns, and how watch management works without a public API.',
+      "Machine-readable surfaces for the PickMyClass ASU class seat tracker, what each one returns, and how watch management works without a public API.",
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 export default function DocsPage() {
   return (
@@ -99,11 +99,11 @@ export default function DocsPage() {
           </div>
 
           <p className="text-muted-foreground leading-relaxed">
-            Every page on this site is also available as Markdown: send{' '}
+            Every page on this site is also available as Markdown: send{" "}
             <code className="text-sm">Accept: text/markdown</code> and the same server-rendered page
             comes back as <code className="text-sm">text/markdown; charset=utf-8</code>. The same
             Markdown is also served at the page&apos;s <code className="text-sm">.md</code> URL (
-            <code className="text-sm">/index.md</code> for the homepage,{' '}
+            <code className="text-sm">/index.md</code> for the homepage,{" "}
             <code className="text-sm">/faq.md</code> for the FAQ), and HTML responses advertise it
             in the <code className="text-sm">Link</code> header. The files below are the curated
             surfaces, and each one is stable enough to fetch directly.
@@ -142,12 +142,12 @@ export default function DocsPage() {
             API versioning and deprecation
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            The public API is versioned in the URL path:{' '}
-            <code className="text-sm">/api/v1/monitoring/health</code> is the current version, and{' '}
+            The public API is versioned in the URL path:{" "}
+            <code className="text-sm">/api/v1/monitoring/health</code> is the current version, and{" "}
             <code className="text-sm">/api/monitoring/health</code> answers identically as a stable
             unversioned alias. A breaking change ships as a new path version, the previous version
-            keeps answering, and an endpoint on its way out reports{' '}
-            <code className="text-sm">Deprecation</code> and <code className="text-sm">Sunset</code>{' '}
+            keeps answering, and an endpoint on its way out reports{" "}
+            <code className="text-sm">Deprecation</code> and <code className="text-sm">Sunset</code>{" "}
             headers at least 90 days before it stops.
           </p>
 
@@ -157,7 +157,7 @@ export default function DocsPage() {
           <p className="text-muted-foreground leading-relaxed">
             PickMyClass has no public API for reading or changing a student&apos;s watches. Adding a
             class section, removing one, and reading watch state all sit behind a signed-in account
-            at{' '}
+            at{" "}
             <Link href="/sign-up" className="text-primary hover:text-primary/80">
               /sign-up
             </Link>
@@ -176,7 +176,7 @@ export default function DocsPage() {
 
           <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">Source repository</h2>
           <p className="text-muted-foreground leading-relaxed">
-            The whole service is open source at{' '}
+            The whole service is open source at{" "}
             <a
               href="https://github.com/Divkix/pickmyclass"
               target="_blank"
@@ -186,7 +186,7 @@ export default function DocsPage() {
               github.com/Divkix/pickmyclass
             </a>
             . The code is the specification: what is checked, how often, and what an alert contains.
-            Bugs, questions, and feature ideas belong in the{' '}
+            Bugs, questions, and feature ideas belong in the{" "}
             <a
               href="https://github.com/Divkix/pickmyclass/issues"
               target="_blank"
@@ -195,11 +195,11 @@ export default function DocsPage() {
             >
               issue tracker
             </a>
-            , and account-specific requests belong at{' '}
+            , and account-specific requests belong at{" "}
             <a href="mailto:support@pickmyclass.app" className="text-primary hover:text-primary/80">
               support@pickmyclass.app
-            </a>{' '}
-            or on the{' '}
+            </a>{" "}
+            or on the{" "}
             <Link href="/contact" className="text-primary hover:text-primary/80">
               contact page
             </Link>

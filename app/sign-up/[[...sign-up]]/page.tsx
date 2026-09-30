@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { SignUp } from '@clerk/react';
-import { Header } from '@/components/Header';
+import { SignUp } from "@clerk/react";
+import { Header } from "@/components/Header";
 
-const appearance = { variables: { colorPrimary: '#7a0019', colorBackground: '#fff8e7' } };
+const appearance = { variables: { colorPrimary: "#7a0019", colorBackground: "#fff8e7" } };
 
 export default function SignUpPage() {
   return (

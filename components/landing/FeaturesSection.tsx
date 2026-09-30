@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { m } from 'framer-motion';
-import { Bell, RefreshCw, TrendingUp, User } from 'lucide-react';
-import Link from 'next/link';
-import { fadeInUp, staggerContainer, staggerItem } from '@/lib/animations';
+import { m } from "framer-motion";
+import { Bell, RefreshCw, TrendingUp, User } from "lucide-react";
+import Link from "next/link";
+import { fadeInUp, staggerContainer, staggerItem } from "@/lib/animations";
 
 export function FeaturesSection() {
   return (
@@ -13,7 +13,7 @@ export function FeaturesSection() {
           className="mb-12 max-w-2xl"
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-100px' }}
+          viewport={{ once: true, margin: "-100px" }}
           variants={fadeInUp}
         >
           <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
@@ -29,7 +29,7 @@ export function FeaturesSection() {
           className="grid gap-4 md:grid-cols-3 md:grid-rows-2"
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-100px' }}
+          viewport={{ once: true, margin: "-100px" }}
           variants={staggerContainer}
         >
           <m.article
@@ -87,7 +87,7 @@ export function FeaturesSection() {
               <h3 className="text-lg font-semibold text-foreground">Beat the waitlist</h3>
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Someone drops? You know within 30 minutes — and register before the other 200 people
-                even check their inbox. If the section actually has a waitlist, start with the{' '}
+                even check their inbox. If the section actually has a waitlist, start with the{" "}
                 <Link
                   href="/blog/asu-waitlist-guide"
                   className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"

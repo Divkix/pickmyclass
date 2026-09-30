@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useCallback, useMemo, useState } from 'react';
-import { z } from 'zod';
-import type { AsuTerm } from '@/lib/asu/terms';
+import { useCallback, useMemo, useState } from "react";
+import { z } from "zod";
+import type { AsuTerm } from "@/lib/asu/terms";
 import {
   classWatchCreation,
   type ClassWatchCreationInput,
-} from '@/lib/class-watches/class-watch-creation';
-import type { ClassWatchRow } from '@/lib/types/class-watch';
+} from "@/lib/class-watches/class-watch-creation";
+import type { ClassWatchRow } from "@/lib/types/class-watch";
 
 // Partial on purpose: term elements validate only the fields TermSelect reads (code, label).
 const watchOptionsSchema = z.object({
@@ -34,15 +34,15 @@ export function useClassWatchForm(options: UseClassWatchFormOptions = {}) {
       }
 
       // SAFETY: narrowing mocked getOptions shape at boundary – fallback empty state for missing shape
-      return { terms: [] as AsuTerm[], defaultTerm: '' as string };
+      return { terms: [] as AsuTerm[], defaultTerm: "" as string };
     } catch {
       // SAFETY: narrowing mocked getOptions shape at boundary – fallback empty state on throw
-      return { terms: [] as AsuTerm[], defaultTerm: '' as string };
+      return { terms: [] as AsuTerm[], defaultTerm: "" as string };
     }
   }, []);
 
   const {
-    defaultClassNbr = '',
+    defaultClassNbr = "",
     defaultTerm = derivedDefaultTerm,
     onCreated,
     onSubmittingChange,
@@ -68,16 +68,16 @@ export function useClassWatchForm(options: UseClassWatchFormOptions = {}) {
 
         if (resetOnSuccess) {
           setTerm(derivedDefaultTerm);
-          setClassNbr('');
+          setClassNbr("");
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to add class watch');
+        setError(err instanceof Error ? err.message : "Failed to add class watch");
       } finally {
         setIsSubmitting(false);
         onSubmittingChange?.(false);
       }
     },
-    [term, classNbr, onCreated, onSubmittingChange, resetOnSuccess, derivedDefaultTerm]
+    [term, classNbr, onCreated, onSubmittingChange, resetOnSuccess, derivedDefaultTerm],
   );
 
   return {

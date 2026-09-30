@@ -1,12 +1,12 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-import { and, eq } from 'drizzle-orm';
-import { ArrowLeft, BookOpen, Calendar, Clock, MapPin, Users } from 'lucide-react';
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { and, eq } from "drizzle-orm";
+import { ArrowLeft, BookOpen, Calendar, Clock, MapPin, Users } from "lucide-react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -14,13 +14,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { verifyAdmin } from '@/lib/auth/admin';
-import { getDbFromEnv } from '@/lib/db';
-import { getClassWatchers, type ClassWatcher } from '@/lib/db/queries';
-import { classStates } from '@/lib/db/schema';
-import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
-import { formatAbsoluteDate, formatRelativeTime } from '@/lib/utils/time-format';
+} from "@/components/ui/table";
+import { verifyAdmin } from "@/lib/auth/admin";
+import { getDbFromEnv } from "@/lib/db";
+import { getClassWatchers, type ClassWatcher } from "@/lib/db/queries";
+import { classStates } from "@/lib/db/schema";
+import { getSeatBadgeVariant } from "@/lib/utils/seat-badge";
+import { formatAbsoluteDate, formatRelativeTime } from "@/lib/utils/time-format";
 
 interface AdminClassDetailPageProps {
   params: Promise<{
@@ -50,11 +50,11 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
 
   const formatDateTime = (timestamp: string): string => {
     return formatAbsoluteDate(timestamp, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -75,7 +75,7 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
             <h1 className="text-3xl font-semibold mb-2">
               {classState.subject} {classState.catalog_nbr}
             </h1>
-            <p className="text-muted-foreground text-lg">{classState.title || 'No title'}</p>
+            <p className="text-muted-foreground text-lg">{classState.title || "No title"}</p>
           </div>
           <Badge
             variant={getSeatBadgeVariant(classState.seats_available, classState.seats_capacity)}
@@ -113,7 +113,7 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
 
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-1">Instructor</div>
-                <div className="text-lg">{classState.instructor_name || 'Staff'}</div>
+                <div className="text-lg">{classState.instructor_name || "Staff"}</div>
               </div>
             </div>
 
@@ -232,7 +232,7 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
                       <code className="text-xs text-muted-foreground">{watcher.user_id}</code>
                     </TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
-                      {watcher.created_at ? formatDateTime(watcher.created_at) : '-'}
+                      {watcher.created_at ? formatDateTime(watcher.created_at) : "-"}
                     </TableCell>
                   </TableRow>
                 ))}

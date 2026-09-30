@@ -1,38 +1,38 @@
-import { TtlCache } from '@/lib/cache/ttl-cache';
-import { ASU_CACHE_TTL_MS } from '@/lib/config';
-import { buildUrl } from '@/lib/utils/url';
+import { TtlCache } from "@/lib/cache/ttl-cache";
+import { ASU_CACHE_TTL_MS } from "@/lib/config";
+import { buildUrl } from "@/lib/utils/url";
 
 export class ApiError extends Error {
   constructor(
     message: string,
-    public status?: number
+    public status?: number,
   ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
 export class AuthError extends ApiError {
   constructor(message: string) {
     super(message, 401);
-    this.name = 'AuthError';
+    this.name = "AuthError";
   }
 }
 
 export class RateLimitError extends ApiError {
   constructor(
     message: string,
-    public retryAfterSeconds?: number
+    public retryAfterSeconds?: number,
   ) {
     super(message, 429);
-    this.name = 'RateLimitError';
+    this.name = "RateLimitError";
   }
 }
 
 /** `Retry-After` as delta-seconds or an HTTP date; undefined when absent or unparseable. */
 export function parseRetryAfterSeconds(
   header: string | null,
-  now = Date.now()
+  now = Date.now(),
 ): number | undefined {
   if (!header) return undefined;
 
@@ -48,18 +48,18 @@ export function parseRetryAfterSeconds(
 export class NotFoundError extends ApiError {
   constructor(message: string) {
     super(message, 404);
-    this.name = 'NotFoundError';
+    this.name = "NotFoundError";
   }
 }
 
-import type { SectionRef } from '@/lib/section-ref';
-import { sectionRefKey } from '@/lib/section-ref';
-import type { ClassDetails } from '@/lib/types/class';
-import type { Env } from '@/lib/types/env';
+import type { SectionRef } from "@/lib/section-ref";
+import { sectionRefKey } from "@/lib/section-ref";
+import type { ClassDetails } from "@/lib/types/class";
+import type { Env } from "@/lib/types/env";
 
 export type { ClassDetails };
 
-type AsuApiEnv = Pick<Env, 'ASU_API_BASE_URL' | 'ASU_API_TOKEN'>;
+type AsuApiEnv = Pick<Env, "ASU_API_BASE_URL" | "ASU_API_TOKEN">;
 
 interface AsuApiClassItem {
   CLASSNBR: string;
@@ -89,7 +89,7 @@ interface AsuApiResponse {
   };
 }
 
-const CLASS_SEARCH_ENDPOINT_PATH = 'search/classes';
+const CLASS_SEARCH_ENDPOINT_PATH = "search/classes";
 
 const asuApiCache = new TtlCache<ClassDetails>(ASU_CACHE_TTL_MS, 1000);
 
@@ -98,10 +98,10 @@ export function clearAsuApiCache(): void {
 }
 
 function formatTime(time: string): string {
-  const [hourStr, minuteStr] = time.split(':');
+  const [hourStr, minuteStr] = time.split(":");
   let hour = Number.parseInt(hourStr, 10);
-  const minute = minuteStr || '00';
-  const period = hour >= 12 ? 'PM' : 'AM';
+  const minute = minuteStr || "00";
+  const period = hour >= 12 ? "PM" : "AM";
 
   if (hour === 0) hour = 12;
   else if (hour > 12) hour -= 12;
@@ -112,27 +112,27 @@ function formatTime(time: string): string {
 function composeMeetingTimes(item: AsuApiClassItem): string {
   const days: string[] = [];
 
-  if (item.MON === 'Y') days.push('M');
+  if (item.MON === "Y") days.push("M");
 
-  if (item.TUES === 'Y') days.push('Tu');
+  if (item.TUES === "Y") days.push("Tu");
 
-  if (item.WED === 'Y') days.push('W');
+  if (item.WED === "Y") days.push("W");
 
-  if (item.THURS === 'Y') days.push('Th');
+  if (item.THURS === "Y") days.push("Th");
 
-  if (item.FRI === 'Y') days.push('F');
+  if (item.FRI === "Y") days.push("F");
 
   if (days.length === 0 || !item.STARTTIME || !item.ENDTIME) {
-    return 'TBD';
+    return "TBD";
   }
 
-  return `${days.join('')} ${formatTime(item.STARTTIME)}-${formatTime(item.ENDTIME)}`;
+  return `${days.join("")} ${formatTime(item.STARTTIME)}-${formatTime(item.ENDTIME)}`;
 }
 
 function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
-  const rawCap = Number.parseInt(item.ENRLCAP || '0', 10);
-  const rawTot = Number.parseInt(item.ENRLTOT || '0', 10);
-  const rawWait = Number.parseInt(item.WAITTOT || '0', 10);
+  const rawCap = Number.parseInt(item.ENRLCAP || "0", 10);
+  const rawTot = Number.parseInt(item.ENRLTOT || "0", 10);
+  const rawWait = Number.parseInt(item.WAITTOT || "0", 10);
   const enrlCap = Number.isNaN(rawCap) ? 0 : rawCap;
   const enrlTot = Number.isNaN(rawTot) ? 0 : rawTot;
   const waitTot = Number.isNaN(rawWait) ? 0 : rawWait;
@@ -140,12 +140,12 @@ function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
   return {
     subject: item.SUBJECT,
     catalog_nbr: item.CATALOGNBR,
-    title: item.COURSETITLELONG || item.TITLE || 'Unknown',
-    instructor_name: item.INSTRUCTORSLIST?.[0] || 'Staff',
+    title: item.COURSETITLELONG || item.TITLE || "Unknown",
+    instructor_name: item.INSTRUCTORSLIST?.[0] || "Staff",
     seats_available: Math.max(0, enrlCap - enrlTot),
     seats_capacity: enrlCap,
     non_reserved_seats: Math.max(0, enrlCap - enrlTot - waitTot),
-    location: item.FACILITYID || 'TBD',
+    location: item.FACILITYID || "TBD",
     meeting_times: composeMeetingTimes(item),
   };
 }
@@ -174,10 +174,10 @@ function normalizeAuthHeader(token: string): string {
 export async function fetchClassFromASU(
   ref: SectionRef,
   env: AsuApiEnv,
-  opts: { useCache?: boolean } = {}
+  opts: { useCache?: boolean } = {},
 ): Promise<ClassDetails> {
   if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN) {
-    throw new ApiError('ASU API environment variables not configured');
+    throw new ApiError("ASU API environment variables not configured");
   }
 
   const { class_nbr: classNbr, term } = ref;
@@ -198,21 +198,21 @@ export async function fetchClassFromASU(
       signal: AbortSignal.timeout(10_000),
     });
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'TimeoutError') {
-      throw new ApiError('ASU API request timed out', 408);
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      throw new ApiError("ASU API request timed out", 408);
     }
 
     throw error;
   }
 
   if (response.status === 401 || response.status === 403) {
-    throw new AuthError('ASU API token expired or invalid');
+    throw new AuthError("ASU API token expired or invalid");
   }
 
   if (response.status === 429) {
     throw new RateLimitError(
-      'ASU API rate limit hit',
-      parseRetryAfterSeconds(response.headers.get('retry-after'))
+      "ASU API rate limit hit",
+      parseRetryAfterSeconds(response.headers.get("retry-after")),
     );
   }
 

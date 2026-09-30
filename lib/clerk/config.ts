@@ -16,7 +16,7 @@
  * Until then every Clerk call fails fast with an invalid-key error, which is
  * deliberate — a loud failure beats silently pointing at a nonexistent instance.
  */
-export const CLERK_PUBLISHABLE_KEY = 'pk_live_Y2xlcmsucGlja215Y2xhc3MuYXBwJA';
+export const CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsucGlja215Y2xhc3MuYXBwJA";
 
 /**
  * Hosts Clerk's client-side script (clerk-js) may load from, for CSP script-src.
@@ -25,21 +25,21 @@ export const CLERK_PUBLISHABLE_KEY = 'pk_live_Y2xlcmsucGlja215Y2xhc3MuYXBwJA';
  */
 export const CLERK_CSP = {
   /** FAPI hosts for script-src and connect-src. */
-  fapiHosts: ['https://*.clerk.accounts.dev', 'https://clerk.pickmyclass.app'],
+  fapiHosts: ["https://*.clerk.accounts.dev", "https://clerk.pickmyclass.app"],
   /**
    * Cloudflare Turnstile. Sign-up loads this as a script
    * (`/turnstile/v0/api.js`) and as a frame. Required on script-src,
    * connect-src, and frame-src — connect/frame alone still blocks the script.
    */
-  challengeHosts: ['https://challenges.cloudflare.com'],
+  challengeHosts: ["https://challenges.cloudflare.com"],
   /**
    * Clerk abuse/fraud hosts for script-src and frame-src. connect-src must
    * use {@link protectConnectHosts}: these hosts are not on 443, and a CSP
    * source with no port matches port 443 only.
    */
-  protectHosts: ['https://*.protect.clerk.com'],
+  protectHosts: ["https://*.protect.clerk.com"],
   /** connect-src only. The trailing `:*` is required. */
-  protectConnectHosts: ['https://*.protect.clerk.com:*'],
+  protectConnectHosts: ["https://*.protect.clerk.com:*"],
   /** Clerk avatar/image host for img-src. */
-  imgHosts: ['https://img.clerk.com'],
+  imgHosts: ["https://img.clerk.com"],
 } as const;

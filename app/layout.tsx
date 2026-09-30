@@ -1,43 +1,43 @@
-import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
-import { ThemeProvider } from 'next-themes';
-import { Toaster } from 'sonner';
-import { BottomNav } from '@/components/BottomNav';
-import { ClerkClientProvider } from '@/components/ClerkClientProvider';
-import { Footer } from '@/components/Footer';
-import { MotionProvider } from '@/components/MotionProvider';
-import { SkipToContent } from '@/components/SkipToContent';
-import { JsonLd } from '@/components/landing/JsonLd';
-import { AuthProvider } from '@/lib/contexts/AuthContext';
-import './globals.css';
+import type { Metadata, Viewport } from "next";
+import Script from "next/script";
+import { ThemeProvider } from "next-themes";
+import { Toaster } from "sonner";
+import { BottomNav } from "@/components/BottomNav";
+import { ClerkClientProvider } from "@/components/ClerkClientProvider";
+import { Footer } from "@/components/Footer";
+import { MotionProvider } from "@/components/MotionProvider";
+import { SkipToContent } from "@/components/SkipToContent";
+import { JsonLd } from "@/components/landing/JsonLd";
+import { AuthProvider } from "@/lib/contexts/AuthContext";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://pickmyclass.app'),
+  metadataBase: new URL("https://pickmyclass.app"),
   title: {
-    default: 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts',
-    template: '%s | PickMyClass',
+    default: "PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts",
+    template: "%s | PickMyClass",
   },
   description:
-    'Get a free email the moment a seat opens in a full ASU class. PickMyClass checks every 30 minutes so you stop refreshing MyASU. Trusted by 2,400+ Sun Devils.',
+    "Get a free email the moment a seat opens in a full ASU class. PickMyClass checks every 30 minutes so you stop refreshing MyASU. Trusted by 2,400+ Sun Devils.",
   openGraph: {
-    type: 'website',
-    locale: 'en_US',
-    siteName: 'PickMyClass',
+    type: "website",
+    locale: "en_US",
+    siteName: "PickMyClass",
     images: [
       {
-        url: '/og-image.png',
+        url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts',
+        alt: "PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts",
       },
     ],
   },
   twitter: {
-    card: 'summary_large_image',
-    images: ['/og-image.png'],
+    card: "summary_large_image",
+    images: ["/og-image.png"],
   },
   alternates: {
-    canonical: '/',
+    canonical: "/",
   },
   robots: {
     index: true,
@@ -45,29 +45,29 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
   icons: {
-    icon: '/favicon.svg',
-    apple: '/apple-touch-icon.png',
+    icon: "/favicon.svg",
+    apple: "/apple-touch-icon.png",
   },
-  authors: [{ name: 'PickMyClass' }],
-  creator: 'PickMyClass',
+  authors: [{ name: "PickMyClass" }],
+  creator: "PickMyClass",
   other: {
-    'is-agentic-site-type': 'app',
+    "is-agentic-site-type": "app",
   },
 };
 
 export const viewport: Viewport = {
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
   maximumScale: 5,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#8C1D40' },
-    { media: '(prefers-color-scheme: dark)', color: '#8C1D40' },
+    { media: "(prefers-color-scheme: light)", color: "#8C1D40" },
+    { media: "(prefers-color-scheme: dark)", color: "#8C1D40" },
   ],
 };
 
@@ -113,34 +113,34 @@ export default function RootLayout({
           />
           <JsonLd
             data={{
-              '@context': 'https://schema.org',
-              '@type': 'Organization',
-              name: 'PickMyClass',
-              alternateName: ['Pick My Class', 'Pick A Class', 'PickAClass', 'PickaClass'],
-              url: 'https://pickmyclass.app',
-              logo: 'https://pickmyclass.app/apple-touch-icon.png',
-              description: 'Free ASU class seat notification service',
-              sameAs: ['https://github.com/Divkix/pickmyclass'],
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "PickMyClass",
+              alternateName: ["Pick My Class", "Pick A Class", "PickAClass", "PickaClass"],
+              url: "https://pickmyclass.app",
+              logo: "https://pickmyclass.app/apple-touch-icon.png",
+              description: "Free ASU class seat notification service",
+              sameAs: ["https://github.com/Divkix/pickmyclass"],
               contactPoint: {
-                '@type': 'ContactPoint',
-                email: 'support@pickmyclass.app',
-                contactType: 'customer service',
+                "@type": "ContactPoint",
+                email: "support@pickmyclass.app",
+                contactType: "customer service",
               },
               address: {
-                '@type': 'PostalAddress',
-                addressLocality: 'Tempe',
-                addressRegion: 'AZ',
-                addressCountry: 'US',
+                "@type": "PostalAddress",
+                addressLocality: "Tempe",
+                addressRegion: "AZ",
+                addressCountry: "US",
               },
             }}
           />
           <JsonLd
             data={{
-              '@context': 'https://schema.org',
-              '@type': 'WebSite',
-              name: 'PickMyClass',
-              alternateName: ['Pick My Class', 'Pick A Class', 'PickAClass'],
-              url: 'https://pickmyclass.app',
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "PickMyClass",
+              alternateName: ["Pick My Class", "Pick A Class", "PickAClass"],
+              url: "https://pickmyclass.app",
             }}
           />
         </MotionProvider>

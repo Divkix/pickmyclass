@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { Eye, Mail, Users } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { RecentActivityItem } from '@/lib/db/admin-queries';
+import { Eye, Mail, Users } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { RecentActivityItem } from "@/lib/db/admin-queries";
 
 interface RecentActivityProps {
   items: RecentActivityItem[];
@@ -14,10 +14,10 @@ const iconByType = {
   email_sent: Mail,
 } as const;
 
-function formatNotificationType(notificationType: RecentActivityItem['notificationType']): string {
-  if (!notificationType) return '';
+function formatNotificationType(notificationType: RecentActivityItem["notificationType"]): string {
+  if (!notificationType) return "";
 
-  return notificationType === 'seat_available' ? 'seat available' : 'instructor assigned';
+  return notificationType === "seat_available" ? "seat available" : "instructor assigned";
 }
 
 export function RecentActivity({ items }: RecentActivityProps) {
@@ -45,21 +45,21 @@ export function RecentActivity({ items }: RecentActivityProps) {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm">
                       <span className="font-medium">{item.userEmail}</span>
-                      {item.type === 'user_registration' && ' registered'}
-                      {item.type === 'new_watch' && item.subject && item.catalogNbr && (
+                      {item.type === "user_registration" && " registered"}
+                      {item.type === "new_watch" && item.subject && item.catalogNbr && (
                         <>
-                          {' '}
-                          started watching{' '}
+                          {" "}
+                          started watching{" "}
                           <span className="font-medium">
                             {item.subject} {item.catalogNbr}
                           </span>
                           {item.classNbr && ` (section ${item.classNbr})`}
                         </>
                       )}
-                      {item.type === 'email_sent' && item.notificationType && (
+                      {item.type === "email_sent" && item.notificationType && (
                         <>
-                          {' '}
-                          notified about{' '}
+                          {" "}
+                          notified about{" "}
                           <span className="font-medium">
                             {formatNotificationType(item.notificationType)}
                           </span>
@@ -72,8 +72,8 @@ export function RecentActivity({ items }: RecentActivityProps) {
                       dateTime={item.activityAt}
                       title={new Date(item.activityAt).toUTCString()}
                     >
-                      {new Date(item.activityAt).toLocaleString('en-US', {
-                        timeZone: 'America/Phoenix',
+                      {new Date(item.activityAt).toLocaleString("en-US", {
+                        timeZone: "America/Phoenix",
                       })}
                     </time>
                   </div>

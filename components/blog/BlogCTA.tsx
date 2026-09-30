@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 interface BlogCTAProps {
   heading: string;
@@ -10,8 +10,8 @@ interface BlogCTAProps {
 export function BlogCTA({
   heading,
   description,
-  ctaLabel = 'Start Tracking Free',
-  href = '/sign-up',
+  ctaLabel = "Start Tracking Free",
+  href = "/sign-up",
 }: BlogCTAProps) {
   return (
     <div className="not-prose mt-10 rounded-lg border border-primary/20 bg-primary/5 p-8 text-center">

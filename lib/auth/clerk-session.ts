@@ -20,11 +20,11 @@
  * round-trips versus the old Supabase getUser() call per request.
  */
 
-import { type ClerkClient, createClerkClient } from '@clerk/backend';
-import { env } from 'cloudflare:workers';
-import { z } from 'zod';
-import { CLERK_PUBLISHABLE_KEY } from '@/lib/clerk/config';
-import { log } from '@/lib/log';
+import { type ClerkClient, createClerkClient } from "@clerk/backend";
+import { env } from "cloudflare:workers";
+import { z } from "zod";
+import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk/config";
+import { log } from "@/lib/log";
 
 export interface SessionIdentity {
   userId: string;
@@ -44,13 +44,13 @@ const clerkEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.string().optional(),
 });
 
-function getClerkEnv(): Required<Pick<ClerkEnv, 'CLERK_SECRET_KEY'>> & ClerkEnv {
+function getClerkEnv(): Required<Pick<ClerkEnv, "CLERK_SECRET_KEY">> & ClerkEnv {
   // SAFETY: bindings are declared in wrangler secrets; see lib/cloudflare-env.supplemental.d.ts.
   const e = clerkEnvSchema.parse(env);
 
   if (!e.CLERK_SECRET_KEY) {
     throw new Error(
-      'CLERK_SECRET_KEY is not set. Provision it with `wrangler secret put CLERK_SECRET_KEY`.'
+      "CLERK_SECRET_KEY is not set. Provision it with `wrangler secret put CLERK_SECRET_KEY`.",
     );
   }
 
@@ -65,7 +65,7 @@ export function getClerkClient(): ClerkClient {
   const { CLERK_SECRET_KEY, CLERK_JWT_KEY } = getClerkEnv();
   // The verifier is built from both keys: dropping CLERK_JWT_KEY (PEM -> JWKS
   // fallback) or rotating it must not reuse a client pinned to the old key.
-  const clientKey = `${CLERK_SECRET_KEY}\u0000${CLERK_JWT_KEY ?? ''}`;
+  const clientKey = `${CLERK_SECRET_KEY}\u0000${CLERK_JWT_KEY ?? ""}`;
 
   if (cachedClient && cachedClientKey === clientKey) {
     return cachedClient;
@@ -85,7 +85,7 @@ export function getClerkClient(): ClerkClient {
 
 function getAuthorizedParties(): string[] {
   const { NEXT_PUBLIC_SITE_URL } = getClerkEnv();
-  const parties = ['http://localhost:3000', 'http://localhost:8788'];
+  const parties = ["http://localhost:3000", "http://localhost:8788"];
 
   if (NEXT_PUBLIC_SITE_URL) parties.push(NEXT_PUBLIC_SITE_URL);
 
@@ -121,17 +121,17 @@ export async function getSessionIdentity(request: Request): Promise<SessionIdent
 
     return { userId: extId ?? clerkUserId, clerkUserId, sessionId: sessionId ?? null };
   } catch (error) {
-    log('Auth').error('Clerk session verification failed:', error);
+    log("Auth").error("Clerk session verification failed:", error);
 
     return null;
   }
 }
 
 export async function getSessionIdentityFromHeaders(
-  headers: Headers
+  headers: Headers,
 ): Promise<SessionIdentity | null> {
-  const host = headers.get('host') ?? 'localhost';
-  const proto = headers.get('x-forwarded-proto') ?? 'https';
+  const host = headers.get("host") ?? "localhost";
+  const proto = headers.get("x-forwarded-proto") ?? "https";
   const request = new Request(`${proto}://${host}/`, { headers });
 
   return getSessionIdentity(request);
@@ -139,7 +139,7 @@ export async function getSessionIdentityFromHeaders(
 
 export async function revokeAllUserSessions(clerkUserId: string): Promise<void> {
   const client = getClerkClient();
-  const sessions = await client.sessions.getSessionList({ userId: clerkUserId, status: 'active' });
+  const sessions = await client.sessions.getSessionList({ userId: clerkUserId, status: "active" });
   await Promise.allSettled(sessions.data.map((s) => client.sessions.revokeSession(s.id)));
 }
 

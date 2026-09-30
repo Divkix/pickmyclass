@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import AddClassPage from '@/app/dashboard/add/page';
+import { render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import AddClassPage from "@/app/dashboard/add/page";
 
 type AddClassWatchProps = {
   onCreated: (watch: { id: string }, input: { term: string; class_nbr: string }) => void;
@@ -13,44 +13,44 @@ const { mockPush, mockReplace } = vi.hoisted(() => ({
 
 const captured = vi.hoisted<Partial<AddClassWatchProps>>(() => ({}));
 
-vi.mock('next/navigation', () => ({
+vi.mock("next/navigation", () => ({
   useRouter: () => ({
     replace: mockReplace,
     push: mockPush,
   }),
 }));
 
-vi.mock('next/link', () => ({
+vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
 }));
 
-vi.mock('lucide-react', () => ({
+vi.mock("lucide-react", () => ({
   ArrowLeft: () => <span data-testid="arrow-left-icon">ArrowLeft</span>,
 }));
 
 const mockUseAuth = vi.fn();
 
-vi.mock('@/lib/contexts/AuthContext', () => ({
+vi.mock("@/lib/contexts/AuthContext", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
-vi.mock('@/components/Header', () => ({
+vi.mock("@/components/Header", () => ({
   Header: () => <header data-testid="header">Header</header>,
 }));
 
-vi.mock('@/components/ui/button', () => ({
+vi.mock("@/components/ui/button", () => ({
   Button: ({ children }: { children: React.ReactNode }) => (
     <button type="button">{children}</button>
   ),
 }));
 
-vi.mock('@/components/ui/skeleton', () => ({
+vi.mock("@/components/ui/skeleton", () => ({
   Skeleton: () => <div data-testid="skeleton">Skeleton</div>,
 }));
 
-vi.mock('@/components/AddClassWatch', () => ({
+vi.mock("@/components/AddClassWatch", () => ({
   AddClassWatch: ({ onCreated }: AddClassWatchProps) => {
     captured.onCreated = onCreated;
 
@@ -58,12 +58,12 @@ vi.mock('@/components/AddClassWatch', () => ({
   },
 }));
 
-describe('AddClassPage', () => {
+describe("AddClassPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete captured.onCreated;
     mockUseAuth.mockReturnValue({
-      user: { id: 'user-1', email: 'student@example.com' },
+      user: { id: "user-1", email: "student@example.com" },
       loading: false,
     });
     global.fetch = vi.fn().mockResolvedValue({
@@ -72,7 +72,7 @@ describe('AddClassPage', () => {
     });
   });
 
-  it('renders loading skeletons while auth is checking', () => {
+  it("renders loading skeletons while auth is checking", () => {
     mockUseAuth.mockReturnValue({
       user: null,
       loading: true,
@@ -80,12 +80,12 @@ describe('AddClassPage', () => {
 
     render(<AddClassPage />);
 
-    expect(screen.getByTestId('header')).toBeInTheDocument();
-    expect(screen.getAllByTestId('skeleton')).toHaveLength(2);
+    expect(screen.getByTestId("header")).toBeInTheDocument();
+    expect(screen.getAllByTestId("skeleton")).toHaveLength(2);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('redirects unauthenticated users to login', async () => {
+  it("redirects unauthenticated users to login", async () => {
     mockUseAuth.mockReturnValue({
       user: null,
       loading: false,
@@ -94,26 +94,26 @@ describe('AddClassPage', () => {
     const { container } = render(<AddClassPage />);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/sign-in');
+      expect(mockReplace).toHaveBeenCalledWith("/sign-in");
     });
     expect(container).toBeEmptyDOMElement();
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('returns to the dashboard after a successful watch creation', async () => {
+  it("returns to the dashboard after a successful watch creation", async () => {
     render(<AddClassPage />);
 
-    expect(screen.getByRole('link', { name: /back to dashboard/i })).toHaveAttribute(
-      'href',
-      '/dashboard'
+    expect(screen.getByRole("link", { name: /back to dashboard/i })).toHaveAttribute(
+      "href",
+      "/dashboard",
     );
-    expect(screen.getByTestId('add-class-watch-form')).toBeInTheDocument();
+    expect(screen.getByTestId("add-class-watch-form")).toBeInTheDocument();
     expect(captured.onCreated).toBeDefined();
 
-    captured.onCreated?.({ id: 'watch-1' }, { term: '2267', class_nbr: '12345' });
+    captured.onCreated?.({ id: "watch-1" }, { term: "2267", class_nbr: "12345" });
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/dashboard');
+      expect(mockPush).toHaveBeenCalledWith("/dashboard");
     });
     expect(global.fetch).not.toHaveBeenCalled();
   });
