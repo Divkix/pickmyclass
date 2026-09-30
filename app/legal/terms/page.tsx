@@ -1,18 +1,18 @@
-import type { Metadata } from 'next';
-import { Header } from '@/components/Header';
-import { JsonLd } from '@/components/landing/JsonLd';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import type { Metadata } from "next";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/landing/JsonLd";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: 'Terms of Service',
+  title: "Terms of Service",
   description:
-    'Terms of Service for PickMyClass — the free ASU class seat notification service. Eligibility requirements, service limitations, and user responsibilities.',
+    "Terms of Service for PickMyClass — the free ASU class seat notification service. Eligibility requirements, service limitations, and user responsibilities.",
   alternates: {
-    canonical: '/legal/terms',
+    canonical: "/legal/terms",
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 export default async function TermsOfServicePage() {
   return (
@@ -215,17 +215,17 @@ export default async function TermsOfServicePage() {
       </main>
       <JsonLd
         data={{
-          '@context': 'https://schema.org',
-          '@type': 'BreadcrumbList',
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
           itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://pickmyclass.app/" },
             {
-              '@type': 'ListItem',
+              "@type": "ListItem",
               position: 2,
-              name: 'Legal',
-              item: 'https://pickmyclass.app/legal',
+              name: "Legal",
+              item: "https://pickmyclass.app/legal",
             },
-            { '@type': 'ListItem', position: 3, name: 'Terms of Service' },
+            { "@type": "ListItem", position: 3, name: "Terms of Service" },
           ],
         }}
       />

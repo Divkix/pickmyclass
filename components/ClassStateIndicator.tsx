@@ -1,7 +1,7 @@
-import { CheckCircle, Clock, ExternalLink, XCircle } from 'lucide-react';
-import type { ClassStateRow } from '@/lib/types/class-watch';
-import { cn } from '@/lib/utils';
-import { getRateMyProfessorUrl } from '@/lib/utils/ratemyprofessor';
+import { CheckCircle, Clock, ExternalLink, XCircle } from "lucide-react";
+import type { ClassStateRow } from "@/lib/types/class-watch";
+import { cn } from "@/lib/utils";
+import { getRateMyProfessorUrl } from "@/lib/utils/ratemyprofessor";
 
 interface ClassStateIndicatorProps {
   classState: ClassStateRow | null;
@@ -18,7 +18,7 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
   }
 
   const { seats_available, seats_capacity, instructor_name } = classState;
-  const hasInstructor = instructor_name && instructor_name !== 'Staff';
+  const hasInstructor = instructor_name && instructor_name !== "Staff";
   const rmpUrl = getRateMyProfessorUrl(instructor_name);
 
   let seatColor: string;
@@ -27,12 +27,12 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
   let ariaLabel: string;
 
   if (seats_available > 0) {
-    seatColor = 'bg-success/20 text-success';
+    seatColor = "bg-success/20 text-success";
     SeatIcon = CheckCircle;
     seatMessage = `${seats_available} of ${seats_capacity} seats available`;
     ariaLabel = `Seats available: ${seats_available} of ${seats_capacity} seats available`;
   } else {
-    seatColor = 'bg-destructive/20 text-destructive';
+    seatColor = "bg-destructive/20 text-destructive";
     SeatIcon = XCircle;
     seatMessage = `0 of ${seats_capacity} seats available`;
     ariaLabel = `Class is full: 0 of ${seats_capacity} seats available`;
@@ -41,7 +41,7 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
   return (
     <div className="flex flex-col gap-2">
       <output
-        className={cn('inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm', seatColor)}
+        className={cn("inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm", seatColor)}
         aria-label={ariaLabel}
       >
         <SeatIcon className="size-4" aria-hidden="true" />
@@ -50,13 +50,13 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
 
       <div
         className={`inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm ${
-          hasInstructor ? 'bg-info/20 text-primary' : 'bg-muted text-muted-foreground'
+          hasInstructor ? "bg-info/20 text-primary" : "bg-muted text-muted-foreground"
         }`}
       >
         <span
-          className={`size-2 rounded-full ${hasInstructor ? 'bg-primary' : 'bg-muted-foreground'}`}
+          className={`size-2 rounded-full ${hasInstructor ? "bg-primary" : "bg-muted-foreground"}`}
         />
-        <span>Instructor: {instructor_name || 'TBA'}</span>
+        <span>Instructor: {instructor_name || "TBA"}</span>
         {rmpUrl && (
           <a
             href={rmpUrl}

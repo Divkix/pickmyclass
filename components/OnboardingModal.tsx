@@ -1,27 +1,27 @@
-'use client';
+"use client";
 
-import { ArrowRight, CheckCircle2, ExternalLink, Lightbulb, Mail, Sparkles } from 'lucide-react';
-import { type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { getPostHogSessionHeaders, trackAnalyticsEvent } from '@/lib/analytics/client';
+import { ArrowRight, CheckCircle2, ExternalLink, Lightbulb, Mail, Sparkles } from "lucide-react";
+import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { getPostHogSessionHeaders, trackAnalyticsEvent } from "@/lib/analytics/client";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { SimplifiedWatchForm } from '@/components/SimplifiedWatchForm';
-import type { OnboardingState } from '@/lib/onboarding';
-import type { ClassWatchRow } from '@/lib/types/class-watch';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { SimplifiedWatchForm } from "@/components/SimplifiedWatchForm";
+import type { OnboardingState } from "@/lib/onboarding";
+import type { ClassWatchRow } from "@/lib/types/class-watch";
 
 export type { OnboardingState };
 
 type Step = 1 | 2 | 3;
 
 const stepTitles = {
-  1: 'Welcome to PickMyClass',
-  2: 'Add your first class',
+  1: "Welcome to PickMyClass",
+  2: "Add your first class",
   3: "You're all set",
 } as const satisfies Record<Step, string>;
 
@@ -112,7 +112,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
   const [createdWatch, setCreatedWatch] = useState<ClassWatchRow | null>(null);
   const [popularClass, setPopularClass] = useState<PopularClass | null>(null);
   const [popularLoading, setPopularLoading] = useState(true);
-  const [prefillClassNbr, setPrefillClassNbr] = useState('');
+  const [prefillClassNbr, setPrefillClassNbr] = useState("");
   const skippingRef = useRef(false);
   const completedRef = useRef(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -120,12 +120,12 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
   const announcement = `Step ${step} of 3: ${stepTitles[step]}`;
 
   useEffect(() => {
-    trackAnalyticsEvent('onboarding_started', {});
+    trackAnalyticsEvent("onboarding_started", {});
     const controller = new AbortController();
-    fetch('/api/onboarding/popular-class', { signal: controller.signal })
+    fetch("/api/onboarding/popular-class", { signal: controller.signal })
       .then((response) => {
         if (!response.ok) {
-          throw new Error('Failed to load popular class');
+          throw new Error("Failed to load popular class");
         }
 
         return response.json();
@@ -161,15 +161,15 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
     setSkipping(true);
 
     try {
-      const requestOptions: RequestInit = { method: 'POST', headers: getPostHogSessionHeaders() };
+      const requestOptions: RequestInit = { method: "POST", headers: getPostHogSessionHeaders() };
 
-      const response = await fetch('/api/user/onboarding', requestOptions);
+      const response = await fetch("/api/user/onboarding", requestOptions);
 
       // SAFETY: response.json() matches Partial<OnboardingState> with optional error per API contract
       const data = (await response.json()) as Partial<OnboardingState> & { error?: string };
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to skip onboarding');
+        throw new Error(data.error || "Failed to skip onboarding");
       }
 
       onSkipped({
@@ -178,7 +178,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
         needs_onboarding: false,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to skip onboarding';
+      const message = error instanceof Error ? error.message : "Failed to skip onboarding";
       onSkipError?.(message);
     } finally {
       skippingRef.current = false;
@@ -188,7 +188,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
 
   const handleWatchCreated = (watch: ClassWatchRow) => {
     setCreatedWatch(watch);
-    trackAnalyticsEvent('onboarding_completed', {});
+    trackAnalyticsEvent("onboarding_completed", {});
     setStep((current) => (current === 2 ? 3 : current));
   };
 
@@ -204,7 +204,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
   const handleTrackPopular = () => {
     if (!popularClass) return;
     setPrefillClassNbr(popularClass.class_nbr);
-    trackAnalyticsEvent('onboarding_popular_class_tracked', {
+    trackAnalyticsEvent("onboarding_popular_class_tracked", {
       class_nbr: popularClass.class_nbr,
       term: popularClass.term,
     });
@@ -263,7 +263,7 @@ interface StepOneProps {
   popularLoading: boolean;
   popularClass: PopularClass | null;
   skipping: boolean;
-  onSkip: () => void;
+  onSkip: () => Promise<void>;
   onTrackPopular: () => void;
   onContinue: () => void;
 }
@@ -327,7 +327,7 @@ function StepOne({
           <div className="flex gap-3 rounded-md bg-primary/5 border border-primary/20 p-3 text-sm">
             <Lightbulb className="size-4 shrink-0 text-primary mt-0.5" aria-hidden="true" />
             <p className="text-foreground">
-              Every ASU class section has a <strong>5-digit class number</strong>. Find it on the{' '}
+              Every ASU class section has a <strong>5-digit class number</strong>. Find it on the{" "}
               <a
                 href="https://catalog.apps.asu.edu/catalog/classes/classlist"
                 target="_blank"
@@ -336,7 +336,7 @@ function StepOne({
               >
                 ASU Class Search page
                 <ExternalLink className="size-3" />
-              </a>{' '}
+              </a>{" "}
               in the &quot;Class #&quot; column.
             </p>
           </div>
@@ -373,7 +373,7 @@ interface StepTwoProps {
   prefillClassNbr: string;
   onCreated: (watch: ClassWatchRow) => void;
   onSubmittingChange: (submitting: boolean) => void;
-  onSkip: () => void;
+  onSkip: () => Promise<void>;
   onBack: () => void;
 }
 

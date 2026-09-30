@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
+import type { Metadata } from "next";
+import Link from "next/link";
 import {
   BlogAuthor,
   BlogCTA,
@@ -9,126 +9,126 @@ import {
   RelatedArticles,
   ShortAnswer,
   TableOfContents,
-} from '@/components/blog';
-import { Header } from '@/components/Header';
-import { JsonLd } from '@/components/landing/JsonLd';
+} from "@/components/blog";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/landing/JsonLd";
 
 export const metadata: Metadata = {
-  title: 'How to Register for Classes at ASU (2026)',
+  title: "How to Register for Classes at ASU (2026)",
   description:
-    'Step-by-step guide to ASU registration: find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block you.',
+    "Step-by-step guide to ASU registration: find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block you.",
   alternates: {
-    canonical: '/blog/how-to-register-for-classes-at-asu',
+    canonical: "/blog/how-to-register-for-classes-at-asu",
   },
   openGraph: {
-    title: 'How to Register for Classes at ASU: Step-by-Step (2026)',
+    title: "How to Register for Classes at ASU: Step-by-Step (2026)",
     description:
-      'Find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block registration.',
-    type: 'article',
-    publishedTime: '2026-06-18T00:00:00Z',
-    modifiedTime: '2026-06-18T00:00:00Z',
-    images: ['/og-image.png'],
+      "Find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block registration.",
+    type: "article",
+    publishedTime: "2026-06-18T00:00:00Z",
+    modifiedTime: "2026-06-18T00:00:00Z",
+    images: ["/og-image.png"],
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 const articleSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Article',
-  headline: 'How to Register for Classes at ASU: Step-by-Step (2026)',
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "How to Register for Classes at ASU: Step-by-Step (2026)",
   description:
-    'Step-by-step guide to ASU registration: find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block you.',
-  datePublished: '2026-06-18T00:00:00Z',
-  dateModified: '2026-06-18T00:00:00Z',
-  author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
+    "Step-by-step guide to ASU registration: find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block you.",
+  datePublished: "2026-06-18T00:00:00Z",
+  dateModified: "2026-06-18T00:00:00Z",
+  author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
   publisher: {
-    '@type': 'Organization',
-    name: 'PickMyClass',
-    url: 'https://pickmyclass.app',
+    "@type": "Organization",
+    name: "PickMyClass",
+    url: "https://pickmyclass.app",
   },
-  mainEntityOfPage: 'https://pickmyclass.app/blog/how-to-register-for-classes-at-asu',
+  mainEntityOfPage: "https://pickmyclass.app/blog/how-to-register-for-classes-at-asu",
 };
 
 const howToSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'HowTo',
-  name: 'How to Register for Classes at ASU',
-  description: 'Register for ASU classes through MyASU once your enrollment appointment opens.',
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to Register for Classes at ASU",
+  description: "Register for ASU classes through MyASU once your enrollment appointment opens.",
   step: [
     {
-      '@type': 'HowToStep',
-      name: 'Find your enrollment appointment',
-      text: 'Check MyASU under My Classes for the date and time your registration window opens. You cannot register before it.',
+      "@type": "HowToStep",
+      name: "Find your enrollment appointment",
+      text: "Check MyASU under My Classes for the date and time your registration window opens. You cannot register before it.",
     },
     {
-      '@type': 'HowToStep',
-      name: 'Clear any holds',
-      text: 'Resolve advising, financial, or immunization holds in MyASU before your window, since holds block registration.',
+      "@type": "HowToStep",
+      name: "Clear any holds",
+      text: "Resolve advising, financial, or immunization holds in MyASU before your window, since holds block registration.",
     },
     {
-      '@type': 'HowToStep',
-      name: 'Build your cart with section numbers',
-      text: 'Use ASU Class Search to pick sections and copy each 5-digit class number, including backups.',
+      "@type": "HowToStep",
+      name: "Build your cart with section numbers",
+      text: "Use ASU Class Search to pick sections and copy each 5-digit class number, including backups.",
     },
     {
-      '@type': 'HowToStep',
-      name: 'Add classes when your window opens',
-      text: 'In MyASU, enter the class numbers and submit. Register the moment your appointment starts for the best odds.',
+      "@type": "HowToStep",
+      name: "Add classes when your window opens",
+      text: "In MyASU, enter the class numbers and submit. Register the moment your appointment starts for the best odds.",
     },
   ],
 };
 
 const breadcrumbSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
   itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
-    { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://pickmyclass.app/blog' },
-    { '@type': 'ListItem', position: 3, name: 'How to Register for Classes at ASU' },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://pickmyclass.app/" },
+    { "@type": "ListItem", position: 2, name: "Blog", item: "https://pickmyclass.app/blog" },
+    { "@type": "ListItem", position: 3, name: "How to Register for Classes at ASU" },
   ],
 };
 
 const tocItems = [
-  { id: 'enrollment-date', text: 'Step 1: Find Your Enrollment Date', level: 2 },
-  { id: 'clear-holds', text: 'Step 2: Clear Your Holds Early', level: 2 },
-  { id: 'build-cart', text: 'Step 3: Build Your Cart With Section Numbers', level: 2 },
-  { id: 'register', text: 'Step 4: Register the Minute Your Window Opens', level: 2 },
-  { id: 'errors', text: 'Common Registration Errors (and Fixes)', level: 2 },
-  { id: 'full-classes', text: 'What If the Class You Need Is Full?', level: 2 },
-  { id: 'faq', text: 'Frequently Asked Questions', level: 2 },
+  { id: "enrollment-date", text: "Step 1: Find Your Enrollment Date", level: 2 },
+  { id: "clear-holds", text: "Step 2: Clear Your Holds Early", level: 2 },
+  { id: "build-cart", text: "Step 3: Build Your Cart With Section Numbers", level: 2 },
+  { id: "register", text: "Step 4: Register the Minute Your Window Opens", level: 2 },
+  { id: "errors", text: "Common Registration Errors (and Fixes)", level: 2 },
+  { id: "full-classes", text: "What If the Class You Need Is Full?", level: 2 },
+  { id: "faq", text: "Frequently Asked Questions", level: 2 },
 ];
 
 const faqItems = [
   {
-    question: 'When can I register for classes at ASU?',
+    question: "When can I register for classes at ASU?",
     answer:
-      'You register during your assigned enrollment appointment, a specific date and time shown in MyASU. Appointments are staggered, usually giving priority to students with more earned credit hours. You cannot register before your window opens.',
+      "You register during your assigned enrollment appointment, a specific date and time shown in MyASU. Appointments are staggered, usually giving priority to students with more earned credit hours. You cannot register before your window opens.",
   },
   {
-    question: 'Where do I actually register for ASU classes?',
+    question: "Where do I actually register for ASU classes?",
     answer:
-      'Inside MyASU, under My Classes. ASU Class Search lets you browse and plan without logging in, but adding a class to your schedule happens in MyASU once your appointment starts.',
+      "Inside MyASU, under My Classes. ASU Class Search lets you browse and plan without logging in, but adding a class to your schedule happens in MyASU once your appointment starts.",
   },
   {
-    question: 'Why can I not register even though my appointment started?',
+    question: "Why can I not register even though my appointment started?",
     answer:
-      'A hold is the usual cause. Advising, financial, immunization, and other holds block registration until you resolve them. Check the Holds section of MyASU and clear everything before your window opens.',
+      "A hold is the usual cause. Advising, financial, immunization, and other holds block registration until you resolve them. Check the Holds section of MyASU and clear everything before your window opens.",
   },
   {
-    question: 'How do I add a class by section number?',
+    question: "How do I add a class by section number?",
     answer:
-      'Copy the 5-digit class number from ASU Class Search, then enter it in the add-class field in MyASU. This is faster and more accurate than searching for the class again inside MyASU.',
+      "Copy the 5-digit class number from ASU Class Search, then enter it in the add-class field in MyASU. This is faster and more accurate than searching for the class again inside MyASU.",
   },
   {
-    question: 'What does a closed or full class mean during registration?',
+    question: "What does a closed or full class mean during registration?",
     answer:
-      'It means every seat in that section is taken. You cannot add it until a seat opens or, for the few classes that offer it, until you move up a waitlist. Tracking the section lets you jump on an opening fast.',
+      "It means every seat in that section is taken. You cannot add it until a seat opens or, for the few classes that offer it, until you move up a waitlist. Tracking the section lets you jump on an opening fast.",
   },
   {
-    question: 'Can I change my schedule after I register?',
+    question: "Can I change my schedule after I register?",
     answer:
-      'Yes. During the add/drop period at the start of the term you can swap, add, and drop classes. This is also when the most seats open up as other students adjust their schedules.',
+      "Yes. During the add/drop period at the start of the term you can swap, add, and drop classes. This is also when the most seats open up as other students adjust their schedules.",
   },
 ];
 
@@ -161,11 +161,11 @@ export default async function HowToRegisterAtASUPost() {
 
           <KeyTakeaways
             items={[
-              { text: 'Your enrollment appointment is a fixed date and time in MyASU' },
-              { text: 'Holds block registration, so clear them days before your window' },
-              { text: 'Prep your cart with 5-digit class numbers, including backups' },
-              { text: 'Register the exact minute your appointment opens for the best odds' },
-              { text: 'If a class is full, track it and get an alert when a seat opens' },
+              { text: "Your enrollment appointment is a fixed date and time in MyASU" },
+              { text: "Holds block registration, so clear them days before your window" },
+              { text: "Prep your cart with 5-digit class numbers, including backups" },
+              { text: "Register the exact minute your appointment opens for the best odds" },
+              { text: "If a class is full, track it and get an alert when a seat opens" },
             ]}
           />
 
@@ -175,7 +175,7 @@ export default async function HowToRegisterAtASUPost() {
             Step 1: Find Your Enrollment Date
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            ASU does not open registration to everyone at once. You get an{' '}
+            ASU does not open registration to everyone at once. You get an{" "}
             <strong className="text-foreground">enrollment appointment</strong>, a specific date and
             time, shown in MyASU under My Classes. Appointments are staggered, and students with
             more earned credits usually go earlier. Find yours and put it in your calendar with a
@@ -209,13 +209,13 @@ export default async function HowToRegisterAtASUPost() {
             Step 3: Build Your Cart With Section Numbers
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Do not go hunting for classes during your window. Use{' '}
+            Do not go hunting for classes during your window. Use{" "}
             <Link
               href="/blog/asu-class-search"
               className="text-primary hover:text-primary/80 font-medium"
             >
               ASU Class Search
-            </Link>{' '}
+            </Link>{" "}
             ahead of time to pick your sections and copy each 5-digit class number. Build a plan
             that includes:
           </p>
@@ -225,13 +225,13 @@ export default async function HowToRegisterAtASUPost() {
             <li>One alternate class in case a requirement is completely full</li>
           </ul>
           <p className="text-muted-foreground leading-relaxed mt-4">
-            We go deeper on building a bulletproof plan in our{' '}
+            We go deeper on building a bulletproof plan in our{" "}
             <Link
               href="/blog/asu-registration-tips"
               className="text-primary hover:text-primary/80 font-medium"
             >
               ASU registration tips
-            </Link>{' '}
+            </Link>{" "}
             guide.
           </p>
 
@@ -273,7 +273,7 @@ export default async function HowToRegisterAtASUPost() {
             <li>
               <strong className="text-foreground">
                 &ldquo;Department consent required.&rdquo;
-              </strong>{' '}
+              </strong>{" "}
               Email the department for permission to add the class.
             </li>
           </ul>
@@ -286,7 +286,7 @@ export default async function HowToRegisterAtASUPost() {
             full, every section, and you are stuck refreshing ASU Class Search hoping someone drops.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            Instead, hand that section to{' '}
+            Instead, hand that section to{" "}
             <Link href="/" className="text-primary hover:text-primary/80 font-medium">
               PickMyClass
             </Link>
@@ -314,16 +314,16 @@ export default async function HowToRegisterAtASUPost() {
           <RelatedArticles
             articles={[
               {
-                href: '/blog/asu-registration-tips',
-                title: 'ASU Registration Tips: Build Your Perfect Schedule',
+                href: "/blog/asu-registration-tips",
+                title: "ASU Registration Tips: Build Your Perfect Schedule",
               },
               {
-                href: '/blog/asu-class-search',
-                title: 'ASU Class Search: How to Find Open Classes Fast',
+                href: "/blog/asu-class-search",
+                title: "ASU Class Search: How to Find Open Classes Fast",
               },
               {
-                href: '/blog/how-to-get-into-full-asu-classes',
-                title: 'How to Get Into Full Classes at ASU: 7 Strategies That Work',
+                href: "/blog/how-to-get-into-full-asu-classes",
+                title: "How to Get Into Full Classes at ASU: 7 Strategies That Work",
               },
             ]}
           />

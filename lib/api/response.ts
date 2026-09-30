@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
-import type { JsonValue } from '@/lib/api/wire';
+import { NextResponse } from "next/server";
+import type { JsonValue } from "@/lib/api/wire";
 
 export function ok<T extends object>(
   data: (T & { success?: never }) | null | undefined,
-  init?: ResponseInit
+  init?: ResponseInit,
 ): NextResponse {
   if (data == null) {
     return NextResponse.json({ success: true }, init);

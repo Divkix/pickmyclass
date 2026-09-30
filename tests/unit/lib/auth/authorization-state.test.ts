@@ -1,14 +1,14 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { drizzle } from "drizzle-orm/postgres-js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   type AuthorizationState,
   clearAuthorizationStateCache,
   invalidateAuthorizationState,
   readAuthorizationState,
-} from '@/lib/auth/authorization-state';
-import type { Database } from '@/lib/db';
-import * as schema from '@/lib/db/schema';
+} from "@/lib/auth/authorization-state";
+import type { Database } from "@/lib/db";
+import * as schema from "@/lib/db/schema";
 
 interface CapturedStatement {
   sql: string;
@@ -36,7 +36,7 @@ type DriverRowSet = Array<Record<string, PgWireValue>>;
 interface ScriptedPendingRows {
   then(
     onFulfilled?: (value: never) => PromiseLike<never>,
-    onRejected?: (reason: Error) => PromiseLike<never>
+    onRejected?: (reason: Error) => PromiseLike<never>,
   ): Promise<never>;
   catch(onRejected: (reason: Error) => PromiseLike<never>): Promise<never>;
   values(): PromiseLike<never[]>;
@@ -84,7 +84,7 @@ function createDbDouble() {
 
   const client: PostgresJsSeam = scriptedClient;
   // SAFETY: options/unsafe/begin are the only Sql members drizzle touches — drizzle-orm/postgres-js.
-  const db = drizzle(client as Database['$client'], { schema });
+  const db = drizzle(client as Database["$client"], { schema });
 
   return {
     db,
@@ -98,7 +98,7 @@ function createDbDouble() {
   };
 }
 
-const consentTimestamp = '2026-07-12T00:00:00.000Z';
+const consentTimestamp = "2026-07-12T00:00:00.000Z";
 
 const adminProfile: ProfileGateRow = {
   is_admin: true,
@@ -120,9 +120,9 @@ const adminState: AuthorizationState = {
   has_consent: true,
 };
 
-describe('readAuthorizationState', () => {
+describe("readAuthorizationState", () => {
   beforeEach(() => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     clearAuthorizationStateCache();
   });
 
@@ -131,128 +131,128 @@ describe('readAuthorizationState', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns authorization and consent state from the profile row', async () => {
+  it("returns authorization and consent state from the profile row", async () => {
     const double = createDbDouble();
     double.nextRows([adminProfile]);
 
-    const state = await readAuthorizationState(double.db, 'user-1', { cache: false });
+    const state = await readAuthorizationState(double.db, "user-1", { cache: false });
 
     expect(state).toEqual(adminState);
   });
 
-  it('queries user_profiles projected to the four gate columns, filtered by user_id', async () => {
+  it("queries user_profiles projected to the four gate columns, filtered by user_id", async () => {
     const double = createDbDouble();
     double.nextRows([regularProfile]);
 
-    await readAuthorizationState(double.db, 'user-1', { cache: false });
+    await readAuthorizationState(double.db, "user-1", { cache: false });
 
     expect(double.statements).toHaveLength(1);
     const [statement] = double.statements;
-    expect(statement.sql.replace(/\s+/g, ' ').trim()).toBe(
+    expect(statement.sql.replace(/\s+/g, " ").trim()).toBe(
       'select "is_admin", "is_disabled", "age_verified_at", "agreed_to_terms_at" ' +
-        'from "user_profiles" where "user_profiles"."user_id" = $1 limit $2'
+        'from "user_profiles" where "user_profiles"."user_id" = $1 limit $2',
     );
-    expect(statement.params).toEqual(['user-1', 1]);
+    expect(statement.params).toEqual(["user-1", 1]);
   });
 
-  it('requires both age verification and terms agreement for consent', async () => {
+  it("requires both age verification and terms agreement for consent", async () => {
     const double = createDbDouble();
     double.nextRows([{ ...regularProfile, agreed_to_terms_at: null }]);
 
-    const state = await readAuthorizationState(double.db, 'user-1', { cache: false });
+    const state = await readAuthorizationState(double.db, "user-1", { cache: false });
 
     expect(state?.has_consent).toBe(false);
   });
 
-  it('returns null when the profile row is missing', async () => {
+  it("returns null when the profile row is missing", async () => {
     const double = createDbDouble();
 
-    const state = await readAuthorizationState(double.db, 'user-1', { cache: false });
+    const state = await readAuthorizationState(double.db, "user-1", { cache: false });
 
     expect(state).toBeNull();
   });
 
-  it('returns null (unknown, not disabled) and logs when the query throws', async () => {
+  it("returns null (unknown, not disabled) and logs when the query throws", async () => {
     const double = createDbDouble();
-    double.failNext(new Error('db down'));
+    double.failNext(new Error("db down"));
 
-    const state = await readAuthorizationState(double.db, 'user-1', { cache: false });
+    const state = await readAuthorizationState(double.db, "user-1", { cache: false });
 
     expect(state).toBeNull();
     expect(console.error).toHaveBeenCalled();
   });
 
-  describe('cached read', () => {
-    it('serves a cached hit without re-querying', async () => {
+  describe("cached read", () => {
+    it("serves a cached hit without re-querying", async () => {
       const double = createDbDouble();
       double.nextRows([adminProfile]);
 
-      await readAuthorizationState(double.db, 'user-1', { cache: true });
-      const second = await readAuthorizationState(double.db, 'user-1', { cache: true });
+      await readAuthorizationState(double.db, "user-1", { cache: true });
+      const second = await readAuthorizationState(double.db, "user-1", { cache: true });
 
       expect(second).toEqual(adminState);
       expect(double.statements).toHaveLength(1);
     });
 
-    it('does not cache a null (missing profile) result', async () => {
+    it("does not cache a null (missing profile) result", async () => {
       const double = createDbDouble();
 
-      await readAuthorizationState(double.db, 'user-1', { cache: true });
-      await readAuthorizationState(double.db, 'user-1', { cache: true });
+      await readAuthorizationState(double.db, "user-1", { cache: true });
+      await readAuthorizationState(double.db, "user-1", { cache: true });
 
       expect(double.statements).toHaveLength(2);
     });
   });
 
-  describe('fresh read', () => {
-    it('always queries even after a value was cached', async () => {
+  describe("fresh read", () => {
+    it("always queries even after a value was cached", async () => {
       const double = createDbDouble();
       double.nextRows([adminProfile]);
 
-      await readAuthorizationState(double.db, 'user-1', { cache: true });
+      await readAuthorizationState(double.db, "user-1", { cache: true });
       double.nextRows([adminProfile]);
-      await readAuthorizationState(double.db, 'user-1', { cache: false });
+      await readAuthorizationState(double.db, "user-1", { cache: false });
 
       expect(double.statements).toHaveLength(2);
     });
 
-    it('does not populate the cache, so a later cached read still queries', async () => {
+    it("does not populate the cache, so a later cached read still queries", async () => {
       const double = createDbDouble();
       double.nextRows([adminProfile]);
 
-      await readAuthorizationState(double.db, 'user-1', { cache: false });
-      await readAuthorizationState(double.db, 'user-1', { cache: true });
+      await readAuthorizationState(double.db, "user-1", { cache: false });
+      await readAuthorizationState(double.db, "user-1", { cache: true });
 
       expect(double.statements).toHaveLength(2);
     });
   });
 
-  describe('invalidateAuthorizationState', () => {
-    it('forces the next cached read to re-query', async () => {
+  describe("invalidateAuthorizationState", () => {
+    it("forces the next cached read to re-query", async () => {
       const double = createDbDouble();
       double.nextRows([adminProfile]);
 
-      await readAuthorizationState(double.db, 'user-1', { cache: true });
-      const removed = invalidateAuthorizationState('user-1');
-      await readAuthorizationState(double.db, 'user-1', { cache: true });
+      await readAuthorizationState(double.db, "user-1", { cache: true });
+      const removed = invalidateAuthorizationState("user-1");
+      await readAuthorizationState(double.db, "user-1", { cache: true });
 
       expect(removed).toBe(true);
       expect(double.statements).toHaveLength(2);
     });
 
-    it('returns false when nothing was cached for that user', () => {
-      expect(invalidateAuthorizationState('never-cached')).toBe(false);
+    it("returns false when nothing was cached for that user", () => {
+      expect(invalidateAuthorizationState("never-cached")).toBe(false);
     });
   });
 
-  it('never caches the unknown result of a failed read', async () => {
+  it("never caches the unknown result of a failed read", async () => {
     const double = createDbDouble();
-    double.failNext(new Error('db down'));
+    double.failNext(new Error("db down"));
 
-    await expect(readAuthorizationState(double.db, 'user-1', { cache: true })).resolves.toBeNull();
+    await expect(readAuthorizationState(double.db, "user-1", { cache: true })).resolves.toBeNull();
 
     double.nextRows([adminProfile]);
-    const recovered = await readAuthorizationState(double.db, 'user-1', { cache: true });
+    const recovered = await readAuthorizationState(double.db, "user-1", { cache: true });
 
     expect(recovered).toEqual(adminState);
     expect(double.statements).toHaveLength(2);

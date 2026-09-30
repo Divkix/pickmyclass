@@ -1,14 +1,14 @@
-import { type SQL } from 'drizzle-orm';
-import { PgDialect } from 'drizzle-orm/pg-core';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { z } from 'zod';
-import type { Database } from '@/lib/db';
-import { expectRpcFailure } from './rpc-failure';
+import { type SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { z } from "zod";
+import type { Database } from "@/lib/db";
+import { expectRpcFailure } from "./rpc-failure";
 
 const dialect = new PgDialect();
 
 function builtSql(query: SQL): string {
-  return dialect.sqlToQuery(query).sql.replace(/\s+/g, ' ').trim();
+  return dialect.sqlToQuery(query).sql.replace(/\s+/g, " ").trim();
 }
 
 interface ClassPageWireRow {
@@ -49,7 +49,7 @@ function createDb(executeRows: ClassPageWireRow[]) {
   return { db: asDatabaseHandle({ execute }), execute };
 }
 
-vi.mock('@/lib/cache/ttl-cache', () => ({
+vi.mock("@/lib/cache/ttl-cache", () => ({
   TtlCache: class {
     get(_key: string) {
       return undefined;
@@ -62,24 +62,24 @@ vi.mock('@/lib/cache/ttl-cache', () => ({
   },
 }));
 
-import { getClassesPage } from '@/lib/db/admin-queries';
+import { getClassesPage } from "@/lib/db/admin-queries";
 
 function classPageRow(overrides: Partial<ClassPageWireRow> = {}): ClassPageWireRow {
   return {
-    id: 'state-1',
-    class_nbr: '12345',
-    term: '2267',
-    subject: 'CSE',
-    catalog_nbr: '240',
-    title: 'Intro to Programming',
-    instructor_name: 'Dr. X',
+    id: "state-1",
+    class_nbr: "12345",
+    term: "2267",
+    subject: "CSE",
+    catalog_nbr: "240",
+    title: "Intro to Programming",
+    instructor_name: "Dr. X",
     seats_available: 0,
     seats_capacity: 30,
     non_reserved_seats: null,
     location: null,
     meeting_times: null,
-    last_checked_at: '2026-08-01T00:00:00Z',
-    last_changed_at: '2026-08-01T00:00:00Z',
+    last_checked_at: "2026-08-01T00:00:00Z",
+    last_changed_at: "2026-08-01T00:00:00Z",
     watcher_count: 3,
     seat_emails: 2,
     instructor_emails: 1,
@@ -90,18 +90,18 @@ function classPageRow(overrides: Partial<ClassPageWireRow> = {}): ClassPageWireR
   };
 }
 
-describe('getClassesPage', () => {
+describe("getClassesPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('calls get_classes_page with bound, explicitly cast parameters and returns rows, total, and the global aggregates', async () => {
+  it("calls get_classes_page with bound, explicitly cast parameters and returns rows, total, and the global aggregates", async () => {
     const rows = [
-      classPageRow({ id: 'state-1' }),
+      classPageRow({ id: "state-1" }),
       classPageRow({
-        id: 'state-2',
-        class_nbr: '67890',
-        subject: 'MAT',
+        id: "state-2",
+        class_nbr: "67890",
+        subject: "MAT",
         seats_available: 12,
         watcher_count: 4,
         seat_emails: 1,
@@ -114,30 +114,30 @@ describe('getClassesPage', () => {
     const result = await getClassesPage(db, {
       page: 2,
       pageSize: 25,
-      search: 'cse',
-      subject: 'CSE',
-      seatStatus: 'all',
-      instructor: 'all',
-      watcherCount: 'all',
-      sort: 'watcher_count',
-      dir: 'asc',
+      search: "cse",
+      subject: "CSE",
+      seatStatus: "all",
+      instructor: "all",
+      watcherCount: "all",
+      sort: "watcher_count",
+      dir: "asc",
     });
 
     expect(execute).toHaveBeenCalledTimes(1);
     const query = execute.mock.calls[0][0];
     expect(builtSql(query)).toBe(
-      'SELECT * FROM public.get_classes_page( $1::int, $2::int, $3::text, $4::text, $5::text, $6::text, $7::text, $8::text, $9::text )'
+      "SELECT * FROM public.get_classes_page( $1::int, $2::int, $3::text, $4::text, $5::text, $6::text, $7::text, $8::text, $9::text )",
     );
     expect(dialect.sqlToQuery(query).params).toEqual([
       2,
       25,
-      'cse',
-      'CSE',
-      'all',
-      'all',
-      'all',
-      'watcher_count',
-      'asc',
+      "cse",
+      "CSE",
+      "all",
+      "all",
+      "all",
+      "watcher_count",
+      "asc",
     ]);
 
     expect(result.rows).toHaveLength(2);
@@ -145,17 +145,17 @@ describe('getClassesPage', () => {
     expect(result.totalWatchers).toBe(7);
     expect(result.fullClasses).toBe(1);
     expect(result.rows[0]).toMatchObject({
-      id: 'state-1',
+      id: "state-1",
       watcher_count: 3,
       seat_emails: 2,
       instructor_emails: 1,
       consecutive_not_found_count: 0,
     });
     expect(z.number().safeParse(result.rows[0].watcher_count).success).toBe(true);
-    expect(result.rows[0].last_checked_at).toBe('2026-08-01T00:00:00.000Z');
+    expect(result.rows[0].last_checked_at).toBe("2026-08-01T00:00:00.000Z");
   });
 
-  it('defaults aggregates to 0 when the RPC returns no rows', async () => {
+  it("defaults aggregates to 0 when the RPC returns no rows", async () => {
     const { db } = createDb([]);
 
     const result = await getClassesPage(db);
@@ -166,7 +166,7 @@ describe('getClassesPage', () => {
     expect(result.fullClasses).toBe(0);
   });
 
-  it('guards against a missing aggregate column (function-version skew) with 0, never NaN', async () => {
+  it("guards against a missing aggregate column (function-version skew) with 0, never NaN", async () => {
     const {
       total_watchers: _omittedWatchers,
       full_classes: _omittedFull,
@@ -183,14 +183,14 @@ describe('getClassesPage', () => {
     expect(result.fullClasses).toBe(0);
   });
 
-  it('unwraps DrizzleQueryError so the original driver message surfaces', async () => {
+  it("unwraps DrizzleQueryError so the original driver message surfaces", async () => {
     const drizzleError = Object.assign(
-      new Error('Failed query: SELECT * FROM public.get_classes_page($1::int, $2::int)'),
+      new Error("Failed query: SELECT * FROM public.get_classes_page($1::int, $2::int)"),
       {
-        query: 'SELECT * FROM public.get_classes_page($1::int, $2::int)',
+        query: "SELECT * FROM public.get_classes_page($1::int, $2::int)",
         params: [1, 25],
-        cause: new Error('Database connection failed'),
-      }
+        cause: new Error("Database connection failed"),
+      },
     );
 
     const execute = vi.fn(async () => {
@@ -201,22 +201,22 @@ describe('getClassesPage', () => {
 
     await expectRpcFailure(
       getClassesPage(db),
-      'Failed to fetch classes page',
-      'Database connection failed'
+      "Failed to fetch classes page",
+      "Database connection failed",
     );
   });
 
-  it('throws when the RPC fails', async () => {
+  it("throws when the RPC fails", async () => {
     const execute = vi.fn(async () => {
-      throw new Error('Database connection failed');
+      throw new Error("Database connection failed");
     });
 
     const db = asDatabaseHandle({ execute });
 
     await expectRpcFailure(
       getClassesPage(db),
-      'Failed to fetch classes page',
-      'Database connection failed'
+      "Failed to fetch classes page",
+      "Database connection failed",
     );
   });
 });

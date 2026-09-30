@@ -11,14 +11,14 @@
  * correct for transient DB errors (Svix redelivers); a 400 is only for bad
  * signatures.
  */
-import { verifyWebhook } from '@clerk/backend/webhooks';
-import { env } from 'cloudflare:workers';
-import { z } from 'zod';
-import { fail, ok } from '@/lib/api/response';
-import { clearAuthorizationStateCache } from '@/lib/auth/authorization-state';
-import { getDbFromEnv } from '@/lib/db';
-import { softDeleteUserById, syncUserMirrorFromClerkUser } from '@/lib/db/users';
-import { log } from '@/lib/log';
+import { verifyWebhook } from "@clerk/backend/webhooks";
+import { env } from "cloudflare:workers";
+import { z } from "zod";
+import { fail, ok } from "@/lib/api/response";
+import { clearAuthorizationStateCache } from "@/lib/auth/authorization-state";
+import { getDbFromEnv } from "@/lib/db";
+import { softDeleteUserById, syncUserMirrorFromClerkUser } from "@/lib/db/users";
+import { log } from "@/lib/log";
 
 const clerkWebhookEnvSchema = z.object({
   CLERK_WEBHOOK_SIGNING_SECRET: z.string().optional(),
@@ -29,9 +29,9 @@ export async function POST(request: Request) {
   const { CLERK_WEBHOOK_SIGNING_SECRET } = clerkWebhookEnvSchema.parse(env);
 
   if (!CLERK_WEBHOOK_SIGNING_SECRET) {
-    log('ClerkWebhook').error('CLERK_WEBHOOK_SIGNING_SECRET is not set');
+    log("ClerkWebhook").error("CLERK_WEBHOOK_SIGNING_SECRET is not set");
 
-    return fail('Webhook not configured', 500);
+    return fail("Webhook not configured", 500);
   }
 
   let event;
@@ -39,27 +39,27 @@ export async function POST(request: Request) {
   try {
     event = await verifyWebhook(request, { signingSecret: CLERK_WEBHOOK_SIGNING_SECRET });
   } catch (error) {
-    log('ClerkWebhook').warn('Signature verification failed:', error);
+    log("ClerkWebhook").warn("Signature verification failed:", error);
 
-    return fail('Invalid signature', 400);
+    return fail("Invalid signature", 400);
   }
 
   try {
     const db = getDbFromEnv();
 
-    if (event.type === 'user.created' || event.type === 'user.updated') {
+    if (event.type === "user.created" || event.type === "user.updated") {
       const synced = await syncUserMirrorFromClerkUser(db, event.data);
 
       if (!synced) {
-        log('ClerkWebhook').warn(
-          `Event ${event.type} for ${event.data.id} has no email — skipping`
+        log("ClerkWebhook").warn(
+          `Event ${event.type} for ${event.data.id} has no email — skipping`,
         );
       }
 
       return ok(null);
     }
 
-    if (event.type === 'user.deleted') {
+    if (event.type === "user.deleted") {
       const id = event.data.id;
 
       if (id) {
@@ -76,8 +76,8 @@ export async function POST(request: Request) {
 
     return ok(null);
   } catch (error) {
-    log('ClerkWebhook').error(`Failed to process ${event.type}:`, error);
+    log("ClerkWebhook").error(`Failed to process ${event.type}:`, error);
 
-    return fail('Webhook processing failed', 500);
+    return fail("Webhook processing failed", 500);
   }
 }

@@ -1,39 +1,39 @@
 version: 2
 updates:
-  - package-ecosystem: 'npm'
-    directory: '/'
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
-      interval: 'daily'
+      interval: "daily"
     open-pull-requests-limit: 10
     commit-message:
-      prefix: 'chore(deps)'
+      prefix: "chore(deps)"
     labels:
-      - 'dependencies'
+      - "dependencies"
     ignore:
       # vite-plus toolchain moves in lockstep via `vp migrate` only.
       # Dependabot only sees vite-plus by name and can't track/group the
       # aliases, so any solo bump (vite-plus, vite, vitest, coverage, core)
       # desyncs the set and breaks CI (TS2321/TS2769 or coverage abort).
-      - dependency-name: 'vite-plus'
-      - dependency-name: 'vite'
-      - dependency-name: 'vitest'
-      - dependency-name: '@vitest/*'
-      - dependency-name: '@voidzero-dev/vite-plus-core'
+      - dependency-name: "vite-plus"
+      - dependency-name: "vite"
+      - dependency-name: "vitest"
+      - dependency-name: "@vitest/*"
+      - dependency-name: "@voidzero-dev/vite-plus-core"
     groups:
       # Group all minor/patch updates
       all-minor-patch:
         patterns:
-          - '*'
+          - "*"
         update-types:
-          - 'minor'
-          - 'patch'
+          - "minor"
+          - "patch"
 
-  - package-ecosystem: 'github-actions'
-    directory: '/'
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
-      interval: 'daily'
+      interval: "daily"
     commit-message:
-      prefix: 'chore(ci)'
+      prefix: "chore(ci)"
     labels:
-      - 'ci'
-      - 'dependencies'
+      - "ci"
+      - "dependencies"

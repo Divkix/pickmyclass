@@ -1,22 +1,22 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-import { Suspense } from 'react';
-import { UsersTable } from '@/components/admin/UsersTable';
-import { verifyAdmin } from '@/lib/auth/admin';
-import { getUsersPage } from '@/lib/db/admin-queries';
-import { getDbFromEnv } from '@/lib/db';
-import type { UserSortField } from '@/lib/db/admin-queries';
-import { param, parsePageParam } from '@/lib/utils/page-params';
+import { Suspense } from "react";
+import { UsersTable } from "@/components/admin/UsersTable";
+import { verifyAdmin } from "@/lib/auth/admin";
+import { getUsersPage } from "@/lib/db/admin-queries";
+import { getDbFromEnv } from "@/lib/db";
+import type { UserSortField } from "@/lib/db/admin-queries";
+import { param, parsePageParam } from "@/lib/utils/page-params";
 
 const PAGE_SIZE = 25;
 
 const USER_SORT_FIELDS: readonly UserSortField[] = [
-  'email',
-  'created_at',
-  'last_sign_in_at',
-  'watch_count',
-  'seat_emails',
-  'instructor_emails',
+  "email",
+  "created_at",
+  "last_sign_in_at",
+  "watch_count",
+  "seat_emails",
+  "instructor_emails",
 ];
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -27,7 +27,7 @@ function isUserSortField(value: string): value is UserSortField {
 }
 
 function userSort(value: string): UserSortField {
-  return isUserSortField(value) ? value : 'created_at';
+  return isUserSortField(value) ? value : "created_at";
 }
 
 export default async function AdminUsersPage({ searchParams }: { searchParams?: SearchParams }) {
@@ -37,16 +37,16 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
 
   const sp = (await searchParams) ?? {};
 
-  const page = parsePageParam(param(sp, 'page'));
-  const sort = userSort(param(sp, 'sort'));
-  const dir = param(sp, 'dir') === 'asc' ? 'asc' : 'desc';
-  const search = param(sp, 'search');
+  const page = parsePageParam(param(sp, "page"));
+  const sort = userSort(param(sp, "sort"));
+  const dir = param(sp, "dir") === "asc" ? "asc" : "desc";
+  const search = param(sp, "search");
   // SAFETY: param helper + 'all' fallback keeps allowed union; DB handles invalid gracefully
-  const role = (param(sp, 'role') || 'all') as 'all' | 'admin' | 'user';
+  const role = (param(sp, "role") || "all") as "all" | "admin" | "user";
   // SAFETY: param helper + 'all' fallback keeps allowed union; DB handles invalid gracefully
-  const verified = (param(sp, 'verified') || 'all') as 'all' | 'verified' | 'unverified';
+  const verified = (param(sp, "verified") || "all") as "all" | "verified" | "unverified";
   // SAFETY: param helper + 'all' fallback keeps allowed union; DB handles invalid gracefully
-  const watchCount = (param(sp, 'watchCount') || 'all') as 'all' | 'none' | '1-5' | '6-10' | '10+';
+  const watchCount = (param(sp, "watchCount") || "all") as "all" | "none" | "1-5" | "6-10" | "10+";
 
   const { rows, total } = await getUsersPage(db, {
     page,

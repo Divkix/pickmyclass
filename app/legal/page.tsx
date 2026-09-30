@@ -1,15 +1,15 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Header } from '@/components/Header';
-import { JsonLd } from '@/components/landing/JsonLd';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/landing/JsonLd";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: 'Legal Documents',
+  title: "Legal Documents",
   description:
-    'Legal documents, Terms of Service, and Privacy Policy for PickMyClass — the free ASU class seat notification service.',
+    "Legal documents, Terms of Service, and Privacy Policy for PickMyClass — the free ASU class seat notification service.",
   alternates: {
-    canonical: '/legal',
+    canonical: "/legal",
   },
   // Link hub for the two policies: nothing here to rank on its own, so keep it out of the
   // index (and the sitemap) while still letting crawlers follow through to the documents.
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 export default async function LegalPage() {
   return (
@@ -78,7 +78,7 @@ export default async function LegalPage() {
               <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-2">
                 <li>
                   <strong>Right to Know:</strong> Request what personal data we have collected about
-                  you (available via{' '}
+                  you (available via{" "}
                   <Link href="/settings" className="text-primary underline">
                     Settings
                   </Link>
@@ -86,7 +86,7 @@ export default async function LegalPage() {
                 </li>
                 <li>
                   <strong>Right to Delete:</strong> Request deletion of your personal information
-                  (available via{' '}
+                  (available via{" "}
                   <Link href="/settings" className="text-primary underline">
                     Settings
                   </Link>
@@ -101,7 +101,7 @@ export default async function LegalPage() {
 
           <div className="text-center text-sm text-muted-foreground border-t pt-6">
             <p>
-              Questions about our legal policies?{' '}
+              Questions about our legal policies?{" "}
               <a href="mailto:support@pickmyclass.app" className="text-primary underline">
                 Contact us
               </a>
@@ -111,11 +111,11 @@ export default async function LegalPage() {
       </main>
       <JsonLd
         data={{
-          '@context': 'https://schema.org',
-          '@type': 'BreadcrumbList',
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
           itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
-            { '@type': 'ListItem', position: 2, name: 'Legal' },
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://pickmyclass.app/" },
+            { "@type": "ListItem", position: 2, name: "Legal" },
           ],
         }}
       />

@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from "lucide-react";
 
 interface PullToRefreshIndicatorProps {
   pullDistance: number;
@@ -18,13 +18,13 @@ export function PullToRefreshIndicator({
   const height = Math.min(pullDistance, 80);
 
   const getMessage = () => {
-    if (isRefreshing) return 'Refreshing...';
+    if (isRefreshing) return "Refreshing...";
 
-    if (pullDistance >= threshold) return 'Release to refresh';
+    if (pullDistance >= threshold) return "Release to refresh";
 
-    if (pullDistance > 0) return 'Pull to refresh';
+    if (pullDistance > 0) return "Pull to refresh";
 
-    return '';
+    return "";
   };
 
   const message = getMessage();
@@ -41,9 +41,9 @@ export function PullToRefreshIndicator({
     >
       <div className="flex flex-col items-center justify-center h-full gap-2 pt-4">
         <div
-          className={`transition-transform duration-200 ${isRefreshing ? 'animate-spin' : ''}`}
+          className={`transition-transform duration-200 ${isRefreshing ? "animate-spin" : ""}`}
           style={{
-            transform: isRefreshing ? 'none' : `rotate(${rotation}deg)`,
+            transform: isRefreshing ? "none" : `rotate(${rotation}deg)`,
           }}
         >
           <Loader2 className="size-6 text-primary" />

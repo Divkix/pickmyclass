@@ -1,17 +1,17 @@
-import { and, eq, exists, inArray, sql } from 'drizzle-orm';
-import { type NextRequest } from 'next/server';
-import { ok, fail } from '@/lib/api/response';
-import { withAuth } from '@/lib/api/withAuth';
-import { getDbFromEnv } from '@/lib/db';
-import { classStates, classWatches } from '@/lib/db/schema';
+import { and, eq, exists, inArray, sql } from "drizzle-orm";
+import { type NextRequest } from "next/server";
+import { ok, fail } from "@/lib/api/response";
+import { withAuth } from "@/lib/api/withAuth";
+import { getDbFromEnv } from "@/lib/db";
+import { classStates, classWatches } from "@/lib/db/schema";
 
 export async function GET(request: NextRequest) {
   try {
     return await withAuth(request, async (user) => {
       try {
         const { searchParams } = new URL(request.url);
-        const classNumbersParam = searchParams.get('classNumbers') || '';
-        const classNumbers = classNumbersParam.split(',').filter(Boolean);
+        const classNumbersParam = searchParams.get("classNumbers") || "";
+        const classNumbers = classNumbersParam.split(",").filter(Boolean);
 
         if (classNumbers.length === 0) {
           return ok({ classStates: [] });
@@ -49,19 +49,19 @@ export async function GET(request: NextRequest) {
                     and(
                       eq(classWatches.user_id, user.userId),
                       eq(classWatches.class_nbr, classStates.class_nbr),
-                      eq(classWatches.term, classStates.term)
-                    )
-                  )
-              )
-            )
+                      eq(classWatches.term, classStates.term),
+                    ),
+                  ),
+              ),
+            ),
           );
 
         return ok({ classStates: states });
       } catch {
-        return fail('Failed to fetch class states', 500);
+        return fail("Failed to fetch class states", 500);
       }
     });
   } catch {
-    return fail('Failed to fetch class states', 500);
+    return fail("Failed to fetch class states", 500);
   }
 }

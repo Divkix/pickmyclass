@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
-import { getRateMyProfessorUrl } from '@/lib/utils/ratemyprofessor';
-import { formatAbsoluteDate } from '@/lib/utils/time-format';
-import { ExternalLink } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
+import { getRateMyProfessorUrl } from "@/lib/utils/ratemyprofessor";
+import { formatAbsoluteDate } from "@/lib/utils/time-format";
+import { ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 
 interface ClassDetailsDialogProps {
   watch: ClassWatchRow;
@@ -26,7 +26,7 @@ export function ClassDetailsDialog({
   open,
   onOpenChange,
 }: ClassDetailsDialogProps) {
-  const hasInstructor = classState?.instructor_name && classState.instructor_name !== 'Staff';
+  const hasInstructor = classState?.instructor_name && classState.instructor_name !== "Staff";
   const rmpUrl = getRateMyProfessorUrl(classState?.instructor_name);
 
   return (
@@ -82,7 +82,7 @@ export function ClassDetailsDialog({
           <div className="space-y-2">
             <h3 className="font-semibold text-foreground">Instructor</h3>
             <div className="bg-muted rounded-md p-4">
-              <p className="text-lg text-foreground">{classState?.instructor_name || 'TBA'}</p>
+              <p className="text-lg text-foreground">{classState?.instructor_name || "TBA"}</p>
               {rmpUrl && (
                 <Button variant="outline" className="mt-3" asChild>
                   <a

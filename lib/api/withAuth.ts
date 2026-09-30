@@ -1,17 +1,17 @@
-import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
-import type { SessionIdentity } from '@/lib/auth/clerk-session';
-import { fail } from '@/lib/api/response';
+import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
+import type { SessionIdentity } from "@/lib/auth/clerk-session";
+import { fail } from "@/lib/api/response";
 
 export async function withAuth(
   request: Request,
-  handler: (user: SessionIdentity) => Promise<Response>
+  handler: (user: SessionIdentity) => Promise<Response>,
 ): Promise<Response> {
   try {
     const { user } = await requireUser(request);
 
     return await handler(user);
   } catch (e) {
-    if (e instanceof UnauthorizedError) return fail('Unauthorized', 401);
+    if (e instanceof UnauthorizedError) return fail("Unauthorized", 401);
     throw e;
   }
 }

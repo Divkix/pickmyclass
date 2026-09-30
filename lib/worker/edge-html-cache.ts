@@ -1,9 +1,9 @@
-import { hasClerkSessionCookiesInHeader } from '@/lib/auth/clerk-cookies';
-import { EDGE_HTML_CACHE_TTL_S } from '@/lib/config';
+import { hasClerkSessionCookiesInHeader } from "@/lib/auth/clerk-cookies";
+import { EDGE_HTML_CACHE_TTL_S } from "@/lib/config";
 
-const EDGE_CACHE_EXACT_PATHS = new Set(['/', '/faq', '/about', '/blog', '/legal']);
+const EDGE_CACHE_EXACT_PATHS = new Set(["/", "/faq", "/about", "/blog", "/legal"]);
 
-const EDGE_CACHE_PREFIXES = ['/blog/', '/legal/'];
+const EDGE_CACHE_PREFIXES = ["/blog/", "/legal/"];
 
 interface EdgeCacheStore {
   match(key: Request): Promise<Response | undefined>;
@@ -20,7 +20,7 @@ function isCacheablePath(pathname: string): boolean {
 function cacheKey(request: Request, versionId?: string): Request {
   const pathname = new URL(request.url).pathname;
 
-  return new Request(`https://edge-cache.internal/${versionId ?? 'dev'}${pathname}`);
+  return new Request(`https://edge-cache.internal/${versionId ?? "dev"}${pathname}`);
 }
 
 function defaultCache(): EdgeCacheStore {
@@ -36,13 +36,13 @@ export function createEdgeHtmlCache(resolveCache: () => EdgeCacheStore) {
   return {
     isEligible(request: Request): boolean {
       const url = new URL(request.url);
-      const isRscRequest = request.headers.has('rsc') || url.searchParams.has('_rsc');
+      const isRscRequest = request.headers.has("rsc") || url.searchParams.has("_rsc");
 
       return (
-        request.method === 'GET' &&
+        request.method === "GET" &&
         !isRscRequest &&
         isCacheablePath(url.pathname) &&
-        !hasClerkSessionCookiesInHeader(request.headers.get('cookie'))
+        !hasClerkSessionCookiesInHeader(request.headers.get("cookie"))
       );
     },
 
@@ -51,14 +51,14 @@ export function createEdgeHtmlCache(resolveCache: () => EdgeCacheStore) {
     },
 
     put(request: Request, versionId: string | undefined, response: Response): Promise<void> | null {
-      const isHtml = response.headers.get('content-type')?.toLowerCase().includes('text/html');
+      const isHtml = response.headers.get("content-type")?.toLowerCase().includes("text/html");
 
-      if (response.status !== 200 || !isHtml || response.headers.has('set-cookie')) {
+      if (response.status !== 200 || !isHtml || response.headers.has("set-cookie")) {
         return null;
       }
 
       const toStore = new Response(response.clone().body, response);
-      toStore.headers.set('Cache-Control', `public, s-maxage=${EDGE_HTML_CACHE_TTL_S}`);
+      toStore.headers.set("Cache-Control", `public, s-maxage=${EDGE_HTML_CACHE_TTL_S}`);
 
       return resolveCache().put(cacheKey(request, versionId), toStore);
     },

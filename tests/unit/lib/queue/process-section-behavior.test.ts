@@ -1,26 +1,26 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { ApiError, AuthError, NotFoundError, RateLimitError } from '@/lib/asu/api';
-import { processSection } from '@/lib/queue/process-section';
-import type { ClassDetails } from '@/lib/types/class';
-import type { Env } from '@/lib/types/env';
-import { createScriptedPostgres } from '../db/scripted-postgres';
+import { ApiError, AuthError, NotFoundError, RateLimitError } from "@/lib/asu/api";
+import { processSection } from "@/lib/queue/process-section";
+import type { ClassDetails } from "@/lib/types/class";
+import type { Env } from "@/lib/types/env";
+import { createScriptedPostgres } from "../db/scripted-postgres";
 
-const REF = { class_nbr: '42737', term: '2261' };
+const REF = { class_nbr: "42737", term: "2261" };
 
-const FROM_EMAIL = 'notifications@pickmyclass.app';
+const FROM_EMAIL = "notifications@pickmyclass.app";
 
 function buildDetails(overrides: Partial<ClassDetails> = {}): ClassDetails {
   return {
-    subject: 'CSE',
-    catalog_nbr: '110',
-    title: 'Principles of Programming',
-    instructor_name: 'Dr. Smith',
+    subject: "CSE",
+    catalog_nbr: "110",
+    title: "Principles of Programming",
+    instructor_name: "Dr. Smith",
     seats_available: 5,
     seats_capacity: 100,
     non_reserved_seats: 3,
-    location: 'TBD',
-    meeting_times: 'TBD',
+    location: "TBD",
+    meeting_times: "TBD",
     ...overrides,
   };
 }
@@ -31,16 +31,16 @@ function oldStateRow(
     non_reserved_seats: number | null;
     instructor_name: string | null;
     last_checked_at: string;
-  }> = {}
+  }> = {},
 ) {
   return {
     class_nbr: REF.class_nbr,
     term: REF.term,
     seats_available: 0,
     non_reserved_seats: 0,
-    instructor_name: 'Staff',
+    instructor_name: "Staff",
     consecutive_not_found_count: 0,
-    last_checked_at: '2026-09-18T13:00:00.000Z',
+    last_checked_at: "2026-09-18T13:00:00.000Z",
     ...overrides,
   };
 }
@@ -48,30 +48,30 @@ function oldStateRow(
 function buildSend() {
   return vi
     .fn<(message: EmailMessage | EmailMessageBuilder) => Promise<EmailSendResult>>()
-    .mockResolvedValue({ messageId: 'msg_test' });
+    .mockResolvedValue({ messageId: "msg_test" });
 }
 
 function buildEnv(
-  send: ReturnType<typeof buildSend>
-): Pick<Env, 'ASU_API_BASE_URL' | 'ASU_API_TOKEN' | 'EMAIL' | 'NOTIFICATION_FROM_EMAIL'> {
+  send: ReturnType<typeof buildSend>,
+): Pick<Env, "ASU_API_BASE_URL" | "ASU_API_TOKEN" | "EMAIL" | "NOTIFICATION_FROM_EMAIL"> {
   return {
-    ASU_API_BASE_URL: 'https://asu.example.test',
-    ASU_API_TOKEN: 'test-token',
+    ASU_API_BASE_URL: "https://asu.example.test",
+    ASU_API_TOKEN: "test-token",
     EMAIL: { send },
     NOTIFICATION_FROM_EMAIL: FROM_EMAIL,
   };
 }
 
 function upsertStatements(h: ReturnType<typeof createScriptedPostgres>) {
-  return h.statements.filter((s) => s.sql.includes('public.upsert_class_state_locked'));
+  return h.statements.filter((s) => s.sql.includes("public.upsert_class_state_locked"));
 }
 
 beforeEach(() => {
-  vi.spyOn(console, 'log').mockImplementation(() => {});
-  vi.spyOn(console, 'error').mockImplementation(() => {});
-  vi.spyOn(console, 'warn').mockImplementation(() => {});
-  vi.spyOn(console, 'info').mockImplementation(() => {});
-  process.env.UNSUBSCRIBE_SIGNING_SECRET = 'behavior-test-secret';
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(console, "info").mockImplementation(() => {});
+  process.env.UNSUBSCRIBE_SIGNING_SECRET = "behavior-test-secret";
 });
 
 afterEach(() => {
@@ -79,8 +79,8 @@ afterEach(() => {
   delete process.env.UNSUBSCRIBE_SIGNING_SECRET;
 });
 
-describe('processSection behavior (interface only)', () => {
-  it('first observation persists the baseline but suppresses seat and instructor email', async () => {
+describe("processSection behavior (interface only)", () => {
+  it("first observation persists the baseline but suppresses seat and instructor email", async () => {
     const h = createScriptedPostgres();
     h.next([]); // readSectionCheckState -> no row yet
     h.next([{ applied: true }]); // upsertClassState baseline
@@ -92,11 +92,11 @@ describe('processSection behavior (interface only)', () => {
         buildDetails({
           seats_available: 5,
           non_reserved_seats: 3,
-          instructor_name: 'Dr. Smith',
+          instructor_name: "Dr. Smith",
         }),
     });
 
-    expect(outcome.disposition).toBe('ack');
+    expect(outcome.disposition).toBe("ack");
     expect(outcome.httpStatus).toBe(200);
     expect(outcome.result.success).toBe(true);
     expect(outcome.result.emailsSent).toBe(0);
@@ -108,12 +108,12 @@ describe('processSection behavior (interface only)', () => {
     expect(upserts[0].params).toContain(5);
   });
 
-  it('redelivered message in the same cycle acks as a no-op without touching ASU', async () => {
+  it("redelivered message in the same cycle acks as a no-op without touching ASU", async () => {
     const h = createScriptedPostgres();
     h.next([
       {
         ...oldStateRow({ seats_available: 5, non_reserved_seats: 3 }),
-        last_checked_at: '2026-09-18T14:30:05.000Z',
+        last_checked_at: "2026-09-18T14:30:05.000Z",
       },
     ]);
 
@@ -122,14 +122,14 @@ describe('processSection behavior (interface only)', () => {
 
     const outcome = await processSection(
       h.db,
-      { ...REF, cycle: '2026-09-18T14:30:00.000Z:even' },
+      { ...REF, cycle: "2026-09-18T14:30:00.000Z:even" },
       buildEnv(send),
       {
         fetchClass,
-      }
+      },
     );
 
-    expect(outcome.disposition).toBe('ack');
+    expect(outcome.disposition).toBe("ack");
     expect(outcome.httpStatus).toBe(200);
     expect(outcome.result.success).toBe(true);
     expect(outcome.result.emailsSent).toBe(0);
@@ -138,54 +138,54 @@ describe('processSection behavior (interface only)', () => {
     expect(h.statements).toHaveLength(1); // the state read only
   });
 
-  it('stale-cycle message still runs the check and passes useCache:false to the ASU seam', async () => {
+  it("stale-cycle message still runs the check and passes useCache:false to the ASU seam", async () => {
     const h = createScriptedPostgres();
     h.next([
       {
         ...oldStateRow({ seats_available: 5, non_reserved_seats: 3 }),
-        last_checked_at: '2026-09-18T13:59:59.000Z',
+        last_checked_at: "2026-09-18T13:59:59.000Z",
       },
     ]);
     h.next([{ applied: true }]); // upsertClassState
 
     const send = buildSend();
-    const fetchClass = vi.fn().mockResolvedValue(buildDetails({ instructor_name: 'Staff' }));
+    const fetchClass = vi.fn().mockResolvedValue(buildDetails({ instructor_name: "Staff" }));
 
     const outcome = await processSection(
       h.db,
-      { ...REF, cycle: '2026-09-18T14:30:00.000Z:even' },
+      { ...REF, cycle: "2026-09-18T14:30:00.000Z:even" },
       buildEnv(send),
       {
         fetchClass,
-      }
+      },
     );
 
-    expect(outcome.disposition).toBe('ack');
+    expect(outcome.disposition).toBe("ack");
     expect(fetchClass).toHaveBeenCalledTimes(1);
     expect(fetchClass.mock.calls[0][2]).toEqual({ useCache: false });
     expect(upsertStatements(h)).toHaveLength(1);
   });
 
-  it('seat opens: persists the new state before any email sends', async () => {
+  it("seat opens: persists the new state before any email sends", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]); // persisted baseline, section was full
     h.next([{ applied: true }]); // upsertClassState
-    h.next([{ user_id: 'user-1', email: 'alice@example.com', watch_id: 'watch-1' }]); // watchers
-    h.next([{ notification_id: 'notif-row-1', class_watch_id: 'watch-1' }]); // seat claim
+    h.next([{ user_id: "user-1", email: "alice@example.com", watch_id: "watch-1" }]); // watchers
+    h.next([{ notification_id: "notif-row-1", class_watch_id: "watch-1" }]); // seat claim
 
     let upsertsAtSend = -1;
     const send = buildSend();
     send.mockImplementation(async () => {
       upsertsAtSend = upsertStatements(h).length;
 
-      return { messageId: 'msg_test' };
+      return { messageId: "msg_test" };
     });
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
-      fetchClass: async () => buildDetails({ instructor_name: 'Staff' }),
+      fetchClass: async () => buildDetails({ instructor_name: "Staff" }),
     });
 
-    expect(outcome.disposition).toBe('ack');
+    expect(outcome.disposition).toBe("ack");
     expect(outcome.result.success).toBe(true);
     expect(outcome.result.changes).toMatchObject({
       seatBecameAvailable: true,
@@ -194,14 +194,14 @@ describe('processSection behavior (interface only)', () => {
     expect(outcome.result.emailsSent).toBe(1);
     expect(send).toHaveBeenCalledTimes(1);
     const firstSend = send.mock.calls[0][0];
-    expect(firstSend.to).toBe('alice@example.com');
+    expect(firstSend.to).toBe("alice@example.com");
     expect(upsertsAtSend).toBe(1);
     const upserts = upsertStatements(h);
     expect(upserts[0].params).toContain(5);
     expect(upserts[0].params).toContain(3);
   });
 
-  it('seats fill: resets seat notifications and sends no email', async () => {
+  it("seats fill: resets seat notifications and sends no email", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow({ seats_available: 3, non_reserved_seats: 2 })]); // was open
     h.next([{ applied: true }]); // upsertClassState
@@ -211,72 +211,72 @@ describe('processSection behavior (interface only)', () => {
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () =>
-        buildDetails({ seats_available: 0, non_reserved_seats: 0, instructor_name: 'Staff' }),
+        buildDetails({ seats_available: 0, non_reserved_seats: 0, instructor_name: "Staff" }),
     });
 
-    expect(outcome.disposition).toBe('ack');
+    expect(outcome.disposition).toBe("ack");
     expect(outcome.result.success).toBe(true);
     expect(outcome.result.changes.seatsFilled).toBe(true);
     expect(outcome.result.emailsSent).toBe(0);
     expect(send).not.toHaveBeenCalled();
-    const resets = h.statements.filter((s) => s.sql.includes('public.reset_section_notifications'));
+    const resets = h.statements.filter((s) => s.sql.includes("public.reset_section_notifications"));
     expect(resets).toHaveLength(1);
-    expect(resets[0].params).toEqual([REF.class_nbr, REF.term, 'seat_available']);
+    expect(resets[0].params).toEqual([REF.class_nbr, REF.term, "seat_available"]);
   });
 
-  it('emails only the claimed watcher IDs', async () => {
+  it("emails only the claimed watcher IDs", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);
     h.next([{ applied: true }]); // upsertClassState
     h.next([
-      { user_id: 'user-1', email: 'alice@example.com', watch_id: 'watch-1' },
-      { user_id: 'user-2', email: 'bob@example.com', watch_id: 'watch-2' },
+      { user_id: "user-1", email: "alice@example.com", watch_id: "watch-1" },
+      { user_id: "user-2", email: "bob@example.com", watch_id: "watch-2" },
     ]);
-    h.next([{ notification_id: 'notif-row-1', class_watch_id: 'watch-1' }]); // watch-2 already claimed
+    h.next([{ notification_id: "notif-row-1", class_watch_id: "watch-1" }]); // watch-2 already claimed
 
     const send = buildSend();
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
-      fetchClass: async () => buildDetails({ instructor_name: 'Staff' }),
+      fetchClass: async () => buildDetails({ instructor_name: "Staff" }),
     });
 
-    expect(outcome.disposition).toBe('ack');
+    expect(outcome.disposition).toBe("ack");
     expect(outcome.result.emailsSent).toBe(1);
     expect(send).toHaveBeenCalledTimes(1);
     const firstSend = send.mock.calls[0][0];
-    expect(firstSend.to).toBe('alice@example.com');
+    expect(firstSend.to).toBe("alice@example.com");
   });
 
-  it('rolls back the claim by notification row id when the send fails', async () => {
+  it("rolls back the claim by notification row id when the send fails", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);
     h.next([{ applied: true }]); // upsertClassState
-    h.next([{ user_id: 'user-1', email: 'alice@example.com', watch_id: 'watch-1' }]);
-    h.next([{ notification_id: 'notif-row-1', class_watch_id: 'watch-1' }]); // claim returns its row id
+    h.next([{ user_id: "user-1", email: "alice@example.com", watch_id: "watch-1" }]);
+    h.next([{ notification_id: "notif-row-1", class_watch_id: "watch-1" }]); // claim returns its row id
     h.next([{ deleted: 1 }]); // delete_notification_records_by_ids rollback
 
     const send = buildSend();
-    send.mockRejectedValueOnce(new Error('SMTP 550 mailbox unavailable'));
+    send.mockRejectedValueOnce(new Error("SMTP 550 mailbox unavailable"));
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
-      fetchClass: async () => buildDetails({ instructor_name: 'Staff' }),
+      fetchClass: async () => buildDetails({ instructor_name: "Staff" }),
     });
 
-    expect(outcome.disposition).toBe('ack');
+    expect(outcome.disposition).toBe("ack");
     expect(outcome.result.success).toBe(true);
     expect(outcome.result.emailsSent).toBe(0);
     expect(send).toHaveBeenCalledTimes(1);
 
     const rollbacks = h.statements.filter((s) =>
-      s.sql.includes('delete_notification_records_by_ids')
+      s.sql.includes("delete_notification_records_by_ids"),
     );
 
     expect(rollbacks).toHaveLength(1);
-    expect(rollbacks[0].params).toContain('notif-row-1');
-    expect(rollbacks[0].params).not.toContain('watch-1');
+    expect(rollbacks[0].params).toContain("notif-row-1");
+    expect(rollbacks[0].params).not.toContain("watch-1");
   });
 
-  it('does not reset or email when a newer observation already won', async () => {
+  it("does not reset or email when a newer observation already won", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow({ seats_available: 3, non_reserved_seats: 2 })]);
     h.next([{ applied: false }]);
@@ -285,40 +285,40 @@ describe('processSection behavior (interface only)', () => {
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () =>
-        buildDetails({ seats_available: 0, non_reserved_seats: 0, instructor_name: 'Staff' }),
+        buildDetails({ seats_available: 0, non_reserved_seats: 0, instructor_name: "Staff" }),
     });
 
-    expect(outcome.disposition).toBe('ack');
+    expect(outcome.disposition).toBe("ack");
     expect(outcome.result.emailsSent).toBe(0);
     expect(send).not.toHaveBeenCalled();
-    expect(h.statements.some((s) => s.sql.includes('public.reset_section_notifications'))).toBe(
-      false
+    expect(h.statements.some((s) => s.sql.includes("public.reset_section_notifications"))).toBe(
+      false,
     );
   });
 
-  it('leaves the instructor claim in place when the upsert fails after a Staff reversion', async () => {
+  it("leaves the instructor claim in place when the upsert fails after a Staff reversion", async () => {
     const h = createScriptedPostgres();
     h.next([
-      oldStateRow({ instructor_name: 'Dr. Smith', seats_available: 0, non_reserved_seats: 0 }),
+      oldStateRow({ instructor_name: "Dr. Smith", seats_available: 0, non_reserved_seats: 0 }),
     ]);
-    h.failNext(new Error('upsert failed'));
+    h.failNext(new Error("upsert failed"));
 
     const send = buildSend();
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () =>
-        buildDetails({ seats_available: 0, non_reserved_seats: 0, instructor_name: 'Staff' }),
+        buildDetails({ seats_available: 0, non_reserved_seats: 0, instructor_name: "Staff" }),
     });
 
-    expect(outcome.disposition).toBe('retry');
+    expect(outcome.disposition).toBe("retry");
     expect(outcome.httpStatus).toBe(500);
     expect(send).not.toHaveBeenCalled();
-    expect(h.statements.some((s) => s.sql.includes('public.reset_section_notifications'))).toBe(
-      false
+    expect(h.statements.some((s) => s.sql.includes("public.reset_section_notifications"))).toBe(
+      false,
     );
   });
 
-  it('first NotFound tracks strike 1 with ack and deletes nothing', async () => {
+  it("first NotFound tracks strike 1 with ack and deletes nothing", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);
     h.next([{ new_count: 1 }]); // increment_consecutive_not_found
@@ -327,50 +327,50 @@ describe('processSection behavior (interface only)', () => {
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
-        throw new NotFoundError('Section 42737 not found');
+        throw new NotFoundError("Section 42737 not found");
       },
     });
 
-    expect(outcome.disposition).toBe('ack');
+    expect(outcome.disposition).toBe("ack");
     expect(outcome.httpStatus).toBe(200);
     expect(outcome.retryable).toBe(false);
     expect(outcome.result.success).toBe(false);
-    expect(outcome.result.error).toBe('Section 42737 not found');
+    expect(outcome.result.error).toBe("Section 42737 not found");
     expect(outcome.result.retirement).toMatchObject({
-      status: 'tracked',
+      status: "tracked",
       strikeCount: 1,
       deleted: false,
     });
     expect(send).not.toHaveBeenCalled();
-    expect(h.statements.some((s) => s.sql.includes('delete from'))).toBe(false);
+    expect(h.statements.some((s) => s.sql.includes("delete from"))).toBe(false);
   });
 
-  it('third consecutive NotFound retires the section with ack', async () => {
+  it("third consecutive NotFound retires the section with ack", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);
     h.next([{ new_count: 3 }]); // increment_consecutive_not_found at threshold
     h.next([{ value: 10 }]); // breaker total
     h.next([{ value: 1 }]); // breaker flagged
-    h.next([{ user_id: 'user-1', email: 'alice@example.com', watch_id: 'watch-1' }]);
-    h.next([{ subject: 'CSE', catalog_nbr: '110', title: 'Principles of Programming' }]);
-    h.next([{ id: 'watch-1' }]); // deleted watches
-    h.next([{ id: 'state-1' }]); // deleted state
+    h.next([{ user_id: "user-1", email: "alice@example.com", watch_id: "watch-1" }]);
+    h.next([{ subject: "CSE", catalog_nbr: "110", title: "Principles of Programming" }]);
+    h.next([{ id: "watch-1" }]); // deleted watches
+    h.next([{ id: "state-1" }]); // deleted state
 
     const send = buildSend();
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
-        throw new NotFoundError('Section 42737 not found');
+        throw new NotFoundError("Section 42737 not found");
       },
     });
 
-    expect(outcome.disposition).toBe('ack');
+    expect(outcome.disposition).toBe("ack");
     expect(outcome.httpStatus).toBe(200);
     expect(outcome.result.success).toBe(true);
-    expect(outcome.result.error).toContain('Auto-cleanup');
+    expect(outcome.result.error).toContain("Auto-cleanup");
     expect(outcome.result.emailsSent).toBe(1);
     expect(outcome.result.retirement).toMatchObject({
-      status: 'retired',
+      status: "retired",
       strikeCount: 3,
       deleted: true,
       watchesDeleted: 1,
@@ -378,10 +378,10 @@ describe('processSection behavior (interface only)', () => {
     });
     expect(send).toHaveBeenCalledTimes(1);
     const firstSend = send.mock.calls[0][0];
-    expect(firstSend.to).toBe('alice@example.com');
+    expect(firstSend.to).toBe("alice@example.com");
   });
 
-  it('rate-limit error retries with 429', async () => {
+  it("rate-limit error retries with 429", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);
 
@@ -389,24 +389,24 @@ describe('processSection behavior (interface only)', () => {
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
-        throw new RateLimitError('ASU API rate limit hit');
+        throw new RateLimitError("ASU API rate limit hit");
       },
     });
 
-    expect(outcome.disposition).toBe('retry');
+    expect(outcome.disposition).toBe("retry");
     expect(outcome.httpStatus).toBe(429);
     expect(outcome.retryable).toBe(true);
-    expect(outcome.result.error).toBe('ASU API rate limit hit');
+    expect(outcome.result.error).toBe("ASU API rate limit hit");
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('passes the ASU Retry-After through on a rate-limit retry', async () => {
+  it("passes the ASU Retry-After through on a rate-limit retry", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);
 
     const outcome = await processSection(h.db, REF, buildEnv(buildSend()), {
       fetchClass: async () => {
-        throw new RateLimitError('ASU API rate limit hit', 300);
+        throw new RateLimitError("ASU API rate limit hit", 300);
       },
     });
 
@@ -414,7 +414,7 @@ describe('processSection behavior (interface only)', () => {
     expect(outcome.retryAfterSeconds).toBe(300);
   });
 
-  it('upstream ApiError retries with 502', async () => {
+  it("upstream ApiError retries with 502", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);
 
@@ -422,17 +422,17 @@ describe('processSection behavior (interface only)', () => {
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
-        throw new ApiError('ASU API 502 Bad Gateway', 502);
+        throw new ApiError("ASU API 502 Bad Gateway", 502);
       },
     });
 
-    expect(outcome.disposition).toBe('retry');
+    expect(outcome.disposition).toBe("retry");
     expect(outcome.httpStatus).toBe(502);
     expect(outcome.retryable).toBe(true);
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('unknown error retries with 500', async () => {
+  it("unknown error retries with 500", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);
 
@@ -440,17 +440,17 @@ describe('processSection behavior (interface only)', () => {
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
-        throw new Error('Unexpected internal error');
+        throw new Error("Unexpected internal error");
       },
     });
 
-    expect(outcome.disposition).toBe('retry');
+    expect(outcome.disposition).toBe("retry");
     expect(outcome.httpStatus).toBe(500);
     expect(outcome.retryable).toBe(true);
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('auth failure acks without retry and performs no retirement work', async () => {
+  it("auth failure acks without retry and performs no retirement work", async () => {
     const h = createScriptedPostgres();
     h.next([oldStateRow()]);
 
@@ -458,11 +458,11 @@ describe('processSection behavior (interface only)', () => {
 
     const outcome = await processSection(h.db, REF, buildEnv(send), {
       fetchClass: async () => {
-        throw new AuthError('ASU API token expired or invalid');
+        throw new AuthError("ASU API token expired or invalid");
       },
     });
 
-    expect(outcome.disposition).toBe('ack');
+    expect(outcome.disposition).toBe("ack");
     expect(outcome.httpStatus).toBe(200);
     expect(outcome.retryable).toBe(false);
     expect(outcome.result.success).toBe(false);

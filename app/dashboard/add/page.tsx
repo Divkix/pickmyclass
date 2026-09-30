@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { AddClassWatch } from '@/components/AddClassWatch';
-import { Header } from '@/components/Header';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/lib/contexts/AuthContext';
-import { useRequireAuth } from '@/lib/hooks/useRequireAuth';
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { AddClassWatch } from "@/components/AddClassWatch";
+import { Header } from "@/components/Header";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { useRequireAuth } from "@/lib/hooks/useRequireAuth";
 
 export default function AddClassPage() {
   const { user, loading: authLoading } = useAuth();
@@ -16,7 +16,7 @@ export default function AddClassPage() {
   useRequireAuth();
 
   const handleWatchCreated = () => {
-    router.push('/dashboard');
+    router.push("/dashboard");
   };
 
   if (authLoading) {

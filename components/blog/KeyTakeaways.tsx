@@ -1,4 +1,4 @@
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb } from "lucide-react";
 
 interface KeyTakeaway {
   text: string;
@@ -9,7 +9,7 @@ interface KeyTakeawaysProps {
   items: KeyTakeaway[];
 }
 
-export function KeyTakeaways({ title = 'Key Takeaways', items }: KeyTakeawaysProps) {
+export function KeyTakeaways({ title = "Key Takeaways", items }: KeyTakeawaysProps) {
   return (
     <div className="not-prose my-8 rounded-xl border border-accent/40 bg-accent/10 p-6">
       <div className="flex items-center gap-2.5 mb-4">

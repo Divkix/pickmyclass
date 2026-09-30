@@ -3,32 +3,32 @@ import {
   type WorkflowEvent,
   type WorkflowStep,
   type WorkflowStepConfig,
-} from 'cloudflare:workers';
-import { sql } from 'drizzle-orm';
-import { getPastTermCodes } from '@/lib/asu/terms';
-import { type Database, getDb } from '@/lib/db';
-import { deletePastTermWatches, getSectionsToCheck } from '@/lib/db/queries';
-import { log } from '@/lib/log';
-import type { SectionRef } from '@/lib/section-ref';
-import type { Env } from '@/lib/types/env';
-import type { ClassCheckMessage } from '@/lib/types/queue';
-import type { StaggerGroup } from '@/lib/types/stagger';
+} from "cloudflare:workers";
+import { sql } from "drizzle-orm";
+import { getPastTermCodes } from "@/lib/asu/terms";
+import { type Database, getDb } from "@/lib/db";
+import { deletePastTermWatches, getSectionsToCheck } from "@/lib/db/queries";
+import { log } from "@/lib/log";
+import type { SectionRef } from "@/lib/section-ref";
+import type { Env } from "@/lib/types/env";
+import type { ClassCheckMessage } from "@/lib/types/queue";
+import type { StaggerGroup } from "@/lib/types/stagger";
 
 const CF_QUEUE_SEND_BATCH_LIMIT = 100;
 
 const STEP_CONFIG = {
-  retries: { limit: 5, delay: '10 seconds', backoff: 'exponential' },
-  timeout: '2 minutes',
+  retries: { limit: 5, delay: "10 seconds", backoff: "exponential" },
+  timeout: "2 minutes",
 } satisfies WorkflowStepConfig;
 
 interface CronWorkflowEnv {
-  HYPERDRIVE: Env['HYPERDRIVE'];
-  PICKMYCLASS_QUEUE: Pick<Env['PICKMYCLASS_QUEUE'], 'sendBatch'>;
+  HYPERDRIVE: Env["HYPERDRIVE"];
+  PICKMYCLASS_QUEUE: Pick<Env["PICKMYCLASS_QUEUE"], "sendBatch">;
 }
 
 async function expireStaleNotifications(db: Database): Promise<number> {
   const rows = await db.execute<{ expired: unknown }>(
-    sql`SELECT public.expire_stale_notifications() AS expired`
+    sql`SELECT public.expire_stale_notifications() AS expired`,
   );
 
   return Number(rows[0]?.expired ?? 0);
@@ -40,14 +40,14 @@ function firedAt(event: Readonly<WorkflowEvent<unknown>>): Date {
 }
 
 export function staggerGroupFor(time: Date): StaggerGroup {
-  return Math.floor(time.getMinutes() / 15) % 2 === 0 ? 'even' : 'odd';
+  return Math.floor(time.getMinutes() / 15) % 2 === 0 ? "even" : "odd";
 }
 
 function rejectedReasons(results: PromiseSettledResult<unknown>[]): string[] {
   return results.flatMap((result) =>
-    result.status === 'rejected'
+    result.status === "rejected"
       ? [result.reason instanceof Error ? result.reason.message : String(result.reason)]
-      : []
+      : [],
   );
 }
 
@@ -68,27 +68,27 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
     const cycle = `${now.toISOString()}:${staggerGroup}`;
 
     try {
-      const expired = await step.do('expire stale notifications', STEP_CONFIG, () =>
-        expireStaleNotifications(getDb(this.env.HYPERDRIVE))
+      const expired = await step.do("expire stale notifications", STEP_CONFIG, () =>
+        expireStaleNotifications(getDb(this.env.HYPERDRIVE)),
       );
 
-      if (expired > 0) log('SectionCheck').info(`Expired ${expired} stale notification records`);
+      if (expired > 0) log("SectionCheck").info(`Expired ${expired} stale notification records`);
     } catch (error) {
       // Best-effort here: the 04:05 maintenance run expires them too, and a
       // failed sweep must not block this cycle's checks.
-      log('SectionCheck').warn('Failed to expire stale notifications:', error);
+      log("SectionCheck").warn("Failed to expire stale notifications:", error);
     }
 
-    const sections = await step.do('load sections', STEP_CONFIG, async () => {
+    const sections = await step.do("load sections", STEP_CONFIG, async () => {
       const all = await getSectionsToCheck(getDb(this.env.HYPERDRIVE), staggerGroup);
       const pastTerms = new Set(getPastTermCodes());
 
       return all.flatMap(({ class_nbr, term }): SectionRef[] =>
-        pastTerms.has(term) ? [] : [{ class_nbr, term }]
+        pastTerms.has(term) ? [] : [{ class_nbr, term }],
       );
     });
 
-    log('SectionCheck').info(`Enqueueing ${sections.length} sections (cycle ${cycle})`);
+    log("SectionCheck").info(`Enqueueing ${sections.length} sections (cycle ${cycle})`);
 
     const batches: SectionRef[][] = [];
 
@@ -104,19 +104,19 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
           await this.env.PICKMYCLASS_QUEUE.sendBatch(
             batch.map((section) => ({
               body: { ...section, enqueued_at: enqueuedAt, cycle } satisfies ClassCheckMessage,
-            }))
+            })),
           );
 
           return batch.length;
-        })
-      )
+        }),
+      ),
     );
 
     const failures = rejectedReasons(results);
 
     if (failures.length > 0) {
       throw new Error(
-        `${failures.length}/${batches.length} enqueue batches failed: ${failures.join('; ')}`
+        `${failures.length}/${batches.length} enqueue batches failed: ${failures.join("; ")}`,
       );
     }
 
@@ -132,20 +132,20 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
 export class MaintenanceWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
   async run(_event: Readonly<WorkflowEvent<unknown>>, step: WorkflowStep) {
     const [expired, swept] = await Promise.allSettled([
-      step.do('expire stale notifications', STEP_CONFIG, () =>
-        expireStaleNotifications(getDb(this.env.HYPERDRIVE))
+      step.do("expire stale notifications", STEP_CONFIG, () =>
+        expireStaleNotifications(getDb(this.env.HYPERDRIVE)),
       ),
-      step.do('sweep past-term watches', STEP_CONFIG, () =>
-        deletePastTermWatches(getDb(this.env.HYPERDRIVE), getPastTermCodes())
+      step.do("sweep past-term watches", STEP_CONFIG, () =>
+        deletePastTermWatches(getDb(this.env.HYPERDRIVE), getPastTermCodes()),
       ),
     ]);
 
-    if (expired.status === 'rejected' || swept.status === 'rejected') {
-      throw new Error(`Maintenance failed: ${rejectedReasons([expired, swept]).join('; ')}`);
+    if (expired.status === "rejected" || swept.status === "rejected") {
+      throw new Error(`Maintenance failed: ${rejectedReasons([expired, swept]).join("; ")}`);
     }
 
-    log('Maintenance').info(
-      `Expired ${expired.value} stale notifications, swept ${swept.value} past-term watches`
+    log("Maintenance").info(
+      `Expired ${expired.value} stale notifications, swept ${swept.value} past-term watches`,
     );
 
     return { expired: expired.value, swept: swept.value };

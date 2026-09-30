@@ -4,22 +4,22 @@ import {
   NotFoundError,
   RateLimitError,
   fetchClassFromASU,
-} from '@/lib/asu/api';
+} from "@/lib/asu/api";
 import {
   readSectionCheckState,
   resetNotificationsForSection,
   upsertClassState,
-} from '@/lib/db/queries';
-import { RATE_LIMIT_RETRY_BASE_S, RATE_LIMIT_RETRY_MAX_S } from '@/lib/config';
-import type { Database } from '@/lib/db';
-import { log } from '@/lib/log';
-import { type SectionRef } from '@/lib/section-ref';
-import { type ChangeResult, detectChanges } from '@/lib/queue/change-detector';
-import { type SentNotification, sendSectionNotifications } from '@/lib/queue/notification-sender';
-import { type SectionRetirementOutcome, retireClassSection } from '@/lib/queue/section-retirement';
-import type { ClassDetails } from '@/lib/types/class';
-import type { Env } from '@/lib/types/env';
-import type { ClassCheckMessage } from '@/lib/types/queue';
+} from "@/lib/db/queries";
+import { RATE_LIMIT_RETRY_BASE_S, RATE_LIMIT_RETRY_MAX_S } from "@/lib/config";
+import type { Database } from "@/lib/db";
+import { log } from "@/lib/log";
+import { type SectionRef } from "@/lib/section-ref";
+import { type ChangeResult, detectChanges } from "@/lib/queue/change-detector";
+import { type SentNotification, sendSectionNotifications } from "@/lib/queue/notification-sender";
+import { type SectionRetirementOutcome, retireClassSection } from "@/lib/queue/section-retirement";
+import type { ClassDetails } from "@/lib/types/class";
+import type { Env } from "@/lib/types/env";
+import type { ClassCheckMessage } from "@/lib/types/queue";
 
 interface ProcessingResult {
   success: boolean;
@@ -31,7 +31,7 @@ interface ProcessingResult {
   retirement?: SectionRetirementOutcome;
 }
 
-type Disposition = 'ack' | 'retry';
+type Disposition = "ack" | "retry";
 
 export type SectionCheckOutcome = {
   disposition: Disposition;
@@ -51,7 +51,7 @@ export type ProcessSectionDeps = {
  * The worker hands `processSection` the whole message body, so the stamp rides
  * along without a second parameter.
  */
-type SectionCheckInput = SectionRef & Pick<ClassCheckMessage, 'cycle'>;
+type SectionCheckInput = SectionRef & Pick<ClassCheckMessage, "cycle">;
 
 function emptyChanges(): ChangeResult {
   return {
@@ -63,11 +63,11 @@ function emptyChanges(): ChangeResult {
 }
 
 function ackOutcome(result: ProcessingResult): SectionCheckOutcome {
-  return { disposition: 'ack', result, httpStatus: 200, retryable: false };
+  return { disposition: "ack", result, httpStatus: 200, retryable: false };
 }
 
 function retryOutcome(result: ProcessingResult, httpStatus: 429 | 502 | 500): SectionCheckOutcome {
-  return { disposition: 'retry', result, httpStatus, retryable: true };
+  return { disposition: "retry", result, httpStatus, retryable: true };
 }
 
 function failedResult(classNbr: string, duration: number, error: string): ProcessingResult {
@@ -84,8 +84,8 @@ function failedResult(classNbr: string, duration: number, error: string): Proces
 export async function processSection(
   db: Database,
   ref: SectionCheckInput,
-  env: Pick<Env, 'ASU_API_BASE_URL' | 'ASU_API_TOKEN' | 'EMAIL' | 'NOTIFICATION_FROM_EMAIL'>,
-  overrides: Partial<ProcessSectionDeps> = {}
+  env: Pick<Env, "ASU_API_BASE_URL" | "ASU_API_TOKEN" | "EMAIL" | "NOTIFICATION_FROM_EMAIL">,
+  overrides: Partial<ProcessSectionDeps> = {},
 ): Promise<SectionCheckOutcome> {
   const { fetchClass = fetchClassFromASU } = overrides;
   const { class_nbr: classNbr, cycle } = ref;
@@ -103,8 +103,8 @@ export async function processSection(
     // string compare is chronological). Ack without re-fetching ASU.
     if (cycle && oldState?.last_checked_at && oldState.last_checked_at >= cycle) {
       const duration = Date.now() - startTime;
-      log('ProcessSection').info(
-        `Skipping ${classNbr}: last checked at ${oldState.last_checked_at}, cycle ${cycle}`
+      log("ProcessSection").info(
+        `Skipping ${classNbr}: last checked at ${oldState.last_checked_at}, cycle ${cycle}`,
       );
 
       return ackOutcome({
@@ -132,15 +132,15 @@ export async function processSection(
     // upsert sticks, so a failed write cannot drop the claim.
     const instructorRevertedToStaff =
       oldState !== null &&
-      (oldState.instructor_name ?? 'Staff') !== 'Staff' &&
-      newData.instructor_name === 'Staff';
+      (oldState.instructor_name ?? "Staff") !== "Staff" &&
+      newData.instructor_name === "Staff";
 
     let applied: boolean;
 
     try {
       applied = await upsertClassState(db, ref, newData, observedAt);
     } catch (upsertError) {
-      log('ProcessSection').error(`Database error for ${classNbr}:`, upsertError);
+      log("ProcessSection").error(`Database error for ${classNbr}:`, upsertError);
 
       return retryOutcome(
         {
@@ -151,12 +151,12 @@ export async function processSection(
           processingTimeMs: Date.now() - startTime,
           error: upsertError instanceof Error ? upsertError.message : String(upsertError),
         },
-        500
+        500,
       );
     }
 
     if (!applied) {
-      log('ProcessSection').info(`Skipping ${classNbr}: a newer observation is already stored`);
+      log("ProcessSection").info(`Skipping ${classNbr}: a newer observation is already stored`);
 
       return ackOutcome({
         success: true,
@@ -168,11 +168,11 @@ export async function processSection(
     }
 
     if (changes.seatsFilled) {
-      await resetNotificationsForSection(db, ref, 'seat_available');
+      await resetNotificationsForSection(db, ref, "seat_available");
     }
 
     if (instructorRevertedToStaff) {
-      await resetNotificationsForSection(db, ref, 'instructor_assigned');
+      await resetNotificationsForSection(db, ref, "instructor_assigned");
     }
 
     if (changes.seatBecameAvailable || changes.instructorAssigned) {
@@ -189,7 +189,7 @@ export async function processSection(
     }
 
     const duration = Date.now() - startTime;
-    log('ProcessSection').info(`✅ Completed ${classNbr} in ${duration}ms`);
+    log("ProcessSection").info(`✅ Completed ${classNbr} in ${duration}ms`);
 
     return ackOutcome({
       success: true,
@@ -200,8 +200,8 @@ export async function processSection(
     });
   } catch (error) {
     const duration = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    log('ProcessSection').error(`Error processing ${classNbr}:`, errorMessage);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    log("ProcessSection").error(`Error processing ${classNbr}:`, errorMessage);
 
     if (error instanceof NotFoundError) {
       const retirement = await retireClassSection({
@@ -218,7 +218,7 @@ export async function processSection(
           changes: emptyChanges(),
           emailsSent: retirement.emailsSucceeded,
           processingTimeMs: duration,
-          error: 'Auto-cleanup: class removed after 3 NotFounds',
+          error: "Auto-cleanup: class removed after 3 NotFounds",
           retirement,
         });
       }
@@ -251,7 +251,7 @@ export async function processSection(
  */
 export function retryDelaySeconds(
   outcome: SectionCheckOutcome,
-  attempts: number
+  attempts: number,
 ): number | undefined {
   if (outcome.httpStatus !== 429) return undefined;
 

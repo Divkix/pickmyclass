@@ -1,13 +1,13 @@
-import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
-import { afterEach, beforeAll, vi } from 'vite-plus/test';
+import "@testing-library/jest-dom/vitest";
+import { cleanup } from "@testing-library/react";
+import { afterEach, beforeAll, vi } from "vite-plus/test";
 
 afterEach(() => {
   cleanup();
 });
 
 beforeAll(() => {
-  Object.defineProperty(window, 'matchMedia', {
+  Object.defineProperty(window, "matchMedia", {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
       matches: false,
@@ -34,26 +34,26 @@ beforeAll(() => {
   }));
 });
 
-vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://test.example.com');
+vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://test.example.com");
 
-vi.stubEnv('CLERK_SECRET_KEY', 'sk_test_dummy');
+vi.stubEnv("CLERK_SECRET_KEY", "sk_test_dummy");
 
-vi.stubEnv('CLERK_PUBLISHABLE_KEY', 'pk_test_dummy');
+vi.stubEnv("CLERK_PUBLISHABLE_KEY", "pk_test_dummy");
 
-vi.stubEnv('CLERK_JWT_KEY', 'test-jwt-key');
+vi.stubEnv("CLERK_JWT_KEY", "test-jwt-key");
 
-vi.stubEnv('CLERK_WEBHOOK_SIGNING_SECRET', 'whsec_test');
+vi.stubEnv("CLERK_WEBHOOK_SIGNING_SECRET", "whsec_test");
 
-vi.mock('@clerk/react', () => ({
+vi.mock("@clerk/react", () => ({
   ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
   useSignIn: () => ({
     isLoaded: true,
     signIn: {
-      create: vi.fn().mockResolvedValue({ status: 'complete', createdSessionId: 'sess_test' }),
+      create: vi.fn().mockResolvedValue({ status: "complete", createdSessionId: "sess_test" }),
       authenticateWithRedirect: vi.fn().mockResolvedValue(undefined),
       attemptFirstFactor: vi
         .fn()
-        .mockResolvedValue({ status: 'complete', createdSessionId: 'sess_test' }),
+        .mockResolvedValue({ status: "complete", createdSessionId: "sess_test" }),
     },
     setActive: vi.fn().mockResolvedValue(undefined),
   }),

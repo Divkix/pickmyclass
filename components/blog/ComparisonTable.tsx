@@ -5,7 +5,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 
 interface ComparisonColumn {
   key: string;
@@ -40,12 +40,12 @@ export function ComparisonTable({ columns, rows, caption }: ComparisonTableProps
           {rows.map((row) => (
             <TableRow
               key={String(row[columns[0].key])}
-              className={row.highlight ? 'bg-primary/5 border-l-2 border-l-primary' : ''}
+              className={row.highlight ? "bg-primary/5 border-l-2 border-l-primary" : ""}
             >
               {columns.map((col) => (
                 <TableCell
                   key={col.key}
-                  className={`${row.highlight && col.key === columns[0].key ? 'font-medium text-foreground' : ''}`}
+                  className={`${row.highlight && col.key === columns[0].key ? "font-medium text-foreground" : ""}`}
                 >
                   {row[col.key]}
                 </TableCell>

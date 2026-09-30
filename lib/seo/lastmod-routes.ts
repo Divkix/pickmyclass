@@ -16,11 +16,11 @@ interface ContentSource {
 /** Page content that lives outside the route's own `app/` directory. */
 const CONTENT_SOURCES: readonly ContentSource[] = [
   {
-    prefix: 'components/landing/',
-    route: '/',
-    ignore: ['components/landing/JsonLd.tsx', 'components/landing/AuthRedirect.tsx'],
+    prefix: "components/landing/",
+    route: "/",
+    ignore: ["components/landing/JsonLd.tsx", "components/landing/AuthRedirect.tsx"],
   },
-  { prefix: 'lib/faqs.ts', route: '/', ignore: [] },
+  { prefix: "lib/faqs.ts", route: "/", ignore: [] },
 ];
 
 const ROOT_PAGE_FILE = /^page\.(?:tsx|ts|jsx|js|mdx)$/;
@@ -28,30 +28,30 @@ const ROOT_PAGE_FILE = /^page\.(?:tsx|ts|jsx|js|mdx)$/;
 /** `app/(marketing)/faq` -> `/faq`: route groups do not appear in the URL. */
 function routeForAppDirectory(directory: string): string {
   const segments = directory
-    .split('/')
+    .split("/")
     .slice(1)
-    .filter((segment) => !(segment.startsWith('(') && segment.endsWith(')')));
+    .filter((segment) => !(segment.startsWith("(") && segment.endsWith(")")));
 
-  return `/${segments.join('/')}`;
+  return `/${segments.join("/")}`;
 }
 
 function routeForAppFile(file: string): string | null {
-  if (!file.startsWith('app/')) return null;
+  if (!file.startsWith("app/")) return null;
 
-  const slash = file.lastIndexOf('/');
+  const slash = file.lastIndexOf("/");
   const route = routeForAppDirectory(file.slice(0, slash));
   const fileName = file.slice(slash + 1);
 
   // Files directly in app/ (layout, sitemap, globals.css, ...) are shared by
   // every route or by none; only the home page itself belongs to `/`.
-  if (route === '/' && !ROOT_PAGE_FILE.test(fileName)) return null;
+  if (route === "/" && !ROOT_PAGE_FILE.test(fileName)) return null;
 
   return route;
 }
 
 function routeForContentSource(file: string): string | null {
   const source = CONTENT_SOURCES.find(
-    (candidate) => file.startsWith(candidate.prefix) && !candidate.ignore.includes(file)
+    (candidate) => file.startsWith(candidate.prefix) && !candidate.ignore.includes(file),
   );
 
   return source?.route ?? null;
@@ -64,7 +64,7 @@ function routeForContentSource(file: string): string | null {
  */
 export function changedStaticRoutes(
   files: readonly string[],
-  trackedRoutes: readonly string[]
+  trackedRoutes: readonly string[],
 ): string[] {
   const tracked = new Set(trackedRoutes);
   const changed = new Set<string>();
@@ -85,7 +85,7 @@ export function changedStaticRoutes(
 export function stampLastmod(
   lastmod: Readonly<Record<string, string>>,
   routes: readonly string[],
-  date: string
+  date: string,
 ): Record<string, string> | null {
   const stale = routes.filter((route) => lastmod[route] !== date);
 

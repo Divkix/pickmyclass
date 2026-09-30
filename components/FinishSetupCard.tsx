@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
-import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { ArrowRight, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export function FinishSetupCard() {
   return (

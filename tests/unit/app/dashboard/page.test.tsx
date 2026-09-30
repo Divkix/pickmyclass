@@ -1,7 +1,7 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { toast } from 'sonner';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import DashboardPage from '@/app/dashboard/page';
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { toast } from "sonner";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import DashboardPage from "@/app/dashboard/page";
 
 type RealtimeOpts = { classNumbers: string[]; enabled?: boolean };
 
@@ -20,17 +20,17 @@ const mockRouter = {
   replace: mockReplace,
 };
 
-vi.mock('next/navigation', () => ({
+vi.mock("next/navigation", () => ({
   useRouter: () => mockRouter,
 }));
 
-vi.mock('next/link', () => ({
+vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
 }));
 
-vi.mock('framer-motion', () => ({
+vi.mock("framer-motion", () => ({
   m: {
     div: ({ children, ...props }: { children: React.ReactNode }) => (
       <div {...props}>{children}</div>
@@ -46,7 +46,7 @@ vi.mock('framer-motion', () => ({
   staggerItem: {},
 }));
 
-vi.mock('lucide-react', () => ({
+vi.mock("lucide-react", () => ({
   Calendar: () => <span data-testid="calendar-icon">Calendar</span>,
   CheckCircle2: () => <span data-testid="check-icon">CheckCircle2</span>,
   Eye: () => <span data-testid="eye-icon">Eye</span>,
@@ -58,7 +58,7 @@ vi.mock('lucide-react', () => ({
 
 const mockUseAuth = vi.fn();
 
-vi.mock('@/lib/contexts/AuthContext', () => ({
+vi.mock("@/lib/contexts/AuthContext", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
@@ -66,13 +66,13 @@ const mockUseRealtimeClassStates = vi.fn();
 
 const mockRefetchClassStates = vi.fn();
 
-vi.mock('@/lib/hooks/useRealtimeClassStates', () => ({
+vi.mock("@/lib/hooks/useRealtimeClassStates", () => ({
   useRealtimeClassStates: (opts: RealtimeOpts) => mockUseRealtimeClassStates(opts),
 }));
 
 let lastRefreshHandler: (() => Promise<void>) | null = null;
 
-vi.mock('@/lib/hooks/usePullToRefresh', () => ({
+vi.mock("@/lib/hooks/usePullToRefresh", () => ({
   usePullToRefresh: (opts: { onRefresh: () => Promise<void> }) => {
     lastRefreshHandler = opts.onRefresh;
 
@@ -84,14 +84,14 @@ vi.mock('@/lib/hooks/usePullToRefresh', () => ({
   },
 }));
 
-vi.mock('sonner', () => ({
+vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
   },
 }));
 
-vi.mock('@/components/ui/alert', () => ({
+vi.mock("@/components/ui/alert", () => ({
   Alert: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="alert" role="alert">
       {children}
@@ -99,32 +99,32 @@ vi.mock('@/components/ui/alert', () => ({
   ),
 }));
 
-vi.mock('@/components/ui/button', () => ({
+vi.mock("@/components/ui/button", () => ({
   Button: ({ children }: { children: React.ReactNode }) => (
     <button type="button">{children}</button>
   ),
 }));
 
-vi.mock('@/components/ui/card', () => ({
+vi.mock("@/components/ui/card", () => ({
   Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   CardHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   CardTitle: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
   CardContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@/components/ui/skeleton', () => ({
+vi.mock("@/components/ui/skeleton", () => ({
   Skeleton: () => <div data-testid="skeleton">Skeleton</div>,
 }));
 
-vi.mock('@/components/Header', () => ({
+vi.mock("@/components/Header", () => ({
   Header: () => <header data-testid="header">Header</header>,
 }));
 
-vi.mock('@/components/PullToRefreshIndicator', () => ({
+vi.mock("@/components/PullToRefreshIndicator", () => ({
   PullToRefreshIndicator: () => <div data-testid="pull-indicator">PullToRefresh</div>,
 }));
 
-vi.mock('@/components/ClassWatchCard', () => ({
+vi.mock("@/components/ClassWatchCard", () => ({
   ClassWatchCard: ({
     watch,
     classState,
@@ -151,7 +151,7 @@ vi.mock('@/components/ClassWatchCard', () => ({
   ),
 }));
 
-vi.mock('@/components/OnboardingModal', () => ({
+vi.mock("@/components/OnboardingModal", () => ({
   OnboardingModal: ({
     open,
     onCompleted,
@@ -161,11 +161,11 @@ vi.mock('@/components/OnboardingModal', () => ({
   }) => (
     <div
       data-testid="onboarding-modal"
-      data-open={open ? 'true' : 'false'}
-      data-on-completed={onCompleted ? 'true' : 'false'}
+      data-open={open ? "true" : "false"}
+      data-on-completed={onCompleted ? "true" : "false"}
     >
       {onCompleted && (
-        <button type="button" onClick={() => onCompleted({ id: 'watch-new' })}>
+        <button type="button" onClick={() => onCompleted({ id: "watch-new" })}>
           Complete onboarding
         </button>
       )}
@@ -173,37 +173,37 @@ vi.mock('@/components/OnboardingModal', () => ({
   ),
 }));
 
-vi.mock('@/components/FinishSetupCard', () => ({
+vi.mock("@/components/FinishSetupCard", () => ({
   FinishSetupCard: () => <div data-testid="finish-setup-card" />,
 }));
 
 const makeWatch = (overrides: Record<string, JsonValue> = {}) => ({
-  id: 'watch-1',
-  user_id: 'user-1',
-  term: '2267',
-  class_nbr: '12345',
-  subject: 'CSE',
-  catalog_nbr: '110',
-  created_at: '2026-05-19T00:00:00Z',
-  updated_at: '2026-05-19T00:00:00Z',
+  id: "watch-1",
+  user_id: "user-1",
+  term: "2267",
+  class_nbr: "12345",
+  subject: "CSE",
+  catalog_nbr: "110",
+  created_at: "2026-05-19T00:00:00Z",
+  updated_at: "2026-05-19T00:00:00Z",
   class_state: {
-    class_nbr: '12345',
-    term: '2267',
-    title: 'Intro to Programming',
-    instructor_name: 'Ada Lovelace',
+    class_nbr: "12345",
+    term: "2267",
+    title: "Intro to Programming",
+    instructor_name: "Ada Lovelace",
     seats_available: 0,
     seats_total: 50,
-    updated_at: '2026-05-19T00:00:00Z',
+    updated_at: "2026-05-19T00:00:00Z",
   },
   ...overrides,
 });
 
-describe('DashboardPage', () => {
+describe("DashboardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockUseAuth.mockReturnValue({
-      user: { id: 'user-1', email: 'test@example.com' },
+      user: { id: "user-1", email: "test@example.com" },
       loading: false,
     });
 
@@ -226,9 +226,9 @@ describe('DashboardPage', () => {
     });
   });
 
-  describe('realtime error state display (issue #174)', () => {
-    it('should display error alert when useRealtimeClassStates returns an error', async () => {
-      const testError = new Error('Failed to fetch class states from Supabase');
+  describe("realtime error state display (issue #174)", () => {
+    it("should display error alert when useRealtimeClassStates returns an error", async () => {
+      const testError = new Error("Failed to fetch class states from Supabase");
       mockUseRealtimeClassStates.mockReturnValue({
         classStates: {},
         loading: false,
@@ -251,17 +251,17 @@ describe('DashboardPage', () => {
 
       render(<DashboardPage />);
 
-      const errorAlert = await screen.findByTestId('alert');
+      const errorAlert = await screen.findByTestId("alert");
       expect(errorAlert).toBeInTheDocument();
-      expect(errorAlert).toHaveTextContent('Failed to fetch class states');
+      expect(errorAlert).toHaveTextContent("Failed to fetch class states");
     });
 
-    it('should not display error alert when useRealtimeClassStates has no error', async () => {
+    it("should not display error alert when useRealtimeClassStates has no error", async () => {
       mockUseRealtimeClassStates.mockReturnValue({
         classStates: {
-          '2267:12345': {
-            class_nbr: '12345',
-            term: '2267',
+          "2267:12345": {
+            class_nbr: "12345",
+            term: "2267",
             seats_available: 5,
           },
         },
@@ -285,14 +285,14 @@ describe('DashboardPage', () => {
 
       render(<DashboardPage />);
 
-      await screen.findByText('Your Class Watchlist');
+      await screen.findByText("Your Class Watchlist");
 
-      const alerts = screen.queryAllByTestId('alert');
+      const alerts = screen.queryAllByTestId("alert");
       expect(alerts).toHaveLength(0);
     });
   });
 
-  it('renders auth loading skeletons before the session check completes', () => {
+  it("renders auth loading skeletons before the session check completes", () => {
     mockUseAuth.mockReturnValue({
       user: null,
       loading: true,
@@ -300,12 +300,12 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage />);
 
-    expect(screen.getByTestId('header')).toBeInTheDocument();
-    expect(screen.getAllByTestId('skeleton')).toHaveLength(3);
+    expect(screen.getByTestId("header")).toBeInTheDocument();
+    expect(screen.getAllByTestId("skeleton")).toHaveLength(3);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('redirects unauthenticated visitors to login', async () => {
+  it("redirects unauthenticated visitors to login", async () => {
     mockUseAuth.mockReturnValue({
       user: null,
       loading: false,
@@ -314,13 +314,13 @@ describe('DashboardPage', () => {
     const { container } = render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/sign-in');
+      expect(mockReplace).toHaveBeenCalledWith("/sign-in");
     });
     expect(container).toBeEmptyDOMElement();
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('shows the API error when class watches cannot be fetched', async () => {
+  it("shows the API error when class watches cannot be fetched", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({}),
@@ -328,24 +328,24 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to fetch class watches');
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to fetch class watches");
     await waitFor(() => {
-      expect(screen.queryAllByTestId('skeleton')).toHaveLength(0);
+      expect(screen.queryAllByTestId("skeleton")).toHaveLength(0);
     });
   });
 
-  it('renders the empty watchlist state after a successful empty response', async () => {
+  it("renders the empty watchlist state after a successful empty response", async () => {
     render(<DashboardPage />);
 
-    expect(await screen.findByText('Your watchlist is empty')).toBeInTheDocument();
+    expect(await screen.findByText("Your watchlist is empty")).toBeInTheDocument();
     expect(screen.getByText(/2,400\+/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /add your first class/i })).toHaveAttribute(
-      'href',
-      '/dashboard/add'
+    expect(screen.getByRole("link", { name: /add your first class/i })).toHaveAttribute(
+      "href",
+      "/dashboard/add",
     );
   });
 
-  it('defaults missing watch payload fields to safe values', async () => {
+  it("defaults missing watch payload fields to safe values", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({}),
@@ -353,29 +353,29 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findByText('Your watchlist is empty')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /add class/i })).toHaveAttribute(
-      'href',
-      '/dashboard/add'
+    expect(await screen.findByText("Your watchlist is empty")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /add class/i })).toHaveAttribute(
+      "href",
+      "/dashboard/add",
     );
   });
 
-  it('uses the fallback load error for non-Error fetch failures', async () => {
-    global.fetch = vi.fn().mockRejectedValue('offline');
+  it("uses the fallback load error for non-Error fetch failures", async () => {
+    global.fetch = vi.fn().mockRejectedValue("offline");
 
     render(<DashboardPage />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load class watches');
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to load class watches");
   });
 
-  it('renders stats from persisted and live class states', async () => {
+  it("renders stats from persisted and live class states", async () => {
     mockUseRealtimeClassStates.mockReturnValue({
       classStates: {
-        '2267:67890': {
-          class_nbr: '67890',
-          term: '2267',
-          title: 'Discrete Math',
-          instructor_name: 'Grace Hopper',
+        "2267:67890": {
+          class_nbr: "67890",
+          term: "2267",
+          title: "Discrete Math",
+          instructor_name: "Grace Hopper",
           seats_available: 3,
         },
       },
@@ -391,15 +391,15 @@ describe('DashboardPage', () => {
           watches: [
             makeWatch(),
             makeWatch({
-              id: 'watch-2',
-              class_nbr: '67890',
-              subject: 'MAT',
-              catalog_nbr: '243',
+              id: "watch-2",
+              class_nbr: "67890",
+              subject: "MAT",
+              catalog_nbr: "243",
               class_state: {
-                class_nbr: '67890',
-                term: '2267',
-                title: 'Old Title',
-                instructor_name: 'Old Instructor',
+                class_nbr: "67890",
+                term: "2267",
+                title: "Old Title",
+                instructor_name: "Old Instructor",
                 seats_available: 0,
               },
             }),
@@ -410,15 +410,15 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findByText('Total Watches')).toBeInTheDocument();
-    expect(screen.getByText('3 remaining')).toBeInTheDocument();
-    expect(screen.getByText('Go register now!')).toBeInTheDocument();
+    expect(await screen.findByText("Total Watches")).toBeInTheDocument();
+    expect(screen.getByText("3 remaining")).toBeInTheDocument();
+    expect(screen.getByText("Go register now!")).toBeInTheDocument();
     expect(screen.getByText("We'll alert you when seats open")).toBeInTheDocument();
-    expect(screen.getByText('Syncing...')).toBeInTheDocument();
-    expect(screen.getByText('Discrete Math')).toBeInTheDocument();
+    expect(screen.getByText("Syncing...")).toBeInTheDocument();
+    expect(screen.getByText("Discrete Math")).toBeInTheDocument();
   });
 
-  it('filters watched classes with the search field and shows the no-result state', async () => {
+  it("filters watched classes with the search field and shows the no-result state", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () =>
@@ -426,15 +426,15 @@ describe('DashboardPage', () => {
           watches: [
             makeWatch(),
             makeWatch({
-              id: 'watch-2',
-              class_nbr: '67890',
-              subject: 'MAT',
-              catalog_nbr: '243',
+              id: "watch-2",
+              class_nbr: "67890",
+              subject: "MAT",
+              catalog_nbr: "243",
               class_state: {
-                class_nbr: '67890',
-                term: '2267',
-                title: 'Calculus III',
-                instructor_name: 'Mary Jackson',
+                class_nbr: "67890",
+                term: "2267",
+                title: "Calculus III",
+                instructor_name: "Mary Jackson",
                 seats_available: 0,
               },
             }),
@@ -445,29 +445,29 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findAllByTestId('class-watch-card')).toHaveLength(2);
+    expect(await screen.findAllByTestId("class-watch-card")).toHaveLength(2);
 
     fireEvent.change(screen.getByLabelText(/search watched classes/i), {
-      target: { value: 'mary' },
+      target: { value: "mary" },
     });
-    expect(screen.getAllByTestId('class-watch-card')).toHaveLength(1);
-    expect(screen.getByText('67890')).toBeInTheDocument();
+    expect(screen.getAllByTestId("class-watch-card")).toHaveLength(1);
+    expect(screen.getByText("67890")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/search watched classes/i), {
-      target: { value: 'no-match' },
+      target: { value: "no-match" },
     });
-    expect(screen.getByText('No results found')).toBeInTheDocument();
-    expect(screen.getByText('Try adjusting your search query')).toBeInTheDocument();
+    expect(screen.getByText("No results found")).toBeInTheDocument();
+    expect(screen.getByText("Try adjusting your search query")).toBeInTheDocument();
   });
 
-  it('removes a deleted watch from local state', async () => {
+  it("removes a deleted watch from local state", async () => {
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         ok: true,
         json: () =>
           Promise.resolve({
-            watches: [makeWatch(), makeWatch({ id: 'watch-2', class_nbr: '67890' })],
+            watches: [makeWatch(), makeWatch({ id: "watch-2", class_nbr: "67890" })],
             maxWatches: 10,
           }),
       })
@@ -478,18 +478,18 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findAllByTestId('class-watch-card')).toHaveLength(2);
-    fireEvent.click(screen.getByRole('button', { name: /delete watch-1/i }));
+    expect(await screen.findAllByTestId("class-watch-card")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: /delete watch-1/i }));
 
     await waitFor(() => {
-      expect(screen.getAllByTestId('class-watch-card')).toHaveLength(1);
+      expect(screen.getAllByTestId("class-watch-card")).toHaveLength(1);
     });
-    expect(global.fetch).toHaveBeenLastCalledWith('/api/class-watches?id=watch-1', {
-      method: 'DELETE',
+    expect(global.fetch).toHaveBeenLastCalledWith("/api/class-watches?id=watch-1", {
+      method: "DELETE",
     });
   });
 
-  it('leaves a watch in place when deletion fails', async () => {
+  it("leaves a watch in place when deletion fails", async () => {
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
@@ -507,18 +507,18 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findAllByTestId('class-watch-card')).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: /delete watch-1/i }));
+    expect(await screen.findAllByTestId("class-watch-card")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: /delete watch-1/i }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenLastCalledWith('/api/class-watches?id=watch-1', {
-        method: 'DELETE',
+      expect(global.fetch).toHaveBeenLastCalledWith("/api/class-watches?id=watch-1", {
+        method: "DELETE",
       });
     });
-    expect(screen.getAllByTestId('class-watch-card')).toHaveLength(1);
+    expect(screen.getAllByTestId("class-watch-card")).toHaveLength(1);
   });
 
-  it('uses pull-to-refresh success and error toasts', async () => {
+  it("uses pull-to-refresh success and error toasts", async () => {
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
@@ -533,7 +533,7 @@ describe('DashboardPage', () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            watches: [makeWatch(), makeWatch({ id: 'watch-2', class_nbr: '67890' })],
+            watches: [makeWatch(), makeWatch({ id: "watch-2", class_nbr: "67890" })],
             maxWatches: 10,
           }),
       })
@@ -543,7 +543,7 @@ describe('DashboardPage', () => {
       });
 
     render(<DashboardPage />);
-    expect(await screen.findByText('Total Watches')).toBeInTheDocument();
+    expect(await screen.findByText("Total Watches")).toBeInTheDocument();
 
     await act(async () => {
       await lastRefreshHandler?.();
@@ -551,20 +551,20 @@ describe('DashboardPage', () => {
     expect(mockRefetchClassStates).toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith(
       expect.stringMatching(/^Dashboard refreshed at /),
-      expect.objectContaining({ description: 'Updated 2 class watches' })
+      expect.objectContaining({ description: "Updated 2 class watches" }),
     );
 
     await act(async () => {
       await lastRefreshHandler?.();
     });
     expect(toast.error).toHaveBeenCalledWith(
-      'Failed to refresh dashboard',
-      expect.objectContaining({ description: 'Failed to fetch class watches' })
+      "Failed to refresh dashboard",
+      expect.objectContaining({ description: "Failed to fetch class watches" }),
     );
   });
 
-  it('uses singular refresh wording and fallback refresh errors', async () => {
-    mockRefetchClassStates.mockRejectedValueOnce('realtime offline');
+  it("uses singular refresh wording and fallback refresh errors", async () => {
+    mockRefetchClassStates.mockRejectedValueOnce("realtime offline");
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
@@ -593,14 +593,14 @@ describe('DashboardPage', () => {
       });
 
     render(<DashboardPage />);
-    expect(await screen.findByText('Total Watches')).toBeInTheDocument();
+    expect(await screen.findByText("Total Watches")).toBeInTheDocument();
 
     await act(async () => {
       await lastRefreshHandler?.();
     });
     expect(toast.error).toHaveBeenCalledWith(
-      'Failed to refresh dashboard',
-      expect.objectContaining({ description: 'Please try again' })
+      "Failed to refresh dashboard",
+      expect.objectContaining({ description: "Please try again" }),
     );
 
     mockRefetchClassStates.mockResolvedValueOnce(undefined);
@@ -609,12 +609,12 @@ describe('DashboardPage', () => {
     });
     expect(toast.success).toHaveBeenCalledWith(
       expect.stringMatching(/^Dashboard refreshed at /),
-      expect.objectContaining({ description: 'Updated 1 class watch' })
+      expect.objectContaining({ description: "Updated 1 class watch" }),
     );
   });
 
-  describe('onboarding (issue #298)', () => {
-    it('renders the onboarding modal for a new user who has not completed or skipped', async () => {
+  describe("onboarding (issue #298)", () => {
+    it("renders the onboarding modal for a new user who has not completed or skipped", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () =>
@@ -631,12 +631,12 @@ describe('DashboardPage', () => {
 
       render(<DashboardPage />);
 
-      const modal = screen.getByTestId('onboarding-modal');
-      await waitFor(() => expect(modal).toHaveAttribute('data-open', 'true'));
-      expect(screen.queryByTestId('finish-setup-card')).not.toBeInTheDocument();
+      const modal = screen.getByTestId("onboarding-modal");
+      await waitFor(() => expect(modal).toHaveAttribute("data-open", "true"));
+      expect(screen.queryByTestId("finish-setup-card")).not.toBeInTheDocument();
     });
 
-    it('renders the finish-setup card after skipping and hides it once a watch exists', async () => {
+    it("renders the finish-setup card after skipping and hides it once a watch exists", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () =>
@@ -645,7 +645,7 @@ describe('DashboardPage', () => {
             maxWatches: 10,
             onboarding: {
               onboarding_completed_at: null,
-              onboarding_skipped_at: '2026-07-11T12:00:00Z',
+              onboarding_skipped_at: "2026-07-11T12:00:00Z",
               needs_onboarding: false,
             },
           }),
@@ -653,11 +653,11 @@ describe('DashboardPage', () => {
 
       render(<DashboardPage />);
 
-      expect(await screen.findByTestId('finish-setup-card')).toBeInTheDocument();
-      expect(screen.getByTestId('onboarding-modal')).toHaveAttribute('data-open', 'false');
+      expect(await screen.findByTestId("finish-setup-card")).toBeInTheDocument();
+      expect(screen.getByTestId("onboarding-modal")).toHaveAttribute("data-open", "false");
     });
 
-    it('does not render the modal or card for existing (completed) users', async () => {
+    it("does not render the modal or card for existing (completed) users", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () =>
@@ -665,7 +665,7 @@ describe('DashboardPage', () => {
             watches: [],
             maxWatches: 10,
             onboarding: {
-              onboarding_completed_at: '2026-07-10T00:00:00Z',
+              onboarding_completed_at: "2026-07-10T00:00:00Z",
               onboarding_skipped_at: null,
               needs_onboarding: false,
             },
@@ -674,12 +674,12 @@ describe('DashboardPage', () => {
 
       render(<DashboardPage />);
 
-      await screen.findByText('Your watchlist is empty');
-      expect(screen.getByTestId('onboarding-modal')).toHaveAttribute('data-open', 'false');
-      expect(screen.queryByTestId('finish-setup-card')).not.toBeInTheDocument();
+      await screen.findByText("Your watchlist is empty");
+      expect(screen.getByTestId("onboarding-modal")).toHaveAttribute("data-open", "false");
+      expect(screen.queryByTestId("finish-setup-card")).not.toBeInTheDocument();
     });
 
-    it('hides the finish-setup card and adds the watch when a skipped user completes (issue #307)', async () => {
+    it("hides the finish-setup card and adds the watch when a skipped user completes (issue #307)", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () =>
@@ -688,7 +688,7 @@ describe('DashboardPage', () => {
             maxWatches: 10,
             onboarding: {
               onboarding_completed_at: null,
-              onboarding_skipped_at: '2026-07-11T12:00:00Z',
+              onboarding_skipped_at: "2026-07-11T12:00:00Z",
               needs_onboarding: false,
             },
           }),
@@ -696,15 +696,15 @@ describe('DashboardPage', () => {
 
       render(<DashboardPage />);
 
-      expect(await screen.findByTestId('finish-setup-card')).toBeInTheDocument();
-      expect(screen.getByTestId('onboarding-modal')).toHaveAttribute('data-open', 'false');
+      expect(await screen.findByTestId("finish-setup-card")).toBeInTheDocument();
+      expect(screen.getByTestId("onboarding-modal")).toHaveAttribute("data-open", "false");
 
-      fireEvent.click(screen.getByRole('button', { name: 'Complete onboarding' }));
+      fireEvent.click(screen.getByRole("button", { name: "Complete onboarding" }));
 
       await waitFor(() => {
-        expect(screen.queryByTestId('finish-setup-card')).not.toBeInTheDocument();
+        expect(screen.queryByTestId("finish-setup-card")).not.toBeInTheDocument();
       });
-      expect(screen.getByRole('button', { name: /delete watch-new/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /delete watch-new/i })).toBeInTheDocument();
     });
   });
 });

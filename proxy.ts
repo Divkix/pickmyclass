@@ -1,12 +1,12 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { fail } from '@/lib/api/response';
-import { type AuthorizationState, readAuthorizationState } from '@/lib/auth/authorization-state';
-import { CLERK_COOKIES_TO_CLEAR, hasClerkSessionCookies } from '@/lib/auth/clerk-cookies';
-import { getSessionIdentity, revokeSession } from '@/lib/auth/clerk-session';
-import { decideGate, isPublicRoute } from '@/lib/auth/decide-gate';
-import { getDbFromEnv } from '@/lib/db';
-import { type UserVerificationState, readUserVerification } from '@/lib/db/users';
-import { CLERK_CSP } from '@/lib/clerk/config';
+import { type NextRequest, NextResponse } from "next/server";
+import { fail } from "@/lib/api/response";
+import { type AuthorizationState, readAuthorizationState } from "@/lib/auth/authorization-state";
+import { CLERK_COOKIES_TO_CLEAR, hasClerkSessionCookies } from "@/lib/auth/clerk-cookies";
+import { getSessionIdentity, revokeSession } from "@/lib/auth/clerk-session";
+import { decideGate, isPublicRoute } from "@/lib/auth/decide-gate";
+import { getDbFromEnv } from "@/lib/db";
+import { type UserVerificationState, readUserVerification } from "@/lib/db/users";
+import { CLERK_CSP } from "@/lib/clerk/config";
 
 // Clerk CSP (manual — the Next SDK auto-injection is unavailable on vinext):
 // script-src allows the FAPI host plus Turnstile and *.protect.clerk.com
@@ -15,7 +15,7 @@ import { CLERK_CSP } from '@/lib/clerk/config';
 // the protect host with a trailing :* (those hosts are not on 443). frame-src
 // allows the Turnstile and protect hosts. worker-src is 'self' blob:.
 const PERMISSIONS_POLICY =
-  'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()';
+  "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()";
 
 const CSP_DEFAULT_SRC = "default-src 'self'";
 
@@ -30,25 +30,25 @@ const CSP_FONT_SRC = "font-src 'self' data:";
 
 const CSP_CONNECT_SRC = [
   "connect-src 'self'",
-  'https://analytics.divkix.me',
-  'https://s.pickmyclass.app',
+  "https://analytics.divkix.me",
+  "https://s.pickmyclass.app",
   ...CLERK_CSP.fapiHosts,
   ...CLERK_CSP.challengeHosts,
   ...CLERK_CSP.protectConnectHosts,
-].join(' ');
+].join(" ");
 
 const CSP_CLERK_SCRIPT_HOSTS = [
   ...CLERK_CSP.fapiHosts,
   ...CLERK_CSP.challengeHosts,
   ...CLERK_CSP.protectHosts,
-].join(' ');
+].join(" ");
 
 const CSP_FRAME_SRC = [
-  'frame-src',
+  "frame-src",
   ...CLERK_CSP.challengeHosts,
   ...CLERK_CSP.protectHosts,
   "'self'",
-].join(' ');
+].join(" ");
 
 const CSP_WORKER_SRC = "worker-src 'self' blob:";
 
@@ -61,9 +61,9 @@ const CSP_FORM_ACTION = "form-action 'self'";
 const CSP_NEXT_THEMES_HASH = "'sha256-jGCia7LAT8V5tk83CgiiU5FMqw9uEVddMT+0ZQDzVAM='";
 
 const LEGACY_REDIRECTS = new Map([
-  ['/faq/page', '/faq'],
-  ['/register', '/sign-up'],
-  ['/login', '/sign-in'],
+  ["/faq/page", "/faq"],
+  ["/register", "/sign-up"],
+  ["/login", "/sign-in"],
 ]);
 
 function buildProductionCsp(inlineScriptSource: string): string {
@@ -79,7 +79,7 @@ function buildProductionCsp(inlineScriptSource: string): string {
     CSP_FRAME_ANCESTORS,
     CSP_BASE_URI,
     CSP_FORM_ACTION,
-  ].join('; ');
+  ].join("; ");
 }
 
 function buildNonceCsp(nonce: string): string {
@@ -106,19 +106,19 @@ const DEV_CSP = [
   CSP_FRAME_ANCESTORS,
   CSP_BASE_URI,
   CSP_FORM_ACTION,
-].join('; ');
+].join("; ");
 
 function addSecurityHeaders(response: NextResponse, isDevelopment: boolean, csp: string): void {
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('Permissions-Policy', PERMISSIONS_POLICY);
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", PERMISSIONS_POLICY);
 
   if (!isDevelopment) {
-    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
 
-  response.headers.set('Content-Security-Policy', csp);
+  response.headers.set("Content-Security-Policy", csp);
 }
 
 function toRedirectUrl(request: NextRequest, to: string): URL {
@@ -132,7 +132,7 @@ function toRedirectUrl(request: NextRequest, to: string): URL {
 
 function clearClerkCookies(response: NextResponse): void {
   for (const name of CLERK_COOKIES_TO_CLEAR) {
-    response.cookies.set(name, '', { path: '/', maxAge: 0 });
+    response.cookies.set(name, "", { path: "/", maxAge: 0 });
   }
 }
 
@@ -146,7 +146,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url, 301);
   }
 
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isDevelopment = process.env.NODE_ENV === "development";
   const pathname = request.nextUrl.pathname;
   const routeIsPublic = isPublicRoute(pathname);
 
@@ -159,13 +159,13 @@ export async function proxy(request: NextRequest) {
   }
 
   // crypto.randomUUID() is available in both Node.js 19+ and Cloudflare Workers.
-  const nonce = !isDevelopment ? crypto.randomUUID() : '';
+  const nonce = !isDevelopment ? crypto.randomUUID() : "";
   const csp = isDevelopment ? DEV_CSP : buildNonceCsp(nonce);
 
   const requestHeadersWithNonce = new Headers(request.headers);
 
   if (!isDevelopment) {
-    requestHeadersWithNonce.set('x-nonce', nonce);
+    requestHeadersWithNonce.set("x-nonce", nonce);
   }
 
   const passThrough = NextResponse.next({
@@ -193,7 +193,7 @@ export async function proxy(request: NextRequest) {
   let response: NextResponse;
 
   switch (decision.kind) {
-    case 'signout-and-redirect': {
+    case "signout-and-redirect": {
       if (identity?.sessionId) {
         try {
           await revokeSession(identity.sessionId);
@@ -206,17 +206,17 @@ export async function proxy(request: NextRequest) {
       break;
     }
 
-    case 'redirect': {
+    case "redirect": {
       response = NextResponse.redirect(toRedirectUrl(request, decision.to));
       break;
     }
 
-    case 'forbidden': {
+    case "forbidden": {
       response = fail(decision.message, 403);
       break;
     }
 
-    case 'allow': {
+    case "allow": {
       response = passThrough;
       break;
     }
@@ -233,6 +233,6 @@ export default proxy;
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|llms.txt|llms-full.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|llms.txt|llms-full.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

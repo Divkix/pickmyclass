@@ -1,10 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { OnboardingModal, type OnboardingState } from '@/components/OnboardingModal';
-import type { ClassWatchRow } from '@/lib/types/class-watch';
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { OnboardingModal, type OnboardingState } from "@/components/OnboardingModal";
+import type { ClassWatchRow } from "@/lib/types/class-watch";
 
-vi.mock('next/link', () => ({
+vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
@@ -16,30 +16,30 @@ const { mockTrack, mockCreateWatch, mockGetSessionId } = vi.hoisted(() => ({
   mockGetSessionId: vi.fn(),
 }));
 
-vi.mock('posthog-js/dist/module.no-external', () => ({
+vi.mock("posthog-js/dist/module.no-external", () => ({
   default: { get_session_id: mockGetSessionId },
 }));
 
-vi.mock('@/lib/analytics/client', async () => {
+vi.mock("@/lib/analytics/client", async () => {
   const actual =
-    await vi.importActual<typeof import('@/lib/analytics/client')>('@/lib/analytics/client');
+    await vi.importActual<typeof import("@/lib/analytics/client")>("@/lib/analytics/client");
 
   return { ...actual, trackAnalyticsEvent: mockTrack };
 });
 
-vi.mock('@/lib/class-watches/class-watch-creation', () => ({
+vi.mock("@/lib/class-watches/class-watch-creation", () => ({
   classWatchCreation: {
     create: mockCreateWatch,
     getOptions: () => ({
-      terms: [{ code: '2267', label: 'Fall 2026' }],
-      defaultTerm: '2267',
+      terms: [{ code: "2267", label: "Fall 2026" }],
+      defaultTerm: "2267",
     }),
   },
 }));
 
-vi.mock('@/components/ui/dialog', async () => {
+vi.mock("@/components/ui/dialog", async () => {
   const actual =
-    await vi.importActual<typeof import('@/components/ui/dialog')>('@/components/ui/dialog');
+    await vi.importActual<typeof import("@/components/ui/dialog")>("@/components/ui/dialog");
 
   return {
     ...actual,
@@ -49,28 +49,28 @@ vi.mock('@/components/ui/dialog', async () => {
 
 const skippedState: OnboardingState = {
   onboarding_completed_at: null,
-  onboarding_skipped_at: '2026-07-11T12:00:00Z',
+  onboarding_skipped_at: "2026-07-11T12:00:00Z",
   needs_onboarding: false,
 };
 
 const createdWatch: ClassWatchRow = {
-  id: 'watch-1',
-  user_id: 'user-1',
-  term: '2267',
-  class_nbr: '12345',
-  subject: 'CSE',
-  catalog_nbr: '110',
-  created_at: '2026-07-11T12:00:00Z',
+  id: "watch-1",
+  user_id: "user-1",
+  term: "2267",
+  class_nbr: "12345",
+  subject: "CSE",
+  catalog_nbr: "110",
+  created_at: "2026-07-11T12:00:00Z",
 };
 
 const popularClassPayload = {
-  class_nbr: '12345',
-  term: '2267',
+  class_nbr: "12345",
+  term: "2267",
   details: {
-    subject: 'CSE',
-    catalog_nbr: '240',
-    title: 'Intro to Programming',
-    instructor_name: 'John Doe',
+    subject: "CSE",
+    catalog_nbr: "240",
+    title: "Intro to Programming",
+    instructor_name: "John Doe",
     seats_available: 10,
     seats_capacity: 50,
   },
@@ -78,7 +78,7 @@ const popularClassPayload = {
 
 type PopularClassResponse = { popularClass?: typeof popularClassPayload | null };
 
-describe('OnboardingModal', () => {
+describe("OnboardingModal", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let popularClassResponse: PopularClassResponse;
   let skipResponse: Partial<OnboardingState> & { error?: string };
@@ -92,7 +92,7 @@ describe('OnboardingModal', () => {
     skipResponse = { ...skippedState };
     skipOk = true;
     fetchMock = vi.fn((url: string) => {
-      if (url === '/api/onboarding/popular-class') {
+      if (url === "/api/onboarding/popular-class") {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve(popularClassResponse),
@@ -110,61 +110,61 @@ describe('OnboardingModal', () => {
 
   const skipPostCalls = () =>
     fetchMock.mock.calls.filter(
-      ([url, init]) => url === '/api/user/onboarding' && init?.method === 'POST'
+      ([url, init]) => url === "/api/user/onboarding" && init?.method === "POST",
     ).length;
 
-  it('renders the welcome (step 1) content when open', async () => {
+  it("renders the welcome (step 1) content when open", async () => {
     render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
     await waitFor(() => {
-      expect(screen.getByText('Welcome to PickMyClass')).toBeInTheDocument();
+      expect(screen.getByText("Welcome to PickMyClass")).toBeInTheDocument();
     });
-    expect(screen.getByRole('button', { name: /I have my class number/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /I have my class number/i })).toBeInTheDocument();
   });
 
-  it('captures onboarding_started when the modal opens', async () => {
+  it("captures onboarding_started when the modal opens", async () => {
     render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
     await waitFor(() => {
-      expect(mockTrack).toHaveBeenCalledWith('onboarding_started', {});
+      expect(mockTrack).toHaveBeenCalledWith("onboarding_started", {});
     });
   });
 
-  it('announces the current step for screen readers via a live region', async () => {
+  it("announces the current step for screen readers via a live region", async () => {
     render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-    const liveRegion = await screen.findByText('Step 1 of 3: Welcome to PickMyClass');
-    expect(liveRegion).toHaveClass('sr-only');
-    expect(liveRegion).toHaveAttribute('aria-live', 'polite');
+    const liveRegion = await screen.findByText("Step 1 of 3: Welcome to PickMyClass");
+    expect(liveRegion).toHaveClass("sr-only");
+    expect(liveRegion).toHaveAttribute("aria-live", "polite");
   });
 
-  it('moves focus to the step title when the modal opens', async () => {
+  it("moves focus to the step title when the modal opens", async () => {
     render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-    const title = screen.getByRole('heading', { name: 'Welcome to PickMyClass' });
+    const title = screen.getByRole("heading", { name: "Welcome to PickMyClass" });
     await waitFor(() => {
       expect(document.activeElement).toBe(title);
     });
   });
 
-  it('does not render content when closed', () => {
+  it("does not render content when closed", () => {
     render(<OnboardingModal open={false} onSkipped={vi.fn()} />);
 
-    expect(screen.queryByText('Welcome to PickMyClass')).not.toBeInTheDocument();
+    expect(screen.queryByText("Welcome to PickMyClass")).not.toBeInTheDocument();
   });
 
-  it('skips onboarding via the Skip for now button on step 1 and calls onSkipped', async () => {
-    mockGetSessionId.mockReturnValue('c56a4180-65aa-42ec-a945-5fd21dec0538');
+  it("skips onboarding via the Skip for now button on step 1 and calls onSkipped", async () => {
+    mockGetSessionId.mockReturnValue("c56a4180-65aa-42ec-a945-5fd21dec0538");
     const user = userEvent.setup();
     const onSkipped = vi.fn();
 
     render(<OnboardingModal open={true} onSkipped={onSkipped} />);
 
-    await user.click(screen.getByRole('button', { name: 'Skip for now' }));
+    await user.click(screen.getByRole("button", { name: "Skip for now" }));
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', {
-      method: 'POST',
-      headers: { 'X-PostHog-Session-Id': 'c56a4180-65aa-42ec-a945-5fd21dec0538' },
+    expect(fetchMock).toHaveBeenCalledWith("/api/user/onboarding", {
+      method: "POST",
+      headers: { "X-PostHog-Session-Id": "c56a4180-65aa-42ec-a945-5fd21dec0538" },
     });
     expect(skipPostCalls()).toBe(1);
     await waitFor(() => {
@@ -172,34 +172,34 @@ describe('OnboardingModal', () => {
     });
   });
 
-  it('continues skipping onboarding when reading the PostHog session ID throws', async () => {
+  it("continues skipping onboarding when reading the PostHog session ID throws", async () => {
     mockGetSessionId.mockImplementation(() => {
-      throw new Error('storage unavailable');
+      throw new Error("storage unavailable");
     });
     const user = userEvent.setup();
     const onSkipped = vi.fn();
     render(<OnboardingModal open={true} onSkipped={onSkipped} />);
 
-    await user.click(screen.getByRole('button', { name: 'Skip for now' }));
+    await user.click(screen.getByRole("button", { name: "Skip for now" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', {
-        method: 'POST',
+      expect(fetchMock).toHaveBeenCalledWith("/api/user/onboarding", {
+        method: "POST",
         headers: {},
       });
       expect(onSkipped).toHaveBeenCalledWith(skippedState);
     });
   });
 
-  it('skips onboarding when the Escape key is pressed on step 1', async () => {
+  it("skips onboarding when the Escape key is pressed on step 1", async () => {
     const onSkipped = vi.fn();
     render(<OnboardingModal open={true} onSkipped={onSkipped} />);
 
-    fireEvent.keyDown(screen.getByText('Welcome to PickMyClass'), { key: 'Escape' });
+    fireEvent.keyDown(screen.getByText("Welcome to PickMyClass"), { key: "Escape" });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', {
-        method: 'POST',
+      expect(fetchMock).toHaveBeenCalledWith("/api/user/onboarding", {
+        method: "POST",
         headers: {},
       });
     });
@@ -209,7 +209,7 @@ describe('OnboardingModal', () => {
     });
   });
 
-  it('skips onboarding when the backdrop is clicked on step 1', async () => {
+  it("skips onboarding when the backdrop is clicked on step 1", async () => {
     const user = userEvent.setup();
     const onSkipped = vi.fn();
     render(<OnboardingModal open={true} onSkipped={onSkipped} />);
@@ -219,8 +219,8 @@ describe('OnboardingModal', () => {
     await user.click(overlay);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/user/onboarding', {
-        method: 'POST',
+      expect(fetchMock).toHaveBeenCalledWith("/api/user/onboarding", {
+        method: "POST",
         headers: {},
       });
     });
@@ -230,114 +230,114 @@ describe('OnboardingModal', () => {
     });
   });
 
-  it('calls onSkipError and does not call onSkipped when the skip request fails', async () => {
+  it("calls onSkipError and does not call onSkipped when the skip request fails", async () => {
     const user = userEvent.setup();
     skipOk = false;
-    skipResponse = { error: 'boom' };
+    skipResponse = { error: "boom" };
     const onSkipped = vi.fn();
     const onSkipError = vi.fn();
 
     render(<OnboardingModal open={true} onSkipped={onSkipped} onSkipError={onSkipError} />);
 
-    await user.click(screen.getByRole('button', { name: 'Skip for now' }));
+    await user.click(screen.getByRole("button", { name: "Skip for now" }));
 
     await waitFor(() => {
-      expect(onSkipError).toHaveBeenCalledWith('boom');
+      expect(onSkipError).toHaveBeenCalledWith("boom");
     });
     expect(onSkipped).not.toHaveBeenCalled();
   });
 
-  describe('3-step watch-creation flow', () => {
-    it('advances from step 1 to step 2 via the Next button', async () => {
+  describe("3-step watch-creation flow", () => {
+    it("advances from step 1 to step 2 via the Next button", async () => {
       const user = userEvent.setup();
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
+      await user.click(screen.getByRole("button", { name: /I have my class number/i }));
 
-      expect(screen.getByText('Add your first class')).toBeInTheDocument();
+      expect(screen.getByText("Add your first class")).toBeInTheDocument();
       expect(screen.getByLabelText(/term/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/class number/i)).toBeInTheDocument();
     });
 
-    it('returns to step 1 from step 2 via the Back button', async () => {
+    it("returns to step 1 from step 2 via the Back button", async () => {
       const user = userEvent.setup();
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
-      await user.click(screen.getByRole('button', { name: 'Back' }));
+      await user.click(screen.getByRole("button", { name: /I have my class number/i }));
+      await user.click(screen.getByRole("button", { name: "Back" }));
 
-      expect(screen.getByText('Welcome to PickMyClass')).toBeInTheDocument();
+      expect(screen.getByText("Welcome to PickMyClass")).toBeInTheDocument();
     });
 
-    it('creates a watch, advances to the confirmation step, and calls onCompleted on close', async () => {
+    it("creates a watch, advances to the confirmation step, and calls onCompleted on close", async () => {
       const user = userEvent.setup();
       const onCompleted = vi.fn();
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} onCompleted={onCompleted} />);
 
-      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
+      await user.click(screen.getByRole("button", { name: /I have my class number/i }));
 
       const classNbrInput = screen.getByLabelText(/class number/i);
-      await user.type(classNbrInput, '12345');
+      await user.type(classNbrInput, "12345");
 
-      await user.click(screen.getByRole('button', { name: 'Add class' }));
+      await user.click(screen.getByRole("button", { name: "Add class" }));
 
       expect(await screen.findByText("You're all set!")).toBeInTheDocument();
-      expect(mockCreateWatch).toHaveBeenCalledWith({ term: '2267', class_nbr: '12345' });
+      expect(mockCreateWatch).toHaveBeenCalledWith({ term: "2267", class_nbr: "12345" });
 
-      await user.click(screen.getByRole('button', { name: /Done/i }));
+      await user.click(screen.getByRole("button", { name: /Done/i }));
       expect(onCompleted).toHaveBeenCalledWith(createdWatch);
     });
 
-    it('captures onboarding_completed exactly once when a watch is created', async () => {
+    it("captures onboarding_completed exactly once when a watch is created", async () => {
       const user = userEvent.setup();
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
-      await user.type(screen.getByLabelText(/class number/i), '12345');
-      await user.click(screen.getByRole('button', { name: 'Add class' }));
+      await user.click(screen.getByRole("button", { name: /I have my class number/i }));
+      await user.type(screen.getByLabelText(/class number/i), "12345");
+      await user.click(screen.getByRole("button", { name: "Add class" }));
 
       await waitFor(() => {
-        expect(mockTrack).toHaveBeenCalledWith('onboarding_completed', {});
+        expect(mockTrack).toHaveBeenCalledWith("onboarding_completed", {});
       });
 
       const completedCalls = mockTrack.mock.calls.filter(
-        (args) => args[0] === 'onboarding_completed'
+        (args) => args[0] === "onboarding_completed",
       );
 
       expect(completedCalls).toHaveLength(1);
     });
 
-    it('moves focus to the new step title when advancing between steps', async () => {
+    it("moves focus to the new step title when advancing between steps", async () => {
       const user = userEvent.setup();
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
+      await user.click(screen.getByRole("button", { name: /I have my class number/i }));
 
-      const title = await screen.findByRole('heading', { name: 'Add your first class' });
+      const title = await screen.findByRole("heading", { name: "Add your first class" });
       await waitFor(() => {
         expect(document.activeElement).toBe(title);
       });
     });
 
-    it('announces the new step when advancing between steps', async () => {
+    it("announces the new step when advancing between steps", async () => {
       const user = userEvent.setup();
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
+      await user.click(screen.getByRole("button", { name: /I have my class number/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('Step 2 of 3: Add your first class')).toBeInTheDocument();
+        expect(screen.getByText("Step 2 of 3: Add your first class")).toBeInTheDocument();
       });
     });
 
-    it('keeps focus inside the modal while tabbing', async () => {
+    it("keeps focus inside the modal while tabbing", async () => {
       const user = userEvent.setup();
       popularClassResponse = { popularClass: popularClassPayload };
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-      const dialog = await screen.findByRole('dialog');
+      const dialog = await screen.findByRole("dialog");
       await waitFor(() => {
         expect(document.activeElement).toBeTruthy();
       });
@@ -348,82 +348,82 @@ describe('OnboardingModal', () => {
       }
     });
 
-    it('calls onCompleted only once even if Done is clicked twice', async () => {
+    it("calls onCompleted only once even if Done is clicked twice", async () => {
       const user = userEvent.setup();
       const onCompleted = vi.fn();
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} onCompleted={onCompleted} />);
 
-      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
-      await user.type(screen.getByLabelText(/class number/i), '12345');
-      await user.click(screen.getByRole('button', { name: 'Add class' }));
+      await user.click(screen.getByRole("button", { name: /I have my class number/i }));
+      await user.type(screen.getByLabelText(/class number/i), "12345");
+      await user.click(screen.getByRole("button", { name: "Add class" }));
       expect(await screen.findByText("You're all set!")).toBeInTheDocument();
 
-      await user.click(screen.getByRole('button', { name: /Done/i }));
-      await user.click(screen.getByRole('button', { name: /Done/i }));
+      await user.click(screen.getByRole("button", { name: /Done/i }));
+      await user.click(screen.getByRole("button", { name: /Done/i }));
 
       expect(onCompleted).toHaveBeenCalledTimes(1);
     });
 
-    it('shows the form error and stays on step 2 when watch creation fails', async () => {
+    it("shows the form error and stays on step 2 when watch creation fails", async () => {
       const user = userEvent.setup();
       const onCompleted = vi.fn();
 
-      mockCreateWatch.mockRejectedValueOnce(new Error('Class section not found'));
+      mockCreateWatch.mockRejectedValueOnce(new Error("Class section not found"));
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} onCompleted={onCompleted} />);
 
-      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
-      await user.type(screen.getByLabelText(/class number/i), '99999');
-      await user.click(screen.getByRole('button', { name: 'Add class' }));
+      await user.click(screen.getByRole("button", { name: /I have my class number/i }));
+      await user.type(screen.getByLabelText(/class number/i), "99999");
+      await user.click(screen.getByRole("button", { name: "Add class" }));
 
-      expect(await screen.findByText('Class section not found')).toBeInTheDocument();
-      expect(screen.getByText('Add your first class')).toBeInTheDocument();
+      expect(await screen.findByText("Class section not found")).toBeInTheDocument();
+      expect(screen.getByText("Add your first class")).toBeInTheDocument();
       expect(onCompleted).not.toHaveBeenCalled();
     });
 
-    it('marks completion on backdrop / Escape from the confirmation step without skipping', async () => {
+    it("marks completion on backdrop / Escape from the confirmation step without skipping", async () => {
       const user = userEvent.setup();
       const onCompleted = vi.fn();
       const onSkipped = vi.fn();
 
       render(<OnboardingModal open={true} onSkipped={onSkipped} onCompleted={onCompleted} />);
 
-      await user.click(screen.getByRole('button', { name: /I have my class number/i }));
-      await user.type(screen.getByLabelText(/class number/i), '12345');
-      await user.click(screen.getByRole('button', { name: 'Add class' }));
+      await user.click(screen.getByRole("button", { name: /I have my class number/i }));
+      await user.type(screen.getByLabelText(/class number/i), "12345");
+      await user.click(screen.getByRole("button", { name: "Add class" }));
       expect(await screen.findByText("You're all set!")).toBeInTheDocument();
 
       const skipCalls = fetchMock.mock.calls.filter(
-        ([url]) => url === '/api/user/onboarding'
+        ([url]) => url === "/api/user/onboarding",
       ).length;
 
-      fireEvent.keyDown(screen.getByText("You're all set!"), { key: 'Escape' });
+      fireEvent.keyDown(screen.getByText("You're all set!"), { key: "Escape" });
 
       await waitFor(() => {
         expect(onCompleted).toHaveBeenCalledWith(createdWatch);
       });
       expect(onSkipped).not.toHaveBeenCalled();
-      expect(fetchMock.mock.calls.filter(([url]) => url === '/api/user/onboarding').length).toBe(
-        skipCalls
+      expect(fetchMock.mock.calls.filter(([url]) => url === "/api/user/onboarding").length).toBe(
+        skipCalls,
       );
     });
   });
 
-  describe('popular-class example', () => {
-    it('shows the text-only guide (ASU catalog link) when no popular class is available', async () => {
+  describe("popular-class example", () => {
+    it("shows the text-only guide (ASU catalog link) when no popular class is available", async () => {
       popularClassResponse = { popularClass: null };
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-      expect(await screen.findByText('ASU Class Search page')).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /Track this class/i })).not.toBeInTheDocument();
+      expect(await screen.findByText("ASU Class Search page")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Track this class/i })).not.toBeInTheDocument();
     });
 
-    it('shows the text-only guide when the popular-class fetch fails', async () => {
+    it("shows the text-only guide when the popular-class fetch fails", async () => {
       fetchMock.mockImplementation((url: string) => {
-        if (url === '/api/onboarding/popular-class') {
-          return Promise.reject(new Error('network'));
+        if (url === "/api/onboarding/popular-class") {
+          return Promise.reject(new Error("network"));
         }
 
         return Promise.resolve({ ok: true, json: () => Promise.resolve(skipResponse) });
@@ -431,30 +431,30 @@ describe('OnboardingModal', () => {
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-      expect(await screen.findByText('ASU Class Search page')).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /Track this class/i })).not.toBeInTheDocument();
+      expect(await screen.findByText("ASU Class Search page")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Track this class/i })).not.toBeInTheDocument();
     });
 
-    it('shows the popular class card with a Track this class button when loaded', async () => {
+    it("shows the popular class card with a Track this class button when loaded", async () => {
       popularClassResponse = { popularClass: popularClassPayload };
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-      expect(await screen.findByText('CSE 240')).toBeInTheDocument();
-      expect(screen.getByText('Intro to Programming')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Track this class/i })).toBeInTheDocument();
+      expect(await screen.findByText("CSE 240")).toBeInTheDocument();
+      expect(screen.getByText("Intro to Programming")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Track this class/i })).toBeInTheDocument();
     });
-    it('copies the example class number into the form and advances to step 2', async () => {
+    it("copies the example class number into the form and advances to step 2", async () => {
       const user = userEvent.setup();
       popularClassResponse = { popularClass: popularClassPayload };
 
       render(<OnboardingModal open={true} onSkipped={vi.fn()} />);
 
-      await user.click(await screen.findByRole('button', { name: /Track this class/i }));
+      await user.click(await screen.findByRole("button", { name: /Track this class/i }));
 
-      expect(screen.getByText('Add your first class')).toBeInTheDocument();
+      expect(screen.getByText("Add your first class")).toBeInTheDocument();
       const classNbrInput = screen.getByLabelText(/class number/i);
-      expect(classNbrInput).toHaveValue('12345');
+      expect(classNbrInput).toHaveValue("12345");
     });
   });
 });

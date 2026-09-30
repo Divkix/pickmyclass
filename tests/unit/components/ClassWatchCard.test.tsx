@@ -1,8 +1,8 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { ClassWatchCard } from '@/components/ClassWatchCard';
-import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { ClassWatchCard } from "@/components/ClassWatchCard";
+import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -21,18 +21,18 @@ const { mockCreateWatch, mockToastError, mockToastSuccess, motionDivProps } = vi
   };
 });
 
-vi.mock('sonner', () => ({
+vi.mock("sonner", () => ({
   toast: {
     success: mockToastSuccess,
     error: mockToastError,
   },
 }));
 
-vi.mock('@/lib/class-watches/class-watch-creation', () => ({
+vi.mock("@/lib/class-watches/class-watch-creation", () => ({
   classWatchCreation: { create: mockCreateWatch },
 }));
 
-vi.mock('framer-motion', () => ({
+vi.mock("framer-motion", () => ({
   m: {
     div: (props: { children?: React.ReactNode }) => {
       // SAFETY: card props on m.div are JSON, children or handlers — MotionValue (line 9).
@@ -47,29 +47,29 @@ vi.mock('framer-motion', () => ({
 }));
 
 const mockWatch: ClassWatchRow = {
-  id: 'watch-123',
-  user_id: 'user-123',
-  term: '2241',
-  subject: 'CSE',
-  catalog_nbr: '110',
-  class_nbr: '12345',
+  id: "watch-123",
+  user_id: "user-123",
+  term: "2241",
+  subject: "CSE",
+  catalog_nbr: "110",
+  class_nbr: "12345",
   created_at: new Date().toISOString(),
 };
 
 const mockClassState: ClassStateRow = {
-  id: 'state-123',
-  term: '2241',
-  subject: 'CSE',
-  catalog_nbr: '110',
-  class_nbr: '12345',
+  id: "state-123",
+  term: "2241",
+  subject: "CSE",
+  catalog_nbr: "110",
+  class_nbr: "12345",
   seats_available: 5,
   seats_capacity: 30,
   non_reserved_seats: null,
   consecutive_not_found_count: 0,
-  title: 'Introduction to Programming',
-  instructor_name: 'Dr. Smith',
-  location: 'TBD',
-  meeting_times: 'MWF 10:00-11:00',
+  title: "Introduction to Programming",
+  instructor_name: "Dr. Smith",
+  location: "TBD",
+  meeting_times: "MWF 10:00-11:00",
   last_checked_at: new Date().toISOString(),
   last_changed_at: new Date().toISOString(),
 };
@@ -84,14 +84,14 @@ const createTouchEvent = (clientX: number): React.TouchEvent => {
   return stub as React.TouchEvent;
 };
 
-describe('ClassWatchCard', () => {
+describe("ClassWatchCard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCreateWatch.mockResolvedValue(mockWatch);
   });
 
-  describe('delete functionality', () => {
-    it('should reset isDeleting state after successful delete', async () => {
+  describe("delete functionality", () => {
+    it("should reset isDeleting state after successful delete", async () => {
       const user = userEvent.setup();
       let resolveDelete: () => void;
 
@@ -103,13 +103,13 @@ describe('ClassWatchCard', () => {
 
       render(<ClassWatchCard watch={mockWatch} classState={mockClassState} onDelete={onDelete} />);
 
-      const deleteButton = screen.getByRole('button', {
+      const deleteButton = screen.getByRole("button", {
         name: /stop watching/i,
       });
 
       await user.click(deleteButton);
 
-      const confirmButton = screen.getByRole('button', { name: /stop watching/i });
+      const confirmButton = screen.getByRole("button", { name: /stop watching/i });
 
       await act(async () => {
         await user.click(confirmButton);
@@ -124,7 +124,7 @@ describe('ClassWatchCard', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const deleteButtons = screen.queryAllByRole('button', {
+      const deleteButtons = screen.queryAllByRole("button", {
         name: /stop watching/i,
       });
 
@@ -133,7 +133,7 @@ describe('ClassWatchCard', () => {
       }
     });
 
-    it('should reset isDeleting state after failed delete', async () => {
+    it("should reset isDeleting state after failed delete", async () => {
       const user = userEvent.setup();
       let rejectDelete: (error: Error) => void;
 
@@ -145,20 +145,20 @@ describe('ClassWatchCard', () => {
 
       render(<ClassWatchCard watch={mockWatch} classState={mockClassState} onDelete={onDelete} />);
 
-      const deleteButton = screen.getByRole('button', {
+      const deleteButton = screen.getByRole("button", {
         name: /stop watching/i,
       });
 
       await user.click(deleteButton);
 
-      const confirmButton = screen.getByRole('button', { name: /stop watching/i });
+      const confirmButton = screen.getByRole("button", { name: /stop watching/i });
 
       await act(async () => {
         await user.click(confirmButton);
       });
 
       await act(async () => {
-        rejectDelete(new Error('Delete failed'));
+        rejectDelete(new Error("Delete failed"));
 
         try {
           await deletePromise;
@@ -167,13 +167,13 @@ describe('ClassWatchCard', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const dialogDeleteButton = screen.getByRole('button', { name: /stop watching/i });
+      const dialogDeleteButton = screen.getByRole("button", { name: /stop watching/i });
       await waitFor(() => {
         expect(dialogDeleteButton).not.toBeDisabled();
       });
     });
 
-    it('restores a deleted watch through the shared creation module', async () => {
+    it("restores a deleted watch through the shared creation module", async () => {
       const user = userEvent.setup();
       const onRestore = vi.fn();
 
@@ -183,32 +183,32 @@ describe('ClassWatchCard', () => {
           classState={mockClassState}
           onDelete={vi.fn().mockResolvedValue(undefined)}
           onRestore={onRestore}
-        />
+        />,
       );
 
-      await user.click(screen.getByRole('button', { name: /stop watching/i }));
-      await user.click(screen.getByRole('button', { name: /stop watching/i }));
+      await user.click(screen.getByRole("button", { name: /stop watching/i }));
+      await user.click(screen.getByRole("button", { name: /stop watching/i }));
 
       const removedToast = mockToastSuccess.mock.calls.find(
-        ([message]) => message === 'Class watch removed'
+        ([message]) => message === "Class watch removed",
       );
 
       await removedToast?.[1].action.onClick();
 
-      expect(mockCreateWatch).toHaveBeenCalledWith({ term: '2241', class_nbr: '12345' });
-      expect(mockToastSuccess).toHaveBeenCalledWith('Class watch restored');
+      expect(mockCreateWatch).toHaveBeenCalledWith({ term: "2241", class_nbr: "12345" });
+      expect(mockToastSuccess).toHaveBeenCalledWith("Class watch restored");
       expect(onRestore).toHaveBeenCalledOnce();
     });
   });
 
-  describe('swipe-to-delete', () => {
-    it('keeps the slide-out open after a swipe-left delete instead of snapping back', async () => {
+  describe("swipe-to-delete", () => {
+    it("keeps the slide-out open after a swipe-left delete instead of snapping back", async () => {
       vi.useFakeTimers();
 
       try {
         const onDelete = vi.fn().mockResolvedValue(undefined);
         render(
-          <ClassWatchCard watch={mockWatch} classState={mockClassState} onDelete={onDelete} />
+          <ClassWatchCard watch={mockWatch} classState={mockClassState} onDelete={onDelete} />,
         );
 
         // SAFETY: line 39 stores the props the card passes m.div, which spread these handlers.
@@ -236,7 +236,7 @@ describe('ClassWatchCard', () => {
         await act(async () => {
           vi.advanceTimersByTime(300);
         });
-        expect(onDelete).toHaveBeenCalledWith('watch-123');
+        expect(onDelete).toHaveBeenCalledWith("watch-123");
         // SAFETY: swipeOffset drives animate={{ x }} as a number — ClassWatchCard.tsx:153-155.
         const settleAnimate = motionDivProps.current.animate as { x: number };
         expect(settleAnimate.x).toBe(0);

@@ -1,17 +1,17 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-import { Activity, Eye, Mail, TrendingUp, Users } from 'lucide-react';
-import { RecentActivity } from '@/components/admin/RecentActivity';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { verifyAdmin } from '@/lib/auth/admin';
+import { Activity, Eye, Mail, TrendingUp, Users } from "lucide-react";
+import { RecentActivity } from "@/components/admin/RecentActivity";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { verifyAdmin } from "@/lib/auth/admin";
 import {
   getAdminCount,
   getRecentActivity,
   getTotalClassesWatched,
   getTotalEmailsSent,
   getTotalUsers,
-} from '@/lib/db/admin-queries';
-import { getDbFromEnv } from '@/lib/db';
+} from "@/lib/db/admin-queries";
+import { getDbFromEnv } from "@/lib/db";
 
 export default async function AdminDashboardPage() {
   const db = getDbFromEnv();
@@ -26,8 +26,8 @@ export default async function AdminDashboardPage() {
     getRecentActivity(db, 10),
   ]);
 
-  const avgWatchesPerUser = totalUsers > 0 ? (totalClasses / totalUsers).toFixed(1) : '0';
-  const avgEmailsPerUser = totalUsers > 0 ? (totalEmails / totalUsers).toFixed(1) : '0';
+  const avgWatchesPerUser = totalUsers > 0 ? (totalClasses / totalUsers).toFixed(1) : "0";
+  const avgEmailsPerUser = totalUsers > 0 ? (totalEmails / totalUsers).toFixed(1) : "0";
 
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
@@ -72,7 +72,7 @@ export default async function AdminDashboardPage() {
               {totalUsers.toLocaleString()}
               {adminCount > 0 && (
                 <span className="text-base font-normal text-muted-foreground ml-2">
-                  ({adminCount} admin{adminCount !== 1 ? 's' : ''})
+                  ({adminCount} admin{adminCount !== 1 ? "s" : ""})
                 </span>
               )}
             </div>

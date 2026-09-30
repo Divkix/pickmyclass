@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { captureAnalyticsError } from '@/lib/analytics/client';
-import { log } from '@/lib/log';
-import './globals.css';
+import { useEffect } from "react";
+import { captureAnalyticsError } from "@/lib/analytics/client";
+import { log } from "@/lib/log";
+import "./globals.css";
 
 // Replaces the root layout when it throws, so app/error.tsx never sees these errors.
 export default function GlobalError({
@@ -14,8 +14,8 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    log('ErrorBoundary').error('Unhandled root error:', error);
-    captureAnalyticsError(error, { boundary: 'global' });
+    log("ErrorBoundary").error("Unhandled root error:", error);
+    captureAnalyticsError(error, { boundary: "global" });
   }, [error]);
 
   return (

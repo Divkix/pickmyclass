@@ -1,31 +1,31 @@
-'use client';
+"use client";
 
-import { BookOpen, LayoutDashboard, Users } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { BookOpen, LayoutDashboard, Users } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function AdminNavigation() {
   const pathname = usePathname();
 
   const navItems = [
     {
-      href: '/admin',
+      href: "/admin",
       icon: <LayoutDashboard className="size-5" />,
-      label: 'Dashboard',
+      label: "Dashboard",
       exact: true,
     },
     {
-      href: '/admin/classes',
+      href: "/admin/classes",
       icon: <BookOpen className="size-5" />,
-      label: 'Classes',
+      label: "Classes",
       exact: false,
     },
     {
-      href: '/admin/users',
+      href: "/admin/users",
       icon: <Users className="size-5" />,
-      label: 'Users',
+      label: "Users",
       exact: false,
     },
   ];
@@ -48,16 +48,16 @@ export function AdminNavigation() {
             key={item.href}
             href={item.href}
             className="block"
-            aria-current={active ? 'page' : undefined}
+            aria-current={active ? "page" : undefined}
           >
             <Button
-              variant={active ? 'secondary' : 'ghost'}
+              variant={active ? "secondary" : "ghost"}
               size="sm"
               className={cn(
-                'w-full justify-start gap-3 transition-colors',
+                "w-full justify-start gap-3 transition-colors",
                 active
-                  ? 'bg-primary/10 text-primary hover:bg-primary/20 font-semibold'
-                  : 'hover:bg-accent'
+                  ? "bg-primary/10 text-primary hover:bg-primary/20 font-semibold"
+                  : "hover:bg-accent",
               )}
             >
               {item.icon}

@@ -1,9 +1,9 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { drizzle } from "drizzle-orm/postgres-js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { verifyAdmin } from '@/lib/auth/admin';
-import type { Database } from '@/lib/db';
-import * as schema from '@/lib/db/schema';
+import { verifyAdmin } from "@/lib/auth/admin";
+import type { Database } from "@/lib/db";
+import * as schema from "@/lib/db/schema";
 
 interface CapturedStatement {
   sql: string;
@@ -28,7 +28,7 @@ type DriverRowSet = Array<Record<string, PgWireValue>>;
 interface ScriptedPendingRows {
   then(
     onFulfilled?: (value: never) => PromiseLike<never>,
-    onRejected?: (reason: Error) => PromiseLike<never>
+    onRejected?: (reason: Error) => PromiseLike<never>,
   ): Promise<never>;
   catch(onRejected: (reason: Error) => PromiseLike<never>): Promise<never>;
   values(): PromiseLike<never[]>;
@@ -72,7 +72,7 @@ function createDbDouble() {
 
   const client: PostgresJsSeam = scriptedClient;
   // SAFETY: options/unsafe/begin are the only Sql members drizzle touches — drizzle-orm/postgres-js.
-  const db = drizzle(client as Database['$client'], { schema });
+  const db = drizzle(client as Database["$client"], { schema });
 
   return {
     db,
@@ -93,23 +93,23 @@ const { mockGetSessionIdentityFromHeaders, mockReadAuthorizationState, mockRedir
     mockHeaders: vi.fn(),
   }));
 
-vi.mock('next/navigation', () => ({
+vi.mock("next/navigation", () => ({
   redirect: mockRedirect,
 }));
 
-vi.mock('next/headers', () => ({
+vi.mock("next/headers", () => ({
   headers: mockHeaders,
 }));
 
-vi.mock('@/lib/auth/clerk-session', () => ({
+vi.mock("@/lib/auth/clerk-session", () => ({
   getSessionIdentityFromHeaders: mockGetSessionIdentityFromHeaders,
 }));
 
-vi.mock('@/lib/auth/authorization-state', () => ({
+vi.mock("@/lib/auth/authorization-state", () => ({
   readAuthorizationState: mockReadAuthorizationState,
 }));
 
-const identity = { userId: 'user-123', clerkUserId: 'clerk_123', sessionId: 'sess_123' };
+const identity = { userId: "user-123", clerkUserId: "clerk_123", sessionId: "sess_123" };
 
 interface AdminDbDouble {
   db: Database;
@@ -117,7 +117,7 @@ interface AdminDbDouble {
   nextRows(rows?: AdminMirrorRow[]): void;
 }
 
-describe('verifyAdmin', () => {
+describe("verifyAdmin", () => {
   let double: AdminDbDouble;
 
   beforeEach(() => {
@@ -136,67 +136,67 @@ describe('verifyAdmin', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns the authenticated user when their profile is marked admin', async () => {
-    double.nextRows([{ email: 'admin@example.com' }]);
+  it("returns the authenticated user when their profile is marked admin", async () => {
+    double.nextRows([{ email: "admin@example.com" }]);
 
     const result = await verifyAdmin(double.db);
 
-    expect(result.email).toBe('admin@example.com');
-    expect(result.clerkUserId).toBe('clerk_123');
-    expect(result.sessionId).toBe('sess_123');
+    expect(result.email).toBe("admin@example.com");
+    expect(result.clerkUserId).toBe("clerk_123");
+    expect(result.sessionId).toBe("sess_123");
     expect(mockRedirect).not.toHaveBeenCalled();
 
-    expect(mockReadAuthorizationState).toHaveBeenCalledWith(double.db, 'user-123', {
+    expect(mockReadAuthorizationState).toHaveBeenCalledWith(double.db, "user-123", {
       cache: false,
     });
 
     expect(double.statements).toHaveLength(1);
     const [statement] = double.statements;
-    expect(statement.sql.replace(/\s+/g, ' ').trim()).toBe(
-      'select "email" from "users" where "users"."id" = $1 limit $2'
+    expect(statement.sql.replace(/\s+/g, " ").trim()).toBe(
+      'select "email" from "users" where "users"."id" = $1 limit $2',
     );
-    expect(statement.params).toEqual(['user-123', 1]);
+    expect(statement.params).toEqual(["user-123", 1]);
   });
 
-  it('redirects unauthenticated users to sign-in without touching the database', async () => {
+  it("redirects unauthenticated users to sign-in without touching the database", async () => {
     mockGetSessionIdentityFromHeaders.mockResolvedValueOnce(null);
 
-    await expect(verifyAdmin(double.db)).rejects.toThrow('redirect:/sign-in');
-    expect(mockRedirect).toHaveBeenCalledWith('/sign-in');
+    await expect(verifyAdmin(double.db)).rejects.toThrow("redirect:/sign-in");
+    expect(mockRedirect).toHaveBeenCalledWith("/sign-in");
     expect(mockReadAuthorizationState).not.toHaveBeenCalled();
     expect(double.statements).toHaveLength(0);
   });
 
-  it('redirects disabled admins to sign-in via the fail-closed state', async () => {
+  it("redirects disabled admins to sign-in via the fail-closed state", async () => {
     mockReadAuthorizationState.mockResolvedValueOnce({
       is_admin: false,
       is_disabled: true,
       has_consent: false,
     });
 
-    await expect(verifyAdmin(double.db)).rejects.toThrow('redirect:/sign-in');
-    expect(mockRedirect).toHaveBeenCalledWith('/sign-in');
+    await expect(verifyAdmin(double.db)).rejects.toThrow("redirect:/sign-in");
+    expect(mockRedirect).toHaveBeenCalledWith("/sign-in");
     expect(double.statements).toHaveLength(0);
   });
 
-  it('redirects authenticated non-admin users to the dashboard', async () => {
+  it("redirects authenticated non-admin users to the dashboard", async () => {
     mockReadAuthorizationState.mockResolvedValueOnce({
       is_admin: false,
       is_disabled: false,
       has_consent: true,
     });
 
-    await expect(verifyAdmin(double.db)).rejects.toThrow('redirect:/dashboard');
-    expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
+    await expect(verifyAdmin(double.db)).rejects.toThrow("redirect:/dashboard");
+    expect(mockRedirect).toHaveBeenCalledWith("/dashboard");
     expect(double.statements).toHaveLength(0);
   });
 
-  it('falls back to an empty display email when the mirror row is missing', async () => {
+  it("falls back to an empty display email when the mirror row is missing", async () => {
     double.nextRows([]);
 
     const result = await verifyAdmin(double.db);
 
-    expect(result.email).toBe('');
+    expect(result.email).toBe("");
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 });

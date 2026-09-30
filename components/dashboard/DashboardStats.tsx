@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { m } from 'framer-motion';
-import { CheckCircle2, Eye, TrendingUp, Users, type LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { staggerContainer, staggerItem } from '@/lib/animations';
-import type { ClassWatchStats } from '@/lib/hooks/useClassWatches';
+import { m } from "framer-motion";
+import { CheckCircle2, Eye, TrendingUp, Users, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import type { ClassWatchStats } from "@/lib/hooks/useClassWatches";
 
 interface StatCard {
   title: string;
@@ -23,9 +23,9 @@ interface DashboardStatsProps {
 export function DashboardStats({ stats, maxWatches, realtimeLoading }: DashboardStatsProps) {
   const statCards: StatCard[] = [
     {
-      title: 'Total Watches',
+      title: "Total Watches",
       icon: Eye,
-      iconClassName: 'text-muted-foreground',
+      iconClassName: "text-muted-foreground",
       body: (
         <>
           <div className="text-2xl font-bold">{stats.totalWatches}</div>
@@ -36,35 +36,35 @@ export function DashboardStats({ stats, maxWatches, realtimeLoading }: Dashboard
       ),
     },
     {
-      title: 'Available',
+      title: "Available",
       icon: CheckCircle2,
-      iconClassName: 'text-success',
+      iconClassName: "text-success",
       body: (
         <>
           <div className="text-2xl font-bold text-success">{stats.availableSeats}</div>
           <p className="text-xs text-muted-foreground">
-            {stats.availableSeats > 0 ? 'Go register now!' : 'Classes with open seats'}
+            {stats.availableSeats > 0 ? "Go register now!" : "Classes with open seats"}
           </p>
         </>
       ),
     },
     {
-      title: 'Full',
+      title: "Full",
       icon: Users,
-      iconClassName: 'text-destructive',
+      iconClassName: "text-destructive",
       body: (
         <>
           <div className="text-2xl font-bold text-destructive">{stats.fullClasses}</div>
           <p className="text-xs text-muted-foreground">
-            {stats.fullClasses > 0 ? "We'll alert you when seats open" : 'Classes at capacity'}
+            {stats.fullClasses > 0 ? "We'll alert you when seats open" : "Classes at capacity"}
           </p>
         </>
       ),
     },
     {
-      title: 'Status',
+      title: "Status",
       icon: TrendingUp,
-      iconClassName: 'text-primary',
+      iconClassName: "text-primary",
       body: (
         <>
           <div className="flex items-center gap-2">

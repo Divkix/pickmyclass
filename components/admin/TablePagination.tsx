@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 
 interface TablePaginationProps {
   page: number;
@@ -26,7 +26,7 @@ export function TablePagination({
           emptyMessage
         ) : (
           <>
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}{' '}
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}{" "}
             {itemNoun}
           </>
         )}

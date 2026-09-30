@@ -1,12 +1,12 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-import { eq } from 'drizzle-orm';
-import { ArrowLeft, Calendar, Clock, Eye, Mail, Shield } from 'lucide-react';
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { eq } from "drizzle-orm";
+import { ArrowLeft, Calendar, Clock, Eye, Mail, Shield } from "lucide-react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -14,14 +14,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { verifyAdmin } from '@/lib/auth/admin';
-import { getDbFromEnv } from '@/lib/db';
-import { getUserWatches } from '@/lib/db/admin-queries';
-import { users } from '@/lib/db/schema';
-import { log } from '@/lib/log';
-import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
-import { formatAbsoluteDate } from '@/lib/utils/time-format';
+} from "@/components/ui/table";
+import { verifyAdmin } from "@/lib/auth/admin";
+import { getDbFromEnv } from "@/lib/db";
+import { getUserWatches } from "@/lib/db/admin-queries";
+import { users } from "@/lib/db/schema";
+import { log } from "@/lib/log";
+import { getSeatBadgeVariant } from "@/lib/utils/seat-badge";
+import { formatAbsoluteDate } from "@/lib/utils/time-format";
 
 interface AdminUserDetailPageProps {
   params: Promise<{
@@ -49,21 +49,21 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
     .limit(1);
 
   if (!user) {
-    log('Admin').error(`User ${userId} not found in mirror table`);
+    log("Admin").error(`User ${userId} not found in mirror table`);
     notFound();
   }
 
   const watches = await getUserWatches(db, userId);
 
   const formatDate = (timestamp: string | null | undefined): string => {
-    if (!timestamp) return 'Never';
+    if (!timestamp) return "Never";
 
     return formatAbsoluteDate(timestamp, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -109,7 +109,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-muted-foreground mb-1">Email Address</p>
-                <p className="font-medium truncate">{user.email || 'No email'}</p>
+                <p className="font-medium truncate">{user.email || "No email"}</p>
               </div>
             </div>
 
@@ -179,7 +179,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
               <CardDescription>All classes this user is currently monitoring</CardDescription>
             </div>
             <Badge variant="outline" size="lg">
-              {watches.length} {watches.length === 1 ? 'watch' : 'watches'}
+              {watches.length} {watches.length === 1 ? "watch" : "watches"}
             </Badge>
           </div>
         </CardHeader>
@@ -220,13 +220,13 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                         <span className="text-muted-foreground ml-1">{watch.catalog_nbr}</span>
                       </TableCell>
                       <TableCell>
-                        <div className="max-w-[300px] truncate" title={classState?.title || ''}>
-                          {classState?.title || '-'}
+                        <div className="max-w-[300px] truncate" title={classState?.title || ""}>
+                          {classState?.title || "-"}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="max-w-[200px] truncate">
-                          {classState?.instructor_name || 'Staff'}
+                          {classState?.instructor_name || "Staff"}
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
@@ -234,7 +234,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                           <Badge
                             variant={getSeatBadgeVariant(
                               classState.seats_available,
-                              classState.seats_capacity
+                              classState.seats_capacity,
                             )}
                             size="sm"
                           >

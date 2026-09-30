@@ -1,14 +1,14 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { z } from 'zod';
+import { drizzle } from "drizzle-orm/postgres-js";
+import { NextRequest } from "next/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { z } from "zod";
 
-import type { Database } from '@/lib/db';
-import { getSelectableTerms } from '@/lib/asu/terms';
-import * as schema from '@/lib/db/schema';
-import type { OnboardingPayload } from '@/lib/onboarding';
-import type { ClassDetails } from '@/lib/types/class';
-import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
+import type { Database } from "@/lib/db";
+import { getSelectableTerms } from "@/lib/asu/terms";
+import * as schema from "@/lib/db/schema";
+import type { OnboardingPayload } from "@/lib/onboarding";
+import type { ClassDetails } from "@/lib/types/class";
+import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
 
 interface CapturedStatement {
   sql: string;
@@ -61,7 +61,7 @@ function createDbHarness() {
 
   const client: PostgresJsSeam = scriptedClient;
   // SAFETY: the double implements the postgres-js seam drizzle drives: options, unsafe, begin.
-  const db = drizzle(client as Database['$client'], { schema });
+  const db = drizzle(client as Database["$client"], { schema });
 
   return {
     db,
@@ -97,82 +97,82 @@ const {
   };
 });
 
-vi.mock('@/lib/auth/clerk-session', () => ({
+vi.mock("@/lib/auth/clerk-session", () => ({
   getSessionIdentity: mockGetSessionIdentity,
 }));
 
-vi.mock('@/lib/db', () => ({
+vi.mock("@/lib/db", () => ({
   getDbFromEnv: () => h.db,
 }));
 
-vi.mock('@/lib/asu/api', () => ({
+vi.mock("@/lib/asu/api", () => ({
   fetchClassFromASU: mockFetchClassFromASU,
   AuthError,
   NotFoundError,
 }));
 
-vi.mock('@/lib/analytics/server', () => ({
+vi.mock("@/lib/analytics/server", () => ({
   captureServerEvent: mockCaptureServerEvent,
 }));
 
-vi.mock('cloudflare:workers', () => ({
+vi.mock("cloudflare:workers", () => ({
   env: {
-    ASU_API_BASE_URL: 'https://mock-asu-api.example.com',
-    ASU_API_TOKEN: 'mock-token',
+    ASU_API_BASE_URL: "https://mock-asu-api.example.com",
+    ASU_API_TOKEN: "mock-token",
   },
 }));
 
-import { GET, POST } from '@/app/api/class-watches/route';
+import { GET, POST } from "@/app/api/class-watches/route";
 
-const USER_ID = 'user-123';
+const USER_ID = "user-123";
 
 const identity = {
   userId: USER_ID,
-  clerkUserId: 'user_test_clerk_123',
-  sessionId: 'sess_test_123',
+  clerkUserId: "user_test_clerk_123",
+  sessionId: "sess_test_123",
 };
 
 const term = getSelectableTerms()[0].code;
 
 const classDetails: ClassDetails = {
-  subject: 'CSE',
-  catalog_nbr: '240',
-  title: 'Introduction to Programming',
-  instructor_name: 'Jane Doe',
+  subject: "CSE",
+  catalog_nbr: "240",
+  title: "Introduction to Programming",
+  instructor_name: "Jane Doe",
   seats_available: 10,
   seats_capacity: 50,
   non_reserved_seats: null,
-  location: 'COOR 120',
-  meeting_times: 'MWF 9:00-9:50 AM',
+  location: "COOR 120",
+  meeting_times: "MWF 9:00-9:50 AM",
 };
 
 const createdWatch: ClassWatchRow = {
-  id: 'watch-1',
+  id: "watch-1",
   user_id: USER_ID,
-  class_nbr: '12345',
+  class_nbr: "12345",
   term,
-  subject: 'CSE',
-  catalog_nbr: '240',
-  created_at: '2026-01-02T00:00:00Z',
+  subject: "CSE",
+  catalog_nbr: "240",
+  created_at: "2026-01-02T00:00:00Z",
 };
 
 const watchedWithoutState = {
-  id: 'watch-2',
-  class_nbr: '54321',
+  id: "watch-2",
+  class_nbr: "54321",
   term,
-  subject: 'MAT',
-  catalog_nbr: '270',
-  created_at: '2026-01-03T00:00:00Z',
+  subject: "MAT",
+  catalog_nbr: "270",
+  created_at: "2026-01-03T00:00:00Z",
 };
 
 const matchingClassState = {
-  class_nbr: '12345',
+  class_nbr: "12345",
   term,
   seats_available: 10,
   seats_capacity: 50,
   non_reserved_seats: null,
-  instructor_name: 'Jane Doe',
-  title: 'Introduction to Programming',
+  instructor_name: "Jane Doe",
+  title: "Introduction to Programming",
 };
 
 interface GetBody {
@@ -188,14 +188,14 @@ interface PostBody {
 }
 
 function getRequest(): NextRequest {
-  return new NextRequest('http://localhost:3000/api/class-watches');
+  return new NextRequest("http://localhost:3000/api/class-watches");
 }
 
 function postRequest(body: { term: string; class_nbr: string }): NextRequest {
-  return new NextRequest('http://localhost:3000/api/class-watches', {
-    method: 'POST',
+  return new NextRequest("http://localhost:3000/api/class-watches", {
+    method: "POST",
     body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
+    headers: { "content-type": "application/json" },
   });
 }
 
@@ -204,10 +204,10 @@ async function json<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-describe('/api/class-watches onboarding wiring', () => {
+describe("/api/class-watches onboarding wiring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     h = createDbHarness();
     mockGetSessionIdentity.mockResolvedValue(identity);
     mockFetchClassFromASU.mockResolvedValue(classDetails);
@@ -217,13 +217,13 @@ describe('/api/class-watches onboarding wiring', () => {
     vi.restoreAllMocks();
   });
 
-  describe('POST /api/class-watches', () => {
-    it('creates the watch, upserts state, and marks onboarding complete via the first-watch guard', async () => {
+  describe("POST /api/class-watches", () => {
+    it("creates the watch, upserts state, and marks onboarding complete via the first-watch guard", async () => {
       h.next([createdWatch]);
       h.next([]);
       h.next([]);
 
-      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
 
       expect(response.status).toBe(201);
       const body = await json<PostBody>(response);
@@ -231,51 +231,51 @@ describe('/api/class-watches onboarding wiring', () => {
       expect(body.watch).toEqual(createdWatch);
 
       const rpc = h.statements[0];
-      expect(rpc.sql).toContain('create_class_watch_with_limit');
-      expect(rpc.params).toEqual([USER_ID, term, 'CSE', '240', '12345', 10]);
+      expect(rpc.sql).toContain("create_class_watch_with_limit");
+      expect(rpc.params).toEqual([USER_ID, term, "CSE", "240", "12345", 10]);
 
       const upsert = h.statements.find((statement) =>
-        statement.sql.includes('insert into "class_states"')
+        statement.sql.includes('insert into "class_states"'),
       );
 
-      expect(upsert?.sql).toContain('on conflict');
+      expect(upsert?.sql).toContain("on conflict");
 
       const guard = h.statements.find((statement) =>
-        statement.sql.includes('update "user_profiles"')
+        statement.sql.includes('update "user_profiles"'),
       );
 
-      expect(guard?.sql).toContain('onboarding_completed_at');
+      expect(guard?.sql).toContain("onboarding_completed_at");
       expect(guard?.params).toContain(USER_ID);
 
       expect(mockCaptureServerEvent).toHaveBeenCalledWith(
         USER_ID,
-        'class_watch_created',
-        expect.objectContaining({ term, class_nbr: '12345' })
+        "class_watch_created",
+        expect.objectContaining({ term, class_nbr: "12345" }),
       );
     });
 
-    it('still returns 201 when the first-watch guard rejects (non-fatal)', async () => {
+    it("still returns 201 when the first-watch guard rejects (non-fatal)", async () => {
       h.next([createdWatch]);
       h.next([]);
-      h.failNext(new Error('guard update failed'));
+      h.failNext(new Error("guard update failed"));
 
-      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
 
       expect(response.status).toBe(201);
       const body = await json<PostBody>(response);
       expect(body.success).toBe(true);
       expect(body.watch).toEqual(createdWatch);
 
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, 'class_watch_created', {
+      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, "class_watch_created", {
         term,
-        class_nbr: '12345',
+        class_nbr: "12345",
       });
     });
   });
 
-  describe('GET /api/class-watches', () => {
-    it('returns 200 with the full watches list and the onboarding fallback when the auxiliary read fails', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  describe("GET /api/class-watches", () => {
+    it("returns 200 with the full watches list and the onboarding fallback when the auxiliary read fails", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       h.next([
         {
@@ -289,7 +289,7 @@ describe('/api/class-watches onboarding wiring', () => {
         watchedWithoutState,
       ]);
       h.next([matchingClassState]);
-      h.failNext(new Error('onboarding profile read failed'));
+      h.failNext(new Error("onboarding profile read failed"));
 
       const response = await GET(getRequest());
 
@@ -299,8 +299,8 @@ describe('/api/class-watches onboarding wiring', () => {
 
       expect(body.watches).toHaveLength(2);
       expect(body.watches?.[0]).toMatchObject({
-        id: 'watch-1',
-        class_state: expect.objectContaining({ class_nbr: '12345', term }),
+        id: "watch-1",
+        class_state: expect.objectContaining({ class_nbr: "12345", term }),
       });
       expect(body.watches?.[1]?.class_state).toBeNull();
       expect(z.number().safeParse(body.maxWatches).success).toBe(true);
@@ -313,7 +313,7 @@ describe('/api/class-watches onboarding wiring', () => {
       });
     });
 
-    it('projects the real pending state into the response when the read succeeds', async () => {
+    it("projects the real pending state into the response when the read succeeds", async () => {
       h.next([]);
       h.next([{ onboarding_completed_at: null, onboarding_skipped_at: null }]);
 

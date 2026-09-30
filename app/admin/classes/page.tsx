@@ -1,24 +1,24 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-import { Suspense } from 'react';
-import { ClassesTable } from '@/components/admin/ClassesTable';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { verifyAdmin } from '@/lib/auth/admin';
-import { getClassesPage, getDistinctSubjects } from '@/lib/db/admin-queries';
-import type { ClassSortField } from '@/lib/db/admin-queries';
-import { getDbFromEnv } from '@/lib/db';
-import { param, parsePageParam } from '@/lib/utils/page-params';
+import { Suspense } from "react";
+import { ClassesTable } from "@/components/admin/ClassesTable";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { verifyAdmin } from "@/lib/auth/admin";
+import { getClassesPage, getDistinctSubjects } from "@/lib/db/admin-queries";
+import type { ClassSortField } from "@/lib/db/admin-queries";
+import { getDbFromEnv } from "@/lib/db";
+import { param, parsePageParam } from "@/lib/utils/page-params";
 
 const PAGE_SIZE = 25;
 
 const CLASS_SORT_FIELDS: readonly ClassSortField[] = [
-  'class_nbr',
-  'subject',
-  'seats_available',
-  'watcher_count',
-  'seat_emails',
-  'instructor_emails',
-  'last_checked_at',
+  "class_nbr",
+  "subject",
+  "seats_available",
+  "watcher_count",
+  "seat_emails",
+  "instructor_emails",
+  "last_checked_at",
 ];
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -29,7 +29,7 @@ function isClassSortField(value: string): value is ClassSortField {
 }
 
 function classSort(value: string): ClassSortField {
-  return isClassSortField(value) ? value : 'watcher_count';
+  return isClassSortField(value) ? value : "watcher_count";
 }
 
 export default async function AdminClassesPage({ searchParams }: { searchParams?: SearchParams }) {
@@ -39,23 +39,23 @@ export default async function AdminClassesPage({ searchParams }: { searchParams?
 
   const sp = (await searchParams) ?? {};
 
-  const page = parsePageParam(param(sp, 'page'));
-  const sort = classSort(param(sp, 'sort'));
-  const dir = param(sp, 'dir') === 'asc' ? 'asc' : 'desc';
-  const search = param(sp, 'search');
-  const subject = param(sp, 'subject') || 'all';
+  const page = parsePageParam(param(sp, "page"));
+  const sort = classSort(param(sp, "sort"));
+  const dir = param(sp, "dir") === "asc" ? "asc" : "desc";
+  const search = param(sp, "search");
+  const subject = param(sp, "subject") || "all";
   // SAFETY: param helper + 'all' fallback keeps allowed union; DB handles invalid gracefully
-  const seatStatus = (param(sp, 'seatStatus') || 'all') as 'all' | 'full' | 'limited' | 'available';
+  const seatStatus = (param(sp, "seatStatus") || "all") as "all" | "full" | "limited" | "available";
   // SAFETY: param helper + 'all' fallback keeps allowed union; DB handles invalid gracefully
-  const instructor = (param(sp, 'instructor') || 'all') as 'all' | 'staff' | 'named';
+  const instructor = (param(sp, "instructor") || "all") as "all" | "staff" | "named";
 
   // SAFETY: param helper + 'all' fallback keeps allowed union; DB handles invalid gracefully
-  const watcherCount = (param(sp, 'watcherCount') || 'all') as
-    | 'all'
-    | 'none'
-    | '1-5'
-    | '6-10'
-    | '10+';
+  const watcherCount = (param(sp, "watcherCount") || "all") as
+    | "all"
+    | "none"
+    | "1-5"
+    | "6-10"
+    | "10+";
 
   const [{ rows, total, totalWatchers, fullClasses }, subjects] = await Promise.all([
     getClassesPage(db, {

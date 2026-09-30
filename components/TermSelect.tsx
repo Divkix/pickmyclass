@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { formatTermOption } from '@/lib/asu/terms';
-import type { AsuTerm } from '@/lib/asu/terms';
-import { Alert } from '@/components/ui/alert';
-import { Label } from '@/components/ui/label';
+import { formatTermOption } from "@/lib/asu/terms";
+import type { AsuTerm } from "@/lib/asu/terms";
+import { Alert } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 
 interface TermSelectProps {
   value: string;
@@ -19,7 +19,7 @@ interface TermSelectProps {
   id?: string;
 }
 
-export function TermSelect({ value, onValueChange, terms, id = 'term' }: TermSelectProps) {
+export function TermSelect({ value, onValueChange, terms, id = "term" }: TermSelectProps) {
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>Term *</Label>

@@ -1,5 +1,5 @@
-import posthog from 'posthog-js/dist/module.no-external';
-import type { AnalyticsEventMap, AnalyticsProperties } from './events';
+import posthog from "posthog-js/dist/module.no-external";
+import type { AnalyticsEventMap, AnalyticsProperties } from "./events";
 
 export type { AnalyticsEventMap, AnalyticsProperties };
 
@@ -9,7 +9,7 @@ export function getPostHogSessionHeaders(): Record<string, string> {
   try {
     const sessionId = posthog.get_session_id();
 
-    return sessionId ? { 'X-PostHog-Session-Id': sessionId } : {};
+    return sessionId ? { "X-PostHog-Session-Id": sessionId } : {};
   } catch {
     return {};
   }
@@ -17,7 +17,7 @@ export function getPostHogSessionHeaders(): Record<string, string> {
 
 export function trackAnalyticsEvent<E extends keyof AnalyticsEventMap>(
   event: E,
-  properties: AnalyticsEventMap[E]
+  properties: AnalyticsEventMap[E],
 ): void {
   posthog.capture(event, properties);
 }

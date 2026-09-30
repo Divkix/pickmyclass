@@ -1,6 +1,6 @@
-import type { ClassCheckMessage } from './queue';
+import type { ClassCheckMessage } from "./queue";
 
-export type SendEmail = Cloudflare.Env['EMAIL'];
+export type SendEmail = Cloudflare.Env["EMAIL"];
 
 export interface Env extends Record<string, unknown> {
   ASSETS: Fetcher;

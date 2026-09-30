@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
+import type { Metadata } from "next";
+import Link from "next/link";
 import {
   BlogAuthor,
   BlogCTA,
@@ -9,82 +9,82 @@ import {
   RelatedArticles,
   ShortAnswer,
   TableOfContents,
-} from '@/components/blog';
-import { Header } from '@/components/Header';
-import { JsonLd } from '@/components/landing/JsonLd';
+} from "@/components/blog";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/landing/JsonLd";
 
 export const metadata: Metadata = {
-  title: 'ASU Transfer Student Registration Guide',
+  title: "ASU Transfer Student Registration Guide",
   description:
-    'ASU registration for transfer students: how transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.',
+    "ASU registration for transfer students: how transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.",
   alternates: {
-    canonical: '/blog/asu-transfer-registration',
+    canonical: "/blog/asu-transfer-registration",
   },
   openGraph: {
-    title: 'ASU Transfer Student Registration: Complete Guide for MyPath2ASU Students',
+    title: "ASU Transfer Student Registration: Complete Guide for MyPath2ASU Students",
     description:
-      'How transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.',
-    type: 'article',
-    publishedTime: '2026-04-26T00:00:00Z',
-    images: ['/og-image.png'],
+      "How transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.",
+    type: "article",
+    publishedTime: "2026-04-26T00:00:00Z",
+    images: ["/og-image.png"],
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 const articleSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Article',
-  headline: 'ASU Transfer Student Registration: Complete Guide for MyPath2ASU Students',
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "ASU Transfer Student Registration: Complete Guide for MyPath2ASU Students",
   description:
-    'ASU registration for transfer students: how transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.',
-  datePublished: '2026-04-26T00:00:00Z',
-  dateModified: '2026-06-18T00:00:00Z',
-  author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
+    "ASU registration for transfer students: how transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.",
+  datePublished: "2026-04-26T00:00:00Z",
+  dateModified: "2026-06-18T00:00:00Z",
+  author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
   publisher: {
-    '@type': 'Organization',
-    name: 'PickMyClass',
-    url: 'https://pickmyclass.app',
+    "@type": "Organization",
+    name: "PickMyClass",
+    url: "https://pickmyclass.app",
   },
-  mainEntityOfPage: 'https://pickmyclass.app/blog/asu-transfer-registration',
+  mainEntityOfPage: "https://pickmyclass.app/blog/asu-transfer-registration",
 };
 
 const breadcrumbSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
   itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
-    { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://pickmyclass.app/blog' },
-    { '@type': 'ListItem', position: 3, name: 'ASU Transfer Student Registration' },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://pickmyclass.app/" },
+    { "@type": "ListItem", position: 2, name: "Blog", item: "https://pickmyclass.app/blog" },
+    { "@type": "ListItem", position: 3, name: "ASU Transfer Student Registration" },
   ],
 };
 
 const tocItems = [
-  { id: 'credits', text: 'How Transfer Credits Affect Your Registration Date', level: 2 },
-  { id: 'mypath2asu', text: 'MyPath2ASU Articulation Guide', level: 2 },
-  { id: 'timeline', text: 'Transfer Student Registration Timeline', level: 2 },
-  { id: 'full-classes', text: 'Getting Into Full Classes as a Transfer', level: 2 },
-  { id: 'faq', text: 'Frequently Asked Questions', level: 2 },
+  { id: "credits", text: "How Transfer Credits Affect Your Registration Date", level: 2 },
+  { id: "mypath2asu", text: "MyPath2ASU Articulation Guide", level: 2 },
+  { id: "timeline", text: "Transfer Student Registration Timeline", level: 2 },
+  { id: "full-classes", text: "Getting Into Full Classes as a Transfer", level: 2 },
+  { id: "faq", text: "Frequently Asked Questions", level: 2 },
 ];
 
 const faqItems = [
   {
-    question: 'When will I know my registration date?',
+    question: "When will I know my registration date?",
     answer:
       "Your registration date usually shows up in MyASU about 2-3 weeks before registration opens. As a new transfer, though, don't be shocked if you register later than someone who's been at ASU for two semesters with the same credit count. Just keep checking MyASU, and if your appointment isn't showing, ping your advisor.",
   },
   {
-    question: 'Do my community college credits count toward senior standing?',
+    question: "Do my community college credits count toward senior standing?",
     answer:
       "Technically yes, but only once ASU officially evaluates them. They use 'earned credit hours' to figure out your class standing. You might get an earlier date initially based on projected credits from your application, but once the official eval comes through, your standing can shift. Check your DARS after your first semester to make sure everything's right.",
   },
   {
-    question: 'Can I register before my transcript is evaluated?',
+    question: "Can I register before my transcript is evaluated?",
     answer:
-      'Usually, yeah. ASU often gives you a registration date based on projected credits while they wait for the official transcript eval. But once that eval finishes, your standing might change, and you could end up needing to shuffle your schedule. Plan for that possibility.',
+      "Usually, yeah. ASU often gives you a registration date based on projected credits while they wait for the official transcript eval. But once that eval finishes, your standing might change, and you could end up needing to shuffle your schedule. Plan for that possibility.",
   },
   {
-    question: 'How do I use the MyPath2ASU Transfer Guide?',
+    question: "How do I use the MyPath2ASU Transfer Guide?",
     answer:
       "Go to mypath2asu.asu.edu, pick your current school, choose your ASU major, and you'll see exactly which of your classes map over. It's honestly one of the more useful tools ASU has. Use it before you register so you don't waste time on classes that won't count.",
   },
@@ -94,17 +94,17 @@ const faqItems = [
       "It happens. You can ask your advisor to re-evaluate it if you think it's equivalent to an ASU course. If that doesn't work, it might still count as elective credit. Worst case, you retake it at ASU. Talk to your advisor before you panic.",
   },
   {
-    question: 'Do international transfer students have different registration dates?',
+    question: "Do international transfer students have different registration dates?",
     answer:
       "Same timeline generally, based on earned credits. But international students sometimes have extra orientation or paperwork requirements before they can register. Check with the International Student and Scholar Center so you don't get held up by some random form.",
   },
   {
-    question: 'Can I appeal my registration date?',
+    question: "Can I appeal my registration date?",
     answer:
       "Basically no. ASU goes by earned credit hours and doesn't budge much. But if your credits look wrong, definitely reach out to your advisor or the registrar. A math error could be costing you an earlier date.",
   },
   {
-    question: 'Should I attend orientation before registering?',
+    question: "Should I attend orientation before registering?",
     answer:
       "If your program requires it, yes, and some do. Plus orientation usually includes actual useful info about registering for your specific major. Check your admit packet or ask your advisor so you don't get blocked from enrolling.",
   },
@@ -145,19 +145,19 @@ export default async function ASUTransferRegistrationPost() {
           <KeyTakeaways
             items={[
               {
-                text: 'Your registration date depends on officially evaluated credits, not just what you took elsewhere',
+                text: "Your registration date depends on officially evaluated credits, not just what you took elsewhere",
               },
               {
-                text: 'MyPath2ASU shows exactly how your community college classes map to ASU requirements',
+                text: "MyPath2ASU shows exactly how your community college classes map to ASU requirements",
               },
               {
-                text: 'Transfer students register later than continuing students, so preparation is everything',
+                text: "Transfer students register later than continuing students, so preparation is everything",
               },
               {
-                text: 'Seat tracking and advisor outreach are your best tools for getting into full classes',
+                text: "Seat tracking and advisor outreach are your best tools for getting into full classes",
               },
               {
-                text: 'Consider shorter Session B/C classes if full-semester sections are packed',
+                text: "Consider shorter Session B/C classes if full-semester sections are packed",
               },
             ]}
           />
@@ -168,7 +168,7 @@ export default async function ASUTransferRegistrationPost() {
             How Transfer Credits Affect Your Registration Date
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            ASU sorts registration dates by{' '}
+            ASU sorts registration dates by{" "}
             <strong className="text-foreground">earned credit hours</strong>, which is where
             transfers get complicated. Your credits aren't just credits here. Some count, some
             don't, and the timing of when they post can cost you an earlier registration slot.
@@ -178,8 +178,8 @@ export default async function ASUTransferRegistrationPost() {
             Earned vs. Projected Credits
           </h3>
           <p className="text-muted-foreground leading-relaxed">
-            When you first apply, ASU might assign you a registration date based on{' '}
-            <em>projected credits</em> from your transcript. Sounds good, except only{' '}
+            When you first apply, ASU might assign you a registration date based on{" "}
+            <em>projected credits</em> from your transcript. Sounds good, except only{" "}
             <strong className="text-foreground">earned credits</strong>, the ones officially
             evaluated and posted to your record, actually stick for future semesters. That initial
             boost can disappear once the real eval comes through.
@@ -222,7 +222,7 @@ export default async function ASUTransferRegistrationPost() {
           </h3>
           <ol className="space-y-3 text-muted-foreground list-decimal list-inside">
             <li>
-              Visit{' '}
+              Visit{" "}
               <a
                 href="https://mypath2asu.asu.edu"
                 target="_blank"
@@ -321,10 +321,10 @@ export default async function ASUTransferRegistrationPost() {
             </li>
             <li>
               <strong className="text-foreground">Start tracking seats early:</strong> Add your
-              target classes to{' '}
+              target classes to{" "}
               <Link href="/" className="text-primary hover:text-primary/80 font-medium">
                 PickMyClass
-              </Link>{' '}
+              </Link>{" "}
               the moment you know your registration date. Don't wait until after you register.
             </li>
             <li>
@@ -351,10 +351,10 @@ export default async function ASUTransferRegistrationPost() {
           </h3>
           <p className="text-muted-foreground leading-relaxed">
             This is the one that saved me. Since you're registering late, you need to know the
-            instant a seat opens.{' '}
+            instant a seat opens.{" "}
             <Link href="/" className="text-primary hover:text-primary/80 font-medium">
               PickMyClass
-            </Link>{' '}
+            </Link>{" "}
             checks every 30 minutes and texts you immediately. Manual checking is a pain, and during
             orientation week you're too busy to babysit the registration page anyway.
           </p>
@@ -410,16 +410,16 @@ export default async function ASUTransferRegistrationPost() {
           <RelatedArticles
             articles={[
               {
-                href: '/blog/asu-registration-tips',
-                title: 'ASU Registration Tips: Build Your Perfect Schedule',
+                href: "/blog/asu-registration-tips",
+                title: "ASU Registration Tips: Build Your Perfect Schedule",
               },
               {
-                href: '/blog/how-to-get-into-full-asu-classes',
-                title: 'How to Get Into Full Classes at ASU: 7 Strategies That Work',
+                href: "/blog/how-to-get-into-full-asu-classes",
+                title: "How to Get Into Full Classes at ASU: 7 Strategies That Work",
               },
               {
-                href: '/blog/asu-class-seat-tracker',
-                title: 'ASU Class Seat Tracker: How to Get Notified When Seats Open',
+                href: "/blog/asu-class-seat-tracker",
+                title: "ASU Class Seat Tracker: How to Get Notified When Seats Open",
               },
             ]}
           />

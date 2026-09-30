@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
+import type { Metadata } from "next";
+import Link from "next/link";
 import {
   BlogAuthor,
   BlogCTA,
@@ -9,92 +9,92 @@ import {
   KeyTakeaways,
   RelatedArticles,
   ShortAnswer,
-} from '@/components/blog';
-import { Header } from '@/components/Header';
-import { JsonLd } from '@/components/landing/JsonLd';
+} from "@/components/blog";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/landing/JsonLd";
 
 export const metadata: Metadata = {
-  title: 'ASU Class Seat Tracker: Get Open Seat Alerts',
+  title: "ASU Class Seat Tracker: Get Open Seat Alerts",
   description:
-    'Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.',
+    "Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.",
   alternates: {
-    canonical: '/blog/asu-class-seat-tracker',
+    canonical: "/blog/asu-class-seat-tracker",
   },
   openGraph: {
-    title: 'ASU Class Seat Tracker: How to Get Notified When Seats Open',
+    title: "ASU Class Seat Tracker: How to Get Notified When Seats Open",
     description:
-      'Stop refreshing MyASU. Automatically track ASU class seat availability and get email alerts when seats open.',
-    type: 'article',
-    publishedTime: '2026-03-27T00:00:00Z',
-    images: ['/og-image.png'],
+      "Stop refreshing MyASU. Automatically track ASU class seat availability and get email alerts when seats open.",
+    type: "article",
+    publishedTime: "2026-03-27T00:00:00Z",
+    images: ["/og-image.png"],
   },
 };
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
 const articleSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Article',
-  headline: 'ASU Class Seat Tracker: How to Get Notified When Seats Open',
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "ASU Class Seat Tracker: How to Get Notified When Seats Open",
   description:
-    'Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.',
-  datePublished: '2026-03-27T00:00:00Z',
-  dateModified: '2026-06-18T00:00:00Z',
-  author: { '@type': 'Person', name: 'PickMyClass Team', url: 'https://pickmyclass.app' },
+    "Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.",
+  datePublished: "2026-03-27T00:00:00Z",
+  dateModified: "2026-06-18T00:00:00Z",
+  author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
   publisher: {
-    '@type': 'Organization',
-    name: 'PickMyClass',
-    url: 'https://pickmyclass.app',
+    "@type": "Organization",
+    name: "PickMyClass",
+    url: "https://pickmyclass.app",
   },
-  mainEntityOfPage: 'https://pickmyclass.app/blog/asu-class-seat-tracker',
+  mainEntityOfPage: "https://pickmyclass.app/blog/asu-class-seat-tracker",
 };
 
 const comparisonColumns = [
-  { key: 'method', label: 'Method' },
-  { key: 'frequency', label: 'Check Frequency' },
-  { key: 'effort', label: 'Effort' },
-  { key: 'cost', label: 'Cost' },
-  { key: 'success', label: 'Success Rate' },
+  { key: "method", label: "Method" },
+  { key: "frequency", label: "Check Frequency" },
+  { key: "effort", label: "Effort" },
+  { key: "cost", label: "Cost" },
+  { key: "success", label: "Success Rate" },
 ];
 
 const comparisonRows = [
   {
-    method: 'Manual MyASU',
-    frequency: 'When you remember',
-    effort: 'High',
-    cost: 'Free',
-    success: 'Low',
+    method: "Manual MyASU",
+    frequency: "When you remember",
+    effort: "High",
+    cost: "Free",
+    success: "Low",
   },
   {
-    method: 'ASUClassFinder',
-    frequency: 'Unknown',
-    effort: 'Low',
-    cost: 'Paid tiers',
-    success: 'Medium',
+    method: "ASUClassFinder",
+    frequency: "Unknown",
+    effort: "Low",
+    cost: "Paid tiers",
+    success: "Medium",
   },
   {
-    method: 'PickMyClass',
-    frequency: 'Every 30 min',
-    effort: 'None',
-    cost: '100% Free',
-    success: 'High',
+    method: "PickMyClass",
+    frequency: "Every 30 min",
+    effort: "None",
+    cost: "100% Free",
+    success: "High",
     highlight: true,
   },
 ];
 
 const faqItems = [
   {
-    question: 'Is PickMyClass affiliated with ASU?',
+    question: "Is PickMyClass affiliated with ASU?",
     answer:
       "Nope. PickMyClass was built by ASU students who got tired of the registration game. We're not officially connected to the university, but we pull from the same public class search data anyone can access.",
   },
   {
-    question: 'How is this different from ASUClassFinder?',
+    question: "How is this different from ASUClassFinder?",
     answer:
       'PickMyClass is completely free. No premium tiers, no upsells. We also notify you when "Staff" sections get assigned real professors, which is huge for avoiding bad surprises on day one.',
   },
   {
-    question: 'Can international students use this?',
+    question: "Can international students use this?",
     answer:
       "Yeah, it works from anywhere. We just send you an email when something changes. Doesn't matter if you're in Tempe or Tokyo.",
   },
@@ -104,44 +104,44 @@ const faqItems = [
       "You'll get an email, but honestly? Hot classes can fill in minutes. Keep email notifications on, and have MyASU bookmarked so you can register right when you wake up. The 30-minute check interval helps, but you're still racing everyone else.",
   },
   {
-    question: 'Do I need to give you my ASU password?',
+    question: "Do I need to give you my ASU password?",
     answer:
-      'Absolutely not. We never ask for your MyASU login. We only look at public class data. Your password is yours.',
+      "Absolutely not. We never ask for your MyASU login. We only look at public class data. Your password is yours.",
   },
   {
-    question: 'How many classes can I track?',
+    question: "How many classes can I track?",
     answer:
       "Multiple. We have fair-use limits so one person doesn't break the system for everyone, but most students can track every class they need without hitting a cap.",
   },
   {
-    question: 'Does this work for ASU Online classes?',
+    question: "Does this work for ASU Online classes?",
     answer:
-      'Yep. Tempe, Downtown Phoenix, Poly, West, and ASU Online. If it shows up in the ASU class search, we can track it.',
+      "Yep. Tempe, Downtown Phoenix, Poly, West, and ASU Online. If it shows up in the ASU class search, we can track it.",
   },
   {
-    question: 'What should I do after getting an alert?',
+    question: "What should I do after getting an alert?",
     answer:
-      'Move fast. Have MyASU open in a tab, be logged in, and know exactly how to add the class. Practice the flow before you need it. Some seats vanish in under 5 minutes.',
+      "Move fast. Have MyASU open in a tab, be logged in, and know exactly how to add the class. Practice the flow before you need it. Some seats vanish in under 5 minutes.",
   },
   {
-    question: 'Can I track multiple sections of the same class?',
+    question: "Can I track multiple sections of the same class?",
     answer:
-      'Definitely. I always track every section of a required course. More sections tracked means more chances to get in.',
+      "Definitely. I always track every section of a required course. More sections tracked means more chances to get in.",
   },
   {
-    question: 'What if I miss the notification?',
+    question: "What if I miss the notification?",
     answer:
-      'It happens. Enable push notifications for your email, but if you miss a seat, just stay on the tracker. Students drop classes all semester, especially the first week. The next opening might be hours or days away.',
+      "It happens. Enable push notifications for your email, but if you miss a seat, just stay on the tracker. Students drop classes all semester, especially the first week. The next opening might be hours or days away.",
   },
 ];
 
 const breadcrumbSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
   itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pickmyclass.app/' },
-    { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://pickmyclass.app/blog' },
-    { '@type': 'ListItem', position: 3, name: 'ASU Class Seat Tracker' },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://pickmyclass.app/" },
+    { "@type": "ListItem", position: 2, name: "Blog", item: "https://pickmyclass.app/blog" },
+    { "@type": "ListItem", position: 3, name: "ASU Class Seat Tracker" },
   ],
 };
 
@@ -180,15 +180,15 @@ export default async function ASUClassSeatTrackerPost() {
 
           <KeyTakeaways
             items={[
-              { text: 'Manual refreshing is a losing game, seats open and close too fast' },
+              { text: "Manual refreshing is a losing game, seats open and close too fast" },
               {
-                text: 'PickMyClass checks every 30 minutes and emails you instantly when seats appear',
+                text: "PickMyClass checks every 30 minutes and emails you instantly when seats appear",
               },
               {
                 text: 'It also detects instructor changes so you know when "Staff" becomes a real professor',
               },
               {
-                text: 'Set up tracking before registration starts, then act fast when you get the alert',
+                text: "Set up tracking before registration starts, then act fast when you get the alert",
               },
             ]}
           />
@@ -212,7 +212,7 @@ export default async function ASUClassSeatTrackerPost() {
           <p className="text-muted-foreground leading-relaxed">
             <Link href="/" className="text-primary hover:text-primary/80 font-medium">
               PickMyClass
-            </Link>{' '}
+            </Link>{" "}
             is a free ASU class seat tracker that monitors your classes and emails you when a seat
             opens. We check every 30 minutes, 24/7, so you don't have to.
           </p>
@@ -248,7 +248,7 @@ export default async function ASUClassSeatTrackerPost() {
               <p className="text-muted-foreground">
                 <Link href="/sign-up" className="text-primary hover:text-primary/80 font-medium">
                   Sign up for PickMyClass
-                </Link>{' '}
+                </Link>{" "}
                 with your email. It takes like 30 seconds. No ASU credentials needed, we never ask
                 for your MyASU login.
               </p>
@@ -335,7 +335,7 @@ export default async function ASUClassSeatTrackerPost() {
             When to Start Tracking
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            The best time to set up tracking is <strong className="text-foreground">before</strong>{' '}
+            The best time to set up tracking is <strong className="text-foreground">before</strong>{" "}
             your enrollment appointment. Add every class you want to your watchlist ahead of time.
             If they fill during registration, you're already monitoring them and ready to pounce
             when someone drops.
@@ -365,20 +365,20 @@ export default async function ASUClassSeatTrackerPost() {
           <RelatedArticles
             articles={[
               {
-                href: '/blog/how-to-get-into-full-asu-classes',
-                title: 'How to Get Into Full Classes at ASU: 7 Strategies That Work',
+                href: "/blog/how-to-get-into-full-asu-classes",
+                title: "How to Get Into Full Classes at ASU: 7 Strategies That Work",
               },
               {
-                href: '/blog/asu-registration-tips',
-                title: 'ASU Registration Tips: Build Your Perfect Schedule',
+                href: "/blog/asu-registration-tips",
+                title: "ASU Registration Tips: Build Your Perfect Schedule",
               },
               {
-                href: '/blog/best-asu-class-seat-tracker',
-                title: 'Best ASU Class Seat Tracker in 2026 (Free vs Paid)',
+                href: "/blog/best-asu-class-seat-tracker",
+                title: "Best ASU Class Seat Tracker in 2026 (Free vs Paid)",
               },
               {
-                href: '/blog/asu-class-search',
-                title: 'ASU Class Search: How to Find Open Classes Fast',
+                href: "/blog/asu-class-search",
+                title: "ASU Class Search: How to Find Open Classes Fast",
               },
             ]}
           />

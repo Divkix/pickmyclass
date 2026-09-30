@@ -1,11 +1,11 @@
-import { eq } from 'drizzle-orm';
-import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-import { readAuthorizationState } from '@/lib/auth/authorization-state';
-import { getSessionIdentityFromHeaders } from '@/lib/auth/clerk-session';
-import type { Database } from '@/lib/db';
-import { users } from '@/lib/db/schema';
+import { readAuthorizationState } from "@/lib/auth/authorization-state";
+import { getSessionIdentityFromHeaders } from "@/lib/auth/clerk-session";
+import type { Database } from "@/lib/db";
+import { users } from "@/lib/db/schema";
 
 export interface AdminUser {
   id: string;
@@ -19,17 +19,17 @@ export async function verifyAdmin(db: Database): Promise<AdminUser> {
   const identity = await getSessionIdentityFromHeaders(headerStore);
 
   if (!identity) {
-    redirect('/sign-in');
+    redirect("/sign-in");
   }
 
   const authState = await readAuthorizationState(db, identity.userId, { cache: false });
 
   if (authState?.is_disabled) {
-    redirect('/sign-in');
+    redirect("/sign-in");
   }
 
   if (!authState?.is_admin) {
-    redirect('/dashboard');
+    redirect("/dashboard");
   }
 
   const [row] = await db
@@ -40,7 +40,7 @@ export async function verifyAdmin(db: Database): Promise<AdminUser> {
 
   return {
     id: identity.userId,
-    email: row?.email ?? '',
+    email: row?.email ?? "",
     clerkUserId: identity.clerkUserId,
     sessionId: identity.sessionId,
   };

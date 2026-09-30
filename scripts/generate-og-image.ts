@@ -1,94 +1,96 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { Resvg } from '@resvg/resvg-js';
-import type { ReactNode } from 'react';
-import satori from 'satori';
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { Resvg } from "@resvg/resvg-js";
+import type { ReactElement } from "react";
+import satori from "satori";
 
 async function generateOGImage() {
   // Satori requires woff/ttf (not woff2). Use fontsource woff.
   const fontData = await fetch(
-    'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.woff'
+    "https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.woff",
   ).then((r) => {
     if (!r.ok) throw new Error(`Failed to fetch font: ${r.status}`);
+
     return r.arrayBuffer();
   });
 
-  const element = {
-    type: 'div',
+  const element: ReactElement = {
+    type: "div",
+    key: null,
     props: {
       style: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
         width: 1200,
         height: 630,
-        background: 'linear-gradient(135deg, #8C1D40 0%, #6E1733 100%)',
-        color: 'white',
-        fontFamily: 'Inter',
-        position: 'relative',
-        overflow: 'hidden',
+        background: "linear-gradient(135deg, #8C1D40 0%, #6E1733 100%)",
+        color: "white",
+        fontFamily: "Inter",
+        position: "relative",
+        overflow: "hidden",
       },
       children: [
         {
-          type: 'div',
+          type: "div",
           props: {
             style: {
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
             },
             children: [
               {
-                type: 'div',
+                type: "div",
                 props: {
                   style: {
                     fontSize: 72,
                     fontWeight: 700,
-                    letterSpacing: '-0.02em',
+                    letterSpacing: "-0.02em",
                     marginBottom: 16,
                   },
-                  children: 'PickMyClass',
+                  children: "PickMyClass",
                 },
               },
               {
-                type: 'div',
+                type: "div",
                 props: {
                   style: {
                     fontSize: 32,
                     fontWeight: 700,
                     opacity: 0.95,
                     marginBottom: 24,
-                    textAlign: 'center',
+                    textAlign: "center",
                     maxWidth: 800,
                   },
-                  children: 'Stop Refreshing MyASU Every 5 Minutes',
+                  children: "Stop Refreshing MyASU Every 5 Minutes",
                 },
               },
               {
-                type: 'div',
+                type: "div",
                 props: {
                   style: {
                     fontSize: 24,
                     fontWeight: 700,
-                    color: '#FFC627',
+                    color: "#FFC627",
                     marginBottom: 48,
                   },
-                  children: 'Free ASU Class Seat Notifications',
+                  children: "Free ASU Class Seat Notifications",
                 },
               },
               {
-                type: 'div',
+                type: "div",
                 props: {
                   style: {
                     fontSize: 18,
                     fontWeight: 700,
                     opacity: 0.6,
-                    borderTop: '1px solid rgba(255,255,255,0.3)',
+                    borderTop: "1px solid rgba(255,255,255,0.3)",
                     paddingTop: 16,
                   },
-                  children: 'pickmyclass.app',
+                  children: "pickmyclass.app",
                 },
               },
             ],
@@ -96,28 +98,29 @@ async function generateOGImage() {
         },
       ],
     },
-  } as unknown as ReactNode;
+  };
 
   const svg = await satori(element, {
     width: 1200,
     height: 630,
     fonts: [
       {
-        name: 'Inter',
+        name: "Inter",
         data: fontData,
         weight: 700,
-        style: 'normal',
+        style: "normal",
       },
     ],
   });
 
   const resvg = new Resvg(svg, {
-    fitTo: { mode: 'width', value: 1200 },
+    fitTo: { mode: "width", value: 1200 },
   });
+
   const pngData = resvg.render();
   const pngBuffer = pngData.asPng();
 
-  const outputPath = path.join(process.cwd(), 'public', 'og-image.png');
+  const outputPath = path.join(process.cwd(), "public", "og-image.png");
   fs.writeFileSync(outputPath, pngBuffer);
 
   const stats = fs.statSync(outputPath);

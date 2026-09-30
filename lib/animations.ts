@@ -1,16 +1,16 @@
-import type { Variants } from 'framer-motion';
+import type { Variants } from "framer-motion";
 
 const easeOutExpo = [0.16, 1, 0.3, 1] as const;
 
 export const reduceMotion = (variants: Variants): Variants => {
   if (
-    typeof window !== 'undefined' &&
-    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
   ) {
     const reduced: Variants = {};
 
     for (const [key, value] of Object.entries(variants)) {
-      reduced[key] = { ...value, transition: { duration: 0.01 } };
+      reduced[key] = Object.assign({}, value, { transition: { duration: 0.01 } });
     }
 
     return reduced;

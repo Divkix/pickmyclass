@@ -1,7 +1,7 @@
-import { rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import type { Plugin } from 'vite-plus';
-import { log } from '../log';
+import { rm } from "node:fs/promises";
+import { resolve } from "node:path";
+import type { Plugin } from "vite-plus";
+import { log } from "../log";
 
 /**
  * Build-time PostHog source-map upload is opt-in and fail-open.
@@ -15,16 +15,16 @@ import { log } from '../log';
 export function shouldUploadPosthogSourcemaps(
   uploadRequested: boolean,
   apiKey: string | undefined,
-  projectId: string | undefined
+  projectId: string | undefined,
 ): boolean {
   return uploadRequested && Boolean(apiKey) && Boolean(projectId);
 }
 
-type RenderChunkHook = NonNullable<Plugin['renderChunk']>;
+type RenderChunkHook = NonNullable<Plugin["renderChunk"]>;
 
 type RenderChunkHandler = Extract<RenderChunkHook, (...args: never[]) => void>;
 
-type WriteBundleHook = NonNullable<Plugin['writeBundle']>;
+type WriteBundleHook = NonNullable<Plugin["writeBundle"]>;
 
 type WriteBundleHandler = Extract<WriteBundleHook, (...args: never[]) => void>;
 
@@ -49,8 +49,8 @@ export function failOpenSourcemapUpload(plugin: Plugin): Plugin {
   function reportFailure(stage: string, error: Error | string): void {
     // Chunks await one shared release lookup, so warn once per build, not per chunk.
     if (!failed) {
-      log('posthog').warn(
-        `source-map ${stage} failed — continuing without uploaded source maps: ${describeError(error)}`
+      log("posthog").warn(
+        `source-map ${stage} failed — continuing without uploaded source maps: ${describeError(error)}`,
       );
     }
 
@@ -69,7 +69,7 @@ export function failOpenSourcemapUpload(plugin: Plugin): Plugin {
       try {
         return await original.call(this, ...args);
       } catch (error) {
-        reportFailure('release resolve', error instanceof Error ? error : String(error));
+        reportFailure("release resolve", error instanceof Error ? error : String(error));
 
         return null;
       }
@@ -86,18 +86,18 @@ export function failOpenSourcemapUpload(plugin: Plugin): Plugin {
       try {
         if (!failed) await original.call(this, options, bundle);
       } catch (error) {
-        reportFailure('upload', error instanceof Error ? error : String(error));
+        reportFailure("upload", error instanceof Error ? error : String(error));
       }
 
       if (failed) {
-        const dir = options.dir ?? '.';
+        const dir = options.dir ?? ".";
 
         const mapFiles = Object.keys(bundle).flatMap((fileName) =>
-          fileName.endsWith('.map') ? [fileName] : [`${fileName}.map`]
+          fileName.endsWith(".map") ? [fileName] : [`${fileName}.map`],
         );
 
         await Promise.all(
-          [...new Set(mapFiles)].map((fileName) => rm(resolve(dir, fileName), { force: true }))
+          [...new Set(mapFiles)].map((fileName) => rm(resolve(dir, fileName), { force: true })),
         );
       }
 

@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { m } from 'framer-motion';
-import { Bell, CheckCircle2, Clock, Mail, Sparkles, Zap } from 'lucide-react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { revealUp, staggerContainer, staggerItem } from '@/lib/animations';
+import { m } from "framer-motion";
+import { Bell, CheckCircle2, Clock, Mail, Sparkles, Zap } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { revealUp, staggerContainer, staggerItem } from "@/lib/animations";
 
 export function HeroSection() {
   return (
@@ -29,7 +29,7 @@ export function HeroSection() {
           </m.div>
 
           <m.h1 className="animation-hidden text-display" variants={staggerItem}>
-            Free ASU class seat tracker: stop refreshing MyASU{' '}
+            Free ASU class seat tracker: stop refreshing MyASU{" "}
             <span className="mark-gold">every 5 minutes</span>
           </m.h1>
 
@@ -38,20 +38,20 @@ export function HeroSection() {
             variants={staggerItem}
           >
             Get timely email alerts when seats open up in full ASU classes. PickMyClass (yep, people
-            also call it Pick My Class) checks the{' '}
+            also call it Pick My Class) checks the{" "}
             <Link
               href="/blog/asu-class-search"
               className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
             >
               ASU class search
-            </Link>{' '}
-            every 30 minutes so you don&apos;t have to. Here&apos;s how an{' '}
+            </Link>{" "}
+            every 30 minutes so you don&apos;t have to. Here&apos;s how an{" "}
             <Link
               href="/blog/asu-class-seat-tracker"
               className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
             >
               ASU class seat tracker
-            </Link>{' '}
+            </Link>{" "}
             watches full sections for you.
           </m.p>
 

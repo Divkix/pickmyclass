@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
 interface TOCItem {
   id: string;
@@ -13,7 +13,7 @@ interface TableOfContentsProps {
 }
 
 export function TableOfContents({ items }: TableOfContentsProps) {
-  const [activeId, setActiveId] = useState<string>('');
+  const [activeId, setActiveId] = useState<string>("");
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -24,7 +24,7 @@ export function TableOfContents({ items }: TableOfContentsProps) {
           }
         });
       },
-      { rootMargin: '-20% 0% -80% 0%' }
+      { rootMargin: "-20% 0% -80% 0%" },
     );
 
     items.forEach((item) => {
@@ -40,7 +40,7 @@ export function TableOfContents({ items }: TableOfContentsProps) {
     const element = document.getElementById(id);
 
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -54,8 +54,8 @@ export function TableOfContents({ items }: TableOfContentsProps) {
             key={item.id}
             onClick={() => handleClick(item.id)}
             className={`block text-left text-sm transition-colors hover:text-primary ${
-              item.level === 2 ? '' : 'ml-4'
-            } ${activeId === item.id ? 'text-primary font-medium' : 'text-muted-foreground'}`}
+              item.level === 2 ? "" : "ml-4"
+            } ${activeId === item.id ? "text-primary font-medium" : "text-muted-foreground"}`}
           >
             {item.text}
           </button>

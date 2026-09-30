@@ -1,9 +1,9 @@
-import type { Database } from '@/lib/db';
+import type { Database } from "@/lib/db";
 import {
   AUTO_CLEANUP_BREAKER_RATIO,
   AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
   AUTO_CLEANUP_THRESHOLD,
-} from '@/lib/config';
+} from "@/lib/config";
 import {
   type ClassWatcher,
   capConsecutiveNotFound,
@@ -13,10 +13,10 @@ import {
   readAutoCleanupBreakerCounts,
   readSectionRemovalClassInfo,
   type SectionRemovalClassInfo,
-} from '@/lib/db/queries';
-import { sendAutoCleanupRemovalEmails } from '@/lib/email/templates/auto-cleanup';
-import { log } from '@/lib/log';
-import { type SectionRef, sectionRefKey } from '@/lib/section-ref';
+} from "@/lib/db/queries";
+import { sendAutoCleanupRemovalEmails } from "@/lib/email/templates/auto-cleanup";
+import { log } from "@/lib/log";
+import { type SectionRef, sectionRefKey } from "@/lib/section-ref";
 
 export interface SectionRetirementParams {
   db: Database;
@@ -26,12 +26,12 @@ export interface SectionRetirementParams {
 }
 
 export type SectionRetirementStatus =
-  | 'tracked'
-  | 'increment-failed'
-  | 'suppressed'
-  | 'watcher-read-failed'
-  | 'delete-failed'
-  | 'retired';
+  | "tracked"
+  | "increment-failed"
+  | "suppressed"
+  | "watcher-read-failed"
+  | "delete-failed"
+  | "retired";
 
 export interface SectionRetirementOutcome {
   status: SectionRetirementStatus;
@@ -50,26 +50,26 @@ async function isAutoCleanupSuppressed(db: Database): Promise<boolean> {
     if (total === 0) return false;
 
     const ratio = flagged / total;
-    log('SectionRetirement').info(
-      `Breaker check total=${total} flagged=${flagged} ratio=${ratio.toFixed(3)} threshold=${AUTO_CLEANUP_BREAKER_RATIO}`
+    log("SectionRetirement").info(
+      `Breaker check total=${total} flagged=${flagged} ratio=${ratio.toFixed(3)} threshold=${AUTO_CLEANUP_BREAKER_RATIO}`,
     );
 
     if (ratio > AUTO_CLEANUP_BREAKER_RATIO) {
-      log('SectionRetirement').warn('Auto-cleanup suppressed — breaker tripped');
+      log("SectionRetirement").warn("Auto-cleanup suppressed — breaker tripped");
 
       return true;
     }
 
     return false;
   } catch (e) {
-    log('SectionRetirement').warn('Auto-cleanup breaker check threw, failing open:', e);
+    log("SectionRetirement").warn("Auto-cleanup breaker check threw, failing open:", e);
 
     return false;
   }
 }
 
 export async function retireClassSection(
-  params: SectionRetirementParams
+  params: SectionRetirementParams,
 ): Promise<SectionRetirementOutcome> {
   const { db, ref, emailBinding, fromEmail } = params;
   const scope = sectionRefKey(ref);
@@ -79,10 +79,10 @@ export async function retireClassSection(
   try {
     strikeCount = await incrementConsecutiveNotFound(db, ref);
   } catch (incrementError) {
-    log('SectionRetirement').error(`Auto-cleanup increment failed for ${scope}:`, incrementError);
+    log("SectionRetirement").error(`Auto-cleanup increment failed for ${scope}:`, incrementError);
 
     return {
-      status: 'increment-failed',
+      status: "increment-failed",
       strikeCount: null,
       suppressed: false,
       deleted: false,
@@ -92,11 +92,11 @@ export async function retireClassSection(
     };
   }
 
-  log('SectionRetirement').warn(`Auto-cleanup increment ${scope} count=${strikeCount}`);
+  log("SectionRetirement").warn(`Auto-cleanup increment ${scope} count=${strikeCount}`);
 
   if (strikeCount < AUTO_CLEANUP_THRESHOLD) {
     return {
-      status: 'tracked',
+      status: "tracked",
       strikeCount,
       suppressed: false,
       deleted: false,
@@ -112,14 +112,14 @@ export async function retireClassSection(
     try {
       await capConsecutiveNotFound(db, ref, AUTO_CLEANUP_THRESHOLD - 1);
     } catch (capError) {
-      log('SectionRetirement').warn(
+      log("SectionRetirement").warn(
         `Failed to cap consecutive_not_found_count for ${scope}:`,
-        capError
+        capError,
       );
     }
 
     return {
-      status: 'suppressed',
+      status: "suppressed",
       strikeCount,
       suppressed: true,
       deleted: false,
@@ -138,13 +138,13 @@ export async function retireClassSection(
       readSectionRemovalClassInfo(db, ref).catch((): SectionRemovalClassInfo | null => null),
     ]);
   } catch (watcherError) {
-    log('SectionRetirement').warn(
+    log("SectionRetirement").warn(
       `Auto-cleanup: failed to fetch watchers for ${scope}:`,
-      watcherError
+      watcherError,
     );
 
     return {
-      status: 'watcher-read-failed',
+      status: "watcher-read-failed",
       strikeCount,
       suppressed: false,
       deleted: false,
@@ -160,10 +160,10 @@ export async function retireClassSection(
     const delResult = await deleteSectionAndWatches(db, ref);
     watchesDeleted = delResult.watchesDeleted;
   } catch (deleteError) {
-    log('SectionRetirement').error(`Auto-cleanup delete failed for ${scope}:`, deleteError);
+    log("SectionRetirement").error(`Auto-cleanup delete failed for ${scope}:`, deleteError);
 
     return {
-      status: 'delete-failed',
+      status: "delete-failed",
       strikeCount,
       suppressed: false,
       deleted: false,
@@ -181,23 +181,23 @@ export async function retireClassSection(
       const results = await sendAutoCleanupRemovalEmails(
         { ref, classInfo, watchers },
         emailBinding,
-        fromEmail
+        fromEmail,
       );
 
       emailsAttempted = results.filter((r) => r.attempted).length;
       emailsSucceeded = results.filter((r) => r.success).length;
     } catch (emailError) {
-      log('SectionRetirement').warn(`Auto-cleanup email failed for ${scope}:`, emailError);
+      log("SectionRetirement").warn(`Auto-cleanup email failed for ${scope}:`, emailError);
     }
   }
 
-  log('SectionRetirement').info(
+  log("SectionRetirement").info(
     `Auto-cleanup retired ${scope}: watchesDeleted=${watchesDeleted} emailsAttempted=${emailsAttempted} emailsSucceeded=${emailsSucceeded}` +
-      ` (cap ${AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE}; ${Math.max(0, watchesDeleted - emailsAttempted)} removed without email — accepted trade-off vs paging)`
+      ` (cap ${AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE}; ${Math.max(0, watchesDeleted - emailsAttempted)} removed without email — accepted trade-off vs paging)`,
   );
 
   return {
-    status: 'retired',
+    status: "retired",
     strikeCount,
     suppressed: false,
     deleted: true,

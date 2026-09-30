@@ -81,7 +81,7 @@ wrangler secret put CLERK_PUBLISHABLE_KEY  # value = NEXT_PUBLIC_CLERK_PUBLISHAB
 wrangler secret put CLERK_JWT_KEY          # paste 9-line PEM
 wrangler secret put CLERK_WEBHOOK_SIGNING_SECRET
 # HYPERDRIVE binding already in wrangler.jsonc; no secret needed for it
-pnpm run deploy # vinext build (253 modules, 112 assets, 64 reused, ~740 KiB gzip) + wrangler deploy + wrangler triggers deploy
+pnpm run deploy # vp build + wrangler deploy + wrangler triggers deploy
 # → Version d0dd5a8c / 773b5d4e triggers "0,30 * * * *" + "0 4 * * *", placements remote-ZRH etc.
 curl -I https://pickmyclass.app --resolve clerk... # 200 + CSP *.clerk.accounts.dev clerk.pickmyclass.app challenges.cloudflare.com *.protect.clerk.com:* + img.clerk.com
 ```

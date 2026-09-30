@@ -1,34 +1,34 @@
-import { env } from 'cloudflare:workers';
-import { and, desc, eq, exists, inArray, sql } from 'drizzle-orm';
-import { type NextRequest } from 'next/server';
-import { ok, fail } from '@/lib/api/response';
-import { withAuth } from '@/lib/api/withAuth';
-import { createClassWatchSchema, deleteClassWatchSchema } from '@/lib/api/schemas';
-import { parseOrFail } from '@/lib/api/validation';
-import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from '@/lib/asu/api';
-import { getDbFromEnv } from '@/lib/db';
-import { getPgError, isUniqueViolation, PG_RAISE_EXCEPTION } from '@/lib/db/pg-errors';
-import { insertClassStateIfMissing } from '@/lib/db/queries';
-import { classStates, classWatches } from '@/lib/db/schema';
-import { log } from '@/lib/log';
-import type { AnalyticsEventMap } from '@/lib/analytics/events';
-import { postHogSessionIdFromHeaders } from '@/lib/analytics/session-id';
-import { captureServerEvent } from '@/lib/analytics/server';
-import type { JsonValue } from '@/lib/api/wire';
-import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
-import { applyFirstWatchGuard, readOnboardingState, toOnboardingState } from '@/lib/onboarding';
+import { env } from "cloudflare:workers";
+import { and, desc, eq, exists, inArray, sql } from "drizzle-orm";
+import { type NextRequest } from "next/server";
+import { ok, fail } from "@/lib/api/response";
+import { withAuth } from "@/lib/api/withAuth";
+import { createClassWatchSchema, deleteClassWatchSchema } from "@/lib/api/schemas";
+import { parseOrFail } from "@/lib/api/validation";
+import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from "@/lib/asu/api";
+import { getDbFromEnv } from "@/lib/db";
+import { getPgError, isUniqueViolation, PG_RAISE_EXCEPTION } from "@/lib/db/pg-errors";
+import { insertClassStateIfMissing } from "@/lib/db/queries";
+import { classStates, classWatches } from "@/lib/db/schema";
+import { log } from "@/lib/log";
+import type { AnalyticsEventMap } from "@/lib/analytics/events";
+import { postHogSessionIdFromHeaders } from "@/lib/analytics/session-id";
+import { captureServerEvent } from "@/lib/analytics/server";
+import type { JsonValue } from "@/lib/api/wire";
+import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
+import { applyFirstWatchGuard, readOnboardingState, toOnboardingState } from "@/lib/onboarding";
 
-const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || '10', 10);
+const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || "10", 10);
 
 type WatchClassState = Pick<
   ClassStateRow,
-  | 'class_nbr'
-  | 'term'
-  | 'seats_available'
-  | 'seats_capacity'
-  | 'non_reserved_seats'
-  | 'instructor_name'
-  | 'title'
+  | "class_nbr"
+  | "term"
+  | "seats_available"
+  | "seats_capacity"
+  | "non_reserved_seats"
+  | "instructor_name"
+  | "title"
 >;
 
 export async function GET(request: NextRequest) {
@@ -76,16 +76,16 @@ export async function GET(request: NextRequest) {
                           and(
                             eq(classWatches.user_id, user.userId),
                             eq(classWatches.class_nbr, classStates.class_nbr),
-                            eq(classWatches.term, classStates.term)
-                          )
-                        )
-                    )
-                  )
+                            eq(classWatches.term, classStates.term),
+                          ),
+                        ),
+                    ),
+                  ),
                 )
             : [];
 
         const onboarding = await readOnboardingState(db, user.userId).catch((error) => {
-          log('API').error('Failed to read onboarding state:', error);
+          log("API").error("Failed to read onboarding state:", error);
 
           return toOnboardingState(null);
         });
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
             return acc;
           },
           // SAFETY: empty object is the initial typed accumulator for the keyed map
-          {} as Record<string, WatchClassState>
+          {} as Record<string, WatchClassState>,
         );
 
         const watchesWithStates = watches.map((watch) => ({
@@ -111,15 +111,15 @@ export async function GET(request: NextRequest) {
           onboarding,
         });
       } catch (error) {
-        log('API').error('Error fetching class watches:', error);
+        log("API").error("Error fetching class watches:", error);
 
-        return fail('Failed to fetch class watches', 500);
+        return fail("Failed to fetch class watches", 500);
       }
     });
   } catch (error) {
-    log('API').error('Error fetching class watches:', error);
+    log("API").error("Error fetching class watches:", error);
 
-    return fail('Failed to fetch class watches', 500);
+    return fail("Failed to fetch class watches", 500);
   }
 }
 
@@ -145,18 +145,18 @@ export async function POST(request: NextRequest) {
           classDetails = await fetchClassFromASU({ class_nbr, term }, asuEnv, { useCache: false });
         } catch (error) {
           if (error instanceof NotFoundError) {
-            return fail('Class section not found', 404);
+            return fail("Class section not found", 404);
           }
 
           if (error instanceof AuthError) {
-            log('API').error('ASU API auth error:', error instanceof Error ? error.message : error);
+            log("API").error("ASU API auth error:", error instanceof Error ? error.message : error);
 
-            return fail('Service temporarily unavailable', 503);
+            return fail("Service temporarily unavailable", 503);
           }
 
-          log('API').error('Failed to fetch class details:', error);
+          log("API").error("Failed to fetch class details:", error);
 
-          return fail('Failed to fetch class details', 500);
+          return fail("Failed to fetch class details", 500);
         }
 
         const db = getDbFromEnv();
@@ -172,13 +172,13 @@ export async function POST(request: NextRequest) {
               ${classDetails.catalog_nbr}::text,
               ${class_nbr}::text,
               ${MAX_WATCHES_PER_USER}::int
-            )`
+            )`,
           );
 
           watchDataRaw = rows[0] ?? null;
         } catch (insertError) {
           if (isUniqueViolation(insertError)) {
-            return fail('You are already watching this class', 409);
+            return fail("You are already watching this class", 409);
           }
 
           const pgError = getPgError(insertError);
@@ -186,11 +186,11 @@ export async function POST(request: NextRequest) {
           if (
             pgError?.code === PG_RAISE_EXCEPTION &&
             pgError.message !== undefined &&
-            pgError.message.includes('MAX_WATCHES_EXCEEDED')
+            pgError.message.includes("MAX_WATCHES_EXCEEDED")
           ) {
             return fail(
               `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
-              429
+              429,
             );
           }
 
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (!watchDataRaw) {
-          throw new Error('Failed to create class watch');
+          throw new Error("Failed to create class watch");
         }
 
         try {
@@ -206,34 +206,34 @@ export async function POST(request: NextRequest) {
           // the strike counter and the freshest snapshot).
           await insertClassStateIfMissing(db, { class_nbr, term }, classDetails);
         } catch (dbError) {
-          log('API').error('Failed to seed class state:', dbError);
+          log("API").error("Failed to seed class state:", dbError);
         }
 
         try {
           await applyFirstWatchGuard(db, user.userId);
         } catch (dbError) {
-          log('API').error('Failed to mark onboarding complete:', dbError);
+          log("API").error("Failed to mark onboarding complete:", dbError);
         }
 
         const sessionId = postHogSessionIdFromHeaders(request.headers);
 
-        const eventProperties: AnalyticsEventMap['class_watch_created'] = { term, class_nbr };
+        const eventProperties: AnalyticsEventMap["class_watch_created"] = { term, class_nbr };
 
         if (sessionId) eventProperties.$session_id = sessionId;
 
-        captureServerEvent(user.userId, 'class_watch_created', eventProperties);
+        captureServerEvent(user.userId, "class_watch_created", eventProperties);
 
         return ok({ watch: watchDataRaw }, { status: 201 });
       } catch (error) {
-        log('API').error('Error creating class watch:', error);
+        log("API").error("Error creating class watch:", error);
 
-        return fail('Failed to create class watch', 500);
+        return fail("Failed to create class watch", 500);
       }
     });
   } catch (error) {
-    log('API').error('Error creating class watch:', error);
+    log("API").error("Error creating class watch:", error);
 
-    return fail('Failed to create class watch', 500);
+    return fail("Failed to create class watch", 500);
   }
 }
 
@@ -242,7 +242,7 @@ export async function DELETE(request: NextRequest) {
     return await withAuth(request, async (user) => {
       try {
         const { searchParams } = new URL(request.url);
-        const watchId = searchParams.get('id');
+        const watchId = searchParams.get("id");
 
         const parsed = parseOrFail(deleteClassWatchSchema, { id: watchId });
 
@@ -256,20 +256,20 @@ export async function DELETE(request: NextRequest) {
           .delete(classWatches)
           .where(and(eq(classWatches.id, parsed.data.id), eq(classWatches.user_id, user.userId)));
 
-        captureServerEvent(user.userId, 'class_watch_deleted', {
+        captureServerEvent(user.userId, "class_watch_deleted", {
           watch_id: parsed.data.id,
         });
 
         return ok(undefined);
       } catch (error) {
-        log('API').error('Error deleting class watch:', error);
+        log("API").error("Error deleting class watch:", error);
 
-        return fail('Failed to delete class watch', 500);
+        return fail("Failed to delete class watch", 500);
       }
     });
   } catch (error) {
-    log('API').error('Error deleting class watch:', error);
+    log("API").error("Error deleting class watch:", error);
 
-    return fail('Failed to delete class watch', 500);
+    return fail("Failed to delete class watch", 500);
   }
 }

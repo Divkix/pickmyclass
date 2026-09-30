@@ -1,115 +1,115 @@
-import type { Metadata } from 'next';
-import { Header } from '@/components/Header';
-import { AuthRedirect } from '@/components/landing/AuthRedirect';
-import { DashboardPreview } from '@/components/landing/DashboardPreview';
-import { FAQSection } from '@/components/landing/FAQSection';
-import { FeaturesSection } from '@/components/landing/FeaturesSection';
-import { HeroSection } from '@/components/landing/HeroSection';
-import { HowItWorks } from '@/components/landing/HowItWorks';
-import { JsonLd } from '@/components/landing/JsonLd';
-import { MobileStickyCTA } from '@/components/landing/MobileStickyCTA';
-import { SocialProofBanner } from '@/components/landing/SocialProofBanner';
-import { faqs } from '@/lib/faqs';
+import type { Metadata } from "next";
+import { Header } from "@/components/Header";
+import { AuthRedirect } from "@/components/landing/AuthRedirect";
+import { DashboardPreview } from "@/components/landing/DashboardPreview";
+import { FAQSection } from "@/components/landing/FAQSection";
+import { FeaturesSection } from "@/components/landing/FeaturesSection";
+import { HeroSection } from "@/components/landing/HeroSection";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { JsonLd } from "@/components/landing/JsonLd";
+import { MobileStickyCTA } from "@/components/landing/MobileStickyCTA";
+import { SocialProofBanner } from "@/components/landing/SocialProofBanner";
+import { faqs } from "@/lib/faqs";
 
-export const dynamic = 'error';
+export const dynamic = "error";
 
-const homeTitle = 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts';
+const homeTitle = "PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts";
 
 const homeDescription =
-  'Free ASU class seat tracker. Get email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.';
+  "Free ASU class seat tracker. Get email alerts when seats open in full ASU classes. Trusted by 2,400+ Sun Devils.";
 
 export const metadata: Metadata = {
   title: {
     absolute: homeTitle,
   },
   description:
-    'Get a free email the moment a seat opens in a full ASU class. PickMyClass checks every 30 minutes so you stop refreshing MyASU. Trusted by 2,400+ Sun Devils.',
+    "Get a free email the moment a seat opens in a full ASU class. PickMyClass checks every 30 minutes so you stop refreshing MyASU. Trusted by 2,400+ Sun Devils.",
   openGraph: {
     title: homeTitle,
     description: homeDescription,
-    type: 'website',
-    url: '/',
+    type: "website",
+    url: "/",
     images: [
       {
-        url: '/og-image.png',
+        url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: 'PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts',
+        alt: "PickMyClass — Free ASU Class Seat Tracker & Open Seat Alerts",
       },
     ],
   },
   twitter: {
     title: homeTitle,
     description: homeDescription,
-    images: ['/og-image.png'],
+    images: ["/og-image.png"],
   },
   alternates: {
-    canonical: '/',
+    canonical: "/",
   },
 };
 
 const webApplicationSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'WebApplication',
-  name: 'PickMyClass',
-  url: 'https://pickmyclass.app',
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "PickMyClass",
+  url: "https://pickmyclass.app",
   description:
-    'Free ASU class seat tracker and notification service. Get email alerts when seats open in full ASU classes. Checks every 30 minutes.',
-  applicationCategory: 'EducationalApplication',
-  operatingSystem: 'Web',
+    "Free ASU class seat tracker and notification service. Get email alerts when seats open in full ASU classes. Checks every 30 minutes.",
+  applicationCategory: "EducationalApplication",
+  operatingSystem: "Web",
   offers: {
-    '@type': 'Offer',
-    price: '0',
-    priceCurrency: 'USD',
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
   },
   author: {
-    '@type': 'Organization',
-    name: 'PickMyClass',
+    "@type": "Organization",
+    name: "PickMyClass",
   },
-  screenshot: 'https://pickmyclass.app/og-image.png',
+  screenshot: "https://pickmyclass.app/og-image.png",
   featureList: [
-    'Email notifications for open ASU class seats',
-    'Instructor change alerts when Staff is assigned',
-    'Automatic checks every 30 minutes',
-    'Real-time dashboard with class status',
-    'Support for all ASU campuses and online classes',
+    "Email notifications for open ASU class seats",
+    "Instructor change alerts when Staff is assigned",
+    "Automatic checks every 30 minutes",
+    "Real-time dashboard with class status",
+    "Support for all ASU campuses and online classes",
   ],
 };
 
 const howToSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'HowTo',
-  name: 'How to Get ASU Class Seat Notifications with PickMyClass',
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to Get ASU Class Seat Notifications with PickMyClass",
   description:
-    'Track ASU class availability and get free email alerts when seats open in full classes.',
-  totalTime: 'PT2M',
+    "Track ASU class availability and get free email alerts when seats open in full classes.",
+  totalTime: "PT2M",
   step: [
     {
-      '@type': 'HowToStep',
-      name: 'Add Your Classes',
-      text: 'Search for ASU classes by section number and add them to your watchlist. You can track multiple classes at once.',
+      "@type": "HowToStep",
+      name: "Add Your Classes",
+      text: "Search for ASU classes by section number and add them to your watchlist. You can track multiple classes at once.",
     },
     {
-      '@type': 'HowToStep',
-      name: 'We Monitor For You',
+      "@type": "HowToStep",
+      name: "We Monitor For You",
       text: "Our system checks ASU's class search every 30 minutes for seat availability changes and instructor assignments.",
     },
     {
-      '@type': 'HowToStep',
-      name: 'Get Notified Instantly',
-      text: 'Receive an email the moment a seat opens up. Register for the class before everyone else on the waitlist.',
+      "@type": "HowToStep",
+      name: "Get Notified Instantly",
+      text: "Receive an email the moment a seat opens up. Register for the class before everyone else on the waitlist.",
     },
   ],
 };
 
 const faqSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
   mainEntity: faqs.map((faq) => ({
-    '@type': 'Question',
+    "@type": "Question",
     name: faq.question,
     acceptedAnswer: {
-      '@type': 'Answer',
+      "@type": "Answer",
       text: faq.answer,
     },
   })),

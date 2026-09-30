@@ -3,7 +3,7 @@ export class TtlCache<T> {
 
   constructor(
     private ttlMs: number,
-    private maxSize: number = 500
+    private maxSize: number = 500,
   ) {}
 
   private evictExpired(): void {

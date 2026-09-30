@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { m } from 'framer-motion';
-import { GraduationCap } from 'lucide-react';
-import { fadeInUp } from '@/lib/animations';
+import { m } from "framer-motion";
+import { GraduationCap } from "lucide-react";
+import { fadeInUp } from "@/lib/animations";
 
 export function SocialProofBanner() {
   return (
@@ -20,7 +20,7 @@ export function SocialProofBanner() {
         </span>
         <span className="hidden h-4 w-px bg-primary-foreground/25 sm:block" aria-hidden="true" />
         <p className="text-sm text-primary-foreground/85">
-          <strong className="font-semibold text-primary-foreground">2,400+</strong> Sun Devils ·{' '}
+          <strong className="font-semibold text-primary-foreground">2,400+</strong> Sun Devils ·{" "}
           <strong className="font-semibold text-primary-foreground">15,000+</strong> classes
           monitored · <strong className="font-semibold text-accent">8,500+</strong> seats secured
         </p>

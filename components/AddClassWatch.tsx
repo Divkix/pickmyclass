@@ -1,30 +1,30 @@
-'use client';
+"use client";
 
-import { Lightbulb, Lock } from 'lucide-react';
-import { useState } from 'react';
-import { Alert } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Lightbulb, Lock } from "lucide-react";
+import { useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { TermSelect } from '@/components/TermSelect';
-import { useClassWatchForm } from '@/lib/class-watches/useClassWatchForm';
-import type { ClassWatchCreationInput } from '@/lib/class-watches/class-watch-creation';
-import type { ClassWatchRow } from '@/lib/types/class-watch';
+} from "@/components/ui/select";
+import { TermSelect } from "@/components/TermSelect";
+import { useClassWatchForm } from "@/lib/class-watches/useClassWatchForm";
+import type { ClassWatchCreationInput } from "@/lib/class-watches/class-watch-creation";
+import type { ClassWatchRow } from "@/lib/types/class-watch";
 
 interface AddClassWatchProps {
   onCreated: (watch: ClassWatchRow, input: ClassWatchCreationInput) => void | Promise<void>;
 }
 
 export function AddClassWatch({ onCreated }: AddClassWatchProps) {
-  const [university] = useState('asu');
+  const [university] = useState("asu");
 
   const { terms, term, setTerm, classNbr, setClassNbr, error, isSubmitting, handleSubmit } =
     useClassWatchForm({
@@ -81,7 +81,7 @@ export function AddClassWatch({ onCreated }: AddClassWatchProps) {
             <div className="flex gap-2.5 rounded-md bg-primary/5 border border-primary/20 p-3 text-sm">
               <Lightbulb className="size-4 shrink-0 text-primary mt-0.5" aria-hidden="true" />
               <p className="text-foreground">
-                <strong>How to find this:</strong> Go to the{' '}
+                <strong>How to find this:</strong> Go to the{" "}
                 <a
                   href="https://catalog.apps.asu.edu/catalog/classes/classlist"
                   target="_blank"
@@ -102,7 +102,7 @@ export function AddClassWatch({ onCreated }: AddClassWatchProps) {
             disabled={isSubmitting || !term || !classNbr || terms.length === 0}
             className="w-full"
           >
-            {isSubmitting ? "Checking ASU's class search... hang tight" : 'Start Watching'}
+            {isSubmitting ? "Checking ASU's class search... hang tight" : "Start Watching"}
           </Button>
         </form>
       </CardContent>

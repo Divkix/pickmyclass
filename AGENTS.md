@@ -14,11 +14,12 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 | Dev server | `pnpm run dev` (vinext; one instance per checkout: a second one exits and prints the running server's URL) |
 | Build | `pnpm run build` |
 | Real Worker locally | `pnpm run preview` (build + `wrangler dev`); run before any deploy |
-| All tests | `pnpm run test:run` · with coverage gate (80% lines/branches/functions/statements): `pnpm run test:coverage` |
-| One file | `pnpm run test:run tests/unit/lib/crypto.test.ts` |
-| One test | `pnpm run test:run tests/unit/lib/crypto.test.ts -t "identical"` |
+| All non-DB tests | `pnpm run test` · with coverage gate (80% lines/branches/functions/statements): `pnpm run test:coverage` |
+| One file | `pnpm run test tests/unit/lib/crypto.test.ts` |
+| One test | `pnpm run test tests/unit/lib/crypto.test.ts -t "identical"` |
+| Test projects/watch | `pnpm run test:unit` · `pnpm run test:integration` · `pnpm run test:watch` |
 | Live DB test | `DATABASE_URL=… pnpm run test:db` (excluded from the normal run) |
-| Format + lint | `pnpm run check` · autofix: `pnpm run check:fix` |
+| Format + lint | `pnpm run check` · autofix: `pnpm run fix` |
 | Type-check | `pnpm run type-check` (two passes: app `tsconfig.json`, then `tsconfig.worker.json`) |
 | Full gate | `pnpm run verify` = check + type-check + knip. Same as the pre-commit hook and CI `quality` job |
 | Deploy | `pnpm run deploy` (build, `wrangler deploy`, `wrangler triggers deploy`, IndexNow ping) |
@@ -35,7 +36,7 @@ Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `
 - `db/migrations/*.sql`: hand-written, timestamp-prefixed plain PG, applied by hand with `psql`. Last definition wins. To change an applied function, add a new file with `CREATE OR REPLACE`; never edit an applied file. `pnpm run db:generate` writes to `migrations_pg/`, which is not the real migration history.
 - `lib/utils.ts` is shadcn's `cn()` only. Custom helpers go in `lib/utils/`. The split is intentional, so leave both.
 - `lib/seo/`: sitemap, `/llms.txt` and `/llms-full.txt` route handlers, lastmod map, IndexNow.
-- `tests/unit`, `tests/integration`: all tests live here, not next to source. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through aliases in `vitest.config.ts`. `tests/unit/lib/db/scripted-postgres.ts` is a fake postgres-js transport for query tests.
+- `tests/unit`, `tests/integration`: all tests live here, not next to source. The `test` block in `vite.config.ts` defines `unit`, `integration`, and opt-in `db` projects. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through `test.alias`. `tests/unit/lib/db/scripted-postgres.ts` is a fake postgres-js transport for query tests.
 - `tools/oxlint/anti-slop/`: vendored lint plugin (see Gotchas).
 - `docs/agents/`: issue-tracker (`gh` on `Divkix/pickmyclass`) and triage-label conventions used by skills.
 
@@ -43,10 +44,10 @@ Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `
 
 - **API routes:** wrap handlers in `withAuth(request, async (user) => …)` from `lib/api/withAuth.ts` (401 on `UnauthorizedError`). Validate with `parseOrFail(schema, body)` from `lib/api/validation.ts` (schemas in `lib/api/schemas.ts`). Respond with `ok()` / `fail(msg, status)` from `lib/api/response.ts`. `app/api/class-watches/route.ts` shows the full pattern. `monitoring/health` authenticates with `verifyCronSecret`.
 - **Bindings:** `import { env } from 'cloudflare:workers'`. DB access goes through `getDbFromEnv()`, not a module-level client.
-- **Logging:** `log('Scope').info|warn|error` from `lib/log.ts`. `no-console` is a lint error outside `lib/log.ts` and `tests/`.
+- **Logging:** `log('Scope').info|warn|error` from `lib/log.ts`. `no-console` is a lint error outside `lib/log.ts`, `scripts/`, and `tests/`.
 - **Type assertions** need a `// SAFETY: …` comment directly above them (`anti-slop/require-safety-comment-for-type-assertion`). Chained `as unknown as X` is banned outright. Other anti-slop rules to know: no object-shaped parameters, no `unknown` params or returns, no `.filter().map()`, no spread-accumulating `reduce`. The full list is in `vite.config.ts` → `lint.rules`.
 - **Imports:** `@/…` path alias. `vite-plus/test` instead of `vitest` (the `vite-plus/prefer-vite-plus-imports` rule enforces it).
-- **Constants** go in `lib/config.ts`. Style: 2 spaces, width 100, single quotes, semicolons, ES5 trailing commas (Oxfmt; `check:fix` applies it).
+- **Constants** go in `lib/config.ts`. Style: Oxfmt defaults (2 spaces, width 100, double quotes, semicolons, trailing commas everywhere); `pnpm run fix` applies it.
 - **Email:** every template value passes through `escapeHtml` (`lib/utils/escape-html.ts`). Unsubscribe tokens are stateless HMAC, valid 90 days, reusable.
 - **Tests** inject dependencies (e.g. `processSection(..., { fetchClass })`, `createScriptedPostgres`) rather than hitting real services. Name files `*.test.ts(x)` under `tests/`.
 - **Commits:** Conventional Commits, `type(scope): summary`.

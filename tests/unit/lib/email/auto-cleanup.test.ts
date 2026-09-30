@@ -1,33 +1,33 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
   EMAIL_BATCH_DELAY_MS,
   EMAIL_BATCH_SIZE,
   NOTIFICATION_FROM_EMAIL,
-} from '@/lib/config';
+} from "@/lib/config";
 
-vi.mock('@/lib/email/unsubscribe-token', () => ({
+vi.mock("@/lib/email/unsubscribe-token", () => ({
   generateUnsubscribeUrl: vi.fn(
-    (userId: string) => `https://pickmyclass.app/unsubscribe?token=${userId}`
+    (userId: string) => `https://pickmyclass.app/unsubscribe?token=${userId}`,
   ),
-  generateUnsubscribeToken: vi.fn(() => 'mock-token'),
+  generateUnsubscribeToken: vi.fn(() => "mock-token"),
   verifyUnsubscribeToken: vi.fn(() => null),
 }));
 
 import {
   buildAutoCleanupRemovedEmail,
   sendAutoCleanupRemovalEmails,
-} from '@/lib/email/templates/auto-cleanup';
+} from "@/lib/email/templates/auto-cleanup";
 
 type SendEmailFn = (message: EmailMessageBuilder & EmailMessage) => Promise<EmailSendResult>;
 
-describe('buildAutoCleanupRemovedEmail', () => {
+describe("buildAutoCleanupRemovedEmail", () => {
   const originalEnv = process.env.NEXT_PUBLIC_SITE_URL;
 
   beforeEach(() => {
-    vi.spyOn(console, 'info').mockImplementation(() => {});
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -39,182 +39,182 @@ describe('buildAutoCleanupRemovedEmail', () => {
     else process.env.NEXT_PUBLIC_SITE_URL = originalEnv;
   });
 
-  it('escapes HTML in subject, term, title and includes dashboard link', () => {
-    process.env.NEXT_PUBLIC_SITE_URL = 'https://pickmyclass.app';
+  it("escapes HTML in subject, term, title and includes dashboard link", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://pickmyclass.app";
 
     const email = buildAutoCleanupRemovedEmail({
-      classNbr: '42737<script>',
-      term: '2261<script>',
-      subject: 'CSE<script>',
-      catalogNbr: '110',
-      title: 'Intro <b>Programming</b> & More',
+      classNbr: "42737<script>",
+      term: "2261<script>",
+      subject: "CSE<script>",
+      catalogNbr: "110",
+      title: "Intro <b>Programming</b> & More",
     });
 
-    expect(email.subject).toContain('110');
-    expect(email.subject).not.toContain('<script>');
+    expect(email.subject).toContain("110");
+    expect(email.subject).not.toContain("<script>");
 
-    expect(email.html).toContain('CSE&lt;script&gt;');
-    expect(email.html).toContain('Intro &lt;b&gt;Programming&lt;/b&gt; &amp; More');
-    expect(email.html).toContain('42737&lt;script&gt;');
-    expect(email.html).toContain('2261&lt;script&gt;');
-    expect(email.html).not.toContain('<script>');
-    expect(email.html).not.toContain('<b>');
+    expect(email.html).toContain("CSE&lt;script&gt;");
+    expect(email.html).toContain("Intro &lt;b&gt;Programming&lt;/b&gt; &amp; More");
+    expect(email.html).toContain("42737&lt;script&gt;");
+    expect(email.html).toContain("2261&lt;script&gt;");
+    expect(email.html).not.toContain("<script>");
+    expect(email.html).not.toContain("<b>");
 
-    expect(email.html).toContain('https://pickmyclass.app/dashboard');
-    expect(email.html).toContain('Go to Dashboard');
-    expect(email.text).toContain('https://pickmyclass.app/dashboard');
+    expect(email.html).toContain("https://pickmyclass.app/dashboard");
+    expect(email.html).toContain("Go to Dashboard");
+    expect(email.text).toContain("https://pickmyclass.app/dashboard");
   });
 
-  it('includes dashboard link with default site URL when env not set', () => {
+  it("includes dashboard link with default site URL when env not set", () => {
     // SAFETY: cloudflare-env.d.ts pins this key as required; delete needs string | undefined.
     delete (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL;
 
     const email = buildAutoCleanupRemovedEmail({
-      classNbr: '42737',
-      term: '2261',
-      subject: 'CSE',
-      catalogNbr: '110',
+      classNbr: "42737",
+      term: "2261",
+      subject: "CSE",
+      catalogNbr: "110",
       title: null,
     });
 
-    expect(email.html).toContain('https://pickmyclass.app/dashboard');
-    expect(email.text).toContain('https://pickmyclass.app/dashboard');
+    expect(email.html).toContain("https://pickmyclass.app/dashboard");
+    expect(email.text).toContain("https://pickmyclass.app/dashboard");
   });
 
-  it('subject falls back to classNbr when catalogNbr absent, and strips risky chars', () => {
+  it("subject falls back to classNbr when catalogNbr absent, and strips risky chars", () => {
     const withCatalog = buildAutoCleanupRemovedEmail({
-      classNbr: '42737',
-      term: '2261',
+      classNbr: "42737",
+      term: "2261",
       subject: null,
-      catalogNbr: '110',
+      catalogNbr: "110",
       title: null,
     });
 
-    expect(withCatalog.subject).toBe('Watched class 110 removed — no longer in ASU catalog');
+    expect(withCatalog.subject).toBe("Watched class 110 removed — no longer in ASU catalog");
 
     const withoutCatalog = buildAutoCleanupRemovedEmail({
-      classNbr: '42737<bad>',
-      term: '2261',
+      classNbr: "42737<bad>",
+      term: "2261",
       subject: null,
       catalogNbr: null,
       title: null,
     });
 
     expect(withoutCatalog.subject).toBe(
-      'Watched class 42737bad removed — no longer in ASU catalog'
+      "Watched class 42737bad removed — no longer in ASU catalog",
     );
-    expect(withoutCatalog.subject).not.toContain('<');
+    expect(withoutCatalog.subject).not.toContain("<");
   });
 
-  it('subject strips quotes and ampersands from identifier', () => {
+  it("subject strips quotes and ampersands from identifier", () => {
     const email = buildAutoCleanupRemovedEmail({
       classNbr: '12"34&56',
-      term: '2261',
+      term: "2261",
       subject: null,
       catalogNbr: '12"34&56',
       title: null,
     });
 
-    expect(email.subject).toBe('Watched class 123456 removed — no longer in ASU catalog');
+    expect(email.subject).toBe("Watched class 123456 removed — no longer in ASU catalog");
   });
 
-  it('text fallback includes term, section, title when present and omits title line when absent', () => {
+  it("text fallback includes term, section, title when present and omits title line when absent", () => {
     const withTitle = buildAutoCleanupRemovedEmail({
-      classNbr: '42737',
-      term: '2261',
-      subject: 'CSE',
-      catalogNbr: '110',
-      title: 'Principles',
+      classNbr: "42737",
+      term: "2261",
+      subject: "CSE",
+      catalogNbr: "110",
+      title: "Principles",
     });
 
-    expect(withTitle.text).toContain('Section: 42737');
-    expect(withTitle.text).toContain('Term: 2261');
-    expect(withTitle.text).toContain('Title: Principles');
-    expect(withTitle.text).toContain('CSE 110: Principles');
+    expect(withTitle.text).toContain("Section: 42737");
+    expect(withTitle.text).toContain("Term: 2261");
+    expect(withTitle.text).toContain("Title: Principles");
+    expect(withTitle.text).toContain("CSE 110: Principles");
 
     const withoutTitle = buildAutoCleanupRemovedEmail({
-      classNbr: '42737',
-      term: '2261',
-      subject: 'CSE',
-      catalogNbr: '110',
+      classNbr: "42737",
+      term: "2261",
+      subject: "CSE",
+      catalogNbr: "110",
       title: null,
     });
 
-    expect(withoutTitle.text).not.toContain('Title:');
-    expect(withoutTitle.html).not.toContain('<strong>Title:</strong>');
+    expect(withoutTitle.text).not.toContain("Title:");
+    expect(withoutTitle.html).not.toContain("<strong>Title:</strong>");
   });
 
-  it('includes unsubscribe URL in footer when provided', () => {
+  it("includes unsubscribe URL in footer when provided", () => {
     const email = buildAutoCleanupRemovedEmail({
-      classNbr: '42737',
-      term: '2261',
-      subject: 'CSE',
-      catalogNbr: '110',
-      title: 'T',
-      unsubscribeUrl: 'https://pickmyclass.app/unsubscribe?token=abc',
+      classNbr: "42737",
+      term: "2261",
+      subject: "CSE",
+      catalogNbr: "110",
+      title: "T",
+      unsubscribeUrl: "https://pickmyclass.app/unsubscribe?token=abc",
     });
 
-    expect(email.html).toContain('https://pickmyclass.app/unsubscribe?token=abc');
-    expect(email.text).toContain('Unsubscribe: https://pickmyclass.app/unsubscribe?token=abc');
+    expect(email.html).toContain("https://pickmyclass.app/unsubscribe?token=abc");
+    expect(email.text).toContain("Unsubscribe: https://pickmyclass.app/unsubscribe?token=abc");
   });
 
-  it('escapes the unsubscribe URL in the HTML footer', () => {
+  it("escapes the unsubscribe URL in the HTML footer", () => {
     const email = buildAutoCleanupRemovedEmail({
-      classNbr: '42737',
-      term: '2261',
-      subject: 'CSE',
-      catalogNbr: '110',
+      classNbr: "42737",
+      term: "2261",
+      subject: "CSE",
+      catalogNbr: "110",
       title: null,
       unsubscribeUrl: 'https://pickmyclass.app/unsubscribe?token=<bad>&q="x"',
     });
 
-    expect(email.html).toContain('token=&lt;bad&gt;&amp;q=&quot;x&quot;');
-    expect(email.html).not.toContain('<bad>');
+    expect(email.html).toContain("token=&lt;bad&gt;&amp;q=&quot;x&quot;");
+    expect(email.html).not.toContain("<bad>");
   });
 
-  it('omits unsubscribe link when not provided', () => {
+  it("omits unsubscribe link when not provided", () => {
     const email = buildAutoCleanupRemovedEmail({
-      classNbr: '42737',
-      term: '2261',
-      subject: 'CSE',
-      catalogNbr: '110',
-      title: 'T',
+      classNbr: "42737",
+      term: "2261",
+      subject: "CSE",
+      catalogNbr: "110",
+      title: "T",
     });
 
-    expect(email.html).not.toContain('Unsubscribe</a>');
-    expect(email.text).not.toContain('Unsubscribe:');
+    expect(email.html).not.toContain("Unsubscribe</a>");
+    expect(email.text).not.toContain("Unsubscribe:");
   });
 
-  it('handles trailing slash in site URL for dashboard link', () => {
+  it("handles trailing slash in site URL for dashboard link", () => {
     // SAFETY: cloudflare-env.d.ts pins this key to the default URL; this view widens it.
     (process.env as Record<string, string | undefined>).NEXT_PUBLIC_SITE_URL =
-      'https://pickmyclass.app///';
+      "https://pickmyclass.app///";
 
     const email = buildAutoCleanupRemovedEmail({
-      classNbr: '42737',
-      term: '2261',
+      classNbr: "42737",
+      term: "2261",
       subject: null,
       catalogNbr: null,
       title: null,
     });
 
-    expect(email.html).toContain('https://pickmyclass.app/dashboard');
-    expect(email.html).not.toContain('///dashboard');
+    expect(email.html).toContain("https://pickmyclass.app/dashboard");
+    expect(email.html).not.toContain("///dashboard");
   });
 });
 
-describe('sendAutoCleanupRemovalEmails', () => {
+describe("sendAutoCleanupRemovalEmails", () => {
   beforeEach(() => {
-    vi.spyOn(console, 'info').mockImplementation(() => {});
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('defensively caps watchers at AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE and logs warn', async () => {
+  it("defensively caps watchers at AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE and logs warn", async () => {
     const cap = AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE;
     const overCap = cap + 10;
 
@@ -224,11 +224,11 @@ describe('sendAutoCleanupRemovalEmails', () => {
       watch_id: `w${i}`,
     }));
 
-    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
+    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: "msg" });
     const emailBinding = { send: sendMock };
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     const realSetTimeout = globalThis.setTimeout;
-    vi.spyOn(globalThis, 'setTimeout').mockImplementation((cb: () => void) => {
+    vi.spyOn(globalThis, "setTimeout").mockImplementation((cb: () => void) => {
       cb();
 
       return realSetTimeout(() => {}, 0);
@@ -236,11 +236,11 @@ describe('sendAutoCleanupRemovalEmails', () => {
 
     const results = await sendAutoCleanupRemovalEmails(
       {
-        ref: { class_nbr: '42737', term: '2261' },
-        classInfo: { subject: 'CSE', catalog_nbr: '110', title: 'Intro' },
+        ref: { class_nbr: "42737", term: "2261" },
+        classInfo: { subject: "CSE", catalog_nbr: "110", title: "Intro" },
         watchers,
       },
-      emailBinding
+      emailBinding,
     );
 
     expect(sendMock).toHaveBeenCalledTimes(cap);
@@ -259,27 +259,27 @@ describe('sendAutoCleanupRemovalEmails', () => {
 
     const warnCalls = vi
       .mocked(console.warn)
-      .mock.calls.map((c) => String(c[0]) + ' ' + String(c[1] ?? ''));
+      .mock.calls.map((c) => String(c[0]) + " " + String(c[1] ?? ""));
 
-    expect(warnCalls.some((s) => s.includes('exceeds cap') && s.includes('truncating'))).toBe(true);
+    expect(warnCalls.some((s) => s.includes("exceeds cap") && s.includes("truncating"))).toBe(true);
   });
 
-  it('sends all watchers when under cap without truncation', async () => {
+  it("sends all watchers when under cap without truncation", async () => {
     const watchers = [
-      { user_id: 'u1', email: 'a@example.com', watch_id: 'w1' },
-      { user_id: 'u2', email: 'b@example.com', watch_id: 'w2' },
+      { user_id: "u1", email: "a@example.com", watch_id: "w1" },
+      { user_id: "u2", email: "b@example.com", watch_id: "w2" },
     ];
 
-    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
+    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: "msg" });
     const emailBinding = { send: sendMock };
 
     const results = await sendAutoCleanupRemovalEmails(
       {
-        ref: { class_nbr: '42737', term: '2261' },
+        ref: { class_nbr: "42737", term: "2261" },
         classInfo: null,
         watchers,
       },
-      emailBinding
+      emailBinding,
     );
 
     expect(sendMock).toHaveBeenCalledTimes(2);
@@ -288,17 +288,17 @@ describe('sendAutoCleanupRemovalEmails', () => {
     expect(results.filter((r) => r.attempted).length).toBe(sendMock.mock.calls.length);
   });
 
-  it('returns empty when no watchers', async () => {
-    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
+  it("returns empty when no watchers", async () => {
+    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: "msg" });
     const emailBinding = { send: sendMock };
 
     const results = await sendAutoCleanupRemovalEmails(
       {
-        ref: { class_nbr: '42737', term: '2261' },
+        ref: { class_nbr: "42737", term: "2261" },
         classInfo: null,
         watchers: [],
       },
-      emailBinding
+      emailBinding,
     );
 
     expect(sendMock).not.toHaveBeenCalled();
@@ -306,14 +306,14 @@ describe('sendAutoCleanupRemovalEmails', () => {
   });
 
   it.each([
-    ['E_RATE_LIMIT_EXCEEDED', 'rate limited'],
-    ['E_DAILY_LIMIT_EXCEEDED', 'daily limit hit'],
-    ['E_SENDER_NOT_VERIFIED', 'sender not verified'],
-  ])('aborts remaining sends and marks them skipped on %s', async (fatalCode, message) => {
+    ["E_RATE_LIMIT_EXCEEDED", "rate limited"],
+    ["E_DAILY_LIMIT_EXCEEDED", "daily limit hit"],
+    ["E_SENDER_NOT_VERIFIED", "sender not verified"],
+  ])("aborts remaining sends and marks them skipped on %s", async (fatalCode, message) => {
     const watchers = [
-      { user_id: 'u1', email: 'a@example.com', watch_id: 'w1' },
-      { user_id: 'u2', email: 'b@example.com', watch_id: 'w2' },
-      { user_id: 'u3', email: 'c@example.com', watch_id: 'w3' },
+      { user_id: "u1", email: "a@example.com", watch_id: "w1" },
+      { user_id: "u2", email: "b@example.com", watch_id: "w2" },
+      { user_id: "u3", email: "c@example.com", watch_id: "w3" },
     ];
 
     const sendMock = vi
@@ -324,142 +324,142 @@ describe('sendAutoCleanupRemovalEmails', () => {
 
     const results = await sendAutoCleanupRemovalEmails(
       {
-        ref: { class_nbr: '42737', term: '2261' },
+        ref: { class_nbr: "42737", term: "2261" },
         classInfo: null,
         watchers,
       },
-      emailBinding
+      emailBinding,
     );
 
     expect(sendMock).toHaveBeenCalledTimes(1);
     expect(results).toEqual([
-      { success: false, watchId: 'w1', error: `${fatalCode}: ${message}`, attempted: true },
+      { success: false, watchId: "w1", error: `${fatalCode}: ${message}`, attempted: true },
       {
         success: false,
-        watchId: 'w2',
+        watchId: "w2",
         error: `Skipped: ${fatalCode} limit reached`,
         attempted: false,
       },
       {
         success: false,
-        watchId: 'w3',
+        watchId: "w3",
         error: `Skipped: ${fatalCode} limit reached`,
         attempted: false,
       },
     ]);
     const attemptedRows = results.filter((r) => r.attempted);
-    expect(attemptedRows.map((r) => r.watchId)).toEqual(['w1']);
+    expect(attemptedRows.map((r) => r.watchId)).toEqual(["w1"]);
     expect(attemptedRows.length).toBe(sendMock.mock.calls.length);
     expect(attemptedRows.every((r) => !r.success)).toBe(true);
   });
 
-  it('continues sending after a non-fatal failure and reports truthful per-results', async () => {
+  it("continues sending after a non-fatal failure and reports truthful per-results", async () => {
     const watchers = [
-      { user_id: 'u1', email: 'a@example.com', watch_id: 'w1' },
-      { user_id: 'u2', email: 'b@example.com', watch_id: 'w2' },
-      { user_id: 'u3', email: 'c@example.com', watch_id: 'w3' },
+      { user_id: "u1", email: "a@example.com", watch_id: "w1" },
+      { user_id: "u2", email: "b@example.com", watch_id: "w2" },
+      { user_id: "u3", email: "c@example.com", watch_id: "w3" },
     ];
 
     const sendMock = vi
       .fn<SendEmailFn>()
-      .mockResolvedValueOnce({ messageId: 'm1' })
+      .mockResolvedValueOnce({ messageId: "m1" })
       .mockRejectedValueOnce(
-        Object.assign(new Error('smtp hiccup'), { code: 'E_CONNECTION_CLOSED' })
+        Object.assign(new Error("smtp hiccup"), { code: "E_CONNECTION_CLOSED" }),
       )
-      .mockResolvedValueOnce({ messageId: 'm3' });
+      .mockResolvedValueOnce({ messageId: "m3" });
 
     const emailBinding = { send: sendMock };
 
     const results = await sendAutoCleanupRemovalEmails(
       {
-        ref: { class_nbr: '42737', term: '2261' },
-        classInfo: null,
-        watchers,
-      },
-      emailBinding
-    );
-
-    expect(sendMock).toHaveBeenCalledTimes(3);
-    expect(results).toEqual([
-      { success: true, watchId: 'w1', attempted: true },
-      { success: false, watchId: 'w2', error: 'E_CONNECTION_CLOSED: smtp hiccup', attempted: true },
-      { success: true, watchId: 'w3', attempted: true },
-    ]);
-    const attemptedRows = results.filter((r) => r.attempted);
-    expect(attemptedRows.map((r) => r.watchId)).toEqual(['w1', 'w2', 'w3']);
-    expect(attemptedRows.length).toBe(sendMock.mock.calls.length);
-  });
-
-  it('attaches per-watcher one-click unsubscribe headers and honors fromEmail override', async () => {
-    const watchers = [
-      { user_id: 'user-42', email: 'a@example.com', watch_id: 'w1' },
-      { user_id: 'user-43', email: 'b@example.com', watch_id: 'w2' },
-    ];
-
-    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
-    const emailBinding = { send: sendMock };
-
-    await sendAutoCleanupRemovalEmails(
-      {
-        ref: { class_nbr: '42737', term: '2261' },
+        ref: { class_nbr: "42737", term: "2261" },
         classInfo: null,
         watchers,
       },
       emailBinding,
-      'custom@pickmyclass.app'
+    );
+
+    expect(sendMock).toHaveBeenCalledTimes(3);
+    expect(results).toEqual([
+      { success: true, watchId: "w1", attempted: true },
+      { success: false, watchId: "w2", error: "E_CONNECTION_CLOSED: smtp hiccup", attempted: true },
+      { success: true, watchId: "w3", attempted: true },
+    ]);
+    const attemptedRows = results.filter((r) => r.attempted);
+    expect(attemptedRows.map((r) => r.watchId)).toEqual(["w1", "w2", "w3"]);
+    expect(attemptedRows.length).toBe(sendMock.mock.calls.length);
+  });
+
+  it("attaches per-watcher one-click unsubscribe headers and honors fromEmail override", async () => {
+    const watchers = [
+      { user_id: "user-42", email: "a@example.com", watch_id: "w1" },
+      { user_id: "user-43", email: "b@example.com", watch_id: "w2" },
+    ];
+
+    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: "msg" });
+    const emailBinding = { send: sendMock };
+
+    await sendAutoCleanupRemovalEmails(
+      {
+        ref: { class_nbr: "42737", term: "2261" },
+        classInfo: null,
+        watchers,
+      },
+      emailBinding,
+      "custom@pickmyclass.app",
     );
 
     expect(sendMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: 'a@example.com',
-        from: 'custom@pickmyclass.app',
+        to: "a@example.com",
+        from: "custom@pickmyclass.app",
         headers: {
-          'List-Unsubscribe': '<https://pickmyclass.app/unsubscribe?token=user-42>',
-          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          "List-Unsubscribe": "<https://pickmyclass.app/unsubscribe?token=user-42>",
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         },
-      })
+      }),
     );
     const secondPayload = sendMock.mock.calls[1][0];
-    expect(secondPayload.html).toContain('unsubscribe?token=user-43');
+    expect(secondPayload.html).toContain("unsubscribe?token=user-43");
     expect(secondPayload.text).toContain(
-      'Unsubscribe: https://pickmyclass.app/unsubscribe?token=user-43'
+      "Unsubscribe: https://pickmyclass.app/unsubscribe?token=user-43",
     );
     expect(sendMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
         headers: {
-          'List-Unsubscribe': '<https://pickmyclass.app/unsubscribe?token=user-43>',
-          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          "List-Unsubscribe": "<https://pickmyclass.app/unsubscribe?token=user-43>",
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         },
-      })
+      }),
     );
 
-    const defaultSend = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
+    const defaultSend = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: "msg" });
     const defaultBinding = { send: defaultSend };
     await sendAutoCleanupRemovalEmails(
       {
-        ref: { class_nbr: '42737', term: '2261' },
+        ref: { class_nbr: "42737", term: "2261" },
         classInfo: null,
         watchers: [watchers[0]],
       },
-      defaultBinding
+      defaultBinding,
     );
     expect(defaultSend).toHaveBeenCalledWith(
-      expect.objectContaining({ from: NOTIFICATION_FROM_EMAIL })
+      expect.objectContaining({ from: NOTIFICATION_FROM_EMAIL }),
     );
   });
 
-  it('throttles once between batches when watcher count exceeds EMAIL_BATCH_SIZE', async () => {
+  it("throttles once between batches when watcher count exceeds EMAIL_BATCH_SIZE", async () => {
     const watchers = Array.from({ length: EMAIL_BATCH_SIZE + 1 }, (_, i) => ({
       user_id: `u${i}`,
       email: `user${i}@example.com`,
       watch_id: `w${i}`,
     }));
 
-    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: 'msg' });
+    const sendMock = vi.fn<SendEmailFn>().mockResolvedValue({ messageId: "msg" });
     const emailBinding = { send: sendMock };
     const realSetTimeout = globalThis.setTimeout;
 
-    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((cb: () => void) => {
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation((cb: () => void) => {
       cb();
 
       return realSetTimeout(() => {}, 0);
@@ -467,11 +467,11 @@ describe('sendAutoCleanupRemovalEmails', () => {
 
     const results = await sendAutoCleanupRemovalEmails(
       {
-        ref: { class_nbr: '42737', term: '2261' },
+        ref: { class_nbr: "42737", term: "2261" },
         classInfo: null,
         watchers,
       },
-      emailBinding
+      emailBinding,
     );
 
     expect(results.every((r) => r.success)).toBe(true);

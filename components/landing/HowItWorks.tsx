@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { m } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { staggerContainer, staggerItem } from '@/lib/animations';
+import { m } from "framer-motion";
+import { Sparkles } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { staggerContainer, staggerItem } from "@/lib/animations";
 
 export function HowItWorks() {
   return (
@@ -13,7 +13,7 @@ export function HowItWorks() {
         className="mx-auto max-w-4xl"
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, margin: '-100px' }}
+        viewport={{ once: true, margin: "-100px" }}
         variants={staggerContainer}
       >
         <m.div className="mb-16 text-center" variants={staggerItem}>
@@ -64,7 +64,7 @@ export function HowItWorks() {
                 Register Before Everyone Else
               </h3>
               <p className="text-base text-muted-foreground sm:text-lg">
-                Get an email the moment a seat opens. Beat the crowd. Pair that with{' '}
+                Get an email the moment a seat opens. Beat the crowd. Pair that with{" "}
                 <Link
                   href="/blog/how-to-get-into-full-asu-classes"
                   className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"

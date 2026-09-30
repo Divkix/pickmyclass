@@ -1,14 +1,14 @@
 export function param(
   searchParams: Record<string, string | string[] | undefined>,
-  key: string
+  key: string,
 ): string {
   const v = searchParams[key];
 
-  return v === undefined || Array.isArray(v) ? '' : v;
+  return v === undefined || Array.isArray(v) ? "" : v;
 }
 
 export function parsePageParam(value: string | undefined, fallback = 1): number {
-  if (value === undefined || value === '') return fallback;
+  if (value === undefined || value === "") return fallback;
   const n = Number(value);
 
   if (!Number.isFinite(n)) return fallback;

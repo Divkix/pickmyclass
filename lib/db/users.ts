@@ -1,11 +1,11 @@
-import { type User, type UserJSON } from '@clerk/backend';
-import { eq, or, sql } from 'drizzle-orm';
-import { z } from 'zod';
+import { type User, type UserJSON } from "@clerk/backend";
+import { eq, or, sql } from "drizzle-orm";
+import { z } from "zod";
 
-import { TtlCache } from '@/lib/cache/ttl-cache';
-import type { Database } from '@/lib/db';
-import { users, userProfiles } from '@/lib/db/schema';
-import { log } from '@/lib/log';
+import { TtlCache } from "@/lib/cache/ttl-cache";
+import type { Database } from "@/lib/db";
+import { users, userProfiles } from "@/lib/db/schema";
+import { log } from "@/lib/log";
 
 export interface UserVerificationState {
   email: string;
@@ -23,7 +23,7 @@ export function clearUserVerificationCache(): void {
 export async function readUserVerification(
   db: Database,
   userId: string,
-  { cache }: { cache: boolean }
+  { cache }: { cache: boolean },
 ): Promise<UserVerificationState | null> {
   if (cache) {
     const cached = verificationCache.get(userId);
@@ -65,7 +65,7 @@ interface NormalizedClerkUser {
 
 function selectPrimaryEmailAddress(
   addresses: readonly NormalizedEmailAddress[],
-  primaryEmailAddressId: string | null
+  primaryEmailAddressId: string | null,
 ): NormalizedEmailAddress | null {
   const selected =
     addresses.find((address) => address.id === primaryEmailAddressId) ?? addresses[0];
@@ -83,12 +83,12 @@ function readConsentFlags(metadata: RegisterFlowPublicMetadata | null | undefine
     ageVerified:
       metadata !== null &&
       metadata !== undefined &&
-      'age_verified' in metadata &&
+      "age_verified" in metadata &&
       metadata.age_verified === true,
     agreedToTerms:
       metadata !== null &&
       metadata !== undefined &&
-      'agreed_to_terms' in metadata &&
+      "agreed_to_terms" in metadata &&
       metadata.agreed_to_terms === true,
   };
 }
@@ -108,7 +108,7 @@ function normalizeClerkUser(input: {
     clerkUserId: input.clerkUserId,
     externalId: input.externalId,
     email: selected ? selected.emailAddress.toLowerCase() : null,
-    emailVerified: selected !== null && selected.verificationStatus === 'verified',
+    emailVerified: selected !== null && selected.verificationStatus === "verified",
     createdAt: input.createdAt,
     lastSignInAt: input.lastSignInAt,
     ...readConsentFlags(input.publicMetadata),
@@ -163,7 +163,7 @@ function normalizeBackendUser(user: User): NormalizedClerkUser {
 
 async function readProfileConsent(
   db: Database,
-  userId: string
+  userId: string,
 ): Promise<{ hasConsent: boolean } | null> {
   const [profile] = await db
     .select({
@@ -183,7 +183,7 @@ async function readProfileConsent(
 
 async function upsertUserMirror(
   db: Database,
-  user: NormalizedClerkUser & { email: string }
+  user: NormalizedClerkUser & { email: string },
 ): Promise<string> {
   const appUserId = user.externalId ?? user.clerkUserId;
 
@@ -277,13 +277,13 @@ export async function softDeleteUserById(db: Database, userId: string): Promise<
               notifications_enabled: false,
               unsubscribed_at: sql`coalesce(${userProfiles.unsubscribed_at}, now())`,
             },
-          })
-      )
+          }),
+      ),
     );
 
     return targetIds.length;
   } catch (error) {
-    log('Users').error('Failed to soft-delete user profile:', error);
+    log("Users").error("Failed to soft-delete user profile:", error);
     throw error;
   }
 }
@@ -291,7 +291,7 @@ export async function softDeleteUserById(db: Database, userId: string): Promise<
 export async function repairUserMirror(
   db: Database,
   userId: string,
-  clerkUser: User
+  clerkUser: User,
 ): Promise<{ hasConsent: boolean } | null> {
   const existing = await readProfileConsent(db, userId);
 
@@ -309,7 +309,7 @@ export async function repairUserMirror(
 
   if (!persisted) {
     throw new Error(
-      `repairUserMirror: user_profiles row for user ${appUserId} still missing after mirror upsert`
+      `repairUserMirror: user_profiles row for user ${appUserId} still missing after mirror upsert`,
     );
   }
 

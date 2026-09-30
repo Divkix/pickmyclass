@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import { m } from 'framer-motion';
-import { Info, Trash2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
-import { classWatchCreation } from '@/lib/class-watches/class-watch-creation';
-import { useSwipe } from '@/lib/hooks/useSwipe';
-import { log } from '@/lib/log';
-import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
-import { formatAbsoluteDate } from '@/lib/utils/time-format';
-import { ClassDetailsDialog } from '@/components/ClassDetailsDialog';
-import { ClassStateIndicator } from '@/components/ClassStateIndicator';
-import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { m } from "framer-motion";
+import { Info, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { classWatchCreation } from "@/lib/class-watches/class-watch-creation";
+import { useSwipe } from "@/lib/hooks/useSwipe";
+import { log } from "@/lib/log";
+import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
+import { formatAbsoluteDate } from "@/lib/utils/time-format";
+import { ClassDetailsDialog } from "@/components/ClassDetailsDialog";
+import { ClassStateIndicator } from "@/components/ClassStateIndicator";
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ClassWatchCardProps {
   watch: ClassWatchRow;
@@ -31,7 +31,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   const swipeDeleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSwipeDeletingRef = useRef(false);
 
-  const classTitle = `${watch.subject} ${watch.catalog_nbr}${classState?.title ? ` - ${classState.title}` : ''}`;
+  const classTitle = `${watch.subject} ${watch.catalog_nbr}${classState?.title ? ` - ${classState.title}` : ""}`;
 
   const { handlers } = useSwipe({
     threshold: 100,
@@ -51,9 +51,9 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   });
 
   const showRemovedToast = () => {
-    toast.success('Class watch removed', {
+    toast.success("Class watch removed", {
       action: {
-        label: 'Undo',
+        label: "Undo",
         onClick: async () => {
           await handleUndo();
         },
@@ -74,8 +74,8 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
         isSwipeDeletingRef.current = false;
         setSwipeOffset(0);
       } catch (error) {
-        log('ClassWatchCard').error('Swipe delete failed:', error);
-        toast.error('Failed to delete watch. Please try again.');
+        log("ClassWatchCard").error("Swipe delete failed:", error);
+        toast.error("Failed to delete watch. Please try again.");
         isSwipeDeletingRef.current = false;
         setSwipeOffset(0);
       }
@@ -91,13 +91,13 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
         class_nbr: deletedWatchRef.current.class_nbr,
       });
 
-      toast.success('Class watch restored');
+      toast.success("Class watch restored");
       deletedWatchRef.current = null;
 
       onRestore?.();
     } catch (error) {
-      log('ClassWatchCard').error('Watch restore failed:', error);
-      toast.error('Failed to restore watch. Please add it again manually.');
+      log("ClassWatchCard").error("Watch restore failed:", error);
+      toast.error("Failed to restore watch. Please add it again manually.");
     }
   };
 
@@ -110,8 +110,8 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
       showRemovedToast();
       setShowDeleteConfirm(false);
     } catch (error) {
-      log('ClassWatchCard').error('Watch delete failed:', error);
-      toast.error('Failed to delete watch. Please try again.');
+      log("ClassWatchCard").error("Watch delete failed:", error);
+      toast.error("Failed to delete watch. Please try again.");
     } finally {
       setIsDeleting(false);
     }
@@ -154,16 +154,16 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
             x: swipeOffset,
           }}
           transition={{
-            type: 'spring',
+            type: "spring",
             stiffness: 500,
             damping: 30,
             mass: 0.5,
           }}
           {...handlers}
           style={{
-            touchAction: 'pan-y',
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
+            touchAction: "pan-y",
+            userSelect: "none",
+            WebkitUserSelect: "none",
           }}
         >
           <Card className="relative" style={getBackgroundStyle()}>

@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { LayoutDashboard, Menu, X } from 'lucide-react';
-import Link from 'next/link';
-import { useState } from 'react';
-import { AuthButton } from '@/components/AuthButton';
-import { Logo } from '@/components/Logo';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/lib/contexts/AuthContext';
+import { LayoutDashboard, Menu, X } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { AuthButton } from "@/components/AuthButton";
+import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/contexts/AuthContext";
 
 const navLinks = [
-  { label: 'Blog', href: '/blog' },
-  { label: 'FAQ', href: '/faq' },
-  { label: 'About', href: '/about' },
+  { label: "Blog", href: "/blog" },
+  { label: "FAQ", href: "/faq" },
+  { label: "About", href: "/about" },
 ];
 
 export function Header() {
@@ -60,7 +60,7 @@ export function Header() {
             variant="ghost"
             size="icon"
             className="min-h-11 md:hidden"
-            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-nav"
             onClick={() => setMobileMenuOpen((open) => !open)}

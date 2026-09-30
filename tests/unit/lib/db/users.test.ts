@@ -1,17 +1,17 @@
-import type { EmailAddressJSON, User, UserJSON, VerificationJSON } from '@clerk/backend';
-import { SQL } from 'drizzle-orm';
-import { PgDialect, type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import type { EmailAddressJSON, User, UserJSON, VerificationJSON } from "@clerk/backend";
+import { SQL } from "drizzle-orm";
+import { PgDialect, type PgColumn, type PgTable } from "drizzle-orm/pg-core";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { Database } from '@/lib/db';
-import { users, userProfiles } from '@/lib/db/schema';
+import type { Database } from "@/lib/db";
+import { users, userProfiles } from "@/lib/db/schema";
 import {
   clearUserVerificationCache,
   readUserVerification,
   repairUserMirror,
   softDeleteUserById,
   syncUserMirrorFromClerkUser,
-} from '@/lib/db/users';
+} from "@/lib/db/users";
 
 type RecordedValue = string | number | boolean | null | SQL;
 
@@ -26,7 +26,7 @@ interface ProjectionMap {
 type SelectRow = { [column: string]: string | null };
 
 interface SelectOp {
-  method: 'select';
+  method: "select";
   projection: ProjectionMap;
   table: PgTable | undefined;
   where: SQL | undefined;
@@ -34,7 +34,7 @@ interface SelectOp {
 }
 
 interface InsertOp {
-  method: 'insert';
+  method: "insert";
   table: PgTable;
   values: RecordedRowMap;
   conflict: { target?: PgColumn; set?: RecordedRowMap } | null;
@@ -87,7 +87,7 @@ function createDbDouble(): DbDouble {
   const raw: BuilderRecorder = {
     select: (projection: ProjectionMap) => {
       const op: SelectOp = {
-        method: 'select',
+        method: "select",
         projection,
         table: undefined,
         where: undefined,
@@ -119,7 +119,7 @@ function createDbDouble(): DbDouble {
       };
     },
     insert: (table: PgTable) => {
-      const op: InsertOp = { method: 'insert', table, values: {}, conflict: null };
+      const op: InsertOp = { method: "insert", table, values: {}, conflict: null };
       ops.push(op);
 
       return {
@@ -144,8 +144,8 @@ function createDbDouble(): DbDouble {
     transaction: <T>(fn: (tx: BuilderRecorder) => Promise<T>): Promise<T> => fn(raw),
   };
 
-  const selects = () => ops.filter((op): op is SelectOp => op.method === 'select');
-  const inserts = () => ops.filter((op): op is InsertOp => op.method === 'insert');
+  const selects = () => ops.filter((op): op is SelectOp => op.method === "select");
+  const inserts = () => ops.filter((op): op is InsertOp => op.method === "insert");
 
   return {
     db: asDatabaseHandle(raw),
@@ -166,7 +166,7 @@ function createDbDouble(): DbDouble {
 const dialect = new PgDialect();
 
 function renderSql(fragment: RecordedValue): string {
-  if (!(fragment instanceof SQL)) throw new Error('Expected a SQL fragment');
+  if (!(fragment instanceof SQL)) throw new Error("Expected a SQL fragment");
 
   return dialect.sqlToQuery(fragment).sql;
 }
@@ -177,7 +177,7 @@ interface RenderedCondition {
 }
 
 function renderWhere(where: SQL | undefined): RenderedCondition {
-  if (where === undefined) throw new Error('Expected a where condition');
+  if (where === undefined) throw new Error("Expected a where condition");
   const { sql, params } = dialect.sqlToQuery(where);
 
   return { sql, params };
@@ -187,23 +187,23 @@ interface BackendUserDouble {
   id: string;
   externalId: string | null;
   primaryEmailAddressId: string | null;
-  publicMetadata: UserJSON['public_metadata'];
+  publicMetadata: UserJSON["public_metadata"];
   createdAt: number;
   lastSignInAt: number | null;
   emailAddresses: Array<{
     id: string;
     emailAddress: string;
-    verification: { status: VerificationJSON['status'] } | null;
+    verification: { status: VerificationJSON["status"] } | null;
   }>;
 }
 
-const CLERK_USER_ID = 'user_2abc123';
+const CLERK_USER_ID = "user_2abc123";
 
-const MIGRATED_APP_ID = 'b7c9d1e2-3f40-4a51-8b62-old-supabase';
+const MIGRATED_APP_ID = "b7c9d1e2-3f40-4a51-8b62-old-supabase";
 
-const EMAIL_PRIMARY_ID = 'idn_email_primary';
+const EMAIL_PRIMARY_ID = "idn_email_primary";
 
-const EMAIL_SECONDARY_ID = 'idn_email_secondary';
+const EMAIL_SECONDARY_ID = "idn_email_secondary";
 
 const CREATED_AT_MS = 1_700_000_000_000;
 
@@ -215,14 +215,14 @@ const LAST_SIGN_IN_ISO = new Date(LAST_SIGN_IN_MS).toISOString();
 
 const ISO_LIKE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
 
-type EmailStatus = 'verified' | 'unverified';
+type EmailStatus = "verified" | "unverified";
 
 function emailVerification(status: EmailStatus): VerificationJSON {
   return {
-    object: 'email_address',
-    id: 'ver_fixture',
+    object: "email_address",
+    id: "ver_fixture",
     status,
-    strategy: 'email_code',
+    strategy: "email_code",
     attempts: null,
     expire_at: null,
   };
@@ -230,7 +230,7 @@ function emailVerification(status: EmailStatus): VerificationJSON {
 
 function emailAddress(id: string, address: string, status: EmailStatus | null): EmailAddressJSON {
   return {
-    object: 'email_address',
+    object: "email_address",
     id,
     email_address: address,
     verification: status ? emailVerification(status) : null,
@@ -240,12 +240,12 @@ function emailAddress(id: string, address: string, status: EmailStatus | null): 
 
 function userJson(overrides: Partial<UserJSON> = {}): UserJSON {
   return {
-    object: 'user',
+    object: "user",
     id: CLERK_USER_ID,
     username: null,
     first_name: null,
     last_name: null,
-    image_url: 'https://img.clerk.com/default.png',
+    image_url: "https://img.clerk.com/default.png",
     has_image: false,
     primary_email_address_id: EMAIL_PRIMARY_ID,
     primary_phone_number_id: null,
@@ -254,7 +254,7 @@ function userJson(overrides: Partial<UserJSON> = {}): UserJSON {
     two_factor_enabled: false,
     totp_enabled: false,
     backup_code_enabled: false,
-    email_addresses: [emailAddress(EMAIL_PRIMARY_ID, 'MixedCase@Example.COM', 'verified')],
+    email_addresses: [emailAddress(EMAIL_PRIMARY_ID, "MixedCase@Example.COM", "verified")],
     phone_numbers: [],
     web3_wallets: [],
     organization_memberships: null,
@@ -306,19 +306,19 @@ function backendUser(json: UserJSON): User {
 let double: DbDouble;
 
 beforeEach(() => {
-  vi.spyOn(console, 'info').mockImplementation(() => {});
-  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, "info").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
   vi.clearAllMocks();
   clearUserVerificationCache();
   double = createDbDouble();
 });
 
-describe('syncUserMirrorFromClerkUser', () => {
-  it('selects the address matching primary_email_address_id and lowercases it', async () => {
+describe("syncUserMirrorFromClerkUser", () => {
+  it("selects the address matching primary_email_address_id and lowercases it", async () => {
     const user = userJson({
       email_addresses: [
-        emailAddress(EMAIL_PRIMARY_ID, 'First@Example.com', 'verified'),
-        emailAddress(EMAIL_SECONDARY_ID, 'PRIMARY@Example.ORG', 'unverified'),
+        emailAddress(EMAIL_PRIMARY_ID, "First@Example.com", "verified"),
+        emailAddress(EMAIL_SECONDARY_ID, "PRIMARY@Example.ORG", "unverified"),
       ],
       primary_email_address_id: EMAIL_SECONDARY_ID,
     });
@@ -327,24 +327,24 @@ describe('syncUserMirrorFromClerkUser', () => {
 
     const [upsert] = double.mirrorUpserts();
     expect(upsert.values.id).toBe(CLERK_USER_ID);
-    expect(upsert.values.email).toBe('primary@example.org');
+    expect(upsert.values.email).toBe("primary@example.org");
   });
 
-  it('falls back to the first address when no primary id matches', async () => {
+  it("falls back to the first address when no primary id matches", async () => {
     const user = userJson({
       email_addresses: [
-        emailAddress('idn_a', 'Second.One@Example.net', 'unverified'),
-        emailAddress('idn_b', 'ignored@Example.net', 'verified'),
+        emailAddress("idn_a", "Second.One@Example.net", "unverified"),
+        emailAddress("idn_b", "ignored@Example.net", "verified"),
       ],
       primary_email_address_id: null,
     });
 
     await expect(syncUserMirrorFromClerkUser(double.db, user)).resolves.toBe(true);
 
-    expect(double.mirrorUpserts()[0].values.email).toBe('second.one@example.net');
+    expect(double.mirrorUpserts()[0].values.email).toBe("second.one@example.net");
   });
 
-  it('stamps a fresh confirmation timestamp for a verified address', async () => {
+  it("stamps a fresh confirmation timestamp for a verified address", async () => {
     const before = Date.now();
     await syncUserMirrorFromClerkUser(double.db, userJson());
 
@@ -355,25 +355,25 @@ describe('syncUserMirrorFromClerkUser', () => {
     expect(parsed).toBeLessThanOrEqual(Date.now());
   });
 
-  it('leaves email_confirmed_at null for an unverified or unverified-payload address', async () => {
+  it("leaves email_confirmed_at null for an unverified or unverified-payload address", async () => {
     await syncUserMirrorFromClerkUser(
       double.db,
       userJson({
-        email_addresses: [emailAddress(EMAIL_PRIMARY_ID, 'pending@Example.com', 'unverified')],
-      })
+        email_addresses: [emailAddress(EMAIL_PRIMARY_ID, "pending@Example.com", "unverified")],
+      }),
     );
     expect(double.mirrorUpserts()[0].values.email_confirmed_at).toBeNull();
 
     await syncUserMirrorFromClerkUser(
       double.db,
       userJson({
-        email_addresses: [emailAddress(EMAIL_PRIMARY_ID, 'no-ver@Example.com', null)],
-      })
+        email_addresses: [emailAddress(EMAIL_PRIMARY_ID, "no-ver@Example.com", null)],
+      }),
     );
     expect(double.mirrorUpserts()[1].values.email_confirmed_at).toBeNull();
   });
 
-  it('uses external_id as the stable app id while preserving the Clerk id', async () => {
+  it("uses external_id as the stable app id while preserving the Clerk id", async () => {
     const migrated = userJson({ external_id: MIGRATED_APP_ID });
 
     await syncUserMirrorFromClerkUser(double.db, migrated);
@@ -389,7 +389,7 @@ describe('syncUserMirrorFromClerkUser', () => {
     expect(fallback.values.clerk_user_id).toBe(CLERK_USER_ID);
   });
 
-  it('maps created_at / last_sign_in_at onto ISO values, tolerating null sign-in', async () => {
+  it("maps created_at / last_sign_in_at onto ISO values, tolerating null sign-in", async () => {
     await syncUserMirrorFromClerkUser(double.db, userJson());
 
     const upsert = double.mirrorUpserts()[0];
@@ -403,12 +403,12 @@ describe('syncUserMirrorFromClerkUser', () => {
     expect(neverSignedIn.values.last_sign_in_at).toBeNull();
   });
 
-  it('writes consent timestamps on profile insert only from public_metadata booleans', async () => {
+  it("writes consent timestamps on profile insert only from public_metadata booleans", async () => {
     await syncUserMirrorFromClerkUser(
       double.db,
       userJson({
         public_metadata: { age_verified: true, agreed_to_terms: true },
-      })
+      }),
     );
 
     const [insert] = double.profileInserts();
@@ -424,7 +424,7 @@ describe('syncUserMirrorFromClerkUser', () => {
       double.db,
       userJson({
         public_metadata: { age_verified: true, agreed_to_terms: false },
-      })
+      }),
     );
     const partial = double.profileInserts()[1].values;
     expect(String(partial.age_verified_at)).toMatch(ISO_LIKE);
@@ -436,23 +436,23 @@ describe('syncUserMirrorFromClerkUser', () => {
     expect(none.agreed_to_terms_at).toBeNull();
   });
 
-  it('returns false without touching the DB when the payload has no email', async () => {
+  it("returns false without touching the DB when the payload has no email", async () => {
     const result = await syncUserMirrorFromClerkUser(
       double.db,
       userJson({
         email_addresses: [],
         primary_email_address_id: null,
-      })
+      }),
     );
 
     expect(result).toBe(false);
     expect(double.ops()).toHaveLength(0);
   });
 
-  it('replayed created payloads produce identical builder calls and stable id/email', async () => {
+  it("replayed created payloads produce identical builder calls and stable id/email", async () => {
     const payload = userJson({
       external_id: MIGRATED_APP_ID,
-      email_addresses: [emailAddress(EMAIL_PRIMARY_ID, 'Migrated.User@Example.COM', 'verified')],
+      email_addresses: [emailAddress(EMAIL_PRIMARY_ID, "Migrated.User@Example.COM", "verified")],
       public_metadata: { age_verified: true, agreed_to_terms: true },
     });
 
@@ -472,7 +472,7 @@ describe('syncUserMirrorFromClerkUser', () => {
     expect(secondProfile.values.user_id).toBe(firstProfile.values.user_id);
 
     expect(firstMirror.values.id).toBe(MIGRATED_APP_ID);
-    expect(firstMirror.values.email).toBe('migrated.user@example.com');
+    expect(firstMirror.values.email).toBe("migrated.user@example.com");
 
     for (const mirror of [firstMirror, secondMirror]) {
       expect(String(mirror.values.email_confirmed_at)).toMatch(ISO_LIKE);
@@ -487,31 +487,31 @@ describe('syncUserMirrorFromClerkUser', () => {
 
     expect(firstMirror.conflict?.target).toBe(users.id);
     const conflictSet = firstMirror.conflict?.set ?? {};
-    expect(renderSql(conflictSet.clerk_user_id)).toBe('excluded.clerk_user_id');
-    expect(renderSql(conflictSet.email)).toBe('excluded.email');
+    expect(renderSql(conflictSet.clerk_user_id)).toBe("excluded.clerk_user_id");
+    expect(renderSql(conflictSet.email)).toBe("excluded.email");
     const confirmedAtRule = renderSql(conflictSet.email_confirmed_at);
     expect(confirmedAtRule).toContain(
-      'when "users"."email" <> excluded.email then excluded.email_confirmed_at'
+      'when "users"."email" <> excluded.email then excluded.email_confirmed_at',
     );
     expect(confirmedAtRule).toContain(
-      'coalesce("users"."email_confirmed_at", excluded.email_confirmed_at)'
+      'coalesce("users"."email_confirmed_at", excluded.email_confirmed_at)',
     );
     expect(renderSql(conflictSet.last_sign_in_at)).toBe(
-      'coalesce(excluded.last_sign_in_at, "users"."last_sign_in_at")'
+      'coalesce(excluded.last_sign_in_at, "users"."last_sign_in_at")',
     );
 
     expect(firstProfile.conflict?.target).toBe(userProfiles.user_id);
   });
 });
 
-describe('repairUserMirror', () => {
+describe("repairUserMirror", () => {
   const APP_USER_ID = MIGRATED_APP_ID;
 
-  it('reports existing full consent without using the passed user or writing', async () => {
+  it("reports existing full consent without using the passed user or writing", async () => {
     double.nextRows([
       {
-        age_verified_at: '2026-01-01T00:00:00.000Z',
-        agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
+        age_verified_at: "2026-01-01T00:00:00.000Z",
+        agreed_to_terms_at: "2026-01-01T00:00:01.000Z",
       },
     ]);
 
@@ -521,7 +521,7 @@ describe('repairUserMirror', () => {
     const [probe] = double.selects();
     expect(probe.table).toBe(userProfiles);
     expect(Object.keys(probe.projection).sort()).toEqual(
-      ['age_verified_at', 'agreed_to_terms_at'].sort()
+      ["age_verified_at", "agreed_to_terms_at"].sort(),
     );
     expect(renderWhere(probe.where)).toEqual({
       sql: '"user_profiles"."user_id" = $1',
@@ -530,11 +530,11 @@ describe('repairUserMirror', () => {
     expect(double.inserts()).toHaveLength(0);
   });
 
-  it('never reads the passed user when the profile row already exists', async () => {
+  it("never reads the passed user when the profile row already exists", async () => {
     double.nextRows([
       {
-        age_verified_at: '2026-01-01T00:00:00.000Z',
-        agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
+        age_verified_at: "2026-01-01T00:00:00.000Z",
+        agreed_to_terms_at: "2026-01-01T00:00:01.000Z",
       },
     ]);
 
@@ -542,9 +542,9 @@ describe('repairUserMirror', () => {
       {},
       {
         get: () => {
-          throw new Error('repair must not read the passed user on a cache hit');
+          throw new Error("repair must not read the passed user on a cache hit");
         },
-      }
+      },
     );
 
     // SAFETY: the proxy throws on any read, so the cache-hit path must not touch the user.
@@ -555,14 +555,14 @@ describe('repairUserMirror', () => {
     expect(double.inserts()).toHaveLength(0);
   });
 
-  it('preserves the existing confirmation timestamp when the email is unchanged', async () => {
+  it("preserves the existing confirmation timestamp when the email is unchanged", async () => {
     double.nextRows([]);
     double.nextRows([{ age_verified_at: null, agreed_to_terms_at: null }]);
 
     await repairUserMirror(
       double.db,
       APP_USER_ID,
-      backendUser(userJson({ external_id: MIGRATED_APP_ID }))
+      backendUser(userJson({ external_id: MIGRATED_APP_ID })),
     );
 
     const [mirror] = double.mirrorUpserts();
@@ -570,15 +570,15 @@ describe('repairUserMirror', () => {
     const conflictSet = mirror.conflict?.set ?? {};
     const confirmedAtRule = renderSql(conflictSet.email_confirmed_at);
     expect(confirmedAtRule).toContain(
-      'when "users"."email" <> excluded.email then excluded.email_confirmed_at'
+      'when "users"."email" <> excluded.email then excluded.email_confirmed_at',
     );
     expect(confirmedAtRule).toContain(
-      'coalesce("users"."email_confirmed_at", excluded.email_confirmed_at)'
+      'coalesce("users"."email_confirmed_at", excluded.email_confirmed_at)',
     );
   });
 
-  it('requires BOTH consent timestamps before reporting hasConsent', async () => {
-    double.nextRows([{ age_verified_at: '2026-01-01T00:00:00.000Z', agreed_to_terms_at: null }]);
+  it("requires BOTH consent timestamps before reporting hasConsent", async () => {
+    double.nextRows([{ age_verified_at: "2026-01-01T00:00:00.000Z", agreed_to_terms_at: null }]);
 
     const result = await repairUserMirror(double.db, APP_USER_ID, backendUser(userJson()));
 
@@ -586,7 +586,7 @@ describe('repairUserMirror', () => {
     expect(double.inserts()).toHaveLength(0);
   });
 
-  it('upserts the passed Clerk user when the profile row is missing (verified user)', async () => {
+  it("upserts the passed Clerk user when the profile row is missing (verified user)", async () => {
     const clerkUser = userJson({
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: true, agreed_to_terms: true },
@@ -595,8 +595,8 @@ describe('repairUserMirror', () => {
     double.nextRows([]);
     double.nextRows([
       {
-        age_verified_at: '2026-01-01T00:00:00.000Z',
-        agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
+        age_verified_at: "2026-01-01T00:00:00.000Z",
+        agreed_to_terms_at: "2026-01-01T00:00:01.000Z",
       },
     ]);
 
@@ -607,7 +607,7 @@ describe('repairUserMirror', () => {
     const [mirror] = double.mirrorUpserts();
     expect(mirror.values.id).toBe(APP_USER_ID);
     expect(mirror.values.clerk_user_id).toBe(CLERK_USER_ID);
-    expect(mirror.values.email).toBe('mixedcase@example.com');
+    expect(mirror.values.email).toBe("mixedcase@example.com");
     expect(String(mirror.values.email_confirmed_at)).toMatch(ISO_LIKE);
     expect(mirror.values.created_at).toBe(CREATED_AT_ISO);
     expect(mirror.values.last_sign_in_at).toBe(LAST_SIGN_IN_ISO);
@@ -616,9 +616,9 @@ describe('repairUserMirror', () => {
     expect(String(profile.values.agreed_to_terms_at)).toMatch(ISO_LIKE);
   });
 
-  it('upserts unverified users without metadata and reports inserted consent state', async () => {
+  it("upserts unverified users without metadata and reports inserted consent state", async () => {
     const clerkUser = userJson({
-      email_addresses: [emailAddress(EMAIL_PRIMARY_ID, 'Unverified@Example.COM', 'unverified')],
+      email_addresses: [emailAddress(EMAIL_PRIMARY_ID, "Unverified@Example.COM", "unverified")],
       last_sign_in_at: null,
       public_metadata: {},
     });
@@ -632,7 +632,7 @@ describe('repairUserMirror', () => {
     const mirror = double.mirrorUpserts()[0];
     expect(mirror.values.id).toBe(CLERK_USER_ID);
     expect(mirror.values.clerk_user_id).toBe(CLERK_USER_ID);
-    expect(mirror.values.email).toBe('unverified@example.com');
+    expect(mirror.values.email).toBe("unverified@example.com");
     expect(mirror.values.email_confirmed_at).toBeNull();
     expect(mirror.values.created_at).toBe(CREATED_AT_ISO);
     expect(mirror.values.last_sign_in_at).toBeNull();
@@ -641,9 +641,9 @@ describe('repairUserMirror', () => {
     expect(profile.agreed_to_terms_at).toBeNull();
   });
 
-  it('returns null without writing when the Clerk user has no email', async () => {
+  it("returns null without writing when the Clerk user has no email", async () => {
     const clerkUser = backendUser(
-      userJson({ email_addresses: [], primary_email_address_id: null })
+      userJson({ email_addresses: [], primary_email_address_id: null }),
     );
 
     const result = await repairUserMirror(double.db, CLERK_USER_ID, clerkUser);
@@ -652,7 +652,7 @@ describe('repairUserMirror', () => {
     expect(double.inserts()).toHaveLength(0);
   });
 
-  it('reports the consent persisted after an insert/conflict race, not Clerk metadata', async () => {
+  it("reports the consent persisted after an insert/conflict race, not Clerk metadata", async () => {
     const clerkUser = userJson({
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: true, agreed_to_terms: true },
@@ -661,7 +661,7 @@ describe('repairUserMirror', () => {
     double.nextRows([]);
     double.nextRows([
       {
-        age_verified_at: '2026-01-01T00:00:00.000Z',
+        age_verified_at: "2026-01-01T00:00:00.000Z",
         agreed_to_terms_at: null,
       },
     ]);
@@ -680,7 +680,7 @@ describe('repairUserMirror', () => {
     }
   });
 
-  it('reports retained consent even when Clerk metadata claims none after the race', async () => {
+  it("reports retained consent even when Clerk metadata claims none after the race", async () => {
     const clerkUser = userJson({
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: false, agreed_to_terms: false },
@@ -689,26 +689,26 @@ describe('repairUserMirror', () => {
     double.nextRows([]);
     double.nextRows([
       {
-        age_verified_at: '2026-01-01T00:00:00.000Z',
-        agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
+        age_verified_at: "2026-01-01T00:00:00.000Z",
+        agreed_to_terms_at: "2026-01-01T00:00:01.000Z",
       },
     ]);
 
     await expect(repairUserMirror(double.db, APP_USER_ID, backendUser(clerkUser))).resolves.toEqual(
       {
         hasConsent: true,
-      }
+      },
     );
   });
 
-  it('throws when the profile row is inexplicably absent after the upsert', async () => {
+  it("throws when the profile row is inexplicably absent after the upsert", async () => {
     const clerkUser = userJson({
       external_id: MIGRATED_APP_ID,
       public_metadata: { age_verified: true, agreed_to_terms: true },
     });
 
     await expect(
-      repairUserMirror(double.db, APP_USER_ID, backendUser(clerkUser))
+      repairUserMirror(double.db, APP_USER_ID, backendUser(clerkUser)),
     ).rejects.toThrow();
 
     expect(double.inserts()).toHaveLength(2);
@@ -716,14 +716,14 @@ describe('repairUserMirror', () => {
   });
 });
 
-describe('webhook/repair verified-state consistency (#358)', () => {
+describe("webhook/repair verified-state consistency (#358)", () => {
   it.each([
-    ['verified', 'verified' as const],
-    ['unverified', 'unverified' as const],
-  ])('%s identity yields the same mirror row through sync and repair', async (_label, status) => {
+    ["verified", "verified" as const],
+    ["unverified", "unverified" as const],
+  ])("%s identity yields the same mirror row through sync and repair", async (_label, status) => {
     const shared = {
       external_id: MIGRATED_APP_ID,
-      email_addresses: [emailAddress(EMAIL_PRIMARY_ID, 'Shared@Example.COM', status)],
+      email_addresses: [emailAddress(EMAIL_PRIMARY_ID, "Shared@Example.COM", status)],
     };
 
     await syncUserMirrorFromClerkUser(double.db, userJson(shared));
@@ -732,8 +732,8 @@ describe('webhook/repair verified-state consistency (#358)', () => {
     double.nextRows([]);
     double.nextRows([
       {
-        age_verified_at: '2026-01-01T00:00:00.000Z',
-        agreed_to_terms_at: '2026-01-01T00:00:01.000Z',
+        age_verified_at: "2026-01-01T00:00:00.000Z",
+        agreed_to_terms_at: "2026-01-01T00:00:01.000Z",
       },
     ]);
     await repairUserMirror(double.db, MIGRATED_APP_ID, backendUser(userJson(shared)));
@@ -745,7 +745,7 @@ describe('webhook/repair verified-state consistency (#358)', () => {
     expect(repaired.created_at).toBe(synced.created_at);
     expect(repaired.last_sign_in_at).toBe(synced.last_sign_in_at);
 
-    if (status === 'verified') {
+    if (status === "verified") {
       expect(String(repaired.email_confirmed_at)).toMatch(ISO_LIKE);
       expect(String(synced.email_confirmed_at)).toMatch(ISO_LIKE);
     } else {
@@ -755,56 +755,56 @@ describe('webhook/repair verified-state consistency (#358)', () => {
   });
 });
 
-describe('readUserVerification', () => {
-  const ROW = { email: 'gate@example.com', email_confirmed_at: '2026-02-03T04:05:06.000Z' };
+describe("readUserVerification", () => {
+  const ROW = { email: "gate@example.com", email_confirmed_at: "2026-02-03T04:05:06.000Z" };
 
-  it('live reads project the mirror gate columns keyed by users.id, or null when absent', async () => {
+  it("live reads project the mirror gate columns keyed by users.id, or null when absent", async () => {
     double.nextRows([ROW]);
 
-    await expect(readUserVerification(double.db, 'u1', { cache: false })).resolves.toEqual(ROW);
+    await expect(readUserVerification(double.db, "u1", { cache: false })).resolves.toEqual(ROW);
     const [select] = double.selects();
     expect(select.table).toBe(users);
     expect(select.projection).toEqual({
       email: users.email,
       email_confirmed_at: users.email_confirmed_at,
     });
-    expect(renderWhere(select.where)).toEqual({ sql: '"users"."id" = $1', params: ['u1'] });
+    expect(renderWhere(select.where)).toEqual({ sql: '"users"."id" = $1', params: ["u1"] });
 
     double.nextRows([]);
-    await expect(readUserVerification(double.db, 'u1', { cache: false })).resolves.toBeNull();
+    await expect(readUserVerification(double.db, "u1", { cache: false })).resolves.toBeNull();
   });
 
-  it('serves subsequent cached reads from memory without re-querying', async () => {
+  it("serves subsequent cached reads from memory without re-querying", async () => {
     double.nextRows([ROW]);
     double.nextRows([ROW]);
 
-    const first = await readUserVerification(double.db, 'u1', { cache: true });
-    const second = await readUserVerification(double.db, 'u1', { cache: true });
+    const first = await readUserVerification(double.db, "u1", { cache: true });
+    const second = await readUserVerification(double.db, "u1", { cache: true });
 
     expect(first).toEqual(ROW);
     expect(second).toEqual(ROW);
     expect(double.selects()).toHaveLength(1);
 
-    await expect(readUserVerification(double.db, 'u2', { cache: true })).resolves.toEqual(ROW);
+    await expect(readUserVerification(double.db, "u2", { cache: true })).resolves.toEqual(ROW);
     expect(double.selects()).toHaveLength(2);
   });
 
-  it('does not cache a miss, so a mirror row that lands later is seen by the next read', async () => {
-    await expect(readUserVerification(double.db, 'u1', { cache: true })).resolves.toBeNull();
+  it("does not cache a miss, so a mirror row that lands later is seen by the next read", async () => {
+    await expect(readUserVerification(double.db, "u1", { cache: true })).resolves.toBeNull();
     expect(double.selects()).toHaveLength(1);
 
     double.nextRows([ROW]);
-    await expect(readUserVerification(double.db, 'u1', { cache: true })).resolves.toEqual(ROW);
+    await expect(readUserVerification(double.db, "u1", { cache: true })).resolves.toEqual(ROW);
     expect(double.selects()).toHaveLength(2);
 
-    await expect(readUserVerification(double.db, 'u2', { cache: true })).resolves.toBeNull();
+    await expect(readUserVerification(double.db, "u2", { cache: true })).resolves.toBeNull();
     expect(double.selects()).toHaveLength(3);
   });
 });
 
-describe('softDeleteUserById', () => {
-  it('writes a disabled tombstone profile row so a user.created retry cannot resurrect the account', async () => {
-    double.nextRows([{ id: 'app-user-1' }]);
+describe("softDeleteUserById", () => {
+  it("writes a disabled tombstone profile row so a user.created retry cannot resurrect the account", async () => {
+    double.nextRows([{ id: "app-user-1" }]);
 
     await expect(softDeleteUserById(double.db, CLERK_USER_ID)).resolves.toBe(1);
 
@@ -818,25 +818,25 @@ describe('softDeleteUserById', () => {
     const tombstones = double.profileInserts();
     expect(tombstones).toHaveLength(1);
     const [tombstone] = tombstones;
-    expect(tombstone.values.user_id).toBe('app-user-1');
+    expect(tombstone.values.user_id).toBe("app-user-1");
     expect(tombstone.values.is_disabled).toBe(true);
     expect(tombstone.values.notifications_enabled).toBe(false);
-    expect(renderSql(tombstone.values.disabled_at)).toBe('now()');
-    expect(renderSql(tombstone.values.unsubscribed_at)).toBe('now()');
+    expect(renderSql(tombstone.values.disabled_at)).toBe("now()");
+    expect(renderSql(tombstone.values.unsubscribed_at)).toBe("now()");
 
     expect(tombstone.conflict?.target).toBe(userProfiles.user_id);
     const conflictSet = tombstone.conflict?.set ?? {};
     expect(conflictSet.is_disabled).toBe(true);
     expect(conflictSet.notifications_enabled).toBe(false);
     expect(renderSql(conflictSet.disabled_at)).toBe(
-      'coalesce("user_profiles"."disabled_at", now())'
+      'coalesce("user_profiles"."disabled_at", now())',
     );
     expect(renderSql(conflictSet.unsubscribed_at)).toBe(
-      'coalesce("user_profiles"."unsubscribed_at", now())'
+      'coalesce("user_profiles"."unsubscribed_at", now())',
     );
   });
 
-  it('returns 0 and writes nothing when no mirror row carries the id', async () => {
+  it("returns 0 and writes nothing when no mirror row carries the id", async () => {
     double.nextRows([]);
 
     await expect(softDeleteUserById(double.db, CLERK_USER_ID)).resolves.toBe(0);
@@ -844,10 +844,10 @@ describe('softDeleteUserById', () => {
     expect(double.inserts()).toHaveLength(0);
   });
 
-  it('propagates DB failures after logging', async () => {
-    double.nextRows([{ id: 'app-user-1' }]);
-    double.failNextInsert(new Error('connection reset'));
+  it("propagates DB failures after logging", async () => {
+    double.nextRows([{ id: "app-user-1" }]);
+    double.failNextInsert(new Error("connection reset"));
 
-    await expect(softDeleteUserById(double.db, CLERK_USER_ID)).rejects.toThrow('connection reset');
+    await expect(softDeleteUserById(double.db, CLERK_USER_ID)).rejects.toThrow("connection reset");
   });
 });

@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import { m } from 'framer-motion';
-import { Plus, Search } from 'lucide-react';
-import Link from 'next/link';
-import { toast } from 'sonner';
-import { ClassWatchCard } from '@/components/ClassWatchCard';
-import { DashboardStats } from '@/components/dashboard/DashboardStats';
-import { EmptyWatchlist, NoSearchResults } from '@/components/dashboard/EmptyStates';
-import { FinishSetupCard } from '@/components/FinishSetupCard';
-import { Header } from '@/components/Header';
-import { OnboardingModal } from '@/components/OnboardingModal';
-import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator';
-import { Alert } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { fadeInUp, staggerContainer, staggerItem } from '@/lib/animations';
-import { useClassWatches } from '@/lib/hooks/useClassWatches';
-import { useRequireAuth } from '@/lib/hooks/useRequireAuth';
-import { sectionRefKey } from '@/lib/section-ref';
+import { m } from "framer-motion";
+import { Plus, Search } from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { ClassWatchCard } from "@/components/ClassWatchCard";
+import { DashboardStats } from "@/components/dashboard/DashboardStats";
+import { EmptyWatchlist, NoSearchResults } from "@/components/dashboard/EmptyStates";
+import { FinishSetupCard } from "@/components/FinishSetupCard";
+import { Header } from "@/components/Header";
+import { OnboardingModal } from "@/components/OnboardingModal";
+import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { fadeInUp, staggerContainer, staggerItem } from "@/lib/animations";
+import { useClassWatches } from "@/lib/hooks/useClassWatches";
+import { useRequireAuth } from "@/lib/hooks/useRequireAuth";
+import { sectionRefKey } from "@/lib/section-ref";
 
 export default function DashboardPage() {
   useRequireAuth();
@@ -76,7 +76,7 @@ export default function DashboardPage() {
         onSkipped={setOnboarding}
         onCompleted={handleOnboardingCompleted}
         onSkipError={(message) =>
-          toast.error('Could not skip onboarding', { description: message })
+          toast.error("Could not skip onboarding", { description: message })
         }
       />
       <main id="main" tabIndex={-1} className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">

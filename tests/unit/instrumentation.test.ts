@@ -1,38 +1,38 @@
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const { mockCaptureServerException, mockDistinctIdFromCookieHeader } = vi.hoisted(() => ({
   mockCaptureServerException: vi.fn(),
   mockDistinctIdFromCookieHeader: vi.fn(),
 }));
 
-vi.mock('@/lib/analytics/server', () => ({
+vi.mock("@/lib/analytics/server", () => ({
   captureServerException: mockCaptureServerException,
   distinctIdFromCookieHeader: mockDistinctIdFromCookieHeader,
 }));
 
-import { onRequestError } from '../../instrumentation';
+import { onRequestError } from "../../instrumentation";
 
-describe('root request instrumentation', () => {
+describe("root request instrumentation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('forwards only path/method/route context to the analytics boundary', () => {
-    const error = new Error('render exploded');
+  it("forwards only path/method/route context to the analytics boundary", () => {
+    const error = new Error("render exploded");
     const sentinel = Promise.resolve();
 
     const requestWithHeaders = {
-      path: '/dashboard/[id]',
-      method: 'GET',
-      headers: { authorization: 'Bearer secret', cookie: 'session=abc' },
+      path: "/dashboard/[id]",
+      method: "GET",
+      headers: { authorization: "Bearer secret", cookie: "session=abc" },
     };
 
     mockCaptureServerException.mockReturnValue(sentinel);
 
     const result = onRequestError(error, requestWithHeaders, {
-      routerKind: 'App Router',
-      routePath: '/dashboard/[id]',
-      routeType: 'render',
+      routerKind: "App Router",
+      routePath: "/dashboard/[id]",
+      routeType: "render",
     });
 
     expect(result).toBe(sentinel);
@@ -41,46 +41,46 @@ describe('root request instrumentation', () => {
     expect(mockCaptureServerException).toHaveBeenCalledWith(
       error,
       expect.objectContaining({
-        path: '/dashboard/[id]',
-        method: 'GET',
-        route_path: '/dashboard/[id]',
-        route_type: 'render',
-        router_kind: 'App Router',
+        path: "/dashboard/[id]",
+        method: "GET",
+        route_path: "/dashboard/[id]",
+        route_type: "render",
+        router_kind: "App Router",
       }),
-      undefined
+      undefined,
     );
   });
 
-  it('attributes the exception to the distinct id recovered from the cookie header', () => {
-    mockDistinctIdFromCookieHeader.mockReturnValueOnce('anon-123');
-    const cookie = 'ph_phc_x_posthog=%7B%7D';
+  it("attributes the exception to the distinct id recovered from the cookie header", () => {
+    mockDistinctIdFromCookieHeader.mockReturnValueOnce("anon-123");
+    const cookie = "ph_phc_x_posthog=%7B%7D";
 
-    onRequestError(
-      new Error('render exploded'),
-      { path: '/x', method: 'GET', headers: { cookie } },
-      { routerKind: 'App Router', routePath: '/x', routeType: 'render' }
+    void onRequestError(
+      new Error("render exploded"),
+      { path: "/x", method: "GET", headers: { cookie } },
+      { routerKind: "App Router", routePath: "/x", routeType: "render" },
     );
 
     expect(mockDistinctIdFromCookieHeader).toHaveBeenCalledWith(cookie);
-    expect(mockCaptureServerException.mock.calls[0][2]).toBe('anon-123');
+    expect(mockCaptureServerException.mock.calls[0][2]).toBe("anon-123");
   });
 
-  it('never sends request headers or their values as properties', () => {
+  it("never sends request headers or their values as properties", () => {
     const requestWithHeaders = {
-      path: '/api/user/delete',
-      method: 'DELETE',
-      headers: { authorization: 'Bearer secret', cookie: 'session=abc' },
+      path: "/api/user/delete",
+      method: "DELETE",
+      headers: { authorization: "Bearer secret", cookie: "session=abc" },
     };
 
-    onRequestError(new Error('route failed'), requestWithHeaders, {
-      routerKind: 'App Router',
-      routePath: '/api/user/delete',
-      routeType: 'route',
+    void onRequestError(new Error("route failed"), requestWithHeaders, {
+      routerKind: "App Router",
+      routePath: "/api/user/delete",
+      routeType: "route",
     });
 
     const [, properties] = mockCaptureServerException.mock.calls[0];
-    expect(properties).not.toHaveProperty('headers');
-    expect(JSON.stringify(properties)).not.toContain('Bearer secret');
-    expect(JSON.stringify(properties)).not.toContain('session=abc');
+    expect(properties).not.toHaveProperty("headers");
+    expect(JSON.stringify(properties)).not.toContain("Bearer secret");
+    expect(JSON.stringify(properties)).not.toContain("session=abc");
   });
 });

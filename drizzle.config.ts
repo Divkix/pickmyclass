@@ -1,16 +1,12 @@
-import { defineConfig } from 'drizzle-kit';
-
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error('DATABASE_URL is required');
-}
+import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
-  schema: './lib/db/schema/index.ts',
-  out: './migrations_pg',
-  dialect: 'postgresql',
+  schema: "./lib/db/schema/index.ts",
+  out: "./migrations_pg",
+  dialect: "postgresql",
   dbCredentials: {
-    url: databaseUrl,
+    // Generate works offline; push, migrate, and studio need a real DATABASE_URL.
+    url:
+      process.env.DATABASE_URL ?? "postgres://unset-DATABASE_URL:unset@localhost:5432/pickmyclass",
   },
 });

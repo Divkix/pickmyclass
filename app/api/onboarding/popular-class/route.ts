@@ -1,11 +1,11 @@
-import { env } from 'cloudflare:workers';
-import { fail, ok } from '@/lib/api/response';
-import { type ClassDetails, fetchClassFromASU } from '@/lib/asu/api';
-import { requireUser, UnauthorizedError } from '@/lib/auth/require-user';
-import { getDbFromEnv } from '@/lib/db';
-import { getMostWatchedClass } from '@/lib/db/queries';
-import { log } from '@/lib/log';
-import { getSelectableTerms } from '@/lib/asu/terms';
+import { env } from "cloudflare:workers";
+import { fail, ok } from "@/lib/api/response";
+import { type ClassDetails, fetchClassFromASU } from "@/lib/asu/api";
+import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
+import { getDbFromEnv } from "@/lib/db";
+import { getMostWatchedClass } from "@/lib/db/queries";
+import { log } from "@/lib/log";
+import { getSelectableTerms } from "@/lib/asu/terms";
 
 export interface PopularClass {
   [key: string]: string | ClassDetails;
@@ -39,9 +39,9 @@ export async function GET(request: Request) {
     try {
       details = await fetchClassFromASU(popular, asuEnv);
     } catch (error) {
-      log('Onboarding').warn(
+      log("Onboarding").warn(
         `Popular class ${popular.class_nbr} (term ${popular.term}) failed ASU validation:`,
-        error instanceof Error ? error.message : error
+        error instanceof Error ? error.message : error,
       );
 
       return ok({ popularClass: null });
@@ -49,8 +49,8 @@ export async function GET(request: Request) {
 
     return ok({ popularClass: { class_nbr: popular.class_nbr, term: popular.term, details } });
   } catch (error) {
-    if (error instanceof UnauthorizedError) return fail('Unauthorized', 401);
-    log('Onboarding').error('Popular class error:', error);
+    if (error instanceof UnauthorizedError) return fail("Unauthorized", 401);
+    log("Onboarding").error("Popular class error:", error);
 
     return ok({ popularClass: null });
   }

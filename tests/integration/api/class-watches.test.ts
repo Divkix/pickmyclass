@@ -1,13 +1,13 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { drizzle } from "drizzle-orm/postgres-js";
+import { NextRequest } from "next/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { Database } from '@/lib/db';
-import { getSelectableTerms } from '@/lib/asu/terms';
-import type { ValidationIssueDetail } from '@/lib/api/validation';
-import * as schema from '@/lib/db/schema';
-import type { ClassDetails } from '@/lib/types/class';
-import type { ClassStateRow, ClassWatchRow } from '@/lib/types/class-watch';
+import type { Database } from "@/lib/db";
+import { getSelectableTerms } from "@/lib/asu/terms";
+import type { ValidationIssueDetail } from "@/lib/api/validation";
+import * as schema from "@/lib/db/schema";
+import type { ClassDetails } from "@/lib/types/class";
+import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
 
 interface CapturedStatement {
   sql: string;
@@ -60,7 +60,7 @@ function createDbHarness() {
 
   const client: PostgresJsSeam = scriptedClient;
   // SAFETY: the double implements the postgres-js seam drizzle drives: options, unsafe, begin.
-  const db = drizzle(client as Database['$client'], { schema });
+  const db = drizzle(client as Database["$client"], { schema });
 
   return {
     db,
@@ -98,74 +98,74 @@ const {
   };
 });
 
-vi.mock('@/lib/auth/clerk-session', () => ({
+vi.mock("@/lib/auth/clerk-session", () => ({
   getSessionIdentity: mockGetSessionIdentity,
 }));
 
-vi.mock('@/lib/db', () => ({
+vi.mock("@/lib/db", () => ({
   getDbFromEnv: (...args: unknown[]) => mockGetDbFromEnv(...args),
 }));
 
-vi.mock('@/lib/asu/api', () => ({
+vi.mock("@/lib/asu/api", () => ({
   fetchClassFromASU: mockFetchClassFromASU,
   NotFoundError,
   AuthError,
 }));
 
-vi.mock('@/lib/analytics/server', () => ({
+vi.mock("@/lib/analytics/server", () => ({
   captureServerEvent: mockCaptureServerEvent,
 }));
 
-vi.mock('cloudflare:workers', () => ({
+vi.mock("cloudflare:workers", () => ({
   env: {
-    ASU_API_BASE_URL: 'https://mock-asu-api.example.com',
-    ASU_API_TOKEN: 'mock-token',
+    ASU_API_BASE_URL: "https://mock-asu-api.example.com",
+    ASU_API_TOKEN: "mock-token",
   },
 }));
 
-import { DELETE, GET, POST } from '@/app/api/class-watches/route';
+import { DELETE, GET, POST } from "@/app/api/class-watches/route";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
-const USER_ID = 'user-123';
+const USER_ID = "user-123";
 
-const identity = { userId: USER_ID, clerkUserId: 'clerk_123', sessionId: 'sess_123' };
+const identity = { userId: USER_ID, clerkUserId: "clerk_123", sessionId: "sess_123" };
 
 const term = getSelectableTerms()[0].code;
 
 const asuDetails: ClassDetails = {
-  subject: 'CSE',
-  catalog_nbr: '240',
-  title: 'Intro to Programming',
-  instructor_name: 'John Doe',
+  subject: "CSE",
+  catalog_nbr: "240",
+  title: "Intro to Programming",
+  instructor_name: "John Doe",
   seats_available: 10,
   seats_capacity: 50,
   non_reserved_seats: null,
-  location: 'COOR 120',
-  meeting_times: 'MWF 9:00 AM-9:50 AM',
+  location: "COOR 120",
+  meeting_times: "MWF 9:00 AM-9:50 AM",
 };
 
 const watchRow = {
-  id: 'watch-1',
-  class_nbr: '12345',
+  id: "watch-1",
+  class_nbr: "12345",
   term,
-  subject: 'CSE',
-  catalog_nbr: '240',
-  created_at: '2026-06-15T12:00:00Z',
+  subject: "CSE",
+  catalog_nbr: "240",
+  created_at: "2026-06-15T12:00:00Z",
 };
 
 const stateRow = {
-  class_nbr: '12345',
+  class_nbr: "12345",
   term,
   seats_available: 10,
   seats_capacity: 50,
   non_reserved_seats: 3,
-  instructor_name: 'John Doe',
-  title: 'Intro to Programming',
+  instructor_name: "John Doe",
+  title: "Intro to Programming",
 };
 
 const completedProfile = {
-  onboarding_completed_at: '2026-01-01T00:00:00Z',
+  onboarding_completed_at: "2026-01-01T00:00:00Z",
   onboarding_skipped_at: null,
 };
 
@@ -177,7 +177,7 @@ function wrappedDriverError(code: string, message: string): Error {
   const wrapper = new Error(`Failed query: SELECT * FROM create_class_watch_with_limit`);
 
   return Object.assign(wrapper, {
-    query: 'SELECT * FROM create_class_watch_with_limit(...)',
+    query: "SELECT * FROM create_class_watch_with_limit(...)",
     params: [],
     cause: driverError(code, message),
   });
@@ -197,16 +197,16 @@ interface MutationResponse {
 }
 
 function getRequest(): NextRequest {
-  return new NextRequest('http://localhost:3000/api/class-watches');
+  return new NextRequest("http://localhost:3000/api/class-watches");
 }
 
 function postRequest(body: Record<string, JsonValue>, sessionId?: string): NextRequest {
-  const headers = new Headers({ 'Content-Type': 'application/json' });
+  const headers = new Headers({ "Content-Type": "application/json" });
 
-  if (sessionId) headers.set('X-PostHog-Session-Id', sessionId);
+  if (sessionId) headers.set("X-PostHog-Session-Id", sessionId);
 
-  return new NextRequest('http://localhost:3000/api/class-watches', {
-    method: 'POST',
+  return new NextRequest("http://localhost:3000/api/class-watches", {
+    method: "POST",
     body: JSON.stringify(body),
     headers,
   });
@@ -215,10 +215,10 @@ function postRequest(body: Record<string, JsonValue>, sessionId?: string): NextR
 function deleteRequest(id: string | null): NextRequest {
   const url =
     id === null
-      ? 'http://localhost:3000/api/class-watches'
+      ? "http://localhost:3000/api/class-watches"
       : `http://localhost:3000/api/class-watches?id=${id}`;
 
-  return new NextRequest(url, { method: 'DELETE' });
+  return new NextRequest(url, { method: "DELETE" });
 }
 
 async function json<T extends object>(response: Response): Promise<T> {
@@ -226,10 +226,10 @@ async function json<T extends object>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-describe('/api/class-watches', () => {
+describe("/api/class-watches", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     h = createDbHarness();
     mockGetDbFromEnv.mockImplementation(() => h.db);
     mockGetSessionIdentity.mockResolvedValue(identity);
@@ -240,8 +240,8 @@ describe('/api/class-watches', () => {
     vi.restoreAllMocks();
   });
 
-  describe('GET /api/class-watches', () => {
-    it('returns 401 for unauthenticated requests without touching the database', async () => {
+  describe("GET /api/class-watches", () => {
+    it("returns 401 for unauthenticated requests without touching the database", async () => {
       mockGetSessionIdentity.mockResolvedValueOnce(null);
 
       const response = await GET(getRequest());
@@ -250,7 +250,7 @@ describe('/api/class-watches', () => {
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it('returns empty watches, the max, and onboarding state for a user with no watches', async () => {
+    it("returns empty watches, the max, and onboarding state for a user with no watches", async () => {
       h.next([]);
       h.next([completedProfile]);
 
@@ -261,13 +261,13 @@ describe('/api/class-watches', () => {
       expect(data.watches).toEqual([]);
       expect(data.maxWatches).toBe(10);
       expect(data).toMatchObject({
-        onboarding: { onboarding_completed_at: '2026-01-01T00:00:00Z', needs_onboarding: false },
+        onboarding: { onboarding_completed_at: "2026-01-01T00:00:00Z", needs_onboarding: false },
       });
       expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
       expect(h.statements).toHaveLength(2);
     });
 
-    it('joins persisted class states onto each watch by term and class number', async () => {
+    it("joins persisted class states onto each watch by term and class number", async () => {
       h.next([watchRow]);
       h.next([stateRow]);
       h.next([completedProfile]);
@@ -284,50 +284,50 @@ describe('/api/class-watches', () => {
       expect(statesQuery.sql).toContain('"class_watches"."class_nbr" = "class_states"."class_nbr"');
       expect(statesQuery.sql).toContain('"class_watches"."term" = "class_states"."term"');
       expect(statesQuery.sql).not.toContain('"class_states"."term" in');
-      expect(statesQuery.params).toEqual(['12345', USER_ID]);
+      expect(statesQuery.params).toEqual(["12345", USER_ID]);
     });
 
-    it('maps database failures to a 500 fetch error', async () => {
-      h.failNext(new Error('Database error'));
+    it("maps database failures to a 500 fetch error", async () => {
+      h.failNext(new Error("Database error"));
 
       const response = await GET(getRequest());
       const data = await json<GetResponse>(response);
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to fetch class watches');
+      expect(data.error).toBe("Failed to fetch class watches");
     });
   });
 
-  describe('POST /api/class-watches', () => {
-    it('returns 401 for unauthenticated requests without touching the database', async () => {
+  describe("POST /api/class-watches", () => {
+    it("returns 401 for unauthenticated requests without touching the database", async () => {
       mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
 
       expect(response.status).toBe(401);
       expect(mockFetchClassFromASU).not.toHaveBeenCalled();
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it('rejects invalid payloads before calling ASU or the database', async () => {
-      const response = await POST(postRequest({ class_nbr: '12345' }));
+    it("rejects invalid payloads before calling ASU or the database", async () => {
+      const response = await POST(postRequest({ class_nbr: "12345" }));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Invalid input');
+      expect(data.error).toBe("Invalid input");
       expect(mockFetchClassFromASU).not.toHaveBeenCalled();
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it('creates the watch atomically, persists state, completes onboarding, and fires analytics', async () => {
+    it("creates the watch atomically, persists state, completes onboarding, and fires analytics", async () => {
       const rpcWatch: ClassWatchRow = {
-        id: 'watch-new',
+        id: "watch-new",
         user_id: USER_ID,
-        class_nbr: '12345',
+        class_nbr: "12345",
         term,
-        subject: 'CSE',
-        catalog_nbr: '240',
-        created_at: '2026-06-15T12:00:00Z',
+        subject: "CSE",
+        catalog_nbr: "240",
+        created_at: "2026-06-15T12:00:00Z",
       };
 
       h.next([rpcWatch]);
@@ -335,7 +335,7 @@ describe('/api/class-watches', () => {
       h.next([]);
 
       const response = await POST(
-        postRequest({ term, class_nbr: '12345' }, 'c56a4180-65aa-42ec-a945-5fd21dec0538')
+        postRequest({ term, class_nbr: "12345" }, "c56a4180-65aa-42ec-a945-5fd21dec0538"),
       );
 
       const data = await json<MutationResponse>(response);
@@ -344,139 +344,139 @@ describe('/api/class-watches', () => {
       expect(data.watch).toEqual(rpcWatch);
       expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
 
-      expect(h.statements[0].sql).toContain('create_class_watch_with_limit');
-      expect(h.statements[0].params).toEqual([USER_ID, term, 'CSE', '240', '12345', 10]);
+      expect(h.statements[0].sql).toContain("create_class_watch_with_limit");
+      expect(h.statements[0].params).toEqual([USER_ID, term, "CSE", "240", "12345", 10]);
 
       expect(
-        h.statements.some((statement) => statement.sql.includes('insert into "class_states"'))
+        h.statements.some((statement) => statement.sql.includes('insert into "class_states"')),
       ).toBe(true);
       expect(
-        h.statements.some((statement) => statement.sql.includes('update "user_profiles"'))
+        h.statements.some((statement) => statement.sql.includes('update "user_profiles"')),
       ).toBe(true);
 
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, 'class_watch_created', {
+      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, "class_watch_created", {
         term,
-        class_nbr: '12345',
-        $session_id: 'c56a4180-65aa-42ec-a945-5fd21dec0538',
+        class_nbr: "12345",
+        $session_id: "c56a4180-65aa-42ec-a945-5fd21dec0538",
       });
     });
 
-    it('maps an ASU not-found miss to 404 without touching the database', async () => {
-      mockFetchClassFromASU.mockRejectedValueOnce(new NotFoundError('missing'));
+    it("maps an ASU not-found miss to 404 without touching the database", async () => {
+      mockFetchClassFromASU.mockRejectedValueOnce(new NotFoundError("missing"));
 
-      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(404);
-      expect(data.error).toBe('Class section not found');
+      expect(data.error).toBe("Class section not found");
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it('maps ASU auth failures to a temporary outage', async () => {
-      mockFetchClassFromASU.mockRejectedValueOnce(new AuthError('expired token'));
+    it("maps ASU auth failures to a temporary outage", async () => {
+      mockFetchClassFromASU.mockRejectedValueOnce(new AuthError("expired token"));
 
-      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(503);
-      expect(data.error).toBe('Service temporarily unavailable');
+      expect(data.error).toBe("Service temporarily unavailable");
     });
 
-    it('maps unexpected ASU failures to a fetch error', async () => {
-      mockFetchClassFromASU.mockRejectedValueOnce(new Error('network down'));
+    it("maps unexpected ASU failures to a fetch error", async () => {
+      mockFetchClassFromASU.mockRejectedValueOnce(new Error("network down"));
 
-      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to fetch class details');
+      expect(data.error).toBe("Failed to fetch class details");
     });
 
-    it('maps a duplicate-watch unique violation (wrapped driver error) to 409', async () => {
+    it("maps a duplicate-watch unique violation (wrapped driver error) to 409", async () => {
       h.failNext(
         wrappedDriverError(
-          '23505',
-          'duplicate key value violates unique constraint "class_watches_user_id_class_nbr_term_key"'
-        )
+          "23505",
+          'duplicate key value violates unique constraint "class_watches_user_id_class_nbr_term_key"',
+        ),
       );
 
-      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(409);
-      expect(data.error).toBe('You are already watching this class');
+      expect(data.error).toBe("You are already watching this class");
     });
 
-    it('maps a duplicate-watch violation even when the error arrives unwrapped', async () => {
-      h.failNext(driverError('23505', 'duplicate key value violates unique constraint'));
+    it("maps a duplicate-watch violation even when the error arrives unwrapped", async () => {
+      h.failNext(driverError("23505", "duplicate key value violates unique constraint"));
 
-      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
 
       expect(response.status).toBe(409);
     });
 
-    it('maps the atomic limit-enforcement RAISE EXCEPTION to 429', async () => {
-      h.failNext(wrappedDriverError('P0001', 'MAX_WATCHES_EXCEEDED'));
+    it("maps the atomic limit-enforcement RAISE EXCEPTION to 429", async () => {
+      h.failNext(wrappedDriverError("P0001", "MAX_WATCHES_EXCEEDED"));
 
-      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(429);
       expect(data.error).toBe(
-        'Maximum watches limit reached (10). Delete some watches to add more.'
+        "Maximum watches limit reached (10). Delete some watches to add more.",
       );
       expect(mockCaptureServerEvent).not.toHaveBeenCalled();
     });
 
-    it('maps unrelated RPC failures to a 500 creation error', async () => {
-      h.failNext(wrappedDriverError('08006', 'connection failure'));
+    it("maps unrelated RPC failures to a 500 creation error", async () => {
+      h.failNext(wrappedDriverError("08006", "connection failure"));
 
-      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to create class watch');
+      expect(data.error).toBe("Failed to create class watch");
     });
 
-    it('still returns 201 when persisting the class state fails (graceful degradation)', async () => {
+    it("still returns 201 when persisting the class state fails (graceful degradation)", async () => {
       h.next([
         {
-          id: 'watch-new',
+          id: "watch-new",
           user_id: USER_ID,
-          class_nbr: '12345',
+          class_nbr: "12345",
           term,
-          subject: 'CSE',
-          catalog_nbr: '240',
-          created_at: '2026-06-15T12:00:00Z',
+          subject: "CSE",
+          catalog_nbr: "240",
+          created_at: "2026-06-15T12:00:00Z",
         },
       ]);
-      h.failNext(new Error('upsert blew up'));
+      h.failNext(new Error("upsert blew up"));
       h.next([]);
 
-      const response = await POST(postRequest({ term, class_nbr: '12345' }));
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(201);
       expect(data.success).toBe(true);
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, 'class_watch_created', {
+      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, "class_watch_created", {
         term,
-        class_nbr: '12345',
+        class_nbr: "12345",
       });
     });
   });
 
-  describe('DELETE /api/class-watches', () => {
-    it('returns 401 for unauthenticated requests without touching the database', async () => {
+  describe("DELETE /api/class-watches", () => {
+    it("returns 401 for unauthenticated requests without touching the database", async () => {
       mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-      const response = await DELETE(deleteRequest('d0a2b3c1-0000-4000-8000-000000000001'));
+      const response = await DELETE(deleteRequest("d0a2b3c1-0000-4000-8000-000000000001"));
 
       expect(response.status).toBe(401);
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it('deletes only the authenticated user’s matching watch and fires analytics', async () => {
-      const watchId = 'd0a2b3c1-0000-4000-8000-000000000001';
+    it("deletes only the authenticated user’s matching watch and fires analytics", async () => {
+      const watchId = "d0a2b3c1-0000-4000-8000-000000000001";
       h.next([]);
 
       const response = await DELETE(deleteRequest(watchId));
@@ -490,28 +490,28 @@ describe('/api/class-watches', () => {
       expect(del.sql).toContain('delete from "class_watches"');
       expect(del.params).toEqual([watchId, USER_ID]);
 
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, 'class_watch_deleted', {
+      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, "class_watch_deleted", {
         watch_id: watchId,
       });
     });
 
-    it('rejects malformed watch ids with a validation error', async () => {
-      const response = await DELETE(deleteRequest('not-a-uuid'));
+    it("rejects malformed watch ids with a validation error", async () => {
+      const response = await DELETE(deleteRequest("not-a-uuid"));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Invalid input');
+      expect(data.error).toBe("Invalid input");
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it('maps delete failures to a 500 deletion error', async () => {
-      h.failNext(new Error('delete failed'));
+    it("maps delete failures to a 500 deletion error", async () => {
+      h.failNext(new Error("delete failed"));
 
-      const response = await DELETE(deleteRequest('d0a2b3c1-0000-4000-8000-000000000001'));
+      const response = await DELETE(deleteRequest("d0a2b3c1-0000-4000-8000-000000000001"));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to delete class watch');
+      expect(data.error).toBe("Failed to delete class watch");
     });
   });
 });

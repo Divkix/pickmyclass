@@ -12,10 +12,10 @@
  *
  * @module lib/db/index
  */
-import { env } from 'cloudflare:workers';
-import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import * as schema from './schema';
+import { env } from "cloudflare:workers";
+import { type PostgresJsDatabase, drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./schema";
 
 export type Database = PostgresJsDatabase<typeof schema> & { $client: postgres.Sql };
 

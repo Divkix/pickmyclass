@@ -1,25 +1,25 @@
-'use client';
+"use client";
 
-import { Search, X } from 'lucide-react';
-import { useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Search, X } from "lucide-react";
+import { useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { useDebouncedSearchParam } from '@/lib/hooks/useDebouncedSearchParam';
+} from "@/components/ui/select";
+import { useDebouncedSearchParam } from "@/lib/hooks/useDebouncedSearchParam";
 
 interface ClassesTableFiltersProps {
   subjects: string[];
   search: string;
   subject: string;
-  seatStatus: 'all' | 'full' | 'limited' | 'available';
-  instructor: 'all' | 'staff' | 'named';
-  watcherCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
+  seatStatus: "all" | "full" | "limited" | "available";
+  instructor: "all" | "staff" | "named";
+  watcherCount: "all" | "none" | "1-5" | "6-10" | "10+";
   onNavigate: (updates: Record<string, string>) => void;
 }
 
@@ -37,20 +37,20 @@ export function ClassesTableFiltersComponent({
 
   const clearFilters = () => {
     onNavigate({
-      search: '',
-      subject: 'all',
-      seatStatus: 'all',
-      instructor: 'all',
-      watcherCount: 'all',
+      search: "",
+      subject: "all",
+      seatStatus: "all",
+      instructor: "all",
+      watcherCount: "all",
     });
   };
 
   const hasActiveFilters =
-    search !== '' ||
-    subject !== 'all' ||
-    seatStatus !== 'all' ||
-    instructor !== 'all' ||
-    watcherCount !== 'all';
+    search !== "" ||
+    subject !== "all" ||
+    seatStatus !== "all" ||
+    instructor !== "all" ||
+    watcherCount !== "all";
 
   return (
     <div className="space-y-4">

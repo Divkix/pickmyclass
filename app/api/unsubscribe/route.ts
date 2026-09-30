@@ -1,20 +1,20 @@
-import { eq } from 'drizzle-orm';
-import { type NextRequest, NextResponse } from 'next/server';
-import { createHash } from 'node:crypto';
-import { unsubscribeTokenSchema } from '@/lib/api/schemas';
-import { parseOrFail } from '@/lib/api/validation';
-import { fail, ok } from '@/lib/api/response';
-import { verifyUnsubscribeToken } from '@/lib/email/unsubscribe-token';
-import { escapeHtml } from '@/lib/utils/escape-html';
+import { eq } from "drizzle-orm";
+import { type NextRequest, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
+import { unsubscribeTokenSchema } from "@/lib/api/schemas";
+import { parseOrFail } from "@/lib/api/validation";
+import { fail, ok } from "@/lib/api/response";
+import { verifyUnsubscribeToken } from "@/lib/email/unsubscribe-token";
+import { escapeHtml } from "@/lib/utils/escape-html";
 
-import { getDbFromEnv } from '@/lib/db';
-import type { Database } from '@/lib/db';
-import { userProfiles } from '@/lib/db/schema';
-import { log } from '@/lib/log';
-import { captureServerEvent } from '@/lib/analytics/server';
+import { getDbFromEnv } from "@/lib/db";
+import type { Database } from "@/lib/db";
+import { userProfiles } from "@/lib/db/schema";
+import { log } from "@/lib/log";
+import { captureServerEvent } from "@/lib/analytics/server";
 
 function redactIdentifier(userId: string): string {
-  return createHash('sha256').update(userId).digest('hex');
+  return createHash("sha256").update(userId).digest("hex");
 }
 
 function htmlPage(title: string, content: string, status: number): NextResponse {
@@ -23,7 +23,7 @@ function htmlPage(title: string, content: string, status: number): NextResponse 
       ? `
     a { color: #8C1D40; text-decoration: none; }
     a:hover { text-decoration: underline; }`
-      : '';
+      : "";
 
   return new NextResponse(
     `<!DOCTYPE html>
@@ -48,14 +48,14 @@ function htmlPage(title: string, content: string, status: number): NextResponse 
 ${content}
 </body>
 </html>`,
-    { status, headers: { 'Content-Type': 'text/html' } }
+    { status, headers: { "Content-Type": "text/html" } },
   );
 }
 
 async function unsubscribeUser(
   db: Database,
   userId: string,
-  method: 'GET' | 'POST'
+  method: "GET" | "POST",
 ): Promise<void> {
   try {
     await db
@@ -63,28 +63,28 @@ async function unsubscribeUser(
       .set({ notifications_enabled: false, unsubscribed_at: new Date().toISOString() })
       .where(eq(userProfiles.user_id, userId));
   } catch (dbError) {
-    log('Unsubscribe').error('Database error:', dbError);
+    log("Unsubscribe").error("Database error:", dbError);
     throw dbError;
   }
 
-  const suffix = method === 'POST' ? 'via POST' : 'successfully';
-  log('Unsubscribe').info(`User ${redactIdentifier(userId)} unsubscribed ${suffix}`);
-  captureServerEvent(userId, 'user_unsubscribed', {});
+  const suffix = method === "POST" ? "via POST" : "successfully";
+  log("Unsubscribe").info(`User ${redactIdentifier(userId)} unsubscribed ${suffix}`);
+  captureServerEvent(userId, "user_unsubscribed", {});
 }
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const token = searchParams.get('token');
+  const token = searchParams.get("token");
 
   const parsed = parseOrFail(unsubscribeTokenSchema, { token });
 
   if (!parsed.success) {
     return htmlPage(
-      'Invalid Unsubscribe Link',
+      "Invalid Unsubscribe Link",
       `  <h1 class="error">Invalid Unsubscribe Link</h1>
   <p>This unsubscribe link is invalid or missing required information.</p>
   <p><a href="/">Return to PickMyClass</a></p>`,
-      400
+      400,
     );
   }
 
@@ -92,12 +92,12 @@ export async function GET(request: NextRequest) {
 
   if (!userId) {
     return htmlPage(
-      'Invalid Unsubscribe Token',
+      "Invalid Unsubscribe Token",
       `  <h1 class="error">Invalid or Expired Token</h1>
   <p>This unsubscribe link is invalid or has expired.</p>
   <p>You can manage your notification preferences from your account settings.</p>
   <p><a href="/">Return to PickMyClass</a></p>`,
-      400
+      400,
     );
   }
 
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
   const escapedAction = escapeHtml(`/api/unsubscribe?token=${encodedToken}`);
 
   return htmlPage(
-    'Confirm Unsubscribe',
+    "Confirm Unsubscribe",
     `  <h1>Confirm Unsubscribe</h1>
   <p>You are about to unsubscribe from all PickMyClass email notifications.</p>
   <p>Click the button below to confirm.</p>
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
     <button type="submit" style="background:#8C1D40;color:#fff;border:none;padding:12px 24px;font-size:16px;border-radius:6px;cursor:pointer;">Confirm Unsubscribe</button>
   </form>
   <p><a href="/">Return to PickMyClass</a></p>`,
-    200
+    200,
   );
 }
 
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const token = searchParams.get('token');
+  const token = searchParams.get("token");
 
   const parsed = parseOrFail(unsubscribeTokenSchema, { token });
 
@@ -134,18 +134,18 @@ export async function POST(request: NextRequest) {
   const userId = verifyUnsubscribeToken(parsed.data.token);
 
   if (!userId) {
-    return fail('Invalid or expired token', 400);
+    return fail("Invalid or expired token", 400);
   }
 
   const db = getDbFromEnv();
 
   try {
-    await unsubscribeUser(db, userId, 'POST');
+    await unsubscribeUser(db, userId, "POST");
 
     return ok(null);
   } catch (error) {
-    log('Unsubscribe').error('Error processing unsubscribe:', error);
+    log("Unsubscribe").error("Error processing unsubscribe:", error);
 
-    return fail('Internal server error', 500);
+    return fail("Internal server error", 500);
   }
 }

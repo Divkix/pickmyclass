@@ -1,190 +1,190 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import type { ClassWatchRow } from '@/lib/types/class-watch';
-import { createClassWatchClient } from '@/lib/class-watches/class-watch-creation';
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import type { ClassWatchRow } from "@/lib/types/class-watch";
+import { createClassWatchClient } from "@/lib/class-watches/class-watch-creation";
 
 const { mockGetSessionId } = vi.hoisted(() => ({
   mockGetSessionId: vi.fn(),
 }));
 
-vi.mock('posthog-js/dist/module.no-external', () => ({
+vi.mock("posthog-js/dist/module.no-external", () => ({
   default: { get_session_id: mockGetSessionId },
 }));
 
 const watch: ClassWatchRow = {
-  id: 'watch-1',
-  user_id: 'user-1',
-  term: '2267',
-  class_nbr: '12345',
-  subject: 'CSE',
-  catalog_nbr: '110',
-  created_at: '2026-07-12T00:00:00.000Z',
+  id: "watch-1",
+  user_id: "user-1",
+  term: "2267",
+  class_nbr: "12345",
+  subject: "CSE",
+  catalog_nbr: "110",
+  created_at: "2026-07-12T00:00:00.000Z",
 };
 
-describe('classWatchCreation', () => {
+describe("classWatchCreation", () => {
   beforeEach(() => {
     mockGetSessionId.mockReturnValue(undefined);
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-07-12T12:00:00.000Z'));
+    vi.setSystemTime(new Date("2026-07-12T12:00:00.000Z"));
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('provides the selectable terms and default term through one options seam', () => {
+  it("provides the selectable terms and default term through one options seam", () => {
     const client = createClassWatchClient(vi.fn());
 
     const options = client.getOptions();
 
-    expect(options.terms.map((term) => term.code)).toEqual(['2264', '2267']);
-    expect(options.defaultTerm).toBe('2264');
+    expect(options.terms.map((term) => term.code)).toEqual(["2264", "2267"]);
+    expect(options.defaultTerm).toBe("2264");
   });
 
-  it('validates with the authoritative creation schema before making a request', async () => {
+  it("validates with the authoritative creation schema before making a request", async () => {
     const request = vi.fn();
     const client = createClassWatchClient(request);
 
-    await expect(client.create({ term: '2267', class_nbr: '123' })).rejects.toThrow(
-      'Section number must be a 5-digit code'
+    await expect(client.create({ term: "2267", class_nbr: "123" })).rejects.toThrow(
+      "Section number must be a 5-digit code",
     );
     expect(request).not.toHaveBeenCalled();
   });
 
-  it('rejects a non-selectable term before making a request', async () => {
+  it("rejects a non-selectable term before making a request", async () => {
     const request = vi.fn();
 
     await expect(
-      createClassWatchClient(request).create({ term: '2261', class_nbr: '12345' })
-    ).rejects.toThrow('This term is no longer available');
+      createClassWatchClient(request).create({ term: "2261", class_nbr: "12345" }),
+    ).rejects.toThrow("This term is no longer available");
     expect(request).not.toHaveBeenCalled();
   });
 
-  it('posts the canonical SectionRef and returns the created watch', async () => {
+  it("posts the canonical SectionRef and returns the created watch", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(JSON.stringify({ success: true, watch }), {
         status: 201,
-        headers: { 'content-type': 'application/json' },
-      })
+        headers: { "content-type": "application/json" },
+      }),
     );
 
     const client = createClassWatchClient(request);
 
-    await expect(client.create({ term: '2267', class_nbr: '12345' })).resolves.toEqual(watch);
+    await expect(client.create({ term: "2267", class_nbr: "12345" })).resolves.toEqual(watch);
 
     const requestOptions = request.mock.calls[0]?.[1];
     const headers = new Headers(requestOptions?.headers);
 
-    expect(request.mock.calls[0]?.[0]).toBe('/api/class-watches');
-    expect(requestOptions?.method).toBe('POST');
-    expect(headers.get('Content-Type')).toBe('application/json');
-    expect(headers.get('X-PostHog-Session-Id')).toBeNull();
-    expect(requestOptions?.body).toBe(JSON.stringify({ term: '2267', class_nbr: '12345' }));
+    expect(request.mock.calls[0]?.[0]).toBe("/api/class-watches");
+    expect(requestOptions?.method).toBe("POST");
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(headers.get("X-PostHog-Session-Id")).toBeNull();
+    expect(requestOptions?.body).toBe(JSON.stringify({ term: "2267", class_nbr: "12345" }));
   });
 
-  it('sends the active PostHog session ID with a creation request', async () => {
-    const sessionId = 'c56a4180-65aa-42ec-a945-5fd21dec0538';
+  it("sends the active PostHog session ID with a creation request", async () => {
+    const sessionId = "c56a4180-65aa-42ec-a945-5fd21dec0538";
     mockGetSessionId.mockReturnValue(sessionId);
 
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(JSON.stringify({ success: true, watch }), {
         status: 201,
-        headers: { 'content-type': 'application/json' },
-      })
+        headers: { "content-type": "application/json" },
+      }),
     );
 
     await expect(
-      createClassWatchClient(request).create({ term: '2267', class_nbr: '12345' })
+      createClassWatchClient(request).create({ term: "2267", class_nbr: "12345" }),
     ).resolves.toEqual(watch);
 
     const requestOptions = request.mock.calls[0]?.[1];
 
-    expect(new Headers(requestOptions?.headers).get('X-PostHog-Session-Id')).toBe(sessionId);
+    expect(new Headers(requestOptions?.headers).get("X-PostHog-Session-Id")).toBe(sessionId);
   });
 
-  it('creates a watch when reading the PostHog session ID throws', async () => {
+  it("creates a watch when reading the PostHog session ID throws", async () => {
     mockGetSessionId.mockImplementation(() => {
-      throw new Error('storage unavailable');
+      throw new Error("storage unavailable");
     });
 
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(JSON.stringify({ success: true, watch }), {
         status: 201,
-        headers: { 'content-type': 'application/json' },
-      })
+        headers: { "content-type": "application/json" },
+      }),
     );
 
     await expect(
-      createClassWatchClient(request).create({ term: '2267', class_nbr: '12345' })
+      createClassWatchClient(request).create({ term: "2267", class_nbr: "12345" }),
     ).resolves.toEqual(watch);
 
     expect(request).toHaveBeenCalledOnce();
-    expect(new Headers(request.mock.calls[0]?.[1]?.headers).get('X-PostHog-Session-Id')).toBeNull();
+    expect(new Headers(request.mock.calls[0]?.[1]?.headers).get("X-PostHog-Session-Id")).toBeNull();
   });
 
-  it('uses the API error message when creation is rejected', async () => {
+  it("uses the API error message when creation is rejected", async () => {
     const request = vi.fn().mockResolvedValue(
       new Response(
-        JSON.stringify({ success: false, error: 'You are already watching this class' }),
+        JSON.stringify({ success: false, error: "You are already watching this class" }),
         {
           status: 409,
-          headers: { 'content-type': 'application/json' },
-        }
-      )
+          headers: { "content-type": "application/json" },
+        },
+      ),
     );
 
     await expect(
-      createClassWatchClient(request).create({ term: '2267', class_nbr: '12345' })
-    ).rejects.toThrow('You are already watching this class');
+      createClassWatchClient(request).create({ term: "2267", class_nbr: "12345" }),
+    ).rejects.toThrow("You are already watching this class");
   });
 
-  it('uses one fallback for non-JSON, malformed, and mismatched success responses', async () => {
+  it("uses one fallback for non-JSON, malformed, and mismatched success responses", async () => {
     const nonJsonRequest = vi
       .fn()
-      .mockResolvedValue(new Response('upstream unavailable', { status: 503 }));
+      .mockResolvedValue(new Response("upstream unavailable", { status: 503 }));
 
     const missingWatchRequest = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ success: true }), {
         status: 201,
-        headers: { 'content-type': 'application/json' },
-      })
+        headers: { "content-type": "application/json" },
+      }),
     );
 
     const mismatchedWatchRequest = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ success: true, watch: { ...watch, class_nbr: '99999' } }), {
+      new Response(JSON.stringify({ success: true, watch: { ...watch, class_nbr: "99999" } }), {
         status: 201,
-        headers: { 'content-type': 'application/json' },
-      })
+        headers: { "content-type": "application/json" },
+      }),
     );
 
     await expect(
-      createClassWatchClient(nonJsonRequest).create({ term: '2267', class_nbr: '12345' })
-    ).rejects.toThrow('Failed to add class watch');
+      createClassWatchClient(nonJsonRequest).create({ term: "2267", class_nbr: "12345" }),
+    ).rejects.toThrow("Failed to add class watch");
     await expect(
-      createClassWatchClient(missingWatchRequest).create({ term: '2267', class_nbr: '12345' })
-    ).rejects.toThrow('Failed to add class watch');
+      createClassWatchClient(missingWatchRequest).create({ term: "2267", class_nbr: "12345" }),
+    ).rejects.toThrow("Failed to add class watch");
     await expect(
       createClassWatchClient(mismatchedWatchRequest).create({
-        term: '2267',
-        class_nbr: '12345',
-      })
-    ).rejects.toThrow('Failed to add class watch');
+        term: "2267",
+        class_nbr: "12345",
+      }),
+    ).rejects.toThrow("Failed to add class watch");
   });
 
-  it('uses the same fallback for network failures and empty API errors', async () => {
-    const networkFailure = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+  it("uses the same fallback for network failures and empty API errors", async () => {
+    const networkFailure = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
 
     const emptyError = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ success: false, error: '   ' }), {
+      new Response(JSON.stringify({ success: false, error: "   " }), {
         status: 500,
-        headers: { 'content-type': 'application/json' },
-      })
+        headers: { "content-type": "application/json" },
+      }),
     );
 
     await expect(
-      createClassWatchClient(networkFailure).create({ term: '2267', class_nbr: '12345' })
-    ).rejects.toThrow('Failed to add class watch');
+      createClassWatchClient(networkFailure).create({ term: "2267", class_nbr: "12345" }),
+    ).rejects.toThrow("Failed to add class watch");
     await expect(
-      createClassWatchClient(emptyError).create({ term: '2267', class_nbr: '12345' })
-    ).rejects.toThrow('Failed to add class watch');
+      createClassWatchClient(emptyError).create({ term: "2267", class_nbr: "12345" }),
+    ).rejects.toThrow("Failed to add class watch");
   });
 });

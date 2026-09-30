@@ -1,14 +1,14 @@
-import { Column, is, SQL, type SQLChunk } from 'drizzle-orm';
-import { PgDialect, type PgTable } from 'drizzle-orm/pg-core';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { Column, is, SQL, type SQLChunk } from "drizzle-orm";
+import { PgDialect, type PgTable } from "drizzle-orm/pg-core";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { Database } from '@/lib/db';
-import { expectRpcFailure } from './rpc-failure';
+import type { Database } from "@/lib/db";
+import { expectRpcFailure } from "./rpc-failure";
 
 const dialect = new PgDialect();
 
 function builtSql(query: SQL): string {
-  return dialect.sqlToQuery(query).sql.replace(/\s+/g, ' ').trim();
+  return dialect.sqlToQuery(query).sql.replace(/\s+/g, " ").trim();
 }
 
 interface RecentActivityWireRow {
@@ -146,42 +146,42 @@ function columnsIn(chunk: SQLChunk | Column, acc: Column[] = []): Column[] {
   return acc;
 }
 
-import { getRecentActivity, getUserWatches } from '@/lib/db/admin-queries';
-import { classStates, classWatches } from '@/lib/db/schema';
+import { getRecentActivity, getUserWatches } from "@/lib/db/admin-queries";
+import { classStates, classWatches } from "@/lib/db/schema";
 
-describe('getRecentActivity', () => {
+describe("getRecentActivity", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should return discriminated union items for all activity types', async () => {
+  it("should return discriminated union items for all activity types", async () => {
     const mockData = [
       {
-        activity_type: 'user_registration',
-        activity_at: '2026-05-19 10:00:00+00',
-        user_email: 'alice@example.com',
+        activity_type: "user_registration",
+        activity_at: "2026-05-19 10:00:00+00",
+        user_email: "alice@example.com",
         class_nbr: null,
         subject: null,
         catalog_nbr: null,
         notification_type: null,
       },
       {
-        activity_type: 'new_watch',
-        activity_at: '2026-05-19T09:30:00Z',
-        user_email: 'bob@example.com',
-        class_nbr: '12431',
-        subject: 'CSE',
-        catalog_nbr: '240',
+        activity_type: "new_watch",
+        activity_at: "2026-05-19T09:30:00Z",
+        user_email: "bob@example.com",
+        class_nbr: "12431",
+        subject: "CSE",
+        catalog_nbr: "240",
         notification_type: null,
       },
       {
-        activity_type: 'email_sent',
-        activity_at: '2026-05-19 09:00:00+00',
-        user_email: 'charlie@example.com',
-        class_nbr: '12431',
-        subject: 'CSE',
-        catalog_nbr: '240',
-        notification_type: 'seat_available',
+        activity_type: "email_sent",
+        activity_at: "2026-05-19 09:00:00+00",
+        user_email: "charlie@example.com",
+        class_nbr: "12431",
+        subject: "CSE",
+        catalog_nbr: "240",
+        notification_type: "seat_available",
       },
     ];
 
@@ -191,16 +191,16 @@ describe('getRecentActivity', () => {
 
     expect(execute).toHaveBeenCalledTimes(1);
     expect(builtSql(execute.mock.calls[0][0])).toBe(
-      'SELECT * FROM public.get_recent_activity($1::int)'
+      "SELECT * FROM public.get_recent_activity($1::int)",
     );
     expect(dialect.sqlToQuery(execute.mock.calls[0][0]).params).toEqual([10]);
 
     expect(result).toHaveLength(3);
 
     expect(result[0]).toEqual({
-      type: 'user_registration',
-      activityAt: '2026-05-19T10:00:00.000Z',
-      userEmail: 'alice@example.com',
+      type: "user_registration",
+      activityAt: "2026-05-19T10:00:00.000Z",
+      userEmail: "alice@example.com",
       classNbr: null,
       subject: null,
       catalogNbr: null,
@@ -208,27 +208,27 @@ describe('getRecentActivity', () => {
     });
 
     expect(result[1]).toEqual({
-      type: 'new_watch',
-      activityAt: '2026-05-19T09:30:00.000Z',
-      userEmail: 'bob@example.com',
-      classNbr: '12431',
-      subject: 'CSE',
-      catalogNbr: '240',
+      type: "new_watch",
+      activityAt: "2026-05-19T09:30:00.000Z",
+      userEmail: "bob@example.com",
+      classNbr: "12431",
+      subject: "CSE",
+      catalogNbr: "240",
       notificationType: null,
     });
 
     expect(result[2]).toEqual({
-      type: 'email_sent',
-      activityAt: '2026-05-19T09:00:00.000Z',
-      userEmail: 'charlie@example.com',
-      classNbr: '12431',
-      subject: 'CSE',
-      catalogNbr: '240',
-      notificationType: 'seat_available',
+      type: "email_sent",
+      activityAt: "2026-05-19T09:00:00.000Z",
+      userEmail: "charlie@example.com",
+      classNbr: "12431",
+      subject: "CSE",
+      catalogNbr: "240",
+      notificationType: "seat_available",
     });
   });
 
-  it('should use default limit of 50 when none provided', async () => {
+  it("should use default limit of 50 when none provided", async () => {
     const { db, execute } = createDb({ rows: [] });
 
     await getRecentActivity(db);
@@ -236,7 +236,7 @@ describe('getRecentActivity', () => {
     expect(dialect.sqlToQuery(execute.mock.calls[0][0]).params).toEqual([50]);
   });
 
-  it('should clamp the limit into the 1..500 range', async () => {
+  it("should clamp the limit into the 1..500 range", async () => {
     const { db, execute } = createDb({ rows: [] });
 
     await getRecentActivity(db, 1000);
@@ -244,18 +244,18 @@ describe('getRecentActivity', () => {
     expect(dialect.sqlToQuery(execute.mock.calls[0][0]).params).toEqual([500]);
   });
 
-  it('should reject invalid limits before touching the database', async () => {
+  it("should reject invalid limits before touching the database", async () => {
     const { db, execute } = createDb({ rows: [] });
 
     await expect(getRecentActivity(db, 0)).rejects.toThrow(TypeError);
     await expect(getRecentActivity(db, -5)).rejects.toThrow(
-      'Invalid limit: must be a finite positive integer'
+      "Invalid limit: must be a finite positive integer",
     );
     await expect(getRecentActivity(db, Number.NaN)).rejects.toThrow(TypeError);
     expect(execute).not.toHaveBeenCalled();
   });
 
-  it('should return empty array when no activity exists', async () => {
+  it("should return empty array when no activity exists", async () => {
     const { db } = createDb({ rows: [] });
 
     const result = await getRecentActivity(db, 15);
@@ -263,10 +263,10 @@ describe('getRecentActivity', () => {
     expect(result).toEqual([]);
   });
 
-  it('should degrade to an empty activity feed when the recent activity RPC is not deployed', async () => {
+  it("should degrade to an empty activity feed when the recent activity RPC is not deployed", async () => {
     const missingRpcError = Object.assign(
-      new Error('function get_recent_activity(integer) does not exist'),
-      { code: '42883' }
+      new Error("function get_recent_activity(integer) does not exist"),
+      { code: "42883" },
     );
 
     const { db, execute } = createDb({ error: missingRpcError });
@@ -279,18 +279,18 @@ describe('getRecentActivity', () => {
     expect(cachedResult).toEqual([]);
   });
 
-  it('should still fail open on 42883 when Drizzle wraps the driver error', async () => {
-    const cause = Object.assign(new Error('function get_recent_activity(integer) does not exist'), {
-      code: '42883',
+  it("should still fail open on 42883 when Drizzle wraps the driver error", async () => {
+    const cause = Object.assign(new Error("function get_recent_activity(integer) does not exist"), {
+      code: "42883",
     });
 
     const wrapped = Object.assign(
-      new Error('Failed query: SELECT * FROM public.get_recent_activity($1::int)'),
+      new Error("Failed query: SELECT * FROM public.get_recent_activity($1::int)"),
       {
-        query: 'SELECT * FROM public.get_recent_activity($1::int)',
+        query: "SELECT * FROM public.get_recent_activity($1::int)",
         params: [43],
         cause,
-      }
+      },
     );
 
     const { db, execute } = createDb({ error: wrapped });
@@ -301,51 +301,51 @@ describe('getRecentActivity', () => {
     expect(result).toEqual([]);
   });
 
-  it('should not fail open for other Postgres errors (fail-open is exclusive to SQLSTATE 42883)', async () => {
-    const raiseError = Object.assign(new Error('product invariant raised'), { code: 'P0001' });
+  it("should not fail open for other Postgres errors (fail-open is exclusive to SQLSTATE 42883)", async () => {
+    const raiseError = Object.assign(new Error("product invariant raised"), { code: "P0001" });
     const { db } = createDb({ error: raiseError });
 
     await expectRpcFailure(
       getRecentActivity(db, 21),
-      'Failed to fetch recent activity',
-      'product invariant raised'
+      "Failed to fetch recent activity",
+      "product invariant raised",
     );
   });
 
-  it('should throw error when the query fails', async () => {
-    const { db } = createDb({ error: new Error('Database connection failed') });
+  it("should throw error when the query fails", async () => {
+    const { db } = createDb({ error: new Error("Database connection failed") });
 
     await expectRpcFailure(
       getRecentActivity(db, 20),
-      'Failed to fetch recent activity',
-      'Database connection failed'
+      "Failed to fetch recent activity",
+      "Database connection failed",
     );
   });
 });
 
-describe('getUserWatches', () => {
+describe("getUserWatches", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('joins watches to their SectionRef-scoped state ordered by newest watch', async () => {
+  it("joins watches to their SectionRef-scoped state ordered by newest watch", async () => {
     const joinedRows = [
       {
         watch: {
-          id: 'w-spring',
-          user_id: 'u1',
-          class_nbr: '12345',
-          term: '2261',
-          subject: 'CSE',
-          catalog_nbr: '110',
-          created_at: '2026-01-10 00:00:00+00',
+          id: "w-spring",
+          user_id: "u1",
+          class_nbr: "12345",
+          term: "2261",
+          subject: "CSE",
+          catalog_nbr: "110",
+          created_at: "2026-01-10 00:00:00+00",
         },
         class_state: {
-          id: 'state-spring',
-          class_nbr: '12345',
-          term: '2261',
-          subject: 'CSE',
-          catalog_nbr: '110',
+          id: "state-spring",
+          class_nbr: "12345",
+          term: "2261",
+          subject: "CSE",
+          catalog_nbr: "110",
           title: null,
           instructor_name: null,
           seats_available: 5,
@@ -353,27 +353,27 @@ describe('getUserWatches', () => {
           non_reserved_seats: null,
           location: null,
           meeting_times: null,
-          last_checked_at: '2026-01-11 00:00:00+00',
-          last_changed_at: '2026-01-11 00:00:00+00',
+          last_checked_at: "2026-01-11 00:00:00+00",
+          last_changed_at: "2026-01-11 00:00:00+00",
           consecutive_not_found_count: 0,
         },
       },
       {
         watch: {
-          id: 'w-fall',
-          user_id: 'u1',
-          class_nbr: '12345',
-          term: '2267',
-          subject: 'CSE',
-          catalog_nbr: '110',
-          created_at: '2026-01-11 00:00:00+00',
+          id: "w-fall",
+          user_id: "u1",
+          class_nbr: "12345",
+          term: "2267",
+          subject: "CSE",
+          catalog_nbr: "110",
+          created_at: "2026-01-11 00:00:00+00",
         },
         class_state: {
-          id: 'state-fall',
-          class_nbr: '12345',
-          term: '2267',
-          subject: 'CSE',
-          catalog_nbr: '110',
+          id: "state-fall",
+          class_nbr: "12345",
+          term: "2267",
+          subject: "CSE",
+          catalog_nbr: "110",
           title: null,
           instructor_name: null,
           seats_available: 0,
@@ -381,8 +381,8 @@ describe('getUserWatches', () => {
           non_reserved_seats: null,
           location: null,
           meeting_times: null,
-          last_checked_at: '2026-01-12 00:00:00+00',
-          last_changed_at: '2026-01-12 00:00:00+00',
+          last_checked_at: "2026-01-12 00:00:00+00",
+          last_changed_at: "2026-01-12 00:00:00+00",
           consecutive_not_found_count: 2,
         },
       },
@@ -390,7 +390,7 @@ describe('getUserWatches', () => {
 
     const { db, calls, select } = createJoinDb(joinedRows);
 
-    const result = await getUserWatches(db, 'u1');
+    const result = await getUserWatches(db, "u1");
 
     expect(select).toHaveBeenCalledTimes(1);
     expect(calls.from[0]).toBe(classWatches);
@@ -406,62 +406,62 @@ describe('getUserWatches', () => {
     expect(columnsIn(calls.orderBy[0])).toContain(classWatches.created_at);
 
     expect(result).toHaveLength(2);
-    const spring = result.find((w) => w.id === 'w-spring');
-    const fall = result.find((w) => w.id === 'w-fall');
-    expect(spring?.class_state?.term).toBe('2261');
+    const spring = result.find((w) => w.id === "w-spring");
+    const fall = result.find((w) => w.id === "w-fall");
+    expect(spring?.class_state?.term).toBe("2261");
     expect(spring?.class_state?.seats_available).toBe(5);
-    expect(fall?.class_state?.term).toBe('2267');
+    expect(fall?.class_state?.term).toBe("2267");
     expect(fall?.class_state?.seats_available).toBe(0);
     expect(fall?.class_state?.consecutive_not_found_count).toBe(2);
     expect(spring).toMatchObject({
-      user_id: 'u1',
-      class_nbr: '12345',
-      subject: 'CSE',
-      catalog_nbr: '110',
-      created_at: '2026-01-10T00:00:00.000Z',
+      user_id: "u1",
+      class_nbr: "12345",
+      subject: "CSE",
+      catalog_nbr: "110",
+      created_at: "2026-01-10T00:00:00.000Z",
     });
-    expect(spring?.class_state?.last_checked_at).toBe('2026-01-11T00:00:00.000Z');
+    expect(spring?.class_state?.last_checked_at).toBe("2026-01-11T00:00:00.000Z");
   });
 
-  it('returns null class_state for a watch whose term has no matching state row', async () => {
+  it("returns null class_state for a watch whose term has no matching state row", async () => {
     const { db } = createJoinDb([
       {
         watch: {
-          id: 'w-fall',
-          user_id: 'u1',
-          class_nbr: '12345',
-          term: '2267',
-          subject: 'CSE',
-          catalog_nbr: '110',
-          created_at: '2026-01-11 00:00:00+00',
+          id: "w-fall",
+          user_id: "u1",
+          class_nbr: "12345",
+          term: "2267",
+          subject: "CSE",
+          catalog_nbr: "110",
+          created_at: "2026-01-11 00:00:00+00",
         },
         class_state: null,
       },
     ]);
 
-    const result = await getUserWatches(db, 'u1');
+    const result = await getUserWatches(db, "u1");
 
     expect(result).toHaveLength(1);
     expect(result[0].class_state).toBeNull();
-    expect(result[0].created_at).toBe('2026-01-11T00:00:00.000Z');
+    expect(result[0].created_at).toBe("2026-01-11T00:00:00.000Z");
   });
 
-  it('returns an empty list without extra queries when the user has no watches', async () => {
+  it("returns an empty list without extra queries when the user has no watches", async () => {
     const { db, select } = createJoinDb([]);
 
-    await expect(getUserWatches(db, 'u2')).resolves.toEqual([]);
+    await expect(getUserWatches(db, "u2")).resolves.toEqual([]);
     expect(select).toHaveBeenCalledTimes(1);
   });
 
-  it('wraps failures with the stable user-watches error message', async () => {
+  it("wraps failures with the stable user-watches error message", async () => {
     const select = vi.fn(() => {
-      throw new Error('Database connection failed');
+      throw new Error("Database connection failed");
     });
 
     const db = asDatabaseHandle({ select });
 
-    await expect(getUserWatches(db, 'u3')).rejects.toThrow(
-      'Failed to fetch user watches: Database connection failed'
+    await expect(getUserWatches(db, "u3")).rejects.toThrow(
+      "Failed to fetch user watches: Database connection failed",
     );
   });
 });

@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { ChevronDown, ChevronUp, ChevronsUpDown, Clock, Mail, Users } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { useCallback, useTransition } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { ChevronDown, ChevronUp, ChevronsUpDown, Clock, Mail, Users } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useCallback, useTransition } from "react";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -12,14 +12,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import type { ClassSortField } from '@/lib/db/admin-queries';
-import type { ClassWithWatchers } from '@/lib/db/admin-queries';
-import { getSeatBadgeVariant } from '@/lib/utils/seat-badge';
-import { formatRelativeTime } from '@/lib/utils/time-format';
-import { SortableHeader } from './SortableHeader';
-import { ClassesTableFiltersComponent } from './ClassesTableFilters';
-import { TablePagination } from './TablePagination';
+} from "@/components/ui/table";
+import type { ClassSortField } from "@/lib/db/admin-queries";
+import type { ClassWithWatchers } from "@/lib/db/admin-queries";
+import { getSeatBadgeVariant } from "@/lib/utils/seat-badge";
+import { formatRelativeTime } from "@/lib/utils/time-format";
+import { SortableHeader } from "./SortableHeader";
+import { ClassesTableFiltersComponent } from "./ClassesTableFilters";
+import { TablePagination } from "./TablePagination";
 
 interface ClassesTableProps {
   classes: ClassWithWatchers[];
@@ -28,12 +28,12 @@ interface ClassesTableProps {
   pageSize: number;
   subjects: string[];
   sort: ClassSortField;
-  dir: 'asc' | 'desc';
+  dir: "asc" | "desc";
   search: string;
   subject: string;
-  seatStatus: 'all' | 'full' | 'limited' | 'available';
-  instructor: 'all' | 'staff' | 'named';
-  watcherCount: 'all' | 'none' | '1-5' | '6-10' | '10+';
+  seatStatus: "all" | "full" | "limited" | "available";
+  instructor: "all" | "staff" | "named";
+  watcherCount: "all" | "none" | "1-5" | "6-10" | "10+";
 }
 
 export function ClassesTable({
@@ -60,7 +60,7 @@ export function ClassesTable({
       const params = new URLSearchParams(searchParams.toString());
 
       for (const [k, v] of Object.entries(updates)) {
-        if (v === '' || v === 'all') {
+        if (v === "" || v === "all") {
           params.delete(k);
         } else {
           params.set(k, v);
@@ -71,7 +71,7 @@ export function ClassesTable({
 
       return qs ? `${pathname}?${qs}` : pathname;
     },
-    [pathname, searchParams]
+    [pathname, searchParams],
   );
 
   const navigate = useCallback(
@@ -80,21 +80,21 @@ export function ClassesTable({
         router.push(buildUrl(updates));
       });
     },
-    [router, buildUrl]
+    [router, buildUrl],
   );
 
   const handleSortClick = (field: ClassSortField) => {
     if (sort === field) {
-      navigate({ sort: field, dir: dir === 'asc' ? 'desc' : 'asc', page: '1' });
+      navigate({ sort: field, dir: dir === "asc" ? "desc" : "asc", page: "1" });
     } else {
-      navigate({ sort: field, dir: 'asc', page: '1' });
+      navigate({ sort: field, dir: "asc", page: "1" });
     }
   };
 
   const renderSortIconFromUrl = (field: ClassSortField) => {
     if (sort !== field) return <ChevronsUpDown className="size-4 ml-1 text-muted-foreground" />;
 
-    if (dir === 'asc') return <ChevronUp className="size-4 ml-1" />;
+    if (dir === "asc") return <ChevronUp className="size-4 ml-1" />;
 
     return <ChevronDown className="size-4 ml-1" />;
   };
@@ -103,11 +103,11 @@ export function ClassesTable({
 
   if (
     total === 0 &&
-    search === '' &&
-    subject === 'all' &&
-    seatStatus === 'all' &&
-    instructor === 'all' &&
-    watcherCount === 'all'
+    search === "" &&
+    subject === "all" &&
+    seatStatus === "all" &&
+    instructor === "all" &&
+    watcherCount === "all"
   ) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -126,7 +126,7 @@ export function ClassesTable({
         seatStatus={seatStatus}
         instructor={instructor}
         watcherCount={watcherCount}
-        onNavigate={(updates) => navigate({ ...updates, page: '1' })}
+        onNavigate={(updates) => navigate({ ...updates, page: "1" })}
       />
 
       <div className="rounded-lg border bg-card">
@@ -231,20 +231,20 @@ export function ClassesTable({
                     <span className="text-muted-foreground ml-1">{classItem.catalog_nbr}</span>
                   </TableCell>
                   <TableCell>
-                    <div className="max-w-[300px] truncate" title={classItem.title || ''}>
-                      {classItem.title || '-'}
+                    <div className="max-w-[300px] truncate" title={classItem.title || ""}>
+                      {classItem.title || "-"}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="max-w-[200px] truncate">
-                      {classItem.instructor_name || 'Staff'}
+                      {classItem.instructor_name || "Staff"}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge
                       variant={getSeatBadgeVariant(
                         classItem.seats_available,
-                        classItem.seats_capacity
+                        classItem.seats_capacity,
                       )}
                       size="sm"
                     >

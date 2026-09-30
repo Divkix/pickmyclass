@@ -10,14 +10,14 @@
  * Only 404 and 405 are recast. Handlers that answer a human with a rendered
  * page (the unsubscribe confirmation, for example) keep their own response.
  */
-const API_PREFIX = '/api/';
+const API_PREFIX = "/api/";
 
 const ROUTING_FAILURES = new Set([404, 405]);
 
-const DOCS_URL = 'https://pickmyclass.app/openapi.json';
+const DOCS_URL = "https://pickmyclass.app/openapi.json";
 
 function errorBody(status: number, method: string, pathname: string) {
-  const code = status === 404 ? 'not_found' : 'method_not_allowed';
+  const code = status === 404 ? "not_found" : "method_not_allowed";
 
   const message =
     status === 404
@@ -39,7 +39,7 @@ function errorBody(status: number, method: string, pathname: string) {
 export function withJsonApiError(response: Response, pathname: string, method: string): Response {
   if (!pathname.startsWith(API_PREFIX) || !ROUTING_FAILURES.has(response.status)) return response;
 
-  const isJson = response.headers.get('content-type')?.toLowerCase().includes('json') ?? false;
+  const isJson = response.headers.get("content-type")?.toLowerCase().includes("json") ?? false;
 
   if (isJson) return response;
 
@@ -47,8 +47,8 @@ export function withJsonApiError(response: Response, pathname: string, method: s
     status: response.status,
     statusText: response.statusText,
     headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store',
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
     },
   });
 }

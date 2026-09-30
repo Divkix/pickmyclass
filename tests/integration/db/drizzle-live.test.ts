@@ -1,10 +1,10 @@
-import { randomUUID } from 'node:crypto';
-import { and, count, eq, inArray, like, sql } from 'drizzle-orm';
-import type { EmailAddressJSON, UserJSON, VerificationJSON } from '@clerk/backend';
-import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test';
-import { z } from 'zod';
+import { randomUUID } from "node:crypto";
+import { and, count, eq, inArray, like, sql } from "drizzle-orm";
+import type { EmailAddressJSON, UserJSON, VerificationJSON } from "@clerk/backend";
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
+import { z } from "zod";
 
-import { getDb } from '@/lib/db';
+import { getDb } from "@/lib/db";
 import {
   PG_RAISE_EXCEPTION,
   PG_UNIQUE_VIOLATION,
@@ -14,7 +14,7 @@ import {
   isRaisedException,
   isUndefinedFunction,
   isUniqueViolation,
-} from '@/lib/db/pg-errors';
+} from "@/lib/db/pg-errors";
 import {
   capConsecutiveNotFound,
   deleteNotificationRecords,
@@ -32,7 +32,7 @@ import {
   resetNotificationsForSection,
   tryRecordNotificationsBatch,
   upsertClassState,
-} from '@/lib/db/queries';
+} from "@/lib/db/queries";
 import {
   getAdminCount,
   getClassesPage,
@@ -43,21 +43,21 @@ import {
   getTotalUsers,
   getUserWatches,
   getUsersPage,
-} from '@/lib/db/admin-queries';
+} from "@/lib/db/admin-queries";
 import {
   readUserVerification,
   softDeleteUserById,
   syncUserMirrorFromClerkUser,
-} from '@/lib/db/users';
-import { classStates, classWatches, notificationsSent, userProfiles, users } from '@/lib/db/schema';
-import { readOnboardingState, skipOnboarding } from '@/lib/onboarding';
+} from "@/lib/db/users";
+import { classStates, classWatches, notificationsSent, userProfiles, users } from "@/lib/db/schema";
+import { readOnboardingState, skipOnboarding } from "@/lib/onboarding";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
   throw new Error(
-    'DATABASE_URL must point at a disposable PostgreSQL carrying ' +
-      'db/migrations/20260822000000_planetscale_schema.sql (see vitest.db.config.ts).'
+    "DATABASE_URL must point at a disposable PostgreSQL carrying " +
+      "db/migrations/20260822000000_planetscale_schema.sql (see the db project in vite.config.ts).",
   );
 }
 
@@ -100,31 +100,31 @@ const uid = (tag: string) => `${RUN}_u_${tag}`;
 
 const mail = (tag: string) => `${RUN}.${tag}@emails.example.test`;
 
-const U_MAIN = uid('main');
+const U_MAIN = uid("main");
 
-const U_BOUNCED = uid('bounced');
+const U_BOUNCED = uid("bounced");
 
-const U_DISABLED = uid('disabled');
+const U_DISABLED = uid("disabled");
 
-const U_UNSUB = uid('unsub');
+const U_UNSUB = uid("unsub");
 
-const U_SPAM = uid('spam');
+const U_SPAM = uid("spam");
 
-const U_XT = uid('xterm');
+const U_XT = uid("xterm");
 
-const U_ODD = uid('odd');
+const U_ODD = uid("odd");
 
-const U_LIMIT = uid('limit');
+const U_LIMIT = uid("limit");
 
-const U_TX = uid('tx');
+const U_TX = uid("tx");
 
-const U_ONBOARD = uid('onboard');
+const U_ONBOARD = uid("onboard");
 
-const U_WEBHOOK = uid('webhook');
+const U_WEBHOOK = uid("webhook");
 
-const U_ADMIN = uid('admin');
+const U_ADMIN = uid("admin");
 
-const U_CRUD = uid('crud');
+const U_CRUD = uid("crud");
 
 let W_A_MAIN: string;
 
@@ -161,13 +161,13 @@ beforeAll(async () => {
         U_ONBOARD,
         U_ADMIN,
         U_CRUD,
-      ].map((id) => ({ id, clerk_user_id: `clerk_${id}`, email: mail(id.slice(RUN.length + 3)) }))
+      ].map((id) => ({ id, clerk_user_id: `clerk_${id}`, email: mail(id.slice(RUN.length + 3)) })),
     );
 
   await db.insert(userProfiles).values(
     [U_MAIN, U_BOUNCED, U_DISABLED, U_UNSUB, U_SPAM, U_XT, U_ODD, U_ADMIN].map((userId) => ({
       user_id: userId,
-    }))
+    })),
   );
   await db
     .update(userProfiles)
@@ -189,14 +189,14 @@ beforeAll(async () => {
 
   const stateDetails = (seatsAvailable: number) => ({
     subject: SUBJECT,
-    catalog_nbr: '310',
+    catalog_nbr: "310",
     title: `Live Probe ${RUN}`,
-    instructor_name: 'Dr. Fixture',
+    instructor_name: "Dr. Fixture",
     seats_available: seatsAvailable,
     seats_capacity: 30,
     non_reserved_seats: seatsAvailable > 0 ? seatsAvailable : null,
-    location: 'TEMPE',
-    meeting_times: 'MW 10:00-11:15',
+    location: "TEMPE",
+    meeting_times: "MW 10:00-11:15",
   });
 
   await upsertClassState(db, REF_A, stateDetails(7), new Date());
@@ -212,7 +212,7 @@ beforeAll(async () => {
         class_nbr: ref.class_nbr,
         term: ref.term,
         subject: SUBJECT,
-        catalog_nbr: '310',
+        catalog_nbr: "310",
       })
       .returning({ id: classWatches.id });
 
@@ -231,7 +231,7 @@ beforeAll(async () => {
 
   await db.insert(notificationsSent).values({
     class_watch_id: W_ODD,
-    notification_type: 'seat_available',
+    notification_type: "seat_available",
   });
 });
 
@@ -298,22 +298,22 @@ const LAST_SIGN_IN_MS = 1_750_000_001_000;
 function emailAddress(
   id: string,
   address: string,
-  status: 'verified' | 'unverified' | null
+  status: "verified" | "unverified" | null,
 ): EmailAddressJSON {
   const verification: VerificationJSON | null =
     status === null
       ? null
       : {
-          object: 'email_address',
+          object: "email_address",
           id: `${id}_ver`,
           status,
-          strategy: 'email_code',
+          strategy: "email_code",
           attempts: null,
           expire_at: null,
         };
 
   return {
-    object: 'email_address',
+    object: "email_address",
     id,
     email_address: address,
     verification,
@@ -323,21 +323,21 @@ function emailAddress(
 
 function userJson(overrides: Partial<UserJSON>): UserJSON {
   return {
-    object: 'user',
+    object: "user",
     id: `clerk_${U_WEBHOOK}`,
     username: null,
     first_name: null,
     last_name: null,
-    image_url: 'https://img.clerk.com/default.png',
+    image_url: "https://img.clerk.com/default.png",
     has_image: false,
-    primary_email_address_id: 'email_primary',
+    primary_email_address_id: "email_primary",
     primary_phone_number_id: null,
     primary_web3_wallet_id: null,
     password_enabled: true,
     two_factor_enabled: false,
     totp_enabled: false,
     backup_code_enabled: false,
-    email_addresses: [emailAddress('email_primary', mail('webhook'), 'verified')],
+    email_addresses: [emailAddress("email_primary", mail("webhook"), "verified")],
     phone_numbers: [],
     web3_wallets: [],
     organization_memberships: null,
@@ -365,38 +365,38 @@ function userJson(overrides: Partial<UserJSON>): UserJSON {
   };
 }
 
-describe('SQLSTATE helpers against real driver errors', () => {
-  it('declares the exact PostgreSQL SQLSTATE constants', () => {
-    expect(PG_UNIQUE_VIOLATION).toBe('23505');
-    expect(PG_RAISE_EXCEPTION).toBe('P0001');
-    expect(PG_UNDEFINED_FUNCTION).toBe('42883');
+describe("SQLSTATE helpers against real driver errors", () => {
+  it("declares the exact PostgreSQL SQLSTATE constants", () => {
+    expect(PG_UNIQUE_VIOLATION).toBe("23505");
+    expect(PG_RAISE_EXCEPTION).toBe("P0001");
+    expect(PG_UNDEFINED_FUNCTION).toBe("42883");
   });
 
-  it('narrows a real unique violation (23505) through the cause chain', async () => {
+  it("narrows a real unique violation (23505) through the cause chain", async () => {
     const error = await capture(() =>
       db.insert(classWatches).values({
         user_id: U_MAIN,
         class_nbr: REF_A.class_nbr,
         term: TERM,
         subject: SUBJECT,
-        catalog_nbr: '310',
-      })
+        catalog_nbr: "310",
+      }),
     );
 
     expect(isUniqueViolation(error)).toBe(true);
     expect(getPgError(error)?.code).toBe(PG_UNIQUE_VIOLATION);
   });
 
-  it('keeps the duplicate-key message fallback for code-dropping intermediaries', () => {
+  it("keeps the duplicate-key message fallback for code-dropping intermediaries", () => {
     expect(isUniqueViolation(new Error('duplicate key value violates unique constraint "x"'))).toBe(
-      true
+      true,
     );
-    expect(isUniqueViolation(new Error('some other failure'))).toBe(false);
+    expect(isUniqueViolation(new Error("some other failure"))).toBe(false);
     expect(getPgError(null)).toBeNull();
-    expect(getPgError('not-an-error')).toBeNull();
+    expect(getPgError("not-an-error")).toBeNull();
   });
 
-  it('maps a PL/pgSQL RAISE EXCEPTION to P0001', async () => {
+  it("maps a PL/pgSQL RAISE EXCEPTION to P0001", async () => {
     // Any raising RPC works as the probe; the watch-limit guard raises before
     // it touches a row (p_max_watches < 1).
     const error = await capture(() =>
@@ -408,8 +408,8 @@ describe('SQLSTATE helpers against real driver errors', () => {
           '310'::text,
           ${`${RUN}1`}::text,
           0::integer
-        )`
-      )
+        )`,
+      ),
     );
 
     expect(error).not.toBeNull();
@@ -418,60 +418,67 @@ describe('SQLSTATE helpers against real driver errors', () => {
     expect(getPgError(error)?.code).toBe(PG_RAISE_EXCEPTION);
   });
 
-  it('maps a missing RPC to undefined function (42883)', async () => {
-    const fnName = `definitely_missing_rpc_${RUN.replace(/-/g, '_')}`;
+  it("maps a missing RPC to undefined function (42883)", async () => {
+    const fnName = `definitely_missing_rpc_${RUN.replace(/-/g, "_")}`;
     const error = await capture(() => db.execute(sql`SELECT public.${sql.identifier(fnName)}()`));
     expect(error).not.toBeNull();
     expect(isUndefinedFunction(error)).toBe(true);
     expect(getPgError(error)?.code).toBe(PG_UNDEFINED_FUNCTION);
   });
 
-  it('survives unrelated thrown values', () => {
-    expect(isRaisedException(new Error('plain'))).toBe(false);
+  it("survives unrelated thrown values", () => {
+    expect(isRaisedException(new Error("plain"))).toBe(false);
     expect(isUndefinedFunction(undefined)).toBe(false);
     expect(isUniqueViolation(42)).toBe(false);
   });
 });
 
-describe('wire formats under prepare:false / fetch_types:false', () => {
-  it('returns int8 as a precision-safe string', async () => {
+describe("wire formats under prepare:false / fetch_types:false", () => {
+  it("returns int8 as a precision-safe string", async () => {
     const rows = await db.execute<{ c: string }>(
-      sql`SELECT COUNT(*)::bigint AS c FROM class_watches`
+      sql`SELECT COUNT(*)::bigint AS c FROM class_watches`,
     );
 
     expect(z.string().safeParse(rows[0]?.c).success).toBe(true);
     expect(String(rows[0]?.c)).toMatch(/^\d+$/);
   });
 
-  it('delivers timestamptz as parseable PG text (boundaries normalize to ISO)', async () => {
+  it("delivers timestamptz as parseable PG text (boundaries normalize to ISO)", async () => {
     const rows = await db.execute<{ t: string }>(sql`SELECT now()::timestamptz AS t`);
     expect(z.string().safeParse(rows[0]?.t).success).toBe(true);
     expect(temporal(rows[0]?.t)).toBe(true);
   });
 
-  it('round-trips array-bound RPC parameters through the recipient read', async () => {
+  it("round-trips array-bound RPC parameters through the recipient read", async () => {
     expect(await getNotificationWatchers(db, REF_FULL)).toEqual([]);
   });
 });
 
-describe('Drizzle builder CRUD row shapes', () => {
-  it('inserts, reads, updates, and deletes rows with schema-exact shapes', async () => {
+describe("Drizzle builder CRUD row shapes", () => {
+  it("inserts, reads, updates, and deletes rows with schema-exact shapes", async () => {
     const [inserted] = await db
       .insert(users)
       .values({
         id: `${U_CRUD}_b`,
-        email: mail('crud-b'),
+        email: mail("crud-b"),
       })
       .returning();
 
     expect(Object.keys(inserted).sort()).toEqual(
-      ['clerk_user_id', 'created_at', 'email', 'email_confirmed_at', 'id', 'last_sign_in_at'].sort()
+      [
+        "clerk_user_id",
+        "created_at",
+        "email",
+        "email_confirmed_at",
+        "id",
+        "last_sign_in_at",
+      ].sort(),
     );
     expect(inserted.clerk_user_id).toBeNull();
     expect(inserted.last_sign_in_at).toBeNull();
     expect(temporal(inserted.created_at)).toBe(true);
 
-    const stamp = new Date('2026-08-25T12:34:56.789Z').toISOString();
+    const stamp = new Date("2026-08-25T12:34:56.789Z").toISOString();
     await db.update(users).set({ last_sign_in_at: stamp }).where(eq(users.id, inserted.id));
     const [reread] = await db.select().from(users).where(eq(users.id, inserted.id));
     expect(reread.last_sign_in_at).not.toBeNull();
@@ -480,34 +487,34 @@ describe('Drizzle builder CRUD row shapes', () => {
     await db.delete(users).where(eq(users.id, inserted.id));
 
     const remaining = await scalarCount(
-      db.select({ n: count() }).from(users).where(eq(users.id, inserted.id))
+      db.select({ n: count() }).from(users).where(eq(users.id, inserted.id)),
     );
 
     expect(remaining).toBe(0);
   });
 
-  it('projects profile defaults as real booleans and null timestamps', async () => {
+  it("projects profile defaults as real booleans and null timestamps", async () => {
     const [profile] = await db.insert(userProfiles).values({ user_id: U_CRUD }).returning();
     expect(Object.keys(profile).sort()).toEqual(
       [
-        'age_verified_at',
-        'agreed_to_terms_at',
-        'created_at',
-        'disabled_at',
-        'email_bounced',
-        'email_bounced_at',
-        'id',
-        'is_admin',
-        'is_disabled',
-        'notifications_enabled',
-        'onboarding_completed_at',
-        'onboarding_skipped_at',
-        'spam_complained',
-        'spam_complained_at',
-        'unsubscribed_at',
-        'updated_at',
-        'user_id',
-      ].sort()
+        "age_verified_at",
+        "agreed_to_terms_at",
+        "created_at",
+        "disabled_at",
+        "email_bounced",
+        "email_bounced_at",
+        "id",
+        "is_admin",
+        "is_disabled",
+        "notifications_enabled",
+        "onboarding_completed_at",
+        "onboarding_skipped_at",
+        "spam_complained",
+        "spam_complained_at",
+        "unsubscribed_at",
+        "updated_at",
+        "user_id",
+      ].sort(),
     );
     expect(profile.is_admin).toBe(false);
     expect(profile.is_disabled).toBe(false);
@@ -521,7 +528,7 @@ describe('Drizzle builder CRUD row shapes', () => {
     expect(isUniqueViolation(second)).toBe(true);
   });
 
-  it('enforces the per-user watch uniqueness and returns UUID/timestamp shapes', async () => {
+  it("enforces the per-user watch uniqueness and returns UUID/timestamp shapes", async () => {
     const [watch] = await db
       .insert(classWatches)
       .values({
@@ -529,7 +536,7 @@ describe('Drizzle builder CRUD row shapes', () => {
         class_nbr: `${RUN}7`,
         term: TERM,
         subject: SUBJECT,
-        catalog_nbr: '310',
+        catalog_nbr: "310",
       })
       .returning();
 
@@ -542,8 +549,8 @@ describe('Drizzle builder CRUD row shapes', () => {
         class_nbr: `${RUN}7`,
         term: TERM,
         subject: SUBJECT,
-        catalog_nbr: '310',
-      })
+        catalog_nbr: "310",
+      }),
     );
 
     expect(isUniqueViolation(duplicate)).toBe(true);
@@ -556,7 +563,7 @@ describe('Drizzle builder CRUD row shapes', () => {
     expect(deleted).toHaveLength(1);
   });
 
-  it('reads class_states rows back with exact column shapes after upsert', async () => {
+  it("reads class_states rows back with exact column shapes after upsert", async () => {
     const [state] = await db
       .select()
       .from(classStates)
@@ -564,22 +571,22 @@ describe('Drizzle builder CRUD row shapes', () => {
 
     expect(Object.keys(state).sort()).toEqual(
       [
-        'class_nbr',
-        'consecutive_not_found_count',
-        'catalog_nbr',
-        'id',
-        'instructor_name',
-        'last_changed_at',
-        'last_checked_at',
-        'location',
-        'meeting_times',
-        'non_reserved_seats',
-        'seats_available',
-        'seats_capacity',
-        'subject',
-        'term',
-        'title',
-      ].sort()
+        "class_nbr",
+        "consecutive_not_found_count",
+        "catalog_nbr",
+        "id",
+        "instructor_name",
+        "last_changed_at",
+        "last_checked_at",
+        "location",
+        "meeting_times",
+        "non_reserved_seats",
+        "seats_available",
+        "seats_capacity",
+        "subject",
+        "term",
+        "title",
+      ].sort(),
     );
     expect(state.seats_available).toBe(7);
     expect(state.non_reserved_seats).toBe(7);
@@ -590,23 +597,23 @@ describe('Drizzle builder CRUD row shapes', () => {
   });
 });
 
-describe('upsertClassState / section-check pipeline ops', () => {
-  it('updates an existing section without duplicating it', async () => {
+describe("upsertClassState / section-check pipeline ops", () => {
+  it("updates an existing section without duplicating it", async () => {
     await upsertClassState(
       db,
       REF_A,
       {
         subject: SUBJECT,
-        catalog_nbr: '310',
+        catalog_nbr: "310",
         title: `Live Probe ${RUN} II`,
-        instructor_name: 'Dr. Fixture',
+        instructor_name: "Dr. Fixture",
         seats_available: 11,
         seats_capacity: 30,
         non_reserved_seats: 9,
-        location: 'TEMPE',
-        meeting_times: 'MW 10:00-11:15',
+        location: "TEMPE",
+        meeting_times: "MW 10:00-11:15",
       },
-      new Date()
+      new Date(),
     );
     const baseline = await readSectionCheckState(db, REF_A);
     expect(baseline).toMatchObject({
@@ -614,17 +621,17 @@ describe('upsertClassState / section-check pipeline ops', () => {
       term: TERM,
       seats_available: 11,
       non_reserved_seats: 9,
-      instructor_name: 'Dr. Fixture',
+      instructor_name: "Dr. Fixture",
       consecutive_not_found_count: 0,
       last_checked_at: expect.any(String),
     });
   });
 
-  it('returns null section-check state for unknown sections', async () => {
+  it("returns null section-check state for unknown sections", async () => {
     expect(await readSectionCheckState(db, REF_INC)).toBeNull();
   });
 
-  it('counts one strike per call, creating the missing row, including concurrent calls', async () => {
+  it("counts one strike per call, creating the missing row, including concurrent calls", async () => {
     // Regression: the old path raised 'Section not found' and let the application
     // insert a placeholder + retry on 23505 — which lost or double-counted
     // strikes under concurrency. The RPC now owns the placeholder insert.
@@ -632,7 +639,7 @@ describe('upsertClassState / section-check pipeline ops', () => {
     expect(await incrementConsecutiveNotFound(db, REF_INC)).toBe(2);
 
     const concurrent = await Promise.all(
-      Array.from({ length: 4 }, () => incrementConsecutiveNotFound(db, REF_INC))
+      Array.from({ length: 4 }, () => incrementConsecutiveNotFound(db, REF_INC)),
     );
 
     expect([...concurrent].sort((a, b) => a - b)).toEqual([3, 4, 5, 6]);
@@ -642,17 +649,17 @@ describe('upsertClassState / section-check pipeline ops', () => {
     expect(state?.last_checked_at).toBeDefined();
   });
 
-  it('seeds a missing row but never clobbers pipeline state or the strike counter', async () => {
+  it("seeds a missing row but never clobbers pipeline state or the strike counter", async () => {
     const pipelineSnapshot = {
       subject: SUBJECT,
-      catalog_nbr: '310',
+      catalog_nbr: "310",
       title: `Seed Probe ${RUN}`,
-      instructor_name: 'Dr. Fixture',
+      instructor_name: "Dr. Fixture",
       seats_available: 11,
       seats_capacity: 30,
       non_reserved_seats: 9,
-      location: 'TEMPE',
-      meeting_times: 'MW 10:00-11:15',
+      location: "TEMPE",
+      meeting_times: "MW 10:00-11:15",
     };
 
     await insertClassStateIfMissing(db, REF_SEED, pipelineSnapshot);
@@ -663,8 +670,8 @@ describe('upsertClassState / section-check pipeline ops', () => {
     await incrementConsecutiveNotFound(db, REF_SEED);
     await insertClassStateIfMissing(db, REF_SEED, {
       ...pipelineSnapshot,
-      title: 'Stale Seed Snapshot',
-      instructor_name: 'Someone Else',
+      title: "Stale Seed Snapshot",
+      instructor_name: "Someone Else",
       seats_available: 99,
       non_reserved_seats: 99,
     });
@@ -672,21 +679,21 @@ describe('upsertClassState / section-check pipeline ops', () => {
     const row = await readSectionCheckState(db, REF_SEED);
     expect(row?.seats_available).toBe(11);
     expect(row?.non_reserved_seats).toBe(9);
-    expect(row?.instructor_name).toBe('Dr. Fixture');
+    expect(row?.instructor_name).toBe("Dr. Fixture");
     expect(row?.consecutive_not_found_count).toBe(1);
   });
 
-  it('moves last_changed_at for a seat-signal change but not for an unrelated field', async () => {
+  it("moves last_changed_at for a seat-signal change but not for an unrelated field", async () => {
     const details = (overrides: { title?: string; non_reserved_seats?: number | null }) => ({
       subject: SUBJECT,
-      catalog_nbr: '310',
+      catalog_nbr: "310",
       title: overrides.title ?? `Seed Probe ${RUN}`,
-      instructor_name: 'Dr. Fixture',
+      instructor_name: "Dr. Fixture",
       seats_available: 11,
       seats_capacity: 30,
       non_reserved_seats: overrides.non_reserved_seats ?? 9,
-      location: 'TEMPE',
-      meeting_times: 'MW 10:00-11:15',
+      location: "TEMPE",
+      meeting_times: "MW 10:00-11:15",
     });
 
     const selectStamps = async () => {
@@ -697,14 +704,14 @@ describe('upsertClassState / section-check pipeline ops', () => {
         })
         .from(classStates)
         .where(
-          and(eq(classStates.class_nbr, REF_SEED.class_nbr), eq(classStates.term, REF_SEED.term))
+          and(eq(classStates.class_nbr, REF_SEED.class_nbr), eq(classStates.term, REF_SEED.term)),
         );
 
       return row;
     };
 
     const before = await selectStamps();
-    await upsertClassState(db, REF_SEED, details({ title: 'Renamed Probe' }), new Date());
+    await upsertClassState(db, REF_SEED, details({ title: "Renamed Probe" }), new Date());
     const afterRename = await selectStamps();
     // mode: 'string' columns come back as driver text, so compare parsed dates.
     expect(afterRename?.last_changed_at).toBe(before?.last_changed_at);
@@ -712,21 +719,21 @@ describe('upsertClassState / section-check pipeline ops', () => {
     await upsertClassState(db, REF_SEED, details({ non_reserved_seats: 4 }), new Date());
     const afterSeats = await selectStamps();
     expect(new Date(afterSeats?.last_changed_at ?? 0).getTime()).toBeGreaterThan(
-      new Date(afterRename?.last_changed_at ?? 0).getTime()
+      new Date(afterRename?.last_changed_at ?? 0).getTime(),
     );
   });
 
-  it('caps the counter and skips no-op writes', async () => {
+  it("caps the counter and skips no-op writes", async () => {
     await capConsecutiveNotFound(db, REF_INC, 1);
     expect((await readSectionCheckState(db, REF_INC))?.consecutive_not_found_count).toBe(1);
     await capConsecutiveNotFound(db, REF_INC, 1);
     expect((await readSectionCheckState(db, REF_INC))?.consecutive_not_found_count).toBe(1);
   });
 
-  it('reads removal info and breaker counts', async () => {
+  it("reads removal info and breaker counts", async () => {
     expect(await readSectionRemovalClassInfo(db, REF_INC)).toEqual({
-      subject: '',
-      catalog_nbr: '',
+      subject: "",
+      catalog_nbr: "",
       title: null,
     });
     const breaker = await readAutoCleanupBreakerCounts(db);
@@ -737,8 +744,8 @@ describe('upsertClassState / section-check pipeline ops', () => {
   });
 });
 
-describe('create_class_watch_with_limit RPC', () => {
-  it('creates the watch and returns the full class_watches row', async () => {
+describe("create_class_watch_with_limit RPC", () => {
+  it("creates the watch and returns the full class_watches row", async () => {
     const rows = await db.execute<CreatedWatchRow>(
       sql`SELECT * FROM public.create_class_watch_with_limit(
         ${U_LIMIT}::text,
@@ -747,20 +754,20 @@ describe('create_class_watch_with_limit RPC', () => {
         '310'::text,
         ${REF_LIMIT_1.class_nbr}::text,
         ${1}::integer
-      )`
+      )`,
     );
 
     const row = rows[0];
     expect(row).toBeDefined();
 
     for (const key of [
-      'id',
-      'user_id',
-      'class_nbr',
-      'term',
-      'subject',
-      'catalog_nbr',
-      'created_at',
+      "id",
+      "user_id",
+      "class_nbr",
+      "term",
+      "subject",
+      "catalog_nbr",
+      "created_at",
     ]) {
       expect(Object.keys(row)).toContain(key);
     }
@@ -772,7 +779,7 @@ describe('create_class_watch_with_limit RPC', () => {
     expect(temporal(row.created_at)).toBe(true);
   });
 
-  it('raises MAX_WATCHES_EXCEEDED (P0001) once the limit is reached', async () => {
+  it("raises MAX_WATCHES_EXCEEDED (P0001) once the limit is reached", async () => {
     const error = await capture(() =>
       db.execute(
         sql`SELECT * FROM public.create_class_watch_with_limit(
@@ -782,8 +789,8 @@ describe('create_class_watch_with_limit RPC', () => {
           '310'::text,
           ${REF_LIMIT_2.class_nbr}::text,
           ${1}::integer
-        )`
-      )
+        )`,
+      ),
     );
 
     expect(error).not.toBeNull();
@@ -792,8 +799,8 @@ describe('create_class_watch_with_limit RPC', () => {
   });
 });
 
-describe('watcher reads and eligibility RPCs', () => {
-  it('lists only eligible watchers with normalized ISO timestamps', async () => {
+describe("watcher reads and eligibility RPCs", () => {
+  it("lists only eligible watchers with normalized ISO timestamps", async () => {
     const watchers = await getClassWatchers(db, REF_A);
     const watcherIds = watchers.map((w) => w.watch_id);
     expect(watcherIds).toEqual([W_A_MAIN]);
@@ -803,11 +810,11 @@ describe('watcher reads and eligibility RPCs', () => {
       user_id: U_MAIN,
       watch_id: W_A_MAIN,
     });
-    expect(watchers[0].email).toBe(mail('main'));
+    expect(watchers[0].email).toBe(mail("main"));
     expect(isIsoZ(watchers[0].created_at)).toBe(true);
   });
 
-  it('scopes batch recipient reads to the requested sections AND term', async () => {
+  it("scopes batch recipient reads to the requested sections AND term", async () => {
     const watchers = await getNotificationWatchers(db, REF_B);
     const watcherIds = watchers.map((w) => w.watch_id);
     expect(watcherIds).toEqual([W_B_MAIN]);
@@ -816,15 +823,15 @@ describe('watcher reads and eligibility RPCs', () => {
     expect(watchers[0].user_id).toBe(U_MAIN);
   });
 
-  it('enumerates sections to check with stagger parity filtering', async () => {
+  it("enumerates sections to check with stagger parity filtering", async () => {
     const mine = (refs: { class_nbr: string; term: string }[]) =>
       refs
         .flatMap((r) =>
-          r.term === TERM || r.term === TERM_OTHER ? [`${r.term}:${r.class_nbr}`] : []
+          r.term === TERM || r.term === TERM_OTHER ? [`${r.term}:${r.class_nbr}`] : [],
         )
         .sort();
 
-    expect(mine(await getSectionsToCheck(db, 'all'))).toEqual(
+    expect(mine(await getSectionsToCheck(db, "all"))).toEqual(
       [
         `${TERM}:${REF_A.class_nbr}`,
         `${TERM}:${REF_B.class_nbr}`,
@@ -832,41 +839,41 @@ describe('watcher reads and eligibility RPCs', () => {
         `${TERM}:${REF_ODD.class_nbr}`,
         `${TERM}:${REF_LIMIT_1.class_nbr}`,
         `${TERM_OTHER}:${REF_B_OTHER_TERM.class_nbr}`,
-      ].sort()
+      ].sort(),
     );
-    expect(mine(await getSectionsToCheck(db, 'even'))).toEqual(
+    expect(mine(await getSectionsToCheck(db, "even"))).toEqual(
       [
         `${TERM}:${REF_A.class_nbr}`,
         `${TERM}:${REF_B.class_nbr}`,
         `${TERM}:${REF_C.class_nbr}`,
         `${TERM}:${REF_LIMIT_1.class_nbr}`,
         `${TERM_OTHER}:${REF_B_OTHER_TERM.class_nbr}`,
-      ].sort()
+      ].sort(),
     );
-    expect(mine(await getSectionsToCheck(db, 'odd'))).toEqual([`${TERM}:${REF_ODD.class_nbr}`]);
+    expect(mine(await getSectionsToCheck(db, "odd"))).toEqual([`${TERM}:${REF_ODD.class_nbr}`]);
   });
 
-  it('picks the most-watched class by eligible watchers with deterministic tiebreak', async () => {
+  it("picks the most-watched class by eligible watchers with deterministic tiebreak", async () => {
     expect(await getMostWatchedClass(db, TERM)).toEqual(REF_C);
     expect(await getMostWatchedClass(db, TERM_EMPTY)).toBeNull();
   });
 });
 
-describe('notification dedup lifecycle', () => {
-  it('claims each watch once, frees expired slots, and rolls back claims', async () => {
-    const first = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], 'seat_available');
+describe("notification dedup lifecycle", () => {
+  it("claims each watch once, frees expired slots, and rolls back claims", async () => {
+    const first = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], "seat_available");
     expect(first.map((c) => c.watchId).sort()).toEqual([W_C_1, W_C_2].sort());
 
-    const second = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], 'seat_available');
+    const second = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], "seat_available");
     expect(second).toHaveLength(0);
 
     await db
       .update(notificationsSent)
-      .set({ expires_at: '2020-01-01T00:00:00.000Z' })
+      .set({ expires_at: "2020-01-01T00:00:00.000Z" })
       .where(inArray(notificationsSent.class_watch_id, [W_C_1, W_C_2]));
 
     const swept = await db.execute<{ n: string }>(
-      sql`SELECT public.expire_stale_notifications() AS n`
+      sql`SELECT public.expire_stale_notifications() AS n`,
     );
 
     expect(Number(swept[0]?.n)).toBeGreaterThanOrEqual(2);
@@ -878,19 +885,19 @@ describe('notification dedup lifecycle', () => {
         .where(
           and(
             inArray(notificationsSent.class_watch_id, [W_C_1, W_C_2]),
-            eq(notificationsSent.is_active, false)
-          )
-        )
+            eq(notificationsSent.is_active, false),
+          ),
+        ),
     );
 
     expect(inactive).toBe(2);
 
-    const third = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], 'seat_available');
+    const third = await tryRecordNotificationsBatch(db, [W_C_1, W_C_2], "seat_available");
     expect(third.map((c) => c.watchId).sort()).toEqual([W_C_1, W_C_2].sort());
   });
 
-  it('rolls back failed sends by deleting only active claims', async () => {
-    const deleted = await deleteNotificationRecords(db, [W_C_1], 'seat_available');
+  it("rolls back failed sends by deleting only active claims", async () => {
+    const deleted = await deleteNotificationRecords(db, [W_C_1], "seat_available");
     expect(deleted).toBe(1);
 
     const activeLeft = await scalarCount(
@@ -900,26 +907,26 @@ describe('notification dedup lifecycle', () => {
         .where(
           and(
             inArray(notificationsSent.class_watch_id, [W_C_1, W_C_2]),
-            eq(notificationsSent.is_active, true)
-          )
-        )
+            eq(notificationsSent.is_active, true),
+          ),
+        ),
     );
 
     expect(activeLeft).toBe(1);
   });
 
-  it('enforces the partial unique index only for active rows', async () => {
+  it("enforces the partial unique index only for active rows", async () => {
     const activeDup = await capture(() =>
       db
         .insert(notificationsSent)
-        .values({ class_watch_id: W_C_2, notification_type: 'seat_available' })
+        .values({ class_watch_id: W_C_2, notification_type: "seat_available" }),
     );
 
     expect(isUniqueViolation(activeDup)).toBe(true);
 
     await db.insert(notificationsSent).values({
       class_watch_id: W_C_2,
-      notification_type: 'seat_available',
+      notification_type: "seat_available",
       is_active: false,
     });
 
@@ -930,20 +937,20 @@ describe('notification dedup lifecycle', () => {
         .where(
           and(
             eq(notificationsSent.class_watch_id, W_C_2),
-            eq(notificationsSent.notification_type, 'seat_available')
-          )
-        )
+            eq(notificationsSent.notification_type, "seat_available"),
+          ),
+        ),
     );
 
     expect(history).toBeGreaterThanOrEqual(2);
   });
 
-  it('resets notifications for a section so users can be re-notified', async () => {
+  it("resets notifications for a section so users can be re-notified", async () => {
     await db.insert(notificationsSent).values({
       class_watch_id: W_A_MAIN,
-      notification_type: 'seat_available',
+      notification_type: "seat_available",
     });
-    await resetNotificationsForSection(db, REF_A, 'seat_available');
+    await resetNotificationsForSection(db, REF_A, "seat_available");
 
     const left = await scalarCount(
       db
@@ -952,22 +959,22 @@ describe('notification dedup lifecycle', () => {
         .where(
           and(
             eq(notificationsSent.class_watch_id, W_A_MAIN),
-            eq(notificationsSent.notification_type, 'seat_available')
-          )
-        )
+            eq(notificationsSent.notification_type, "seat_available"),
+          ),
+        ),
     );
 
     expect(left).toBe(0);
   });
 });
 
-describe('deleteSectionAndWatches transactional cleanup', () => {
-  it('hard-deletes watches (cascading notifications) and state atomically', async () => {
+describe("deleteSectionAndWatches transactional cleanup", () => {
+  it("hard-deletes watches (cascading notifications) and state atomically", async () => {
     const before = await scalarCount(
       db
         .select({ n: count() })
         .from(classWatches)
-        .where(and(eq(classWatches.class_nbr, REF_C.class_nbr), eq(classWatches.term, TERM)))
+        .where(and(eq(classWatches.class_nbr, REF_C.class_nbr), eq(classWatches.term, TERM))),
     );
 
     expect(before).toBe(2);
@@ -979,7 +986,7 @@ describe('deleteSectionAndWatches transactional cleanup', () => {
       db
         .select({ n: count() })
         .from(classWatches)
-        .where(and(eq(classWatches.class_nbr, REF_C.class_nbr), eq(classWatches.term, TERM)))
+        .where(and(eq(classWatches.class_nbr, REF_C.class_nbr), eq(classWatches.term, TERM))),
     );
 
     expect(watchesLeft).toBe(0);
@@ -989,13 +996,13 @@ describe('deleteSectionAndWatches transactional cleanup', () => {
       db
         .select({ n: count() })
         .from(notificationsSent)
-        .where(inArray(notificationsSent.class_watch_id, [W_C_1, W_C_2]))
+        .where(inArray(notificationsSent.class_watch_id, [W_C_1, W_C_2])),
     );
 
     expect(notificationsLeft).toBe(0);
   });
 
-  it('rolls back the whole transaction when any statement fails', async () => {
+  it("rolls back the whole transaction when any statement fails", async () => {
     await expect(
       db.transaction(async (tx) => {
         await tx.insert(classWatches).values({
@@ -1003,50 +1010,50 @@ describe('deleteSectionAndWatches transactional cleanup', () => {
           class_nbr: REF_A.class_nbr,
           term: TERM,
           subject: SUBJECT,
-          catalog_nbr: '310',
+          catalog_nbr: "310",
         });
-        throw new Error('rollback-probe');
-      })
-    ).rejects.toThrow('rollback-probe');
+        throw new Error("rollback-probe");
+      }),
+    ).rejects.toThrow("rollback-probe");
 
     const left = await scalarCount(
       db
         .select({ n: count() })
         .from(classWatches)
-        .where(and(eq(classWatches.user_id, U_TX), eq(classWatches.term, TERM)))
+        .where(and(eq(classWatches.user_id, U_TX), eq(classWatches.term, TERM))),
     );
 
     expect(left).toBe(0);
   });
 
-  it('hard-deletes watches for past terms by term code', async () => {
+  it("hard-deletes watches for past terms by term code", async () => {
     const deleted = await deletePastTermWatches(db, [TERM_OTHER]);
     expect(deleted).toBe(1);
 
     const left = await scalarCount(
-      db.select({ n: count() }).from(classWatches).where(eq(classWatches.term, TERM_OTHER))
+      db.select({ n: count() }).from(classWatches).where(eq(classWatches.term, TERM_OTHER)),
     );
 
     expect(left).toBe(0);
   });
 });
 
-describe('users mirror lifecycle', () => {
+describe("users mirror lifecycle", () => {
   const APP_ID = `clerk_${U_WEBHOOK}`;
 
-  it('syncs a verified webhook payload into mirror + profile with consents', async () => {
+  it("syncs a verified webhook payload into mirror + profile with consents", async () => {
     const synced = await syncUserMirrorFromClerkUser(
       db,
       userJson({
         public_metadata: { age_verified: true, agreed_to_terms: true },
-      })
+      }),
     );
 
     expect(synced).toBe(true);
 
     const verification = await readUserVerification(db, APP_ID, { cache: false });
     expect(verification).not.toBeNull();
-    expect(verification?.email).toBe(mail('webhook'));
+    expect(verification?.email).toBe(mail("webhook"));
     expect(temporal(verification?.email_confirmed_at)).toBe(true);
 
     const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.user_id, APP_ID));
@@ -1054,29 +1061,29 @@ describe('users mirror lifecycle', () => {
     expect(profile.agreed_to_terms_at).not.toBeNull();
   });
 
-  it('keeps the earliest confirmation when the email is unchanged', async () => {
+  it("keeps the earliest confirmation when the email is unchanged", async () => {
     await syncUserMirrorFromClerkUser(
       db,
-      userJson({ email_addresses: [emailAddress('email_primary', mail('webhook'), 'unverified')] })
+      userJson({ email_addresses: [emailAddress("email_primary", mail("webhook"), "unverified")] }),
     );
     const verification = await readUserVerification(db, APP_ID, { cache: false });
     expect(verification?.email_confirmed_at).not.toBeNull();
   });
 
-  it('resets confirmation when the address changes to an unverified one', async () => {
+  it("resets confirmation when the address changes to an unverified one", async () => {
     await syncUserMirrorFromClerkUser(
       db,
       userJson({
-        primary_email_address_id: 'email_secondary',
-        email_addresses: [emailAddress('email_secondary', mail('webhook-two'), 'unverified')],
-      })
+        primary_email_address_id: "email_secondary",
+        email_addresses: [emailAddress("email_secondary", mail("webhook-two"), "unverified")],
+      }),
     );
     const verification = await readUserVerification(db, APP_ID, { cache: false });
-    expect(verification?.email).toBe(mail('webhook-two'));
+    expect(verification?.email).toBe(mail("webhook-two"));
     expect(verification?.email_confirmed_at).toBeNull();
   });
 
-  it('soft-deletes by Clerk id and preserves the mirror row', async () => {
+  it("soft-deletes by Clerk id and preserves the mirror row", async () => {
     const disabled = await softDeleteUserById(db, APP_ID);
     expect(disabled).toBe(1);
 
@@ -1089,12 +1096,12 @@ describe('users mirror lifecycle', () => {
     expect(profile.agreed_to_terms_at).not.toBeNull();
 
     const verification = await readUserVerification(db, APP_ID, { cache: false });
-    expect(verification?.email).toBe(mail('webhook-two'));
+    expect(verification?.email).toBe(mail("webhook-two"));
   });
 });
 
-describe('onboarding persistence', () => {
-  it('walks pending -> skipped through the skip_onboarding RPC', async () => {
+describe("onboarding persistence", () => {
+  it("walks pending -> skipped through the skip_onboarding RPC", async () => {
     await db.insert(userProfiles).values({ user_id: U_ONBOARD });
 
     const pending = await readOnboardingState(db, U_ONBOARD);
@@ -1115,17 +1122,17 @@ describe('onboarding persistence', () => {
   });
 });
 
-describe('admin queries (representative RPC + builder results)', () => {
-  it('paginates users with authoritative statuses and ISO-normalized timestamps', async () => {
+describe("admin queries (representative RPC + builder results)", () => {
+  it("paginates users with authoritative statuses and ISO-normalized timestamps", async () => {
     const expectedUsers = await scalarCount(
       db
         .select({ n: count() })
         .from(users)
-        .where(like(users.id, `%${RUN}%`))
+        .where(like(users.id, `%${RUN}%`)),
     );
 
     const mainWatches = await scalarCount(
-      db.select({ n: count() }).from(classWatches).where(eq(classWatches.user_id, U_MAIN))
+      db.select({ n: count() }).from(classWatches).where(eq(classWatches.user_id, U_MAIN)),
     );
 
     const page = await getUsersPage(db, { search: RUN, pageSize: 200 });
@@ -1136,26 +1143,26 @@ describe('admin queries (representative RPC + builder results)', () => {
     const mainRow = byId.get(U_MAIN);
     expect(mainRow).toBeDefined();
     expect(mainRow?.watch_count).toBe(mainWatches);
-    expect(mainRow?.notification_status).toBe('active');
+    expect(mainRow?.notification_status).toBe("active");
     expect(isIsoZ(mainRow?.created_at)).toBe(true);
-    expect(byId.get(U_BOUNCED)?.notification_status).toBe('bounced');
-    expect(byId.get(U_DISABLED)?.notification_status).toBe('disabled');
-    expect(byId.get(U_SPAM)?.notification_status).toBe('spam');
-    expect(byId.get(U_UNSUB)?.notification_status).toBe('unsubscribed');
-    expect(byId.get(`clerk_${U_WEBHOOK}`)?.notification_status).toBe('disabled');
+    expect(byId.get(U_BOUNCED)?.notification_status).toBe("bounced");
+    expect(byId.get(U_DISABLED)?.notification_status).toBe("disabled");
+    expect(byId.get(U_SPAM)?.notification_status).toBe("spam");
+    expect(byId.get(U_UNSUB)?.notification_status).toBe("unsubscribed");
+    expect(byId.get(`clerk_${U_WEBHOOK}`)?.notification_status).toBe("disabled");
     expect(byId.get(U_ADMIN)?.is_admin).toBe(true);
 
-    const admins = await getUsersPage(db, { search: RUN, role: 'admin', pageSize: 200 });
+    const admins = await getUsersPage(db, { search: RUN, role: "admin", pageSize: 200 });
     expect(admins.rows.length).toBeGreaterThanOrEqual(1);
     expect(admins.rows.every((row) => row.is_admin)).toBe(true);
   });
 
-  it('paginates classes with SectionRef-scoped aggregates and global stats', async () => {
+  it("paginates classes with SectionRef-scoped aggregates and global stats", async () => {
     const expectedStates = await scalarCount(
       db
         .select({ n: count() })
         .from(classStates)
-        .where(like(classStates.class_nbr, `${RUN}%`))
+        .where(like(classStates.class_nbr, `${RUN}%`)),
     );
 
     const page = await getClassesPage(db, { search: RUN, pageSize: 200 });
@@ -1174,7 +1181,7 @@ describe('admin queries (representative RPC + builder results)', () => {
     expect(isIsoZ(rowA?.last_changed_at)).toBe(true);
   });
 
-  it('counts emails, users, admins, and distinct classes through BIGINT-safe paths', async () => {
+  it("counts emails, users, admins, and distinct classes through BIGINT-safe paths", async () => {
     const myWatchIds = (
       await db
         .select({ id: classWatches.id })
@@ -1188,7 +1195,7 @@ describe('admin queries (representative RPC + builder results)', () => {
             db
               .select({ n: count() })
               .from(notificationsSent)
-              .where(inArray(notificationsSent.class_watch_id, myWatchIds))
+              .where(inArray(notificationsSent.class_watch_id, myWatchIds)),
           )
         : 0;
 
@@ -1198,7 +1205,7 @@ describe('admin queries (representative RPC + builder results)', () => {
       db
         .select({ n: count() })
         .from(userProfiles)
-        .where(like(userProfiles.user_id, `%${RUN}%`))
+        .where(like(userProfiles.user_id, `%${RUN}%`)),
     );
 
     expect(await getTotalUsers(db)).toBeGreaterThanOrEqual(expectedProfiles);
@@ -1210,45 +1217,45 @@ describe('admin queries (representative RPC + builder results)', () => {
           .select({ class_nbr: classWatches.class_nbr })
           .from(classWatches)
           .where(like(classWatches.user_id, `%${RUN}%`))
-      ).map((row) => row.class_nbr)
+      ).map((row) => row.class_nbr),
     );
 
     expect(await getTotalClassesWatched(db)).toBeGreaterThanOrEqual(distinctMine.size);
   });
 
-  it('reports distinct subjects including the run-scoped fixture', async () => {
+  it("reports distinct subjects including the run-scoped fixture", async () => {
     const subjects = await getDistinctSubjects(db);
     expect(subjects).toContain(SUBJECT);
   });
 
-  it('feeds recent activity with normalized ISO timestamps', async () => {
+  it("feeds recent activity with normalized ISO timestamps", async () => {
     const feed = await getRecentActivity(db, 500);
     expect(feed.length).toBeGreaterThan(0);
     expect(feed.every((item) => isIsoZ(item.activityAt))).toBe(true);
 
     const registration = feed.find(
-      (item) => item.type === 'user_registration' && item.userEmail === mail('admin')
+      (item) => item.type === "user_registration" && item.userEmail === mail("admin"),
     );
 
     expect(registration).toBeDefined();
 
     const aWatchFeed = feed.filter(
-      (item) => item.type === 'new_watch' && item.classNbr === REF_A.class_nbr
+      (item) => item.type === "new_watch" && item.classNbr === REF_A.class_nbr,
     );
 
     expect(aWatchFeed.map((item) => item.userEmail).sort()).toEqual(
-      [mail('main'), mail('bounced'), mail('disabled')].sort()
+      [mail("main"), mail("bounced"), mail("disabled")].sort(),
     );
 
     const emailSent = feed.find(
-      (item) => item.type === 'email_sent' && item.classNbr === REF_ODD.class_nbr
+      (item) => item.type === "email_sent" && item.classNbr === REF_ODD.class_nbr,
     );
 
     expect(emailSent).toBeDefined();
-    expect(emailSent?.notificationType).toBe('seat_available');
+    expect(emailSent?.notificationType).toBe("seat_available");
   });
 
-  it('joins user watches with their class state (and null for stateless sections)', async () => {
+  it("joins user watches with their class state (and null for stateless sections)", async () => {
     const mainWatches = await getUserWatches(db, U_MAIN);
     expect(mainWatches.map((w) => w.id).sort()).toEqual([W_A_MAIN, W_B_MAIN].sort());
 
@@ -1263,7 +1270,7 @@ describe('admin queries (representative RPC + builder results)', () => {
   });
 });
 
-describe('notification claim races', () => {
+describe("notification claim races", () => {
   const seedWatch = async (ref: { class_nbr: string; term: string }) => {
     const [row] = await db
       .insert(classWatches)
@@ -1272,20 +1279,20 @@ describe('notification claim races', () => {
         class_nbr: ref.class_nbr,
         term: ref.term,
         subject: SUBJECT,
-        catalog_nbr: '310',
+        catalog_nbr: "310",
       })
       .returning({ id: classWatches.id });
 
     return row.id;
   };
 
-  it('lets exactly one of two concurrent claims win a watch', async () => {
+  it("lets exactly one of two concurrent claims win a watch", async () => {
     const watchId = await seedWatch(REF_LIMIT_2);
 
     try {
       const [first, second] = await Promise.all([
-        tryRecordNotificationsBatch(db, [watchId], 'seat_available'),
-        tryRecordNotificationsBatch(db, [watchId], 'seat_available'),
+        tryRecordNotificationsBatch(db, [watchId], "seat_available"),
+        tryRecordNotificationsBatch(db, [watchId], "seat_available"),
       ]);
 
       expect(first.length + second.length).toBe(1);
@@ -1297,9 +1304,9 @@ describe('notification claim races', () => {
           .where(
             and(
               eq(notificationsSent.class_watch_id, watchId),
-              eq(notificationsSent.is_active, true)
-            )
-          )
+              eq(notificationsSent.is_active, true),
+            ),
+          ),
       );
 
       expect(activeClaims).toBe(1);
@@ -1308,17 +1315,17 @@ describe('notification claim races', () => {
     }
   });
 
-  it('claims a free slot again when only an inactive history row is left unexpired', async () => {
+  it("claims a free slot again when only an inactive history row is left unexpired", async () => {
     const watchId = await seedWatch(REF_LIMIT_1);
 
     try {
       await db.insert(notificationsSent).values({
         class_watch_id: watchId,
-        notification_type: 'seat_available',
+        notification_type: "seat_available",
         is_active: false,
       });
 
-      const claimed = await tryRecordNotificationsBatch(db, [watchId], 'seat_available');
+      const claimed = await tryRecordNotificationsBatch(db, [watchId], "seat_available");
 
       expect([...claimed]).toEqual([watchId]);
     } finally {
@@ -1326,7 +1333,7 @@ describe('notification claim races', () => {
     }
   });
 
-  it('skips a watch deleted mid-claim instead of failing the whole batch', async () => {
+  it("skips a watch deleted mid-claim instead of failing the whole batch", async () => {
     const doomedId = await seedWatch(REF_LIMIT_1);
     const survivorId = await seedWatch(REF_LIMIT_2);
 
@@ -1336,7 +1343,7 @@ describe('notification claim races', () => {
       const claimed = await tryRecordNotificationsBatch(
         db,
         [doomedId, survivorId],
-        'instructor_assigned'
+        "instructor_assigned",
       );
 
       expect([...claimed]).toEqual([survivorId]);

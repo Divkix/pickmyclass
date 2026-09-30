@@ -1,7 +1,7 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
+import { drizzle } from "drizzle-orm/postgres-js";
 
-import type { Database } from '@/lib/db';
-import * as schema from '@/lib/db/schema';
+import type { Database } from "@/lib/db";
+import * as schema from "@/lib/db/schema";
 
 type CellValue = null | boolean | number | bigint | string | Date | readonly CellValue[];
 
@@ -29,11 +29,11 @@ interface ScriptedTransport {
   begin<T>(callback: (tx: ScriptedTransport) => T | Promise<T>): Promise<Awaited<T>>;
 }
 
-type PostgresClient = Database['$client'] | ScriptedTransport;
+type PostgresClient = Database["$client"] | ScriptedTransport;
 
-function asPostgresClient(client: PostgresClient): Database['$client'] {
+function asPostgresClient(client: PostgresClient): Database["$client"] {
   // SAFETY: the scripted transport implements only the postgres-js surface drizzle reads.
-  return client as Database['$client'];
+  return client as Database["$client"];
 }
 
 export function createScriptedPostgres() {

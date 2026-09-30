@@ -1,9 +1,9 @@
-import { eq } from 'drizzle-orm';
+import { eq } from "drizzle-orm";
 
-import { TtlCache } from '@/lib/cache/ttl-cache';
-import type { Database } from '@/lib/db';
-import { userProfiles } from '@/lib/db/schema';
-import { log } from '@/lib/log';
+import { TtlCache } from "@/lib/cache/ttl-cache";
+import type { Database } from "@/lib/db";
+import { userProfiles } from "@/lib/db/schema";
+import { log } from "@/lib/log";
 
 export interface AuthorizationState {
   has_consent: boolean;
@@ -30,7 +30,7 @@ interface ReadAuthorizationStateOptions {
 export async function readAuthorizationState(
   db: Database,
   userId: string,
-  { cache }: ReadAuthorizationStateOptions
+  { cache }: ReadAuthorizationStateOptions,
 ): Promise<AuthorizationState | null> {
   if (cache) {
     const cached = authorizationStateCache.get(userId);
@@ -64,7 +64,7 @@ export async function readAuthorizationState(
 
     return state;
   } catch (error) {
-    log('Auth').error('Error reading authorization state:', error);
+    log("Auth").error("Error reading authorization state:", error);
 
     // Unknown, not disabled: a transient DB failure must not revoke sessions.
     return null;

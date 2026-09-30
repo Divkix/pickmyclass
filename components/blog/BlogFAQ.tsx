@@ -1,4 +1,4 @@
-import { JsonLd } from '@/components/landing/JsonLd';
+import { JsonLd } from "@/components/landing/JsonLd";
 
 interface FAQItem {
   question: string;
@@ -22,12 +22,12 @@ export function BlogFAQ({ items }: BlogFAQProps) {
       </div>
       <JsonLd
         data={{
-          '@context': 'https://schema.org',
-          '@type': 'FAQPage',
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
           mainEntity: items.map((item) => ({
-            '@type': 'Question',
+            "@type": "Question",
             name: item.question,
-            acceptedAnswer: { '@type': 'Answer', text: item.answer },
+            acceptedAnswer: { "@type": "Answer", text: item.answer },
           })),
         }}
       />

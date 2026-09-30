@@ -1,7 +1,7 @@
-import { type SQL } from 'drizzle-orm';
-import { PgDialect } from 'drizzle-orm/pg-core';
-import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { type SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
+import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const {
   dbHandle,
@@ -29,47 +29,47 @@ const {
   };
 });
 
-vi.mock('@/lib/auth/clerk-session', () => ({
+vi.mock("@/lib/auth/clerk-session", () => ({
   getSessionIdentity: mockGetSessionIdentity,
   getClerkClient: mockGetClerkClient,
 }));
 
-vi.mock('@/lib/db/users', () => ({
+vi.mock("@/lib/db/users", () => ({
   repairUserMirror: mockRepairUserMirror,
 }));
 
-vi.mock('@/lib/db', () => ({
+vi.mock("@/lib/db", () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));
 
-vi.mock('@/lib/auth/authorization-state', () => ({
+vi.mock("@/lib/auth/authorization-state", () => ({
   invalidateAuthorizationState: mockInvalidateAuthorizationState,
 }));
 
-import { GET } from '@/app/auth/post-oauth/route';
+import { GET } from "@/app/auth/post-oauth/route";
 
-const ORIGIN = 'https://pickmyclass.app';
+const ORIGIN = "https://pickmyclass.app";
 
-const IDENTITY = { userId: 'user-1', clerkUserId: 'clerk_user_1', sessionId: 'sess_1' };
+const IDENTITY = { userId: "user-1", clerkUserId: "clerk_user_1", sessionId: "sess_1" };
 
-const CLERK_USER = { id: 'clerk_user_1' };
+const CLERK_USER = { id: "clerk_user_1" };
 
-function getRequest(search = '', headers: Record<string, string> = {}): NextRequest {
+function getRequest(search = "", headers: Record<string, string> = {}): NextRequest {
   return new NextRequest(`${ORIGIN}/auth/post-oauth${search}`, { headers });
 }
 
 function locationOf(response: Response): string {
-  const location = response.headers.get('location');
-  expect(location, 'expected a redirect response').not.toBeNull();
+  const location = response.headers.get("location");
+  expect(location, "expected a redirect response").not.toBeNull();
 
   if (location === null) {
-    throw new Error('expected a redirect response');
+    throw new Error("expected a redirect response");
   }
 
   return location;
 }
 
-describe('GET /auth/post-oauth', () => {
+describe("GET /auth/post-oauth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetSessionIdentity.mockResolvedValue(IDENTITY);
@@ -78,7 +78,7 @@ describe('GET /auth/post-oauth', () => {
     mockExecute.mockResolvedValue([]);
   });
 
-  it('redirects unauthenticated requests to sign-in with oauth_failed without touching the mirror', async () => {
+  it("redirects unauthenticated requests to sign-in with oauth_failed without touching the mirror", async () => {
     mockGetSessionIdentity.mockResolvedValueOnce(null);
 
     const response = await GET(getRequest());
@@ -90,48 +90,48 @@ describe('GET /auth/post-oauth', () => {
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
-  it('creates exactly one database handle per request', async () => {
+  it("creates exactly one database handle per request", async () => {
     mockRepairUserMirror.mockResolvedValueOnce({ hasConsent: true });
 
-    const response = await GET(getRequest('?next=/dashboard'));
+    const response = await GET(getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/dashboard`);
     expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
   });
 
-  it('fetches the Clerk user then repairs the mirror once with the request-scoped handle', async () => {
-    await GET(getRequest('?next=/dashboard'));
+  it("fetches the Clerk user then repairs the mirror once with the request-scoped handle", async () => {
+    await GET(getRequest("?next=/dashboard"));
 
     expect(mockGetUser).toHaveBeenCalledTimes(1);
-    expect(mockGetUser).toHaveBeenCalledWith('clerk_user_1');
+    expect(mockGetUser).toHaveBeenCalledWith("clerk_user_1");
     expect(mockRepairUserMirror).toHaveBeenCalledTimes(1);
-    expect(mockRepairUserMirror).toHaveBeenCalledWith(dbHandle, 'user-1', CLERK_USER);
+    expect(mockRepairUserMirror).toHaveBeenCalledWith(dbHandle, "user-1", CLERK_USER);
   });
 
-  it('maps a null repair (no email on Clerk user) to the save_failed consent redirect', async () => {
+  it("maps a null repair (no email on Clerk user) to the save_failed consent redirect", async () => {
     mockRepairUserMirror.mockResolvedValueOnce(null);
 
-    const response = await GET(getRequest('?next=/dashboard'));
+    const response = await GET(getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/consent?error=save_failed&next=%2Fdashboard`);
     expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
-  it('maps a thrown repair failure to the oauth_failed sign-in redirect', async () => {
-    mockRepairUserMirror.mockRejectedValueOnce(new Error('mirror upsert failed'));
+  it("maps a thrown repair failure to the oauth_failed sign-in redirect", async () => {
+    mockRepairUserMirror.mockRejectedValueOnce(new Error("mirror upsert failed"));
 
-    const response = await GET(getRequest('?next=/dashboard'));
+    const response = await GET(getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
     expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
-  it('maps a Clerk fetch failure to the oauth_failed sign-in redirect', async () => {
-    mockGetUser.mockRejectedValueOnce(new Error('clerk unavailable'));
+  it("maps a Clerk fetch failure to the oauth_failed sign-in redirect", async () => {
+    mockGetUser.mockRejectedValueOnce(new Error("clerk unavailable"));
 
-    const response = await GET(getRequest('?next=/dashboard'));
+    const response = await GET(getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
     expect(mockRepairUserMirror).not.toHaveBeenCalled();
@@ -139,78 +139,78 @@ describe('GET /auth/post-oauth', () => {
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
-  it('routes users without recorded consent to /consent using the repaired flag instead of extra SQL', async () => {
+  it("routes users without recorded consent to /consent using the repaired flag instead of extra SQL", async () => {
     mockRepairUserMirror.mockResolvedValueOnce({ hasConsent: false });
 
-    const response = await GET(getRequest('?next=/dashboard'));
+    const response = await GET(getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/consent?next=%2Fdashboard`);
     expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
-  it('sends consented users straight to the safe next destination', async () => {
+  it("sends consented users straight to the safe next destination", async () => {
     mockRepairUserMirror.mockResolvedValueOnce({ hasConsent: true });
 
-    const response = await GET(getRequest('?next=/dashboard'));
+    const response = await GET(getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/dashboard`);
     expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
-  it('records confirmed consent via one bound RPC, then invalidates authorization state before redirecting', async () => {
+  it("records confirmed consent via one bound RPC, then invalidates authorization state before redirecting", async () => {
     mockRepairUserMirror.mockResolvedValueOnce({ hasConsent: false });
 
-    const response = await GET(getRequest('?next=/dashboard&consent=confirmed'));
+    const response = await GET(getRequest("?next=/dashboard&consent=confirmed"));
 
     expect(mockExecute).toHaveBeenCalledTimes(1);
     const query = mockExecute.mock.calls[0][0];
-    expect(new PgDialect().sqlToQuery(query).sql.replace(/\s+/g, ' ').trim()).toBe(
-      'SELECT public.accept_terms_and_verify_age($1::text)'
+    expect(new PgDialect().sqlToQuery(query).sql.replace(/\s+/g, " ").trim()).toBe(
+      "SELECT public.accept_terms_and_verify_age($1::text)",
     );
-    expect(new PgDialect().sqlToQuery(query).params).toEqual(['user-1']);
+    expect(new PgDialect().sqlToQuery(query).params).toEqual(["user-1"]);
     expect(mockInvalidateAuthorizationState).toHaveBeenCalledTimes(1);
-    expect(mockInvalidateAuthorizationState).toHaveBeenCalledWith('user-1');
+    expect(mockInvalidateAuthorizationState).toHaveBeenCalledWith("user-1");
     expect(mockExecute.mock.invocationCallOrder[0]).toBeLessThan(
-      mockInvalidateAuthorizationState.mock.invocationCallOrder[0]
+      mockInvalidateAuthorizationState.mock.invocationCallOrder[0],
     );
     expect(locationOf(response)).toBe(`${ORIGIN}/dashboard`);
   });
 
-  it('does not invalidate authorization state when the consent RPC fails and falls back to save_failed', async () => {
-    mockExecute.mockRejectedValueOnce(new Error('database unavailable'));
+  it("does not invalidate authorization state when the consent RPC fails and falls back to save_failed", async () => {
+    mockExecute.mockRejectedValueOnce(new Error("database unavailable"));
 
-    const response = await GET(getRequest('?next=/dashboard&consent=confirmed'));
+    const response = await GET(getRequest("?next=/dashboard&consent=confirmed"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/consent?error=save_failed&next=%2Fdashboard`);
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
-  it('sanitizes protocol-relative and backslash next values down to the safe fallback', async () => {
+  it("sanitizes protocol-relative and backslash next values down to the safe fallback", async () => {
     mockRepairUserMirror.mockResolvedValue({ hasConsent: true });
 
     const protocolRelative = await GET(
-      getRequest(`?next=${encodeURIComponent('//evil.example/pwn')}`)
+      getRequest(`?next=${encodeURIComponent("//evil.example/pwn")}`),
     );
 
-    const backslash = await GET(getRequest(`?next=${encodeURIComponent('/\\evil.example/pwn')}`));
+    const backslash = await GET(getRequest(`?next=${encodeURIComponent("/\\evil.example/pwn")}`));
 
     expect(locationOf(protocolRelative)).toBe(`${ORIGIN}/`);
     expect(locationOf(backslash)).toBe(`${ORIGIN}/`);
   });
 
-  it('resolves every redirect against the request origin, ignoring a forwarded host header', async () => {
-    const forwardedHost = { 'x-forwarded-host': 'evil.example' };
+  it("resolves every redirect against the request origin, ignoring a forwarded host header", async () => {
+    const forwardedHost = { "x-forwarded-host": "evil.example" };
 
     mockGetSessionIdentity.mockResolvedValueOnce(null);
-    const unauthenticated = await GET(getRequest('', forwardedHost));
+    const unauthenticated = await GET(getRequest("", forwardedHost));
 
     mockRepairUserMirror.mockResolvedValue({ hasConsent: false });
-    const consentGate = await GET(getRequest('?next=/dashboard', forwardedHost));
+    const consentGate = await GET(getRequest("?next=/dashboard", forwardedHost));
 
     mockRepairUserMirror.mockResolvedValue({ hasConsent: true });
-    const success = await GET(getRequest('?next=/dashboard', forwardedHost));
+    const success = await GET(getRequest("?next=/dashboard", forwardedHost));
 
     expect(locationOf(unauthenticated)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
     expect(locationOf(consentGate)).toBe(`${ORIGIN}/consent?next=%2Fdashboard`);
@@ -218,7 +218,7 @@ describe('GET /auth/post-oauth', () => {
 
     for (const response of [unauthenticated, consentGate, success]) {
       expect(locationOf(response)).toMatch(/^https:\/\/pickmyclass\.app\//);
-      expect(locationOf(response)).not.toContain('evil.example');
+      expect(locationOf(response)).not.toContain("evil.example");
     }
   });
 });
