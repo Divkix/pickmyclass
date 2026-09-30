@@ -5,8 +5,26 @@ allowBuilds:
   esbuild: true
   sharp: true
   workerd: true
-minimumReleaseAge: 0
+# Supply-chain hardening: hold back fresh releases and reject downgraded trust signals.
+minimumReleaseAge: 1440
 trustPolicy: no-downgrade
+# pnpm >= 11.22 prunes exact-version excludes no longer resolved by the lockfile.
+minimumReleaseAgeExcludePrune: true
+# Install platform-specific native optional deps for both the CI/build host
+# (Linux x64 glibc — Cloudflare Pages) and local dev (Darwin arm64/x64).
+# Without this, pnpm skips @voidzero-dev/vite-plus-linux-x64-gnu on Linux and
+# the `prepare` script (`vp config`) crashes with "Cannot find native binding".
+supportedArchitectures:
+  os:
+    - linux
+    - darwin
+    - current
+  cpu:
+    - x64
+    - arm64
+  libc:
+    - glibc
+    - current
 overrides:
   vite-plus: 1.0.0-rc.0
   '@vitest/coverage-v8': 5.0.1
