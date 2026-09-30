@@ -8,11 +8,13 @@ export function useDebouncedSearchParam(
   delayMs = 350
 ): [string, (v: string) => void] {
   const [localValue, setLocalValue] = useState(value);
+  const [previousValue, setPreviousValue] = useState(value);
   const debounceRef = useRef<number | undefined>(undefined);
 
-  useEffect(() => {
+  if (value !== previousValue) {
+    setPreviousValue(value);
     setLocalValue(value);
-  }, [value]);
+  }
 
   useEffect(() => {
     return () => {

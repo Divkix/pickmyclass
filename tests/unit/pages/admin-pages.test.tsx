@@ -52,14 +52,7 @@ type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   children: ReactNode;
 };
 
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | ReactNode
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+type JsonValue = ReactNode | JsonValue[] | { [key: string]: JsonValue };
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: LinkProps) => (

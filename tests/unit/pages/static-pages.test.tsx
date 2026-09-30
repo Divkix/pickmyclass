@@ -25,14 +25,7 @@ type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   children: ReactNode;
 };
 
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | ReactNode
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+type JsonValue = ReactNode | JsonValue[] | { [key: string]: JsonValue };
 
 const jsonLdSchema = z.looseObject({
   '@type': z.string().optional(),
@@ -242,7 +235,7 @@ describe('blog pages', () => {
     expect(articleHrefs).toContain('/blog/best-asu-class-seat-tracker');
 
     unmount();
-    render(await ASUWaitlistGuidePost());
+    render(ASUWaitlistGuidePost());
 
     const waitlistHrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
     expect(waitlistHrefs).toContain('/blog/asu-class-search');

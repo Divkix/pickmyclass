@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
-import type { ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import satori from 'satori';
 
 async function generateOGImage() {
@@ -10,11 +10,13 @@ async function generateOGImage() {
     'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.woff'
   ).then((r) => {
     if (!r.ok) throw new Error(`Failed to fetch font: ${r.status}`);
+
     return r.arrayBuffer();
   });
 
-  const element = {
+  const element: ReactElement = {
     type: 'div',
+    key: null,
     props: {
       style: {
         display: 'flex',
@@ -96,7 +98,7 @@ async function generateOGImage() {
         },
       ],
     },
-  } as unknown as ReactNode;
+  };
 
   const svg = await satori(element, {
     width: 1200,
@@ -114,6 +116,7 @@ async function generateOGImage() {
   const resvg = new Resvg(svg, {
     fitTo: { mode: 'width', value: 1200 },
   });
+
   const pngData = resvg.render();
   const pngBuffer = pngData.asPng();
 

@@ -1,4 +1,5 @@
 import { act, render, waitFor } from '@testing-library/react';
+import { useEffect } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { AuthProvider, useAuth } from '@/lib/contexts/AuthContext';
 
@@ -129,7 +130,11 @@ describe('analytics identity rule', () => {
     let signOut: (() => Promise<void>) | undefined;
 
     function SignOutProbe() {
-      signOut = useAuth().signOut;
+      const authSignOut = useAuth().signOut;
+
+      useEffect(() => {
+        signOut = authSignOut;
+      }, [authSignOut]);
 
       return null;
     }

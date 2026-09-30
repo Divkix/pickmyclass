@@ -24,12 +24,14 @@ function parseArgs(): Args {
   const args = process.argv.slice(2);
   const source = args.find((a) => a.startsWith('--source='))?.split('=')[1];
   const target = args.find((a) => a.startsWith('--target='))?.split('=')[1];
+
   if (!source || !target) {
     console.error(
       'Usage: tsx scripts/verify-migration.ts --source=postgres://... --target=postgres://...'
     );
     process.exit(1);
   }
+
   return { source, target };
 }
 
@@ -37,14 +39,17 @@ async function getRowCount(client: SqlClient, table: string): Promise<number> {
   const rows = await client.unsafe<Array<{ count: number }>>(
     `SELECT COUNT(*)::int AS count FROM ${table}`
   );
+
   return rows[0].count;
 }
 
 async function getChecksum(client: SqlClient, table: string, columns: string[]): Promise<string> {
   const colList = columns.join(', ');
+
   const rows = await client.unsafe<Array<{ checksum: string | null }>>(
     `SELECT md5(string_agg(md5(${colList}::text), '' ORDER BY ${colList})) AS checksum FROM ${table}`
   );
+
   return rows[0].checksum || 'empty';
 }
 
@@ -102,6 +107,7 @@ async function main() {
 
     // Verify sequences are advanced
     console.log('\nSequence check:');
+
     const seqRows = await targetClient.unsafe<
       Array<{ sequencename: string; last_value: number | bigint | null }>
     >(`
@@ -109,6 +115,7 @@ async function main() {
       WHERE schemaname = 'public'
       ORDER BY sequencename
     `);
+
     for (const row of seqRows) {
       console.log(`  ${row.sequencename}: last_value = ${row.last_value}`);
     }

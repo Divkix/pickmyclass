@@ -10,7 +10,7 @@ export const reduceMotion = (variants: Variants): Variants => {
     const reduced: Variants = {};
 
     for (const [key, value] of Object.entries(variants)) {
-      reduced[key] = { ...value, transition: { duration: 0.01 } };
+      reduced[key] = Object.assign({}, value, { transition: { duration: 0.01 } });
     }
 
     return reduced;

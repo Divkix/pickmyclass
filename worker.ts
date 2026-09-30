@@ -18,6 +18,7 @@ import { getDb } from './lib/db';
 import { log } from './lib/log';
 
 const workerLog = log('Worker');
+
 const queueLog = log('Queue');
 
 /**
@@ -32,6 +33,7 @@ function withAgentHeaders(response: Response, pathname: string): Response {
   const varied = new Response(response.body, response);
   appendVary(varied.headers, 'Accept');
   appendLinkEntry(varied.headers, pageLinkHeader(pathname));
+
   return varied;
 }
 
@@ -61,13 +63,16 @@ export default {
     // A `.md` URL is a request for the Markdown twin of the page it names.
     // Static assets win: /pricing.md is a real file, not a twin of /pricing.
     const markdownPath = markdownSourcePath(url.pathname);
+
     if (markdownPath && isGetOrHead) {
       const asset = await env.ASSETS.fetch(request);
+
       if (asset.status !== 404) return asset;
 
       const target = new URL(request.url);
       target.pathname = markdownPath;
       const response = await handler.fetch(new Request(target, request), env, ctx);
+
       if (!isHtmlResponse(response)) return response;
 
       return markdownResponse({ response, html: await response.text(), url: request.url });
@@ -77,6 +82,7 @@ export default {
       // Markdown requests never touch the edge cache: it stores one HTML
       // representation per path, and the conversion is cheap for agent traffic.
       const response = await handler.fetch(request, env, ctx);
+
       if (!isHtmlResponse(response)) return response;
 
       return markdownResponse({ response, html: await response.text(), url: request.url });
@@ -91,6 +97,7 @@ export default {
 
     const versionId = env.CF_VERSION_METADATA?.id;
     const cached = await edgeHtmlCache.get(request, versionId);
+
     if (cached) {
       return cached;
     }
@@ -101,6 +108,7 @@ export default {
     );
 
     const cacheWrite = edgeHtmlCache.put(request, versionId, response);
+
     if (cacheWrite) ctx.waitUntil(cacheWrite);
 
     return response;
@@ -121,6 +129,7 @@ export default {
     const results = await Promise.allSettled(
       batch.messages.map(async (message) => {
         const msgStartTime = Date.now();
+
         try {
           const outcome = await processSection(db, message.body, env);
           const duration = Date.now() - msgStartTime;
@@ -137,7 +146,9 @@ export default {
                 outcome.result
               );
             }
+
             message.ack();
+
             return {
               success: outcome.result.success,
               class_nbr: message.body.class_nbr,
@@ -151,11 +162,13 @@ export default {
           );
           const delaySeconds = retryDelaySeconds(outcome, message.attempts);
           message.retry(delaySeconds === undefined ? undefined : { delaySeconds });
+
           return { success: false, class_nbr: message.body.class_nbr, duration };
         } catch (error) {
           const duration = Date.now() - msgStartTime;
           queueLog.error(`Retryable error for ${message.body.class_nbr} in ${duration}ms:`, error);
           message.retry();
+
           return { success: false, class_nbr: message.body.class_nbr, duration, error };
         }
       })

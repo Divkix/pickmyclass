@@ -263,7 +263,7 @@ interface StepOneProps {
   popularLoading: boolean;
   popularClass: PopularClass | null;
   skipping: boolean;
-  onSkip: () => void;
+  onSkip: () => Promise<void>;
   onTrackPopular: () => void;
   onContinue: () => void;
 }
@@ -373,7 +373,7 @@ interface StepTwoProps {
   prefillClassNbr: string;
   onCreated: (watch: ClassWatchRow) => void;
   onSubmittingChange: (submitting: boolean) => void;
-  onSkip: () => void;
+  onSkip: () => Promise<void>;
   onBack: () => void;
 }
 

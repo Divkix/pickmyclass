@@ -55,7 +55,7 @@ describe('root request instrumentation', () => {
     mockDistinctIdFromCookieHeader.mockReturnValueOnce('anon-123');
     const cookie = 'ph_phc_x_posthog=%7B%7D';
 
-    onRequestError(
+    void onRequestError(
       new Error('render exploded'),
       { path: '/x', method: 'GET', headers: { cookie } },
       { routerKind: 'App Router', routePath: '/x', routeType: 'render' }
@@ -72,7 +72,7 @@ describe('root request instrumentation', () => {
       headers: { authorization: 'Bearer secret', cookie: 'session=abc' },
     };
 
-    onRequestError(new Error('route failed'), requestWithHeaders, {
+    void onRequestError(new Error('route failed'), requestWithHeaders, {
       routerKind: 'App Router',
       routePath: '/api/user/delete',
       routeType: 'route',

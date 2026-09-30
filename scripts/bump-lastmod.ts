@@ -26,7 +26,9 @@ const staged = git('diff', '--cached', '--name-only', '--diff-filter=ACMRD', '-z
   .filter(Boolean);
 
 const lastmod: Record<string, string> = JSON.parse(readFileSync(LASTMOD_FILE, 'utf8'));
+
 const routes = changedStaticRoutes(staged, Object.keys(lastmod));
+
 const next = stampLastmod(lastmod, routes, today());
 
 if (next) {
