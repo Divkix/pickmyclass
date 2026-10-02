@@ -322,7 +322,7 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
       vinext:
-        specifier: 1.0.0-beta.13
+        specifier: 1.0.0
         version: 1.0.0-beta.13(@types/node@26.6.3)(@vitejs/plugin-react@6.1.1(@voidzero-dev/vite-plus-core@1.0.0-rc.0(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@7.0.2)(yaml@2.9.1)))(@vitejs/plugin-rsc@0.5.35(@voidzero-dev/vite-plus-core@1.0.0-rc.0(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@7.0.2)(yaml@2.9.1))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@voidzero-dev/vite-plus-core@1.0.0-rc.0(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@7.0.2)(yaml@2.9.1))(next@16.3.6(@types/node@26.6.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       vite:
         specifier: 'catalog:'
