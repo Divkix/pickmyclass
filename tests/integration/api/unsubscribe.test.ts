@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
@@ -31,22 +31,6 @@ interface TransportRecorder {
   outcomes: ScriptedOutcome[];
 }
 
-type ScriptedQuery = Promise<DriverRow[]> & { values(): Promise<DriverValue[][]> };
-
-function pendingRows(rows: DriverRow[]): ScriptedQuery {
-  const query = Promise.resolve(rows);
-
-  return Object.assign(query, {
-    values: () => Promise.resolve(rows.map((row) => Object.values(row))),
-  });
-}
-
-function rejectedRows(outcome: Error): ScriptedQuery {
-  const rejection = Promise.reject<never>(outcome);
-
-  return Object.assign(rejection, { values: () => rejection });
-}
-
 const { recorder, mockVerifyUnsubscribeToken, mockCaptureServerEvent } = vi.hoisted(() => {
   const recorder: TransportRecorder = { statements: [], outcomes: [] };
 
@@ -71,16 +55,21 @@ vi.mock("@/lib/db", () => ({
 
 function scriptedDatabase(): Database {
   const client = {
-    options: { parsers: {}, serializers: {} },
-    unsafe(query: string, params: ScriptedParam[]): ScriptedQuery {
-      recorder.statements.push({ sql: query, params });
+    async query(
+      query: { text: string; values?: ScriptedParam[]; rowMode?: string },
+      values?: ScriptedParam[],
+    ) {
+      recorder.statements.push({ sql: query.text, params: values ?? query.values ?? [] });
       const outcome = recorder.outcomes.shift();
 
-      return outcome instanceof Error ? rejectedRows(outcome) : pendingRows(outcome ?? []);
+      if (outcome instanceof Error) throw outcome;
+      const rows = outcome ?? [];
+
+      return { rows: query.rowMode === "array" ? rows.map((row) => Object.values(row)) : rows };
     },
   };
 
-  // SAFETY: the double implements the postgres-js seam drizzle drives: options, unsafe.
+  // SAFETY: the double implements the query surface driven by Drizzle.
   return drizzle(client as Database["$client"], { schema });
 }
 

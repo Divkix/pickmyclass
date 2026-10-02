@@ -1,82 +1,70 @@
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzle } from "drizzle-orm/node-postgres";
+import type { QueryConfig } from "pg";
 
 import type { Database } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 
-type CellValue = null | boolean | number | bigint | string | Date | readonly CellValue[];
+export type CellValue =
+  | null
+  | boolean
+  | number
+  | bigint
+  | string
+  | Date
+  | readonly CellValue[]
+  | { [key: string]: CellValue };
 
-interface DriverRow {
+export interface DriverRow {
   [column: string]: CellValue;
 }
 
-interface CapturedStatement {
+export interface CapturedStatement {
   sql: string;
   params: CellValue[];
 }
 
-interface PendingRows extends Promise<DriverRow[]> {
-  values(): Promise<CellValue[][]>;
-}
-
-interface DriverOptions {
-  parsers: Record<number, (raw: string) => CellValue>;
-  serializers: Record<number, (value: CellValue) => string>;
-}
-
-interface ScriptedTransport {
-  options: DriverOptions;
-  unsafe(query: string, params: readonly CellValue[]): PendingRows;
-  begin<T>(callback: (tx: ScriptedTransport) => T | Promise<T>): Promise<Awaited<T>>;
-}
-
-type PostgresClient = Database["$client"] | ScriptedTransport;
-
-function asPostgresClient(client: PostgresClient): Database["$client"] {
-  // SAFETY: the scripted transport implements only the postgres-js surface drizzle reads.
-  return client as Database["$client"];
-}
-
-export function createScriptedPostgres() {
+export function createScriptedPostgres(rowsFor?: (statement: CapturedStatement) => DriverRow[]) {
   const statements: CapturedStatement[] = [];
   const outcomes: Array<DriverRow[] | Error> = [];
   let transactionCount = 0;
 
-  const pendingRows = (rows: DriverRow[]): PendingRows =>
-    Object.assign(Promise.resolve(rows), {
-      values: (): Promise<CellValue[][]> => Promise.resolve(rows.map((row) => Object.values(row))),
-    });
+  const transport = {
+    async query(query: QueryConfig<CellValue[]> & { rowMode?: string }, values?: CellValue[]) {
+      const text = query.text;
 
-  const respond = (): PendingRows => {
-    const outcome = outcomes.shift();
+      if (/^(begin|commit|rollback)\b/i.test(text)) {
+        if (/^begin\b/i.test(text)) transactionCount += 1;
 
-    if (outcome instanceof Error) {
-      const rejected: PendingRows = Object.assign(Promise.reject(outcome), {
-        values: (): Promise<never> => Promise.reject(outcome),
-      });
+        return { rows: [], rowCount: 0, command: text, oid: 0, fields: [] };
+      }
 
-      rejected.catch(() => {});
+      const statement = { sql: text, params: values ?? query.values ?? [] };
+      statements.push(statement);
+      const outcome = rowsFor ? rowsFor(statement) : outcomes.shift();
 
-      return rejected;
-    }
+      if (outcome instanceof Error) throw outcome;
+      const rows = outcome ?? [];
 
-    return pendingRows(outcome ?? []);
+      return {
+        rows: query.rowMode === "array" ? rows.map((row) => Object.values(row)) : rows,
+        rowCount: rows.length,
+        command: "",
+        oid: 0,
+        fields: [],
+      };
+    },
+    async connect() {
+      return transport;
+    },
+    release() {},
   };
 
-  const transport: ScriptedTransport = {
-    options: { parsers: {}, serializers: {} },
-    unsafe(query: string, params: readonly CellValue[]): PendingRows {
-      statements.push({ sql: query, params: [...params] });
+  function asPgClient(client: Database["$client"] | typeof transport): Database["$client"] {
+    // SAFETY: the transport implements the query/connect/release surface exercised by Drizzle.
+    return client as Database["$client"];
+  }
 
-      return respond();
-    },
-    begin<T>(callback: (tx: ScriptedTransport) => T | Promise<T>): Promise<Awaited<T>> {
-      transactionCount += 1;
-
-      return Promise.resolve(callback(transport));
-    },
-  };
-
-  const db: Database = drizzle(asPostgresClient(transport), { schema });
+  const db: Database = drizzle(asPgClient(transport), { schema });
 
   return {
     db,

@@ -433,9 +433,9 @@ describe("SQLSTATE helpers against real driver errors", () => {
   });
 });
 
-describe("wire formats under prepare:false / fetch_types:false", () => {
+describe("wire formats under node-postgres", () => {
   it("returns int8 as a precision-safe string", async () => {
-    const rows = await db.execute<{ c: string }>(
+    const { rows } = await db.execute<{ c: string }>(
       sql`SELECT COUNT(*)::bigint AS c FROM class_watches`,
     );
 
@@ -444,7 +444,7 @@ describe("wire formats under prepare:false / fetch_types:false", () => {
   });
 
   it("delivers timestamptz as parseable PG text (boundaries normalize to ISO)", async () => {
-    const rows = await db.execute<{ t: string }>(sql`SELECT now()::timestamptz AS t`);
+    const { rows } = await db.execute<{ t: string }>(sql`SELECT now()::timestamptz AS t`);
     expect(z.string().safeParse(rows[0]?.t).success).toBe(true);
     expect(temporal(rows[0]?.t)).toBe(true);
   });
@@ -746,7 +746,7 @@ describe("upsertClassState / section-check pipeline ops", () => {
 
 describe("create_class_watch_with_limit RPC", () => {
   it("creates the watch and returns the full class_watches row", async () => {
-    const rows = await db.execute<CreatedWatchRow>(
+    const { rows } = await db.execute<CreatedWatchRow>(
       sql`SELECT * FROM public.create_class_watch_with_limit(
         ${U_LIMIT}::text,
         ${TERM}::text,
@@ -872,7 +872,7 @@ describe("notification dedup lifecycle", () => {
       .set({ expires_at: "2020-01-01T00:00:00.000Z" })
       .where(inArray(notificationsSent.class_watch_id, [W_C_1, W_C_2]));
 
-    const swept = await db.execute<{ n: string }>(
+    const { rows: swept } = await db.execute<{ n: string }>(
       sql`SELECT public.expire_stale_notifications() AS n`,
     );
 

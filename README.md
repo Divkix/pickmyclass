@@ -30,7 +30,7 @@ Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hype
 ### Native Primitives for Scalability
 - **Cloudflare Queues**: Reliable message queue for processing class checks at scale
 - **Workflows**: Scheduled, durable, per-step-retried cron jobs (`SectionCheckWorkflow`, `MaintenanceWorkflow`)
-- **Hyperdrive**: Postgres connection pooling to PlanetScale (request-scoped Drizzle over postgres-js in `lib/db/index.ts`, `--caching-disabled`)
+- **Hyperdrive**: Postgres connection pooling to PlanetScale (request-scoped Drizzle over node-postgres (`pg`) in `lib/db/index.ts`, `--caching-disabled`)
 - **Clerk**: Edge JWT verification (`@clerk/backend` `authenticateRequest` with `jwtKey` PEM, `ext_id` claim) + webhook `user.created/updated/deleted` (`lib/auth/clerk-session.ts`, `lib/db/users.ts` mirror)
 
 ## Architecture
@@ -39,7 +39,7 @@ Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hype
 User Browser
       |
       v
-vinext App (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (Drizzle/postgres-js, polling)
+vinext App (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (Drizzle/node-postgres, polling)
       |         |                               ^
       |         | Clerk FAPI (clerk.*)          | polling GET /api/class-watches/states
       v         v                               | (30–60s, sectionRefKey)
@@ -71,7 +71,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `worker.ts` | Custom Cloudflare Worker with fetch and queue handlers; re-exports the Workflow classes |
 | `lib/workflows/cron-workflows.ts` | `SectionCheckWorkflow` (enqueue checks) and `MaintenanceWorkflow` (daily sweeps) |
 | `lib/worker/edge-html-cache.ts` | Edge HTML cache eligibility, keying, lookup, and storage rules |
-| `lib/db/index.ts` | Request-scoped Drizzle over postgres-js (`getDb`/`getDbFromEnv` via the `HYPERDRIVE` binding) |
+| `lib/db/index.ts` | Request-scoped Drizzle over node-postgres (`getDb`/`getDbFromEnv` via the `HYPERDRIVE` binding) |
 | `lib/db/queries.ts` | Database query helpers (Drizzle builders for CRUD, typed SQL for SECURITY DEFINER RPCs) |
 | `lib/db/users.ts` | Clerk user mirror (`clerk_user_id`, `syncUserMirrorFromClerkUser`/`repairUserMirror`) |
 | `lib/auth/clerk-session.ts` | Edge JWT verify (`getSessionIdentity`, `revokeSession`, `revokeAllUserSessions`) |
@@ -200,7 +200,7 @@ The `app/legal/` directory contains Terms/Privacy with `support@pickmyclass.app`
 
 ### Local Development
 
-Local Postgres required for any DB query (pages/APIs open a request-scoped Drizzle/postgres-js connection via `lib/db/index.ts`); the dev server itself boots even if DB is down, but requests will `ECONNREFUSED`.
+Local Postgres required for any DB query (pages/APIs open a request-scoped Drizzle/node-postgres pool via `lib/db/index.ts`); the dev server itself boots even if DB is down, but requests will `ECONNREFUSED`.
 
 ```bash
 # start local Postgres (once):
@@ -254,7 +254,7 @@ pnpm run db:studio                            # Drizzle Studio
 ## Tech Stack
 
 - **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4, `@clerk/react` 6.14.5 via `ClerkClientProvider`, `posthog-js` via the typed boundary in `lib/analytics/` (public token + managed proxy host in `lib/analytics/config.ts`)
-- **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (Drizzle ORM over postgres-js) via Hyperdrive, Clerk (`@clerk/backend` 3.16.10 edge JWT), Supabase Realtime **removed** (polling only)
+- **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (Drizzle ORM over node-postgres) via Hyperdrive, Clerk (`@clerk/backend` 3.16.10 edge JWT), Supabase Realtime **removed** (polling only)
 - **Data Source**: ASU Class Search API (direct HTTP)
 - **Email**: Cloudflare Email Service
 - **Deployment**: Cloudflare Workers + Queues + Workflows

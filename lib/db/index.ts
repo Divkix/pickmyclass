@@ -1,5 +1,5 @@
 /**
- * Drizzle over Postgres.js behind Cloudflare Hyperdrive.
+ * Drizzle over node-postgres behind Cloudflare Hyperdrive.
  *
  * **Server-only module** — it imports `cloudflare:workers`, which never
  * resolves in a browser bundle, so a stray client import fails at build time.
@@ -13,34 +13,22 @@
  * @module lib/db/index
  */
 import { env } from "cloudflare:workers";
-import { type PostgresJsDatabase, drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { type NodePgDatabase, drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "./schema";
 
-export type Database = PostgresJsDatabase<typeof schema> & { $client: postgres.Sql };
-
-/**
- * Postgres-JS options tuned for Hyperdrive (see Cloudflare + Drizzle docs).
- * - prepare: false — Hyperdrive does not support prepared statements at the
- *   protocol edge, so postgres-js must inline parameters.
- * - fetch_types: false — skips round-tripping type catalog OIDs; Drizzle maps
- *   types from its own schema definitions instead.
- * - Small pooled-connection cap: each Worker isolate gets its own pool, and
- *   PlanetScale/PG maxes out quickly if isolates open large pools.
- */
-const POSTGRES_OPTIONS = {
-  prepare: false,
-  fetch_types: false,
-  max: 5,
-  idle_timeout: 20,
-  connect_timeout: 10,
-} as const;
+export type Database = NodePgDatabase<typeof schema> & { $client: Pool };
 
 export function getDb(hyperdrive: Hyperdrive): Database {
-  const client = postgres(hyperdrive.connectionString, POSTGRES_OPTIONS);
-
-  // SAFETY: drizzle(client, { schema }) returns PostgresJsDatabase whose $client is the postgres-js Sql instance
-  return drizzle(client, { schema }) as Database;
+  return drizzle({
+    client: new Pool({
+      connectionString: hyperdrive.connectionString,
+      max: 5,
+      connectionTimeoutMillis: 10_000,
+      idleTimeoutMillis: 20_000,
+    }),
+    schema,
+  });
 }
 
 export function getDbFromEnv(): Database {

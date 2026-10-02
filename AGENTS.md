@@ -1,6 +1,6 @@
 # AGENTS.md
 
-PickMyClass emails ASU students when a watched class section gains an open seat or gets a named instructor. It is a Next.js 16 App Router app (React 19, strict TS) built by **vinext** (Vite-based) and deployed as one **Cloudflare Worker**, with PlanetScale Postgres through Hyperdrive (request-scoped Drizzle over postgres-js), Clerk auth, Cloudflare Workflows + Queues for scheduled seat checks, and Cloudflare Email for delivery. Features, architecture diagram, and self-hosting are in [README.md](README.md); domain vocabulary is in [CONTEXT.md](CONTEXT.md); design decisions are in [docs/adr/](docs/adr/). Read the ADRs covering an area before changing it, and use CONTEXT.md terms (`SectionRef`, Section Check, Cron Cycle) in code, tests and issues.
+PickMyClass emails ASU students when a watched class section gains an open seat or gets a named instructor. It is a Next.js 16 App Router app (React 19, strict TS) built by **vinext** (Vite-based) and deployed as one **Cloudflare Worker**, with PlanetScale Postgres through Hyperdrive (request-scoped Drizzle over node-postgres (`pg`)), Clerk auth, Cloudflare Workflows + Queues for scheduled seat checks, and Cloudflare Email for delivery. Features, architecture diagram, and self-hosting are in [README.md](README.md); domain vocabulary is in [CONTEXT.md](CONTEXT.md); design decisions are in [docs/adr/](docs/adr/). Read the ADRs covering an area before changing it, and use CONTEXT.md terms (`SectionRef`, Section Check, Cron Cycle) in code, tests and issues.
 
 When code and this file disagree, code wins: fix this file in the same change.
 
@@ -37,7 +37,7 @@ Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `
 - `migrations_pg/`: drizzle-kit migrations, the real schema history, tracked in `drizzle.__drizzle_migrations`. `lib/db/schema/` is the source of truth for tables: edit it, then `db:generate`. Functions, triggers and data fixes go in `db:generate -- --custom` files; change a function with `CREATE OR REPLACE` in a new migration, never edit an applied file. `0000_baseline` + `0001_baseline_functions` reproduce prod as of 2026-10-01. `db/migrations/` is frozen pre-drizzle history; never add to it.
 - `lib/utils.ts` is shadcn's `cn()` only. Custom helpers go in `lib/utils/`. The split is intentional, so leave both.
 - `lib/seo/`: sitemap, `/llms.txt` and `/llms-full.txt` route handlers, lastmod map, IndexNow.
-- `tests/unit`, `tests/integration`: all tests live here, not next to source. The `test` block in `vite.config.ts` defines `unit`, `integration`, and opt-in `db` projects. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through `test.alias`. `tests/unit/lib/db/scripted-postgres.ts` is a fake postgres-js transport for query tests.
+- `tests/unit`, `tests/integration`: all tests live here, not next to source. The `test` block in `vite.config.ts` defines `unit`, `integration`, and opt-in `db` projects. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through `test.alias`. `tests/unit/lib/db/scripted-postgres.ts` is a scripted node-postgres transport for query tests.
 - `tools/oxlint/anti-slop/`: vendored lint plugin (see Gotchas).
 - `docs/agents/`: issue-tracker (`gh` on `Divkix/pickmyclass`) and triage-label conventions used by skills.
 

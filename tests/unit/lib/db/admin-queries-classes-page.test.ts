@@ -35,7 +35,7 @@ interface ClassPageWireRow {
 }
 
 interface ClassesPageSeamDb {
-  execute?(query: SQL): Promise<ClassPageWireRow[]>;
+  execute?(query: SQL): Promise<{ rows: ClassPageWireRow[] }>;
 }
 
 function asDatabaseHandle(seam: Database | ClassesPageSeamDb): Database {
@@ -44,7 +44,9 @@ function asDatabaseHandle(seam: Database | ClassesPageSeamDb): Database {
 }
 
 function createDb(executeRows: ClassPageWireRow[]) {
-  const execute = vi.fn(async (_query: SQL): Promise<ClassPageWireRow[]> => executeRows);
+  const execute = vi.fn(async (_query: SQL): Promise<{ rows: ClassPageWireRow[] }> => ({
+    rows: executeRows,
+  }));
 
   return { db: asDatabaseHandle({ execute }), execute };
 }

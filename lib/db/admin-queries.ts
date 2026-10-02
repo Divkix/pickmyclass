@@ -58,9 +58,9 @@ export async function getTotalUsers(db: Database): Promise<number> {
   if (cached !== undefined) return cached;
 
   try {
-    const [row] = await db.execute<CountRpcRow>(
-      sql`SELECT public.count_all_users()::text AS count`,
-    );
+    const {
+      rows: [row],
+    } = await db.execute<CountRpcRow>(sql`SELECT public.count_all_users()::text AS count`);
 
     const result = Number(row?.count ?? 0);
     adminCache.set("total-users", result);
@@ -101,7 +101,9 @@ export async function getTotalClassesWatched(db: Database): Promise<number> {
   if (cached !== undefined) return cached;
 
   try {
-    const [row] = await db.execute<CountRpcRow>(
+    const {
+      rows: [row],
+    } = await db.execute<CountRpcRow>(
       sql`SELECT public.count_distinct_classes_watched()::text AS count`,
     );
 
@@ -225,7 +227,7 @@ export async function getUsersPage(
   } = params;
 
   try {
-    const rows = await db.execute<UsersPageRpcRow>(sql`
+    const { rows } = await db.execute<UsersPageRpcRow>(sql`
       SELECT *
       FROM public.get_users_page(
         ${page}::int,
@@ -306,7 +308,7 @@ export async function getClassesPage(
   } = params;
 
   try {
-    const rows = await db.execute<ClassesPageRpcRow>(sql`
+    const { rows } = await db.execute<ClassesPageRpcRow>(sql`
       SELECT *
       FROM public.get_classes_page(
         ${page}::int,
@@ -362,7 +364,7 @@ export async function getDistinctSubjects(db: Database): Promise<string[]> {
   if (cached !== undefined) return cached;
 
   try {
-    const rows = await db.execute<{ subject: string }>(
+    const { rows } = await db.execute<{ subject: string }>(
       sql`SELECT * FROM public.get_distinct_subjects()`,
     );
 
@@ -415,7 +417,7 @@ export async function getRecentActivity(
   if (cached !== undefined) return cached;
 
   try {
-    const rows = await db.execute<RecentActivityRpcRow>(
+    const { rows } = await db.execute<RecentActivityRpcRow>(
       sql`SELECT * FROM public.get_recent_activity(${sanitizedLimit}::int)`,
     );
 

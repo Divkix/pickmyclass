@@ -27,7 +27,7 @@ interface CronWorkflowEnv {
 }
 
 async function expireStaleNotifications(db: Database): Promise<number> {
-  const rows = await db.execute<{ expired: unknown }>(
+  const { rows } = await db.execute<{ expired: unknown }>(
     sql`SELECT public.expire_stale_notifications() AS expired`,
   );
 

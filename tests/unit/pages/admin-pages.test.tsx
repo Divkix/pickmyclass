@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type * as DrizzlePostgresJs from "drizzle-orm/postgres-js";
+import type * as DrizzleNodePostgres from "drizzle-orm/node-postgres";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type postgres from "postgres";
+import type { Pool } from "pg";
 import AdminClassDetailPage from "@/app/admin/classes/[term]/[classNbr]/page";
 import AdminClassesPage from "@/app/admin/classes/page";
 import AdminLayout from "@/app/admin/layout";
@@ -26,7 +26,7 @@ const {
   mockGetUsersPage,
   mockPush,
   mockSignOut,
-  mockUnsafe,
+  mockQuery,
   mockVerifyAdmin,
 } = vi.hoisted(() => ({
   mockGetAdminCount: vi.fn(),
@@ -41,7 +41,7 @@ const {
   mockGetUsersPage: vi.fn(),
   mockPush: vi.fn(),
   mockSignOut: vi.fn(),
-  mockUnsafe: vi.fn(),
+  mockQuery: vi.fn(),
   mockVerifyAdmin: vi.fn(),
 }));
 
@@ -112,21 +112,20 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("@/lib/db", async () => {
-  const { drizzle } = await vi.importActual<typeof DrizzlePostgresJs>("drizzle-orm/postgres-js");
+  const { drizzle } = await vi.importActual<typeof DrizzleNodePostgres>(
+    "drizzle-orm/node-postgres",
+  );
+
   const schema = await vi.importActual<typeof DbSchema>("@/lib/db/schema");
 
-  interface PostgresJsSeam {
-    unsafe(query: string, params: unknown[]): { values(): Promise<unknown[]> };
-  }
-
-  const scriptedClient = {
-    options: { parsers: {}, serializers: {} },
-    unsafe: (text: string, params: unknown[]) => ({ values: async () => mockUnsafe(text, params) }),
+  const client = {
+    async query(query: { text: string; values?: unknown[] }, values?: unknown[]) {
+      return { rows: await mockQuery(query.text, values ?? query.values ?? []) };
+    },
   };
 
-  const client: PostgresJsSeam = scriptedClient;
-  // SAFETY: scripted client implements only options/unsafe — what the drizzle session reads.
-  const fakeDb = drizzle(client as postgres.Sql, { schema });
+  // SAFETY: scripted client implements the query surface used by the Drizzle session.
+  const fakeDb = drizzle(client as Pool, { schema });
 
   return {
     getDb: vi.fn(() => fakeDb),
@@ -329,7 +328,7 @@ describe("admin pages", () => {
         class_state: classRows[0],
       },
     ]);
-    mockUnsafe.mockImplementation(async (text: string, params: unknown[] = []) => {
+    mockQuery.mockImplementation(async (text: string, params: unknown[] = []) => {
       if (text.includes('from "users"')) {
         const userId = params[0];
         const user = userRows.find((u) => u.id === userId) ?? null;

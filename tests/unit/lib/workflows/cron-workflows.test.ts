@@ -72,7 +72,7 @@ function sentBodies(): ClassCheckMessage[] {
 beforeEach(() => {
   vi.clearAllMocks();
   stepNames.length = 0;
-  mockExecute.mockResolvedValue([{ expired: 0 }]);
+  mockExecute.mockResolvedValue({ rows: [{ expired: 0 }] });
   sendBatch.mockResolvedValue(SEND_RESPONSE);
   mockGetPastTermCodes.mockReturnValue([]);
 });
@@ -174,7 +174,7 @@ describe("SectionCheckWorkflow", () => {
 
 describe("MaintenanceWorkflow", () => {
   it("expires stale notifications and sweeps past-term watches", async () => {
-    mockExecute.mockResolvedValue([{ expired: 4 }]);
+    mockExecute.mockResolvedValue({ rows: [{ expired: 4 }] });
     mockGetPastTermCodes.mockReturnValue(["2254"]);
     mockDeletePastTermWatches.mockResolvedValue(7);
 

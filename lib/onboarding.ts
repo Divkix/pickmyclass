@@ -82,7 +82,10 @@ export async function skipOnboarding(
   db: Database,
   userId: string,
 ): Promise<OnboardingPayload | null> {
-  const rows = await db.execute<OnboardingRow>(sql`SELECT * FROM skip_onboarding(${userId}::text)`);
+  const { rows } = await db.execute<OnboardingRow>(
+    sql`SELECT * FROM skip_onboarding(${userId}::text)`,
+  );
+
   const row = rows[0];
 
   if (!row) return null;

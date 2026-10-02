@@ -42,7 +42,7 @@ const incrementCountSchema = z.number();
 async function incrementConsecutiveNotFoundViaRpc(db: Database, ref: SectionRef): Promise<number> {
   // The RPC creates the placeholder row itself when the section has never been
   // seen, so this is one atomic statement with no insert-fallback race.
-  const rows = await db.execute<{ new_count: unknown }>(
+  const { rows } = await db.execute<{ new_count: unknown }>(
     sql`SELECT public.increment_consecutive_not_found(${ref.class_nbr}::text, ${ref.term}::text) AS new_count`,
   );
 
@@ -58,15 +58,13 @@ async function incrementConsecutiveNotFoundViaRpc(db: Database, ref: SectionRef)
 
 export async function getClassWatchers(db: Database, ref: SectionRef): Promise<ClassWatcher[]> {
   try {
-    const rows = await db.execute<{
+    const { rows } = await db.execute<{
       user_id: string;
       email: string;
       watch_id: string;
       created_at: DriverTimestamp;
-    }>(
-      sql`SELECT user_id, email, watch_id, created_at
-          FROM public.get_class_watchers(${ref.class_nbr}::text, ${ref.term}::text)`,
-    );
+    }>(sql`SELECT user_id, email, watch_id, created_at
+        FROM public.get_class_watchers(${ref.class_nbr}::text, ${ref.term}::text)`);
 
     return rows.map((row) => ({
       user_id: row.user_id,
@@ -88,19 +86,13 @@ export async function getNotificationWatchers(
   ref: SectionRef,
 ): Promise<EligibleWatcherRpcRow[]> {
   try {
-    // Array-bound RPC: neither drizzle's db.execute nor the native postgres-js
-    // template can serialize a JS array under this driver config
-    // (fetch_types: false registers no array serializers — live-proven
-    // 22P02 'malformed array literal'). Compose the single-element array
-    // server-side from separately-bound scalars instead.
-    const rows = await db.execute<{
+    // Compose the text[] server-side from a separately-bound scalar.
+    const { rows } = await db.execute<{
       user_id: string;
       email: string;
       watch_id: string;
-    }>(
-      sql`SELECT user_id, email, watch_id
-          FROM public.get_watchers_for_sections(ARRAY[${ref.class_nbr}::text], ${ref.term}::text)`,
-    );
+    }>(sql`SELECT user_id, email, watch_id
+        FROM public.get_watchers_for_sections(ARRAY[${ref.class_nbr}::text], ${ref.term}::text)`);
 
     return rows.map((row) => ({
       user_id: row.user_id,
@@ -121,7 +113,7 @@ export async function getSectionsToCheck(
   staggerType: StaggerGroup = "all",
 ): Promise<SectionRef[]> {
   try {
-    const rows = await db.execute<{ class_nbr: string; term: string }>(
+    const { rows } = await db.execute<{ class_nbr: string; term: string }>(
       sql`SELECT class_nbr, term FROM public.get_sections_to_check(${staggerType}::text)`,
     );
 
@@ -136,7 +128,7 @@ export async function getSectionsToCheck(
 
 export async function getMostWatchedClass(db: Database, term: string): Promise<SectionRef | null> {
   try {
-    const rows = await db.execute<{ class_nbr: string; term: string }>(
+    const { rows } = await db.execute<{ class_nbr: string; term: string }>(
       sql`SELECT class_nbr, term FROM public.get_most_watched_class(${term}::text)`,
     );
 
@@ -159,7 +151,7 @@ export async function resetNotificationsForSection(
   try {
     // Single join-scoped DELETE: a SELECT-then-DELETE by watch id list can outlive a
     // watch row that moved out of the section and delete a foreign active claim.
-    const rows = await db.execute<{ deleted: unknown }>(
+    const { rows } = await db.execute<{ deleted: unknown }>(
       sql`SELECT public.reset_section_notifications(${ref.class_nbr}::text, ${ref.term}::text, ${notificationType}::text) AS deleted`,
     );
 
@@ -181,13 +173,11 @@ export async function deleteNotificationRecords(
   if (watchIds.length === 0) return 0;
 
   try {
-    // Array-bound RPC: JS-array binds are unserializable under this driver
-    // config (live-proven 22P02 through both drizzle and the native
-    // postgres-js template). Compose the array server-side from
-    // separately-bound scalars; watchIds is guarded non-empty above.
+    // Compose the uuid[] server-side from separately-bound scalars;
+    // watchIds is guarded non-empty above.
     const idParams = watchIds.map((id) => sql`${id}::uuid`);
 
-    const rows = await db.execute<{ deleted: unknown }>(
+    const { rows } = await db.execute<{ deleted: unknown }>(
       sql`SELECT public.delete_notification_records(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text) AS deleted`,
     );
 
@@ -208,11 +198,11 @@ export async function deleteNotificationRecordsByIds(
   if (notificationIds.length === 0) return 0;
 
   try {
-    // Same array-bind constraint as the RPCs above: compose the uuid[] server-side
-    // from separately-bound scalars (notificationIds guarded non-empty above).
+    // Compose the uuid[] server-side from separately-bound scalars
+    // (notificationIds guarded non-empty above).
     const idParams = notificationIds.map((id) => sql`${id}::uuid`);
 
-    const rows = await db.execute<{ deleted: unknown }>(
+    const { rows } = await db.execute<{ deleted: unknown }>(
       sql`SELECT public.delete_notification_records_by_ids(ARRAY[${sql.join(idParams, sql`, `)}]) AS deleted`,
     );
 
@@ -289,15 +279,15 @@ export async function tryRecordNotificationsBatch(
   if (watchIds.length === 0) return [];
 
   try {
-    // uuid[] in is composed server-side: JS-array binds are unserializable
-    // under this driver (live-proven 22P02). The function returns one row per
+    // The uuid[] is composed server-side. The function returns one row per
     // new claim so the notification id is known at insert time.
     const idParams = watchIds.map((id) => sql`${id}::uuid`);
 
-    const rows = await db.execute<{ notification_id: unknown; class_watch_id: unknown }>(
-      sql`SELECT notification_id, class_watch_id
-          FROM public.try_record_notifications_batch(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text, ${expiresHours}::integer)`,
-    );
+    const { rows } = await db.execute<{
+      notification_id: unknown;
+      class_watch_id: unknown;
+    }>(sql`SELECT notification_id, class_watch_id
+        FROM public.try_record_notifications_batch(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text, ${expiresHours}::integer)`);
 
     const claimed = rows.flatMap((row) => {
       const parsed = claimedNotificationSchema.safeParse(row);
@@ -328,22 +318,22 @@ export async function upsertClassState(
     // RPC, not a drizzle upsert: the write takes a SectionRef advisory lock
     // and applies only when observedAt is at least last_checked_at, so a
     // slower check cannot clobber a newer observation or its strike count.
-    const rows = await db.execute<{ applied: unknown }>(
-      sql`SELECT public.upsert_class_state_locked(
-        ${ref.class_nbr}::text,
-        ${ref.term}::text,
-        ${details.subject}::text,
-        ${details.catalog_nbr}::text,
-        ${details.title}::text,
-        ${details.instructor_name || null}::text,
-        ${details.seats_available || 0}::integer,
-        ${details.seats_capacity || 0}::integer,
-        ${details.non_reserved_seats ?? null}::integer,
-        ${details.location || null}::text,
-        ${details.meeting_times || null}::text,
-        ${observedAt.toISOString()}::timestamptz
-      ) AS applied`,
-    );
+    const { rows } = await db.execute<{
+      applied: unknown;
+    }>(sql`SELECT public.upsert_class_state_locked(
+      ${ref.class_nbr}::text,
+      ${ref.term}::text,
+      ${details.subject}::text,
+      ${details.catalog_nbr}::text,
+      ${details.title}::text,
+      ${details.instructor_name || null}::text,
+      ${details.seats_available || 0}::integer,
+      ${details.seats_capacity || 0}::integer,
+      ${details.non_reserved_seats ?? null}::integer,
+      ${details.location || null}::text,
+      ${details.meeting_times || null}::text,
+      ${observedAt.toISOString()}::timestamptz
+    ) AS applied`);
 
     const parsed = upsertAppliedSchema.safeParse(rows[0]);
 

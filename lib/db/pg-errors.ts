@@ -1,7 +1,7 @@
 /**
  * Postgres driver error shape helpers.
  *
- * postgres-js stamps the server's 5-character SQLSTATE on the thrown error's
+ * node-postgres stamps the server's 5-character SQLSTATE on the thrown error's
  * `code` property (e.g. "23505" for unique_violation). Parse the shape once
  * here instead of scattering `(error as { code?: string })` casts across
  * routes and queue consumers.
@@ -9,7 +9,7 @@
  * Every helper accepts the raw caught value (`unknown`) and narrows it, so
  * callers never cast before calling. Drizzle's statement-failure wrappers are
  * unwrapped first: a failed statement arrives as `DrizzleQueryError`
- * ("Failed query: …") with the raw postgres-js error — carrying the SQLSTATE
+ * ("Failed query: …") with the raw node-postgres error — carrying the SQLSTATE
  * the mapping below keys on — parked on `.cause`.
  *
  * @module lib/db/pg-errors
@@ -43,8 +43,8 @@ interface StatementFailure {
 
 const statementFailureSchema = z
   .object({
-    query: z.unknown(),
-    params: z.unknown(),
+    query: z.string(),
+    params: z.array(z.unknown()),
     cause: z.unknown(),
   })
   .refine((value) => value.cause !== undefined);
