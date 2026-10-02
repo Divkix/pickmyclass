@@ -69,7 +69,7 @@ interface RecordedBuilderCalls {
 }
 
 interface AdminSeamDb {
-  execute?(query: SQL): Promise<RecentActivityWireRow[]>;
+  execute?(query: SQL): Promise<{ rows: RecentActivityWireRow[] }>;
   select?(): RecordingChain<JoinedWatchRow>;
 }
 
@@ -84,10 +84,10 @@ interface MockDbOptions {
 }
 
 function createDb({ rows = [], error }: MockDbOptions = {}) {
-  const execute = vi.fn(async (_query: SQL): Promise<RecentActivityWireRow[]> => {
+  const execute = vi.fn(async (_query: SQL): Promise<{ rows: RecentActivityWireRow[] }> => {
     if (error !== undefined) throw error;
 
-    return rows;
+    return { rows };
   });
 
   return { db: asDatabaseHandle({ execute }), execute };

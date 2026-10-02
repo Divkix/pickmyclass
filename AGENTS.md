@@ -1,6 +1,6 @@
 # AGENTS.md
 
-PickMyClass emails ASU students when a watched class section gains an open seat or gets a named instructor. It is a Next.js 16 App Router app (React 19, strict TS) built by **vinext** (Vite-based) and deployed as one **Cloudflare Worker**, with PlanetScale Postgres through Hyperdrive (request-scoped Drizzle over postgres-js), Clerk auth, Cloudflare Workflows + Queues for scheduled seat checks, and Cloudflare Email for delivery. Features, architecture diagram, and self-hosting are in [README.md](README.md); domain vocabulary is in [CONTEXT.md](CONTEXT.md); design decisions are in [docs/adr/](docs/adr/). Read the ADRs covering an area before changing it, and use CONTEXT.md terms (`SectionRef`, Section Check, Cron Cycle) in code, tests and issues.
+PickMyClass emails ASU students when a watched class section gains an open seat or gets a named instructor. It is a Next.js 16 App Router app (React 19, strict TS) built by **vinext** (Vite-based) and deployed as one **Cloudflare Worker**, with PlanetScale Postgres through Hyperdrive (request-scoped Drizzle over node-postgres (`pg`)), Clerk auth, Cloudflare Workflows + Queues for scheduled seat checks, and Cloudflare Email for delivery. Features, architecture diagram, and self-hosting are in [README.md](README.md); domain vocabulary is in [CONTEXT.md](CONTEXT.md); design decisions are in [docs/adr/](docs/adr/). Read the ADRs covering an area before changing it, and use CONTEXT.md terms (`SectionRef`, Section Check, Cron Cycle) in code, tests and issues.
 
 When code and this file disagree, code wins: fix this file in the same change.
 
@@ -18,11 +18,12 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 | One file | `pnpm run test tests/unit/lib/crypto.test.ts` |
 | One test | `pnpm run test tests/unit/lib/crypto.test.ts -t "identical"` |
 | Test projects/watch | `pnpm run test:unit` · `pnpm run test:integration` · `pnpm run test:watch` |
-| Live DB test | `DATABASE_URL=… pnpm run test:db` (excluded from the normal run) |
+| Live DB test | `DATABASE_URL=… pnpm run test:db` against a disposable Postgres after `pnpm run db:migrate` (excluded from the normal run) |
+| DB migration | `pnpm run db:generate` (or `-- --custom --name=<n>`), then `DATABASE_URL=… pnpm run db:migrate` (direct PlanetScale URL) |
 | Format + lint | `pnpm run check` · autofix: `pnpm run fix` |
 | Type-check | `pnpm run type-check` (two passes: app `tsconfig.json`, then `tsconfig.worker.json`) |
 | Full gate | `pnpm run verify` = check + type-check + knip. Same as the pre-commit hook and CI `quality` job |
-| Deploy | `pnpm run deploy` (build, `wrangler deploy`, `wrangler triggers deploy`, IndexNow ping) |
+| Deploy | `pnpm run deploy` (build, `db:migrate`, `wrangler deploy`, `wrangler triggers deploy`, IndexNow ping; needs `DATABASE_URL`) |
 
 Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `build`, single-file and `-t` runs all exit 0.
 
@@ -32,11 +33,11 @@ Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `
 - `proxy.ts`: vinext middleware. This is **the** auth gate and the CSP builder (decision logic in `lib/auth/decide-gate.ts`).
 - `lib/workflows/cron-workflows.ts`: `SectionCheckWorkflow` (every 15 min, even/odd stagger, so each section is checked every 30 min) and `MaintenanceWorkflow` (04:05 UTC).
 - `lib/queue/`: the seat-check pipeline (`process-section.ts` orchestrates, `change-detector.ts`, `notification-sender.ts`, `section-retirement.ts`).
-- `lib/db/index.ts`: the only DB seam (`getDb(hyperdrive)` / `getDbFromEnv()`, request-scoped). `lib/db/queries.ts` holds the Drizzle builders and typed SQL calls to `SECURITY DEFINER` RPCs. `lib/db/schema/` is the TS mirror of the SQL.
-- `db/migrations/*.sql`: hand-written, timestamp-prefixed plain PG, applied by hand with `psql`. Last definition wins. To change an applied function, add a new file with `CREATE OR REPLACE`; never edit an applied file. `pnpm run db:generate` writes to `migrations_pg/`, which is not the real migration history.
+- `lib/db/index.ts`: the only DB seam (`getDb(hyperdrive)` / `getDbFromEnv()`, request-scoped). `lib/db/queries.ts` holds the Drizzle builders and typed SQL calls to `SECURITY DEFINER` RPCs. `lib/db/schema/` defines the tables.
+- `migrations_pg/`: drizzle-kit migrations, the real schema history, tracked in `drizzle.__drizzle_migrations`. `lib/db/schema/` is the source of truth for tables: edit it, then `db:generate`. Functions, triggers and data fixes go in `db:generate -- --custom` files; change a function with `CREATE OR REPLACE` in a new migration, never edit an applied file. `0000_baseline` + `0001_baseline_functions` reproduce prod as of 2026-10-01. `db/migrations/` is frozen pre-drizzle history; never add to it.
 - `lib/utils.ts` is shadcn's `cn()` only. Custom helpers go in `lib/utils/`. The split is intentional, so leave both.
 - `lib/seo/`: sitemap, `/llms.txt` and `/llms-full.txt` route handlers, lastmod map, IndexNow.
-- `tests/unit`, `tests/integration`: all tests live here, not next to source. The `test` block in `vite.config.ts` defines `unit`, `integration`, and opt-in `db` projects. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through `test.alias`. `tests/unit/lib/db/scripted-postgres.ts` is a fake postgres-js transport for query tests.
+- `tests/unit`, `tests/integration`: all tests live here, not next to source. The `test` block in `vite.config.ts` defines `unit`, `integration`, and opt-in `db` projects. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through `test.alias`. `tests/unit/lib/db/scripted-postgres.ts` is a scripted node-postgres transport for query tests.
 - `tools/oxlint/anti-slop/`: vendored lint plugin (see Gotchas).
 - `docs/agents/`: issue-tracker (`gh` on `Divkix/pickmyclass`) and triage-label conventions used by skills.
 
@@ -95,5 +96,5 @@ Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `
 2. `pnpm run test:coverage` passes, including the 80% thresholds (CI `test` job).
 3. `pnpm run build` passes (CI `check` job).
 4. If you touched `worker.ts`, `wrangler.jsonc`, the Workflows or the queue path, run `pnpm run preview` as well.
-5. SQL changes ship as a new `db/migrations/` file with `lib/db/schema/` updated to match.
+5. Schema changes ship as committed `migrations_pg/` files (incl. `meta/`) generated from `lib/db/schema/`.
 6. Update this file if the change made anything here false.

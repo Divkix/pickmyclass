@@ -30,7 +30,7 @@ Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hype
 ### Native Primitives for Scalability
 - **Cloudflare Queues**: Reliable message queue for processing class checks at scale
 - **Workflows**: Scheduled, durable, per-step-retried cron jobs (`SectionCheckWorkflow`, `MaintenanceWorkflow`)
-- **Hyperdrive**: Postgres connection pooling to PlanetScale (request-scoped Drizzle over postgres-js in `lib/db/index.ts`, `--caching-disabled`)
+- **Hyperdrive**: Postgres connection pooling to PlanetScale (request-scoped Drizzle over node-postgres (`pg`) in `lib/db/index.ts`, `--caching-disabled`)
 - **Clerk**: Edge JWT verification (`@clerk/backend` `authenticateRequest` with `jwtKey` PEM, `ext_id` claim) + webhook `user.created/updated/deleted` (`lib/auth/clerk-session.ts`, `lib/db/users.ts` mirror)
 
 ## Architecture
@@ -39,7 +39,7 @@ Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hype
 User Browser
       |
       v
-vinext App (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (Drizzle/postgres-js, polling)
+vinext App (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (Drizzle/node-postgres, polling)
       |         |                               ^
       |         | Clerk FAPI (clerk.*)          | polling GET /api/class-watches/states
       v         v                               | (30–60s, sectionRefKey)
@@ -71,7 +71,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `worker.ts` | Custom Cloudflare Worker with fetch and queue handlers; re-exports the Workflow classes |
 | `lib/workflows/cron-workflows.ts` | `SectionCheckWorkflow` (enqueue checks) and `MaintenanceWorkflow` (daily sweeps) |
 | `lib/worker/edge-html-cache.ts` | Edge HTML cache eligibility, keying, lookup, and storage rules |
-| `lib/db/index.ts` | Request-scoped Drizzle over postgres-js (`getDb`/`getDbFromEnv` via the `HYPERDRIVE` binding) |
+| `lib/db/index.ts` | Request-scoped Drizzle over node-postgres (`getDb`/`getDbFromEnv` via the `HYPERDRIVE` binding) |
 | `lib/db/queries.ts` | Database query helpers (Drizzle builders for CRUD, typed SQL for SECURITY DEFINER RPCs) |
 | `lib/db/users.ts` | Clerk user mirror (`clerk_user_id`, `syncUserMirrorFromClerkUser`/`repairUserMirror`) |
 | `lib/auth/clerk-session.ts` | Edge JWT verify (`getSessionIdentity`, `revokeSession`, `revokeAllUserSessions`) |
@@ -129,7 +129,7 @@ pnpm install
 
 ### 2. Set Up PlanetScale + Hyperdrive
 
-2. Apply migrations (`db/migrations/*.sql` — vanilla PG; last definition wins; `SET search_path=public` + `REVOKE/GRANT` for `SECURITY DEFINER` funcs).
+2. Apply migrations with the **direct** PlanetScale URL (drizzle-kit runs in Node, not through Hyperdrive): `DATABASE_URL="postgres://…" pnpm run db:migrate` (applies `migrations_pg/`, tracked in `drizzle.__drizzle_migrations`).
 3. Create Hyperdrive:
    ```bash
    wrangler hyperdrive create HYPERDRIVE \
@@ -200,13 +200,13 @@ The `app/legal/` directory contains Terms/Privacy with `support@pickmyclass.app`
 
 ### Local Development
 
-Local Postgres required for any DB query (pages/APIs open a request-scoped Drizzle/postgres-js connection via `lib/db/index.ts`); the dev server itself boots even if DB is down, but requests will `ECONNREFUSED`.
+Local Postgres required for any DB query (pages/APIs open a request-scoped Drizzle/node-postgres pool via `lib/db/index.ts`); the dev server itself boots even if DB is down, but requests will `ECONNREFUSED`.
 
 ```bash
 # start local Postgres (once):
-docker run --name pickmyclass-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16
-# apply migrations in timestamp order (vanilla PG, no CLI):
-psql "postgresql://postgres:postgres@localhost:5432/postgres" -f db/migrations/<file>.sql
+docker run --name pickmyclass-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:18
+# apply migrations:
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pnpm run db:migrate
 
 pnpm run dev              # Vite+ vinext dev server (localhost:3000) — uses wrangler.jsonc localConnectionString by default
 # override if needed:
@@ -244,16 +244,17 @@ Tests and root coverage settings live in the `test` block of `vite.config.ts`. T
 ### Database Commands
 
 ```bash
-# PlanetScale is vanilla PG: apply db/migrations/*.sql by hand via any Postgres client (psql) — no CLI workflow
-# local example (after docker run above):
-psql "postgresql://postgres:postgres@localhost:5432/postgres" -f db/migrations/20260501000000_example.sql  # repeat in timestamp order
-# or via env: DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres psql -f db/migrations/<file>.sql
+# drizzle-kit; every command except generate needs DATABASE_URL (direct connection, never Hyperdrive)
+pnpm run db:generate                          # schema change in lib/db/schema/ → new SQL file in migrations_pg/
+pnpm run db:generate -- --custom --name=<n>   # empty file for SQL drizzle-kit can't express (functions, triggers, data fixes)
+pnpm run db:migrate                           # apply pending migrations_pg/ files to DATABASE_URL
+pnpm run db:studio                            # Drizzle Studio
 ```
 
 ## Tech Stack
 
 - **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4, `@clerk/react` 6.14.5 via `ClerkClientProvider`, `posthog-js` via the typed boundary in `lib/analytics/` (public token + managed proxy host in `lib/analytics/config.ts`)
-- **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (Drizzle ORM over postgres-js) via Hyperdrive, Clerk (`@clerk/backend` 3.16.10 edge JWT), Supabase Realtime **removed** (polling only)
+- **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (Drizzle ORM over node-postgres) via Hyperdrive, Clerk (`@clerk/backend` 3.16.10 edge JWT), Supabase Realtime **removed** (polling only)
 - **Data Source**: ASU Class Search API (direct HTTP)
 - **Email**: Cloudflare Email Service
 - **Deployment**: Cloudflare Workers + Queues + Workflows
@@ -302,8 +303,9 @@ components/
   ├── ui/                    # shadcn/ui components
   └── ...                    # Feature components (ClerkClientProvider, AuthButton, watch cards)
 
+migrations_pg/               # drizzle-kit migrations + meta/ snapshots (generated; commit them)
 db/
-  └── migrations/            # Database migrations (PG history, timestamp-prefixed)
+  └── migrations/            # Frozen pre-drizzle SQL history; superseded by migrations_pg/0000-0001
 
 worker.ts                    # Custom Cloudflare Worker
 wrangler.jsonc               # Cloudflare Workers config (HYPERDRIVE, CLERK_* secrets, cron)

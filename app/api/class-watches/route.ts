@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
         let watchDataRaw: ClassWatchRow | null = null;
 
         try {
-          const rows = await db.execute<ClassWatchRow>(
+          const { rows } = await db.execute<ClassWatchRow>(
             sql`SELECT * FROM public.create_class_watch_with_limit(
               ${user.userId}::text,
               ${term}::text,

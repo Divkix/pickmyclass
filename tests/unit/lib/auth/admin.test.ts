@@ -1,86 +1,16 @@
-import { drizzle } from "drizzle-orm/postgres-js";
+import {
+  createScriptedPostgres,
+  type CellValue,
+  type CapturedStatement,
+} from "../db/scripted-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { verifyAdmin } from "@/lib/auth/admin";
 import type { Database } from "@/lib/db";
-import * as schema from "@/lib/db/schema";
-
-interface CapturedStatement {
-  sql: string;
-  params: unknown[];
-}
 
 interface AdminMirrorRow {
-  [column: string]: PgWireValue;
+  [column: string]: CellValue;
   email: string;
-}
-
-type PgWireValue =
-  | string
-  | number
-  | boolean
-  | null
-  | PgWireValue[]
-  | { [column: string]: PgWireValue };
-
-type DriverRowSet = Array<Record<string, PgWireValue>>;
-
-interface ScriptedPendingRows {
-  then(
-    onFulfilled?: (value: never) => PromiseLike<never>,
-    onRejected?: (reason: Error) => PromiseLike<never>,
-  ): Promise<never>;
-  catch(onRejected: (reason: Error) => PromiseLike<never>): Promise<never>;
-  values(): PromiseLike<never[]>;
-}
-
-type ScriptedRows = Promise<DriverRowSet> & { values(): PromiseLike<unknown[][]> };
-
-type ScriptedQueryResult = ScriptedPendingRows | ScriptedRows;
-
-interface PostgresJsSeam {
-  unsafe(query: string, params: unknown[]): ScriptedQueryResult;
-}
-
-function createDbDouble() {
-  const statements: CapturedStatement[] = [];
-  const outcomes: Array<DriverRowSet | Error> = [];
-
-  const pendingRows = (rows: DriverRowSet): ScriptedRows =>
-    Object.assign(Promise.resolve(rows), {
-      values: () => Promise.resolve(rows.map((row) => Object.values(row))),
-    });
-
-  const scriptedClient = {
-    options: { parsers: {}, serializers: {} },
-    unsafe(query: string, params: unknown[]): ScriptedQueryResult {
-      statements.push({ sql: query, params });
-      const outcome = outcomes.shift();
-
-      if (outcome instanceof Error) {
-        const reject = (): Promise<never> => Promise.reject(outcome);
-
-        return Object.assign(reject(), { values: reject });
-      }
-
-      return pendingRows(outcome ?? []);
-    },
-    begin<T>(fn: (txClient: PostgresJsSeam) => Promise<T>): Promise<T> {
-      return fn(scriptedClient);
-    },
-  };
-
-  const client: PostgresJsSeam = scriptedClient;
-  // SAFETY: options/unsafe/begin are the only Sql members drizzle touches — drizzle-orm/postgres-js.
-  const db = drizzle(client as Database["$client"], { schema });
-
-  return {
-    db,
-    statements,
-    nextRows(rows: AdminMirrorRow[] = []) {
-      outcomes.push(rows);
-    },
-  };
 }
 
 const { mockGetSessionIdentityFromHeaders, mockReadAuthorizationState, mockRedirect, mockHeaders } =
@@ -114,7 +44,7 @@ const identity = { userId: "user-123", clerkUserId: "clerk_123", sessionId: "ses
 interface AdminDbDouble {
   db: Database;
   statements: CapturedStatement[];
-  nextRows(rows?: AdminMirrorRow[]): void;
+  next(rows?: AdminMirrorRow[]): void;
 }
 
 describe("verifyAdmin", () => {
@@ -122,7 +52,7 @@ describe("verifyAdmin", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    double = createDbDouble();
+    double = createScriptedPostgres();
     mockHeaders.mockResolvedValue(new Headers());
     mockGetSessionIdentityFromHeaders.mockResolvedValue(identity);
     mockReadAuthorizationState.mockResolvedValue({
@@ -137,7 +67,7 @@ describe("verifyAdmin", () => {
   });
 
   it("returns the authenticated user when their profile is marked admin", async () => {
-    double.nextRows([{ email: "admin@example.com" }]);
+    double.next([{ email: "admin@example.com" }]);
 
     const result = await verifyAdmin(double.db);
 
@@ -192,7 +122,7 @@ describe("verifyAdmin", () => {
   });
 
   it("falls back to an empty display email when the mirror row is missing", async () => {
-    double.nextRows([]);
+    double.next([]);
 
     const result = await verifyAdmin(double.db);
 

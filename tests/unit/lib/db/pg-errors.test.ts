@@ -1,3 +1,5 @@
+import { DrizzleQueryError } from "drizzle-orm/errors";
+import { DatabaseError } from "pg";
 import { describe, expect, it } from "vite-plus/test";
 import {
   PG_RAISE_EXCEPTION,
@@ -18,6 +20,28 @@ describe("SQLSTATE constants", () => {
 });
 
 describe("getPgError", () => {
+  it("preserves pg SQLSTATE when a DatabaseError has a transport cause, directly and wrapped", () => {
+    const error = new DatabaseError("duplicate key", 0, "error");
+    error.code = PG_UNIQUE_VIOLATION;
+    error.detail = "Key (id)=(watch-1) already exists.";
+    error.constraint = "class_watches_pkey";
+    error.cause = new Error("transport cause");
+    const wrapped = new DrizzleQueryError("SELECT 1", [], error);
+
+    expect(getPgError(error)).toEqual({ code: PG_UNIQUE_VIOLATION, message: "duplicate key" });
+    expect(getPgError(wrapped)).toEqual({ code: PG_UNIQUE_VIOLATION, message: "duplicate key" });
+    expect(isUniqueViolation(wrapped)).toBe(true);
+  });
+
+  it.each([PG_RAISE_EXCEPTION, PG_UNDEFINED_FUNCTION])("unwraps actual pg SQLSTATE %s", (code) => {
+    const error = new DatabaseError("RPC rejected", 0, "error");
+    error.code = code;
+    const wrapped = new DrizzleQueryError("SELECT public.rpc()", [], error);
+
+    expect(getPgError(wrapped)).toEqual({ code, message: "RPC rejected" });
+    expect(isRaisedException(wrapped)).toBe(code === PG_RAISE_EXCEPTION);
+    expect(isUndefinedFunction(wrapped)).toBe(code === PG_UNDEFINED_FUNCTION);
+  });
   it("narrows a code-only Postgres error", () => {
     expect(getPgError({ code: "23505" })).toStrictEqual({ code: "23505" });
   });
@@ -29,7 +53,7 @@ describe("getPgError", () => {
     });
   });
 
-  it("strips extra postgres-js driver fields", () => {
+  it("strips extra PostgreSQL driver fields", () => {
     const error = {
       severity: "ERROR",
       code: "23505",

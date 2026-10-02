@@ -1,8 +1,6 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import type postgres from "postgres";
+import { createScriptedPostgres } from "./db/scripted-postgres";
 import { describe, expect, it } from "vite-plus/test";
 
-import * as schema from "@/lib/db/schema";
 import {
   applyFirstWatchGuard,
   completeOnFirstWatch,
@@ -26,32 +24,10 @@ interface RecordedQuery {
 
 type RowsFor = (query: RecordedQuery) => FakeRow[];
 
-type ScriptedRows = Promise<FakeRow[]> & { values(): PromiseLike<unknown[][]> };
-
-interface PostgresJsSeam {
-  unsafe(query: string, params: unknown[]): ScriptedRows;
-}
-
 function makeDb(rowsFor: RowsFor) {
-  const queries: RecordedQuery[] = [];
+  const harness = createScriptedPostgres(rowsFor);
 
-  const unsafe = (sql: string, params: unknown[]): ScriptedRows => {
-    const query: RecordedQuery = { sql, params };
-    queries.push(query);
-    const rows = rowsFor(query);
-
-    return Object.assign(Promise.resolve(rows), {
-      values: async (): Promise<unknown[][]> =>
-        rows.map((row) => SELECT_ORDER.map((column) => row[column])),
-    });
-  };
-
-  const scriptedClient = { unsafe, options: { parsers: {}, serializers: {} } };
-  const client: PostgresJsSeam = scriptedClient;
-  // SAFETY: no transaction here; options/unsafe are all drizzle touches — drizzle-orm/postgres-js.
-  const db = drizzle(client as postgres.Sql, { schema });
-
-  return { db, queries };
+  return { db: harness.db, queries: harness.statements };
 }
 
 describe("lib/onboarding", () => {

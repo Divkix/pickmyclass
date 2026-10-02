@@ -25,7 +25,7 @@ interface RecordingChain extends Promise<DashboardRow[]> {
 }
 
 interface AdminSeamDb {
-  execute?(query: SQL): Promise<DashboardRow[]>;
+  execute?(query: SQL): Promise<{ rows: DashboardRow[] }>;
   select?(): RecordingChain;
 }
 
@@ -40,13 +40,13 @@ interface MockDbOptions {
 }
 
 function createDb({ selectRows = {}, executeRows = [] }: MockDbOptions = {}) {
-  const execute = vi.fn(async (query: SQL): Promise<DashboardRow[]> => {
+  const execute = vi.fn(async (query: SQL): Promise<{ rows: DashboardRow[] }> => {
     const text = builtSql(query);
     const hit = executeRows.find((candidate) => candidate.match.test(text));
 
     if (!hit) throw new Error(`Unexpected admin-queries SQL: ${text}`);
 
-    return hit.rows;
+    return { rows: hit.rows };
   });
 
   const selectedTables: string[] = [];

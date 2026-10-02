@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { foreignKey, index, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 import { users } from "./users";
 
@@ -6,9 +6,7 @@ export const classWatches = pgTable(
   "class_watches",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    user_id: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    user_id: text("user_id").notNull(),
     class_nbr: text("class_nbr").notNull(),
     term: text("term").notNull(),
     subject: text("subject").notNull(),
@@ -18,9 +16,14 @@ export const classWatches = pgTable(
       .defaultNow(),
   },
   (t) => [
+    foreignKey({
+      name: "class_watches_user_id_fkey",
+      columns: [t.user_id],
+      foreignColumns: [users.id],
+    }).onDelete("cascade"),
     unique("class_watches_user_id_class_nbr_term_key").on(t.user_id, t.class_nbr, t.term),
     index("idx_class_watches_class_nbr").on(t.class_nbr),
-    index("idx_class_watches_created_at").on(t.created_at.desc()),
+    index("idx_class_watches_created_at").on(t.created_at.desc().nullsFirst()),
   ],
 );
 

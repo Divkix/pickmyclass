@@ -1,4 +1,4 @@
-import { drizzle } from "drizzle-orm/postgres-js";
+import { createScriptedPostgres, type CellValue } from "../db/scripted-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
@@ -7,95 +7,13 @@ import {
   invalidateAuthorizationState,
   readAuthorizationState,
 } from "@/lib/auth/authorization-state";
-import type { Database } from "@/lib/db";
-import * as schema from "@/lib/db/schema";
-
-interface CapturedStatement {
-  sql: string;
-  params: unknown[];
-}
 
 interface ProfileGateRow {
-  [column: string]: PgWireValue;
+  [column: string]: CellValue;
   is_admin: boolean;
   is_disabled: boolean;
   age_verified_at: string | null;
   agreed_to_terms_at: string | null;
-}
-
-type PgWireValue =
-  | string
-  | number
-  | boolean
-  | null
-  | PgWireValue[]
-  | { [column: string]: PgWireValue };
-
-type DriverRowSet = Array<Record<string, PgWireValue>>;
-
-interface ScriptedPendingRows {
-  then(
-    onFulfilled?: (value: never) => PromiseLike<never>,
-    onRejected?: (reason: Error) => PromiseLike<never>,
-  ): Promise<never>;
-  catch(onRejected: (reason: Error) => PromiseLike<never>): Promise<never>;
-  values(): PromiseLike<never[]>;
-}
-
-type ScriptedRows = Promise<DriverRowSet> & { values(): PromiseLike<unknown[][]> };
-
-type ScriptedQueryResult = ScriptedPendingRows | ScriptedRows;
-
-interface PostgresJsSeam {
-  unsafe(query: string, params: unknown[]): ScriptedQueryResult;
-}
-
-function createDbDouble() {
-  const statements: CapturedStatement[] = [];
-  const outcomes: Array<DriverRowSet | Error> = [];
-
-  const pendingRows = (rows: DriverRowSet): ScriptedRows =>
-    Object.assign(Promise.resolve(rows), {
-      values: () => Promise.resolve(rows.map((row) => Object.values(row))),
-    });
-
-  const scriptedClient = {
-    options: { parsers: {}, serializers: {} },
-    unsafe(query: string, params: unknown[]): ScriptedQueryResult {
-      statements.push({ sql: query, params });
-      const outcome = outcomes.shift();
-
-      if (outcome instanceof Error) {
-        const rejected = Promise.reject(outcome);
-        // Drizzle reads either the query promise or `.values()`; marking this
-        // rejection handled keeps an unobserved copy from tripping the runner's
-        // unhandled-rejection guard while an awaiting caller still sees it.
-        rejected.catch(() => undefined);
-
-        return Object.assign(rejected, { values: () => Promise.reject(outcome) });
-      }
-
-      return pendingRows(outcome ?? []);
-    },
-    begin<T>(fn: (txClient: PostgresJsSeam) => Promise<T>): Promise<T> {
-      return fn(scriptedClient);
-    },
-  };
-
-  const client: PostgresJsSeam = scriptedClient;
-  // SAFETY: options/unsafe/begin are the only Sql members drizzle touches — drizzle-orm/postgres-js.
-  const db = drizzle(client as Database["$client"], { schema });
-
-  return {
-    db,
-    statements,
-    nextRows(rows: ProfileGateRow[] = []) {
-      outcomes.push(rows);
-    },
-    failNext(error: Error) {
-      outcomes.push(error);
-    },
-  };
 }
 
 const consentTimestamp = "2026-07-12T00:00:00.000Z";
@@ -132,8 +50,8 @@ describe("readAuthorizationState", () => {
   });
 
   it("returns authorization and consent state from the profile row", async () => {
-    const double = createDbDouble();
-    double.nextRows([adminProfile]);
+    const double = createScriptedPostgres();
+    double.next([adminProfile]);
 
     const state = await readAuthorizationState(double.db, "user-1", { cache: false });
 
@@ -141,8 +59,8 @@ describe("readAuthorizationState", () => {
   });
 
   it("queries user_profiles projected to the four gate columns, filtered by user_id", async () => {
-    const double = createDbDouble();
-    double.nextRows([regularProfile]);
+    const double = createScriptedPostgres();
+    double.next([regularProfile]);
 
     await readAuthorizationState(double.db, "user-1", { cache: false });
 
@@ -156,8 +74,8 @@ describe("readAuthorizationState", () => {
   });
 
   it("requires both age verification and terms agreement for consent", async () => {
-    const double = createDbDouble();
-    double.nextRows([{ ...regularProfile, agreed_to_terms_at: null }]);
+    const double = createScriptedPostgres();
+    double.next([{ ...regularProfile, agreed_to_terms_at: null }]);
 
     const state = await readAuthorizationState(double.db, "user-1", { cache: false });
 
@@ -165,7 +83,7 @@ describe("readAuthorizationState", () => {
   });
 
   it("returns null when the profile row is missing", async () => {
-    const double = createDbDouble();
+    const double = createScriptedPostgres();
 
     const state = await readAuthorizationState(double.db, "user-1", { cache: false });
 
@@ -173,7 +91,7 @@ describe("readAuthorizationState", () => {
   });
 
   it("returns null (unknown, not disabled) and logs when the query throws", async () => {
-    const double = createDbDouble();
+    const double = createScriptedPostgres();
     double.failNext(new Error("db down"));
 
     const state = await readAuthorizationState(double.db, "user-1", { cache: false });
@@ -184,8 +102,8 @@ describe("readAuthorizationState", () => {
 
   describe("cached read", () => {
     it("serves a cached hit without re-querying", async () => {
-      const double = createDbDouble();
-      double.nextRows([adminProfile]);
+      const double = createScriptedPostgres();
+      double.next([adminProfile]);
 
       await readAuthorizationState(double.db, "user-1", { cache: true });
       const second = await readAuthorizationState(double.db, "user-1", { cache: true });
@@ -195,7 +113,7 @@ describe("readAuthorizationState", () => {
     });
 
     it("does not cache a null (missing profile) result", async () => {
-      const double = createDbDouble();
+      const double = createScriptedPostgres();
 
       await readAuthorizationState(double.db, "user-1", { cache: true });
       await readAuthorizationState(double.db, "user-1", { cache: true });
@@ -206,19 +124,19 @@ describe("readAuthorizationState", () => {
 
   describe("fresh read", () => {
     it("always queries even after a value was cached", async () => {
-      const double = createDbDouble();
-      double.nextRows([adminProfile]);
+      const double = createScriptedPostgres();
+      double.next([adminProfile]);
 
       await readAuthorizationState(double.db, "user-1", { cache: true });
-      double.nextRows([adminProfile]);
+      double.next([adminProfile]);
       await readAuthorizationState(double.db, "user-1", { cache: false });
 
       expect(double.statements).toHaveLength(2);
     });
 
     it("does not populate the cache, so a later cached read still queries", async () => {
-      const double = createDbDouble();
-      double.nextRows([adminProfile]);
+      const double = createScriptedPostgres();
+      double.next([adminProfile]);
 
       await readAuthorizationState(double.db, "user-1", { cache: false });
       await readAuthorizationState(double.db, "user-1", { cache: true });
@@ -229,8 +147,8 @@ describe("readAuthorizationState", () => {
 
   describe("invalidateAuthorizationState", () => {
     it("forces the next cached read to re-query", async () => {
-      const double = createDbDouble();
-      double.nextRows([adminProfile]);
+      const double = createScriptedPostgres();
+      double.next([adminProfile]);
 
       await readAuthorizationState(double.db, "user-1", { cache: true });
       const removed = invalidateAuthorizationState("user-1");
@@ -246,12 +164,12 @@ describe("readAuthorizationState", () => {
   });
 
   it("never caches the unknown result of a failed read", async () => {
-    const double = createDbDouble();
+    const double = createScriptedPostgres();
     double.failNext(new Error("db down"));
 
     await expect(readAuthorizationState(double.db, "user-1", { cache: true })).resolves.toBeNull();
 
-    double.nextRows([adminProfile]);
+    double.next([adminProfile]);
     const recovered = await readAuthorizationState(double.db, "user-1", { cache: true });
 
     expect(recovered).toEqual(adminState);

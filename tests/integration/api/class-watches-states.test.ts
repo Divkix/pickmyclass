@@ -1,76 +1,10 @@
-import { drizzle } from "drizzle-orm/postgres-js";
+import { createScriptedPostgres } from "../../unit/lib/db/scripted-postgres";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { Database } from "@/lib/db";
-import * as schema from "@/lib/db/schema";
 import type { ClassStateRow } from "@/lib/types/class-watch";
 
-interface CapturedStatement {
-  sql: string;
-  params: unknown[];
-}
-
-type PgWireValue =
-  | string
-  | number
-  | boolean
-  | null
-  | PgWireValue[]
-  | { [column: string]: PgWireValue };
-
-type DriverRowSet = Array<Record<string, PgWireValue>>;
-
-type ScriptedRows = Promise<DriverRowSet> & { values(): PromiseLike<unknown[][]> };
-
-interface PostgresJsSeam {
-  unsafe(query: string, params: unknown[]): ScriptedRows;
-}
-
-function createDbHarness() {
-  const statements: CapturedStatement[] = [];
-  const outcomes: Array<DriverRowSet | Error> = [];
-
-  const pendingRows = (rows: DriverRowSet): ScriptedRows =>
-    Object.assign(Promise.resolve(rows), {
-      values: () => Promise.resolve(rows.map((row) => Object.values(row))),
-    });
-
-  const scriptedClient = {
-    options: { parsers: {}, serializers: {} },
-    unsafe(query: string, params: unknown[]): ScriptedRows {
-      statements.push({ sql: query, params });
-      const outcome = outcomes.shift();
-
-      if (outcome instanceof Error) {
-        const rejected = Promise.reject<never>(outcome);
-
-        return Object.assign(rejected, { values: () => rejected });
-      }
-
-      return pendingRows(outcome ?? []);
-    },
-    begin<T>(fn: (txClient: PostgresJsSeam) => Promise<T>): Promise<T> {
-      return fn(scriptedClient);
-    },
-  };
-
-  // SAFETY: the double implements the postgres-js seam drizzle drives: options, unsafe, begin.
-  const db = drizzle(scriptedClient as Database["$client"], { schema });
-
-  return {
-    db,
-    statements,
-    next(rows: DriverRowSet = []) {
-      outcomes.push(rows);
-    },
-    failNext(error: Error) {
-      outcomes.push(error);
-    },
-  };
-}
-
-let h = createDbHarness();
+let h = createScriptedPostgres();
 
 const { mockGetDbFromEnv, mockGetSessionIdentity } = vi.hoisted(() => ({
   mockGetDbFromEnv: vi.fn(),
@@ -133,7 +67,7 @@ describe("GET /api/class-watches/states", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => {});
-    h = createDbHarness();
+    h = createScriptedPostgres();
     mockGetDbFromEnv.mockImplementation(() => h.db);
     mockGetSessionIdentity.mockResolvedValue(identity);
   });
