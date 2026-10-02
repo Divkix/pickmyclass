@@ -1327,7 +1327,7 @@ describe("notification claim races", () => {
 
       const claimed = await tryRecordNotificationsBatch(db, [watchId], "seat_available");
 
-      expect([...claimed]).toEqual([watchId]);
+      expect(claimed.map((claim) => claim.watchId)).toEqual([watchId]);
     } finally {
       await db.delete(classWatches).where(eq(classWatches.id, watchId));
     }
@@ -1346,7 +1346,7 @@ describe("notification claim races", () => {
         "instructor_assigned",
       );
 
-      expect([...claimed]).toEqual([survivorId]);
+      expect(claimed.map((claim) => claim.watchId)).toEqual([survivorId]);
     } finally {
       await db.delete(classWatches).where(inArray(classWatches.id, [doomedId, survivorId]));
     }
