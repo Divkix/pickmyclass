@@ -129,7 +129,7 @@ pnpm install
 
 ### 2. Set Up PlanetScale + Hyperdrive
 
-2. Apply migrations (`db/migrations/*.sql` — vanilla PG; last definition wins; `SET search_path=public` + `REVOKE/GRANT` for `SECURITY DEFINER` funcs).
+2. Apply migrations with the **direct** PlanetScale URL (drizzle-kit runs in Node, not through Hyperdrive): `DATABASE_URL="postgres://…" pnpm run db:migrate` (applies `migrations_pg/`, tracked in `drizzle.__drizzle_migrations`).
 3. Create Hyperdrive:
    ```bash
    wrangler hyperdrive create HYPERDRIVE \
@@ -204,9 +204,9 @@ Local Postgres required for any DB query (pages/APIs open a request-scoped Drizz
 
 ```bash
 # start local Postgres (once):
-docker run --name pickmyclass-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16
-# apply migrations in timestamp order (vanilla PG, no CLI):
-psql "postgresql://postgres:postgres@localhost:5432/postgres" -f db/migrations/<file>.sql
+docker run --name pickmyclass-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:18
+# apply migrations:
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pnpm run db:migrate
 
 pnpm run dev              # Vite+ vinext dev server (localhost:3000) — uses wrangler.jsonc localConnectionString by default
 # override if needed:
@@ -244,10 +244,11 @@ Tests and root coverage settings live in the `test` block of `vite.config.ts`. T
 ### Database Commands
 
 ```bash
-# PlanetScale is vanilla PG: apply db/migrations/*.sql by hand via any Postgres client (psql) — no CLI workflow
-# local example (after docker run above):
-psql "postgresql://postgres:postgres@localhost:5432/postgres" -f db/migrations/20260501000000_example.sql  # repeat in timestamp order
-# or via env: DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres psql -f db/migrations/<file>.sql
+# drizzle-kit; every command except generate needs DATABASE_URL (direct connection, never Hyperdrive)
+pnpm run db:generate                          # schema change in lib/db/schema/ → new SQL file in migrations_pg/
+pnpm run db:generate -- --custom --name=<n>   # empty file for SQL drizzle-kit can't express (functions, triggers, data fixes)
+pnpm run db:migrate                           # apply pending migrations_pg/ files to DATABASE_URL
+pnpm run db:studio                            # Drizzle Studio
 ```
 
 ## Tech Stack
@@ -302,8 +303,9 @@ components/
   ├── ui/                    # shadcn/ui components
   └── ...                    # Feature components (ClerkClientProvider, AuthButton, watch cards)
 
+migrations_pg/               # drizzle-kit migrations + meta/ snapshots (generated; commit them)
 db/
-  └── migrations/            # Database migrations (PG history, timestamp-prefixed)
+  └── migrations/            # Frozen pre-drizzle SQL history; superseded by migrations_pg/0000-0001
 
 worker.ts                    # Custom Cloudflare Worker
 wrangler.jsonc               # Cloudflare Workers config (HYPERDRIVE, CLERK_* secrets, cron)

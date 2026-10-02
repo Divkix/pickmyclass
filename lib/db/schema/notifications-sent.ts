@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  foreignKey,
   index,
   pgTable,
   text,
@@ -16,9 +17,7 @@ export const notificationsSent = pgTable(
   "notifications_sent",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    class_watch_id: uuid("class_watch_id")
-      .notNull()
-      .references(() => classWatches.id, { onDelete: "cascade" }),
+    class_watch_id: uuid("class_watch_id").notNull(),
     notification_type: text("notification_type").notNull(),
     sent_at: timestamp("sent_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
     expires_at: timestamp("expires_at", { withTimezone: true, mode: "string" })
@@ -27,6 +26,11 @@ export const notificationsSent = pgTable(
     is_active: boolean("is_active").notNull().default(true),
   },
   (t) => [
+    foreignKey({
+      name: "notifications_sent_class_watch_id_fkey",
+      columns: [t.class_watch_id],
+      foreignColumns: [classWatches.id],
+    }).onDelete("cascade"),
     check(
       "notifications_sent_notification_type_check",
       sql`${t.notification_type} IN ('seat_available', 'instructor_assigned')`,
@@ -35,7 +39,7 @@ export const notificationsSent = pgTable(
       .on(t.class_watch_id, t.notification_type)
       .where(sql`${t.is_active} = TRUE`),
     index("idx_notifications_sent_class_watch_id").on(t.class_watch_id),
-    index("idx_notifications_sent_sent_at").on(t.sent_at.desc()),
+    index("idx_notifications_sent_sent_at").on(t.sent_at.desc().nullsFirst()),
   ],
 );
 

@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, foreignKey, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 import { users } from "./users";
 
@@ -6,9 +6,7 @@ export const userProfiles = pgTable(
   "user_profiles",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    user_id: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    user_id: text("user_id").notNull(),
     is_admin: boolean("is_admin").notNull().default(false),
     is_disabled: boolean("is_disabled").notNull().default(false),
     disabled_at: timestamp("disabled_at", { withTimezone: true, mode: "string" }),
@@ -35,7 +33,14 @@ export const userProfiles = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [unique("user_profiles_user_id_key").on(t.user_id)],
+  (t) => [
+    foreignKey({
+      name: "user_profiles_user_id_fkey",
+      columns: [t.user_id],
+      foreignColumns: [users.id],
+    }).onDelete("cascade"),
+    unique("user_profiles_user_id_key").on(t.user_id),
+  ],
 );
 
 export type UserProfile = typeof userProfiles.$inferSelect;

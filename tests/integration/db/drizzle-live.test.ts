@@ -56,8 +56,8 @@ const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
   throw new Error(
-    "DATABASE_URL must point at a disposable PostgreSQL carrying " +
-      "db/migrations/20260822000000_planetscale_schema.sql (see the db project in vite.config.ts).",
+    "DATABASE_URL must point at a disposable PostgreSQL migrated with " +
+      "`pnpm run db:migrate` (see the db project in vite.config.ts).",
   );
 }
 

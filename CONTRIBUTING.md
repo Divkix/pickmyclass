@@ -183,9 +183,11 @@ How did you test these changes?
 
 ### Database Changes
 
-1. Add a new timestamp-prefixed SQL file under `db/migrations/` (plain PG; **last definition wins** — to change an applied function, `CREATE OR REPLACE` it in a new file, never edit an applied one).
-2. Apply it by hand against PlanetScale with any Postgres client (`psql`) — there is no CLI push/reset workflow.
-3. Use Row Level Security (RLS) for all new tables
+1. Tables, columns, indexes and constraints: edit `lib/db/schema/`, then `pnpm run db:generate`.
+2. Functions, triggers and data fixes: `pnpm run db:generate -- --custom --name=<name>` and write the SQL. To change a function, `CREATE OR REPLACE` it in a new migration; never edit an applied one.
+3. Commit the new `migrations_pg/` files, including `meta/`. `pnpm run deploy` runs `db:migrate` before `wrangler deploy` (needs the direct PlanetScale `DATABASE_URL`).
+4. `db/migrations/` is frozen pre-drizzle history; don't add to it.
+5. Use Row Level Security (RLS) for all new tables
 
 ### API Validation
 
