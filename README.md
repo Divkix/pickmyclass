@@ -4,7 +4,7 @@
 
 A high-performance, scalable class seat notification system for university students. Monitor class availability, get notified when seats open up, and track instructor assignments.
 
-Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hyperdrive + Clerk, and deployed on Cloudflare Workers for edge performance. See `AGENTS.md` (authoritative map) and `docs/adr/0012-auth-plane-clerk.md` / `0013-data-access-hyperdrive.md` / `0014-realtime-to-polling.md`.
+Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hyperdrive + Clerk, and deployed on Cloudflare Workers for edge performance. See `AGENTS.md` (authoritative map).
 
 ## Features
 
@@ -194,7 +194,7 @@ The `app/legal/` directory contains Terms/Privacy with `support@pickmyclass.app`
 ### 9. Verify Deployment
 
 - Health: `https://your-domain.com/api/monitoring/health`
-- Smoke (see `docs/runbooks/clerk-cutover.md`): hosted `/sign-up` → email verify in flow → hosted `/sign-in` → Google OAuth lands `/auth/post-oauth` → consent gate → watch create limit (`create_class_watch_with_limit` advisory lock) → cron→queue→processSection→email → unsubscribe HMAC → admin pages → polling
+- Smoke: hosted `/sign-up` → email verify in flow → hosted `/sign-in` → Google OAuth lands `/auth/post-oauth` → consent gate → watch create limit (`create_class_watch_with_limit` advisory lock) → cron→queue→processSection→email → unsubscribe HMAC → admin pages → polling
 
 ## Development
 
