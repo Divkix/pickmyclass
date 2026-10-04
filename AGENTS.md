@@ -1,6 +1,6 @@
 # AGENTS.md
 
-PickMyClass emails ASU students when a watched class section gains an open seat or gets a named instructor. It is a Next.js 16 App Router app (React 19, strict TS) built by **vinext** (Vite-based) and deployed as one **Cloudflare Worker**, with PlanetScale Postgres through Hyperdrive (request-scoped Drizzle over node-postgres (`pg`)), Clerk auth, Cloudflare Workflows + Queues for scheduled seat checks, and Cloudflare Email for delivery. Features, architecture diagram, and self-hosting are in [README.md](README.md). Use the domain terms `SectionRef`, Section Check and Cron Cycle in code, tests and issues.
+PickMyClass emails ASU students when a watched class section gains an open seat or gets a named instructor. It is a Next.js 16 App Router app (React 19, strict TS) built by **vinext** (Vite-based) and deployed as one **Cloudflare Worker**, with PlanetScale Postgres through Hyperdrive (request-scoped Drizzle over node-postgres (`pg`)), Clerk auth, Cloudflare Workflows + Queues for scheduled seat checks, and Cloudflare Email for delivery. Features, architecture diagram, and self-hosting are in [README.md](README.md). Use these domain terms in code, tests and issues: `SectionRef` (the `{ class_nbr, term }` pair that identifies a section), Section Check (one `processSection` run for one `SectionRef`) and Cron Cycle (one `SectionCheckWorkflow` run, every 15 minutes; its `cycle` stamp rides on each queue message).
 
 When code and this file disagree, code wins: fix this file in the same change.
 
@@ -24,8 +24,6 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 | Type-check | `pnpm run type-check` (two passes: app `tsconfig.json`, then `tsconfig.worker.json`) |
 | Full gate | `pnpm run verify` = check + type-check + knip. Same as the pre-commit hook and CI `quality` job |
 | Deploy | `pnpm run deploy` (build, `db:migrate`, `wrangler deploy`, `wrangler triggers deploy`, IndexNow ping; needs `DATABASE_URL`) |
-
-Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `build`, single-file and `-t` runs all exit 0.
 
 ## Repo map (non-obvious parts only)
 
@@ -85,7 +83,7 @@ Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `
 - `/llms.txt` and `/llms-full.txt` are route handlers. Never add `public/llms*.txt`, because the static file would shadow the route. `public/<key>.txt` must match `INDEXNOW_KEY`.
 
 **Toolchain:**
-- Bump `vite-plus`, `vite`, `vitest` and `@vitest/*` together with `vp migrate`, never one at a time: a solo bump desyncs them and breaks types and coverage. Dependabot ignores them. `@oxlint/plugins` is pinned to the `oxlint` version vite-plus resolves, so move it only in a toolchain bump.
+- Bump `vite-plus`, `vite`, `vitest` and `@vitest/*` together with `vp migrate`, never one at a time: a solo bump desyncs them and breaks types and coverage. Dependabot ignores them. There is no direct `oxlint` or `@oxlint/plugins` dependency: `oxlint` comes through `vite-plus`, and the vendored anti-slop plugin imports from `vite-plus/lint/plugins`.
 - `tools/oxlint/anti-slop/` is vendored and excluded from lint, fmt, tsc and knip on purpose. `vendor/` is un-ignored in `.gitignore`; keep the whole tree committed (CI lint can't load the plugin otherwise).
 - `pnpm-lock.yaml` contains two YAML documents (env lockfile, then project lockfile). That is expected. Changing `packageManager` requires regenerating the lockfile, or CI's `--frozen-lockfile` fails. pnpm 12 errors on unknown `pnpm-workspace.yaml` keys.
 
