@@ -1,6 +1,6 @@
 # AGENTS.md
 
-PickMyClass emails ASU students when a watched class section gains an open seat or gets a named instructor. It is a Next.js 16 App Router app (React 19, strict TS) built by **vinext** (Vite-based) and deployed as one **Cloudflare Worker**, with PlanetScale Postgres through Hyperdrive (request-scoped Drizzle over node-postgres (`pg`)), Clerk auth, Cloudflare Workflows + Queues for scheduled seat checks, and Cloudflare Email for delivery. Features, architecture diagram, and self-hosting are in [README.md](README.md); domain vocabulary is in [CONTEXT.md](CONTEXT.md); design decisions are in [docs/adr/](docs/adr/). Read the ADRs covering an area before changing it, and use CONTEXT.md terms (`SectionRef`, Section Check, Cron Cycle) in code, tests and issues.
+PickMyClass emails ASU students when a watched class section gains an open seat or gets a named instructor. It is a Next.js 16 App Router app (React 19, strict TS) built by **vinext** (Vite-based) and deployed as one **Cloudflare Worker**, with PlanetScale Postgres through Hyperdrive (request-scoped Drizzle over node-postgres (`pg`)), Clerk auth, Cloudflare Workflows + Queues for scheduled seat checks, and Cloudflare Email for delivery. Features, architecture diagram, and self-hosting are in [README.md](README.md). Use the domain terms `SectionRef`, Section Check and Cron Cycle in code, tests and issues.
 
 When code and this file disagree, code wins: fix this file in the same change.
 
@@ -39,7 +39,6 @@ Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `
 - `lib/seo/`: sitemap, `/llms.txt` and `/llms-full.txt` route handlers, lastmod map, IndexNow.
 - `tests/unit`, `tests/integration`: all tests live here, not next to source. The `test` block in `vite.config.ts` defines `unit`, `integration`, and opt-in `db` projects. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through `test.alias`. `tests/unit/lib/db/scripted-postgres.ts` is a scripted node-postgres transport for query tests.
 - `tools/oxlint/anti-slop/`: vendored lint plugin (see Gotchas).
-- `docs/agents/`: issue-tracker (`gh` on `Divkix/pickmyclass`) and triage-label conventions used by skills.
 
 ## Conventions (enforced by lint or used everywhere)
 
@@ -55,7 +54,7 @@ Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `
 
 ## Gotchas and invariants
 
-**Seat-check pipeline** (ADRs 0004, 0006, 0015):
+**Seat-check pipeline**:
 - `processSection` order is: conditional `class_states` upsert (`observedAt` vs `last_checked_at`) → reset notifications → send. A rejected upsert skips both reset and send. Sending earlier double-sends on retry; resetting before the upsert drops a claim when the write fails.
 - Email only the watch IDs returned by `tryRecordNotificationsBatch`. Roll back failed sends with the row IDs from that same claim (`deleteNotificationRecordsByIds`), never by re-looking-up the active row, which can delete a newer claim.
 - The first-observation guard (`!oldState` → no seat email) prevents false alerts. Keep it.
@@ -64,9 +63,9 @@ Verified 2026-09-27: install, `verify`, `test:coverage` (74 files, 812 tests), `
 - `expire_stale_notifications()` runs in every `SectionCheckWorkflow` run and in `MaintenanceWorkflow`. Re-notifications stop without it.
 - `class_states` is keyed on `(class_nbr, term)`. Always carry both (`SectionRef`).
 - `lib/asu/terms.ts` holds a hand-maintained ASU term calendar. Extend it every August, or creating new watches silently blocks.
-- Seat signal is `non_reserved_seats ?? seats_available` (ADR 0005).
+- Seat signal is `non_reserved_seats ?? seats_available`.
 
-**Auth and edge** (ADRs 0001, 0003, 0012):
+**Auth and edge**:
 - After consent or admin changes, call `invalidateAuthorizationState`. `proxy.ts` caches `readAuthorizationState` for 30s.
 - CSP has two production shapes in `proxy.ts`. Session requests get a per-request nonce. Session-less public pages are edge-cached and get `'unsafe-inline'` with **no** nonce or hash, because either one makes browsers ignore `'unsafe-inline'`. An empty `'nonce-'` once blanked the homepage for anonymous users and Googlebot.
 - Never add `headers()` / `cookies()` to `app/layout.tsx`: static pages then 500. `useSearchParams` needs a `<Suspense>` boundary.
