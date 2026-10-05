@@ -361,6 +361,7 @@ function userJson(overrides: Partial<UserJSON>): UserJSON {
     delete_self_enabled: true,
     legal_accepted_at: null,
     locale: null,
+    timezone: null,
     ...overrides,
   };
 }
