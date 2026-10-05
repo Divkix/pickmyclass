@@ -1,4 +1,4 @@
-import { createScriptedPostgres } from "../../unit/lib/db/scripted-postgres";
+import { createScriptedPostgres } from "../../mocks/scripted-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 

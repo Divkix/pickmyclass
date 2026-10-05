@@ -1,6 +1,6 @@
 import { DatabaseError } from "pg";
 import { DrizzleQueryError } from "drizzle-orm/errors";
-import { createScriptedPostgres } from "../../unit/lib/db/scripted-postgres";
+import { createScriptedPostgres } from "../../mocks/scripted-postgres";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 

@@ -9,7 +9,7 @@ interface FeaturedGuide {
 
 /**
  * Guides listed under Key Pages, in priority order. Curated on purpose (the
- * full list lives in `/llms-full.txt`); a test keeps every slug published.
+ * full list lives in `/llms-full.txt`).
  */
 const FEATURED_GUIDES: readonly FeaturedGuide[] = [
   { slug: "asu-class-seat-tracker", label: "ASU class seat tracker guide" },
@@ -22,8 +22,6 @@ const FEATURED_GUIDES: readonly FeaturedGuide[] = [
   { slug: "asu-transfer-registration", label: "Transfer registration guide" },
   { slug: "myasu-search-tips", label: "MyASU class search tips" },
 ];
-
-export const FEATURED_GUIDE_SLUGS = FEATURED_GUIDES.map((guide) => guide.slug);
 
 const SOURCE_REPOSITORY = "https://github.com/Divkix/pickmyclass";
 

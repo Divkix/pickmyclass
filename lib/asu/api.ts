@@ -93,10 +93,6 @@ const CLASS_SEARCH_ENDPOINT_PATH = "search/classes";
 
 const asuApiCache = new TtlCache<ClassDetails>(ASU_CACHE_TTL_MS, 1000);
 
-export function clearAsuApiCache(): void {
-  asuApiCache.clear();
-}
-
 function formatTime(time: string): string {
   const [hourStr, minuteStr] = time.split(":");
   let hour = Number.parseInt(hourStr, 10);
