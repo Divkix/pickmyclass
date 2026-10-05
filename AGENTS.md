@@ -14,10 +14,10 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 | Dev server | `pnpm run dev` (vinext; one instance per checkout: a second one exits and prints the running server's URL) |
 | Build | `pnpm run build` |
 | Real Worker locally | `pnpm run preview` (build + `wrangler dev`); run before any deploy |
-| All non-DB tests | `pnpm run test` · with coverage gate (80% lines/branches/functions/statements): `pnpm run test:coverage` |
-| One file | `pnpm run test tests/unit/lib/crypto.test.ts` |
-| One test | `pnpm run test tests/unit/lib/crypto.test.ts -t "identical"` |
-| Test projects/watch | `pnpm run test:unit` · `pnpm run test:integration` · `pnpm run test:watch` |
+| All non-DB tests | `pnpm run test` · with coverage reports (no minimum threshold): `pnpm run test:coverage` |
+| One file | `pnpm run test tests/integration/api/onboarding.test.ts` |
+| One test | `pnpm run test tests/integration/api/onboarding.test.ts -t "/api/user/onboarding"` |
+| Test projects/watch | `pnpm run test:integration` · `pnpm run test:watch` |
 | Live DB test | `DATABASE_URL=… pnpm run test:db` against a disposable Postgres after `pnpm run db:migrate` (excluded from the normal run) |
 | DB migration | `pnpm run db:generate` (or `-- --custom --name=<n>`), then `DATABASE_URL=… pnpm run db:migrate` (direct PlanetScale URL) |
 | Format + lint | `pnpm run check` · autofix: `pnpm run fix` |
@@ -35,7 +35,7 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 - `migrations_pg/`: drizzle-kit migrations, the real schema history, tracked in `drizzle.__drizzle_migrations`. `lib/db/schema/` is the source of truth for tables: edit it, then `db:generate`. Functions, triggers and data fixes go in `db:generate -- --custom` files; change a function with `CREATE OR REPLACE` in a new migration, never edit an applied file. `0000_baseline` + `0001_baseline_functions` reproduce prod as of 2026-10-01. `db/migrations/` is frozen pre-drizzle history; never add to it.
 - `lib/utils.ts` is shadcn's `cn()` only. Custom helpers go in `lib/utils/`. The split is intentional, so leave both.
 - `lib/seo/`: sitemap, `/llms.txt` and `/llms-full.txt` route handlers, lastmod map, IndexNow.
-- `tests/unit`, `tests/integration`: all tests live here, not next to source. The `test` block in `vite.config.ts` defines `unit`, `integration`, and opt-in `db` projects. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through `test.alias`. `tests/unit/lib/db/scripted-postgres.ts` is a scripted node-postgres transport for query tests.
+- `tests/integration`: all tests live here, not next to source. The `test` block in `vite.config.ts` defines `integration` and opt-in `db` projects. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through `test.alias`. `tests/mocks/scripted-postgres.ts` is a scripted node-postgres transport for API integration tests.
 - `tools/oxlint/anti-slop/`: vendored lint plugin (see Gotchas).
 
 ## Conventions (enforced by lint or used everywhere)
@@ -77,8 +77,8 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 - A new file imported by `worker.ts` must be added to `tsconfig.worker.json` → `include`, or it is never type-checked. `worker.ts` and `scripts/` are also excluded from lint.
 - Local `dev` / `preview` reach Postgres at `wrangler.jsonc`'s `localConnectionString` (`localhost:5432`); override with `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`.
 
-**SEO** (tests in `tests/unit/seo-on-page.test.tsx` enforce these):
-- A new indexable page needs an entry in `PUBLIC_PAGES` (`lib/seo/public-pages.ts`), the snippet-length table in that test, and, for non-blog pages, a date in `lib/seo/static-page-lastmod.json`. The pre-commit hook re-stamps that date via `lib/seo/lastmod-routes.ts`.
+**SEO**:
+- A new indexable page needs an entry in `PUBLIC_PAGES` (`lib/seo/public-pages.ts`) and, for non-blog pages, a date in `lib/seo/static-page-lastmod.json`. The pre-commit hook re-stamps that date via `lib/seo/lastmod-routes.ts`.
 - Rendered `<title>` must be ≤60 chars (templates append ` | PickMyClass`; use `{ absolute }` when the title already names the brand). Descriptions must be ≤160 chars.
 - `/llms.txt` and `/llms-full.txt` are route handlers. Never add `public/llms*.txt`, because the static file would shadow the route. `public/<key>.txt` must match `INDEXNOW_KEY`.
 
@@ -90,7 +90,7 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 ## Definition of done
 
 1. `pnpm run verify` passes. This is the CI `quality` gate and the pre-commit hook.
-2. `pnpm run test:coverage` passes, including the 80% thresholds (CI `test` job).
+2. `pnpm run test:coverage` passes and produces coverage reports (CI `test` job; no minimum threshold).
 3. `pnpm run build` passes (CI `check` job).
 4. If you touched `worker.ts`, `wrangler.jsonc`, the Workflows or the queue path, run `pnpm run preview` as well.
 5. Schema changes ship as committed `migrations_pg/` files (incl. `meta/`) generated from `lib/db/schema/`.

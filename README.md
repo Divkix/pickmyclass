@@ -231,10 +231,9 @@ pnpm run format           # Format code with Oxfmt
 pnpm run knip             # Find unused exports/dependencies (no DATABASE_URL needed)
 pnpm run cf-typegen       # Generate TypeScript types for Cloudflare env (lib/cloudflare-env.d.ts)
 pnpm run type-check       # tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
-pnpm run test             # Run unit + integration projects (live DB excluded)
-pnpm run test:unit        # Run unit project
+pnpm run test             # Run integration project (live DB excluded)
 pnpm run test:integration # Run integration project
-pnpm run test:coverage    # Run non-DB projects with the 80% coverage gate
+pnpm run test:coverage    # Run integration tests with coverage reports (no minimum threshold)
 pnpm run test:watch       # Watch non-DB projects
 pnpm run test:ui          # Interactive non-DB test UI
 ```

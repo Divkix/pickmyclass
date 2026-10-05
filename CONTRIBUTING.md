@@ -140,10 +140,10 @@ Before submitting a PR:
    ```
 
 **Test Guidelines:**
-- All tests are in `tests/unit/` or `tests/integration/` (not colocated with source files); projects are configured in the `test` block of `vite.config.ts`.
+- All tests are in `tests/integration/` (not colocated with source files); projects are configured in the `test` block of `vite.config.ts`.
 - Test files: `*.test.ts`, `*.test.tsx`, `*.spec.ts`, or `*.spec.tsx`
 - Use `tests/mocks/` for Cloudflare Workers environment mocks
-- Run one test file: `pnpm run test tests/unit/lib/crypto.test.ts`. Use `test:unit` or `test:integration` for a project, `test:watch` for watch mode, and `DATABASE_URL=… pnpm run test:db` for the opt-in live database project.
+- Run one test file: `pnpm run test tests/integration/api/onboarding.test.ts`. Use `test:integration` for the integration project, `test:watch` for watch mode, and `DATABASE_URL=… pnpm run test:db` for the opt-in live database project.
 
 ## Pull Request Process
 

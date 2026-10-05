@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import type { Database } from "@/lib/db";
 import { driverErrorMessage } from "@/lib/db/pg-errors";
-import { classStates, classWatches, notificationsSent } from "@/lib/db/schema";
+import { classStates, classWatches } from "@/lib/db/schema";
 import { log } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
@@ -213,32 +213,6 @@ export async function deleteNotificationRecordsByIds(
   } catch (error) {
     log("DB").error("Error deleting notification records by id:", error);
     throw new Error(`Failed to delete notification records by id: ${driverErrorMessage(error)}`);
-  }
-}
-
-export async function getNotificationRecordIds(
-  db: Database,
-  watchIds: string[],
-  notificationType: NotificationType,
-): Promise<Map<string, string>> {
-  if (watchIds.length === 0) return new Map();
-
-  try {
-    const rows = await db
-      .select({ id: notificationsSent.id, class_watch_id: notificationsSent.class_watch_id })
-      .from(notificationsSent)
-      .where(
-        and(
-          inArray(notificationsSent.class_watch_id, watchIds),
-          eq(notificationsSent.notification_type, notificationType),
-          eq(notificationsSent.is_active, true),
-        ),
-      );
-
-    return new Map(rows.map((row) => [row.class_watch_id, row.id]));
-  } catch (error) {
-    log("DB").error("Error reading notification record ids:", error);
-    throw new Error(`Failed to read notification record ids: ${driverErrorMessage(error)}`);
   }
 }
 
