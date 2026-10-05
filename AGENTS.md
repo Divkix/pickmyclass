@@ -47,7 +47,7 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 - **Imports:** `@/…` path alias. `vite-plus/test` instead of `vitest` (the `vite-plus/prefer-vite-plus-imports` rule enforces it).
 - **Constants** go in `lib/config.ts`. Style: Oxfmt defaults (2 spaces, width 100, double quotes, semicolons, trailing commas everywhere); `pnpm run fix` applies it.
 - **Email:** every template value passes through `escapeHtml` (`lib/utils/escape-html.ts`). Unsubscribe tokens are stateless HMAC, valid 90 days, reusable.
-- **Tests** inject dependencies (e.g. `processSection(..., { fetchClass })`, `createScriptedPostgres`) rather than hitting real services. Name files `*.test.ts(x)` under `tests/`.
+- **Tests** stub external services and use `createScriptedPostgres` for API database queries rather than hitting real services. Name files `*.test.ts(x)` under `tests/integration/`; the live database project is opt-in.
 - **Commits:** Conventional Commits, `type(scope): summary`.
 
 ## Gotchas and invariants

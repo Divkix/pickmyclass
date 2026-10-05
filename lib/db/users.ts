@@ -16,10 +16,6 @@ const CACHE_TTL_MS = 30 * 1000;
 
 const verificationCache = new TtlCache<UserVerificationState>(CACHE_TTL_MS, 100);
 
-export function clearUserVerificationCache(): void {
-  verificationCache.clear();
-}
-
 export async function readUserVerification(
   db: Database,
   userId: string,
