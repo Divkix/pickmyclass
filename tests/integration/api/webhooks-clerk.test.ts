@@ -61,6 +61,8 @@ const svixDelivery = {
   event_attributes: {
     http_request: { client_ip: "127.0.0.1", user_agent: "Svix-Webhooks/1.16" },
   },
+  timestamp: 1_755_000_000_000,
+  instance_id: "ins_webhookfixture",
 };
 
 function clerkUserFixture(overrides: Partial<UserJSON> = {}): UserJSON {
@@ -111,6 +113,7 @@ function clerkUserFixture(overrides: Partial<UserJSON> = {}): UserJSON {
     delete_self_enabled: true,
     legal_accepted_at: null,
     locale: null,
+    timezone: null,
     ...overrides,
   };
 }
