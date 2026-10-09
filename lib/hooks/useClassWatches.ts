@@ -58,6 +58,20 @@ export function useClassWatches() {
 
   const classNumbers = useMemo(() => watches.map((w) => w.class_nbr), [watches]);
 
+  // /api/class-watches already returns each watch's state, so the realtime hook
+  // can seed from it instead of firing an immediate /class-watches/states request.
+  const seedStates = useMemo(() => {
+    const seeds: Record<string, ClassStateRow> = {};
+
+    for (const watch of watches) {
+      if (watch.class_state) {
+        seeds[sectionRefKey(watch)] = watch.class_state;
+      }
+    }
+
+    return seeds;
+  }, [watches]);
+
   const {
     classStates,
     loading: realtimeLoading,
@@ -66,6 +80,7 @@ export function useClassWatches() {
   } = useRealtimeClassStates({
     classNumbers,
     enabled: classNumbers.length > 0,
+    seedStates,
   });
 
   const loadWatches = useCallback(

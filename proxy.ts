@@ -179,8 +179,10 @@ export async function proxy(request: NextRequest) {
 
   if (identity) {
     const db = getDbFromEnv();
-    authState = await readAuthorizationState(db, identity.userId, { cache: true });
-    verification = await readUserVerification(db, identity.userId, { cache: true });
+    [authState, verification] = await Promise.all([
+      readAuthorizationState(db, identity.userId, { cache: true }),
+      readUserVerification(db, identity.userId, { cache: true }),
+    ]);
   }
 
   const decision = decideGate({

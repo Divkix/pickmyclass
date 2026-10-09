@@ -12,6 +12,14 @@ const consecutiveCountSchema = z.object({
 interface UseRealtimeClassStatesOptions {
   classNumbers: string[];
   enabled?: boolean;
+  /**
+   * Class states already in hand for these class numbers — typically the
+   * `class_state` on each watch from GET /api/class-watches — keyed by
+   * sectionRefKey. When every class number is covered, the hook seeds its map
+   * and skips the immediate fetch, so the 60s poll is the first
+   * /api/class-watches/states read.
+   */
+  seedStates?: Record<string, ClassStateRow>;
 }
 
 interface UseRealtimeClassStatesReturn {
@@ -64,9 +72,35 @@ async function requestClassStates(
   );
 }
 
+/**
+ * Narrows the seed map to the watched class numbers, keyed by sectionRefKey.
+ * Returns null unless the seeds cover every class number — a partial seed must
+ * still fetch so new watches get their state.
+ */
+function collectSeedStates(
+  classNumbers: string[],
+  seedStates: Record<string, ClassStateRow> | undefined,
+): Record<string, ClassStateRow> | null {
+  if (!seedStates || classNumbers.length === 0) return null;
+
+  const wanted = new Set(classNumbers);
+  const seeded: Record<string, ClassStateRow> = {};
+  const seededNumbers = new Set<string>();
+
+  for (const state of Object.values(seedStates)) {
+    if (!wanted.has(state.class_nbr)) continue;
+
+    seeded[sectionRefKey(state)] = state;
+    seededNumbers.add(state.class_nbr);
+  }
+
+  return classNumbers.every((classNumber) => seededNumbers.has(classNumber)) ? seeded : null;
+}
+
 export function useRealtimeClassStates({
   classNumbers,
   enabled = true,
+  seedStates,
 }: UseRealtimeClassStatesOptions): UseRealtimeClassStatesReturn {
   const classNumbersKey = useMemo(() => classNumbers.join(","), [classNumbers]);
   const [classStates, setClassStates] = useState<Record<string, ClassStateRow>>({});
@@ -75,16 +109,30 @@ export function useRealtimeClassStates({
   const [previousInputs, setPreviousInputs] = useState({ classNumbersKey, enabled });
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  const seededStates = useMemo(
+    () => collectSeedStates(classNumbers, seedStates),
+    [classNumbers, seedStates],
+  );
+
+  const fullySeeded = seededStates !== null;
+
   if (classNumbersKey !== previousInputs.classNumbersKey || enabled !== previousInputs.enabled) {
     setPreviousInputs({ classNumbersKey, enabled });
 
     if (enabled) {
-      setLoading(Boolean(classNumbersKey));
+      if (!classNumbersKey) {
+        setClassStates({});
+        setLoading(false);
+      } else if (seededStates) {
+        const seeds = seededStates;
 
-      if (classNumbersKey) {
+        // Seeds come from the freshest watches response, so they win over values polled earlier.
+        setClassStates((prev) => ({ ...prev, ...seeds }));
+        setLoading(false);
         setError(null);
       } else {
-        setClassStates({});
+        setLoading(true);
+        setError(null);
       }
     }
   }
@@ -140,7 +188,10 @@ export function useRealtimeClassStates({
   useEffect(() => {
     if (!enabled) return;
 
-    void loadClassStates(classNumbersKey);
+    // Seeded from the watches response: the first /class-watches/states read is the poll.
+    if (!fullySeeded) {
+      void loadClassStates(classNumbersKey);
+    }
 
     const intervalId = setInterval(() => {
       void fetchClassStates(classNumbersKey);
@@ -150,7 +201,7 @@ export function useRealtimeClassStates({
       clearInterval(intervalId);
       abortControllerRef.current?.abort();
     };
-  }, [enabled, classNumbersKey, loadClassStates, fetchClassStates]);
+  }, [enabled, classNumbersKey, fullySeeded, loadClassStates, fetchClassStates]);
 
   const refetch = useCallback(
     () => fetchClassStates(classNumbersKey),

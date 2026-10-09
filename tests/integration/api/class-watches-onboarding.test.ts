@@ -98,14 +98,26 @@ const watchedWithoutState = {
   created_at: "2026-01-03T00:00:00Z",
 };
 
-const matchingClassState = {
+// Full class_states row in the route's GET select order: the scripted driver
+// returns Object.values(row) in array mode, so mapping is positional. A missing
+// key leaves a column undefined, and the timestamp columns call
+// value.toISOString() on non-string values, which threw and produced a 500.
+const matchingClassState: ClassStateRow = {
+  id: "state-1",
   class_nbr: "12345",
   term,
+  subject: "CSE",
+  catalog_nbr: "240",
   seats_available: 10,
   seats_capacity: 50,
   non_reserved_seats: null,
   instructor_name: "Jane Doe",
   title: "Introduction to Programming",
+  location: "COOR 120",
+  meeting_times: "MWF 9:00-9:50 AM",
+  last_checked_at: "2026-01-02T00:00:00Z",
+  last_changed_at: "2026-01-02T00:00:00Z",
+  consecutive_not_found_count: 0,
 };
 
 interface GetBody {
@@ -210,19 +222,25 @@ describe("/api/class-watches onboarding wiring", () => {
     it("returns 200 with the full watches list and the onboarding fallback when the auxiliary read fails", async () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-      h.next([
-        {
-          id: createdWatch.id,
-          class_nbr: createdWatch.class_nbr,
-          term: createdWatch.term,
-          subject: createdWatch.subject,
-          catalog_nbr: createdWatch.catalog_nbr,
-          created_at: createdWatch.created_at,
-        },
-        watchedWithoutState,
-      ]);
-      h.next([matchingClassState]);
-      h.failNext(new Error("onboarding profile read failed"));
+      h = createScriptedPostgres((statement) => {
+        if (statement.sql.includes('from "class_states"')) return [matchingClassState];
+
+        if (statement.sql.includes('"user_profiles"')) {
+          throw new Error("onboarding profile read failed");
+        }
+
+        return [
+          {
+            id: createdWatch.id,
+            class_nbr: createdWatch.class_nbr,
+            term: createdWatch.term,
+            subject: createdWatch.subject,
+            catalog_nbr: createdWatch.catalog_nbr,
+            created_at: createdWatch.created_at,
+          },
+          watchedWithoutState,
+        ];
+      });
 
       const response = await GET(getRequest());
 
@@ -247,8 +265,11 @@ describe("/api/class-watches onboarding wiring", () => {
     });
 
     it("projects the real pending state into the response when the read succeeds", async () => {
-      h.next([]);
-      h.next([{ onboarding_completed_at: null, onboarding_skipped_at: null }]);
+      h = createScriptedPostgres((statement) =>
+        statement.sql.includes('"user_profiles"')
+          ? [{ onboarding_completed_at: null, onboarding_skipped_at: null }]
+          : [],
+      );
 
       const response = await GET(getRequest());
 
