@@ -89,14 +89,24 @@ const watchRow = {
   created_at: "2026-06-15T12:00:00Z",
 };
 
-const stateRow = {
+// Key order must match the route's GET class_states select order: the scripted
+// driver returns Object.values(row) in array mode, so mapping is positional.
+const stateRow: ClassStateRow = {
+  id: "state-1",
   class_nbr: "12345",
   term,
+  subject: "CSE",
+  catalog_nbr: "240",
   seats_available: 10,
   seats_capacity: 50,
   non_reserved_seats: 3,
   instructor_name: "John Doe",
   title: "Intro to Programming",
+  location: "COOR 120",
+  meeting_times: "MWF 9:00 AM-9:50 AM",
+  last_checked_at: "2026-06-15T12:00:00Z",
+  last_changed_at: "2026-06-15T11:00:00Z",
+  consecutive_not_found_count: 0,
 };
 
 const completedProfile = {
@@ -188,8 +198,10 @@ describe("/api/class-watches", () => {
     });
 
     it("returns empty watches, the max, and onboarding state for a user with no watches", async () => {
-      h.next([]);
-      h.next([completedProfile]);
+      // The watches read and the onboarding read run concurrently; script by table.
+      h = createScriptedPostgres((statement) =>
+        statement.sql.includes('"user_profiles"') ? [completedProfile] : [],
+      );
 
       const response = await GET(getRequest());
       const data = await json<GetResponse>(response);
@@ -205,9 +217,13 @@ describe("/api/class-watches", () => {
     });
 
     it("joins persisted class states onto each watch by term and class number", async () => {
-      h.next([watchRow]);
-      h.next([stateRow]);
-      h.next([completedProfile]);
+      h = createScriptedPostgres((statement) => {
+        if (statement.sql.includes('from "class_states"')) return [{ ...stateRow }];
+
+        if (statement.sql.includes('"user_profiles"')) return [completedProfile];
+
+        return [watchRow];
+      });
 
       const response = await GET(getRequest());
       const data = await json<GetResponse>(response);
@@ -215,17 +231,35 @@ describe("/api/class-watches", () => {
       expect(response.status).toBe(200);
       expect(data.watches).toHaveLength(1);
       expect(data.watches?.[0]?.class_state).toEqual(stateRow);
+      // The dashboard seeds its realtime map from this payload, so the response must
+      // carry the fields the cards render.
+      expect(data.watches?.[0]?.class_state).toMatchObject({
+        location: "COOR 120",
+        meeting_times: "MWF 9:00 AM-9:50 AM",
+        last_checked_at: "2026-06-15T12:00:00Z",
+        consecutive_not_found_count: 0,
+      });
 
-      const statesQuery = h.statements[1];
-      expect(statesQuery.sql).toContain('"class_states"');
-      expect(statesQuery.sql).toContain('"class_watches"."class_nbr" = "class_states"."class_nbr"');
-      expect(statesQuery.sql).toContain('"class_watches"."term" = "class_states"."term"');
-      expect(statesQuery.sql).not.toContain('"class_states"."term" in');
-      expect(statesQuery.params).toEqual(["12345", USER_ID]);
+      const statesQuery = h.statements.find((statement) =>
+        statement.sql.includes('from "class_states"'),
+      );
+
+      expect(statesQuery?.sql).toContain(
+        '"class_watches"."class_nbr" = "class_states"."class_nbr"',
+      );
+      expect(statesQuery?.sql).toContain('"class_watches"."term" = "class_states"."term"');
+      expect(statesQuery?.sql).not.toContain('"class_states"."term" in');
+      expect(statesQuery?.params).toEqual(["12345", USER_ID]);
     });
 
     it("maps database failures to a 500 fetch error", async () => {
-      h.failNext(new Error("Database error"));
+      // The onboarding read is caught and falls back, so only the watches read failing
+      // can surface as a 500.
+      h = createScriptedPostgres((statement) => {
+        if (statement.sql.includes('"user_profiles"')) return [];
+
+        throw new Error("Database error");
+      });
 
       const response = await GET(getRequest());
       const data = await json<GetResponse>(response);

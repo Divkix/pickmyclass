@@ -20,49 +20,53 @@ import { applyFirstWatchGuard, readOnboardingState, toOnboardingState } from "@/
 
 const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || "10", 10);
 
-type WatchClassState = Pick<
-  ClassStateRow,
-  | "class_nbr"
-  | "term"
-  | "seats_available"
-  | "seats_capacity"
-  | "non_reserved_seats"
-  | "instructor_name"
-  | "title"
->;
-
 export async function GET(request: NextRequest) {
   try {
     return await withAuth(request, async (user) => {
       const db = getDbFromEnv();
 
       try {
-        const watches = await db
-          .select({
-            id: classWatches.id,
-            class_nbr: classWatches.class_nbr,
-            term: classWatches.term,
-            subject: classWatches.subject,
-            catalog_nbr: classWatches.catalog_nbr,
-            created_at: classWatches.created_at,
-          })
-          .from(classWatches)
-          .where(eq(classWatches.user_id, user.userId))
-          .orderBy(desc(classWatches.created_at));
+        const [watches, onboarding] = await Promise.all([
+          db
+            .select({
+              id: classWatches.id,
+              class_nbr: classWatches.class_nbr,
+              term: classWatches.term,
+              subject: classWatches.subject,
+              catalog_nbr: classWatches.catalog_nbr,
+              created_at: classWatches.created_at,
+            })
+            .from(classWatches)
+            .where(eq(classWatches.user_id, user.userId))
+            .orderBy(desc(classWatches.created_at)),
+          readOnboardingState(db, user.userId).catch((error) => {
+            log("API").error("Failed to read onboarding state:", error);
+
+            return toOnboardingState(null);
+          }),
+        ]);
 
         const classNumbers = watches.map((w) => w.class_nbr);
 
-        const joinedStates: WatchClassState[] =
+        const joinedStates: ClassStateRow[] =
           classNumbers.length > 0
             ? await db
                 .select({
+                  id: classStates.id,
                   class_nbr: classStates.class_nbr,
                   term: classStates.term,
+                  subject: classStates.subject,
+                  catalog_nbr: classStates.catalog_nbr,
                   seats_available: classStates.seats_available,
                   seats_capacity: classStates.seats_capacity,
                   non_reserved_seats: classStates.non_reserved_seats,
                   instructor_name: classStates.instructor_name,
                   title: classStates.title,
+                  location: classStates.location,
+                  meeting_times: classStates.meeting_times,
+                  last_checked_at: classStates.last_checked_at,
+                  last_changed_at: classStates.last_changed_at,
+                  consecutive_not_found_count: classStates.consecutive_not_found_count,
                 })
                 .from(classStates)
                 .where(
@@ -84,12 +88,6 @@ export async function GET(request: NextRequest) {
                 )
             : [];
 
-        const onboarding = await readOnboardingState(db, user.userId).catch((error) => {
-          log("API").error("Failed to read onboarding state:", error);
-
-          return toOnboardingState(null);
-        });
-
         const statesMap = joinedStates.reduce(
           (acc, state) => {
             acc[`${state.term}:${state.class_nbr}`] = state;
@@ -97,7 +95,7 @@ export async function GET(request: NextRequest) {
             return acc;
           },
           // SAFETY: empty object is the initial typed accumulator for the keyed map
-          {} as Record<string, WatchClassState>,
+          {} as Record<string, ClassStateRow>,
         );
 
         const watchesWithStates = watches.map((watch) => ({
