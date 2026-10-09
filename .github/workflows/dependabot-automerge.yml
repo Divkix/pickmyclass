@@ -38,6 +38,7 @@ jobs:
       # workflow's rollup job; the other two are the required checks on `main`.
       REQUIRED_CHECKS: "CI Success,GitGuardian Security Checks,Workers Builds: pickmyclass"
       # This job's own check run, excluded so the gate cannot deadlock on itself.
+      # Must match the job `name:` above.
       SELF_CHECK: Automerge Dependabot
     steps:
       - name: Fetch Dependabot metadata
@@ -86,8 +87,10 @@ jobs:
 
           while :; do
             pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
-            checks=$(gh api "repos/$REPO/commits/$EVENT_HEAD_SHA/check-runs?per_page=100")
-            statuses=$(gh api "repos/$REPO/commits/$EVENT_HEAD_SHA/status")
+            # --paginate + NDJSON so a rollup longer than one page cannot hide a
+            # failing check behind per_page.
+            checks=$(gh api --paginate "repos/$REPO/commits/$EVENT_HEAD_SHA/check-runs?per_page=100" --jq '.check_runs[]' | jq -s '.')
+            statuses=$(gh api --paginate "repos/$REPO/commits/$EVENT_HEAD_SHA/statuses?per_page=100" --jq '.[]' | jq -s '.')
 
             author=$(jq -r '.user.login // ""' <<<"$pr")
             head_repo=$(jq -r '.head.repo.full_name // ""' <<<"$pr")
@@ -111,7 +114,7 @@ jobs:
 
             failed=$(
               jq -r --arg self "$SELF_CHECK" '
-                [ .check_runs[]
+                [ .[]
                   | select(.name != $self)
                   | select(.status == "completed")
                   | select(.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped")
@@ -124,7 +127,7 @@ jobs:
             fi
 
             failed_statuses=$(
-              jq -r '[ .statuses[] | select(.state == "failure" or .state == "error") | "\(.context)=\(.state)" ] | join(", ")' <<<"$statuses"
+              jq -r '[ .[] | select(.state == "failure" or .state == "error") | "\(.context)=\(.state)" ] | join(", ")' <<<"$statuses"
             )
             if [ -n "$failed_statuses" ]; then
               echo "refusing: non-successful commit statuses: $failed_statuses"
@@ -136,7 +139,7 @@ jobs:
             for name in "${required[@]}"; do
               ok=$(
                 jq -r --arg n "$name" '
-                  [ .check_runs[] | select(.name == $n) | select(.status == "completed" and .conclusion == "success") ] | length
+                  [ .[] | select(.name == $n) | select(.status == "completed" and .conclusion == "success") ] | length
                 ' <<<"$checks"
               )
               [ "$ok" != "0" ] || missing="${missing:+$missing, }$name"
@@ -144,11 +147,11 @@ jobs:
 
             running=$(
               jq -r --arg self "$SELF_CHECK" '
-                [ .check_runs[] | select(.name != $self) | select(.status != "completed") | .name ] | join(", ")
+                [ .[] | select(.name != $self) | select(.status != "completed") | .name ] | join(", ")
               ' <<<"$checks"
             )
             running_statuses=$(
-              jq -r '[ .statuses[] | select(.state == "pending") | .context ] | join(", ")' <<<"$statuses"
+              jq -r '[ .[] | select(.state == "pending") | .context ] | join(", ")' <<<"$statuses"
             )
 
             if [ -z "$missing" ] && [ -z "$running" ] && [ -z "$running_statuses" ]; then
