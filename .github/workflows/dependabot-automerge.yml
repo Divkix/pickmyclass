@@ -48,8 +48,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # Majors are never auto-merged, but they should not sit unreviewed either.
+      # `update-type` output values are namespaced, e.g. "version-update:semver-minor".
       - name: Request review for major updates
-        if: steps.metadata.outputs.update-type == 'semver-major'
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
@@ -58,8 +59,8 @@ jobs:
 
       - name: Gate and merge minor/patch updates
         if: |
-          steps.metadata.outputs.update-type == 'semver-minor' ||
-          steps.metadata.outputs.update-type == 'semver-patch'
+          steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-patch'
         env:
           UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
           # Flip to true to run the whole gate without merging.
@@ -74,9 +75,9 @@ jobs:
           TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-2700}"
 
           case "$UPDATE_TYPE" in
-            semver-minor | semver-patch) ;;
+            version-update:semver-minor | version-update:semver-patch) ;;
             *)
-              echo "refusing to merge: update type '$UPDATE_TYPE' is not semver-minor or semver-patch"
+              echo "refusing to merge: update type '$UPDATE_TYPE' is not a minor or patch version update"
               exit 1
               ;;
           esac
@@ -190,11 +191,11 @@ jobs:
       # not a pass: report it and leave the PR alone.
       - name: Fail closed on an unexpected update type
         if: |
-          steps.metadata.outputs.update-type != 'semver-minor' &&
-          steps.metadata.outputs.update-type != 'semver-patch' &&
-          steps.metadata.outputs.update-type != 'semver-major'
+          steps.metadata.outputs.update-type != 'version-update:semver-minor' &&
+          steps.metadata.outputs.update-type != 'version-update:semver-patch' &&
+          steps.metadata.outputs.update-type != 'version-update:semver-major'
         env:
           UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
         run: |
-          echo "::error::update type '${UPDATE_TYPE:-<empty>}' is neither semver-minor nor semver-patch; not merging"
+          echo "::error::update type '${UPDATE_TYPE:-<empty>}' is not a minor or patch version update; not merging"
           exit 1
