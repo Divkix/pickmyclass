@@ -10,6 +10,10 @@ on:
     types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
+  # `actions: read` is required by the self-identity lookup
+  # (`/actions/runs/<id>` and `/actions/workflows/<id>/runs`); without it the
+  # runtime GITHUB_TOKEN cannot call the Actions API.
+  actions: read
   contents: write
   pull-requests: write
   checks: read
@@ -85,9 +89,10 @@ jobs:
           esac
 
           # The gate must not wait on, or be satisfied by, its own check run.
-          # Identify its workflow through this run, then exclude only check runs
-          # from suites that workflow created for this commit — a same-named
-          # check run from any other workflow still gates the merge.
+          # Identify its workflow once (invariant) through this run, then exclude
+          # only check runs from suites that workflow created for this commit — a
+          # same-named check run from any other workflow still gates the merge.
+          # Both calls are Actions API reads, hence `actions: read` above.
           self_workflow_id=$(gh api "repos/$REPO/actions/runs/$SELF_RUN_ID" --jq '.workflow_id')
           echo "gating $REPO#$PR_NUMBER ($UPDATE_TYPE, head $EVENT_HEAD_SHA)"
           echo "required checks: $REQUIRED_CHECKS"
