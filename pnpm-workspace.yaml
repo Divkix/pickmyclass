@@ -50,22 +50,7 @@ peerDependencyRules:
 # signatures) regressed versus what we already resolved, and hold back releases
 # that are too fresh to have been vetted.
 #
-# `minimumReleaseAge` holds releases for 1 day (pnpm's default, made strict by
-# setting it explicitly); bump a dependency sooner by adding it to
-# `minimumReleaseAgeExclude`.
+# `minimumReleaseAge` holds every release for 1 day (pnpm's default, made strict
+# by setting it explicitly).
 trustPolicy: no-downgrade
 minimumReleaseAge: 1440
-# pnpm >= 11.22 prunes exact-version excludes no longer resolved by the lockfile.
-minimumReleaseAgeExcludePrune: true
-minimumReleaseAgeExclude:
-  - vite-plus
-  - "@voidzero-dev/*"
-  - oxlint
-  - "@oxlint/*"
-  - oxlint-tsgolint
-  - "@oxlint-tsgolint/*"
-  - oxfmt
-  - "@oxfmt/*"
-  - vitest
-  - "@vitest/*"
-  - posthog-js
