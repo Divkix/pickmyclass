@@ -131,9 +131,10 @@ Automation for dependencies:
   auto-merged — the workflow requests a review from `@Divkix` and they are merged by hand (the branch is still
   deleted automatically).
 - The auto-merge gate is `.github/workflows/dependabot-automerge.yml`. It reads PR metadata only (no PR code is
-  checked out, installed or executed), requires the repo's required checks plus every other reported check to be
-  green, and gives up after 45 minutes. It runs from `main`, so edits to it only take effect after they are
-  merged.
+  checked out, installed or executed), requires the repo's required checks plus every other reported check and
+  commit status to be an exact `success` (a `skipped` or `neutral` check does not count as green), re-checks the
+  PR's author, base branch, draft state and head commit on every poll and again just before merging, and gives up
+  after 45 minutes. It runs from `main`, so edits to it only take effect after they are merged.
 
 ### Testing Changes
 
