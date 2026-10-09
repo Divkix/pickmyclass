@@ -124,6 +124,17 @@ Policy for this repo:
   version that has aged past it.
 - `pnpm update --latest` keeps `catalog:` references and updates the catalog entries in place.
 
+Automation for dependencies:
+
+- Dependabot checks npm and GitHub Actions daily with a 1-day cooldown on version updates (security updates are
+  exempt). Minor and patch PRs squash-merge automatically once every check is green; majors are never
+  auto-merged — the workflow requests a review from `@Divkix` and they are merged by hand (the branch is still
+  deleted automatically).
+- The auto-merge gate is `.github/workflows/dependabot-automerge.yml`. It reads PR metadata only (no PR code is
+  checked out, installed or executed), requires the repo's required checks plus every other reported check to be
+  green, and gives up after 45 minutes. It runs from `main`, so edits to it only take effect after they are
+  merged.
+
 ### Testing Changes
 
 Before submitting a PR:
