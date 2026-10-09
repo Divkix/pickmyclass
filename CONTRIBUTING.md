@@ -115,6 +115,15 @@ When modifying dependencies in `package.json`:
    ```
    If this fails, your lockfile is out of sync. Run `pnpm install` again and commit the updated `pnpm-lock.yaml`.
 
+Policy for this repo:
+
+- Every version is a caret range (`^1.2.3`) — no exact pins, including the `catalog:` entries in
+  `pnpm-workspace.yaml`. `packageManager` is the one deliberate exact pin.
+- `minimumReleaseAge` is not configured, so pnpm's built-in 1440-minute (1 day) release age applies and stays
+  non-strict. Don't add `minimumReleaseAgeExclude` entries: wait a day, or let the range resolve to the newest
+  version that has aged past it.
+- `pnpm update --latest` keeps `catalog:` references and updates the catalog entries in place.
+
 ### Testing Changes
 
 Before submitting a PR:

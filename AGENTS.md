@@ -83,9 +83,10 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 - `/llms.txt` and `/llms-full.txt` are route handlers. Never add `public/llms*.txt`, because the static file would shadow the route. `public/<key>.txt` must match `INDEXNOW_KEY`.
 
 **Toolchain:**
-- Bump `vite-plus`, `vite`, `vitest` and `@vitest/*` together with `vp migrate`, never one at a time: a solo bump desyncs them and breaks types and coverage. Dependabot ignores them. There is no direct `oxlint` or `@oxlint/plugins` dependency: `oxlint` comes through `vite-plus`, and the vendored anti-slop plugin imports from `vite-plus/lint/plugins`.
+- Bump `vite-plus`, `vite`, `vitest` and `@vitest/*` together, never one at a time: a solo bump desyncs them and breaks types and coverage. They are declared once in `pnpm-workspace.yaml` — `catalog:` entries plus the `catalog:`-backed overrides — so bumping the carets there moves every consumer; do **not** run `vp migrate`, which rewrites those entries as exact pins. `@vitest/coverage-v8` must keep resolving to the Vitest version `vite-plus` bundles (`vp --version` prints it), or `vp test --coverage` aborts. Dependabot ignores them. There is no direct `oxlint` or `@oxlint/plugins` dependency: `oxlint` comes through `vite-plus`, and the vendored anti-slop plugin imports from `vite-plus/lint/plugins`.
 - `tools/oxlint/anti-slop/` is vendored and excluded from lint, fmt, tsc and knip on purpose. `vendor/` is un-ignored in `.gitignore`; keep the whole tree committed (CI lint can't load the plugin otherwise).
 - `pnpm-lock.yaml` contains two YAML documents (env lockfile, then project lockfile). That is expected. Changing `packageManager` requires regenerating the lockfile, or CI's `--frozen-lockfile` fails. pnpm 12 errors on unknown `pnpm-workspace.yaml` keys.
+- Dependency policy: every version is a caret range (`packageManager` is the sole exact pin). `minimumReleaseAge` is deliberately unset, so pnpm's built-in 1440-minute default applies and stays non-strict; there are no `minimumReleaseAgeExclude` entries. `trustPolicy: no-downgrade` is the only supply-chain setting. `pnpm update --latest` keeps `catalog:` references and moves the catalog entries.
 
 ## Definition of done
 
