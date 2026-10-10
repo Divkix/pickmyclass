@@ -115,6 +115,27 @@ When modifying dependencies in `package.json`:
    ```
    If this fails, your lockfile is out of sync. Run `pnpm install` again and commit the updated `pnpm-lock.yaml`.
 
+Policy for this repo:
+
+- Every version is a caret range (`^1.2.3`) — no exact pins, including the `catalog:` entries in
+  `pnpm-workspace.yaml`. `packageManager` is the one deliberate exact pin.
+- `minimumReleaseAge` is not configured, so pnpm's built-in 1440-minute (1 day) release age applies and stays
+  non-strict. Don't add `minimumReleaseAgeExclude` entries: wait a day, or let the range resolve to the newest
+  version that has aged past it.
+- `pnpm update --latest` keeps `catalog:` references and updates the catalog entries in place.
+
+Automation for dependencies:
+
+- Dependabot checks npm and GitHub Actions daily with a 1-day cooldown on version updates (security updates are
+  exempt). Minor and patch PRs squash-merge automatically once every check is green; majors are never
+  auto-merged — the workflow requests a review from `@Divkix` and they are merged by hand (the branch is still
+  deleted automatically).
+- The auto-merge gate is `.github/workflows/dependabot-automerge.yml`. It reads PR metadata only (no PR code is
+  checked out, installed or executed), requires the repo's required checks plus every other reported check and
+  commit status to be an exact `success` (a `skipped` or `neutral` check does not count as green), re-checks the
+  PR's author, base branch, draft state and head commit on every poll and again just before merging, and gives up
+  after 45 minutes. It runs from `main`, so edits to it only take effect after they are merged.
+
 ### Testing Changes
 
 Before submitting a PR:

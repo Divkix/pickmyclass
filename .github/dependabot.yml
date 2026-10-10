@@ -4,34 +4,46 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    # Version updates wait one day after a release (GitHub's default is three
+    # days), matching pnpm's own 1440-minute release age. Security updates are
+    # exempt from cooldown.
+    cooldown:
+      default-days: 1
     open-pull-requests-limit: 10
     commit-message:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
-    ignore:
-      # vite-plus toolchain moves in lockstep via `vp migrate` only.
-      # Dependabot only sees vite-plus by name and can't track/group the
-      # aliases, so any solo bump (vite-plus, vite, vitest, coverage, core)
-      # desyncs the set and breaks CI (TS2321/TS2769 or coverage abort).
-      - dependency-name: "vite-plus"
-      - dependency-name: "vite"
-      - dependency-name: "vitest"
-      - dependency-name: "@vitest/*"
-      - dependency-name: "@voidzero-dev/vite-plus-core"
     groups:
-      # Group all minor/patch updates
+      # First match wins, so the Vite+ family is listed before the catch-all:
+      # those packages only work as a set (Vite+ ships its own Vitest and
+      # refuses `--coverage` with a mismatched provider), so they must land in
+      # one PR instead of five that each break CI.
+      vite-plus-toolchain:
+        patterns:
+          - "vite"
+          - "vite-plus"
+          - "@voidzero-dev/*"
+          - "vitest"
+          - "@vitest/*"
+        update-types:
+          - "minor"
+          - "patch"
       all-minor-patch:
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
+    # Majors are deliberately ungrouped: each one arrives as its own PR, gets a
+    # review request from the automerge workflow, and is merged by hand.
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
+    cooldown:
+      default-days: 1
     commit-message:
       prefix: "chore(ci)"
     labels:

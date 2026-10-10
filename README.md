@@ -335,6 +335,19 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 5. Commit with conventional commits: `git commit -m "feat: add new feature"`
 6. Push and open a PR
 
+### Dependency Updates
+
+Dependabot checks npm and GitHub Actions every day, holding each new version back for one day before proposing it
+(security updates skip that wait). Minor and patch PRs squash-merge on their own once the required checks —
+`CI Success`, `GitGuardian Security Checks` and the Cloudflare Workers build — plus every other reported check
+and commit status are an exact success (a `skipped` or `neutral` check does not count as green); majors are never
+auto-merged and instead get a review request for `@Divkix`. The gate,
+`.github/workflows/dependabot-automerge.yml`, only reads PR metadata (it never checks out or runs PR code),
+re-validates the PR on every poll and again right before merging, polls for up to 45 minutes, and merges the
+exact commit it validated. Versions in `package.json` and
+`pnpm-workspace.yaml` are caret ranges, with no `minimumReleaseAge` override, so pnpm's built-in one-day release
+age applies. See [CONTRIBUTING.md](CONTRIBUTING.md#addingupdating-dependencies) for the details.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

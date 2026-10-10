@@ -18,12 +18,13 @@ supportedArchitectures:
     - current
 
 overrides:
-  # Vite+ 1.0.0-rc.0 bundles Vitest 5.0.1 and refuses to run `--coverage` unless
-  # the installed coverage provider is the exact same version (mixed versions
-  # otherwise fails CI at startup).
-  "@vitest/coverage-v8": 5.0.1
-  vite-plus: 1.0.0-rc.0
-  postcss: 8.5.26
+  # Vite+ ships its own Vitest and refuses `--coverage` unless the installed
+  # coverage provider is that exact version (a mismatch otherwise fails CI at
+  # startup). Both go through the catalog so the override and the devDependency
+  # can never drift apart.
+  "@vitest/coverage-v8": "catalog:"
+  vite-plus: "catalog:"
+  postcss: "^8.5.29"
   vite@*: "catalog:"
   vitest@*: "catalog:"
 
@@ -35,10 +36,10 @@ allowBuilds:
   sharp: true
   workerd: true
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@1.0.0-rc.0
-  vitest: 5.0.1
-  vite-plus: 1.0.0-rc.0
-  "@vitest/coverage-v8": 5.0.1
+  vite: npm:@voidzero-dev/vite-plus-core@^1.1.0
+  vitest: ^5.0.3
+  vite-plus: ^1.1.0
+  "@vitest/coverage-v8": ^5.0.3
 peerDependencyRules:
   allowAny:
     - vite
@@ -47,25 +48,8 @@ peerDependencyRules:
     vite: "*"
     vitest: "*"
 # Supply-chain hardening: refuse any version whose trust signals (provenance,
-# signatures) regressed versus what we already resolved, and hold back releases
-# that are too fresh to have been vetted.
-#
-# `minimumReleaseAge` holds releases for 1 day (pnpm's default, made strict by
-# setting it explicitly); bump a dependency sooner by adding it to
-# `minimumReleaseAgeExclude`.
+# signatures) regressed versus what we already resolved. Releases too fresh to
+# have been vetted are held back by pnpm's built-in `minimumReleaseAge` default
+# (1440 minutes), which stays unset on purpose: that default is non-strict, so
+# a range that only a same-day release satisfies still resolves.
 trustPolicy: no-downgrade
-minimumReleaseAge: 1440
-# pnpm >= 11.22 prunes exact-version excludes no longer resolved by the lockfile.
-minimumReleaseAgeExcludePrune: true
-minimumReleaseAgeExclude:
-  - vite-plus
-  - "@voidzero-dev/*"
-  - oxlint
-  - "@oxlint/*"
-  - oxlint-tsgolint
-  - "@oxlint-tsgolint/*"
-  - oxfmt
-  - "@oxfmt/*"
-  - vitest
-  - "@vitest/*"
-  - posthog-js
