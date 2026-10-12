@@ -3,8 +3,9 @@
  * Events: user.created / user.updated delegate to
  * `syncUserMirrorFromClerkUser` to upsert the mirror row and ensure the 1:1
  * user_profiles row exists (this replaces the dropped Supabase
- * `on_auth_user_created` trigger). user.deleted applies the CCPA-consistent
- * soft delete on the profile.
+ * `on_auth_user_created` trigger). user.created also captures `user_registered`,
+ * deduplicated per Clerk user so redeliveries count once. user.deleted applies
+ * the CCPA-consistent soft delete on the profile.
  *
  * Contract: verify the Standard-Webhooks signature, return 2xx fast, never
  * throw — Svix retries on 4xx/5xx and the dashboard can replay. A 500 here is
@@ -14,6 +15,7 @@
 import { verifyWebhook } from "@clerk/backend/webhooks";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
+import { captureServerEvent } from "@/lib/analytics/server";
 import { fail, ok } from "@/lib/api/response";
 import { clearAuthorizationStateCache } from "@/lib/auth/authorization-state";
 import { getDbFromEnv } from "@/lib/db";
@@ -53,6 +55,16 @@ export async function POST(request: Request) {
       if (!synced) {
         log("ClerkWebhook").warn(
           `Event ${event.type} for ${event.data.id} has no email — skipping`,
+        );
+      } else if (event.type === "user.created") {
+        captureServerEvent(
+          event.data.external_id ?? event.data.id,
+          "user_registered",
+          {},
+          {
+            key: `user_registered:${event.data.id}`,
+            timestamp: new Date(event.data.created_at),
+          },
         );
       }
 

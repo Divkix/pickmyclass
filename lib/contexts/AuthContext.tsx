@@ -7,6 +7,7 @@ import {
   resetAnalyticsIdentity,
   trackAnalyticsEvent,
 } from "@/lib/analytics/client";
+import { claimLoginSession } from "@/lib/analytics/login-session";
 import { log } from "@/lib/log";
 
 interface CompatUser {
@@ -75,6 +76,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       wasIdentified.current = false;
     }
   }, [analyticsUserId, analyticsEmail, loading]);
+
+  // Runs after identify above, so the event lands on the signed-in person.
+  useEffect(() => {
+    if (analyticsUserId && sessionId && claimLoginSession(() => window.localStorage, sessionId)) {
+      trackAnalyticsEvent("user_logged_in", {});
+    }
+  }, [analyticsUserId, sessionId]);
 
   const signOut = useCallback(async () => {
     try {
