@@ -24,3 +24,6 @@ export const AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE = 500;
 export const RATE_LIMIT_RETRY_BASE_S = 60;
 
 export const RATE_LIMIT_RETRY_MAX_S = 15 * 60;
+
+/** localStorage key holding the last Clerk session id that captured `user_logged_in`. */
+export const LOGIN_SESSION_STORAGE_KEY = "pmc_logged_in_session";
