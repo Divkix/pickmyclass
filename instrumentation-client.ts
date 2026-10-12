@@ -1,4 +1,5 @@
 import "posthog-js/dist/exception-autocapture";
+import "posthog-js/dist/web-vitals-with-attribution";
 import posthog from "posthog-js/dist/module.no-external";
 import { POSTHOG_API_HOST, POSTHOG_PROJECT_TOKEN, POSTHOG_UI_HOST } from "@/lib/analytics/config";
 
