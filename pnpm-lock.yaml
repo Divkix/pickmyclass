@@ -237,8 +237,8 @@ importers:
         specifier: ^1.438.3
         version: 1.438.3(@types/react@19.3.0)(react@19.3.0)
       posthog-node:
-        specifier: ^5.55.1
-        version: 5.55.1
+        specifier: ^5.55.2
+        version: 5.55.2
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -1716,6 +1716,9 @@ packages:
 
   '@posthog/core@1.57.2':
     resolution: {integrity: sha512-dfxeSjUvR+j4M7odvyf/KVdcKTZZ87u/l9swJtDt9vFkI2km3RhEveOkIHtFcZEQ1cllx7YaKJfdw6c8zfIEvg==}
+
+  '@posthog/core@1.58.0':
+    resolution: {integrity: sha512-vluXIlVF6WGeHoQbsQK8Y1ywXZlJDU7YHEKiXAArQU38yFBpgxxfD0kInbYHtura4Fr7Z7H8WiDFvtMpCGehGg==}
 
   '@posthog/plugin-utils@2.0.0':
     resolution: {integrity: sha512-PC94+3zeEQ2IkhiU+pskOIOEkAFKZvwVixvrwpRfy+cl4b6gkTuHN44vp5OeG5ndfQOLJQF5onx8/K7yZC3i1g==}
@@ -3707,8 +3710,8 @@ packages:
       react:
         optional: true
 
-  posthog-node@5.55.1:
-    resolution: {integrity: sha512-YLnILmFn1zxGYBuCaBldqMjTq9OZBNNbHIr2F0am3iLfU+6ZTvuRmUbTmys//+LnCA6DfZNGgqTb4goFa93u+Q==}
+  posthog-node@5.55.2:
+    resolution: {integrity: sha512-iDAleFns2KSEr67i1/DQ5qxseJHp5t3zhk6UHr+48vualuB1QvresneO25Qmv29fzTDmunS/JCPNcpaP9/QmKg==}
     engines: {node: ^20.20.0 || >=22.22.0}
     peerDependencies:
       rxjs: ^7.0.0
@@ -5006,6 +5009,10 @@ snapshots:
       detect-libc: 2.1.2
 
   '@posthog/core@1.57.2':
+    dependencies:
+      '@posthog/types': 1.415.2
+
+  '@posthog/core@1.58.0':
     dependencies:
       '@posthog/types': 1.415.2
 
@@ -6618,9 +6625,9 @@ snapshots:
     transitivePeerDependencies:
       - preact-render-to-string
 
-  posthog-node@5.55.1:
+  posthog-node@5.55.2:
     dependencies:
-      '@posthog/core': 1.57.2
+      '@posthog/core': 1.58.0
 
   preact@10.29.8: {}
 

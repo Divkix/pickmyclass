@@ -50,7 +50,7 @@
     "pg": "^8.23.1",
     "postgres": "^3.4.9",
     "posthog-js": "^1.438.3",
-    "posthog-node": "^5.55.1",
+    "posthog-node": "^5.55.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "sonner": "^2.0.8",
