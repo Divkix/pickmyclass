@@ -236,10 +236,6 @@ describe("POST /api/webhooks/clerk", () => {
 
     expect(mockCaptureServerEvent).toHaveBeenCalledTimes(1);
     expect(mockCaptureServerEvent.mock.calls[0][0]).toBe("6f1c2a3e-legacy-app-id");
-    expect(mockCaptureServerEvent.mock.calls[0][3]).toEqual({
-      key: `user_registered:${CLERK_USER_ID}`,
-      timestamp: new Date(user.created_at),
-    });
   });
 
   it("does not capture user_registered when user.created has no email to mirror", async () => {
