@@ -14,6 +14,7 @@
  */
 
 import { waitUntil } from "cloudflare:workers";
+import { createHash } from "node:crypto";
 import { PostHog } from "posthog-node";
 import { z } from "zod";
 import { log } from "@/lib/log";
@@ -43,15 +44,40 @@ function createClient(): PostHog {
   });
 }
 
+/**
+ * Makes a capture idempotent across retries: PostHog merges events that share
+ * uuid, event, distinct id and timestamp, so the same key always yields the
+ * same uuid and the timestamp must come from the source record.
+ */
+export interface ServerEventDedupe {
+  key: string;
+  timestamp: Date;
+}
+
+function dedupeUuid(key: string): string {
+  const hex = createHash("sha256").update(key).digest("hex");
+  // RFC 9562 version 8 (custom) with the RFC variant bits.
+  const variant = ((Number.parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-8${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
 export function captureServerEvent<E extends keyof AnalyticsEventMap>(
   distinctId: string,
   event: E,
   properties: AnalyticsEventMap[E],
+  dedupe?: ServerEventDedupe,
 ): void {
   const client = createClient();
   waitUntil(
     client
-      .captureImmediate({ distinctId, event, properties })
+      .captureImmediate({
+        distinctId,
+        event,
+        properties,
+        uuid: dedupe ? dedupeUuid(dedupe.key) : undefined,
+        timestamp: dedupe?.timestamp,
+      })
       .catch((error) => {
         log("Analytics").warn("Failed to send analytics event:", error);
       })
