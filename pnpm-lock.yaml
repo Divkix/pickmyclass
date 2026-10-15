@@ -237,8 +237,8 @@ importers:
         specifier: ^1.438.9
         version: 1.438.9(@types/react@19.3.0)(react@19.3.0)
       posthog-node:
-        specifier: ^5.55.3
-        version: 5.55.3
+        specifier: ^5.56.0
+        version: 5.56.0
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -292,8 +292,8 @@ importers:
         specifier: ^6.41.0
         version: 6.41.0
       satori:
-        specifier: ^0.55.2
-        version: 0.55.2
+        specifier: ^0.56.1
+        version: 0.56.1
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
@@ -1717,6 +1717,9 @@ packages:
   '@posthog/core@1.58.1':
     resolution: {integrity: sha512-z0ISzMUoF1izukfLIUSjGZBdO5H2BPdqN8MX27OKYGQ1sDj/r+WW9Nq7m5WsQY56NOxVsFtHClx9iHj6MYM3Tg==}
 
+  '@posthog/core@1.59.0':
+    resolution: {integrity: sha512-KRq26v5fXYnwV5wqTAXzPyQLCrBzzhK78QRl7UyEaPFZ4RPmVo1pBObRDbK350ah+8hTfQPanu5mM8c4CaSn5g==}
+
   '@posthog/plugin-utils@2.0.0':
     resolution: {integrity: sha512-PC94+3zeEQ2IkhiU+pskOIOEkAFKZvwVixvrwpRfy+cl4b6gkTuHN44vp5OeG5ndfQOLJQF5onx8/K7yZC3i1g==}
 
@@ -1730,6 +1733,9 @@ packages:
 
   '@posthog/types@1.415.3':
     resolution: {integrity: sha512-y90ARRBbyXcZDwuXXXvAnbjiuxQ+4FmUI4sasI19AHOPgdWPyd2Kpo0c0B2pKIR+fq+BcRokhF35eAdA54Mfbw==}
+
+  '@posthog/types@1.416.0':
+    resolution: {integrity: sha512-0/9+02s/0uDyrH4G/qUg1yyl6gXUg8Uuxw/PlDad3KLzo9FFS9zS/kAQaEshx/saVGupj1aAy/4EUBxWisBogw==}
 
   '@radix-ui/number@1.1.3':
     resolution: {integrity: sha512-Road2bidD0uu/1BGDOWNdPI06g0lIRy6IF9GZcIrDK2KGItfor8IQwQa+yM2ERgHM1MmHxaxpTzk0/Jp42lNfA==}
@@ -3711,8 +3717,8 @@ packages:
       react:
         optional: true
 
-  posthog-node@5.55.3:
-    resolution: {integrity: sha512-UllcPxGClim6WM8l4cuJCccCN7zH/7z8t59APs0oIkQ+t/UrWPauDvuLnz3lWS2Adj1Vccl0Yq3dnIOI+JvCVg==}
+  posthog-node@5.56.0:
+    resolution: {integrity: sha512-BOCNJfM+ZTivY+qvNpxyUsG2rV4dyGjiz1+j5OcEqSy7YoSKabTZvLyl8h8X+pADgq5TlqpN0UdT+bXQJjs3mQ==}
     engines: {node: ^20.20.0 || >=22.22.0}
     peerDependencies:
       rxjs: ^7.0.0
@@ -3799,8 +3805,8 @@ packages:
     resolution: {integrity: sha512-PNW6ktrQ8SM6kk7u4aOuTkkUewkzyTOrj+QeEzXSsnNMAdff4ire9CAqIz8+4C3rCiBtK8QTELv52AZEd1PbRw==}
     engines: {node: '>=16'}
 
-  satori@0.55.2:
-    resolution: {integrity: sha512-OJaKwCjehIE0Zj3Km8UpH+8lP/AfeM9Lig6/rrTwqnaEpyf+k5MuMpaUW7n5pGPpwrui8Mz24QXaSw2ff+b0tA==}
+  satori@0.56.1:
+    resolution: {integrity: sha512-1ARgCVs7Tf0uAwuqo8fXfkCv+89CL80ORINjJ0FKf+Y2iwmNPZjTF+NltvbfbGAn6kzP6rOQ+6eosu/lf7rM7A==}
     engines: {node: '>=16'}
 
   scheduler@0.28.0:
@@ -5015,6 +5021,10 @@ snapshots:
     dependencies:
       '@posthog/types': 1.415.3
 
+  '@posthog/core@1.59.0':
+    dependencies:
+      '@posthog/types': 1.416.0
+
   '@posthog/plugin-utils@2.0.0':
     dependencies:
       cross-spawn: 7.0.6
@@ -5029,6 +5039,8 @@ snapshots:
   '@posthog/types@1.415.2': {}
 
   '@posthog/types@1.415.3': {}
+
+  '@posthog/types@1.416.0': {}
 
   '@radix-ui/number@1.1.3': {}
 
@@ -6627,9 +6639,9 @@ snapshots:
     transitivePeerDependencies:
       - preact-render-to-string
 
-  posthog-node@5.55.3:
+  posthog-node@5.56.0:
     dependencies:
-      '@posthog/core': 1.58.1
+      '@posthog/core': 1.59.0
 
   preact@10.29.8: {}
 
@@ -6735,7 +6747,7 @@ snapshots:
       postcss-value-parser: 4.2.0
       yoga-layout: 3.2.1
 
-  satori@0.55.2:
+  satori@0.56.1:
     dependencies:
       '@shuding/opentype.js': 1.4.0-beta.0
       css-background-parser: 0.1.0
