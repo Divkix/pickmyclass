@@ -53,7 +53,7 @@ import { classStates, classWatches, notificationsSent, userProfiles, users } fro
 import { readOnboardingState, skipOnboarding } from "@/lib/onboarding";
 import { pendingSectionNotifications } from "@/lib/db/schema";
 import { deliverPendingNotifications, recordSectionCheck } from "@/lib/queue/pending-notifications";
-import { processSection } from "@/lib/queue/process-section";
+import { processSection, retryDelaySeconds } from "@/lib/queue/process-section";
 import { claimNotifications } from "@/lib/queue/notification-claims";
 import { details as queueDetails, environment } from "../queue/fixtures";
 
@@ -1506,6 +1506,16 @@ describe("durable Section Check notifications", () => {
       await sending.promise;
 
       try {
+        const [leased] = await db
+          .select()
+          .from(pendingSectionNotifications)
+          .where(eq(pendingSectionNotifications.class_nbr, ref.class_nbr));
+
+        expect(Date.parse(leased.leased_until ?? "")).toBeLessThan(Date.parse(leased.expires_at));
+        const busy = await processSection(db, ref, env);
+        expect(busy.disposition).toBe("retry");
+        expect(retryDelaySeconds(busy, 1)).toBeGreaterThan(900);
+        expect(retryDelaySeconds(busy, 1)).toBeLessThanOrEqual(960);
         await expect(deliverPendingNotifications(db, ref, env)).rejects.toThrow(
           "already in progress",
         );

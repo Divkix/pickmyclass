@@ -10,6 +10,12 @@ import type { SectionRef } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
 
+export class NotificationLeaseBusy extends Error {
+  constructor(public retryAfterSeconds: number) {
+    super("Notification delivery is already in progress");
+  }
+}
+
 export async function recordSectionCheck(
   db: Database,
   ref: SectionRef,
@@ -76,7 +82,13 @@ export async function deliverPendingNotifications(
     )
     .returning();
 
-  if (!owned) throw new Error("Notification delivery is already in progress");
+  if (!owned) {
+    const remaining = pending.leased_until
+      ? Math.ceil((Date.parse(pending.leased_until) - Date.now()) / 1000)
+      : NOTIFICATION_LEASE_SECONDS;
+
+    throw new NotificationLeaseBusy(Math.max(1, remaining));
+  }
 
   const ownership = and(
     forSection(ref),

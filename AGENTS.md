@@ -58,7 +58,7 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 - Email only the watch IDs returned by `tryRecordNotificationsBatch`. Roll back failed sends with the row IDs from that same claim (`deleteNotificationRecordsByIds`), never by re-looking-up the active row, which can delete a newer claim.
 - The first-observation guard (`!oldState` → no seat email) prevents false alerts. Keep it.
 - There is deliberately no cron lock. Overlapping Workflow instances are made safe by the message `cycle` stamp plus the conditional upsert. Keep both guards and don't add a lock.
-- `processSection` owns ack/retry (`SectionCheckOutcome`); callers only translate it for the transport. ASU 429s back off via `retryDelaySeconds()` (60s doubling, honours `Retry-After`, 15-min cap).
+- `processSection` owns ack/retry (`SectionCheckOutcome`); callers only translate it for the transport. ASU 429s back off via `retryDelaySeconds()` (60s doubling, honours `Retry-After`, 15-min cap). Busy notification intent retries wait for the 16-minute lease rather than exhausting the delivery attempts before the owner can be replaced; its lease is shorter than the 30-minute intent lifetime.
 - `expire_stale_notifications()` runs in every `SectionCheckWorkflow` run and in `MaintenanceWorkflow`. Re-notifications stop without it.
 - `class_states` is keyed on `(class_nbr, term)`. Always carry both (`SectionRef`).
 - `lib/asu/terms.ts` holds a hand-maintained ASU term calendar. Extend it every August, or creating new watches silently blocks.

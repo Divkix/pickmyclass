@@ -11,7 +11,11 @@ import type { Database } from "@/lib/db";
 import { log } from "@/lib/log";
 import { type SectionRef } from "@/lib/section-ref";
 import { type ChangeResult, detectChanges } from "@/lib/queue/change-detector";
-import { deliverPendingNotifications, recordSectionCheck } from "@/lib/queue/pending-notifications";
+import {
+  deliverPendingNotifications,
+  NotificationLeaseBusy,
+  recordSectionCheck,
+} from "@/lib/queue/pending-notifications";
 import { type SectionRetirementOutcome, retireClassSection } from "@/lib/queue/section-retirement";
 import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
@@ -34,7 +38,7 @@ export type SectionCheckOutcome = {
   result: ProcessingResult;
   httpStatus: 200 | 429 | 502 | 500;
   retryable: boolean;
-  /** ASU's `Retry-After`, when a 429 carried one. */
+  /** ASU Retry-After, or the wait for an existing notification delivery lease. */
   retryAfterSeconds?: number;
 };
 
@@ -199,6 +203,13 @@ export async function processSection(
       return ackOutcome(failedResult(classNbr, duration, errorMessage));
     }
 
+    if (error instanceof NotificationLeaseBusy) {
+      return {
+        ...retryOutcome(failedResult(classNbr, duration, errorMessage), 500),
+        retryAfterSeconds: error.retryAfterSeconds,
+      };
+    }
+
     if (error instanceof RateLimitError) {
       return {
         ...retryOutcome(failedResult(classNbr, duration, errorMessage), 429),
@@ -216,13 +227,14 @@ export async function processSection(
  * Queue redelivery delay for a retry outcome. Rate-limited checks back off
  * exponentially per delivery attempt (honouring a longer `Retry-After`), capped
  * so the retry still lands before the section's next cycle. Other retries use
- * the consumer's configured `retry_delay` (undefined).
+ * the consumer's configured `retry_delay` (undefined), except busy notification
+ * intents, which wait for the current owner's lease to expire.
  */
 export function retryDelaySeconds(
   outcome: SectionCheckOutcome,
   attempts: number,
 ): number | undefined {
-  if (outcome.httpStatus !== 429) return undefined;
+  if (outcome.httpStatus !== 429) return outcome.retryAfterSeconds;
 
   const backoff = RATE_LIMIT_RETRY_BASE_S * 2 ** Math.max(0, attempts - 1);
 
