@@ -1,17 +1,18 @@
+import { Effect } from "effect";
 import type { Database } from "@/lib/db";
 import {
   type ClaimedNotification,
   deleteNotificationRecordsByIds,
   getNotificationWatchers,
 } from "@/lib/db/queries";
+import { type ClassInfo, type OutboundEmail, sendBatchEmailsEffect } from "@/lib/email/send";
+import { log } from "@/lib/log";
+import type { ChangeResult } from "@/lib/queue/change-detector";
 import {
   claimNotifications,
   confirmNotificationDelivery,
   type NotificationDelivery,
 } from "@/lib/queue/notification-claims";
-import { type ClassInfo, type OutboundEmail, sendBatchEmailsOptimized } from "@/lib/email/send";
-import { log } from "@/lib/log";
-import type { ChangeResult } from "@/lib/queue/change-detector";
 import { type SectionRef, sectionRefKey } from "@/lib/section-ref";
 import type { NotificationType } from "@/lib/types/notification";
 
@@ -32,160 +33,117 @@ export interface SentNotification {
   error?: string;
 }
 
-function noClaims(): Promise<ClaimedNotification[]> {
-  return Promise.resolve([]);
+interface ActiveClaim extends ClaimedNotification {
+  type: NotificationType;
+  status: "unattempted" | "in-flight" | "delivered" | "failed";
 }
 
-// Delete the notification ids returned by the claim. Looking the active row up
-// again can hit a newer claim that replaced ours after a reset. Best-effort:
-// a failed rollback only means those users stay suppressed for the dedup window.
+interface ClaimedEmail extends OutboundEmail {
+  claim: ActiveClaim;
+}
+
 async function rollbackClaims(db: Database, notificationIds: string[]): Promise<void> {
   if (notificationIds.length === 0) return;
 
   try {
     await deleteNotificationRecordsByIds(db, notificationIds);
-  } catch (rollbackError) {
-    log("NotificationSender").warn("Failed to rollback notification records:", rollbackError);
+  } catch (error) {
+    log("NotificationSender").warn("Failed to rollback notification records:", error);
   }
 }
 
-export async function sendSectionNotifications(
+export function sendSectionNotificationsEffect(
+  params: SendSectionNotificationsParams,
+): Effect.Effect<SentNotification[]> {
+  const { db, ref, classInfo, changes, emailBinding, fromEmail, delivery } = params;
+
+  return Effect.acquireUseRelease(
+    Effect.sync((): ActiveClaim[] => []),
+    (claims) =>
+      Effect.gen(function* () {
+        const watchers = yield* Effect.promise(() => getNotificationWatchers(db, ref));
+
+        if (watchers.length === 0) return [];
+        const watchIds = watchers.map((w) => w.watch_id);
+
+        const types: Array<{ type: NotificationType; changed: boolean }> = [
+          { type: "seat_available", changed: changes.seatBecameAvailable },
+          { type: "instructor_assigned", changed: changes.instructorAssigned },
+        ];
+
+        for (const { type, changed } of types) {
+          if (!changed) continue;
+          // Finish recording the acquired IDs before honoring interruption.
+          yield* Effect.uninterruptible(
+            Effect.gen(function* () {
+              const acquired = yield* Effect.promise(() =>
+                claimNotifications(db, watchIds, type, delivery),
+              );
+
+              for (const claim of acquired) claims.push({ ...claim, type, status: "unattempted" });
+            }),
+          );
+        }
+
+        const emails: ClaimedEmail[] = [];
+
+        for (const watcher of watchers) {
+          for (const claim of claims) {
+            if (claim.watchId === watcher.watch_id)
+              emails.push({
+                to: watcher.email,
+                userId: watcher.user_id,
+                classInfo,
+                type: claim.type,
+                claim,
+              });
+          }
+        }
+
+        const results = yield* sendBatchEmailsEffect(emails, emailBinding, {
+          fromEmail,
+          onSending: (index) => {
+            emails[index].claim.status = "in-flight";
+          },
+          onResult: async (index, result) => {
+            const claim = emails[index].claim;
+            claim.status = result.success ? "delivered" : "failed";
+
+            if (result.success && delivery)
+              await confirmNotificationDelivery(db, [claim.notificationId], delivery);
+          },
+        });
+
+        const sent = results.map((result, index): SentNotification => ({
+          success: result.success,
+          watchId: emails[index].claim.watchId,
+          type: emails[index].type,
+          error: result.error,
+        }));
+
+        const succeeded = sent.filter((r) => r.success).length;
+        log("NotificationSender").info(
+          `Sent ${succeeded}/${sent.length} notifications for ${sectionRefKey(ref)}`,
+        );
+
+        return sent;
+      }),
+    (claims) =>
+      Effect.promise(() =>
+        rollbackClaims(
+          db,
+          claims.flatMap((claim) =>
+            claim.status === "unattempted" || claim.status === "failed"
+              ? [claim.notificationId]
+              : [],
+          ),
+        ),
+      ),
+  );
+}
+
+export function sendSectionNotifications(
   params: SendSectionNotificationsParams,
 ): Promise<SentNotification[]> {
-  const { db, ref, classInfo, changes, emailBinding, fromEmail } = params;
-  const scope = sectionRefKey(ref);
-
-  const watchers = await getNotificationWatchers(db, ref);
-
-  if (watchers.length === 0) {
-    log("NotificationSender").info(`No watchers found for ${scope}`);
-
-    return [];
-  }
-
-  log("NotificationSender").info(`Found ${watchers.length} watchers for ${scope}`);
-
-  const allWatchIds = watchers.map((w) => w.watch_id);
-
-  const claimTypes: Array<{ type: NotificationType; changed: boolean }> = [
-    { type: "seat_available", changed: changes.seatBecameAvailable },
-    { type: "instructor_assigned", changed: changes.instructorAssigned },
-  ];
-
-  const claimResults = await Promise.allSettled(
-    claimTypes.map(({ type, changed }) =>
-      changed ? claimNotifications(db, allWatchIds, type, params.delivery) : noClaims(),
-    ),
-  );
-
-  const firstRejection = claimResults.find((r) => r.status === "rejected");
-
-  if (firstRejection) {
-    for (const [i, { changed }] of claimTypes.entries()) {
-      const result = claimResults[i];
-
-      if (changed && result?.status === "fulfilled" && result.value.length > 0) {
-        await rollbackClaims(
-          db,
-          result.value.map((claim) => claim.notificationId),
-        );
-      }
-    }
-
-    // SAFETY: find() returned a rejected settled result; narrow to read its reason for rethrow
-    const reason = (firstRejection as PromiseRejectedResult).reason;
-    throw reason instanceof Error ? reason : new Error(String(reason));
-  }
-
-  const claimedByType: Record<NotificationType, ClaimedNotification[]> = {
-    seat_available: [],
-    instructor_assigned: [],
-  };
-
-  claimTypes.forEach(({ type }, i) => {
-    const result = claimResults[i];
-
-    if (result?.status === "fulfilled") claimedByType[type] = result.value;
-  });
-
-  const emailsToSend: Array<OutboundEmail & { watchId: string }> = [];
-
-  for (const watcher of watchers) {
-    for (const { type } of claimTypes) {
-      if (claimedByType[type].some((claim) => claim.watchId === watcher.watch_id)) {
-        emailsToSend.push({
-          to: watcher.email,
-          userId: watcher.user_id,
-          watchId: watcher.watch_id,
-          classInfo,
-          type,
-        });
-      }
-    }
-  }
-
-  if (emailsToSend.length === 0) {
-    log("NotificationSender").info(
-      `No emails to send for ${scope}` +
-        ` (seat: ${claimedByType.seat_available.length}, instructor: ${claimedByType.instructor_assigned.length})`,
-    );
-
-    return [];
-  }
-
-  const results = await sendBatchEmailsOptimized(emailsToSend, emailBinding, {
-    fromEmail,
-  });
-
-  if (params.delivery) {
-    const deliveredIds = results.flatMap((result, i) =>
-      result.success
-        ? claimedByType[emailsToSend[i].type]
-            .filter((claim) => claim.watchId === emailsToSend[i].watchId)
-            .map((claim) => claim.notificationId)
-        : [],
-    );
-
-    await confirmNotificationDelivery(db, deliveredIds, params.delivery);
-  }
-
-  const failedEmails = results
-    .map((r, i) => ({ ...r, email: emailsToSend[i] }))
-    .filter((r) => !r.success);
-
-  if (failedEmails.length > 0) {
-    for (const { type } of claimTypes) {
-      const failedWatchIds = new Set(
-        failedEmails.filter((e) => e.email.type === type).map((e) => e.email.watchId),
-      );
-
-      const failedNotificationIds = claimedByType[type]
-        .filter((claim) => failedWatchIds.has(claim.watchId))
-        .map((claim) => claim.notificationId);
-
-      if (failedNotificationIds.length > 0) {
-        await rollbackClaims(db, failedNotificationIds);
-      }
-    }
-  }
-
-  const sentResults: SentNotification[] = results.map((r, i) => ({
-    success: r.success,
-    watchId: emailsToSend[i].watchId,
-    type: emailsToSend[i].type,
-    error: r.error,
-  }));
-
-  const successCount = sentResults.filter((r) => r.success).length;
-  const failCount = sentResults.length - successCount;
-
-  if (failCount > 0) {
-    log("NotificationSender").warn(
-      `${failCount}/${sentResults.length} notifications failed for ${scope}`,
-    );
-  } else {
-    log("NotificationSender").info(`Sent ${successCount} notifications for ${scope}`);
-  }
-
-  return sentResults;
+  return Effect.runPromise(sendSectionNotificationsEffect(params));
 }

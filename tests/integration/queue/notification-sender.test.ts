@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { sendSectionNotifications } from "@/lib/queue/notification-sender";
+import { it as effectIt } from "@effect/vitest";
+import { Effect, Fiber } from "effect";
+import {
+  sendSectionNotifications,
+  sendSectionNotificationsEffect,
+} from "@/lib/queue/notification-sender";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
 import { changes, claim, details, environment, ref, watcher } from "./fixtures";
 
@@ -10,6 +15,72 @@ describe("sendSectionNotifications", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
+
+  effectIt.effect("rolls back acquired claims when template preparation defects", () =>
+    Effect.gen(function* () {
+      const pg = createScriptedPostgres();
+      pg.next([watcher]);
+      pg.next([claim]);
+      pg.next();
+      vi.stubEnv("UNSUBSCRIBE_SIGNING_SECRET", "");
+      const env = environment();
+
+      const exit = yield* sendSectionNotificationsEffect({
+        db: pg.db,
+        ref,
+        classInfo: { ...details, ...ref },
+        changes,
+        emailBinding: env.EMAIL,
+      }).pipe(Effect.exit);
+
+      expect(exit._tag).toBe("Failure");
+      expect(env.send).not.toHaveBeenCalled();
+      expect(pg.statements.at(-1)?.params).toContain("claim-1");
+    }),
+  );
+
+  effectIt.effect(
+    "on interruption retains delivered and ambiguous claims and releases unattempted work",
+    () =>
+      Effect.gen(function* () {
+        const pg = createScriptedPostgres();
+        pg.next([
+          watcher,
+          { ...watcher, watch_id: "watch-2" },
+          { ...watcher, watch_id: "watch-3" },
+        ]);
+        pg.next([
+          claim,
+          { notification_id: "claim-2", class_watch_id: "watch-2" },
+          { notification_id: "claim-3", class_watch_id: "watch-3" },
+        ]);
+        pg.next();
+        const env = environment();
+        const started = Promise.withResolvers<void>();
+        const pending = Promise.withResolvers<{ messageId: string }>();
+        env.send.mockResolvedValueOnce({ messageId: "confirmed" }).mockImplementationOnce(() => {
+          started.resolve();
+
+          return pending.promise;
+        });
+
+        const fiber = yield* sendSectionNotificationsEffect({
+          db: pg.db,
+          ref,
+          classInfo: { ...details, ...ref },
+          changes,
+          emailBinding: env.EMAIL,
+        }).pipe(Effect.forkChild);
+
+        yield* Effect.promise(() => started.promise);
+        yield* Fiber.interrupt(fiber);
+        pending.resolve({ messageId: "possibly-delivered" });
+        expect(env.send).toHaveBeenCalledTimes(2);
+        expect(pg.statements.at(-1)?.params).toContain("claim-3");
+        expect(pg.statements.at(-1)?.params).not.toContain("claim-1");
+        expect(pg.statements.at(-1)?.params).not.toContain("claim-2");
+      }),
+  );
 
   it("sends only the watch IDs returned by the claim", async () => {
     const pg = createScriptedPostgres();

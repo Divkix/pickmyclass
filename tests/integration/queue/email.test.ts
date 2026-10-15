@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { it as effectIt } from "@effect/vitest";
+import { Effect, Fiber } from "effect";
+import { TestClock } from "effect/testing";
 import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE } from "@/lib/config";
-import { sendBatchEmailsOptimized, type OutboundEmail } from "@/lib/email/send";
+import {
+  sendBatchEmailsEffect,
+  sendBatchEmailsOptimized,
+  type OutboundEmail,
+} from "@/lib/email/send";
 import { details, environment, ref } from "./fixtures";
 
 function emails(count: number): OutboundEmail[] {
@@ -20,6 +27,23 @@ describe("sendBatchEmailsOptimized", () => {
     vi.useRealTimers();
     vi.unstubAllEnvs();
   });
+
+  effectIt.effect("paces native Effect batches using TestClock", () =>
+    Effect.gen(function* () {
+      const env = environment();
+
+      const fiber = yield* sendBatchEmailsEffect(emails(EMAIL_BATCH_SIZE + 1), env.EMAIL).pipe(
+        Effect.forkChild,
+      );
+
+      yield* TestClock.adjust(0);
+      expect(env.send).toHaveBeenCalledTimes(EMAIL_BATCH_SIZE);
+      yield* TestClock.adjust(EMAIL_BATCH_DELAY_MS - 1);
+      expect(env.send).toHaveBeenCalledTimes(EMAIL_BATCH_SIZE);
+      yield* TestClock.adjust(1);
+      expect(yield* Fiber.join(fiber)).toHaveLength(EMAIL_BATCH_SIZE + 1);
+    }),
+  );
 
   it.each(["E_RATE_LIMIT_EXCEEDED", "E_DAILY_LIMIT_EXCEEDED", "E_SENDER_NOT_VERIFIED"])(
     "stops sending after fatal %s and marks remaining emails skipped",
