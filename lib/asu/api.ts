@@ -1,6 +1,12 @@
+import { Effect } from "effect";
+import { fetchClassEffect, type AsuError } from "@/lib/asu/asu-client";
 import { TtlCache } from "@/lib/cache/ttl-cache";
 import { ASU_CACHE_TTL_MS } from "@/lib/config";
-import { buildUrl } from "@/lib/utils/url";
+import { sectionRefKey, type SectionRef } from "@/lib/section-ref";
+import type { ClassDetails } from "@/lib/types/class";
+import type { Env } from "@/lib/types/env";
+
+export type { ClassDetails };
 
 export class ApiError extends Error {
   constructor(
@@ -29,22 +35,6 @@ export class RateLimitError extends ApiError {
   }
 }
 
-/** `Retry-After` as delta-seconds or an HTTP date; undefined when absent or unparseable. */
-export function parseRetryAfterSeconds(
-  header: string | null,
-  now = Date.now(),
-): number | undefined {
-  if (!header) return undefined;
-
-  const seconds = Number(header);
-
-  if (Number.isFinite(seconds)) return Math.max(0, Math.ceil(seconds));
-
-  const date = Date.parse(header);
-
-  return Number.isNaN(date) ? undefined : Math.max(0, Math.ceil((date - now) / 1000));
-}
-
 export class NotFoundError extends ApiError {
   constructor(message: string) {
     super(message, 404);
@@ -52,186 +42,39 @@ export class NotFoundError extends ApiError {
   }
 }
 
-import type { SectionRef } from "@/lib/section-ref";
-import { sectionRefKey } from "@/lib/section-ref";
-import type { ClassDetails } from "@/lib/types/class";
-import type { Env } from "@/lib/types/env";
-
-export type { ClassDetails };
-
-type AsuApiEnv = Pick<Env, "ASU_API_BASE_URL" | "ASU_API_TOKEN">;
-
-interface AsuApiClassItem {
-  CLASSNBR: string;
-  SUBJECT: string;
-  CATALOGNBR: string;
-  TITLE?: string;
-  COURSETITLELONG?: string;
-  INSTRUCTORSLIST?: string[];
-  ENRLCAP?: string;
-  ENRLTOT?: string;
-  FACILITYID?: string;
-  MON?: string;
-  TUES?: string;
-  WED?: string;
-  THURS?: string;
-  FRI?: string;
-  STARTTIME?: string | null;
-  ENDTIME?: string | null;
-  WAITTOT?: string;
-  WAITCAP?: string;
-}
-
-interface AsuApiResponse {
-  hits: {
-    total: { value: number };
-    hits: Array<{ _source: AsuApiClassItem }>;
-  };
-}
-
-const CLASS_SEARCH_ENDPOINT_PATH = "search/classes";
-
 const asuApiCache = new TtlCache<ClassDetails>(ASU_CACHE_TTL_MS, 1000);
 
-function formatTime(time: string): string {
-  const [hourStr, minuteStr] = time.split(":");
-  let hour = Number.parseInt(hourStr, 10);
-  const minute = minuteStr || "00";
-  const period = hour >= 12 ? "PM" : "AM";
-
-  if (hour === 0) hour = 12;
-  else if (hour > 12) hour -= 12;
-
-  return `${hour}:${minute} ${period}`;
-}
-
-function composeMeetingTimes(item: AsuApiClassItem): string {
-  const days: string[] = [];
-
-  if (item.MON === "Y") days.push("M");
-
-  if (item.TUES === "Y") days.push("Tu");
-
-  if (item.WED === "Y") days.push("W");
-
-  if (item.THURS === "Y") days.push("Th");
-
-  if (item.FRI === "Y") days.push("F");
-
-  if (days.length === 0 || !item.STARTTIME || !item.ENDTIME) {
-    return "TBD";
+function legacyError(error: AsuError): ApiError {
+  switch (error._tag) {
+    case "AsuNotFound":
+      return new NotFoundError(error.message);
+    case "AsuAuth":
+      return new AuthError(error.message);
+    case "AsuRateLimited":
+      return new RateLimitError(error.message, error.retryAfterSeconds);
+    case "AsuUpstream":
+      return new ApiError(error.message, error.status);
   }
-
-  return `${days.join("")} ${formatTime(item.STARTTIME)}-${formatTime(item.ENDTIME)}`;
 }
 
-function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
-  const rawCap = Number.parseInt(item.ENRLCAP || "0", 10);
-  const rawTot = Number.parseInt(item.ENRLTOT || "0", 10);
-  const rawWait = Number.parseInt(item.WAITTOT || "0", 10);
-  const enrlCap = Number.isNaN(rawCap) ? 0 : rawCap;
-  const enrlTot = Number.isNaN(rawTot) ? 0 : rawTot;
-  const waitTot = Number.isNaN(rawWait) ? 0 : rawWait;
-
-  return {
-    subject: item.SUBJECT,
-    catalog_nbr: item.CATALOGNBR,
-    title: item.COURSETITLELONG || item.TITLE || "Unknown",
-    instructor_name: item.INSTRUCTORSLIST?.[0] || "Staff",
-    seats_available: Math.max(0, enrlCap - enrlTot),
-    seats_capacity: enrlCap,
-    non_reserved_seats: Math.max(0, enrlCap - enrlTot - waitTot),
-    location: item.FACILITYID || "TBD",
-    meeting_times: composeMeetingTimes(item),
-  };
-}
-
-function buildClassSearchUrl(baseUrl: string, classNbr: string, term: string): string {
-  return buildUrl(baseUrl, CLASS_SEARCH_ENDPOINT_PATH, { classNbr, term });
-}
-
-function normalizeAuthHeader(token: string): string {
-  const trimmed = token.trim();
-
-  if (trimmed.length === 0) return trimmed;
-
-  if (/^Bearer\s+/i.test(trimmed)) return trimmed;
-
-  return `Bearer ${trimmed}`;
-}
-
-/**
- * Fetches one Class Section from the ASU catalog API.
- *
- * `useCache: false` skips the TTL cache read — the seat-check pipeline must not
- * persist a stale snapshot over a fresher row. The fresh response still
- * refreshes the cache for the user-facing read paths.
- */
+/** Keep Promise callers and cache behavior unchanged; Section Checks bypass cache reads. */
 export async function fetchClassFromASU(
   ref: SectionRef,
-  env: AsuApiEnv,
+  env: Pick<Env, "ASU_API_BASE_URL" | "ASU_API_TOKEN">,
   opts: { useCache?: boolean } = {},
 ): Promise<ClassDetails> {
-  if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN) {
+  if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN)
     throw new ApiError("ASU API environment variables not configured");
-  }
-
-  const { class_nbr: classNbr, term } = ref;
-
-  const cacheKey = sectionRefKey(ref);
-  const cached = opts.useCache === false ? undefined : asuApiCache.get(cacheKey);
+  const key = sectionRefKey(ref);
+  const cached = opts.useCache === false ? undefined : asuApiCache.get(key);
 
   if (cached) return cached;
 
-  const url = buildClassSearchUrl(env.ASU_API_BASE_URL, classNbr, term);
-  const authHeader = normalizeAuthHeader(env.ASU_API_TOKEN);
+  const result = await Effect.runPromise(
+    fetchClassEffect(ref, env).pipe(Effect.mapError(legacyError)),
+  );
 
-  let response: Response;
-
-  try {
-    response = await fetch(url, {
-      headers: { Authorization: authHeader },
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "TimeoutError") {
-      throw new ApiError("ASU API request timed out", 408);
-    }
-
-    throw error;
-  }
-
-  if (response.status === 401 || response.status === 403) {
-    throw new AuthError("ASU API token expired or invalid");
-  }
-
-  if (response.status === 429) {
-    throw new RateLimitError(
-      "ASU API rate limit hit",
-      parseRetryAfterSeconds(response.headers.get("retry-after")),
-    );
-  }
-
-  if (!response.ok) {
-    throw new ApiError(`ASU API returned ${response.status}`, response.status);
-  }
-
-  // SAFETY: response.json() validated by API contract; shape matches AsuApiResponse after status checks
-  const data = (await response.json()) as AsuApiResponse;
-  const hits = data?.hits?.hits;
-
-  if (!hits || hits.length === 0) {
-    throw new NotFoundError(`Section ${classNbr} not found`);
-  }
-
-  const matchingHit = hits.find((h) => h._source.CLASSNBR === classNbr);
-
-  if (!matchingHit) {
-    throw new NotFoundError(`Section ${classNbr} not found in response`);
-  }
-
-  const result = mapToClassDetails(matchingHit._source);
-  asuApiCache.set(cacheKey, result);
+  asuApiCache.set(key, result);
 
   return result;
 }

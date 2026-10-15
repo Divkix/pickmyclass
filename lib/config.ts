@@ -2,6 +2,8 @@ export const NOTIFICATION_FROM_EMAIL = "notifications@pickmyclass.app";
 
 export const DEFAULT_SITE_URL = "https://pickmyclass.app";
 
+export const ASU_REQUEST_TIMEOUT_MS = 10_000;
+
 export const ASU_CACHE_TTL_MS = 2 * 60 * 1000;
 
 export const ADMIN_CACHE_TTL_MS = 600_000;

@@ -23,6 +23,7 @@
     "worker.ts",
     "global.d.ts",
     "lib/types/queue.ts",
+    "lib/asu/asu-client.ts",
     "lib/types/notification.ts",
     "lib/types/stagger.ts",
     "lib/api/wire.ts",
