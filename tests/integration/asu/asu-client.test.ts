@@ -1,0 +1,163 @@
+import { it as effectIt } from "@effect/vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { Effect, Fiber } from "effect";
+import { TestClock } from "effect/testing";
+import {
+  ApiError,
+  AuthError,
+  fetchClassFromASU,
+  NotFoundError,
+  RateLimitError,
+} from "@/lib/asu/api";
+import { fetchClassEffect, parseRetryAfterSeconds } from "@/lib/asu/asu-client";
+import { ASU_REQUEST_TIMEOUT_MS } from "@/lib/config";
+
+const ref = { class_nbr: "98765", term: "2267" };
+
+const env = { ASU_API_BASE_URL: "https://asu.test/api/", ASU_API_TOKEN: " token " };
+
+function body(classNbr = ref.class_nbr) {
+  return {
+    hits: {
+      total: { value: 1 },
+      hits: [
+        {
+          _source: {
+            CLASSNBR: classNbr,
+            SUBJECT: "CSE",
+            CATALOGNBR: "110",
+            TITLE: "Programming",
+            ENRLCAP: "30",
+            ENRLTOT: "25",
+            WAITTOT: "2",
+            INSTRUCTORSLIST: ["Professor"],
+            MON: "Y",
+            WED: "Y",
+            STARTTIME: "13:15",
+            ENDTIME: "14:30",
+          },
+        },
+      ],
+    },
+  };
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("ASU Promise compatibility", () => {
+  it("preserves Retry-After parsing for seconds, dates, and invalid headers", () => {
+    expect(parseRetryAfterSeconds("1.2")).toBe(2);
+    expect(parseRetryAfterSeconds("-2")).toBe(0);
+    expect(parseRetryAfterSeconds(null)).toBeUndefined();
+    expect(parseRetryAfterSeconds("invalid")).toBeUndefined();
+    expect(
+      parseRetryAfterSeconds("Thu, 15 Oct 2026 12:02:00 GMT", Date.parse("2026-10-15T12:00:00Z")),
+    ).toBe(120);
+  });
+  it("decodes and maps ASU data, passes auth, and scopes the URL by SectionRef", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json(body()));
+    vi.stubGlobal("fetch", fetch);
+    expect(await fetchClassFromASU(ref, env, { useCache: false })).toMatchObject({
+      subject: "CSE",
+      title: "Programming",
+      seats_available: 5,
+      non_reserved_seats: 3,
+      instructor_name: "Professor",
+      meeting_times: "MW 1:15 PM-2:30 PM",
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("classNbr=98765&term=2267"),
+      expect.objectContaining({
+        headers: { Authorization: "Bearer token" },
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
+
+  it.each([401, 403, 429, 500])("preserves legacy error classes for HTTP %s", async (status) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status, headers: { "retry-after": "123" } })),
+    );
+    const expected = status === 429 ? RateLimitError : status < 429 ? AuthError : ApiError;
+    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toBeInstanceOf(expected);
+
+    if (status === 429)
+      await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
+        retryAfterSeconds: 123,
+      });
+  });
+
+  it.each([
+    {},
+    { hits: { total: { value: 1 }, hits: [{}] } },
+    { hits: { total: { value: 1 }, hits: [{ _source: { CLASSNBR: 98765 } }] } },
+  ])(
+    "treats malformed success payloads as upstream failures, preventing false retirement",
+    async (value) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockImplementation(() => Promise.resolve(Response.json(value))),
+      );
+      await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
+        name: "ApiError",
+        message: expect.stringContaining("invalid response"),
+      });
+    },
+  );
+
+  it("maps invalid JSON to ApiError", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("not JSON")));
+    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it.each([{ hits: { total: { value: 0 }, hits: [] } }, body("other")])(
+    "keeps valid empty and unmatched responses as NotFound",
+    async (value) => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(value)));
+      await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+    },
+  );
+
+  it("uses the cache for UI reads and bypasses it for fresh observations", async () => {
+    const unique = { ...ref, class_nbr: "cache-check" };
+
+    const fetch = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(Response.json(body(unique.class_nbr))));
+
+    vi.stubGlobal("fetch", fetch);
+    await fetchClassFromASU(unique, env);
+    await fetchClassFromASU(unique, env);
+    expect(fetch).toHaveBeenCalledOnce();
+    await fetchClassFromASU(unique, env, { useCache: false });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await fetchClassFromASU({ ...unique, term: "2271" }, env);
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+});
+
+effectIt.effect("times out and aborts the ASU request with TestClock", () =>
+  Effect.gen(function* () {
+    let requestSignal: AbortSignal | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, options: RequestInit) => {
+        if (options.signal) requestSignal = options.signal;
+
+        return new Promise<Response>(() => {});
+      }),
+    );
+    const fiber = yield* fetchClassEffect(ref, env).pipe(Effect.result, Effect.forkChild);
+    yield* TestClock.adjust(ASU_REQUEST_TIMEOUT_MS);
+    expect(yield* Fiber.join(fiber)).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "AsuUpstream", status: 408 },
+    });
+    expect(requestSignal?.aborted).toBe(true);
+  }),
+);
