@@ -107,7 +107,7 @@ describe("processSection", () => {
   it("tracks NotFound through retirement", async () => {
     const pg = createScriptedPostgres();
     pg.next([state()]);
-    pg.next([{ count: 1 }]);
+    pg.next([{ new_count: 1 }]);
 
     const outcome = await processSection(pg.db, ref, environment(), {
       fetchClass: vi.fn().mockRejectedValue(new NotFoundError("gone")),
@@ -115,7 +115,7 @@ describe("processSection", () => {
 
     expect(outcome).toMatchObject({
       disposition: "ack",
-      result: { retirement: { deleted: false } },
+      result: { retirement: { status: "tracked", strikeCount: 1, deleted: false } },
     });
     expect(pg.statements[1].sql).toContain("increment_consecutive_not_found");
   });
