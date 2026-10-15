@@ -19,7 +19,7 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 | One test | `pnpm run test tests/integration/api/onboarding.test.ts -t "/api/user/onboarding"` |
 | Test projects/watch | `pnpm run test:integration` · `pnpm run test:watch` |
 | Live DB test | `DATABASE_URL=… pnpm run test:db` against a disposable Postgres after `pnpm run db:migrate` (excluded from the normal run) |
-| DB migration | `pnpm run db:generate` (or `-- --custom --name=<n>`), then `DATABASE_URL=… pnpm run db:migrate` (direct PlanetScale URL) |
+| DB migration | `pnpm run db:generate` (or `pnpm run db:generate --custom --name=<n>`), then `DATABASE_URL=… pnpm run db:migrate` (direct PlanetScale URL) |
 | Format + lint | `pnpm run check` · autofix: `pnpm run fix` |
 | Type-check | `pnpm run type-check` (two passes: app `tsconfig.json`, then `tsconfig.worker.json`) |
 | Full gate | `pnpm run verify` = check + type-check + knip. Same as the pre-commit hook and CI `quality` job |
@@ -30,9 +30,9 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 - `worker.ts`: the Worker entry. Wraps vinext `fetch`, adds `queue()`, re-exports the Workflow classes. Queue messages call `processSection()` directly, with no HTTP hop.
 - `proxy.ts`: vinext middleware. This is **the** auth gate and the CSP builder (decision logic in `lib/auth/decide-gate.ts`).
 - `lib/workflows/cron-workflows.ts`: `SectionCheckWorkflow` (every 15 min, even/odd stagger, so each section is checked every 30 min) and `MaintenanceWorkflow` (04:05 UTC).
-- `lib/queue/`: the seat-check pipeline (`process-section.ts` orchestrates, `change-detector.ts`, `notification-sender.ts`, `section-retirement.ts`).
+- `lib/queue/`: the seat-check pipeline (`process-section.ts` orchestrates, `change-detector.ts`, `notification-sender.ts`, `section-retirement.ts`). `pending-notifications.ts` owns durable notification intent and delivery leases; `notification-claims.ts` resumes intent-owned, unconfirmed claims after crashes.
 - `lib/db/index.ts`: the only DB seam (`getDb(hyperdrive)` / `getDbFromEnv()`, request-scoped). `lib/db/queries.ts` holds the Drizzle builders and typed SQL calls to `SECURITY DEFINER` RPCs. `lib/db/schema/` defines the tables.
-- `migrations_pg/`: drizzle-kit migrations, the real schema history, tracked in `drizzle.__drizzle_migrations`. `lib/db/schema/` is the source of truth for tables: edit it, then `db:generate`. Functions, triggers and data fixes go in `db:generate -- --custom` files; change a function with `CREATE OR REPLACE` in a new migration, never edit an applied file. `0000_baseline` + `0001_baseline_functions` reproduce prod as of 2026-10-01. `db/migrations/` is frozen pre-drizzle history; never add to it.
+- `migrations_pg/`: drizzle-kit migrations, the real schema history, tracked in `drizzle.__drizzle_migrations`. `lib/db/schema/` is the source of truth for tables: edit it, then `db:generate`. Functions, triggers and data fixes go in `pnpm run db:generate --custom` files; change a function with `CREATE OR REPLACE` in a new migration, never edit an applied file. `0000_baseline` + `0001_baseline_functions` reproduce prod as of 2026-10-01. `db/migrations/` is frozen pre-drizzle history; never add to it.
 - `lib/utils.ts` is shadcn's `cn()` only. Custom helpers go in `lib/utils/`. The split is intentional, so leave both.
 - `lib/seo/`: sitemap, `/llms.txt` and `/llms-full.txt` route handlers, lastmod map, IndexNow.
 - `tests/integration`: all tests live here, not next to source. The `test` block in `vite.config.ts` defines `integration` and opt-in `db` projects. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through `test.alias`. `tests/mocks/scripted-postgres.ts` is a scripted node-postgres transport for API integration tests.
@@ -53,11 +53,12 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 ## Gotchas and invariants
 
 **Seat-check pipeline**:
-- `processSection` order is: conditional `class_states` upsert (`observedAt` vs `last_checked_at`) → reset notifications → send. A rejected upsert skips both reset and send. Sending earlier double-sends on retry; resetting before the upsert drops a claim when the write fails.
+- `processSection` resumes pending notification intent before its cycle guard. `record_section_check` accepts the observation, resets claims and saves notification intent in one transaction under the existing SectionRef advisory lock. It computes transitions from the locked stored row, suppresses first-observation alerts and rejects stale observations. A pending intent must finish or expire before another observation replaces it.
+- Delivery leases are per intent, never a cron lock. Claims carry `delivery_intent_id`; `delivered_at` distinguishes confirmed delivery from an interrupted claim. Resume unconfirmed claims for the same intent and retain successful claims. Complete/release using both intent ID and lease ID. Intent expires after 30 minutes to resume fresh observations after a provider outage; discard only its unconfirmed claims once no live lease exists. A provider accepting an email just before the Worker dies can still produce a duplicate on retry: delivery and the database cannot commit atomically.
 - Email only the watch IDs returned by `tryRecordNotificationsBatch`. Roll back failed sends with the row IDs from that same claim (`deleteNotificationRecordsByIds`), never by re-looking-up the active row, which can delete a newer claim.
 - The first-observation guard (`!oldState` → no seat email) prevents false alerts. Keep it.
 - There is deliberately no cron lock. Overlapping Workflow instances are made safe by the message `cycle` stamp plus the conditional upsert. Keep both guards and don't add a lock.
-- `processSection` owns ack/retry (`SectionCheckOutcome`); callers only translate it for the transport. ASU 429s back off via `retryDelaySeconds()` (60s doubling, honours `Retry-After`, 15-min cap).
+- `processSection` owns ack/retry (`SectionCheckOutcome`); callers only translate it for the transport. ASU 429s back off via `retryDelaySeconds()` (60s doubling, honours `Retry-After`, 15-min cap). Busy notification intent retries wait for the 16-minute lease rather than exhausting the delivery attempts before the owner can be replaced; its lease is shorter than the 30-minute intent lifetime.
 - `expire_stale_notifications()` runs in every `SectionCheckWorkflow` run and in `MaintenanceWorkflow`. Re-notifications stop without it.
 - `class_states` is keyed on `(class_nbr, term)`. Always carry both (`SectionRef`).
 - `lib/asu/terms.ts` holds a hand-maintained ASU term calendar. Extend it every August, or creating new watches silently blocks.

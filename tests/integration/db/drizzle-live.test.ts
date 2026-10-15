@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, eq, inArray, like, sql } from "drizzle-orm";
 import type { EmailAddressJSON, UserJSON, VerificationJSON } from "@clerk/backend";
-import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import { getDb } from "@/lib/db";
@@ -51,6 +51,11 @@ import {
 } from "@/lib/db/users";
 import { classStates, classWatches, notificationsSent, userProfiles, users } from "@/lib/db/schema";
 import { readOnboardingState, skipOnboarding } from "@/lib/onboarding";
+import { pendingSectionNotifications } from "@/lib/db/schema";
+import { deliverPendingNotifications, recordSectionCheck } from "@/lib/queue/pending-notifications";
+import { processSection, retryDelaySeconds } from "@/lib/queue/process-section";
+import { claimNotifications } from "@/lib/queue/notification-claims";
+import { details as queueDetails, environment } from "../queue/fixtures";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -1351,5 +1356,243 @@ describe("notification claim races", () => {
     } finally {
       await db.delete(classWatches).where(inArray(classWatches.id, [doomedId, survivorId]));
     }
+  });
+});
+
+describe("durable Section Check notifications", () => {
+  async function seedIntent(suffix: string) {
+    const ref = { class_nbr: `${RUN}-pending-${suffix}`, term: TERM };
+    await recordSectionCheck(
+      db,
+      ref,
+      { ...queueDetails, seats_available: 0, non_reserved_seats: 0 },
+      new Date(Date.now() - 1000),
+    );
+    await db
+      .insert(classWatches)
+      .values({ ...ref, user_id: U_MAIN, subject: SUBJECT, catalog_nbr: "110" });
+    expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toBe(true);
+
+    return ref;
+  }
+
+  it("resumes partial delivery before the cycle guard without fetching ASU", async () => {
+    vi.stubEnv("UNSUBSCRIBE_SIGNING_SECRET", "test-signing-secret");
+
+    try {
+      const ref = await seedIntent("retry");
+      const env = environment();
+      env.send.mockRejectedValueOnce(new Error("temporary provider failure"));
+      await expect(deliverPendingNotifications(db, ref, env)).rejects.toThrow("incomplete");
+      expect(
+        await db
+          .select()
+          .from(pendingSectionNotifications)
+          .where(eq(pendingSectionNotifications.class_nbr, ref.class_nbr)),
+      ).toHaveLength(1);
+      const fetchClass = vi.fn();
+
+      const outcome = await processSection(
+        db,
+        { ...ref, cycle: new Date(Date.now() - 5000).toISOString() },
+        env,
+        { fetchClass },
+      );
+
+      expect(outcome).toMatchObject({ disposition: "ack", result: { emailsSent: 1 } });
+      expect(fetchClass).not.toHaveBeenCalled();
+      expect(env.send).toHaveBeenCalledTimes(2);
+      expect(
+        await db
+          .select()
+          .from(pendingSectionNotifications)
+          .where(eq(pendingSectionNotifications.class_nbr, ref.class_nbr)),
+      ).toHaveLength(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("reclaims unsent intent-owned records after a worker dies or rollback fails", async () => {
+    vi.stubEnv("UNSUBSCRIBE_SIGNING_SECRET", "test-signing-secret");
+
+    try {
+      const ref = await seedIntent("crash");
+
+      const [intent] = await db
+        .select()
+        .from(pendingSectionNotifications)
+        .where(eq(pendingSectionNotifications.class_nbr, ref.class_nbr));
+
+      const leaseId = randomUUID();
+      await db
+        .update(pendingSectionNotifications)
+        .set({ lease_id: leaseId, leased_until: new Date(Date.now() + 60000).toISOString() })
+        .where(eq(pendingSectionNotifications.id, intent.id));
+      const watchers = await getNotificationWatchers(db, ref);
+      expect(
+        await claimNotifications(
+          db,
+          watchers.map((w) => w.watch_id),
+          "seat_available",
+          { id: intent.id, leaseId },
+        ),
+      ).toHaveLength(1);
+      // Model owner death: its active claim survives, but its lease expires.
+      await db
+        .update(pendingSectionNotifications)
+        .set({ leased_until: new Date(Date.now() - 1000).toISOString() })
+        .where(eq(pendingSectionNotifications.id, intent.id));
+      const env = environment();
+      expect(await deliverPendingNotifications(db, ref, env)).toBe(1);
+      expect(env.send).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("retains confirmed successes while retrying the failed recipient", async () => {
+    vi.stubEnv("UNSUBSCRIBE_SIGNING_SECRET", "test-signing-secret");
+
+    try {
+      const ref = await seedIntent("partial");
+      await db
+        .insert(classWatches)
+        .values({ ...ref, user_id: U_XT, subject: SUBJECT, catalog_nbr: "110" });
+      const env = environment();
+      env.send.mockRejectedValueOnce(new Error("temporary"));
+      await expect(deliverPendingNotifications(db, ref, env)).rejects.toThrow("incomplete");
+      expect(await deliverPendingNotifications(db, ref, env)).toBe(1);
+      expect(env.send).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("expires stale intent and continues observing seats instead of sending old alerts", async () => {
+    const ref = await seedIntent("expired");
+    await db
+      .update(pendingSectionNotifications)
+      .set({ expires_at: new Date(Date.now() - 1000).toISOString() })
+      .where(eq(pendingSectionNotifications.class_nbr, ref.class_nbr));
+    const env = environment();
+
+    const fetchClass = vi
+      .fn()
+      .mockResolvedValue({ ...queueDetails, seats_available: 0, non_reserved_seats: 0 });
+
+    expect(await processSection(db, ref, env, { fetchClass })).toMatchObject({
+      disposition: "ack",
+    });
+    expect(fetchClass).toHaveBeenCalledOnce();
+    expect(env.send).not.toHaveBeenCalled();
+    expect((await readSectionCheckState(db, ref))?.seats_available).toBe(0);
+  });
+
+  it("refuses a concurrent owner while delivery is in flight", async () => {
+    vi.stubEnv("UNSUBSCRIBE_SIGNING_SECRET", "test-signing-secret");
+
+    try {
+      const ref = await seedIntent("concurrent");
+      const env = environment();
+      const sending = Promise.withResolvers<void>();
+      const finish = Promise.withResolvers<{ messageId: string }>();
+      env.send.mockImplementationOnce(() => {
+        sending.resolve();
+
+        return finish.promise;
+      });
+      const first = deliverPendingNotifications(db, ref, env);
+      await sending.promise;
+
+      try {
+        const [leased] = await db
+          .select()
+          .from(pendingSectionNotifications)
+          .where(eq(pendingSectionNotifications.class_nbr, ref.class_nbr));
+
+        expect(Date.parse(leased.leased_until ?? "")).toBeLessThan(Date.parse(leased.expires_at));
+        const busy = await processSection(db, ref, env);
+        expect(busy.disposition).toBe("retry");
+        expect(retryDelaySeconds(busy, 1)).toBeGreaterThan(900);
+        expect(retryDelaySeconds(busy, 1)).toBeLessThanOrEqual(960);
+        await expect(deliverPendingNotifications(db, ref, env)).rejects.toThrow(
+          "already in progress",
+        );
+        expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toBe(false);
+      } finally {
+        finish.resolve({ messageId: "delivered" });
+      }
+
+      expect(await first).toBe(1);
+      expect(env.send).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("commits state and intent in the same transaction and guards first observations", async () => {
+    const ref = { class_nbr: `${RUN}-pending-atomic`, term: TERM };
+    expect(await recordSectionCheck(db, ref, queueDetails, new Date(Date.now() - 2000))).toBe(true);
+    expect(
+      await db
+        .select()
+        .from(pendingSectionNotifications)
+        .where(eq(pendingSectionNotifications.class_nbr, ref.class_nbr)),
+    ).toHaveLength(0);
+    await recordSectionCheck(
+      db,
+      ref,
+      { ...queueDetails, seats_available: 0, non_reserved_seats: 0 },
+      new Date(Date.now() - 1000),
+    );
+    await expect(
+      db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT public.record_section_check(${ref.class_nbr}, ${ref.term}, ${JSON.stringify(queueDetails)}::jsonb, now())`,
+        );
+        throw new Error("rollback probe");
+      }),
+    ).rejects.toThrow("rollback probe");
+    expect((await readSectionCheckState(db, ref))?.seats_available).toBe(0);
+    expect(
+      await db
+        .select()
+        .from(pendingSectionNotifications)
+        .where(eq(pendingSectionNotifications.class_nbr, ref.class_nbr)),
+    ).toHaveLength(0);
+  });
+
+  it("resets both notification types atomically and rejects stale observations", async () => {
+    const ref = { class_nbr: `${RUN}-pending-reset`, term: TERM };
+    await recordSectionCheck(
+      db,
+      ref,
+      { ...queueDetails, instructor_name: "Professor" },
+      new Date(Date.now() - 2000),
+    );
+
+    const [watch] = await db
+      .insert(classWatches)
+      .values({ ...ref, user_id: U_MAIN, subject: SUBJECT, catalog_nbr: "110" })
+      .returning();
+
+    await tryRecordNotificationsBatch(db, [watch.id], "seat_available");
+    await tryRecordNotificationsBatch(db, [watch.id], "instructor_assigned");
+    const closed = { ...queueDetails, seats_available: 0, non_reserved_seats: 0 };
+    expect(await recordSectionCheck(db, ref, closed, new Date(Date.now() - 5000))).toBe(false);
+    expect(
+      await db
+        .select()
+        .from(notificationsSent)
+        .where(eq(notificationsSent.class_watch_id, watch.id)),
+    ).toHaveLength(2);
+    expect(await recordSectionCheck(db, ref, closed, new Date())).toBe(true);
+    expect(
+      await db
+        .select()
+        .from(notificationsSent)
+        .where(eq(notificationsSent.class_watch_id, watch.id)),
+    ).toHaveLength(0);
   });
 });

@@ -14,6 +14,9 @@ export const EMAIL_BATCH_SIZE = 10;
 
 export const EMAIL_BATCH_DELAY_MS = 75;
 
+// Longer than the queue consumer's wall-time budget; a crashed owner can be replaced.
+export const NOTIFICATION_LEASE_SECONDS = 960;
+
 export const AUTO_CLEANUP_THRESHOLD = 3;
 
 export const AUTO_CLEANUP_BREAKER_RATIO = 0.2;

@@ -55,7 +55,12 @@ export async function GET(request: Request) {
             .orderBy(desc(classWatches.created_at)),
           db
             .select({
-              ...getTableColumns(notificationsSent),
+              id: notificationsSent.id,
+              class_watch_id: notificationsSent.class_watch_id,
+              notification_type: notificationsSent.notification_type,
+              sent_at: notificationsSent.sent_at,
+              expires_at: notificationsSent.expires_at,
+              is_active: notificationsSent.is_active,
               class_watch: sql<ExportWatchStub | null>`(
                 SELECT row_to_json(cw2.*)::jsonb
                 FROM class_watches cw2

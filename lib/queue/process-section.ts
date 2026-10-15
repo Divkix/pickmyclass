@@ -5,17 +5,17 @@ import {
   RateLimitError,
   fetchClassFromASU,
 } from "@/lib/asu/api";
-import {
-  readSectionCheckState,
-  resetNotificationsForSection,
-  upsertClassState,
-} from "@/lib/db/queries";
+import { readSectionCheckState } from "@/lib/db/queries";
 import { RATE_LIMIT_RETRY_BASE_S, RATE_LIMIT_RETRY_MAX_S } from "@/lib/config";
 import type { Database } from "@/lib/db";
 import { log } from "@/lib/log";
 import { type SectionRef } from "@/lib/section-ref";
 import { type ChangeResult, detectChanges } from "@/lib/queue/change-detector";
-import { type SentNotification, sendSectionNotifications } from "@/lib/queue/notification-sender";
+import {
+  deliverPendingNotifications,
+  NotificationLeaseBusy,
+  recordSectionCheck,
+} from "@/lib/queue/pending-notifications";
 import { type SectionRetirementOutcome, retireClassSection } from "@/lib/queue/section-retirement";
 import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
@@ -38,7 +38,7 @@ export type SectionCheckOutcome = {
   result: ProcessingResult;
   httpStatus: 200 | 429 | 502 | 500;
   retryable: boolean;
-  /** ASU's `Retry-After`, when a 429 carried one. */
+  /** ASU Retry-After, or the wait for an existing notification delivery lease. */
   retryAfterSeconds?: number;
 };
 
@@ -96,6 +96,7 @@ export async function processSection(
   let emailsSent = 0;
 
   try {
+    emailsSent = await deliverPendingNotifications(db, ref, env);
     const oldState = await readSectionCheckState(db, ref);
 
     // Duplicate enqueue redelivery: this section was already persisted at or
@@ -111,7 +112,7 @@ export async function processSection(
         success: true,
         classNbr,
         changes: emptyChanges(),
-        emailsSent: 0,
+        emailsSent,
         processingTimeMs: duration,
       });
     }
@@ -126,19 +127,10 @@ export async function processSection(
       changes.instructorAssigned = false;
     }
 
-    // Staff -> X -> Staff -> X must re-notify: when the instructor reverts to Staff,
-    // free the instructor_assigned slot. Without this, the next assignment is still
-    // suppressed for the remainder of the 24h dedup window. Reset only after the
-    // upsert sticks, so a failed write cannot drop the claim.
-    const instructorRevertedToStaff =
-      oldState !== null &&
-      (oldState.instructor_name ?? "Staff") !== "Staff" &&
-      newData.instructor_name === "Staff";
-
     let applied: boolean;
 
     try {
-      applied = await upsertClassState(db, ref, newData, observedAt);
+      applied = await recordSectionCheck(db, ref, newData, observedAt);
     } catch (upsertError) {
       log("ProcessSection").error(`Database error for ${classNbr}:`, upsertError);
 
@@ -167,26 +159,7 @@ export async function processSection(
       });
     }
 
-    if (changes.seatsFilled) {
-      await resetNotificationsForSection(db, ref, "seat_available");
-    }
-
-    if (instructorRevertedToStaff) {
-      await resetNotificationsForSection(db, ref, "instructor_assigned");
-    }
-
-    if (changes.seatBecameAvailable || changes.instructorAssigned) {
-      const sentResults = await sendSectionNotifications({
-        db,
-        ref,
-        classInfo: { ...newData, ...ref },
-        changes,
-        emailBinding: env.EMAIL,
-        fromEmail: env.NOTIFICATION_FROM_EMAIL,
-      });
-
-      emailsSent = sentResults.filter((r: SentNotification) => r.success).length;
-    }
+    emailsSent += await deliverPendingNotifications(db, ref, env);
 
     const duration = Date.now() - startTime;
     log("ProcessSection").info(`✅ Completed ${classNbr} in ${duration}ms`);
@@ -230,6 +203,13 @@ export async function processSection(
       return ackOutcome(failedResult(classNbr, duration, errorMessage));
     }
 
+    if (error instanceof NotificationLeaseBusy) {
+      return {
+        ...retryOutcome(failedResult(classNbr, duration, errorMessage), 500),
+        retryAfterSeconds: error.retryAfterSeconds,
+      };
+    }
+
     if (error instanceof RateLimitError) {
       return {
         ...retryOutcome(failedResult(classNbr, duration, errorMessage), 429),
@@ -247,13 +227,14 @@ export async function processSection(
  * Queue redelivery delay for a retry outcome. Rate-limited checks back off
  * exponentially per delivery attempt (honouring a longer `Retry-After`), capped
  * so the retry still lands before the section's next cycle. Other retries use
- * the consumer's configured `retry_delay` (undefined).
+ * the consumer's configured `retry_delay` (undefined), except busy notification
+ * intents, which wait for the current owner's lease to expire.
  */
 export function retryDelaySeconds(
   outcome: SectionCheckOutcome,
   attempts: number,
 ): number | undefined {
-  if (outcome.httpStatus !== 429) return undefined;
+  if (outcome.httpStatus !== 429) return outcome.retryAfterSeconds;
 
   const backoff = RATE_LIMIT_RETRY_BASE_S * 2 ** Math.max(0, attempts - 1);
 
