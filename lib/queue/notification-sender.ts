@@ -3,8 +3,12 @@ import {
   type ClaimedNotification,
   deleteNotificationRecordsByIds,
   getNotificationWatchers,
-  tryRecordNotificationsBatch,
 } from "@/lib/db/queries";
+import {
+  claimNotifications,
+  confirmNotificationDelivery,
+  type NotificationDelivery,
+} from "@/lib/queue/notification-claims";
 import { type ClassInfo, type OutboundEmail, sendBatchEmailsOptimized } from "@/lib/email/send";
 import { log } from "@/lib/log";
 import type { ChangeResult } from "@/lib/queue/change-detector";
@@ -18,6 +22,7 @@ export interface SendSectionNotificationsParams {
   changes: ChangeResult;
   emailBinding: SendEmail;
   fromEmail?: string;
+  delivery?: NotificationDelivery;
 }
 
 export interface SentNotification {
@@ -69,7 +74,7 @@ export async function sendSectionNotifications(
 
   const claimResults = await Promise.allSettled(
     claimTypes.map(({ type, changed }) =>
-      changed ? tryRecordNotificationsBatch(db, allWatchIds, type) : noClaims(),
+      changed ? claimNotifications(db, allWatchIds, type, params.delivery) : noClaims(),
     ),
   );
 
@@ -131,6 +136,18 @@ export async function sendSectionNotifications(
   const results = await sendBatchEmailsOptimized(emailsToSend, emailBinding, {
     fromEmail,
   });
+
+  if (params.delivery) {
+    const deliveredIds = results.flatMap((result, i) =>
+      result.success
+        ? claimedByType[emailsToSend[i].type]
+            .filter((claim) => claim.watchId === emailsToSend[i].watchId)
+            .map((claim) => claim.notificationId)
+        : [],
+    );
+
+    await confirmNotificationDelivery(db, deliveredIds, params.delivery);
+  }
 
   const failedEmails = results
     .map((r, i) => ({ ...r, email: emailsToSend[i] }))

@@ -24,6 +24,8 @@ export const notificationsSent = pgTable(
       .notNull()
       .default(sql`NOW() + INTERVAL '24 hours'`),
     is_active: boolean("is_active").notNull().default(true),
+    delivery_intent_id: uuid("delivery_intent_id"),
+    delivered_at: timestamp("delivered_at", { withTimezone: true, mode: "string" }),
   },
   (t) => [
     foreignKey({
@@ -40,6 +42,9 @@ export const notificationsSent = pgTable(
       .where(sql`${t.is_active} = TRUE`),
     index("idx_notifications_sent_class_watch_id").on(t.class_watch_id),
     index("idx_notifications_sent_sent_at").on(t.sent_at.desc().nullsFirst()),
+    index("idx_notifications_delivery_intent")
+      .on(t.delivery_intent_id)
+      .where(sql`${t.delivery_intent_id} IS NOT NULL`),
   ],
 );
 

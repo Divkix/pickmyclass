@@ -5,17 +5,13 @@ import {
   RateLimitError,
   fetchClassFromASU,
 } from "@/lib/asu/api";
-import {
-  readSectionCheckState,
-  resetNotificationsForSection,
-  upsertClassState,
-} from "@/lib/db/queries";
+import { readSectionCheckState } from "@/lib/db/queries";
 import { RATE_LIMIT_RETRY_BASE_S, RATE_LIMIT_RETRY_MAX_S } from "@/lib/config";
 import type { Database } from "@/lib/db";
 import { log } from "@/lib/log";
 import { type SectionRef } from "@/lib/section-ref";
 import { type ChangeResult, detectChanges } from "@/lib/queue/change-detector";
-import { type SentNotification, sendSectionNotifications } from "@/lib/queue/notification-sender";
+import { deliverPendingNotifications, recordSectionCheck } from "@/lib/queue/pending-notifications";
 import { type SectionRetirementOutcome, retireClassSection } from "@/lib/queue/section-retirement";
 import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
@@ -96,6 +92,7 @@ export async function processSection(
   let emailsSent = 0;
 
   try {
+    emailsSent = await deliverPendingNotifications(db, ref, env);
     const oldState = await readSectionCheckState(db, ref);
 
     // Duplicate enqueue redelivery: this section was already persisted at or
@@ -111,7 +108,7 @@ export async function processSection(
         success: true,
         classNbr,
         changes: emptyChanges(),
-        emailsSent: 0,
+        emailsSent,
         processingTimeMs: duration,
       });
     }
@@ -126,19 +123,10 @@ export async function processSection(
       changes.instructorAssigned = false;
     }
 
-    // Staff -> X -> Staff -> X must re-notify: when the instructor reverts to Staff,
-    // free the instructor_assigned slot. Without this, the next assignment is still
-    // suppressed for the remainder of the 24h dedup window. Reset only after the
-    // upsert sticks, so a failed write cannot drop the claim.
-    const instructorRevertedToStaff =
-      oldState !== null &&
-      (oldState.instructor_name ?? "Staff") !== "Staff" &&
-      newData.instructor_name === "Staff";
-
     let applied: boolean;
 
     try {
-      applied = await upsertClassState(db, ref, newData, observedAt);
+      applied = await recordSectionCheck(db, ref, newData, observedAt);
     } catch (upsertError) {
       log("ProcessSection").error(`Database error for ${classNbr}:`, upsertError);
 
@@ -167,26 +155,7 @@ export async function processSection(
       });
     }
 
-    if (changes.seatsFilled) {
-      await resetNotificationsForSection(db, ref, "seat_available");
-    }
-
-    if (instructorRevertedToStaff) {
-      await resetNotificationsForSection(db, ref, "instructor_assigned");
-    }
-
-    if (changes.seatBecameAvailable || changes.instructorAssigned) {
-      const sentResults = await sendSectionNotifications({
-        db,
-        ref,
-        classInfo: { ...newData, ...ref },
-        changes,
-        emailBinding: env.EMAIL,
-        fromEmail: env.NOTIFICATION_FROM_EMAIL,
-      });
-
-      emailsSent = sentResults.filter((r: SentNotification) => r.success).length;
-    }
+    emailsSent += await deliverPendingNotifications(db, ref, env);
 
     const duration = Date.now() - startTime;
     log("ProcessSection").info(`✅ Completed ${classNbr} in ${duration}ms`);
