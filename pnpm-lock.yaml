@@ -216,7 +216,7 @@ importers:
         specifier: ^0.45.4
         version: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)(postgres@3.4.9)
       effect:
-        specifier: 4.0.4
+        specifier: ^4.0.4
         version: 4.0.4
       framer-motion:
         specifier: ^14.2.0
@@ -262,7 +262,7 @@ importers:
         specifier: ^1.63.2
         version: 1.63.2(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@1.1.0(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@7.0.2)(yaml@2.9.1))(wrangler@4.150.0(@types/node@26.6.5))
       '@effect/vitest':
-        specifier: 4.0.4
+        specifier: ^4.0.4
         version: 4.0.4(effect@4.0.4)(vitest@5.0.3)
       '@posthog/rollup-plugin':
         specifier: ^1.6.1
