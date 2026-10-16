@@ -9,7 +9,7 @@ import {
   NotFoundError,
   RateLimitError,
 } from "@/lib/asu/api";
-import { fetchClassEffect, parseRetryAfterSeconds } from "@/lib/asu/asu-client";
+import { AsuUpstream, fetchClassEffect, parseRetryAfterSeconds } from "@/lib/asu/asu-client";
 import { ASU_REQUEST_TIMEOUT_MS } from "@/lib/config";
 
 const ref = { class_nbr: "98765", term: "2267" };
@@ -152,12 +152,11 @@ effectIt.effect("times out and aborts the ASU request with TestClock", () =>
         return new Promise<Response>(() => {});
       }),
     );
-    const fiber = yield* fetchClassEffect(ref, env).pipe(Effect.result, Effect.forkChild);
+    const fiber = yield* fetchClassEffect(ref, env).pipe(Effect.flip, Effect.forkChild);
     yield* TestClock.adjust(ASU_REQUEST_TIMEOUT_MS);
-    expect(yield* Fiber.join(fiber)).toMatchObject({
-      _tag: "Failure",
-      failure: { _tag: "AsuUpstream", status: 408 },
-    });
+    const error = yield* Fiber.join(fiber);
+    expect(error).toBeInstanceOf(AsuUpstream);
+    expect(error).toMatchObject({ status: 408 });
     expect(requestSignal?.aborted).toBe(true);
   }),
 );

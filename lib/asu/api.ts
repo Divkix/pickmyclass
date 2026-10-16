@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Match } from "effect";
 import { fetchClassEffect, type AsuError } from "@/lib/asu/asu-client";
 import { TtlCache } from "@/lib/cache/ttl-cache";
 import { ASU_CACHE_TTL_MS } from "@/lib/config";
@@ -45,16 +45,12 @@ export class NotFoundError extends ApiError {
 const asuApiCache = new TtlCache<ClassDetails>(ASU_CACHE_TTL_MS, 1000);
 
 function legacyError(error: AsuError): ApiError {
-  switch (error._tag) {
-    case "AsuNotFound":
-      return new NotFoundError(error.message);
-    case "AsuAuth":
-      return new AuthError(error.message);
-    case "AsuRateLimited":
-      return new RateLimitError(error.message, error.retryAfterSeconds);
-    case "AsuUpstream":
-      return new ApiError(error.message, error.status);
-  }
+  return Match.valueTags(error, {
+    AsuNotFound: (e) => new NotFoundError(e.message),
+    AsuAuth: (e) => new AuthError(e.message),
+    AsuRateLimited: (e) => new RateLimitError(e.message, e.retryAfterSeconds),
+    AsuUpstream: (e) => new ApiError(e.message, e.status),
+  });
 }
 
 /** Cache-aware ASU fetch; Section Checks bypass reads but still refresh the UI cache. */
