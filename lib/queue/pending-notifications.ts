@@ -1,12 +1,12 @@
-import { Effect } from "effect";
 import { randomUUID } from "node:crypto";
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { NOTIFICATION_LEASE_SECONDS } from "@/lib/config";
 import type { Database } from "@/lib/db";
 import { driverErrorMessage } from "@/lib/db/pg-errors";
+import { log } from "@/lib/log";
 import { pendingSectionNotifications } from "@/lib/db/schema";
-import { sendSectionNotificationsEffect } from "@/lib/queue/notification-sender";
+import { sendSectionNotifications } from "@/lib/queue/notification-sender";
 import type { SectionRef } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
@@ -105,52 +105,40 @@ function ownsNotification(ref: SectionRef, owned: OwnedNotification) {
   );
 }
 
-/** Scope both the delivery lease and its claimed notifications to the same fiber. */
-export function deliverPendingNotificationsEffect(
-  db: Database,
-  ref: SectionRef,
-  env: Pick<Env, "EMAIL" | "NOTIFICATION_FROM_EMAIL">,
-): Effect.Effect<number> {
-  return Effect.acquireUseRelease(
-    Effect.promise(() => acquirePendingNotification(db, ref)),
-    (owned) =>
-      Effect.gen(function* () {
-        if (!owned) return 0;
-
-        const results = yield* sendSectionNotificationsEffect({
-          db,
-          ref,
-          classInfo: owned.intent.class_info,
-          changes: owned.intent.changes,
-          emailBinding: env.EMAIL,
-          fromEmail: env.NOTIFICATION_FROM_EMAIL,
-          delivery: { id: owned.intent.id, leaseId: owned.leaseId },
-        });
-
-        if (results.some((r) => !r.success))
-          return yield* Effect.die(new Error("Notification delivery incomplete"));
-        yield* Effect.promise(() =>
-          db.delete(pendingSectionNotifications).where(ownsNotification(ref, owned)),
-        );
-
-        return results.length;
-      }),
-    (owned) =>
-      owned
-        ? Effect.promise(async () => {
-            await db
-              .update(pendingSectionNotifications)
-              .set({ lease_id: null, leased_until: null })
-              .where(ownsNotification(ref, owned));
-          })
-        : Effect.void,
-  );
-}
-
-export function deliverPendingNotifications(
+/** Deliver the section's pending intent under a lease released on every exit path. */
+export async function deliverPendingNotifications(
   db: Database,
   ref: SectionRef,
   env: Pick<Env, "EMAIL" | "NOTIFICATION_FROM_EMAIL">,
 ): Promise<number> {
-  return Effect.runPromise(deliverPendingNotificationsEffect(db, ref, env));
+  const owned = await acquirePendingNotification(db, ref);
+
+  if (!owned) return 0;
+
+  try {
+    const results = await sendSectionNotifications({
+      db,
+      ref,
+      classInfo: owned.intent.class_info,
+      changes: owned.intent.changes,
+      emailBinding: env.EMAIL,
+      fromEmail: env.NOTIFICATION_FROM_EMAIL,
+      delivery: { id: owned.intent.id, leaseId: owned.leaseId },
+    });
+
+    if (results.some((r) => !r.success)) throw new Error("Notification delivery incomplete");
+    await db.delete(pendingSectionNotifications).where(ownsNotification(ref, owned));
+
+    return results.length;
+  } finally {
+    // A failed release must not mask the delivery error; the lease expires on its own.
+    try {
+      await db
+        .update(pendingSectionNotifications)
+        .set({ lease_id: null, leased_until: null })
+        .where(ownsNotification(ref, owned));
+    } catch (error) {
+      log("PendingNotifications").warn("Failed to release notification lease:", error);
+    }
+  }
 }

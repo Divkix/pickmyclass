@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { AsuUpstream, fetchClassEffect, type AsuError } from "@/lib/asu/asu-client";
+import { fetchClassEffect, type AsuError } from "@/lib/asu/asu-client";
 import { TtlCache } from "@/lib/cache/ttl-cache";
 import { ASU_CACHE_TTL_MS } from "@/lib/config";
 import { sectionRefKey, type SectionRef } from "@/lib/section-ref";
@@ -57,33 +57,24 @@ function legacyError(error: AsuError): ApiError {
   }
 }
 
-/** Cache-aware Effect entry; Section Checks bypass reads but still refresh UI cache. */
-export function fetchClassFromASUEffect(
-  ref: SectionRef,
-  env: Pick<Env, "ASU_API_BASE_URL" | "ASU_API_TOKEN">,
-  opts: { useCache?: boolean } = {},
-): Effect.Effect<ClassDetails, AsuError> {
-  return Effect.gen(function* () {
-    if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN)
-      return yield* new AsuUpstream({ message: "ASU API environment variables not configured" });
-    const key = sectionRefKey(ref);
-    const cached = opts.useCache === false ? undefined : asuApiCache.get(key);
-
-    if (cached) return cached;
-    const result = yield* fetchClassEffect(ref, env);
-    asuApiCache.set(key, result);
-
-    return result;
-  });
-}
-
-/** Keep Promise callers and legacy error classes unchanged. */
-export function fetchClassFromASU(
+/** Cache-aware ASU fetch; Section Checks bypass reads but still refresh the UI cache. */
+export async function fetchClassFromASU(
   ref: SectionRef,
   env: Pick<Env, "ASU_API_BASE_URL" | "ASU_API_TOKEN">,
   opts: { useCache?: boolean } = {},
 ): Promise<ClassDetails> {
-  return Effect.runPromise(
-    fetchClassFromASUEffect(ref, env, opts).pipe(Effect.mapError(legacyError)),
+  if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN)
+    throw new ApiError("ASU API environment variables not configured");
+  const key = sectionRefKey(ref);
+  const cached = opts.useCache === false ? undefined : asuApiCache.get(key);
+
+  if (cached) return cached;
+
+  const result = await Effect.runPromise(
+    fetchClassEffect(ref, env).pipe(Effect.mapError(legacyError)),
   );
+
+  asuApiCache.set(key, result);
+
+  return result;
 }

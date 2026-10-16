@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { Effect, Fiber } from "effect";
 import { and, count, eq, inArray, like, sql } from "drizzle-orm";
 import type { EmailAddressJSON, UserJSON, VerificationJSON } from "@clerk/backend";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test";
@@ -53,11 +52,7 @@ import {
 import { classStates, classWatches, notificationsSent, userProfiles, users } from "@/lib/db/schema";
 import { readOnboardingState, skipOnboarding } from "@/lib/onboarding";
 import { pendingSectionNotifications } from "@/lib/db/schema";
-import {
-  deliverPendingNotifications,
-  deliverPendingNotificationsEffect,
-  recordSectionCheck,
-} from "@/lib/queue/pending-notifications";
+import { deliverPendingNotifications, recordSectionCheck } from "@/lib/queue/pending-notifications";
 import { processSection, retryDelaySeconds } from "@/lib/queue/process-section";
 import { claimNotifications } from "@/lib/queue/notification-claims";
 import { details as queueDetails, environment } from "../queue/fixtures";
@@ -1467,59 +1462,6 @@ describe("durable Section Check notifications", () => {
       const env = environment();
       env.send.mockRejectedValueOnce(new Error("temporary"));
       await expect(deliverPendingNotifications(db, ref, env)).rejects.toThrow("incomplete");
-      expect(await deliverPendingNotifications(db, ref, env)).toBe(1);
-      expect(env.send).toHaveBeenCalledTimes(3);
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
-
-  it("confirms each send and releases the lease when interrupted during the next send", async () => {
-    vi.stubEnv("UNSUBSCRIBE_SIGNING_SECRET", "test-signing-secret");
-
-    try {
-      const ref = await seedIntent("interrupt");
-      await db
-        .insert(classWatches)
-        .values({ ...ref, user_id: U_XT, subject: SUBJECT, catalog_nbr: "110" });
-      const env = environment();
-      const sending = Promise.withResolvers<void>();
-      const finish = Promise.withResolvers<{ messageId: string }>();
-      env.send.mockResolvedValueOnce({ messageId: "confirmed" }).mockImplementationOnce(() => {
-        sending.resolve();
-
-        return finish.promise;
-      });
-      const fiber = Effect.runFork(deliverPendingNotificationsEffect(db, ref, env));
-
-      try {
-        await sending.promise;
-
-        const [intent] = await db
-          .select()
-          .from(pendingSectionNotifications)
-          .where(eq(pendingSectionNotifications.class_nbr, ref.class_nbr));
-
-        const records = await db
-          .select()
-          .from(notificationsSent)
-          .where(eq(notificationsSent.delivery_intent_id, intent.id));
-
-        expect(records.filter((r) => r.delivered_at !== null)).toHaveLength(1);
-        await Effect.runPromise(Fiber.interrupt(fiber));
-
-        const [released] = await db
-          .select()
-          .from(pendingSectionNotifications)
-          .where(eq(pendingSectionNotifications.id, intent.id));
-
-        expect(released.lease_id).toBeNull();
-        expect(released.leased_until).toBeNull();
-      } finally {
-        finish.resolve({ messageId: "ambiguous" });
-        await Effect.runPromise(Fiber.interrupt(fiber));
-      }
-
       expect(await deliverPendingNotifications(db, ref, env)).toBe(1);
       expect(env.send).toHaveBeenCalledTimes(3);
     } finally {
