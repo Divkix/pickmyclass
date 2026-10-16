@@ -1,38 +1,45 @@
 # Vendored anti-slop Oxlint plugins
 
-Source: [`dmmulroy/anti-slop`](https://github.com/dmmulroy/anti-slop), skill `install-anti-slop`.
+Source: [`dmmulroy/anti-slop`](https://github.com/dmmulroy/anti-slop), skill `install-anti-slop`, path `skills/install-anti-slop/assets/anti-slop`.
 
-## Installed copy
+## Baseline
 
-Copied wholesale from the skill bundle with:
+Upstream revision `d2a9aea3b896ffcb291a85f2c1301aa2543ad8c8` (2026-09-14, "feat: keep consecutive single-line bindings grouped in require-readable-spacing"), which is the last upstream commit touching the plugin as of upstream HEAD `13909c9e07590f5a85d93c62712259fe14a883f7` (checked 2026-10-15). Verified by comparing every file's Git blob SHA-1 against the GitHub tree API at both commits, not by version label.
 
-```bash
-node ~/.agents/skills/install-anti-slop/scripts/install.mjs
-```
+Pristine upstream digest of the 38 files: `35f1401589a2d18a73bdd5772b49662bce88440065574215c4589e98bf26ee9b`. Local digest (with the deviation below applied): `0ef36717e81b7132c15925a5c0f685e9de440500e02eac0a77eb556ad56270e6`. Both exclude only this file. Reproduce with `git hash-object --stdin --no-filters` per file, then sha256 the sorted `<blob-sha>  <path>` lines joined by newlines. A local digest that differs from the one above means the tree has diverged from this record.
 
-The copy is byte-identical to upstream revision `e6676e8d0bf17c678cb45b9dacb2bd6ca8dea53a` (2026-09-10, "feat(effect): prefer Match for literal branches") — the last upstream commit touching `skills/install-anti-slop/assets/anti-slop` — and to upstream HEAD `c44ef22ca116d0ba62a3ff663a0bd13a3f3fa40b` at install time (2026-09-21). Verified by comparing every file's Git blob SHA-1 against the GitHub tree API, not by version label.
-
-Snapshot digest of the 38 upstream files: `ec3dc884d2e76c1f73076c0f3b1d1b1f2fcb675e71b38abdcc58ed5c3209ee21`. This record is the only file here that upstream does not ship, and the only one excluded from the digest — `vendor/eslint-stylistic/UPSTREAM.md` is upstream and included. Reproduce with `git hash-object --stdin --no-filters` per file, then sha256 the sorted `<blob-sha>  <path>` lines joined by newlines. Recompute after any edit: a changed digest means this tree has diverged from upstream, and the next update must follow the no-base port path in the skill's `references/update.md` rather than a three-way merge.
+Recovering the base for a three-way merge: fetch the upstream tree at the baseline revision above, or take this directory from the commit that last updated this file and swap the import specifier back (see Local deviations).
 
 `vendor/eslint-stylistic/UPSTREAM.md` records the separate provenance of the vendored `padding-line-between-statements` rule (ESLint Stylistic commit `435c3ea0fd26a5fef9042c4b36b6e165fbbf8d08`) and its local adaptations.
+
+## History
+
+| Date | Upstream | Change |
+| --- | --- | --- |
+| 2026-09-21 | `e6676e8` | Initial vendor, verbatim. |
+| 2026-09-24 | — | Import specifier `@oxlint/plugins` → `vite-plus/lint/plugins` in every `.ts` file (`96e62d3`, "migrate to vite+ fully"). |
+| 2026-10-15 | `d2a9aea` | Three-way merge from base `e6676e8`. Adopted `rules/require-readable-spacing.ts`, `vendor/eslint-stylistic/padding-line-between-statements.ts` and `vendor/eslint-stylistic/UPSTREAM.md` (all upstream-only changes); the local specifier swap was re-applied to both `.ts` files. Effect: consecutive single-line bindings (optionally exported) no longer need blank lines between them, unless the next one has its own leading comment. No other upstream changes exist; the tree now equals the baseline modulo the specifier. |
 
 ## Registered entry points
 
 | Plugin | Entry point | Registered |
 | --- | --- | --- |
-| `anti-slop` | `tools/oxlint/anti-slop/index.ts` | yes — all 18 generic rules at `error`, plus native `oxc/no-accumulating-spread`, in `vite.config.ts` |
-| `anti-slop-effect` | `tools/oxlint/anti-slop/effect/index.ts` | no — this repository has no direct `effect` dependency |
+| `anti-slop` | `tools/oxlint/anti-slop/index.ts` | yes, with all 18 generic rules at `error` plus native `oxc/no-accumulating-spread`, in `vite.config.ts` |
+| `anti-slop-effect` | `tools/oxlint/anti-slop/effect/index.ts` | yes, plugin loaded globally; all 5 rules at `error` only through a `lint.overrides` entry for `lib/asu/**` and `tests/integration/asu/**` |
 
 ## Dependency pair
 
-`vp lint` resolves `oxlint` 1.81.0 through `vite-plus` 0.3.1; there is deliberately no direct `oxlint` dependency, because `AGENTS.md` requires toolchain bumps to go through `vp migrate`. `@oxlint/plugins` is pinned exactly to `1.81.0` in `devDependencies` so the plugin API package tracks the linter that loads it; `vite-plus` keeps its own nested `@oxlint/plugins@1.79.0` untouched.
+There is no direct `oxlint` or `@oxlint/plugins` dependency. `vp lint` runs the `oxlint` 1.87.0 bundled with `vite-plus` 1.1.0, and the plugin imports its API from `vite-plus/lint/plugins`, so the linter and plugin API always move together with the toolchain.
 
 ## Local deviations
 
-- No edits inside this directory — the upstream source is verbatim.
-- Excluded from application tooling, because Oxlint loads it at runtime and it is not application source: `lint.ignorePatterns` and `fmt.ignorePatterns` in `vite.config.ts`, `exclude` in `tsconfig.json`, and `ignore` in `knip.json`. Without the type-check exclusion, the vendored `.ts`-suffixed relative imports fail TS5097.
-- `effect/` ships with the bundle but stays unregistered; deleting or regenerating it is safe.
+- Every `.ts` file imports from `vite-plus/lint/plugins` instead of `@oxlint/plugins`. This is the only source edit.
+- Excluded from application tooling, because Oxlint loads it at runtime and it is not application source: `lint.ignorePatterns` and `fmt.ignorePatterns` in `vite.config.ts`, `exclude` in `tsconfig.json`, and `ignore` in `knip.json`.
+
+## Effect rule scope
+
+Enabled 2026-10-15. `effect` is a direct dependency but `AGENTS.md` confines it to the ASU client, so the Effect rules apply only there. Enabled repo-wide, `prefer-effect-match` flagged chained literal ternaries in non-Effect code (`components/admin/SortableHeader.tsx`, `lib/email/templates/index.ts`, `app/api/monitoring/health/route.ts`), and obeying it would have pulled Effect past that boundary. If Effect spreads to other modules, widen the override's `files` to match.
 
 ## Updating
 
-Re-run the install script into a staging directory and follow the skill's update procedure; never point it at this live tree. After a merge, refresh the digest above and record adopted changes, retained local policy, and deferred upstream changes here.
+Re-run the install script into a staging directory and follow the skill's update procedure. Never point the script at this live tree. After a merge, refresh both digests and the history table above.
