@@ -25,7 +25,7 @@ Recovering the base for a three-way merge: fetch the upstream tree at the baseli
 | Plugin | Entry point | Registered |
 | --- | --- | --- |
 | `anti-slop` | `tools/oxlint/anti-slop/index.ts` | yes, with all 18 generic rules at `error` plus native `oxc/no-accumulating-spread`, in `vite.config.ts` |
-| `anti-slop-effect` | `tools/oxlint/anti-slop/effect/index.ts` | no, pending a decision (see below) |
+| `anti-slop-effect` | `tools/oxlint/anti-slop/effect/index.ts` | yes, plugin loaded globally; all 5 rules at `error` only through a `lint.overrides` entry for `lib/asu/**` and `tests/integration/asu/**` |
 
 ## Dependency pair
 
@@ -36,9 +36,9 @@ There is no direct `oxlint` or `@oxlint/plugins` dependency. `vp lint` runs the 
 - Every `.ts` file imports from `vite-plus/lint/plugins` instead of `@oxlint/plugins`. This is the only source edit.
 - Excluded from application tooling, because Oxlint loads it at runtime and it is not application source: `lint.ignorePatterns` and `fmt.ignorePatterns` in `vite.config.ts`, `exclude` in `tsconfig.json`, and `ignore` in `knip.json`.
 
-## Pending decisions
+## Effect rule scope
 
-- **Effect plugin.** `effect` is now a direct dependency (confined to `lib/asu/` by `AGENTS.md`), so the skill would register `anti-slop-effect`. A trial run on 2026-10-15 found 6 errors. Three of them are `prefer-effect-match` in non-Effect code (`components/admin/SortableHeader.tsx`, `lib/email/templates/index.ts`, `app/api/monitoring/health/route.ts`), where following the rule would pull Effect out of its boundary. The other three are in the ASU boundary: `no-manual-tag-comparison` in `lib/asu/api.ts` and `no-manual-tagged-construction` ×2 in `tests/integration/asu/asu-client.test.ts`. Options: leave it unregistered, or register it with an override scoped to `lib/asu/**` and its tests.
+Enabled 2026-10-15. `effect` is a direct dependency but `AGENTS.md` confines it to the ASU client, so the Effect rules apply only there. Enabled repo-wide, `prefer-effect-match` flagged chained literal ternaries in non-Effect code (`components/admin/SortableHeader.tsx`, `lib/email/templates/index.ts`, `app/api/monitoring/health/route.ts`), and obeying it would have pulled Effect past that boundary. If Effect spreads to other modules, widen the override's `files` to match.
 
 ## Updating
 
