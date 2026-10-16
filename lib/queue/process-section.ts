@@ -1,19 +1,10 @@
-import { Cause, Data, Effect } from "effect";
 import {
   ApiError,
   AuthError,
   NotFoundError,
   RateLimitError,
   fetchClassFromASU,
-  fetchClassFromASUEffect,
 } from "@/lib/asu/api";
-import {
-  AsuAuth,
-  AsuNotFound,
-  AsuRateLimited,
-  AsuUpstream,
-  type AsuError,
-} from "@/lib/asu/asu-client";
 import { readSectionCheckState } from "@/lib/db/queries";
 import { RATE_LIMIT_RETRY_BASE_S, RATE_LIMIT_RETRY_MAX_S } from "@/lib/config";
 import type { Database } from "@/lib/db";
@@ -21,12 +12,11 @@ import { log } from "@/lib/log";
 import { type SectionRef } from "@/lib/section-ref";
 import { type ChangeResult, detectChanges } from "@/lib/queue/change-detector";
 import {
-  deliverPendingNotificationsEffect,
+  deliverPendingNotifications,
   NotificationLeaseBusy,
   recordSectionCheck,
 } from "@/lib/queue/pending-notifications";
 import { type SectionRetirementOutcome, retireClassSection } from "@/lib/queue/section-retirement";
-import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
 import type { ClassCheckMessage } from "@/lib/types/queue";
 
@@ -90,193 +80,149 @@ function failedResult(classNbr: string, duration: number, error: string): Proces
   };
 }
 
-class SectionStateWriteFailed extends Data.TaggedError("SectionStateWriteFailed")<{
-  message: string;
-  changes: ChangeResult;
-  emailsSent: number;
-}> {}
+class SectionStateWriteFailed extends Error {
+  constructor(
+    message: string,
+    public changes: ChangeResult,
+    public emailsSent: number,
+  ) {
+    super(message);
+  }
+}
 
 type SectionCheckEnv = Pick<
   Env,
   "ASU_API_BASE_URL" | "ASU_API_TOKEN" | "EMAIL" | "NOTIFICATION_FROM_EMAIL"
 >;
 
-function fetchObservationEffect(
-  ref: SectionCheckInput,
-  env: SectionCheckEnv,
-  fetchClass?: ProcessSectionDeps["fetchClass"],
-): Effect.Effect<ClassDetails, AsuError> {
-  if (!fetchClass) return fetchClassFromASUEffect(ref, env, { useCache: false });
-
-  return Effect.tryPromise({
-    try: () => fetchClass(ref, env, { useCache: false }),
-    catch: (error): AsuError => {
-      if (error instanceof NotFoundError) return new AsuNotFound({ message: error.message });
-
-      if (error instanceof AuthError) return new AsuAuth({ message: error.message });
-
-      if (error instanceof RateLimitError)
-        return new AsuRateLimited({
-          message: error.message,
-          retryAfterSeconds: error.retryAfterSeconds,
-        });
-
-      if (error instanceof ApiError)
-        return new AsuUpstream({ message: error.message, status: error.status });
-      throw error;
-    },
-  });
-}
-
-function processSectionEffect(
-  db: Database,
-  ref: SectionCheckInput,
-  env: SectionCheckEnv,
-  overrides: Partial<ProcessSectionDeps>,
-): Effect.Effect<SectionCheckOutcome> {
-  return Effect.suspend(() => {
-    const startTime = Date.now();
-    const { class_nbr: classNbr, cycle } = ref;
-    const failure = (message: string) => failedResult(classNbr, Date.now() - startTime, message);
-
-    const program = Effect.gen(function* () {
-      let emailsSent = yield* deliverPendingNotificationsEffect(db, ref, env);
-      const oldState = yield* Effect.promise(() => readSectionCheckState(db, ref));
-
-      if (cycle && oldState?.last_checked_at && oldState.last_checked_at >= cycle) {
-        log("ProcessSection").info(
-          `Skipping ${classNbr}: last checked at ${oldState.last_checked_at}, cycle ${cycle}`,
-        );
-
-        return ackOutcome({
-          success: true,
-          classNbr,
-          changes: emptyChanges(),
-          emailsSent,
-          processingTimeMs: Date.now() - startTime,
-        });
-      }
-
-      const newData = yield* fetchObservationEffect(ref, env, overrides.fetchClass);
-      const observedAt = new Date();
-      const changes = detectChanges(oldState, newData);
-
-      if (!oldState) {
-        changes.seatBecameAvailable = false;
-        changes.instructorAssigned = false;
-      }
-
-      const applied = yield* Effect.tryPromise({
-        try: () => recordSectionCheck(db, ref, newData, observedAt),
-        catch: (error) =>
-          new SectionStateWriteFailed({
-            message: error instanceof Error ? error.message : String(error),
-            changes,
-            emailsSent,
-          }),
-      });
-
-      if (!applied) {
-        log("ProcessSection").info(
-          `Skipping ${classNbr}: a newer observation or pending notification is already stored`,
-        );
-
-        return ackOutcome({
-          success: true,
-          classNbr,
-          changes: emptyChanges(),
-          emailsSent: 0,
-          processingTimeMs: Date.now() - startTime,
-        });
-      }
-
-      emailsSent += yield* deliverPendingNotificationsEffect(db, ref, env);
-      const duration = Date.now() - startTime;
-      log("ProcessSection").info(`✅ Completed ${classNbr} in ${duration}ms`);
-
-      return ackOutcome({
-        success: true,
-        classNbr,
-        changes,
-        emailsSent,
-        processingTimeMs: duration,
-      });
-    });
-
-    // This annotation makes an unhandled tagged failure a compile error before
-    // the final defect handler can turn unexpected exceptions into retry 500.
-    const handled: Effect.Effect<SectionCheckOutcome> = program.pipe(
-      Effect.tapError((error) =>
-        Effect.sync(() => {
-          log("ProcessSection").error(`Error processing ${classNbr}:`, error.message);
-        }),
-      ),
-      Effect.catchTags({
-        SectionStateWriteFailed: (error) =>
-          Effect.succeed(
-            retryOutcome(
-              { ...failure(error.message), changes: error.changes, emailsSent: error.emailsSent },
-              500,
-            ),
-          ),
-        AsuNotFound: (error) =>
-          Effect.gen(function* () {
-            const retirement = yield* Effect.promise(() =>
-              retireClassSection({
-                db,
-                ref,
-                emailBinding: env.EMAIL,
-                fromEmail: env.NOTIFICATION_FROM_EMAIL,
-              }),
-            );
-
-            if (retirement.deleted)
-              return ackOutcome({
-                success: true,
-                classNbr,
-                changes: emptyChanges(),
-                emailsSent: retirement.emailsSucceeded,
-                processingTimeMs: Date.now() - startTime,
-                error: "Auto-cleanup: class removed after 3 NotFounds",
-                retirement,
-              });
-
-            return ackOutcome({ ...failure(error.message), retirement });
-          }),
-        AsuAuth: (error) => Effect.succeed(ackOutcome(failure(error.message))),
-        AsuRateLimited: (error) =>
-          Effect.succeed({
-            ...retryOutcome(failure(error.message), 429),
-            retryAfterSeconds: error.retryAfterSeconds,
-          }),
-        AsuUpstream: (error) => Effect.succeed(retryOutcome(failure(error.message), 502)),
-      }),
-    );
-
-    return handled.pipe(
-      Effect.catchCause((cause) =>
-        Effect.sync(() => {
-          const error = Cause.squash(cause);
-          const message = error instanceof Error ? error.message : "Unknown error";
-          log("ProcessSection").error(`Error processing ${classNbr}:`, message);
-          const outcome = retryOutcome(failure(message), 500);
-
-          return error instanceof NotificationLeaseBusy
-            ? { ...outcome, retryAfterSeconds: error.retryAfterSeconds }
-            : outcome;
-        }),
-      ),
-    );
-  });
-}
-
-export function processSection(
+export async function processSection(
   db: Database,
   ref: SectionCheckInput,
   env: SectionCheckEnv,
   overrides: Partial<ProcessSectionDeps> = {},
 ): Promise<SectionCheckOutcome> {
-  return Effect.runPromise(processSectionEffect(db, ref, env, overrides));
+  const fetchClass = overrides.fetchClass ?? fetchClassFromASU;
+  const startTime = Date.now();
+  const { class_nbr: classNbr, cycle } = ref;
+  const failure = (message: string) => failedResult(classNbr, Date.now() - startTime, message);
+
+  try {
+    let emailsSent = await deliverPendingNotifications(db, ref, env);
+    const oldState = await readSectionCheckState(db, ref);
+
+    if (cycle && oldState?.last_checked_at && oldState.last_checked_at >= cycle) {
+      log("ProcessSection").info(
+        `Skipping ${classNbr}: last checked at ${oldState.last_checked_at}, cycle ${cycle}`,
+      );
+
+      return ackOutcome({
+        success: true,
+        classNbr,
+        changes: emptyChanges(),
+        emailsSent,
+        processingTimeMs: Date.now() - startTime,
+      });
+    }
+
+    const newData = await fetchClass(ref, env, { useCache: false });
+    const observedAt = new Date();
+    const changes = detectChanges(oldState, newData);
+
+    if (!oldState) {
+      changes.seatBecameAvailable = false;
+      changes.instructorAssigned = false;
+    }
+
+    let applied: boolean;
+
+    try {
+      applied = await recordSectionCheck(db, ref, newData, observedAt);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new SectionStateWriteFailed(message, changes, emailsSent);
+    }
+
+    if (!applied) {
+      log("ProcessSection").info(
+        `Skipping ${classNbr}: a newer observation or pending notification is already stored`,
+      );
+
+      return ackOutcome({
+        success: true,
+        classNbr,
+        changes: emptyChanges(),
+        emailsSent: 0,
+        processingTimeMs: Date.now() - startTime,
+      });
+    }
+
+    emailsSent += await deliverPendingNotifications(db, ref, env);
+    const duration = Date.now() - startTime;
+    log("ProcessSection").info(`✅ Completed ${classNbr} in ${duration}ms`);
+
+    return ackOutcome({
+      success: true,
+      classNbr,
+      changes,
+      emailsSent,
+      processingTimeMs: duration,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    log("ProcessSection").error(`Error processing ${classNbr}:`, message);
+
+    if (error instanceof SectionStateWriteFailed)
+      return retryOutcome(
+        { ...failure(message), changes: error.changes, emailsSent: error.emailsSent },
+        500,
+      );
+
+    if (error instanceof NotFoundError) {
+      let retirement: SectionRetirementOutcome;
+
+      try {
+        retirement = await retireClassSection({
+          db,
+          ref,
+          emailBinding: env.EMAIL,
+          fromEmail: env.NOTIFICATION_FROM_EMAIL,
+        });
+      } catch (retireError) {
+        const retireMessage = retireError instanceof Error ? retireError.message : "Unknown error";
+        log("ProcessSection").error(`Error retiring ${classNbr}:`, retireMessage);
+
+        return retryOutcome(failure(retireMessage), 500);
+      }
+
+      if (retirement.deleted)
+        return ackOutcome({
+          success: true,
+          classNbr,
+          changes: emptyChanges(),
+          emailsSent: retirement.emailsSucceeded,
+          processingTimeMs: Date.now() - startTime,
+          error: "Auto-cleanup: class removed after 3 NotFounds",
+          retirement,
+        });
+
+      return ackOutcome({ ...failure(message), retirement });
+    }
+
+    if (error instanceof AuthError) return ackOutcome(failure(message));
+
+    if (error instanceof RateLimitError)
+      return {
+        ...retryOutcome(failure(message), 429),
+        retryAfterSeconds: error.retryAfterSeconds,
+      };
+
+    if (error instanceof ApiError) return retryOutcome(failure(message), 502);
+
+    if (error instanceof NotificationLeaseBusy)
+      return { ...retryOutcome(failure(message), 500), retryAfterSeconds: error.retryAfterSeconds };
+
+    return retryOutcome(failure(message), 500);
+  }
 }
 
 /**
