@@ -36,6 +36,9 @@ export async function GET(request: NextRequest) {
             last_checked_at: classStates.last_checked_at,
             last_changed_at: classStates.last_changed_at,
             consecutive_not_found_count: classStates.consecutive_not_found_count,
+            start_date: classStates.start_date,
+            end_date: classStates.end_date,
+            session_code: classStates.session_code,
           })
           .from(classStates)
           .where(

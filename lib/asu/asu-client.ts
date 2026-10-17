@@ -1,4 +1,4 @@
-import { Data, Effect, Schema } from "effect";
+import { Data, Effect, Option, Schema } from "effect";
 import { ASU_REQUEST_TIMEOUT_MS } from "@/lib/config";
 import type { SectionRef } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
@@ -21,6 +21,12 @@ export class AsuUpstream extends Data.TaggedError("AsuUpstream")<{
 
 export type AsuError = AsuNotFound | AsuAuth | AsuRateLimited | AsuUpstream;
 
+// Unconfirmed on this endpoint, so an unexpected shape reads as unknown (null)
+// instead of failing every Section Check.
+const LenientString = Schema.NullOr(Schema.String).pipe(
+  Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
+);
+
 const AsuApiClassItem = Schema.Struct({
   CLASSNBR: Schema.String,
   SUBJECT: Schema.String,
@@ -40,6 +46,9 @@ const AsuApiClassItem = Schema.Struct({
   INSTRUCTORSLIST: Schema.optionalKey(Schema.Array(Schema.String)),
   STARTTIME: Schema.optionalKey(Schema.NullOr(Schema.String)),
   ENDTIME: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  SESSIONCODE: Schema.optionalKey(LenientString),
+  STARTDATE: Schema.optionalKey(LenientString),
+  ENDDATE: Schema.optionalKey(LenientString),
 });
 
 type AsuApiClassItem = typeof AsuApiClassItem.Type;
@@ -101,6 +110,22 @@ function composeMeetingTimes(item: AsuApiClassItem): string {
   return `${days.join("")} ${formatTime(item.STARTTIME)}-${formatTime(item.ENDTIME)}`;
 }
 
+const ASU_DATE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T]|$)/;
+
+/** ASU's "2026-08-20 00:00:00.0" as "2026-08-20"; null unless it is a real calendar day. */
+function parseAsuDate(value: string): string | null {
+  const match = ASU_DATE.exec(value.trim());
+
+  if (!match) return null;
+
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+
+  return date.getUTCMonth() === Number(month) - 1 && date.getUTCDate() === Number(day)
+    ? `${year}-${month}-${day}`
+    : null;
+}
+
 function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
   const rawCap = Number.parseInt(item.ENRLCAP || "0", 10);
   const rawTot = Number.parseInt(item.ENRLTOT || "0", 10);
@@ -119,6 +144,9 @@ function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
     non_reserved_seats: Math.max(0, enrlCap - enrlTot - waitTot),
     location: item.FACILITYID || "TBD",
     meeting_times: composeMeetingTimes(item),
+    start_date: item.STARTDATE ? parseAsuDate(item.STARTDATE) : null,
+    end_date: item.ENDDATE ? parseAsuDate(item.ENDDATE) : null,
+    session_code: item.SESSIONCODE?.trim() || null,
   };
 }
 

@@ -342,6 +342,9 @@ export async function insertClassStateIfMissing(
         non_reserved_seats: details.non_reserved_seats ?? null,
         location: details.location || null,
         meeting_times: details.meeting_times || null,
+        start_date: details.start_date,
+        end_date: details.end_date,
+        session_code: details.session_code,
         last_checked_at: new Date().toISOString(),
         consecutive_not_found_count: 0,
       })

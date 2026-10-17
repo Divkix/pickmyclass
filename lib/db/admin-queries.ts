@@ -174,7 +174,10 @@ type ClassState = typeof classStates.$inferSelect;
 
 type ClassWatch = typeof classWatches.$inferSelect;
 
-export interface ClassWithWatchers extends ClassState {
+export interface ClassWithWatchers extends Omit<
+  ClassState,
+  "start_date" | "end_date" | "session_code"
+> {
   watcher_count: number;
   seat_emails: number;
   instructor_emails: number;

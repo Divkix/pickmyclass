@@ -202,6 +202,9 @@ beforeAll(async () => {
     non_reserved_seats: seatsAvailable > 0 ? seatsAvailable : null,
     location: "TEMPE",
     meeting_times: "MW 10:00-11:15",
+    start_date: null,
+    end_date: null,
+    session_code: null,
   });
 
   await upsertClassState(db, REF_A, stateDetails(7), new Date());
@@ -580,6 +583,7 @@ describe("Drizzle builder CRUD row shapes", () => {
         "class_nbr",
         "consecutive_not_found_count",
         "catalog_nbr",
+        "end_date",
         "id",
         "instructor_name",
         "last_changed_at",
@@ -589,6 +593,8 @@ describe("Drizzle builder CRUD row shapes", () => {
         "non_reserved_seats",
         "seats_available",
         "seats_capacity",
+        "session_code",
+        "start_date",
         "subject",
         "term",
         "title",
@@ -618,6 +624,9 @@ describe("upsertClassState / section-check pipeline ops", () => {
         non_reserved_seats: 9,
         location: "TEMPE",
         meeting_times: "MW 10:00-11:15",
+        start_date: null,
+        end_date: null,
+        session_code: null,
       },
       new Date(),
     );
@@ -666,6 +675,9 @@ describe("upsertClassState / section-check pipeline ops", () => {
       non_reserved_seats: 9,
       location: "TEMPE",
       meeting_times: "MW 10:00-11:15",
+      start_date: null,
+      end_date: null,
+      session_code: null,
     };
 
     await insertClassStateIfMissing(db, REF_SEED, pipelineSnapshot);
@@ -700,6 +712,9 @@ describe("upsertClassState / section-check pipeline ops", () => {
       non_reserved_seats: overrides.non_reserved_seats ?? 9,
       location: "TEMPE",
       meeting_times: "MW 10:00-11:15",
+      start_date: null,
+      end_date: null,
+      session_code: null,
     });
 
     const selectStamps = async () => {
@@ -1594,5 +1609,41 @@ describe("durable Section Check notifications", () => {
         .from(notificationsSent)
         .where(eq(notificationsSent.class_watch_id, watch.id)),
     ).toHaveLength(0);
+  });
+
+  it("stores ASU session dates with each accepted observation", async () => {
+    const ref = { class_nbr: `${RUN}-dates`, term: TERM };
+
+    const dated = {
+      ...queueDetails,
+      start_date: "2026-08-20",
+      end_date: "2026-12-04",
+      session_code: "C",
+    };
+
+    const readDates = async () =>
+      (
+        await db
+          .select({
+            start_date: classStates.start_date,
+            end_date: classStates.end_date,
+            session_code: classStates.session_code,
+          })
+          .from(classStates)
+          .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))
+      )[0];
+
+    await insertClassStateIfMissing(db, ref, dated);
+    expect(await readDates()).toEqual({
+      start_date: "2026-08-20",
+      end_date: "2026-12-04",
+      session_code: "C",
+    });
+    expect(
+      await recordSectionCheck(db, ref, { ...dated, end_date: "2026-10-09" }, new Date()),
+    ).toBe(true);
+    expect((await readDates())?.end_date).toBe("2026-10-09");
+    expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toBe(true);
+    expect(await readDates()).toEqual({ start_date: null, end_date: null, session_code: null });
   });
 });

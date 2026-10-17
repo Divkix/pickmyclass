@@ -78,6 +78,9 @@ const asuDetails: ClassDetails = {
   non_reserved_seats: null,
   location: "COOR 120",
   meeting_times: "MWF 9:00 AM-9:50 AM",
+  start_date: null,
+  end_date: null,
+  session_code: null,
 };
 
 const watchRow = {
@@ -107,6 +110,9 @@ const stateRow: ClassStateRow = {
   last_checked_at: "2026-06-15T12:00:00Z",
   last_changed_at: "2026-06-15T11:00:00Z",
   consecutive_not_found_count: 0,
+  start_date: null,
+  end_date: null,
+  session_code: null,
 };
 
 const completedProfile = {

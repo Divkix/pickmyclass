@@ -1,4 +1,4 @@
-import { index, integer, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { date, index, integer, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 export const classStates = pgTable(
   "class_states",
@@ -22,6 +22,10 @@ export const classStates = pgTable(
       .notNull()
       .defaultNow(),
     consecutive_not_found_count: integer("consecutive_not_found_count").notNull().default(0),
+    /** ASU class dates (America/Phoenix calendar days); null until ASU reports them. */
+    start_date: date("start_date", { mode: "string" }),
+    end_date: date("end_date", { mode: "string" }),
+    session_code: text("session_code"),
   },
   (t) => [
     unique("class_states_class_nbr_term_key").on(t.class_nbr, t.term),

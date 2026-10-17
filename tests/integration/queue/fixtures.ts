@@ -13,6 +13,9 @@ export const details: ClassDetails = {
   non_reserved_seats: 2,
   location: "BYAC",
   meeting_times: "TBD",
+  start_date: null,
+  end_date: null,
+  session_code: null,
 };
 
 export function state(seats = 0, instructor = "Staff") {
