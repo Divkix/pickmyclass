@@ -523,6 +523,8 @@ export type SectionCheckState = {
   consecutive_not_found_count: number;
   /** ISO-8601 UTC, or undefined when the driver returns no timestamp. */
   last_checked_at?: string;
+  /** A pending notification intent (live or expired) exists for this SectionRef. */
+  has_pending_intent: boolean;
 };
 
 export async function readSectionCheckState(
@@ -539,6 +541,9 @@ export async function readSectionCheckState(
         instructor_name: classStates.instructor_name,
         consecutive_not_found_count: classStates.consecutive_not_found_count,
         last_checked_at: classStates.last_checked_at,
+        // Intents reference class_states, so no row also means no intent.
+        has_pending_intent: sql<boolean>`EXISTS (SELECT 1 FROM public.pending_section_notifications
+          WHERE class_nbr = ${ref.class_nbr} AND term = ${ref.term})`,
       })
       .from(classStates)
       .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))

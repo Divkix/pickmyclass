@@ -27,6 +27,7 @@ export function state(seats = 0, instructor = "Staff") {
     instructor_name: instructor,
     consecutive_not_found_count: 0,
     last_checked_at: "2026-10-15T11:00:00.000Z",
+    has_pending_intent: false,
   };
 }
 

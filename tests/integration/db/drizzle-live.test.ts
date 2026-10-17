@@ -1388,7 +1388,11 @@ describe("durable Section Check notifications", () => {
     await db
       .insert(classWatches)
       .values({ ...ref, user_id: U_MAIN, subject: SUBJECT, catalog_nbr: "110" });
-    expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toBe(true);
+    expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toEqual({
+      applied: true,
+      intentCreated: true,
+    });
+    expect((await readSectionCheckState(db, ref))?.has_pending_intent).toBe(true);
 
     return ref;
   }
@@ -1536,7 +1540,7 @@ describe("durable Section Check notifications", () => {
         await expect(deliverPendingNotifications(db, ref, env)).rejects.toThrow(
           "already in progress",
         );
-        expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toBe(false);
+        expect((await recordSectionCheck(db, ref, queueDetails, new Date())).applied).toBe(false);
       } finally {
         finish.resolve({ messageId: "delivered" });
       }
@@ -1550,7 +1554,9 @@ describe("durable Section Check notifications", () => {
 
   it("commits state and intent in the same transaction and guards first observations", async () => {
     const ref = { class_nbr: `${RUN}-pending-atomic`, term: TERM };
-    expect(await recordSectionCheck(db, ref, queueDetails, new Date(Date.now() - 2000))).toBe(true);
+    expect(
+      (await recordSectionCheck(db, ref, queueDetails, new Date(Date.now() - 2000))).applied,
+    ).toBe(true);
     expect(
       await db
         .select()
@@ -1597,20 +1603,40 @@ describe("durable Section Check notifications", () => {
     await tryRecordNotificationsBatch(db, [watch.id], "seat_available");
     await tryRecordNotificationsBatch(db, [watch.id], "instructor_assigned");
     const closed = { ...queueDetails, seats_available: 0, non_reserved_seats: 0 };
-    expect(await recordSectionCheck(db, ref, closed, new Date(Date.now() - 5000))).toBe(false);
+    expect((await recordSectionCheck(db, ref, closed, new Date(Date.now() - 5000))).applied).toBe(
+      false,
+    );
     expect(
       await db
         .select()
         .from(notificationsSent)
         .where(eq(notificationsSent.class_watch_id, watch.id)),
     ).toHaveLength(2);
-    expect(await recordSectionCheck(db, ref, closed, new Date())).toBe(true);
+    expect(await recordSectionCheck(db, ref, closed, new Date())).toEqual({
+      applied: true,
+      intentCreated: false,
+    });
+    expect((await readSectionCheckState(db, ref))?.has_pending_intent).toBe(false);
     expect(
       await db
         .select()
         .from(notificationsSent)
         .where(eq(notificationsSent.class_watch_id, watch.id)),
     ).toHaveLength(0);
+  });
+
+  it("keeps the legacy record_section_check boolean for Workers deployed before 0010", async () => {
+    const ref = { class_nbr: `${RUN}-legacy`, term: TERM };
+
+    const record = async (observedAt: Date) =>
+      (
+        await db.execute<{ applied: boolean }>(sql`SELECT public.record_section_check(
+          ${ref.class_nbr}::text, ${ref.term}::text, ${JSON.stringify(queueDetails)}::jsonb,
+          ${observedAt.toISOString()}::timestamptz) AS applied`)
+      ).rows[0]?.applied;
+
+    expect(await record(new Date())).toBe(true);
+    expect(await record(new Date(Date.now() - 60_000))).toBe(false);
   });
 
   it("stores ASU session dates with each accepted observation", async () => {
@@ -1642,10 +1668,10 @@ describe("durable Section Check notifications", () => {
       session_code: "C",
     });
     expect(
-      await recordSectionCheck(db, ref, { ...dated, end_date: "2026-10-09" }, new Date()),
+      (await recordSectionCheck(db, ref, { ...dated, end_date: "2026-10-09" }, new Date())).applied,
     ).toBe(true);
     expect((await readDates())?.end_date).toBe("2026-10-09");
-    expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toBe(true);
+    expect((await recordSectionCheck(db, ref, queueDetails, new Date())).applied).toBe(true);
     expect(await readDates()).toEqual({ start_date: null, end_date: null, session_code: null });
   });
 });

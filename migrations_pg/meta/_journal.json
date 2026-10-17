@@ -71,6 +71,13 @@
       "when": 1792279114104,
       "tag": "0009_section_alert_cutoff",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792279406366,
+      "tag": "0010_record_section_observation",
+      "breakpoints": true
     }
   ]
 }
