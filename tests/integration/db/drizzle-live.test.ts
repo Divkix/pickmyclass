@@ -131,6 +131,8 @@ const U_ADMIN = uid("admin");
 
 const U_CRUD = uid("crud");
 
+const U_CUTOFF = uid("cutoff");
+
 let W_A_MAIN: string;
 
 let W_A_BOUNCED: string;
@@ -1645,5 +1647,81 @@ describe("durable Section Check notifications", () => {
     expect((await readDates())?.end_date).toBe("2026-10-09");
     expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toBe(true);
     expect(await readDates()).toEqual({ start_date: null, end_date: null, session_code: null });
+  });
+});
+
+describe("section alert cutoff", () => {
+  const cutoff = async (start: string | null, end: string | null) => {
+    const { rows } = await db.execute<{ cutoff: string | null }>(
+      sql`SELECT public.section_alert_cutoff(${start}::date, ${end}::date)::text AS cutoff`,
+    );
+
+    return rows[0]?.cutoff;
+  };
+
+  const ended = async (start: string | null, end: string | null, now: string) => {
+    const { rows } = await db.execute<{ ended: boolean }>(
+      sql`SELECT public.section_alerts_ended(${start}::date, ${end}::date, ${now}::timestamptz) AS ended`,
+    );
+
+    return rows[0]?.ended;
+  };
+
+  it.each([
+    ["full semester: add deadline (start + 6) + 14", "2026-08-20", "2026-12-04", "2026-09-09"],
+    ["7.5-week session: add deadline (start + 1) + 14", "2026-08-20", "2026-10-09", "2026-09-04"],
+    ["exactly 70 days is still a short session", "2026-08-20", "2026-10-29", "2026-09-04"],
+    ["71 days is a full session", "2026-08-20", "2026-10-30", "2026-09-09"],
+    ["capped at the class end date", "2026-08-20", "2026-08-28", "2026-08-28"],
+    ["unknown start date", null, "2026-12-04", null],
+    ["unknown end date", "2026-08-20", null, null],
+  ])("computes the cutoff: %s", async (_label, start, end, expected) => {
+    expect(await cutoff(start, end)).toBe(expected);
+  });
+
+  it("ends alerts after the cutoff day in America/Phoenix, not UTC", async () => {
+    // Cutoff 2026-09-09; Phoenix is UTC-7 year-round.
+    expect(await ended("2026-08-20", "2026-12-04", "2026-09-10T06:59:59Z")).toBe(false);
+    expect(await ended("2026-08-20", "2026-12-04", "2026-09-10T07:00:00Z")).toBe(true);
+  });
+
+  it("never ends alerts for sections with unknown dates", async () => {
+    expect(await ended(null, "2020-12-04", "2026-10-17T12:00:00Z")).toBe(false);
+    expect(await ended("2020-08-20", null, "2026-10-17T12:00:00Z")).toBe(false);
+  });
+
+  it("stops checking sections once their add-deadline cutoff has passed", async () => {
+    const term = `${RUN}-t4`;
+
+    const dated = (start_date: string | null, end_date: string | null) => ({
+      ...queueDetails,
+      start_date,
+      end_date,
+    });
+
+    const sections = {
+      ended: { ref: { class_nbr: `${RUN}10`, term }, details: dated("2020-08-20", "2020-12-04") },
+      live: { ref: { class_nbr: `${RUN}12`, term }, details: dated("2099-08-20", "2099-12-04") },
+      unknown: { ref: { class_nbr: `${RUN}14`, term }, details: dated(null, "2020-12-04") },
+    };
+
+    await db
+      .insert(users)
+      .values({ id: U_CUTOFF, clerk_user_id: `clerk_${U_CUTOFF}`, email: mail("cutoff") });
+
+    for (const { ref, details } of Object.values(sections)) {
+      await insertClassStateIfMissing(db, ref, details);
+      await db
+        .insert(classWatches)
+        .values({ ...ref, user_id: U_CUTOFF, subject: SUBJECT, catalog_nbr: "110" });
+    }
+
+    const checked = (await getSectionsToCheck(db, "all")).flatMap((r) =>
+      r.term === term ? [r.class_nbr] : [],
+    );
+
+    expect(checked.sort()).toEqual(
+      [sections.live.ref.class_nbr, sections.unknown.ref.class_nbr].sort(),
+    );
   });
 });

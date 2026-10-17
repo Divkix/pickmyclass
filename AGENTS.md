@@ -64,6 +64,7 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 - `class_states` is keyed on `(class_nbr, term)`. Always carry both (`SectionRef`).
 - `lib/asu/terms.ts` holds a hand-maintained ASU term calendar. Extend it every August, or creating new watches silently blocks.
 - Seat signal is `non_reserved_seats ?? seats_available`.
+- Alerts stop at a per-section cutoff: `public.section_alert_cutoff(start_date, end_date)` (SQL, the only copy of the rule) is ASU's add deadline (start + 6 days for classes over 70 days, else start + 1) plus 14 days' grace, capped at the end date, compared in America/Phoenix by `public.section_alerts_ended`. `get_sections_to_check` skips ended sections. Dates come from ASU on each Section Check; unknown dates (NULL) never end alerts. Change the rule with `CREATE OR REPLACE` in a new migration.
 
 **Auth and edge**:
 - After consent or admin changes, call `invalidateAuthorizationState`. `proxy.ts` caches `readAuthorizationState` for 30s.

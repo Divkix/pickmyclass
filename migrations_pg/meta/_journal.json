@@ -64,6 +64,13 @@
       "when": 1792278893256,
       "tag": "0008_record_section_dates",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792279114104,
+      "tag": "0009_section_alert_cutoff",
+      "breakpoints": true
     }
   ]
 }
