@@ -124,6 +124,7 @@ const matchingClassState: ClassStateRow = {
   start_date: null,
   end_date: null,
   session_code: null,
+  alerts_ended: false,
 };
 
 interface GetBody {

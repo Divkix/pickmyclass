@@ -1723,5 +1723,15 @@ describe("section alert cutoff", () => {
     expect(checked.sort()).toEqual(
       [sections.live.ref.class_nbr, sections.unknown.ref.class_nbr].sort(),
     );
+
+    const ended = Object.fromEntries(
+      (await getUserWatches(db, U_CUTOFF)).map((w) => [w.class_nbr, w.class_state?.alerts_ended]),
+    );
+
+    expect(ended).toEqual({
+      [sections.ended.ref.class_nbr]: true,
+      [sections.live.ref.class_nbr]: false,
+      [sections.unknown.ref.class_nbr]: false,
+    });
   });
 });

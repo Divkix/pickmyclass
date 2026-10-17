@@ -243,6 +243,11 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                         ) : (
                           <span className="text-muted-foreground text-sm">-</span>
                         )}
+                        {classState?.alerts_ended && (
+                          <Badge variant="outline" size="sm" className="ml-1">
+                            Alerts ended
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">
                         {formatAbsoluteDate(watch.created_at)}

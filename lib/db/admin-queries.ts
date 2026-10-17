@@ -5,8 +5,10 @@ import { TtlCache } from "@/lib/cache/ttl-cache";
 import { ADMIN_CACHE_TTL_MS } from "@/lib/config";
 import type { Database } from "@/lib/db";
 import { driverErrorMessage, isUndefinedFunction } from "@/lib/db/pg-errors";
+import { sectionAlertsEnded } from "@/lib/db/queries";
 import { classStates, classWatches, notificationsSent, userProfiles } from "@/lib/db/schema";
 import { log } from "@/lib/log";
+import type { ClassStateRow } from "@/lib/types/class-watch";
 import type { NotificationType } from "@/lib/types/notification";
 
 const adminCache = new TtlCache<unknown>(ADMIN_CACHE_TTL_MS, 100);
@@ -197,7 +199,7 @@ export interface UserWithWatchCount {
 }
 
 interface WatchWithClass extends ClassWatch {
-  class_state: ClassState | null;
+  class_state: ClassStateRow | null;
 }
 
 type UsersPageRpcRow = {
@@ -456,7 +458,7 @@ export async function getRecentActivity(
 export async function getUserWatches(db: Database, userId: string): Promise<WatchWithClass[]> {
   try {
     const rows = await db
-      .select({ watch: classWatches, class_state: classStates })
+      .select({ watch: classWatches, class_state: classStates, alerts_ended: sectionAlertsEnded })
       .from(classWatches)
       .leftJoin(
         classStates,
@@ -474,11 +476,12 @@ export async function getUserWatches(db: Database, userId: string): Promise<Watc
       return [];
     }
 
-    const watchesWithClass: WatchWithClass[] = rows.map(({ watch, class_state }) => ({
+    const watchesWithClass: WatchWithClass[] = rows.map(({ watch, class_state, alerts_ended }) => ({
       ...watch,
       created_at: toIsoTimestamp(watch.created_at),
       class_state: class_state && {
         ...class_state,
+        alerts_ended,
         last_checked_at: toIsoTimestamp(class_state.last_checked_at),
         last_changed_at: toIsoTimestamp(class_state.last_changed_at),
       },

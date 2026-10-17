@@ -3,6 +3,7 @@ import { type NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { withAuth } from "@/lib/api/withAuth";
 import { getDbFromEnv } from "@/lib/db";
+import { sectionAlertsEnded } from "@/lib/db/queries";
 import { classStates, classWatches } from "@/lib/db/schema";
 
 export async function GET(request: NextRequest) {
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
             start_date: classStates.start_date,
             end_date: classStates.end_date,
             session_code: classStates.session_code,
+            alerts_ended: sectionAlertsEnded,
           })
           .from(classStates)
           .where(

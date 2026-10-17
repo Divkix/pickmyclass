@@ -126,6 +126,30 @@ export async function getSectionsToCheck(
   }
 }
 
+/** Select expression: has this class_states row's alert cutoff passed? False for unknown dates. */
+export const sectionAlertsEnded = sql<boolean>`public.section_alerts_ended(${classStates.start_date}, ${classStates.end_date})`;
+
+const alertsEndedSchema = z.object({ ended: z.boolean() });
+
+/** Whether a fresh ASU observation is already past its alert cutoff. */
+export async function readSectionAlertsEnded(
+  db: Database,
+  details: ClassDetails,
+): Promise<boolean> {
+  // Unknown dates never end alerts, so skip the round trip.
+  if (!details.start_date || !details.end_date) return false;
+
+  try {
+    const { rows } = await db.execute<{ ended: unknown }>(
+      sql`SELECT public.section_alerts_ended(${details.start_date}::date, ${details.end_date}::date) AS ended`,
+    );
+
+    return alertsEndedSchema.parse(rows[0]).ended;
+  } catch (error) {
+    throw new Error(`Failed to read section alert cutoff: ${driverErrorMessage(error)}`);
+  }
+}
+
 export async function getMostWatchedClass(db: Database, term: string): Promise<SectionRef | null> {
   try {
     const { rows } = await db.execute<{ class_nbr: string; term: string }>(
