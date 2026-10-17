@@ -41,6 +41,10 @@ const stateRow: ClassStateRow = {
   last_checked_at: "2026-08-01T00:00:00Z",
   last_changed_at: "2026-08-01T00:00:00Z",
   consecutive_not_found_count: 0,
+  start_date: null,
+  end_date: null,
+  session_code: null,
+  alerts_ended: false,
 };
 
 interface StatesResponse {

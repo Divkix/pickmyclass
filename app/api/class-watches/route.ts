@@ -8,7 +8,11 @@ import { parseOrFail } from "@/lib/api/validation";
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from "@/lib/asu/api";
 import { getDbFromEnv } from "@/lib/db";
 import { getPgError, isUniqueViolation, PG_RAISE_EXCEPTION } from "@/lib/db/pg-errors";
-import { insertClassStateIfMissing } from "@/lib/db/queries";
+import {
+  insertClassStateIfMissing,
+  readSectionAlertsEnded,
+  sectionAlertsEnded,
+} from "@/lib/db/queries";
 import { classStates, classWatches } from "@/lib/db/schema";
 import { log } from "@/lib/log";
 import type { AnalyticsEventMap } from "@/lib/analytics/events";
@@ -67,6 +71,10 @@ export async function GET(request: NextRequest) {
                   last_checked_at: classStates.last_checked_at,
                   last_changed_at: classStates.last_changed_at,
                   consecutive_not_found_count: classStates.consecutive_not_found_count,
+                  start_date: classStates.start_date,
+                  end_date: classStates.end_date,
+                  session_code: classStates.session_code,
+                  alerts_ended: sectionAlertsEnded,
                 })
                 .from(classStates)
                 .where(
@@ -158,6 +166,13 @@ export async function POST(request: NextRequest) {
         }
 
         const db = getDbFromEnv();
+
+        if (await readSectionAlertsEnded(db, classDetails)) {
+          return fail(
+            "This section's add deadline has passed, so seat alerts have ended for it.",
+            409,
+          );
+        }
 
         let watchDataRaw: ClassWatchRow | null = null;
 

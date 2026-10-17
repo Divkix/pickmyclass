@@ -78,6 +78,9 @@ const asuDetails: ClassDetails = {
   non_reserved_seats: null,
   location: "COOR 120",
   meeting_times: "MWF 9:00 AM-9:50 AM",
+  start_date: null,
+  end_date: null,
+  session_code: null,
 };
 
 const watchRow = {
@@ -107,6 +110,10 @@ const stateRow: ClassStateRow = {
   last_checked_at: "2026-06-15T12:00:00Z",
   last_changed_at: "2026-06-15T11:00:00Z",
   consecutive_not_found_count: 0,
+  start_date: null,
+  end_date: null,
+  session_code: null,
+  alerts_ended: false,
 };
 
 const completedProfile = {
@@ -248,6 +255,7 @@ describe("/api/class-watches", () => {
         '"class_watches"."class_nbr" = "class_states"."class_nbr"',
       );
       expect(statesQuery?.sql).toContain('"class_watches"."term" = "class_states"."term"');
+      expect(statesQuery?.sql).toContain('public.section_alerts_ended("start_date", "end_date")');
       expect(statesQuery?.sql).not.toContain('"class_states"."term" in');
       expect(statesQuery?.params).toEqual(["12345", USER_ID]);
     });
@@ -330,6 +338,40 @@ describe("/api/class-watches", () => {
         class_nbr: "12345",
         $session_id: "c56a4180-65aa-42ec-a945-5fd21dec0538",
       });
+    });
+
+    it("rejects a section past its add-deadline cutoff before creating the watch", async () => {
+      mockFetchClassFromASU.mockResolvedValueOnce({
+        ...asuDetails,
+        start_date: "2026-01-12",
+        end_date: "2026-05-01",
+      });
+      h.next([{ ended: true }]);
+
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const data = await json<MutationResponse>(response);
+
+      expect(response.status).toBe(409);
+      expect(data.error).toContain("add deadline has passed");
+      expect(h.statements).toHaveLength(1);
+      expect(h.statements[0].sql).toContain("public.section_alerts_ended(");
+      expect(h.statements[0].params).toEqual(["2026-01-12", "2026-05-01"]);
+      expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+    });
+
+    it("creates the watch while a dated section is still before its cutoff", async () => {
+      mockFetchClassFromASU.mockResolvedValueOnce({
+        ...asuDetails,
+        start_date: "2099-01-12",
+        end_date: "2099-05-01",
+      });
+      h.next([{ ended: false }]);
+      h.next([{ ...watchRow, user_id: USER_ID }]);
+
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+
+      expect(response.status).toBe(201);
+      expect(h.statements[1].sql).toContain("create_class_watch_with_limit");
     });
 
     it("maps an ASU not-found miss to 404 without touching the database", async () => {

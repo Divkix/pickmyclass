@@ -131,6 +131,8 @@ const U_ADMIN = uid("admin");
 
 const U_CRUD = uid("crud");
 
+const U_CUTOFF = uid("cutoff");
+
 let W_A_MAIN: string;
 
 let W_A_BOUNCED: string;
@@ -202,6 +204,9 @@ beforeAll(async () => {
     non_reserved_seats: seatsAvailable > 0 ? seatsAvailable : null,
     location: "TEMPE",
     meeting_times: "MW 10:00-11:15",
+    start_date: null,
+    end_date: null,
+    session_code: null,
   });
 
   await upsertClassState(db, REF_A, stateDetails(7), new Date());
@@ -580,6 +585,7 @@ describe("Drizzle builder CRUD row shapes", () => {
         "class_nbr",
         "consecutive_not_found_count",
         "catalog_nbr",
+        "end_date",
         "id",
         "instructor_name",
         "last_changed_at",
@@ -589,6 +595,8 @@ describe("Drizzle builder CRUD row shapes", () => {
         "non_reserved_seats",
         "seats_available",
         "seats_capacity",
+        "session_code",
+        "start_date",
         "subject",
         "term",
         "title",
@@ -618,6 +626,9 @@ describe("upsertClassState / section-check pipeline ops", () => {
         non_reserved_seats: 9,
         location: "TEMPE",
         meeting_times: "MW 10:00-11:15",
+        start_date: null,
+        end_date: null,
+        session_code: null,
       },
       new Date(),
     );
@@ -666,6 +677,9 @@ describe("upsertClassState / section-check pipeline ops", () => {
       non_reserved_seats: 9,
       location: "TEMPE",
       meeting_times: "MW 10:00-11:15",
+      start_date: null,
+      end_date: null,
+      session_code: null,
     };
 
     await insertClassStateIfMissing(db, REF_SEED, pipelineSnapshot);
@@ -700,6 +714,9 @@ describe("upsertClassState / section-check pipeline ops", () => {
       non_reserved_seats: overrides.non_reserved_seats ?? 9,
       location: "TEMPE",
       meeting_times: "MW 10:00-11:15",
+      start_date: null,
+      end_date: null,
+      session_code: null,
     });
 
     const selectStamps = async () => {
@@ -1371,7 +1388,11 @@ describe("durable Section Check notifications", () => {
     await db
       .insert(classWatches)
       .values({ ...ref, user_id: U_MAIN, subject: SUBJECT, catalog_nbr: "110" });
-    expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toBe(true);
+    expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toEqual({
+      applied: true,
+      intentCreated: true,
+    });
+    expect((await readSectionCheckState(db, ref))?.has_pending_intent).toBe(true);
 
     return ref;
   }
@@ -1519,7 +1540,7 @@ describe("durable Section Check notifications", () => {
         await expect(deliverPendingNotifications(db, ref, env)).rejects.toThrow(
           "already in progress",
         );
-        expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toBe(false);
+        expect((await recordSectionCheck(db, ref, queueDetails, new Date())).applied).toBe(false);
       } finally {
         finish.resolve({ messageId: "delivered" });
       }
@@ -1533,7 +1554,9 @@ describe("durable Section Check notifications", () => {
 
   it("commits state and intent in the same transaction and guards first observations", async () => {
     const ref = { class_nbr: `${RUN}-pending-atomic`, term: TERM };
-    expect(await recordSectionCheck(db, ref, queueDetails, new Date(Date.now() - 2000))).toBe(true);
+    expect(
+      (await recordSectionCheck(db, ref, queueDetails, new Date(Date.now() - 2000))).applied,
+    ).toBe(true);
     expect(
       await db
         .select()
@@ -1580,19 +1603,161 @@ describe("durable Section Check notifications", () => {
     await tryRecordNotificationsBatch(db, [watch.id], "seat_available");
     await tryRecordNotificationsBatch(db, [watch.id], "instructor_assigned");
     const closed = { ...queueDetails, seats_available: 0, non_reserved_seats: 0 };
-    expect(await recordSectionCheck(db, ref, closed, new Date(Date.now() - 5000))).toBe(false);
+    expect((await recordSectionCheck(db, ref, closed, new Date(Date.now() - 5000))).applied).toBe(
+      false,
+    );
     expect(
       await db
         .select()
         .from(notificationsSent)
         .where(eq(notificationsSent.class_watch_id, watch.id)),
     ).toHaveLength(2);
-    expect(await recordSectionCheck(db, ref, closed, new Date())).toBe(true);
+    expect(await recordSectionCheck(db, ref, closed, new Date())).toEqual({
+      applied: true,
+      intentCreated: false,
+    });
+    expect((await readSectionCheckState(db, ref))?.has_pending_intent).toBe(false);
     expect(
       await db
         .select()
         .from(notificationsSent)
         .where(eq(notificationsSent.class_watch_id, watch.id)),
     ).toHaveLength(0);
+  });
+
+  it("keeps the legacy record_section_check boolean for Workers deployed before 0010", async () => {
+    const ref = { class_nbr: `${RUN}-legacy`, term: TERM };
+
+    const record = async (observedAt: Date) =>
+      (
+        await db.execute<{ applied: boolean }>(sql`SELECT public.record_section_check(
+          ${ref.class_nbr}::text, ${ref.term}::text, ${JSON.stringify(queueDetails)}::jsonb,
+          ${observedAt.toISOString()}::timestamptz) AS applied`)
+      ).rows[0]?.applied;
+
+    expect(await record(new Date())).toBe(true);
+    expect(await record(new Date(Date.now() - 60_000))).toBe(false);
+  });
+
+  it("stores ASU session dates with each accepted observation", async () => {
+    const ref = { class_nbr: `${RUN}-dates`, term: TERM };
+
+    const dated = {
+      ...queueDetails,
+      start_date: "2026-08-20",
+      end_date: "2026-12-04",
+      session_code: "C",
+    };
+
+    const readDates = async () =>
+      (
+        await db
+          .select({
+            start_date: classStates.start_date,
+            end_date: classStates.end_date,
+            session_code: classStates.session_code,
+          })
+          .from(classStates)
+          .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))
+      )[0];
+
+    await insertClassStateIfMissing(db, ref, dated);
+    expect(await readDates()).toEqual({
+      start_date: "2026-08-20",
+      end_date: "2026-12-04",
+      session_code: "C",
+    });
+    expect(
+      (await recordSectionCheck(db, ref, { ...dated, end_date: "2026-10-09" }, new Date())).applied,
+    ).toBe(true);
+    expect((await readDates())?.end_date).toBe("2026-10-09");
+    expect((await recordSectionCheck(db, ref, queueDetails, new Date())).applied).toBe(true);
+    expect(await readDates()).toEqual({ start_date: null, end_date: null, session_code: null });
+  });
+});
+
+describe("section alert cutoff", () => {
+  const cutoff = async (start: string | null, end: string | null) => {
+    const { rows } = await db.execute<{ cutoff: string | null }>(
+      sql`SELECT public.section_alert_cutoff(${start}::date, ${end}::date)::text AS cutoff`,
+    );
+
+    return rows[0]?.cutoff;
+  };
+
+  const ended = async (start: string | null, end: string | null, now: string) => {
+    const { rows } = await db.execute<{ ended: boolean }>(
+      sql`SELECT public.section_alerts_ended(${start}::date, ${end}::date, ${now}::timestamptz) AS ended`,
+    );
+
+    return rows[0]?.ended;
+  };
+
+  it.each([
+    ["full semester: add deadline (start + 6) + 14", "2026-08-20", "2026-12-04", "2026-09-09"],
+    ["7.5-week session: add deadline (start + 1) + 14", "2026-08-20", "2026-10-09", "2026-09-04"],
+    ["exactly 70 days is still a short session", "2026-08-20", "2026-10-29", "2026-09-04"],
+    ["71 days is a full session", "2026-08-20", "2026-10-30", "2026-09-09"],
+    ["capped at the class end date", "2026-08-20", "2026-08-28", "2026-08-28"],
+    ["unknown start date", null, "2026-12-04", null],
+    ["unknown end date", "2026-08-20", null, null],
+  ])("computes the cutoff: %s", async (_label, start, end, expected) => {
+    expect(await cutoff(start, end)).toBe(expected);
+  });
+
+  it("ends alerts after the cutoff day in America/Phoenix, not UTC", async () => {
+    // Cutoff 2026-09-09; Phoenix is UTC-7 year-round.
+    expect(await ended("2026-08-20", "2026-12-04", "2026-09-10T06:59:59Z")).toBe(false);
+    expect(await ended("2026-08-20", "2026-12-04", "2026-09-10T07:00:00Z")).toBe(true);
+  });
+
+  it("never ends alerts for sections with unknown dates", async () => {
+    expect(await ended(null, "2020-12-04", "2026-10-17T12:00:00Z")).toBe(false);
+    expect(await ended("2020-08-20", null, "2026-10-17T12:00:00Z")).toBe(false);
+  });
+
+  it("stops checking sections once their add-deadline cutoff has passed", async () => {
+    const term = `${RUN}-t4`;
+
+    const dated = (start_date: string | null, end_date: string | null) => ({
+      ...queueDetails,
+      start_date,
+      end_date,
+    });
+
+    const sections = {
+      ended: { ref: { class_nbr: `${RUN}10`, term }, details: dated("2020-08-20", "2020-12-04") },
+      live: { ref: { class_nbr: `${RUN}12`, term }, details: dated("2099-08-20", "2099-12-04") },
+      unknown: { ref: { class_nbr: `${RUN}14`, term }, details: dated(null, "2020-12-04") },
+    };
+
+    await db
+      .insert(users)
+      .values({ id: U_CUTOFF, clerk_user_id: `clerk_${U_CUTOFF}`, email: mail("cutoff") });
+
+    for (const { ref, details } of Object.values(sections)) {
+      await insertClassStateIfMissing(db, ref, details);
+      await db
+        .insert(classWatches)
+        .values({ ...ref, user_id: U_CUTOFF, subject: SUBJECT, catalog_nbr: "110" });
+    }
+
+    const checked = (await getSectionsToCheck(db, "all")).flatMap((r) =>
+      r.term === term ? [r.class_nbr] : [],
+    );
+
+    expect(checked.sort()).toEqual(
+      [sections.live.ref.class_nbr, sections.unknown.ref.class_nbr].sort(),
+    );
+
+    const ended = Object.fromEntries(
+      (await getUserWatches(db, U_CUTOFF)).map((w) => [w.class_nbr, w.class_state?.alerts_ended]),
+    );
+
+    expect(ended).toEqual({
+      [sections.ended.ref.class_nbr]: true,
+      [sections.live.ref.class_nbr]: false,
+      [sections.unknown.ref.class_nbr]: false,
+    });
   });
 });

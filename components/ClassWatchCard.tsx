@@ -178,11 +178,22 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
                     Section {watch.class_nbr} • Term {watch.term}
                   </p>
                   <div className="flex items-center gap-1.5 mt-2">
-                    <span className="relative flex size-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-asu-gold opacity-75" />
-                      <span className="relative inline-flex rounded-full size-2 bg-asu-gold" />
-                    </span>
-                    <span className="text-xs text-muted-foreground">Watching for changes</span>
+                    {classState?.alerts_ended ? (
+                      <>
+                        <span className="inline-flex rounded-full size-2 bg-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          Add deadline passed: alerts have ended
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="relative flex size-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-asu-gold opacity-75" />
+                          <span className="relative inline-flex rounded-full size-2 bg-asu-gold" />
+                        </span>
+                        <span className="text-xs text-muted-foreground">Watching for changes</span>
+                      </>
+                    )}
                   </div>
                   {classState?.location && (
                     <p className="text-sm text-muted-foreground">

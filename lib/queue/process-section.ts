@@ -14,6 +14,7 @@ import { type ChangeResult, detectChanges } from "@/lib/queue/change-detector";
 import {
   deliverPendingNotifications,
   NotificationLeaseBusy,
+  type RecordedSectionCheck,
   recordSectionCheck,
 } from "@/lib/queue/pending-notifications";
 import { type SectionRetirementOutcome, retireClassSection } from "@/lib/queue/section-retirement";
@@ -107,8 +108,15 @@ export async function processSection(
   const failure = (message: string) => failedResult(classNbr, Date.now() - startTime, message);
 
   try {
-    let emailsSent = await deliverPendingNotifications(db, ref, env);
-    const oldState = await readSectionCheckState(db, ref);
+    let oldState = await readSectionCheckState(db, ref);
+    let emailsSent = 0;
+
+    // Resume pending intent before the cycle guard. Expired intents are flagged
+    // too, and delivery clears them. Re-read so the guard sees post-delivery state.
+    if (oldState?.has_pending_intent) {
+      emailsSent = await deliverPendingNotifications(db, ref, env);
+      oldState = await readSectionCheckState(db, ref);
+    }
 
     if (cycle && oldState?.last_checked_at && oldState.last_checked_at >= cycle) {
       log("ProcessSection").info(
@@ -133,16 +141,16 @@ export async function processSection(
       changes.instructorAssigned = false;
     }
 
-    let applied: boolean;
+    let recorded: RecordedSectionCheck;
 
     try {
-      applied = await recordSectionCheck(db, ref, newData, observedAt);
+      recorded = await recordSectionCheck(db, ref, newData, observedAt);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new SectionStateWriteFailed(message, changes, emailsSent);
     }
 
-    if (!applied) {
+    if (!recorded.applied) {
       log("ProcessSection").info(
         `Skipping ${classNbr}: a newer observation or pending notification is already stored`,
       );
@@ -156,7 +164,7 @@ export async function processSection(
       });
     }
 
-    emailsSent += await deliverPendingNotifications(db, ref, env);
+    if (recorded.intentCreated) emailsSent += await deliverPendingNotifications(db, ref, env);
     const duration = Date.now() - startTime;
     log("ProcessSection").info(`✅ Completed ${classNbr} in ${duration}ms`);
 

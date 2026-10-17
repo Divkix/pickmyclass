@@ -16,7 +16,7 @@ const ref = { class_nbr: "98765", term: "2267" };
 
 const env = { ASU_API_BASE_URL: "https://asu.test/api/", ASU_API_TOKEN: " token " };
 
-function body(classNbr = ref.class_nbr) {
+function body(classNbr = ref.class_nbr, extra: Record<string, string | number | null> = {}) {
   return {
     hits: {
       total: { value: 1 },
@@ -35,6 +35,7 @@ function body(classNbr = ref.class_nbr) {
             WED: "Y",
             STARTTIME: "13:15",
             ENDTIME: "14:30",
+            ...extra,
           },
         },
       ],
@@ -66,6 +67,9 @@ describe("ASU Promise compatibility", () => {
       non_reserved_seats: 3,
       instructor_name: "Professor",
       meeting_times: "MW 1:15 PM-2:30 PM",
+      start_date: null,
+      end_date: null,
+      session_code: null,
     });
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("classNbr=98765&term=2267"),
@@ -74,6 +78,39 @@ describe("ASU Promise compatibility", () => {
         signal: expect.any(AbortSignal),
       }),
     );
+  });
+
+  it("maps ASU session dates and code when present", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          body(ref.class_nbr, {
+            SESSIONCODE: " C ",
+            STARTDATE: "2026-08-20 00:00:00.0",
+            ENDDATE: "2026-12-04 00:00:00.0",
+          }),
+        ),
+      ),
+    );
+    expect(await fetchClassFromASU(ref, env, { useCache: false })).toMatchObject({
+      start_date: "2026-08-20",
+      end_date: "2026-12-04",
+      session_code: "C",
+    });
+  });
+
+  it.each([
+    { SESSIONCODE: "", STARTDATE: "2026-02-30 00:00:00.0", ENDDATE: "12/04/2026" },
+    { SESSIONCODE: 7, STARTDATE: 1787184000000, ENDDATE: null },
+  ])("reads unusable session fields as unknown instead of failing the check", async (extra) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(body(ref.class_nbr, extra))));
+    expect(await fetchClassFromASU(ref, env, { useCache: false })).toMatchObject({
+      seats_available: 5,
+      start_date: null,
+      end_date: null,
+      session_code: null,
+    });
   });
 
   it.each([401, 403, 429, 500])("preserves legacy error classes for HTTP %s", async (status) => {

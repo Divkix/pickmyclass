@@ -13,6 +13,9 @@ export const details: ClassDetails = {
   non_reserved_seats: 2,
   location: "BYAC",
   meeting_times: "TBD",
+  start_date: null,
+  end_date: null,
+  session_code: null,
 };
 
 export function state(seats = 0, instructor = "Staff") {
@@ -24,6 +27,7 @@ export function state(seats = 0, instructor = "Staff") {
     instructor_name: instructor,
     consecutive_not_found_count: 0,
     last_checked_at: "2026-10-15T11:00:00.000Z",
+    has_pending_intent: false,
   };
 }
 

@@ -17,18 +17,25 @@ export class NotificationLeaseBusy extends Error {
   }
 }
 
+const recordedSchema = z
+  .object({ applied: z.boolean(), intent_created: z.boolean() })
+  .transform((row) => ({ applied: row.applied, intentCreated: row.intent_created }));
+
+export type RecordedSectionCheck = z.infer<typeof recordedSchema>;
+
+/** `intentCreated`: this observation saved a pending intent that still needs delivery. */
 export async function recordSectionCheck(
   db: Database,
   ref: SectionRef,
   details: ClassDetails,
   observedAt: Date,
-): Promise<boolean> {
+): Promise<RecordedSectionCheck> {
   try {
-    const { rows } = await db.execute(sql`SELECT public.record_section_check(
-    ${ref.class_nbr}::text, ${ref.term}::text, ${JSON.stringify(details)}::jsonb,
-    ${observedAt.toISOString()}::timestamptz) AS applied`);
+    const { rows } = await db.execute(sql`SELECT applied, intent_created
+    FROM public.record_section_observation(${ref.class_nbr}::text, ${ref.term}::text,
+    ${JSON.stringify(details)}::jsonb, ${observedAt.toISOString()}::timestamptz)`);
 
-    return z.object({ applied: z.boolean() }).parse(rows[0]).applied;
+    return recordedSchema.parse(rows[0]);
   } catch (error) {
     throw new Error(`Failed to record section check: ${driverErrorMessage(error)}`);
   }

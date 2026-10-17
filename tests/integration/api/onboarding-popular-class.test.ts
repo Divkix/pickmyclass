@@ -62,6 +62,9 @@ const classDetails: ClassDetails = {
   non_reserved_seats: 3,
   location: "COOR 120",
   meeting_times: "MWF 9:00 AM-9:50 AM",
+  start_date: null,
+  end_date: null,
+  session_code: null,
 };
 
 const popularClassBody = z.object({

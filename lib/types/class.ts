@@ -23,4 +23,8 @@ export interface ClassDetails {
   non_reserved_seats: number | null;
   location: string;
   meeting_times: string;
+  /** ASU class dates as YYYY-MM-DD (America/Phoenix); null when ASU omits them. */
+  start_date: string | null;
+  end_date: string | null;
+  session_code: string | null;
 }

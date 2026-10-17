@@ -77,6 +77,9 @@ const classDetails: ClassDetails = {
   non_reserved_seats: null,
   location: "COOR 120",
   meeting_times: "MWF 9:00-9:50 AM",
+  start_date: null,
+  end_date: null,
+  session_code: null,
 };
 
 const createdWatch: ClassWatchRow = {
@@ -118,6 +121,10 @@ const matchingClassState: ClassStateRow = {
   last_checked_at: "2026-01-02T00:00:00Z",
   last_changed_at: "2026-01-02T00:00:00Z",
   consecutive_not_found_count: 0,
+  start_date: null,
+  end_date: null,
+  session_code: null,
+  alerts_ended: false,
 };
 
 interface GetBody {

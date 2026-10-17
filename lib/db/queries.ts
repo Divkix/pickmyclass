@@ -126,6 +126,30 @@ export async function getSectionsToCheck(
   }
 }
 
+/** Select expression: has this class_states row's alert cutoff passed? False for unknown dates. */
+export const sectionAlertsEnded = sql<boolean>`public.section_alerts_ended(${classStates.start_date}, ${classStates.end_date})`;
+
+const alertsEndedSchema = z.object({ ended: z.boolean() });
+
+/** Whether a fresh ASU observation is already past its alert cutoff. */
+export async function readSectionAlertsEnded(
+  db: Database,
+  details: ClassDetails,
+): Promise<boolean> {
+  // Unknown dates never end alerts, so skip the round trip.
+  if (!details.start_date || !details.end_date) return false;
+
+  try {
+    const { rows } = await db.execute<{ ended: unknown }>(
+      sql`SELECT public.section_alerts_ended(${details.start_date}::date, ${details.end_date}::date) AS ended`,
+    );
+
+    return alertsEndedSchema.parse(rows[0]).ended;
+  } catch (error) {
+    throw new Error(`Failed to read section alert cutoff: ${driverErrorMessage(error)}`);
+  }
+}
+
 export async function getMostWatchedClass(db: Database, term: string): Promise<SectionRef | null> {
   try {
     const { rows } = await db.execute<{ class_nbr: string; term: string }>(
@@ -342,6 +366,9 @@ export async function insertClassStateIfMissing(
         non_reserved_seats: details.non_reserved_seats ?? null,
         location: details.location || null,
         meeting_times: details.meeting_times || null,
+        start_date: details.start_date,
+        end_date: details.end_date,
+        session_code: details.session_code,
         last_checked_at: new Date().toISOString(),
         consecutive_not_found_count: 0,
       })
@@ -496,6 +523,8 @@ export type SectionCheckState = {
   consecutive_not_found_count: number;
   /** ISO-8601 UTC, or undefined when the driver returns no timestamp. */
   last_checked_at?: string;
+  /** A pending notification intent (live or expired) exists for this SectionRef. */
+  has_pending_intent: boolean;
 };
 
 export async function readSectionCheckState(
@@ -512,6 +541,9 @@ export async function readSectionCheckState(
         instructor_name: classStates.instructor_name,
         consecutive_not_found_count: classStates.consecutive_not_found_count,
         last_checked_at: classStates.last_checked_at,
+        // Intents reference class_states, so no row also means no intent.
+        has_pending_intent: sql<boolean>`EXISTS (SELECT 1 FROM public.pending_section_notifications
+          WHERE class_nbr = ${ref.class_nbr} AND term = ${ref.term})`,
       })
       .from(classStates)
       .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))
