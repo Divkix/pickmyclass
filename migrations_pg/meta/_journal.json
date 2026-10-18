@@ -78,6 +78,13 @@
       "when": 1792279406366,
       "tag": "0010_record_section_observation",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792281872485,
+      "tag": "0011_drop_record_section_check",
+      "breakpoints": true
     }
   ]
 }
