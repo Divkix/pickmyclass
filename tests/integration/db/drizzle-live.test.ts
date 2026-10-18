@@ -1572,7 +1572,7 @@ describe("durable Section Check notifications", () => {
     await expect(
       db.transaction(async (tx) => {
         await tx.execute(
-          sql`SELECT public.record_section_check(${ref.class_nbr}, ${ref.term}, ${JSON.stringify(queueDetails)}::jsonb, now())`,
+          sql`SELECT * FROM public.record_section_observation(${ref.class_nbr}, ${ref.term}, ${JSON.stringify(queueDetails)}::jsonb, now())`,
         );
         throw new Error("rollback probe");
       }),
@@ -1623,20 +1623,6 @@ describe("durable Section Check notifications", () => {
         .from(notificationsSent)
         .where(eq(notificationsSent.class_watch_id, watch.id)),
     ).toHaveLength(0);
-  });
-
-  it("keeps the legacy record_section_check boolean for Workers deployed before 0010", async () => {
-    const ref = { class_nbr: `${RUN}-legacy`, term: TERM };
-
-    const record = async (observedAt: Date) =>
-      (
-        await db.execute<{ applied: boolean }>(sql`SELECT public.record_section_check(
-          ${ref.class_nbr}::text, ${ref.term}::text, ${JSON.stringify(queueDetails)}::jsonb,
-          ${observedAt.toISOString()}::timestamptz) AS applied`)
-      ).rows[0]?.applied;
-
-    expect(await record(new Date())).toBe(true);
-    expect(await record(new Date(Date.now() - 60_000))).toBe(false);
   });
 
   it("stores ASU session dates with each accepted observation", async () => {
