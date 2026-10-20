@@ -90,19 +90,23 @@ export async function sendSectionNotifications(
       }
     }
 
+    const deliveredIds: string[] = [];
+
     const results = await sendBatchEmailsOptimized(emails, emailBinding, {
       fromEmail,
       onSending: (index) => {
         emails[index].claim.status = "in-flight";
       },
-      onResult: async (index, result) => {
+      onResult: (index, result) => {
         const claim = emails[index].claim;
         claim.status = result.success ? "delivered" : "failed";
 
-        if (result.success && delivery)
-          await confirmNotificationDelivery(db, [claim.notificationId], delivery);
+        if (result.success) deliveredIds.push(claim.notificationId);
       },
     });
+
+    // One round trip for the whole section instead of one per recipient.
+    if (delivery) await confirmNotificationDelivery(db, deliveredIds, delivery);
 
     const sent = results.map((result, index): SentNotification => ({
       success: result.success,

@@ -122,6 +122,8 @@ export async function deliverPendingNotifications(
 
   if (!owned) return 0;
 
+  let deleted = false;
+
   try {
     const results = await sendSectionNotifications({
       db,
@@ -135,17 +137,21 @@ export async function deliverPendingNotifications(
 
     if (results.some((r) => !r.success)) throw new Error("Notification delivery incomplete");
     await db.delete(pendingSectionNotifications).where(ownsNotification(ref, owned));
+    deleted = true;
 
     return results.length;
   } finally {
-    // A failed release must not mask the delivery error; the lease expires on its own.
-    try {
-      await db
-        .update(pendingSectionNotifications)
-        .set({ lease_id: null, leased_until: null })
-        .where(ownsNotification(ref, owned));
-    } catch (error) {
-      log("PendingNotifications").warn("Failed to release notification lease:", error);
+    // Deleting the row already released the lease; only a failed delete needs
+    // the update. A failed release must not mask the delivery error.
+    if (!deleted) {
+      try {
+        await db
+          .update(pendingSectionNotifications)
+          .set({ lease_id: null, leased_until: null })
+          .where(ownsNotification(ref, owned));
+      } catch (error) {
+        log("PendingNotifications").warn("Failed to release notification lease:", error);
+      }
     }
   }
 }

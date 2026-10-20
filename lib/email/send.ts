@@ -24,7 +24,7 @@ interface EmailResult {
 interface SendBatchEmailOptions {
   fromEmail?: string;
   onSending?: (index: number) => void;
-  onResult?: (index: number, result: EmailResult) => Promise<void>;
+  onResult?: (index: number, result: EmailResult) => void | Promise<void>;
 }
 
 export interface OutboundEmail {
