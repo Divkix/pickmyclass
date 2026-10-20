@@ -35,7 +35,7 @@ function classSort(value: string): ClassSortField {
 export default async function AdminClassesPage({ searchParams }: { searchParams?: SearchParams }) {
   const db = getDbFromEnv();
 
-  await verifyAdmin(db);
+  await verifyAdmin();
 
   const sp = (await searchParams) ?? {};
 

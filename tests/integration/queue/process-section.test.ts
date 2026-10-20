@@ -52,7 +52,6 @@ describe("processSection", () => {
     pg.next([claim]);
     pg.next();
     pg.next();
-    pg.next();
     pg.next([{ ...state(2), last_checked_at: ref.cycle }]);
     expect(await processSection(pg.db, ref, env, { fetchClass })).toMatchObject({
       disposition: "ack",

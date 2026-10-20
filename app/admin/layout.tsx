@@ -6,7 +6,6 @@ import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { verifyAdmin } from "@/lib/auth/admin";
-import { getDbFromEnv } from "@/lib/db";
 import { AdminNavigation } from "./AdminNavigation";
 
 export const metadata: Metadata = {
@@ -18,9 +17,7 @@ interface AdminLayoutProps {
 }
 
 export default async function AdminLayout({ children }: AdminLayoutProps) {
-  const db = getDbFromEnv();
-
-  const adminUser = await verifyAdmin(db);
+  const adminUser = await verifyAdmin();
   const userEmail = adminUser.email || "Admin";
 
   return (

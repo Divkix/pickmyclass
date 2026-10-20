@@ -44,7 +44,15 @@ export async function GET(request: Request) {
             .select({
               ...getTableColumns(classWatches),
               class_state: sql<ExportClassState | null>`(
-                SELECT row_to_json(cs.*)::jsonb
+                SELECT jsonb_build_object(
+                  'title', cs.title,
+                  'instructor_name', cs.instructor_name,
+                  'seats_available', cs.seats_available,
+                  'seats_capacity', cs.seats_capacity,
+                  'location', cs.location,
+                  'meeting_times', cs.meeting_times,
+                  'last_checked_at', cs.last_checked_at
+                )
                 FROM class_states cs
                 WHERE cs.class_nbr = ${classWatches.class_nbr} AND cs.term = ${classWatches.term}
                 LIMIT 1
@@ -62,7 +70,12 @@ export async function GET(request: Request) {
               expires_at: notificationsSent.expires_at,
               is_active: notificationsSent.is_active,
               class_watch: sql<ExportWatchStub | null>`(
-                SELECT row_to_json(cw2.*)::jsonb
+                SELECT jsonb_build_object(
+                  'term', cw2.term,
+                  'subject', cw2.subject,
+                  'catalog_nbr', cw2.catalog_nbr,
+                  'class_nbr', cw2.class_nbr
+                )
                 FROM class_watches cw2
                 WHERE cw2.id = ${notificationsSent.class_watch_id}
                 LIMIT 1

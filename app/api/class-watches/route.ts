@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { and, desc, eq, exists, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { type NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { withAuth } from "@/lib/api/withAuth";
@@ -7,19 +7,20 @@ import { createClassWatchSchema, deleteClassWatchSchema } from "@/lib/api/schema
 import { parseOrFail } from "@/lib/api/validation";
 import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from "@/lib/asu/api";
 import { getDbFromEnv } from "@/lib/db";
-import { getPgError, isUniqueViolation, PG_RAISE_EXCEPTION } from "@/lib/db/pg-errors";
+import { getPgError, isRaisedException, isUniqueViolation } from "@/lib/db/pg-errors";
 import {
+  getWatchedClassStates,
   insertClassStateIfMissing,
   readSectionAlertsEnded,
-  sectionAlertsEnded,
 } from "@/lib/db/queries";
-import { classStates, classWatches } from "@/lib/db/schema";
+import { classWatches } from "@/lib/db/schema";
 import { log } from "@/lib/log";
 import type { AnalyticsEventMap } from "@/lib/analytics/events";
 import { postHogSessionIdFromHeaders } from "@/lib/analytics/session-id";
 import { captureServerEvent } from "@/lib/analytics/server";
 import type { JsonValue } from "@/lib/api/wire";
 import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
+import { sectionRefKey } from "@/lib/section-ref";
 import { applyFirstWatchGuard, readOnboardingState, toOnboardingState } from "@/lib/onboarding";
 
 const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || "10", 10);
@@ -50,65 +51,16 @@ export async function GET(request: NextRequest) {
           }),
         ]);
 
-        const classNumbers = watches.map((w) => w.class_nbr);
+        const classNumbers = watches.map((watch) => watch.class_nbr);
+        const joinedStates = await getWatchedClassStates(db, user.userId, classNumbers);
 
-        const joinedStates: ClassStateRow[] =
-          classNumbers.length > 0
-            ? await db
-                .select({
-                  id: classStates.id,
-                  class_nbr: classStates.class_nbr,
-                  term: classStates.term,
-                  subject: classStates.subject,
-                  catalog_nbr: classStates.catalog_nbr,
-                  seats_available: classStates.seats_available,
-                  seats_capacity: classStates.seats_capacity,
-                  non_reserved_seats: classStates.non_reserved_seats,
-                  instructor_name: classStates.instructor_name,
-                  title: classStates.title,
-                  location: classStates.location,
-                  meeting_times: classStates.meeting_times,
-                  last_checked_at: classStates.last_checked_at,
-                  last_changed_at: classStates.last_changed_at,
-                  consecutive_not_found_count: classStates.consecutive_not_found_count,
-                  start_date: classStates.start_date,
-                  end_date: classStates.end_date,
-                  session_code: classStates.session_code,
-                  alerts_ended: sectionAlertsEnded,
-                })
-                .from(classStates)
-                .where(
-                  and(
-                    inArray(classStates.class_nbr, classNumbers),
-                    exists(
-                      db
-                        .select({ one: sql`1` })
-                        .from(classWatches)
-                        .where(
-                          and(
-                            eq(classWatches.user_id, user.userId),
-                            eq(classWatches.class_nbr, classStates.class_nbr),
-                            eq(classWatches.term, classStates.term),
-                          ),
-                        ),
-                    ),
-                  ),
-                )
-            : [];
-
-        const statesMap = joinedStates.reduce(
-          (acc, state) => {
-            acc[`${state.term}:${state.class_nbr}`] = state;
-
-            return acc;
-          },
-          // SAFETY: empty object is the initial typed accumulator for the keyed map
-          {} as Record<string, ClassStateRow>,
+        const statesMap: Record<string, ClassStateRow> = Object.fromEntries(
+          joinedStates.map((state) => [sectionRefKey(state), state]),
         );
 
         const watchesWithStates = watches.map((watch) => ({
           ...watch,
-          class_state: statesMap[`${watch.term}:${watch.class_nbr}`] || null,
+          class_state: statesMap[sectionRefKey(watch)] ?? null,
         }));
 
         return ok({
@@ -194,12 +146,9 @@ export async function POST(request: NextRequest) {
             return fail("You are already watching this class", 409);
           }
 
-          const pgError = getPgError(insertError);
-
           if (
-            pgError?.code === PG_RAISE_EXCEPTION &&
-            pgError.message !== undefined &&
-            pgError.message.includes("MAX_WATCHES_EXCEEDED")
+            isRaisedException(insertError) &&
+            getPgError(insertError)?.message?.includes("MAX_WATCHES_EXCEEDED")
           ) {
             return fail(
               `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,

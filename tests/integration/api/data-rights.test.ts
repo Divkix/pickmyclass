@@ -351,6 +351,9 @@ describe("user data rights APIs", () => {
     });
 
     it("soft-deletes authenticated accounts, invalidates cached auth state, and emits the analytics event", async () => {
+      // Mirror resolution, then the tombstone insert.
+      recorder.outcomes.push([{ id: "user-123" }]);
+
       const response = await DELETE(
         new Request("https://pickmyclass.app/api/user/delete", { method: "DELETE" }),
       );
@@ -362,9 +365,10 @@ describe("user data rights APIs", () => {
       expect(data.disabled_at).toEqual(expect.any(String));
       expect(data.permanent_deletion_date).toEqual(expect.any(String));
 
-      expect(recorder.statements).toHaveLength(1);
-      const statement = recorder.statements[0];
+      expect(recorder.statements).toHaveLength(2);
+      const statement = recorder.statements[1];
       expect(statement.sql).toContain('"user_profiles"');
+      expect(statement.sql).toContain("on conflict");
       expect(statement.params).toEqual(expect.arrayContaining(["user-123"]));
       expect(statement.params).toContain(false);
 

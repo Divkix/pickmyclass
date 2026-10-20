@@ -1,10 +1,11 @@
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { readAuthorizationState } from "@/lib/auth/authorization-state";
 import { getSessionIdentityFromHeaders } from "@/lib/auth/clerk-session";
-import type { Database } from "@/lib/db";
+import { getDbFromEnv } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 
 export interface AdminUser {
@@ -14,7 +15,9 @@ export interface AdminUser {
   sessionId: string | null;
 }
 
-export async function verifyAdmin(db: Database): Promise<AdminUser> {
+/** One guard execution per request render, shared by the admin layout and its page. */
+export const verifyAdmin = cache(async (): Promise<AdminUser> => {
+  const db = getDbFromEnv();
   const headerStore = await headers();
   const identity = await getSessionIdentityFromHeaders(headerStore);
 
@@ -44,4 +47,4 @@ export async function verifyAdmin(db: Database): Promise<AdminUser> {
     clerkUserId: identity.clerkUserId,
     sessionId: identity.sessionId,
   };
-}
+});

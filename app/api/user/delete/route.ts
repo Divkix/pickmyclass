@@ -1,5 +1,3 @@
-import { eq } from "drizzle-orm";
-
 import { invalidateAuthorizationState } from "@/lib/auth/authorization-state";
 import { revokeAllUserSessions } from "@/lib/auth/clerk-session";
 import { log } from "@/lib/log";
@@ -7,7 +5,7 @@ import { fail, ok } from "@/lib/api/response";
 import { withAuth } from "@/lib/api/withAuth";
 import { captureServerEvent } from "@/lib/analytics/server";
 import { getDbFromEnv } from "@/lib/db";
-import { userProfiles } from "@/lib/db/schema";
+import { softDeleteUserById } from "@/lib/db/users";
 
 export async function DELETE(request: Request) {
   try {
@@ -16,19 +14,8 @@ export async function DELETE(request: Request) {
         const deletionTimestamp = new Date().toISOString();
 
         try {
-          const db = getDbFromEnv();
-          await db
-            .update(userProfiles)
-            .set({
-              is_disabled: true,
-              disabled_at: deletionTimestamp,
-              notifications_enabled: false,
-              unsubscribed_at: deletionTimestamp,
-            })
-            .where(eq(userProfiles.user_id, user.userId));
-        } catch (updateError) {
-          log("User").error("Error disabling account:", updateError);
-
+          await softDeleteUserById(getDbFromEnv(), user.userId);
+        } catch {
           return fail("Failed to delete account", 500);
         }
 

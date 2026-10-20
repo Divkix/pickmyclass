@@ -116,8 +116,10 @@ function lookup<T extends object>(table: T, key: string): T[keyof T] | undefined
   return key in table ? table[key as keyof T] : undefined;
 }
 
+const ENTITY_PATTERN = /&(#[xX]?[0-9a-fA-F]+|[a-zA-Z]+);/g;
+
 function decodeEntities(text: string): string {
-  return text.replace(/&(#[xX]?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, entity: string) => {
+  return text.replace(ENTITY_PATTERN, (match, entity: string) => {
     if (entity.startsWith("#")) {
       const hex = entity[1] === "x" || entity[1] === "X";
       const code = Number.parseInt(hex ? entity.slice(2) : entity.slice(1), hex ? 16 : 10);
@@ -155,8 +157,16 @@ function tokenize(html: string): Token[] {
   return tokens;
 }
 
+const ATTRIBUTE_PATTERNS = new Map<string, RegExp>();
+
 function readAttribute(attrs: string, name: string): string {
-  const pattern = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, "i");
+  let pattern = ATTRIBUTE_PATTERNS.get(name);
+
+  if (!pattern) {
+    pattern = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, "i");
+    ATTRIBUTE_PATTERNS.set(name, pattern);
+  }
+
   const match = attrs.match(pattern);
   const value = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
 

@@ -32,7 +32,7 @@ interface AdminUserDetailPageProps {
 export default async function AdminUserDetailPage({ params }: AdminUserDetailPageProps) {
   const db = getDbFromEnv();
 
-  await verifyAdmin(db);
+  await verifyAdmin();
 
   const { userId } = await params;
 
