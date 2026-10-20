@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, ne, sql } from "drizzle-orm";
+import { and, count, eq, exists, gte, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import type { Database } from "@/lib/db";
@@ -7,6 +7,7 @@ import { classStates, classWatches } from "@/lib/db/schema";
 import { log } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
+import type { ClassStateRow } from "@/lib/types/class-watch";
 import type { NotificationType } from "@/lib/types/notification";
 import type { StaggerGroup } from "@/lib/types/stagger";
 
@@ -128,6 +129,56 @@ export async function getSectionsToCheck(
 
 /** Select expression: has this class_states row's alert cutoff passed? False for unknown dates. */
 export const sectionAlertsEnded = sql<boolean>`public.section_alerts_ended(${classStates.start_date}, ${classStates.end_date})`;
+
+/**
+ * class_states rows for this user's watched sections among `classNumbers`. The
+ * EXISTS keeps the query user-scoped so one user never reads another's state row.
+ */
+export async function getWatchedClassStates(
+  db: Database,
+  userId: string,
+  classNumbers: string[],
+): Promise<ClassStateRow[]> {
+  if (classNumbers.length === 0) return [];
+
+  const ownership = exists(
+    db
+      .select({ one: sql`1` })
+      .from(classWatches)
+      .where(
+        and(
+          eq(classWatches.user_id, userId),
+          eq(classWatches.class_nbr, classStates.class_nbr),
+          eq(classWatches.term, classStates.term),
+        ),
+      ),
+  );
+
+  return db
+    .select({
+      id: classStates.id,
+      class_nbr: classStates.class_nbr,
+      term: classStates.term,
+      subject: classStates.subject,
+      catalog_nbr: classStates.catalog_nbr,
+      title: classStates.title,
+      instructor_name: classStates.instructor_name,
+      seats_available: classStates.seats_available,
+      seats_capacity: classStates.seats_capacity,
+      non_reserved_seats: classStates.non_reserved_seats,
+      location: classStates.location,
+      meeting_times: classStates.meeting_times,
+      last_checked_at: classStates.last_checked_at,
+      last_changed_at: classStates.last_changed_at,
+      consecutive_not_found_count: classStates.consecutive_not_found_count,
+      start_date: classStates.start_date,
+      end_date: classStates.end_date,
+      session_code: classStates.session_code,
+      alerts_ended: sectionAlertsEnded,
+    })
+    .from(classStates)
+    .where(and(inArray(classStates.class_nbr, classNumbers), ownership));
+}
 
 const alertsEndedSchema = z.object({ ended: z.boolean() });
 
@@ -287,12 +338,12 @@ export async function tryRecordNotificationsBatch(
     }>(sql`SELECT notification_id, class_watch_id
         FROM public.try_record_notifications_batch(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text, ${expiresHours}::integer)`);
 
-    const claimed = rows.flatMap((row) => {
-      const parsed = claimedNotificationSchema.safeParse(row);
+    // The RPC already committed these claims, so a malformed row must fail the
+    // batch instead of silently dropping a recipient's email.
+    const claimed = rows.map((row) => {
+      const parsed = claimedNotificationSchema.parse(row);
 
-      return parsed.success
-        ? [{ notificationId: parsed.data.notification_id, watchId: parsed.data.class_watch_id }]
-        : [];
+      return { notificationId: parsed.notification_id, watchId: parsed.class_watch_id };
     });
 
     log("DB").info(`Batch ${notificationType}: ${claimed.length}/${watchIds.length} recorded`);
@@ -312,13 +363,14 @@ export async function upsertClassState(
   details: ClassDetails,
   observedAt: Date,
 ): Promise<boolean> {
+  let rows: Array<{ applied: unknown }>;
+
   try {
     // RPC, not a drizzle upsert: the write takes a SectionRef advisory lock
     // and applies only when observedAt is at least last_checked_at, so a
     // slower check cannot clobber a newer observation or its strike count.
-    const { rows } = await db.execute<{
-      applied: unknown;
-    }>(sql`SELECT public.upsert_class_state_locked(
+    ({ rows } = await db.execute<{ applied: unknown }>(
+      sql`SELECT public.upsert_class_state_locked(
       ${ref.class_nbr}::text,
       ${ref.term}::text,
       ${details.subject}::text,
@@ -331,19 +383,19 @@ export async function upsertClassState(
       ${details.location || null}::text,
       ${details.meeting_times || null}::text,
       ${observedAt.toISOString()}::timestamptz
-    ) AS applied`);
-
-    const parsed = upsertAppliedSchema.safeParse(rows[0]);
-
-    if (!parsed.success) {
-      throw new Error(`Invalid upsert result: ${String(rows[0]?.applied)}`);
-    }
-
-    return parsed.data.applied;
+    ) AS applied`,
+    ));
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Invalid upsert result:")) throw error;
     throw new Error(`Failed to upsert class state: ${driverErrorMessage(error)}`);
   }
+
+  const parsed = upsertAppliedSchema.safeParse(rows[0]);
+
+  if (!parsed.success) {
+    throw new Error(`Invalid upsert result: ${String(rows[0]?.applied)}`);
+  }
+
+  return parsed.data.applied;
 }
 
 export async function insertClassStateIfMissing(

@@ -1,72 +1,23 @@
-import { and, eq, exists, inArray, sql } from "drizzle-orm";
 import { type NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { withAuth } from "@/lib/api/withAuth";
 import { getDbFromEnv } from "@/lib/db";
-import { sectionAlertsEnded } from "@/lib/db/queries";
-import { classStates, classWatches } from "@/lib/db/schema";
+import { getWatchedClassStates } from "@/lib/db/queries";
+import { log } from "@/lib/log";
 
 export async function GET(request: NextRequest) {
-  try {
-    return await withAuth(request, async (user) => {
-      try {
-        const { searchParams } = new URL(request.url);
-        const classNumbersParam = searchParams.get("classNumbers") || "";
-        const classNumbers = classNumbersParam.split(",").filter(Boolean);
+  return withAuth(request, async (user) => {
+    try {
+      const { searchParams } = new URL(request.url);
+      const classNumbers = (searchParams.get("classNumbers") || "").split(",").filter(Boolean);
 
-        if (classNumbers.length === 0) {
-          return ok({ classStates: [] });
-        }
+      const states = await getWatchedClassStates(getDbFromEnv(), user.userId, classNumbers);
 
-        const db = getDbFromEnv();
+      return ok({ classStates: states });
+    } catch (error) {
+      log("API").error("Error fetching class states:", error);
 
-        const states = await db
-          .select({
-            id: classStates.id,
-            class_nbr: classStates.class_nbr,
-            term: classStates.term,
-            subject: classStates.subject,
-            catalog_nbr: classStates.catalog_nbr,
-            title: classStates.title,
-            instructor_name: classStates.instructor_name,
-            seats_available: classStates.seats_available,
-            seats_capacity: classStates.seats_capacity,
-            non_reserved_seats: classStates.non_reserved_seats,
-            location: classStates.location,
-            meeting_times: classStates.meeting_times,
-            last_checked_at: classStates.last_checked_at,
-            last_changed_at: classStates.last_changed_at,
-            consecutive_not_found_count: classStates.consecutive_not_found_count,
-            start_date: classStates.start_date,
-            end_date: classStates.end_date,
-            session_code: classStates.session_code,
-            alerts_ended: sectionAlertsEnded,
-          })
-          .from(classStates)
-          .where(
-            and(
-              inArray(classStates.class_nbr, classNumbers),
-              exists(
-                db
-                  .select({ one: sql`1` })
-                  .from(classWatches)
-                  .where(
-                    and(
-                      eq(classWatches.user_id, user.userId),
-                      eq(classWatches.class_nbr, classStates.class_nbr),
-                      eq(classWatches.term, classStates.term),
-                    ),
-                  ),
-              ),
-            ),
-          );
-
-        return ok({ classStates: states });
-      } catch {
-        return fail("Failed to fetch class states", 500);
-      }
-    });
-  } catch {
-    return fail("Failed to fetch class states", 500);
-  }
+      return fail("Failed to fetch class states", 500);
+    }
+  });
 }
