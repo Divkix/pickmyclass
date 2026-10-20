@@ -33,7 +33,7 @@ function userSort(value: string): UserSortField {
 export default async function AdminUsersPage({ searchParams }: { searchParams?: SearchParams }) {
   const db = getDbFromEnv();
 
-  await verifyAdmin(db);
+  await verifyAdmin();
 
   const sp = (await searchParams) ?? {};
 

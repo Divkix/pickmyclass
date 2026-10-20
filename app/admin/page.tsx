@@ -16,7 +16,7 @@ import { getDbFromEnv } from "@/lib/db";
 export default async function AdminDashboardPage() {
   const db = getDbFromEnv();
 
-  const adminUser = await verifyAdmin(db);
+  const adminUser = await verifyAdmin();
 
   const [totalEmails, totalUsers, totalClasses, adminCount, recentActivity] = await Promise.all([
     getTotalEmailsSent(db),

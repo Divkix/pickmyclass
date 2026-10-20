@@ -48,7 +48,9 @@ export async function GET(request: Request) {
       try {
         await db.execute(sql`SELECT public.accept_terms_and_verify_age(${userId}::text)`);
         invalidateAuthorizationState(userId);
-      } catch {
+      } catch (error) {
+        log("Auth").error("Failed to persist consent:", error);
+
         return consentRedirect(base, next, true);
       }
     } else if (!repairResult.hasConsent) {

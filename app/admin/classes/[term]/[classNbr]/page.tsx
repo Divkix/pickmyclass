@@ -32,7 +32,7 @@ interface AdminClassDetailPageProps {
 export default async function AdminClassDetailPage({ params }: AdminClassDetailPageProps) {
   const db = getDbFromEnv();
 
-  await verifyAdmin(db);
+  await verifyAdmin();
 
   const { term, classNbr } = await params;
 

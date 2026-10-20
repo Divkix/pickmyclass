@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { ok } from "@/lib/api/response";
-import { CLERK_COOKIES_TO_CLEAR } from "@/lib/auth/clerk-cookies";
+import { clearClerkCookies } from "@/lib/auth/clerk-cookies";
 import { getSessionIdentity, revokeSession } from "@/lib/auth/clerk-session";
 import { log } from "@/lib/log";
 
@@ -21,9 +21,7 @@ export async function POST(request: NextRequest) {
 
   const response = ok(null);
 
-  for (const name of CLERK_COOKIES_TO_CLEAR) {
-    response.cookies.set(name, "", { path: "/", maxAge: 0 });
-  }
+  clearClerkCookies(response);
 
   return response;
 }

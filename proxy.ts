@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { fail } from "@/lib/api/response";
 import { type AuthorizationState, readAuthorizationState } from "@/lib/auth/authorization-state";
-import { CLERK_COOKIES_TO_CLEAR, hasClerkSessionCookies } from "@/lib/auth/clerk-cookies";
+import { clearClerkCookies, hasClerkSessionCookies } from "@/lib/auth/clerk-cookies";
 import { getSessionIdentity, revokeSession } from "@/lib/auth/clerk-session";
 import { decideGate, isPublicRoute } from "@/lib/auth/decide-gate";
 import { getDbFromEnv } from "@/lib/db";
@@ -128,12 +128,6 @@ function toRedirectUrl(request: NextRequest, to: string): URL {
   url.search = target.search;
 
   return url;
-}
-
-function clearClerkCookies(response: NextResponse): void {
-  for (const name of CLERK_COOKIES_TO_CLEAR) {
-    response.cookies.set(name, "", { path: "/", maxAge: 0 });
-  }
 }
 
 export async function proxy(request: NextRequest) {
