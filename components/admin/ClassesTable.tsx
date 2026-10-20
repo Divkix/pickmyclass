@@ -2,8 +2,7 @@
 
 import { ChevronDown, ChevronUp, ChevronsUpDown, Clock, Mail, Users } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useCallback, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import type { ClassSortField } from "@/lib/db/admin-queries";
 import type { ClassWithWatchers } from "@/lib/db/admin-queries";
+import { useTableNavigate } from "@/lib/hooks/useTableNavigate";
 import { getSeatBadgeVariant } from "@/lib/utils/seat-badge";
 import { formatRelativeTime } from "@/lib/utils/time-format";
 import { SortableHeader } from "./SortableHeader";
@@ -51,37 +51,7 @@ export function ClassesTable({
   watcherCount,
 }: ClassesTableProps) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [, startTransition] = useTransition();
-
-  const buildUrl = useCallback(
-    (updates: Record<string, string>) => {
-      const params = new URLSearchParams(searchParams.toString());
-
-      for (const [k, v] of Object.entries(updates)) {
-        if (v === "" || v === "all") {
-          params.delete(k);
-        } else {
-          params.set(k, v);
-        }
-      }
-
-      const qs = params.toString();
-
-      return qs ? `${pathname}?${qs}` : pathname;
-    },
-    [pathname, searchParams],
-  );
-
-  const navigate = useCallback(
-    (updates: Record<string, string>) => {
-      startTransition(() => {
-        router.push(buildUrl(updates));
-      });
-    },
-    [router, buildUrl],
-  );
+  const navigate = useTableNavigate();
 
   const handleSortClick = (field: ClassSortField) => {
     if (sort === field) {
