@@ -361,6 +361,7 @@ function userJson(overrides: Partial<UserJSON>): UserJSON {
     last_sign_in_at: LAST_SIGN_IN_MS,
     banned: false,
     locked: false,
+    deprovisioned: false,
     lockout_expires_in_seconds: null,
     verification_attempts_remaining: null,
     created_at: CREATED_MS,

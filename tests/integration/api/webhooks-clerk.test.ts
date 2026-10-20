@@ -109,6 +109,7 @@ function clerkUserFixture(overrides: Partial<UserJSON> = {}): UserJSON {
     last_sign_in_at: 1_755_000_000_000,
     banned: false,
     locked: false,
+    deprovisioned: false,
     lockout_expires_in_seconds: null,
     verification_attempts_remaining: null,
     created_at: 1_754_000_000_000,
