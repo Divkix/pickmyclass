@@ -10,7 +10,7 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 
 | Task | Command |
 | --- | --- |
-| Install | `pnpm install` (pnpm 12.6.0, Node from `.node-version`) |
+| Install | `pnpm install` (pnpm 12.14.0, Node from `.node-version`) |
 | Dev server | `pnpm run dev` (vinext; one instance per checkout: a second one exits and prints the running server's URL) |
 | Build | `pnpm run build` |
 | Real Worker locally | `pnpm run preview` (build + `wrangler dev`); run before any deploy |

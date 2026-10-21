@@ -10,8 +10,8 @@ Be respectful, inclusive, and constructive. We welcome contributors of all exper
 
 ### Prerequisites
 
-- [pnpm](https://pnpm.io/) >= 9.0
-- [Node.js](https://nodejs.org/) 22.22.1+ (pinned in .node-version)
+- [pnpm](https://pnpm.io/) >= 12.14.0
+- [Node.js](https://nodejs.org/) 24.22.0+ (pinned in .node-version)
 - Git
 
 ### Development Setup
