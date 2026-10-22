@@ -11,7 +11,7 @@ Be respectful, inclusive, and constructive. We welcome contributors of all exper
 ### Prerequisites
 
 - [pnpm](https://pnpm.io/) >= 12.14.0
-- [Node.js](https://nodejs.org/) 24.22.0+ (pinned in .node-version)
+- [Node.js](https://nodejs.org/) 26.12.1+ (pinned in .node-version)
 - Git
 
 ### Development Setup
@@ -119,9 +119,9 @@ Policy for this repo:
 
 - Every version is a caret range (`^1.2.3`) — no exact pins, including the `catalog:` entries in
   `pnpm-workspace.yaml`. `packageManager` is the one deliberate exact pin.
-- `minimumReleaseAge` is not configured, so pnpm's built-in 1440-minute (1 day) release age applies and stays
-  non-strict. Don't add `minimumReleaseAgeExclude` entries: wait a day, or let the range resolve to the newest
-  version that has aged past it.
+- pnpm's built-in 1440-minute (1 day) release age applies and stays non-strict. `pnpm-workspace.yaml`
+  has temporary `minimumReleaseAgeExclude` entries for the 2026-10-22 one-shot security upgrade; remove
+  them after 2026-10-22T18:15Z UTC. Don't add other excludes.
 - `pnpm update --latest` keeps `catalog:` references and updates the catalog entries in place.
 
 Automation for dependencies:

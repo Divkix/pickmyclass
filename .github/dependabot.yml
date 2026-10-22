@@ -5,8 +5,7 @@ updates:
     schedule:
       interval: "daily"
     # Version updates wait one day after a release (GitHub's default is three
-    # days), matching pnpm's own 1440-minute release age. Security updates are
-    # exempt from cooldown.
+    # days). Security updates are exempt from cooldown.
     cooldown:
       default-days: 1
     open-pull-requests-limit: 10

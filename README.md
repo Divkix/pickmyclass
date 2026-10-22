@@ -345,8 +345,9 @@ auto-merged and instead get a review request for `@Divkix`. The gate,
 `.github/workflows/dependabot-automerge.yml`, only reads PR metadata (it never checks out or runs PR code),
 re-validates the PR on every poll and again right before merging, polls for up to 45 minutes, and merges the
 exact commit it validated. Versions in `package.json` and
-`pnpm-workspace.yaml` are caret ranges, with no `minimumReleaseAge` override, so pnpm's built-in one-day release
-age applies. See [CONTRIBUTING.md](CONTRIBUTING.md#addingupdating-dependencies) for the details.
+`pnpm-workspace.yaml` are caret ranges under pnpm's default 24-hour release age; temporary
+`minimumReleaseAgeExclude` entries cover the 2026-10-22 one-shot security upgrade and are removed
+after 2026-10-22T18:15Z UTC. See [CONTRIBUTING.md](CONTRIBUTING.md#addingupdating-dependencies) for the details.
 
 ## License
 
