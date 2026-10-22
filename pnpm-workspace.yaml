@@ -48,8 +48,17 @@ peerDependencyRules:
     vite: "*"
     vitest: "*"
 # Supply-chain hardening: refuse any version whose trust signals (provenance,
-# signatures) regressed versus what we already resolved. Releases too fresh to
-# have been vetted are held back by pnpm's built-in `minimumReleaseAge` default
-# (1440 minutes), which stays unset on purpose: that default is non-strict, so
-# a range that only a same-day release satisfies still resolves.
+# signatures) regressed versus what we already resolved.
+#
+# Temporary: the 2026-10-22 one-shot security upgrade pulled in releases that
+# are still inside pnpm's default 24h release-age window. Remove this list
+# after 2026-10-22T18:15Z UTC; the default gate then covers them again.
+minimumReleaseAgeExclude:
+  - "@clerk/backend"
+  - "@posthog/cli"
+  - "@posthog/core"
+  - "@posthog/rollup-plugin"
+  - "caniuse-lite"
+  - "lucide-react"
+  - "posthog-node"
 trustPolicy: no-downgrade
