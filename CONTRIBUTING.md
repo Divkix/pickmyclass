@@ -120,8 +120,8 @@ Policy for this repo:
 - Every version is a caret range (`^1.2.3`) — no exact pins, including the `catalog:` entries in
   `pnpm-workspace.yaml`. `packageManager` is the one deliberate exact pin.
 - pnpm's built-in 1440-minute (1 day) release age applies and stays non-strict. `pnpm-workspace.yaml`
-  has temporary `minimumReleaseAgeExclude` entries for the 2026-10-22 one-shot security upgrade; remove
-  them after 2026-10-22T18:15Z UTC. Don't add other excludes.
+  pins exact-version `minimumReleaseAgeExclude` entries for the 2026-10-22 one-shot security upgrade,
+  so future releases stay gated; delete them once those versions age in. Don't add name-only excludes.
 - `pnpm update --latest` keeps `catalog:` references and updates the catalog entries in place.
 
 Automation for dependencies:
