@@ -50,15 +50,15 @@ peerDependencyRules:
 # Supply-chain hardening: refuse any version whose trust signals (provenance,
 # signatures) regressed versus what we already resolved.
 #
-# Temporary: the 2026-10-22 one-shot security upgrade pulled in releases that
-# are still inside pnpm's default 24h release-age window. Remove this list
-# after 2026-10-22T18:15Z UTC; the default gate then covers them again.
+# Exact versions admitted by the 2026-10-22 one-shot security upgrade while
+# younger than pnpm's default 24h window. Version-pinned so future releases of
+# these packages stay gated; safe to delete once these versions age in.
 minimumReleaseAgeExclude:
-  - "@clerk/backend"
-  - "@posthog/cli"
-  - "@posthog/core"
-  - "@posthog/rollup-plugin"
-  - "caniuse-lite"
-  - "lucide-react"
-  - "posthog-node"
+  - "@clerk/backend@3.26.1"
+  - "@posthog/cli@0.18.12"
+  - "@posthog/core@1.59.3"
+  - "@posthog/rollup-plugin@1.6.2"
+  - "caniuse-lite@1.0.30001818"
+  - "lucide-react@1.61.0"
+  - "posthog-node@5.56.4"
 trustPolicy: no-downgrade
