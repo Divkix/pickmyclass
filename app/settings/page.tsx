@@ -177,8 +177,7 @@ export default function SettingsPage() {
                   <div className="pt-4 border-t">
                     <h3 className="font-medium mb-2">Cookies</h3>
                     <p className="text-sm text-muted-foreground">
-                      We only use essential cookies for authentication. No tracking or analytics
-                      cookies. See our{" "}
+                      See our{" "}
                       <Link
                         href="/legal/privacy#5-cookie-policy"
                         className="text-primary hover:underline"
