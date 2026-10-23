@@ -44,15 +44,15 @@ const AsuApiClassItem = Schema.Struct({
   CATALOGNBR: Schema.String,
   TITLE: OptionalNullableString,
   COURSETITLELONG: OptionalNullableString,
-  ENRLCAP: OptionalNullableString,
-  ENRLTOT: OptionalNullableString,
+  ENRLCAP: Schema.String,
+  ENRLTOT: Schema.String,
   FACILITYID: OptionalNullableString,
   MON: OptionalNullableString,
   TUES: OptionalNullableString,
   WED: OptionalNullableString,
   THURS: OptionalNullableString,
   FRI: OptionalNullableString,
-  WAITTOT: OptionalNullableString,
+  WAITTOT: Schema.String,
   WAITCAP: OptionalNullableString,
   INSTRUCTORSLIST: OptionalNullableStringArray,
   STARTTIME: OptionalNullableString,
@@ -137,22 +137,28 @@ function parseAsuDate(value: string): string | null {
     : null;
 }
 
-function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
-  const rawCap = Number.parseInt(item.ENRLCAP || "0", 10);
-  const rawTot = Number.parseInt(item.ENRLTOT || "0", 10);
-  const rawWait = Number.parseInt(item.WAITTOT || "0", 10);
-  const enrlCap = Number.isNaN(rawCap) ? 0 : rawCap;
-  const enrlTot = Number.isNaN(rawTot) ? 0 : rawTot;
-  const waitTot = Number.isNaN(rawWait) ? 0 : rawWait;
+interface SeatCounts {
+  capacity: number;
+  enrolled: number;
+  waitlisted: number;
+}
 
+/** ASU sends counts as digit strings; anything else is unknown and must not become zero. */
+function parseSeatCount(value: string): number | null {
+  const trimmed = value.trim();
+
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : null;
+}
+
+function mapToClassDetails(item: AsuApiClassItem, seats: SeatCounts): ClassDetails {
   return {
     subject: item.SUBJECT,
     catalog_nbr: item.CATALOGNBR,
     title: item.COURSETITLELONG || item.TITLE || "Unknown",
     instructor_name: item.INSTRUCTORSLIST?.[0] || "Staff",
-    seats_available: Math.max(0, enrlCap - enrlTot),
-    seats_capacity: enrlCap,
-    non_reserved_seats: Math.max(0, enrlCap - enrlTot - waitTot),
+    seats_available: Math.max(0, seats.capacity - seats.enrolled),
+    seats_capacity: seats.capacity,
+    non_reserved_seats: Math.max(0, seats.capacity - seats.enrolled - seats.waitlisted),
     location: item.FACILITYID || "TBD",
     meeting_times: composeMeetingTimes(item),
     start_date: item.STARTDATE ? parseAsuDate(item.STARTDATE) : null,
@@ -261,7 +267,24 @@ export function fetchClassEffect(
             message: `Section ${ref.class_nbr} not found in response`,
           });
 
-        return mapToClassDetails(matching._source);
+        const capacity = parseSeatCount(matching._source.ENRLCAP);
+        const enrolled = parseSeatCount(matching._source.ENRLTOT);
+        const waitlisted = parseSeatCount(matching._source.WAITTOT);
+
+        if (capacity === null || enrolled === null || waitlisted === null) {
+          log("AsuClient").error(`Unusable ASU seat counts for ${ref.class_nbr}/${ref.term}:`, {
+            ENRLCAP: matching._source.ENRLCAP,
+            ENRLTOT: matching._source.ENRLTOT,
+            WAITTOT: matching._source.WAITTOT,
+          });
+
+          return yield* new AsuInvalidResponse({
+            message: `ASU API returned unusable seat counts for ${ref.class_nbr}`,
+            status: response.status,
+          });
+        }
+
+        return mapToClassDetails(matching._source, { capacity, enrolled, waitlisted });
       }),
     (controller) => Effect.sync(() => controller.abort()),
   ).pipe(

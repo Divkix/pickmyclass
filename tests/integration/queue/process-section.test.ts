@@ -259,4 +259,37 @@ describe("processSection", () => {
     });
     expect(env.send).toHaveBeenCalledOnce();
   });
+
+  it("notifies on a valid observation after unknown seat counts were skipped", async () => {
+    const pg = createScriptedPostgres();
+    const env = environment();
+
+    pg.next([state()]);
+    expect(
+      await processSection(pg.db, ref, env, {
+        fetchClass: vi
+          .fn()
+          .mockRejectedValue(new ApiError("ASU API returned unusable seat counts", 200, false)),
+      }),
+    ).toMatchObject({ disposition: "ack", result: { emailsSent: 0 } });
+    expect(pg.statements).toHaveLength(1);
+    expect(env.send).not.toHaveBeenCalled();
+
+    pg.next([state()]);
+    pg.next([recorded(true, true)]);
+    queuePending(pg);
+    pg.next([watcher]);
+    pg.next([claim]);
+    pg.next();
+    pg.next();
+    pg.next();
+
+    expect(
+      await processSection(pg.db, ref, env, { fetchClass: vi.fn().mockResolvedValue(details) }),
+    ).toMatchObject({
+      disposition: "ack",
+      result: { changes: { seatBecameAvailable: true }, emailsSent: 1 },
+    });
+    expect(env.send).toHaveBeenCalledOnce();
+  });
 });

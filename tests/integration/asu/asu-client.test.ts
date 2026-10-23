@@ -121,9 +121,6 @@ describe("ASU Promise compatibility", () => {
           body(ref.class_nbr, {
             TITLE: null,
             COURSETITLELONG: null,
-            ENRLCAP: null,
-            ENRLTOT: null,
-            WAITTOT: null,
             WAITCAP: null,
             FACILITYID: null,
             MON: null,
@@ -141,11 +138,27 @@ describe("ASU Promise compatibility", () => {
 
     expect(await fetchClassFromASU(ref, env, { useCache: false })).toMatchObject({
       title: "Unknown",
-      seats_available: 0,
-      seats_capacity: 0,
+      seats_available: 5,
+      seats_capacity: 30,
       instructor_name: "Staff",
       meeting_times: "TBD",
       location: "TBD",
+    });
+  });
+
+  it.each<Record<string, string | number | null>>([
+    { ENRLCAP: null },
+    { ENRLTOT: null },
+    { WAITTOT: null },
+    { ENRLTOT: "not-a-number" },
+    { ENRLTOT: "" },
+  ])("rejects unusable seat counts instead of reporting false availability", async (extra) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(body(ref.class_nbr, extra))));
+
+    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
+      name: "ApiError",
+      retryable: false,
+      message: expect.stringMatching(/invalid response|unusable seat counts/),
     });
   });
 
