@@ -60,5 +60,4 @@ minimumReleaseAgeExclude:
   - "@posthog/rollup-plugin@1.6.2"
   - "caniuse-lite@1.0.30001818"
   - "lucide-react@1.61.0"
-  - "posthog-node@5.56.4"
 trustPolicy: no-downgrade

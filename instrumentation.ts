@@ -1,4 +1,4 @@
-import { captureServerException, distinctIdFromCookieHeader } from "@/lib/analytics/server";
+import { log } from "@/lib/log";
 
 interface RequestErrorContext {
   routerKind: "Pages Router" | "App Router";
@@ -10,25 +10,27 @@ interface RequestErrorContext {
 interface RequestErrorRequest {
   path: string;
   method: string;
-  headers?: Record<string, string | string[] | undefined>;
 }
 
+/**
+ * vinext reports server render/route/action/middleware errors here. In
+ * production it does not log render errors itself, so this is the only place
+ * they reach HyperDX.
+ */
 export function onRequestError(
-  error: Error,
+  error: Error & { digest?: string },
   request: RequestErrorRequest,
   context: RequestErrorContext,
-): Promise<void> {
-  // Headers never leave the Worker: the PostHog cookie is read only to recover
-  // the browser's distinct id so the exception joins that person.
-  return captureServerException(
-    error,
-    {
-      path: request.path,
-      method: request.method,
-      route_path: context.routePath,
-      route_type: context.routeType,
-      router_kind: context.routerKind,
-    },
-    distinctIdFromCookieHeader(request.headers?.cookie),
+): void {
+  // Only render errors are normalised to an Error; route, action and
+  // middleware paths forward whatever was thrown.
+  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  const digest = error instanceof Error && error.digest ? ` digest=${error.digest}` : "";
+  // Middleware paths carry the query string, which can hold unsubscribe tokens.
+  const path = request.path.split("?")[0];
+
+  log("RequestError").error(
+    `${request.method} ${path} (${context.routeType} ${context.routePath})${digest}:`,
+    detail,
   );
 }

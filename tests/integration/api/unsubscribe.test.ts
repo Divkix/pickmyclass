@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -31,13 +32,13 @@ interface TransportRecorder {
   outcomes: ScriptedOutcome[];
 }
 
-const { recorder, mockVerifyUnsubscribeToken, mockCaptureServerEvent } = vi.hoisted(() => {
+const { recorder, mockVerifyUnsubscribeToken, mockLogEvent } = vi.hoisted(() => {
   const recorder: TransportRecorder = { statements: [], outcomes: [] };
 
   return {
     recorder,
     mockVerifyUnsubscribeToken: vi.fn(),
-    mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
+    mockLogEvent: vi.fn(),
   };
 });
 
@@ -45,8 +46,9 @@ vi.mock("@/lib/email/unsubscribe-token", () => ({
   verifyUnsubscribeToken: mockVerifyUnsubscribeToken,
 }));
 
-vi.mock("@/lib/analytics/server", () => ({
-  captureServerEvent: mockCaptureServerEvent,
+vi.mock("@/lib/log", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log")>()),
+  logEvent: mockLogEvent,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -175,10 +177,13 @@ describe("/api/unsubscribe", () => {
     expect(statement.params).toEqual(expect.arrayContaining(["user-123"]));
     expect(statement.params).toContain(false);
 
-    expect(mockCaptureServerEvent).toHaveBeenCalledWith("user-123", "user_unsubscribed", {});
+    expect(mockLogEvent).toHaveBeenCalledWith("user_unsubscribed", {
+      user_id_hash: createHash("sha256").update("user-123").digest("hex"),
+      method: "POST",
+    });
   });
 
-  it("suppresses the analytics event when one-click POST persistence fails", async () => {
+  it("logs no event when one-click POST persistence fails", async () => {
     recorder.outcomes.push(new Error("database down"));
 
     const response = await POST(
@@ -189,6 +194,6 @@ describe("/api/unsubscribe", () => {
 
     expect(response.status).toBe(500);
     expect(data).toEqual({ success: false, error: "Internal server error" });
-    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+    expect(mockLogEvent).not.toHaveBeenCalled();
   });
 });

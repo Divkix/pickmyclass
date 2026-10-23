@@ -10,8 +10,7 @@ import { escapeHtml } from "@/lib/utils/escape-html";
 import { getDbFromEnv } from "@/lib/db";
 import type { Database } from "@/lib/db";
 import { userProfiles } from "@/lib/db/schema";
-import { log } from "@/lib/log";
-import { captureServerEvent } from "@/lib/analytics/server";
+import { log, logEvent } from "@/lib/log";
 
 function redactIdentifier(userId: string): string {
   return createHash("sha256").update(userId).digest("hex");
@@ -67,9 +66,7 @@ async function unsubscribeUser(
     throw dbError;
   }
 
-  const suffix = method === "POST" ? "via POST" : "successfully";
-  log("Unsubscribe").info(`User ${redactIdentifier(userId)} unsubscribed ${suffix}`);
-  captureServerEvent(userId, "user_unsubscribed", {});
+  logEvent("user_unsubscribed", { user_id_hash: redactIdentifier(userId), method });
 }
 
 export async function GET(request: NextRequest) {

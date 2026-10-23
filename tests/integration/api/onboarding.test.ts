@@ -4,10 +4,10 @@ import { z } from "zod";
 
 let h = createScriptedPostgres();
 
-const { mockGetDbFromEnv, mockGetSessionIdentity, mockCaptureServerEvent } = vi.hoisted(() => ({
+const { mockGetDbFromEnv, mockGetSessionIdentity, mockLogEvent } = vi.hoisted(() => ({
   mockGetDbFromEnv: vi.fn(),
   mockGetSessionIdentity: vi.fn(),
-  mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
+  mockLogEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/clerk-session", () => ({
@@ -18,8 +18,9 @@ vi.mock("@/lib/db", () => ({
   getDbFromEnv: (...args: unknown[]) => mockGetDbFromEnv(...args),
 }));
 
-vi.mock("@/lib/analytics/server", () => ({
-  captureServerEvent: mockCaptureServerEvent,
+vi.mock("@/lib/log", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log")>()),
+  logEvent: mockLogEvent,
 }));
 
 import { GET, POST } from "@/app/api/user/onboarding/route";
@@ -30,14 +31,8 @@ function get(url: string): Request {
   return new Request(url);
 }
 
-function post(url: string, sessionId?: string): Request {
-  const requestOptions: RequestInit = { method: "POST" };
-
-  if (sessionId) {
-    requestOptions.headers = { "X-PostHog-Session-Id": sessionId };
-  }
-
-  return new Request(url, requestOptions);
+function post(url: string): Request {
+  return new Request(url, { method: "POST" });
 }
 
 const onboardingBody = z.object({
@@ -82,7 +77,7 @@ describe("/api/user/onboarding", () => {
       expect(h.statements[0].sql).toContain("user_profiles");
       expect(h.statements[0].params).toEqual(["user-123", 1]);
       expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
-      expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+      expect(mockLogEvent).not.toHaveBeenCalled();
     });
 
     it("falls back to not-needed when the profile row is missing", async () => {
@@ -124,12 +119,10 @@ describe("/api/user/onboarding", () => {
   });
 
   describe("POST (skip)", () => {
-    it("skips onboarding via the RPC and captures exactly one analytics event", async () => {
+    it("skips onboarding via the RPC and logs exactly one event", async () => {
       h.next([{ onboarding_completed_at: null, onboarding_skipped_at: "2026-07-11T12:00:00Z" }]);
 
-      const response = await POST(
-        post("https://pickmyclass.app/api/user/onboarding", "c56a4180-65aa-42ec-a945-5fd21dec0538"),
-      );
+      const response = await POST(post("https://pickmyclass.app/api/user/onboarding"));
 
       const data = await json(response);
 
@@ -143,13 +136,11 @@ describe("/api/user/onboarding", () => {
       expect(h.statements[0].sql).toContain("skip_onboarding");
       expect(h.statements[0].params).toEqual(["user-123"]);
 
-      expect(mockCaptureServerEvent).toHaveBeenCalledTimes(1);
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith("user-123", "onboarding_skipped", {
-        $session_id: "c56a4180-65aa-42ec-a945-5fd21dec0538",
-      });
+      expect(mockLogEvent).toHaveBeenCalledTimes(1);
+      expect(mockLogEvent).toHaveBeenCalledWith("onboarding_skipped", { user_id: "user-123" });
     });
 
-    it("returns 500 when the skip RPC produces no rows and fires no analytics", async () => {
+    it("returns 500 when the skip RPC produces no rows and logs no event", async () => {
       h.next([]);
 
       const response = await POST(post("https://pickmyclass.app/api/user/onboarding"));
@@ -158,10 +149,10 @@ describe("/api/user/onboarding", () => {
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toBe("Failed to skip onboarding");
-      expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+      expect(mockLogEvent).not.toHaveBeenCalled();
     });
 
-    it("returns 500 when the skip RPC fails and fires no analytics", async () => {
+    it("returns 500 when the skip RPC fails and logs no event", async () => {
       h.failNext(new Error("rpc failed"));
 
       const response = await POST(post("https://pickmyclass.app/api/user/onboarding"));
@@ -170,10 +161,10 @@ describe("/api/user/onboarding", () => {
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toBe("Failed to skip onboarding");
-      expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+      expect(mockLogEvent).not.toHaveBeenCalled();
     });
 
-    it("rejects unauthenticated requests without touching the database or analytics", async () => {
+    it("rejects unauthenticated requests without touching the database or logging an event", async () => {
       mockGetSessionIdentity.mockResolvedValueOnce(null);
 
       const response = await POST(post("https://pickmyclass.app/api/user/onboarding"));
@@ -184,7 +175,7 @@ describe("/api/user/onboarding", () => {
       expect(data.error).toBe("Unauthorized");
       expect(h.statements).toHaveLength(0);
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
-      expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+      expect(mockLogEvent).not.toHaveBeenCalled();
     });
   });
 });

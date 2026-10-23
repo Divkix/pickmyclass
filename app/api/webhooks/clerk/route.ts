@@ -3,8 +3,8 @@
  * Events: user.created / user.updated delegate to
  * `syncUserMirrorFromClerkUser` to upsert the mirror row and ensure the 1:1
  * user_profiles row exists (this replaces the dropped Supabase
- * `on_auth_user_created` trigger). user.created also captures `user_registered`,
- * deduplicated per Clerk user so redeliveries count once. user.deleted applies
+ * `on_auth_user_created` trigger). user.created also logs `user_registered`;
+ * Svix redeliveries log it again, so count distinct `clerk_user_id`. user.deleted applies
  * the CCPA-consistent soft delete on the profile.
  *
  * Contract: verify the Standard-Webhooks signature, return 2xx fast, never
@@ -15,12 +15,11 @@
 import { verifyWebhook } from "@clerk/backend/webhooks";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
-import { captureServerEvent } from "@/lib/analytics/server";
 import { fail, ok } from "@/lib/api/response";
 import { clearAuthorizationStateCache } from "@/lib/auth/authorization-state";
 import { getDbFromEnv } from "@/lib/db";
 import { softDeleteUserById, syncUserMirrorFromClerkUser } from "@/lib/db/users";
-import { log } from "@/lib/log";
+import { log, logEvent } from "@/lib/log";
 
 const clerkWebhookEnvSchema = z.object({
   CLERK_WEBHOOK_SIGNING_SECRET: z.string().optional(),
@@ -57,15 +56,11 @@ export async function POST(request: Request) {
           `Event ${event.type} for ${event.data.id} has no email — skipping`,
         );
       } else if (event.type === "user.created") {
-        captureServerEvent(
-          event.data.external_id ?? event.data.id,
-          "user_registered",
-          {},
-          {
-            key: `user_registered:${event.data.id}`,
-            timestamp: new Date(event.data.created_at),
-          },
-        );
+        logEvent("user_registered", {
+          user_id: event.data.external_id ?? event.data.id,
+          clerk_user_id: event.data.id,
+          registered_at: new Date(event.data.created_at).toISOString(),
+        });
       }
 
       return ok(null);

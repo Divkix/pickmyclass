@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 const {
   webhookEnv,
   dbHandle,
-  mockCaptureServerEvent,
+  mockLogEvent,
   mockGetDbFromEnv,
   mockSoftDeleteUserById,
   mockSyncUserMirrorFromClerkUser,
@@ -24,7 +24,7 @@ const {
   return {
     webhookEnv,
     dbHandle,
-    mockCaptureServerEvent: vi.fn(),
+    mockLogEvent: vi.fn(),
     mockGetDbFromEnv,
     mockSoftDeleteUserById: vi.fn(),
     mockSyncUserMirrorFromClerkUser: vi.fn(),
@@ -43,8 +43,9 @@ vi.mock("@/lib/db/users", () => ({
   softDeleteUserById: mockSoftDeleteUserById,
 }));
 
-vi.mock("@/lib/analytics/server", () => ({
-  captureServerEvent: mockCaptureServerEvent,
+vi.mock("@/lib/log", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log")>()),
+  logEvent: mockLogEvent,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -194,7 +195,7 @@ describe("POST /api/webhooks/clerk", () => {
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
   });
 
-  it("captures user_registered once per Clerk user, keyed for retry dedupe", async () => {
+  it("logs user_registered on each delivery with the Clerk id to dedupe redeliveries", async () => {
     const user = clerkUserFixture();
 
     const event: UserUpsertEvent = {
@@ -211,13 +212,15 @@ describe("POST /api/webhooks/clerk", () => {
     await POST(signedRequest());
 
     const registration = [
-      CLERK_USER_ID,
       "user_registered",
-      {},
-      { key: `user_registered:${CLERK_USER_ID}`, timestamp: new Date(user.created_at) },
+      {
+        user_id: CLERK_USER_ID,
+        clerk_user_id: CLERK_USER_ID,
+        registered_at: new Date(user.created_at).toISOString(),
+      },
     ];
 
-    expect(mockCaptureServerEvent.mock.calls).toEqual([registration, registration]);
+    expect(mockLogEvent.mock.calls).toEqual([registration, registration]);
   });
 
   it("attributes user_registered to the stable app id when Clerk carries an external id", async () => {
@@ -235,11 +238,14 @@ describe("POST /api/webhooks/clerk", () => {
 
     await POST(signedRequest());
 
-    expect(mockCaptureServerEvent).toHaveBeenCalledTimes(1);
-    expect(mockCaptureServerEvent.mock.calls[0][0]).toBe("6f1c2a3e-legacy-app-id");
+    expect(mockLogEvent).toHaveBeenCalledTimes(1);
+    expect(mockLogEvent.mock.calls[0][1]).toMatchObject({
+      user_id: "6f1c2a3e-legacy-app-id",
+      clerk_user_id: CLERK_USER_ID,
+    });
   });
 
-  it("does not capture user_registered when user.created has no email to mirror", async () => {
+  it("does not log user_registered when user.created has no email to mirror", async () => {
     const event: UserUpsertEvent = {
       type: "user.created",
       object: "event",
@@ -253,7 +259,7 @@ describe("POST /api/webhooks/clerk", () => {
     const response = await POST(signedRequest());
 
     expect(response.status).toBe(200);
-    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+    expect(mockLogEvent).not.toHaveBeenCalled();
   });
 
   it("routes user.updated through the same mirror sync seam", async () => {
@@ -280,7 +286,7 @@ describe("POST /api/webhooks/clerk", () => {
     expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][0]).toBe(dbHandle);
     expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][1]).toBe(user);
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
-    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+    expect(mockLogEvent).not.toHaveBeenCalled();
   });
 
   it("returns 500 so Svix redelivers when the mirror sync throws", async () => {
@@ -300,7 +306,7 @@ describe("POST /api/webhooks/clerk", () => {
     expect(response.status).toBe(500);
     expect(data).toEqual({ success: false, error: "Webhook processing failed" });
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
-    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+    expect(mockLogEvent).not.toHaveBeenCalled();
   });
 
   it("acknowledges unrelated event types without touching the mirror seams", async () => {

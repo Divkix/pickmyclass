@@ -35,7 +35,7 @@ const {
   mockRequireUser,
   mockRevokeAllUserSessions,
   mockInvalidateAuthorizationState,
-  mockCaptureServerEvent,
+  mockLogEvent,
 } = vi.hoisted(() => {
   const recorder: TransportRecorder = { statements: [], outcomes: [] };
 
@@ -44,7 +44,7 @@ const {
     mockRequireUser: vi.fn(),
     mockRevokeAllUserSessions: vi.fn(),
     mockInvalidateAuthorizationState: vi.fn(),
-    mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
+    mockLogEvent: vi.fn(),
   };
 });
 
@@ -67,8 +67,9 @@ vi.mock("@/lib/auth/authorization-state", () => ({
   invalidateAuthorizationState: mockInvalidateAuthorizationState,
 }));
 
-vi.mock("@/lib/analytics/server", () => ({
-  captureServerEvent: mockCaptureServerEvent,
+vi.mock("@/lib/log", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log")>()),
+  logEvent: mockLogEvent,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -215,7 +216,6 @@ describe("user data rights APIs", () => {
     recorder.outcomes.length = 0;
     mockRequireUser.mockResolvedValue({ user: SESSION_USER });
     mockRevokeAllUserSessions.mockResolvedValue(undefined);
-    mockCaptureServerEvent.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -350,7 +350,7 @@ describe("user data rights APIs", () => {
       expect(recorder.statements).toHaveLength(0);
     });
 
-    it("soft-deletes authenticated accounts, invalidates cached auth state, and emits the analytics event", async () => {
+    it("soft-deletes authenticated accounts, invalidates cached auth state, and logs the event", async () => {
       // Mirror resolution, then the tombstone insert.
       recorder.outcomes.push([{ id: "user-123" }]);
 
@@ -373,7 +373,7 @@ describe("user data rights APIs", () => {
       expect(statement.params).toContain(false);
 
       expect(mockInvalidateAuthorizationState).toHaveBeenCalledWith("user-123");
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith("user-123", "account_deleted", {});
+      expect(mockLogEvent).toHaveBeenCalledWith("account_deleted", { user_id: "user-123" });
       expect(mockRevokeAllUserSessions).toHaveBeenCalledWith("clerk-456");
     });
 
@@ -389,7 +389,7 @@ describe("user data rights APIs", () => {
       expect(response.status).toBe(500);
       expect(data.error).toBe("Failed to delete account");
       expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
-      expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+      expect(mockLogEvent).not.toHaveBeenCalled();
       expect(mockRevokeAllUserSessions).not.toHaveBeenCalled();
     });
 
@@ -403,7 +403,7 @@ describe("user data rights APIs", () => {
       expect(response.status).toBe(200);
       const data = await json(response);
       expect(data.success).toBe(true);
-      expect(mockCaptureServerEvent).toHaveBeenCalledTimes(1);
+      expect(mockLogEvent).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -1,9 +1,8 @@
 import { invalidateAuthorizationState } from "@/lib/auth/authorization-state";
 import { revokeAllUserSessions } from "@/lib/auth/clerk-session";
-import { log } from "@/lib/log";
+import { log, logEvent } from "@/lib/log";
 import { fail, ok } from "@/lib/api/response";
 import { withAuth } from "@/lib/api/withAuth";
-import { captureServerEvent } from "@/lib/analytics/server";
 import { getDbFromEnv } from "@/lib/db";
 import { softDeleteUserById } from "@/lib/db/users";
 
@@ -21,7 +20,7 @@ export async function DELETE(request: Request) {
 
         invalidateAuthorizationState(user.userId);
 
-        captureServerEvent(user.userId, "account_deleted", {});
+        logEvent("account_deleted", { user_id: user.userId });
 
         try {
           await revokeAllUserSessions(user.clerkUserId);

@@ -1,11 +1,8 @@
-import { log } from "@/lib/log";
+import { log, logEvent } from "@/lib/log";
 import { fail, ok } from "@/lib/api/response";
 import { withAuth } from "@/lib/api/withAuth";
 import { getDbFromEnv } from "@/lib/db";
 import { readOnboardingState, skipOnboarding } from "@/lib/onboarding";
-import type { AnalyticsEventMap } from "@/lib/analytics/events";
-import { postHogSessionIdFromHeaders } from "@/lib/analytics/session-id";
-import { captureServerEvent } from "@/lib/analytics/server";
 
 export async function GET(request: Request) {
   try {
@@ -39,12 +36,7 @@ export async function POST(request: Request) {
           return fail("Failed to skip onboarding", 500);
         }
 
-        const sessionId = postHogSessionIdFromHeaders(request.headers);
-        const eventProperties: AnalyticsEventMap["onboarding_skipped"] = {};
-
-        if (sessionId) eventProperties.$session_id = sessionId;
-
-        captureServerEvent(user.userId, "onboarding_skipped", eventProperties);
+        logEvent("onboarding_skipped", { user_id: user.userId });
 
         return ok(payload);
       } catch (error) {
