@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { errorFields, log } from "@/lib/log";
+import { trackBrowserAction } from "@/lib/telemetry/browser";
 import { formatAbsoluteDate } from "@/lib/utils/time-format";
 import { useRequireAuth } from "@/lib/hooks/useRequireAuth";
 
@@ -44,6 +45,7 @@ export default function SettingsPage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
+      trackBrowserAction("data_exported", {});
       setMessage({ type: "success", text: "Data exported successfully!" });
     } catch (error) {
       log("Settings").error("Data export failed", errorFields(error));

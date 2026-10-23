@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { errorFields, log } from "@/lib/log";
+import { recordBrowserError } from "@/lib/telemetry/browser";
 
 export default function ErrorPage({
   error,
@@ -14,6 +15,7 @@ export default function ErrorPage({
 }) {
   useEffect(() => {
     log("ErrorBoundary").error("Unhandled error", { digest: error.digest, ...errorFields(error) });
+    recordBrowserError(error, { boundary: "app", digest: error.digest });
   }, [error]);
 
   return (

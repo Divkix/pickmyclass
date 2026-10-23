@@ -32,6 +32,8 @@ allowBuilds:
   "@clerk/shared": true
   core-js: true
   esbuild: true
+  # Its postinstall only checks the optional protobufjs CLI, which nothing uses.
+  protobufjs: false
   sharp: true
   workerd: true
 catalog:
