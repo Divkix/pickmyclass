@@ -25,7 +25,7 @@ import {
 } from "./lib/worker/markdown-negotiation";
 import { getDb } from "./lib/db";
 import { QUEUE_MAX_RETRIES } from "./lib/config";
-import { errorFields, errorName, log, logEvent } from "./lib/log";
+import { errorFields, errorName, log, logEvent, tagLogs } from "./lib/log";
 import { sectionFields } from "./lib/section-ref";
 import { withSpan } from "./lib/telemetry/span";
 
@@ -58,6 +58,8 @@ export { MaintenanceWorkflow, SectionCheckWorkflow };
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const versionId = env.CF_VERSION_METADATA?.id;
+    tagLogs(versionId);
     const url = new URL(request.url);
 
     if (isOtelIngestPath(url.pathname)) return handleOtelIngest(request, env, ctx);
@@ -110,7 +112,6 @@ export default {
       );
     }
 
-    const versionId = env.CF_VERSION_METADATA?.id;
     const cached = await edgeHtmlCache.get(request, versionId);
 
     if (cached) {
@@ -134,6 +135,7 @@ export default {
     env: Env,
     _ctx: ExecutionContext,
   ): Promise<void> {
+    tagLogs(env.CF_VERSION_METADATA?.id);
     const startTime = Date.now();
     queueLog.info("Processing batch", { queue: batch.queue, messages: batch.messages.length });
 

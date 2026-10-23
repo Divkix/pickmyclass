@@ -20,6 +20,14 @@ const IGNORE_PATTERNS = [
   "tools/oxlint/anti-slop/**",
 ];
 
+// Workers Builds sets these on every build; production deploys come from main.
+// https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables
+function deploymentEnvironment(): DeploymentEnvironment {
+  if (!process.env.WORKERS_CI) return "development";
+
+  return process.env.WORKERS_CI_BRANCH === "main" ? "production" : "preview";
+}
+
 export default defineConfig(() => {
   const isTest = Boolean(process.env.VITEST);
 
@@ -180,6 +188,10 @@ export default defineConfig(() => {
         ],
     optimizeDeps: {
       exclude: ["lucide-react"],
+    },
+    define: {
+      __DEPLOYMENT_ENVIRONMENT__: JSON.stringify(deploymentEnvironment()),
+      __BUILD_COMMIT__: JSON.stringify(process.env.WORKERS_CI_COMMIT_SHA?.slice(0, 12) ?? "dev"),
     },
   };
 });
