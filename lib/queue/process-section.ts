@@ -134,7 +134,7 @@ export async function processSection(
       });
     }
 
-    const newData = await fetchClass(ref, env, { useCache: false });
+    const newData = await fetchClass(ref, env, { useCache: false, source: "section_check" });
     const observedAt = new Date();
     const changes = detectChanges(oldState, newData);
 
@@ -167,20 +167,13 @@ export async function processSection(
     }
 
     if (recorded.intentCreated) emailsSent += await deliverPendingNotifications(db, ref, env);
-    const duration = Date.now() - startTime;
-    log("ProcessSection").info("Completed Section Check", {
-      ...sectionFields(ref),
-      cycle,
-      duration_ms: duration,
-      emails_sent: emailsSent,
-    });
 
     return ackOutcome({
       success: true,
       classNbr,
       changes,
       emailsSent,
-      processingTimeMs: duration,
+      processingTimeMs: Date.now() - startTime,
     });
   } catch (error) {
     const fields = errorFields(error);

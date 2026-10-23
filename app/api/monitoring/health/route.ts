@@ -69,7 +69,7 @@ export async function GET(request: Request) {
       try {
         // SAFETY: ASU credentials are required secrets validated at deploy; shape matches wrangler.jsonc contract
         const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
-        await fetchClassFromASU({ class_nbr: "10001", term: "2251" }, asuEnv);
+        await fetchClassFromASU({ class_nbr: "10001", term: "2251" }, asuEnv, { source: "health" });
 
         return { kind: "asu_ok" as const };
       } catch (error) {

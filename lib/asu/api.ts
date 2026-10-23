@@ -2,6 +2,7 @@ import { Effect, Match } from "effect";
 import { fetchClassEffect, type AsuError } from "@/lib/asu/asu-client";
 import { TtlCache } from "@/lib/cache/ttl-cache";
 import { ASU_CACHE_TTL_MS } from "@/lib/config";
+import { type AsuRequestSource, errorName, logEvent } from "@/lib/log";
 import { sectionFields, sectionRefKey, type SectionRef } from "@/lib/section-ref";
 import { withSpan } from "@/lib/telemetry/span";
 import type { ClassDetails } from "@/lib/types/class";
@@ -60,7 +61,7 @@ function legacyError(error: AsuError): ApiError {
 export async function fetchClassFromASU(
   ref: SectionRef,
   env: Pick<Env, "ASU_API_BASE_URL" | "ASU_API_TOKEN">,
-  opts: { useCache?: boolean } = {},
+  opts: { useCache?: boolean; source?: AsuRequestSource } = {},
 ): Promise<ClassDetails> {
   if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN)
     throw new ApiError("ASU API environment variables not configured");
@@ -69,12 +70,31 @@ export async function fetchClassFromASU(
 
   if (cached) return cached;
 
-  // The runtime spans the fetch itself; this one names the section and, on a
-  // throw, the legacy error class (`NotFoundError`, `RateLimitError`, ...).
-  const result = await withSpan("asu.fetch_class", sectionFields(ref), () =>
-    Effect.runPromise(fetchClassEffect(ref, env).pipe(Effect.mapError(legacyError))),
-  );
+  const startTime = Date.now();
 
+  const recordRequest = (outcome: string, httpStatus: number | undefined) =>
+    logEvent("asu_request", {
+      ...sectionFields(ref),
+      source: opts.source ?? "ui",
+      outcome,
+      http_status: httpStatus,
+      duration_ms: Date.now() - startTime,
+    });
+
+  let result: ClassDetails;
+
+  try {
+    // The runtime spans the fetch itself; this one names the section and, on
+    // a throw, the legacy error class (`NotFoundError`, `RateLimitError`, ...).
+    result = await withSpan("asu.fetch_class", sectionFields(ref), () =>
+      Effect.runPromise(fetchClassEffect(ref, env).pipe(Effect.mapError(legacyError))),
+    );
+  } catch (error) {
+    recordRequest(errorName(error), error instanceof ApiError ? error.status : undefined);
+    throw error;
+  }
+
+  recordRequest("ok", 200);
   asuApiCache.set(key, result);
 
   return result;

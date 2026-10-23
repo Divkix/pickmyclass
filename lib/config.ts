@@ -30,5 +30,8 @@ export const RATE_LIMIT_RETRY_BASE_S = 60;
 
 export const RATE_LIMIT_RETRY_MAX_S = 15 * 60;
 
+/** Must match `max_retries` on the queue consumer in wrangler.jsonc. */
+export const QUEUE_MAX_RETRIES = 3;
+
 /** localStorage key holding the last Clerk session id that recorded `user_logged_in`. */
 export const LOGIN_SESSION_STORAGE_KEY = "pmc_logged_in_session";

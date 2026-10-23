@@ -2,7 +2,7 @@ import { z } from "zod";
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from "./templates";
 import type { ClassInfo } from "@/lib/types/class";
 import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE, NOTIFICATION_FROM_EMAIL } from "@/lib/config";
-import { type ErrorFields, errorFields, log } from "@/lib/log";
+import { type ErrorFields, errorFields, log, logEvent } from "@/lib/log";
 import type { NotificationType } from "@/lib/types/notification";
 import { sectionFields } from "@/lib/section-ref";
 import { withSpan } from "@/lib/telemetry/span";
@@ -61,7 +61,10 @@ export async function sendBatchEmailsOptimized(
   emailBinding: SendEmail,
   options: SendBatchEmailOptions = {},
 ): Promise<EmailResult[]> {
+  const startTime = Date.now();
   const results: EmailResult[] = [];
+  // Emails after a fatal provider error, never attempted.
+  let skipped = 0;
 
   for (const [index, email] of emails.entries()) {
     if (index > 0 && index % EMAIL_BATCH_SIZE === 0)
@@ -125,6 +128,8 @@ export async function sendBatchEmailsOptimized(
     });
 
     if (isFatalEmailCode(failure.code)) {
+      skipped = emails.length - index - 1;
+
       for (let i = index + 1; i < emails.length; i++)
         results.push({ success: false, error: `Skipped: ${failure.code} limit reached` });
       log("Email").warn("Stopped email batch on fatal provider error", {
@@ -136,11 +141,16 @@ export async function sendBatchEmailsOptimized(
     }
   }
 
-  if (emails.length > 0)
-    log("Email").info("Email batch complete", {
-      sent: results.filter((r) => r.success).length,
-      total: emails.length,
+  if (emails.length > 0) {
+    const sent = results.filter((r) => r.success).length;
+
+    logEvent("email_batch_sent", {
+      sent,
+      failed: emails.length - sent - skipped,
+      skipped,
+      duration_ms: Date.now() - startTime,
     });
+  }
 
   return results;
 }

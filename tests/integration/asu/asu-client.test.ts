@@ -58,6 +58,7 @@ function body(classNbr = ref.class_nbr, extra: Record<string, string | number | 
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("ASU Promise compatibility", () => {
@@ -207,6 +208,20 @@ describe("ASU Promise compatibility", () => {
       });
     },
   );
+
+  it("records one asu_request event per network fetch, with its outcome", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(body())));
+    await fetchClassFromASU(ref, env, { useCache: false });
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(body("other"))));
+    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toThrow();
+
+    expect(info.mock.calls.map(([line]) => line)).toEqual([
+      expect.objectContaining({ event: "asu_request", ...ref, outcome: "ok", http_status: 200 }),
+      expect.objectContaining({ event: "asu_request", outcome: "NotFoundError", http_status: 404 }),
+    ]);
+  });
 
   it("maps invalid JSON to a non-retryable ApiError", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("not JSON")));

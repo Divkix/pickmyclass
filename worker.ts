@@ -1,8 +1,16 @@
 import handler from "vinext/server/app-router-entry";
-import { processSection, retryDelaySeconds } from "./lib/queue/process-section";
+import {
+  type SectionCheckOutcome,
+  processSection,
+  retryDelaySeconds,
+} from "./lib/queue/process-section";
 import type { Env } from "./lib/types/env";
 import type { ClassCheckMessage } from "./lib/types/queue";
-import { MaintenanceWorkflow, SectionCheckWorkflow } from "./lib/workflows/cron-workflows";
+import {
+  MaintenanceWorkflow,
+  SectionCheckWorkflow,
+  cycleElapsedMs,
+} from "./lib/workflows/cron-workflows";
 import { withJsonApiError } from "./lib/worker/api-errors";
 import { handleOtelIngest, isOtelIngestPath } from "./lib/worker/otel-ingest";
 import { edgeHtmlCache } from "./lib/worker/edge-html-cache";
@@ -16,7 +24,8 @@ import {
   prefersMarkdown,
 } from "./lib/worker/markdown-negotiation";
 import { getDb } from "./lib/db";
-import { errorFields, errorName, log } from "./lib/log";
+import { QUEUE_MAX_RETRIES } from "./lib/config";
+import { errorFields, errorName, log, logEvent } from "./lib/log";
 import { sectionFields } from "./lib/section-ref";
 import { withSpan } from "./lib/telemetry/span";
 
@@ -145,32 +154,45 @@ export default {
         return withSpan("section_check", fields, async (span) => {
           const msgStartTime = Date.now();
 
+          const complete = (
+            result: "ok" | "failed" | "threw",
+            disposition: SectionCheckOutcome["disposition"],
+            processed?: SectionCheckOutcome["result"],
+          ) => {
+            span.setAttribute("section_check.disposition", disposition);
+            logEvent("section_check_completed", {
+              ...sectionFields(message.body),
+              cycle: message.body.cycle,
+              workflow_instance_id: message.body.workflow_instance_id,
+              result,
+              disposition,
+              attempts: message.attempts,
+              duration_ms: Date.now() - msgStartTime,
+              cycle_elapsed_ms: cycleElapsedMs(message.body.cycle, Date.now()),
+              emails_sent: processed?.emailsSent ?? 0,
+              seat_opened: processed?.changes.seatBecameAvailable ?? false,
+              instructor_assigned: processed?.changes.instructorAssigned ?? false,
+              dead_lettered: disposition === "retry" && message.attempts > QUEUE_MAX_RETRIES,
+            });
+
+            return { success: result === "ok" };
+          };
+
           try {
             const outcome = await processSection(db, message.body, env);
-            span.setAttribute("section_check.disposition", outcome.disposition);
-
             const duration_ms = Date.now() - msgStartTime;
 
             if (outcome.disposition === "ack") {
-              if (!outcome.result.success) {
+              if (!outcome.result.success)
                 queueLog.error("Non-retryable Section Check failure, acking", {
                   ...fields,
                   duration_ms,
                   "error.message": outcome.result.error,
                 });
-              } else {
-                queueLog.info("Processed Section Check", {
-                  ...fields,
-                  duration_ms,
-                  emails_sent: outcome.result.emailsSent,
-                  seat_became_available: outcome.result.changes.seatBecameAvailable,
-                  instructor_assigned: outcome.result.changes.instructorAssigned,
-                });
-              }
 
               message.ack();
 
-              return { success: outcome.result.success };
+              return complete(outcome.result.success ? "ok" : "failed", "ack", outcome.result);
             }
 
             const delaySeconds = retryDelaySeconds(outcome, message.attempts);
@@ -183,12 +205,9 @@ export default {
             });
             message.retry(delaySeconds === undefined ? undefined : { delaySeconds });
 
-            return { success: false };
+            return complete("failed", "retry", outcome.result);
           } catch (error) {
-            span.setAttributes({
-              "section_check.disposition": "retry",
-              "error.type": errorName(error),
-            });
+            span.setAttribute("error.type", errorName(error));
             queueLog.error("Section Check threw, retrying", {
               ...fields,
               ...errorFields(error),
@@ -196,7 +215,7 @@ export default {
             });
             message.retry();
 
-            return { success: false };
+            return complete("threw", "retry");
           }
         });
       }),
@@ -204,11 +223,12 @@ export default {
 
     const successful = results.filter((r) => r.status === "fulfilled" && r.value.success).length;
 
-    queueLog.info("Batch complete", {
+    logEvent("queue_batch_processed", {
       queue: batch.queue,
-      duration_ms: Date.now() - startTime,
+      messages: results.length,
       successful,
       failed: results.length - successful,
+      duration_ms: Date.now() - startTime,
     });
   },
 } satisfies ExportedHandler<Env, ClassCheckMessage>;
