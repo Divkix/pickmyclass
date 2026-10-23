@@ -8,7 +8,7 @@ import { sql } from "drizzle-orm";
 import { getPastTermCodes } from "@/lib/asu/terms";
 import { type Database, getDb } from "@/lib/db";
 import { deletePastTermWatches, getSectionsToCheck } from "@/lib/db/queries";
-import { errorFields, log } from "@/lib/log";
+import { errorFields, log, logEvent } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
 import { withSpan } from "@/lib/telemetry/span";
 import type { Env } from "@/lib/types/env";
@@ -44,6 +44,19 @@ export function staggerGroupFor(time: Date): StaggerGroup {
   return Math.floor(time.getMinutes() / 15) % 2 === 0 ? "even" : "odd";
 }
 
+/** The Cron Cycle stamp, `<ISO fire time>:<group>`; `cycleElapsedMs` parses it back. */
+export function cycleStamp(firedAt: Date, group: StaggerGroup): string {
+  return `${firedAt.toISOString()}:${group}`;
+}
+
+/** Milliseconds since the Cron Cycle's scheduled fire time, from its `cycleStamp`. */
+export function cycleElapsedMs(cycle: string | undefined, now: number): number | undefined {
+  if (!cycle) return undefined;
+  const firedAt = Date.parse(cycle.slice(0, cycle.lastIndexOf(":")));
+
+  return Number.isNaN(firedAt) ? undefined : now - firedAt;
+}
+
 /**
  * Logs each rejected step with its stack and returns the messages, so the
  * instance's own error (which marks the run failed) names every cause.
@@ -76,7 +89,7 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
   async run(event: Readonly<WorkflowEvent<unknown>>, step: WorkflowStep) {
     const now = firedAt(event);
     const staggerGroup = staggerGroupFor(now);
-    const cycle = `${now.toISOString()}:${staggerGroup}`;
+    const cycle = cycleStamp(now, staggerGroup);
 
     try {
       // Logs inside step callbacks run once; run() itself replays after each hibernation.
@@ -154,6 +167,21 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
     );
 
     const failures = rejectedReasons("SectionCheck", stepNames, results);
+
+    // In a step so the event fires once, not on every replay of run().
+    await step.do("record cycle", STEP_CONFIG, async () => {
+      logEvent("section_check_cycle_enqueued", {
+        cycle,
+        workflow_instance_id: event.instanceId,
+        stagger_group: staggerGroup,
+        sections: sections.length,
+        batches: batches.length,
+        failed_batches: failures.length,
+        enqueue_lag_ms: Date.now() - now.getTime(),
+      });
+
+      return failures.length;
+    });
 
     if (failures.length > 0) {
       throw new Error(

@@ -126,7 +126,14 @@ export function errorFields(cause: unknown): ErrorFields {
   return fields;
 }
 
-/** Product events and their fields: opaque ids only, never emails, names or other PII. */
+/** Which caller spent an ASU request, so UI and probe traffic can be told apart from Section Checks. */
+export type AsuRequestSource = "section_check" | "health" | "ui";
+
+/**
+ * Product and pipeline events and their fields: opaque ids, counts and
+ * durations only, never emails, names or other PII. The pipeline events are
+ * the app's metrics; HyperDX charts their numeric fields.
+ */
 interface ProductEventMap {
   class_watch_created: { user_id: string; term: string; class_nbr: string };
   class_watch_deleted: { user_id: string; watch_id: string };
@@ -134,6 +141,52 @@ interface ProductEventMap {
   account_deleted: { user_id: string };
   user_unsubscribed: { user_id_hash: string; method: "GET" | "POST" };
   user_registered: { user_id: string; clerk_user_id: string; registered_at: string };
+  /** One per SectionCheckWorkflow run, once its batches are enqueued. */
+  section_check_cycle_enqueued: {
+    cycle: string;
+    workflow_instance_id: string;
+    stagger_group: string;
+    sections: number;
+    batches: number;
+    failed_batches: number;
+    /** Scheduled fire time to the last enqueue. */
+    enqueue_lag_ms: number;
+  };
+  /** One per queue delivery. Max `cycle_elapsed_ms` per cycle is the Cron Cycle's duration. */
+  section_check_completed: {
+    class_nbr: string;
+    term: string;
+    cycle?: string;
+    workflow_instance_id?: string;
+    result: "ok" | "failed" | "threw";
+    disposition: "ack" | "retry";
+    attempts: number;
+    duration_ms: number;
+    cycle_elapsed_ms?: number;
+    emails_sent: number;
+    seat_opened: boolean;
+    instructor_assigned: boolean;
+    /** A retry on the last allowed attempt, which Queues moves to the DLQ. */
+    dead_lettered: boolean;
+  };
+  queue_batch_processed: {
+    queue: string;
+    messages: number;
+    successful: number;
+    failed: number;
+    duration_ms: number;
+  };
+  /** One per ASU network fetch (cache hits are not requests). */
+  asu_request: {
+    class_nbr: string;
+    term: string;
+    source: AsuRequestSource;
+    /** `ok`, or the error class: `NotFoundError`, `RateLimitError`, `AuthError`, `ApiError`. */
+    outcome: string;
+    http_status?: number;
+    duration_ms: number;
+  };
+  email_batch_sent: { sent: number; failed: number; skipped: number; duration_ms: number };
 }
 
 /**

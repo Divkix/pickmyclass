@@ -19,6 +19,7 @@ describe("sendBatchEmailsOptimized", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it.each(["E_RATE_LIMIT_EXCEEDED", "E_DAILY_LIMIT_EXCEEDED", "E_SENDER_NOT_VERIFIED"])(
@@ -26,8 +27,12 @@ describe("sendBatchEmailsOptimized", () => {
     async (code) => {
       const env = environment();
       env.send.mockRejectedValueOnce(Object.assign(new Error("fatal"), { code }));
+      const info = vi.spyOn(console, "info").mockImplementation(() => {});
       const results = await sendBatchEmailsOptimized(emails(3), env.EMAIL);
       expect(env.send).toHaveBeenCalledOnce();
+      expect(info).toHaveBeenCalledWith(
+        expect.objectContaining({ event: "email_batch_sent", sent: 0, failed: 1, skipped: 2 }),
+      );
       expect(results).toEqual([
         { success: false, error: `${code}: fatal` },
         { success: false, error: `Skipped: ${code} limit reached` },
@@ -39,11 +44,15 @@ describe("sendBatchEmailsOptimized", () => {
   it("continues after a nonfatal failure", async () => {
     const env = environment();
     env.send.mockRejectedValueOnce(new Error("temporary"));
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
     expect((await sendBatchEmailsOptimized(emails(2), env.EMAIL)).map((r) => r.success)).toEqual([
       false,
       true,
     ]);
     expect(env.send).toHaveBeenCalledTimes(2);
+    expect(info).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "email_batch_sent", sent: 1, failed: 1, skipped: 0 }),
+    );
   });
 
   it("pauses between batches, without a trailing delay", async () => {
