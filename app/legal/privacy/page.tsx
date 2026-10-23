@@ -83,7 +83,6 @@ export default async function PrivacyPolicyPage() {
                 <h3 className="text-lg font-semibold mt-4">2.3 Information We Do NOT Collect</h3>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>We do NOT collect your real name, phone number, or physical address</li>
-                  <li>We do NOT use tracking pixels or analytics cookies</li>
                   <li>
                     We do NOT sell, rent, or share your data with third parties for marketing
                     purposes
@@ -176,10 +175,7 @@ export default async function PrivacyPolicyPage() {
 
               <section>
                 <h2 className="text-xl font-semibold">5. Cookie Policy</h2>
-                <p>
-                  We use cookies only for essential functionality. By using our Service, you consent
-                  to the use of these cookies.
-                </p>
+                <p>By using our Service, you consent to the use of these cookies.</p>
 
                 <h3 className="text-lg font-semibold mt-4">5.1 Essential Cookies</h3>
                 <table className="min-w-full border border-border mt-2">
@@ -218,9 +214,7 @@ export default async function PrivacyPolicyPage() {
 
                 <h3 className="text-lg font-semibold mt-4">5.3 What We Do NOT Use</h3>
                 <ul className="list-disc pl-6 space-y-2">
-                  <li>No analytics cookies (Google Analytics, etc.)</li>
                   <li>No advertising cookies</li>
-                  <li>No third-party tracking pixels</li>
                   <li>No social media cookies</li>
                 </ul>
 
