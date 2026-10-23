@@ -13,6 +13,14 @@ const OTEL_PATH = /^\/otel(\/|$)/;
 
 const SIGNAL_PATH = /^\/otel\/v1\/(traces|logs)$/;
 
+const SIGNALS = ["traces", "logs"] as const;
+
+type OtelSignal = (typeof SIGNALS)[number];
+
+function isSignal(value: string | undefined): value is OtelSignal {
+  return SIGNALS.some((signal) => signal === value);
+}
+
 const MAX_BODY_BYTES = 1024 * 1024;
 
 const UPSTREAM_TIMEOUT_MS = 10_000;
@@ -47,7 +55,16 @@ function scrubBody(body: ArrayBuffer, headers: Headers): ArrayBuffer | string {
   return redactEmails(new TextDecoder().decode(body)).replace(URL_QUERY, "$1");
 }
 
-async function forward(url: string, headers: Headers, body: ArrayBuffer | string): Promise<void> {
+/**
+ * The browser already got its 202, so a rejected key or a down collector only
+ * shows up here. Logged at error so it alerts; the headers (and key) never are.
+ */
+async function forward(
+  signal: OtelSignal,
+  url: string,
+  headers: Headers,
+  body: ArrayBuffer | string,
+): Promise<void> {
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -59,9 +76,15 @@ async function forward(url: string, headers: Headers, body: ArrayBuffer | string
     await response.body?.cancel();
 
     if (!response.ok)
-      ingestLog.warn("Collector rejected browser telemetry", { http_status: response.status });
+      ingestLog.error("Collector rejected browser telemetry", {
+        signal,
+        http_status: response.status,
+      });
   } catch (error) {
-    ingestLog.warn("Collector unreachable for browser telemetry", errorFields(error));
+    ingestLog.error("Collector unreachable for browser telemetry", {
+      signal,
+      ...errorFields(error),
+    });
   }
 }
 
@@ -72,7 +95,7 @@ export async function handleOtelIngest(
 ): Promise<Response> {
   const signal = SIGNAL_PATH.exec(new URL(request.url).pathname)?.[1];
 
-  if (!signal) return new Response(null, { status: 404 });
+  if (!isSignal(signal)) return new Response(null, { status: 404 });
 
   if (request.method !== "POST")
     return new Response(null, { status: 405, headers: { Allow: "POST" } });
@@ -105,7 +128,7 @@ export async function handleOtelIngest(
   }
 
   const endpoint = `${collector.replace(/\/+$/, "")}/v1/${signal}`;
-  ctx.waitUntil(forward(endpoint, headers, scrubBody(body, headers)));
+  ctx.waitUntil(forward(signal, endpoint, headers, scrubBody(body, headers)));
 
   return new Response(null, { status: 202 });
 }

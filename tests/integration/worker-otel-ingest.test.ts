@@ -123,6 +123,43 @@ describe("browser telemetry ingest", () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
+  it("logs collector failures at error level without the key", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const keyed = { ...env, OTEL_BROWSER_INGEST_KEY: "sekret-ingest-key-4f9a" };
+
+    upstream
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockRejectedValueOnce(new TypeError("fetch failed"));
+
+    await handleOtelIngest(otlp("/otel/v1/traces", "{}"), keyed, ctx);
+    await handleOtelIngest(otlp("/otel/v1/logs", "{}"), keyed, ctx);
+    await Promise.all(pending);
+
+    // The two forwards settle concurrently, so order isn't asserted.
+    expect(error).toHaveBeenCalledTimes(2);
+    expect(error.mock.calls.map(([line]) => line)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          level: "error",
+          msg: "Collector rejected browser telemetry",
+          signal: "traces",
+          http_status: 401,
+        }),
+        expect.objectContaining({
+          level: "error",
+          msg: "Collector unreachable for browser telemetry",
+          signal: "logs",
+          "error.name": "TypeError",
+        }),
+      ]),
+    );
+
+    const logged = JSON.stringify(error.mock.calls);
+
+    expect(logged).not.toContain(keyed.OTEL_BROWSER_INGEST_KEY);
+    expect(logged).not.toContain("authorization");
+  });
+
   it("answers ahead of the app router", async () => {
     const render = vi.spyOn(handler, "fetch");
 
