@@ -80,9 +80,10 @@ export default async function PrivacyPolicyPage() {
                   </li>
                   <li>
                     <strong>Diagnostics:</strong> Page views, load times, errors, the actions you
-                    take in the app, and session recordings with all text and form input masked.
-                    Signed-in records are linked to an opaque account ID, never your email. They are
-                    stored on servers we operate ourselves, not by a third-party analytics company.
+                    take in the app, the country you visit from (never your city or IP address), and
+                    session recordings with all text and form input masked. Signed-in records are
+                    linked to an opaque account ID, never your email. They are stored on servers we
+                    operate ourselves, not by a third-party analytics company.
                   </li>
                 </ul>
 

@@ -6,6 +6,7 @@
  * browser, and the CSP needs no third-party `connect-src`. This runs ahead of
  * vinext and auth, so a telemetry batch costs one cheap Worker hop.
  */
+import { z } from "zod";
 import { errorFields, log, redactEmails } from "@/lib/log";
 import type { Env } from "@/lib/types/env";
 
@@ -33,26 +34,91 @@ const URL_QUERY = /(https?:\/\/[^\s"?#\\]*)[?#][^\s"\\]*/gi;
 
 const UNCOMPRESSED = new Set([null, "identity"]);
 
+const COUNTRY_KEY = "geo.country.iso_code";
+
+// Cloudflare's codes for Tor exits (T1) and unknown origins (XX).
+const NO_COUNTRY = new Set(["T1", "XX"]);
+
+const edgeCountry = z.object({ country: z.string().optional() });
+
+// Only the path to each resource's attributes is checked; looseObject keeps
+// every other field of the batch as sent.
+const otlpResourceBatch = z.looseObject({
+  resource: z
+    .looseObject({ attributes: z.array(z.looseObject({ key: z.string() })).optional() })
+    .optional(),
+});
+
+const otlpPayload = z.looseObject({
+  resourceSpans: z.array(otlpResourceBatch).optional(),
+  resourceLogs: z.array(otlpResourceBatch).optional(),
+});
+
 const ingestLog = log("OtelIngest");
 
 export function isOtelIngestPath(pathname: string): boolean {
   return OTEL_PATH.test(pathname);
 }
 
+/** The visitor's country from Cloudflare's edge, and nothing finer (privacy policy). */
+function visitorCountry(request: Request): string | undefined {
+  const country = edgeCountry.safeParse(request.cf).data?.country;
+
+  return country && !NO_COUNTRY.has(country) ? country : undefined;
+}
+
 /**
- * Uncompressed JSON batches (traces, console logs) lose email addresses and
- * URL query strings before they leave the Worker. Anything else, such as the
- * gzipped protobuf of session replay, passes through untouched; the SDK masks
- * replay text and inputs.
+ * Stamps the country on every resource so HyperDX can group browser telemetry
+ * by `ResourceAttributes['geo.country.iso_code']`, replacing any client-sent
+ * value. A body that isn't an OTLP object passes through as is.
  */
-function scrubBody(body: ArrayBuffer, headers: Headers): ArrayBuffer | string {
+function tagCountry(json: string, country: string): string {
+  let body;
+
+  try {
+    body = JSON.parse(json);
+  } catch {
+    return json;
+  }
+
+  const parsed = otlpPayload.safeParse(body);
+
+  if (!parsed.success) return json;
+
+  const { resourceSpans = [], resourceLogs = [] } = parsed.data;
+
+  for (const batch of [...resourceSpans, ...resourceLogs]) {
+    const resource = (batch.resource ??= {});
+    const attributes = (resource.attributes ?? []).filter(({ key }) => key !== COUNTRY_KEY);
+
+    resource.attributes = [...attributes, { key: COUNTRY_KEY, value: { stringValue: country } }];
+  }
+
+  return JSON.stringify(parsed.data);
+}
+
+/**
+ * Uncompressed JSON batches (traces, console logs) gain the visitor's country
+ * and lose email addresses and URL query strings before they leave the Worker.
+ * Anything else, such as the gzipped protobuf of session replay, passes through
+ * untouched; the SDK masks replay text and inputs.
+ */
+function prepareBody(
+  body: ArrayBuffer,
+  headers: Headers,
+  country: string | undefined,
+): ArrayBuffer | string {
   const isPlainJson =
     headers.get("content-type")?.startsWith("application/json") &&
     UNCOMPRESSED.has(headers.get("content-encoding"));
 
   if (!isPlainJson) return body;
 
-  return redactEmails(new TextDecoder().decode(body)).replace(URL_QUERY, "$1");
+  const json = new TextDecoder().decode(body);
+
+  // Tag before scrubbing: re-serializing turns an escaped `\u0040` into a
+  // literal `@` that redactEmails must still see.
+  return redactEmails(country ? tagCountry(json, country) : json).replace(URL_QUERY, "$1");
 }
 
 /**
@@ -128,7 +194,9 @@ export async function handleOtelIngest(
   }
 
   const endpoint = `${collector.replace(/\/+$/, "")}/v1/${signal}`;
-  ctx.waitUntil(forward(signal, endpoint, headers, scrubBody(body, headers)));
+  ctx.waitUntil(
+    forward(signal, endpoint, headers, prepareBody(body, headers, visitorCountry(request))),
+  );
 
   return new Response(null, { status: 202 });
 }

@@ -36,9 +36,40 @@ function otlp(path: string, body: string, headers: Record<string, string> = {}):
   });
 }
 
-describe("browser telemetry ingest", () => {
-  const upstream = vi.fn<typeof fetch>();
+// Node's Request has no `cf`; the Worker runtime sets it from the edge.
+function fromCountry(request: Request, country: string | undefined): Request {
+  Object.defineProperty(request, "cf", { value: { country, city: "Tempe", region: "Arizona" } });
 
+  return request;
+}
+
+const traceBatch = JSON.stringify({
+  resourceSpans: [
+    {
+      resource: {
+        attributes: [
+          { key: "service.name", value: { stringValue: "pickmyclass-web" } },
+          { key: "geo.country.iso_code", value: { stringValue: "ZZ" } },
+        ],
+      },
+      scopeSpans: [],
+    },
+    { scopeSpans: [] },
+  ],
+});
+
+async function forwardedJson(request: Request): Promise<string> {
+  await handleOtelIngest(request, env, ctx);
+  await Promise.all(pending);
+
+  const [, init] = upstream.mock.lastCall ?? [];
+
+  return String(init?.body);
+}
+
+const upstream = vi.fn<typeof fetch>();
+
+describe("browser telemetry ingest", () => {
   beforeEach(() => {
     pending.length = 0;
     upstream.mockReset().mockResolvedValue(new Response(null, { status: 200 }));
@@ -75,10 +106,7 @@ describe("browser telemetry ingest", () => {
       frame: "at fn (HTTPS://pickmyclass.app/x.js#token=abc)",
     });
 
-    await handleOtelIngest(otlp("/otel/v1/logs", body), env, ctx);
-    await Promise.all(pending);
-
-    expect(JSON.parse(String(upstream.mock.calls[0][1]?.body))).toEqual({
+    expect(JSON.parse(await forwardedJson(otlp("/otel/v1/logs", body)))).toEqual({
       href: "https://pickmyclass.app/admin/users",
       message: "lookup for [email]",
       nested: JSON.stringify({ email: "[email]" }),
@@ -87,7 +115,10 @@ describe("browser telemetry ingest", () => {
   });
 
   it("passes compressed batches through unchanged", async () => {
-    const request = otlp("/otel/v1/logs", "student@asu.edu", { "content-encoding": "gzip" });
+    const request = fromCountry(
+      otlp("/otel/v1/logs", "student@asu.edu", { "content-encoding": "gzip" }),
+      "US",
+    );
 
     await handleOtelIngest(request, env, ctx);
     await Promise.all(pending);
@@ -95,6 +126,49 @@ describe("browser telemetry ingest", () => {
     // SAFETY: a compressed batch is forwarded as the raw ArrayBuffer read from the request.
     const forwarded = upstream.mock.calls[0][1]?.body as ArrayBuffer;
     expect(new TextDecoder().decode(forwarded)).toBe("student@asu.edu");
+  });
+
+  it("tags every trace and log resource with the visitor's country only", async () => {
+    const traces = JSON.parse(
+      await forwardedJson(fromCountry(otlp("/otel/v1/traces", traceBatch), "US")),
+    );
+
+    expect(traces.resourceSpans.map((batch: { resource: object }) => batch.resource)).toEqual([
+      {
+        attributes: [
+          { key: "service.name", value: { stringValue: "pickmyclass-web" } },
+          { key: "geo.country.iso_code", value: { stringValue: "US" } },
+        ],
+      },
+      { attributes: [{ key: "geo.country.iso_code", value: { stringValue: "US" } }] },
+    ]);
+
+    const logBatch = JSON.stringify({ resourceLogs: [{ resource: {}, scopeLogs: [] }] });
+    const logs = await forwardedJson(fromCountry(otlp("/otel/v1/logs", logBatch), "IN"));
+
+    expect(JSON.parse(logs).resourceLogs[0].resource.attributes).toEqual([
+      { key: "geo.country.iso_code", value: { stringValue: "IN" } },
+    ]);
+    expect(logs).not.toMatch(/Tempe|Arizona/);
+  });
+
+  it.each([undefined, "T1", "XX"])("adds no country when cf.country is %s", async (country) => {
+    const body = await forwardedJson(fromCountry(otlp("/otel/v1/traces", traceBatch), country));
+
+    expect(body).toBe(traceBatch);
+  });
+
+  it("forwards non-OTLP JSON bodies unchanged", async () => {
+    for (const body of ["not json", "[1]", "null", '{"resourceSpans":{}}']) {
+      expect(await forwardedJson(fromCountry(otlp("/otel/v1/logs", body), "US"))).toBe(body);
+    }
+  });
+
+  it("redacts an escaped email that re-serializing the tagged batch unescapes", async () => {
+    const body = '{"resourceLogs":[],"message":"student\\u0040asu.edu"}';
+    const forwarded = await forwardedJson(fromCountry(otlp("/otel/v1/logs", body), "US"));
+
+    expect(JSON.parse(forwarded).message).toBe("[email]");
   });
 
   it("accepts and drops batches while the ingest key is unset", async () => {
