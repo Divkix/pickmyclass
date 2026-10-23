@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SimplifiedWatchForm } from "@/components/SimplifiedWatchForm";
 import type { OnboardingState } from "@/lib/onboarding";
+import { trackBrowserAction } from "@/lib/telemetry/browser";
 import type { ClassWatchRow } from "@/lib/types/class-watch";
 
 export type { OnboardingState };
@@ -119,6 +120,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
   const announcement = `Step ${step} of 3: ${stepTitles[step]}`;
 
   useEffect(() => {
+    trackBrowserAction("onboarding_started", {});
     const controller = new AbortController();
     fetch("/api/onboarding/popular-class", { signal: controller.signal })
       .then((response) => {
@@ -184,6 +186,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
 
   const handleWatchCreated = (watch: ClassWatchRow) => {
     setCreatedWatch(watch);
+    trackBrowserAction("onboarding_completed", {});
     setStep((current) => (current === 2 ? 3 : current));
   };
 
@@ -199,6 +202,10 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
   const handleTrackPopular = () => {
     if (!popularClass) return;
     setPrefillClassNbr(popularClass.class_nbr);
+    trackBrowserAction("onboarding_popular_class_tracked", {
+      class_nbr: popularClass.class_nbr,
+      term: popularClass.term,
+    });
     setStep(2);
   };
 

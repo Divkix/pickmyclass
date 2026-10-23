@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { errorFields, log } from "@/lib/log";
+import { recordBrowserError } from "@/lib/telemetry/browser";
 import "./globals.css";
 
 // Replaces the root layout when it throws, so app/error.tsx never sees these errors.
@@ -17,6 +18,7 @@ export default function GlobalError({
       digest: error.digest,
       ...errorFields(error),
     });
+    recordBrowserError(error, { boundary: "global", digest: error.digest });
   }, [error]);
 
   return (

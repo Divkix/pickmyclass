@@ -1,0 +1,107 @@
+/**
+ * Browser telemetry through `@hyperdx/browser`: traces, console logs, errors,
+ * masked session replay and product actions, posted to the Worker's `/otel`
+ * proxy. The SDK is about 190 KB gzipped, so it loads after the page's `load`
+ * event in its own chunk. Calls made before then queue on the import.
+ */
+import { errorFields } from "@/lib/log";
+
+type HyperDX = (typeof import("@hyperdx/browser"))["default"];
+
+// A type alias, not an interface, so it passes as OTel `Attributes`.
+type BoundaryErrorFields = { boundary: "app" | "global"; digest?: string };
+
+/** Product actions and their fields: opaque ids only, never emails or names. */
+interface BrowserActionMap {
+  onboarding_started: Record<never, never>;
+  onboarding_completed: Record<never, never>;
+  onboarding_popular_class_tracked: { class_nbr: string; term: string };
+  data_exported: Record<never, never>;
+  user_logged_in: Record<never, never>;
+  user_logged_out: Record<never, never>;
+}
+
+let sdk: Promise<HyperDX> | undefined;
+
+function afterLoad(): Promise<void> {
+  if (document.readyState === "complete") return Promise.resolve();
+
+  return new Promise((resolve) => window.addEventListener("load", () => resolve(), { once: true }));
+}
+
+async function loadSdk(): Promise<HyperDX> {
+  await afterLoad();
+  const { default: hyperdx } = await import("@hyperdx/browser");
+
+  hyperdx.init({
+    url: `${location.origin}/otel`,
+    // Required by the type. The proxy drops it and attaches the real key.
+    apiKey: "proxy",
+    service: "pickmyclass-web",
+    // Same-origin requests always carry traceparent. Listing only our own
+    // origin keeps it off Clerk, Umami and every other third party.
+    tracePropagationTargets: [location.origin],
+    consoleCapture: true,
+    // Request and response bodies carry emails and Clerk tokens.
+    advancedNetworkCapture: false,
+    maskAllInputs: true,
+    maskAllText: true,
+    // Admin pages show other users' data. The proxy strips URL queries from
+    // traces and logs, but replay is gzipped protobuf it can't scrub, so replay
+    // stays off for admin sessions. The admin layout adds `rr-block` and
+    // PauseSessionReplay for client navigation into /admin.
+    disableReplay: location.pathname.startsWith("/admin"),
+    disableIntercom: true,
+    otelResourceAttributes: {
+      "deployment.environment":
+        location.hostname === "pickmyclass.app" ? "production" : "development",
+    },
+  });
+
+  return hyperdx;
+}
+
+function withSdk(use: (hyperdx: HyperDX) => void): void {
+  // A failed chunk load leaves telemetry off rather than throwing at callers.
+  void sdk?.then(use, () => undefined);
+}
+
+/** Called once from `instrumentation-client.ts`; a no-op everywhere else. */
+export function startBrowserTelemetry(): void {
+  sdk ??= loadSdk();
+}
+
+export function trackBrowserAction<E extends keyof BrowserActionMap>(
+  action: E,
+  fields: BrowserActionMap[E],
+): void {
+  withSdk((hyperdx) => hyperdx.addAction(action, fields));
+}
+
+/** Tags every later span with the Clerk user id; `null` clears it on sign-out. */
+export function setTelemetryUser(clerkUserId: string | null): void {
+  withSdk((hyperdx) => hyperdx.setGlobalAttributes({ userId: clerkUserId ?? "" }));
+}
+
+/**
+ * Reports a caught error with the same scrubbing as server logs. React's own
+ * console.error of the raw error is captured too; the /otel proxy redacts
+ * emails in it.
+ */
+export function recordBrowserError(cause: unknown, attributes: BoundaryErrorFields): void {
+  const fields = errorFields(cause);
+  const error = new Error(fields["error.message"]);
+  error.name = fields["error.name"];
+
+  if (fields.stack) error.stack = fields.stack;
+
+  withSdk((hyperdx) => hyperdx.recordException(error, attributes));
+}
+
+export function pauseSessionReplay(): void {
+  withSdk((hyperdx) => hyperdx.stopSessionRecorder());
+}
+
+export function resumeSessionReplay(): void {
+  withSdk((hyperdx) => hyperdx.resumeSessionRecorder());
+}
