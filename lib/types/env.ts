@@ -15,6 +15,10 @@ export interface Env extends Record<string, unknown> {
   EMAIL: SendEmail;
   NOTIFICATION_FROM_EMAIL?: string;
 
+  /** Browser telemetry collector; `/otel` drops batches while either is unset. */
+  OTEL_COLLECTOR_URL?: string;
+  OTEL_BROWSER_INGEST_KEY?: string;
+
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
 }
 

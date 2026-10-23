@@ -33,14 +33,22 @@ export function log(scope: string) {
 
 const MAX_MESSAGE_LENGTH = 1000;
 
-const EMAIL_PATTERN = /[^\s@"'<>()]+@[^\s@"'<>()]+\.[^\s@"'<>()]+/g;
+// Anchored at a token start and bounded (RFC 5321 lengths) so a megabyte of
+// junk scans in linear time. Backslash ends a token, so redacting inside a
+// JSON string never eats the escape before a quote.
+const EMAIL_PATTERN =
+  /(?<![^\s@"'<>()\\])[^\s@"'<>()\\]{1,64}@[^\s@"'<>()\\]{1,255}\.[^\s@"'<>()\\]+/g;
 
 // V8 (`    at fn (url:1:2)`) and Firefox/Safari (`fn@url:1:2`) stack frames.
 const STACK_FRAME = /^\s*at |@\S*:\d+:\d+$/;
 
+export function redactEmails(text: string): string {
+  return text.replace(EMAIL_PATTERN, "[email]");
+}
+
 /** Provider and driver messages can echo a recipient or a row value back. */
 function scrub(text: string): string {
-  return text.slice(0, MAX_MESSAGE_LENGTH).replace(EMAIL_PATTERN, "[email]");
+  return redactEmails(text.slice(0, MAX_MESSAGE_LENGTH));
 }
 
 // `instanceof` rather than `typeof`, which the anti-slop lint bans.

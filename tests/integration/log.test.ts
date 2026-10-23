@@ -1,6 +1,6 @@
 import { DrizzleQueryError } from "drizzle-orm/errors";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { errorFields, log } from "@/lib/log";
+import { errorFields, log, redactEmails } from "@/lib/log";
 
 describe("log", () => {
   afterEach(() => {
@@ -69,6 +69,12 @@ describe("errorFields", () => {
     expect(errorFields(error).stack).toBe(
       "Error: boom\nonClick@https://pickmyclass.app/assets/app.js:1:200\n@https://pickmyclass.app/assets/app.js:2:10",
     );
+  });
+
+  it("redacts a megabyte of hostile text without catastrophic backtracking", () => {
+    const hostile = `${"a".repeat(1 << 20)}@b ${"x@".repeat(1 << 18)} student@asu.edu`;
+
+    expect(redactEmails(hostile).endsWith(" [email]")).toBe(true);
   });
 
   it("caps long messages", () => {
