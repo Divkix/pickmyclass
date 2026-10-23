@@ -1,5 +1,6 @@
 import { Data, Effect, Option, Schema } from "effect";
 import { ASU_REQUEST_TIMEOUT_MS } from "@/lib/config";
+import { log } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
@@ -19,7 +20,13 @@ export class AsuUpstream extends Data.TaggedError("AsuUpstream")<{
   status?: number;
 }> {}
 
-export type AsuError = AsuNotFound | AsuAuth | AsuRateLimited | AsuUpstream;
+/** A 2xx response whose body does not match the API contract; retrying cannot fix it. */
+export class AsuInvalidResponse extends Data.TaggedError("AsuInvalidResponse")<{
+  message: string;
+  status?: number;
+}> {}
+
+export type AsuError = AsuNotFound | AsuAuth | AsuRateLimited | AsuUpstream | AsuInvalidResponse;
 
 // Unconfirmed on this endpoint, so an unexpected shape reads as unknown (null)
 // instead of failing every Section Check.
@@ -27,25 +34,29 @@ const LenientString = Schema.NullOr(Schema.String).pipe(
   Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
 );
 
+// ASU omits optional fields on some sections and returns null on others; both mean unknown.
+const OptionalNullableString = Schema.optionalKey(Schema.NullOr(Schema.String));
+const OptionalNullableStringArray = Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String)));
+
 const AsuApiClassItem = Schema.Struct({
   CLASSNBR: Schema.String,
   SUBJECT: Schema.String,
   CATALOGNBR: Schema.String,
-  TITLE: Schema.optionalKey(Schema.String),
-  COURSETITLELONG: Schema.optionalKey(Schema.String),
-  ENRLCAP: Schema.optionalKey(Schema.String),
-  ENRLTOT: Schema.optionalKey(Schema.String),
-  FACILITYID: Schema.optionalKey(Schema.String),
-  MON: Schema.optionalKey(Schema.String),
-  TUES: Schema.optionalKey(Schema.String),
-  WED: Schema.optionalKey(Schema.String),
-  THURS: Schema.optionalKey(Schema.String),
-  FRI: Schema.optionalKey(Schema.String),
-  WAITTOT: Schema.optionalKey(Schema.String),
-  WAITCAP: Schema.optionalKey(Schema.String),
-  INSTRUCTORSLIST: Schema.optionalKey(Schema.Array(Schema.String)),
-  STARTTIME: Schema.optionalKey(Schema.NullOr(Schema.String)),
-  ENDTIME: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  TITLE: OptionalNullableString,
+  COURSETITLELONG: OptionalNullableString,
+  ENRLCAP: OptionalNullableString,
+  ENRLTOT: OptionalNullableString,
+  FACILITYID: OptionalNullableString,
+  MON: OptionalNullableString,
+  TUES: OptionalNullableString,
+  WED: OptionalNullableString,
+  THURS: OptionalNullableString,
+  FRI: OptionalNullableString,
+  WAITTOT: OptionalNullableString,
+  WAITCAP: OptionalNullableString,
+  INSTRUCTORSLIST: OptionalNullableStringArray,
+  STARTTIME: OptionalNullableString,
+  ENDTIME: OptionalNullableString,
   SESSIONCODE: Schema.optionalKey(LenientString),
   STARTDATE: Schema.optionalKey(LenientString),
   ENDDATE: Schema.optionalKey(LenientString),
@@ -210,14 +221,31 @@ export function fetchClassEffect(
 
         const body = yield* Effect.tryPromise({
           try: () => response.json(),
-          catch: () =>
-            new AsuUpstream({ message: "ASU API returned invalid JSON", status: response.status }),
+          catch: (error) => {
+            log("AsuClient").error(
+              `Invalid ASU JSON for ${ref.class_nbr}/${ref.term}:`,
+              String(error),
+            );
+
+            return new AsuInvalidResponse({
+              message: "ASU API returned invalid JSON",
+              status: response.status,
+            });
+          },
         });
 
         const data = yield* Schema.decodeUnknownEffect(AsuApiResponse)(body).pipe(
+          Effect.tapError((error) =>
+            Effect.sync(() =>
+              log("AsuClient").error(
+                `Invalid ASU response for ${ref.class_nbr}/${ref.term}:`,
+                String(error),
+              ),
+            ),
+          ),
           Effect.mapError(
             () =>
-              new AsuUpstream({
+              new AsuInvalidResponse({
                 message: "ASU API returned an invalid response",
                 status: response.status,
               }),

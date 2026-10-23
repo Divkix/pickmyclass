@@ -130,6 +130,7 @@ describe("processSection", () => {
     [new AuthError("invalid token"), "ack", 200, undefined],
     [new RateLimitError("slow down", 123), "retry", 429, 123],
     [new ApiError("upstream", 503), "retry", 502, undefined],
+    [new ApiError("ASU API returned an invalid response", 200, false), "ack", 200, undefined],
     [new Error("unexpected"), "retry", 500, undefined],
   ])(
     "maps %s to the existing transport outcome",

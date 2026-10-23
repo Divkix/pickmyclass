@@ -113,6 +113,42 @@ describe("ASU Promise compatibility", () => {
     });
   });
 
+  it("reads null optional fields as unknown instead of failing the check", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          body(ref.class_nbr, {
+            TITLE: null,
+            COURSETITLELONG: null,
+            ENRLCAP: null,
+            ENRLTOT: null,
+            WAITTOT: null,
+            WAITCAP: null,
+            FACILITYID: null,
+            MON: null,
+            TUES: null,
+            WED: null,
+            THURS: null,
+            FRI: null,
+            INSTRUCTORSLIST: null,
+            STARTTIME: null,
+            ENDTIME: null,
+          }),
+        ),
+      ),
+    );
+
+    expect(await fetchClassFromASU(ref, env, { useCache: false })).toMatchObject({
+      title: "Unknown",
+      seats_available: 0,
+      seats_capacity: 0,
+      instructor_name: "Staff",
+      meeting_times: "TBD",
+      location: "TBD",
+    });
+  });
+
   it.each([401, 403, 429, 500])("preserves legacy error classes for HTTP %s", async (status) => {
     vi.stubGlobal(
       "fetch",
@@ -141,13 +177,17 @@ describe("ASU Promise compatibility", () => {
       await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
         name: "ApiError",
         message: expect.stringContaining("invalid response"),
+        retryable: false,
       });
     },
   );
 
-  it("maps invalid JSON to ApiError", async () => {
+  it("maps invalid JSON to a non-retryable ApiError", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("not JSON")));
-    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toBeInstanceOf(ApiError);
+    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
+      name: "ApiError",
+      retryable: false,
+    });
   });
 
   it.each([{ hits: { total: { value: 0 }, hits: [] } }, body("other")])(
