@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
@@ -105,12 +104,6 @@ export default function RootLayout({
               </AuthProvider>
             </ClerkClientProvider>
           </ThemeProvider>
-          <Script
-            src="https://analytics.divkix.me/s.js"
-            data-website-id="f2ef7132-055d-4c9a-8040-dcd07f22e84d"
-            data-performance="true"
-            strategy="afterInteractive"
-          />
           <JsonLd
             data={{
               "@context": "https://schema.org",
