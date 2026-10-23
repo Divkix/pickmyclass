@@ -7,8 +7,8 @@ import {
 } from "@/lib/config";
 import { generateUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
 import { isFatalEmailCode } from "@/lib/email/send";
-import { log } from "@/lib/log";
-import type { SectionRef } from "@/lib/section-ref";
+import { errorFields, log } from "@/lib/log";
+import { type SectionRef, sectionFields } from "@/lib/section-ref";
 import { escapeHtml } from "@/lib/utils/escape-html";
 import type { ClassWatcher } from "@/lib/db/queries";
 import { buildClassEmailShell } from "./index";
@@ -170,21 +170,24 @@ export async function sendAutoCleanupRemovalEmails(
   const from = fromEmail || NOTIFICATION_FROM_EMAIL;
 
   if (watchers.length === 0) {
-    log("Email").info(`Auto-cleanup: no watchers to notify for ${ref.term}:${ref.class_nbr}`);
+    log("Email").info("Auto-cleanup: no watchers to notify", sectionFields(ref));
 
     return [];
   }
 
   if (watchers.length > AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE) {
-    log("Email").warn(
-      `Auto-cleanup cap: ${watchers.length} watchers for ${ref.term}:${ref.class_nbr} exceeds cap ${AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE}, truncating`,
-    );
+    log("Email").warn("Auto-cleanup watchers exceed the email cap, truncating", {
+      ...sectionFields(ref),
+      watchers: watchers.length,
+      email_cap: AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
+    });
     watchers = watchers.slice(0, AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE);
   }
 
-  log("Email").info(
-    `Auto-cleanup: notifying ${watchers.length} watcher(s) for removed section ${ref.term}:${ref.class_nbr}`,
-  );
+  log("Email").info("Auto-cleanup: notifying watchers of removed section", {
+    ...sectionFields(ref),
+    watchers: watchers.length,
+  });
 
   const results: AutoCleanupSendResult[] = [];
 
@@ -221,9 +224,12 @@ export async function sendAutoCleanupRemovalEmails(
       const errorMessage = errorObj.message || "Email send failed";
       const errorCode = errorObj.code || "UNKNOWN";
 
-      log("Email").error(
-        `Failed to send auto-cleanup email to ${watcher.email}: ${errorCode} - ${errorMessage}`,
-      );
+      log("Email").error("Auto-cleanup email send failed", {
+        ...sectionFields(ref),
+        user_id: watcher.user_id,
+        "email.code": errorCode,
+        ...errorFields(error),
+      });
 
       results.push({
         success: false,
@@ -243,9 +249,12 @@ export async function sendAutoCleanupRemovalEmails(
           });
         }
 
-        log("Email").warn(
-          `Stopped auto-cleanup batch after ${errorCode} at email ${i + 1}/${watchers.length}`,
-        );
+        log("Email").warn("Stopped auto-cleanup batch on fatal provider error", {
+          ...sectionFields(ref),
+          "email.code": errorCode,
+          position: i + 1,
+          total: watchers.length,
+        });
         break;
       }
     }
@@ -260,9 +269,11 @@ export async function sendAutoCleanupRemovalEmails(
   }
 
   const successCount = results.filter((r) => r.success).length;
-  log("Email").info(
-    `Auto-cleanup batch complete: ${successCount}/${watchers.length} sent successfully`,
-  );
+  log("Email").info("Auto-cleanup batch complete", {
+    ...sectionFields(ref),
+    sent: successCount,
+    total: watchers.length,
+  });
 
   return results;
 }

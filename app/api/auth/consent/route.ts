@@ -26,7 +26,9 @@ export async function POST(request: NextRequest) {
       const result = await repairUserMirror(db, user.userId, clerkUser);
 
       if (!result) {
-        log("Consent").error(`No primary email on Clerk user ${user.clerkUserId}`);
+        log("Consent").error("No primary email on Clerk user", {
+          clerk_user_id: user.clerkUserId,
+        });
 
         return fail("Account setup incomplete — please try again in a moment", 409);
       }

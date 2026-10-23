@@ -115,7 +115,10 @@ export async function getSectionsToCheck(
       sql`SELECT class_nbr, term FROM public.get_sections_to_check(${staggerType}::text)`,
     );
 
-    log("DB").info(`Found ${rows.length} sections to check (stagger: ${staggerType})`);
+    log("DB").info("Found sections to check", {
+      sections: rows.length,
+      stagger_group: staggerType,
+    });
 
     return rows.map((row) => ({ class_nbr: row.class_nbr, term: row.term }));
   } catch (error) {
@@ -228,9 +231,11 @@ export async function resetNotificationsForSection(
     );
 
     const deleted = Number(rows[0]?.deleted ?? 0);
-    log("DB").info(
-      `Reset ${notificationType} notifications for section ${ref.class_nbr} (${deleted} records deleted)`,
-    );
+    log("DB").info("Reset section notifications", {
+      ...sectionFields(ref),
+      notification_type: notificationType,
+      deleted,
+    });
   } catch (error) {
     log("DB").error("Error resetting notifications", {
       ...sectionFields(ref),
@@ -257,7 +262,7 @@ export async function deleteNotificationRecords(
     );
 
     const deleted = Number(rows[0]?.deleted ?? 0);
-    log("DB").info(`Deleted ${deleted} notification records for ${watchIds.length} watches`);
+    log("DB").info("Deleted notification records", { deleted, watches: watchIds.length });
 
     return deleted;
   } catch (error) {
@@ -282,7 +287,10 @@ export async function deleteNotificationRecordsByIds(
     );
 
     const deleted = Number(rows[0]?.deleted ?? 0);
-    log("DB").info(`Deleted ${deleted} notification records by id (${notificationIds.length} ids)`);
+    log("DB").info("Deleted notification records by id", {
+      deleted,
+      notification_count: notificationIds.length,
+    });
 
     return deleted;
   } catch (error) {
@@ -300,7 +308,10 @@ export async function deletePastTermWatches(db: Database, termCodes: string[]): 
       .where(inArray(classWatches.term, termCodes))
       .returning({ id: classWatches.id });
 
-    log("DB").info(`Deleted ${deleted.length} past-term watches for ${termCodes.length} terms`);
+    log("DB").info("Deleted past-term watches", {
+      watches_deleted: deleted.length,
+      terms: termCodes.length,
+    });
 
     return deleted.length;
   } catch (error) {
@@ -346,7 +357,11 @@ export async function tryRecordNotificationsBatch(
       return { notificationId: parsed.notification_id, watchId: parsed.class_watch_id };
     });
 
-    log("DB").info(`Batch ${notificationType}: ${claimed.length}/${watchIds.length} recorded`);
+    log("DB").info("Claimed notifications", {
+      notification_type: notificationType,
+      claimed: claimed.length,
+      watches: watchIds.length,
+    });
 
     return claimed;
   } catch (error) {
@@ -438,9 +453,10 @@ export async function insertClassStateIfMissing(
 export async function incrementConsecutiveNotFound(db: Database, ref: SectionRef): Promise<number> {
   try {
     const newCount = await incrementConsecutiveNotFoundViaRpc(db, ref);
-    log("DB").info(
-      `Incremented consecutive_not_found_count to ${newCount} for ${ref.class_nbr} (term ${ref.term}) via atomic RPC`,
-    );
+    log("DB").info("Incremented consecutive_not_found_count", {
+      ...sectionFields(ref),
+      strike_count: newCount,
+    });
 
     return newCount;
   } catch (error) {
@@ -476,9 +492,11 @@ export async function deleteSectionAndWatches(
       };
     });
 
-    log("DB").info(
-      `Deleted ${result.watchesDeleted} watches and ${result.stateDeleted ? 1 : 0} state row for ${ref.class_nbr} (term ${ref.term})`,
-    );
+    log("DB").info("Deleted section and watches", {
+      ...sectionFields(ref),
+      watches_deleted: result.watchesDeleted,
+      state_deleted: result.stateDeleted,
+    });
 
     return result;
   } catch (error) {
@@ -535,9 +553,10 @@ export async function capConsecutiveNotFound(
           ne(classStates.consecutive_not_found_count, maxCount),
         ),
       );
-    log("DB").info(
-      `Capped consecutive_not_found_count at ${maxCount} for ${ref.class_nbr} (term ${ref.term})`,
-    );
+    log("DB").info("Capped consecutive_not_found_count", {
+      ...sectionFields(ref),
+      max_count: maxCount,
+    });
   } catch (error) {
     log("DB").error("Error capping consecutive_not_found_count", {
       ...sectionFields(ref),

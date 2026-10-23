@@ -110,7 +110,7 @@ export async function getTotalClassesWatched(db: Database): Promise<number> {
     );
 
     const result = Number(row?.count ?? 0);
-    log("Admin").info(`Counted ${result} unique classes being watched`);
+    log("Admin").info("Counted distinct classes watched", { classes: result });
     adminCache.set("total-classes-watched", result);
 
     return result;
@@ -263,7 +263,7 @@ export async function getUsersPage(
 
     const total = rows.length > 0 ? Number(rows[0].total_count ?? 0) : 0;
 
-    log("Admin").info(`Fetched ${mapped.length} users (page ${page}, total ${total})`);
+    log("Admin").info("Fetched users page", { users: mapped.length, page, total });
 
     return { rows: mapped, total };
   } catch (error) {
@@ -353,7 +353,7 @@ export async function getClassesPage(
     const totalWatchers = rows.length > 0 ? Number(rows[0].total_watchers ?? 0) : 0;
     const fullClasses = rows.length > 0 ? Number(rows[0].full_classes ?? 0) : 0;
 
-    log("Admin").info(`Fetched ${mapped.length} classes (page ${page}, total ${total})`);
+    log("Admin").info("Fetched classes page", { classes: mapped.length, page, total });
 
     return { rows: mapped, total, totalWatchers, fullClasses };
   } catch (error) {
@@ -471,7 +471,7 @@ export async function getUserWatches(db: Database, userId: string): Promise<Watc
       .orderBy(desc(classWatches.created_at));
 
     if (rows.length === 0) {
-      log("Admin").info(`No watches found for user ${userId}`);
+      log("Admin").info("No watches found for user", { user_id: userId });
 
       return [];
     }
@@ -487,7 +487,10 @@ export async function getUserWatches(db: Database, userId: string): Promise<Watc
       },
     }));
 
-    log("Admin").info(`Fetched ${watchesWithClass.length} watches for user ${userId}`);
+    log("Admin").info("Fetched user watches", {
+      user_id: userId,
+      watches: watchesWithClass.length,
+    });
 
     return watchesWithClass;
   } catch (error) {

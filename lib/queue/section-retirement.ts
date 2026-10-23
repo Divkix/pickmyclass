@@ -16,7 +16,7 @@ import {
 } from "@/lib/db/queries";
 import { sendAutoCleanupRemovalEmails } from "@/lib/email/templates/auto-cleanup";
 import { errorFields, log } from "@/lib/log";
-import { type SectionRef, sectionFields, sectionRefKey } from "@/lib/section-ref";
+import { type SectionRef, sectionFields } from "@/lib/section-ref";
 
 export interface SectionRetirementParams {
   db: Database;
@@ -50,9 +50,12 @@ async function isAutoCleanupSuppressed(db: Database): Promise<boolean> {
     if (total === 0) return false;
 
     const ratio = flagged / total;
-    log("SectionRetirement").info(
-      `Breaker check total=${total} flagged=${flagged} ratio=${ratio.toFixed(3)} threshold=${AUTO_CLEANUP_BREAKER_RATIO}`,
-    );
+    log("SectionRetirement").info("Auto-cleanup breaker check", {
+      total,
+      flagged,
+      ratio,
+      threshold: AUTO_CLEANUP_BREAKER_RATIO,
+    });
 
     if (ratio > AUTO_CLEANUP_BREAKER_RATIO) {
       log("SectionRetirement").warn("Auto-cleanup suppressed — breaker tripped");
@@ -72,7 +75,6 @@ export async function retireClassSection(
   params: SectionRetirementParams,
 ): Promise<SectionRetirementOutcome> {
   const { db, ref, emailBinding, fromEmail } = params;
-  const scope = sectionRefKey(ref);
 
   let strikeCount: number;
 
@@ -95,7 +97,10 @@ export async function retireClassSection(
     };
   }
 
-  log("SectionRetirement").warn(`Auto-cleanup increment ${scope} count=${strikeCount}`);
+  log("SectionRetirement").warn("Auto-cleanup increment", {
+    ...sectionFields(ref),
+    strike_count: strikeCount,
+  });
 
   if (strikeCount < AUTO_CLEANUP_THRESHOLD) {
     return {
@@ -200,10 +205,15 @@ export async function retireClassSection(
     }
   }
 
-  log("SectionRetirement").info(
-    `Auto-cleanup retired ${scope}: watchesDeleted=${watchesDeleted} emailsAttempted=${emailsAttempted} emailsSucceeded=${emailsSucceeded}` +
-      ` (cap ${AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE}; ${Math.max(0, watchesDeleted - emailsAttempted)} removed without email — accepted trade-off vs paging)`,
-  );
+  // Watches past the email cap are removed without email: an accepted trade-off vs paging.
+  log("SectionRetirement").info("Auto-cleanup retired section", {
+    ...sectionFields(ref),
+    watches_deleted: watchesDeleted,
+    emails_attempted: emailsAttempted,
+    emails_succeeded: emailsSucceeded,
+    email_cap: AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
+    removed_without_email: Math.max(0, watchesDeleted - emailsAttempted),
+  });
 
   return {
     status: "retired",

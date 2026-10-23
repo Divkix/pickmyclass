@@ -17,9 +17,12 @@ try {
   });
 
   if (outcome.kind === "submitted") {
-    indexNowLog.info(`Submitted ${outcome.urlCount} URLs (HTTP ${outcome.httpStatus})`);
+    indexNowLog.info("Submitted URLs", {
+      urls: outcome.urlCount,
+      http_status: outcome.httpStatus,
+    });
   } else {
-    indexNowLog.warn(`Skipped: ${outcome.reason}`);
+    indexNowLog.warn("Skipped", { reason: outcome.reason });
   }
 } catch (error) {
   indexNowLog.warn("Skipped after unexpected error", errorFields(error));

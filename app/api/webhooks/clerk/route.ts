@@ -52,9 +52,10 @@ export async function POST(request: Request) {
       const synced = await syncUserMirrorFromClerkUser(db, event.data);
 
       if (!synced) {
-        log("ClerkWebhook").warn(
-          `Event ${event.type} for ${event.data.id} has no email — skipping`,
-        );
+        log("ClerkWebhook").warn("Webhook user has no email, skipping", {
+          event_type: event.type,
+          clerk_user_id: event.data.id,
+        });
       } else if (event.type === "user.created") {
         logEvent("user_registered", {
           user_id: event.data.external_id ?? event.data.id,
