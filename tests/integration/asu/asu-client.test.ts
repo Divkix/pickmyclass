@@ -16,6 +16,19 @@ const ref = { class_nbr: "98765", term: "2267" };
 
 const env = { ASU_API_BASE_URL: "https://asu.test/api/", ASU_API_TOKEN: " token " };
 
+type BodyReadError = Error | DOMException;
+
+function erroredResponse(error: BodyReadError): Response {
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.error(error);
+      },
+    }),
+    { status: 200 },
+  );
+}
+
 function body(classNbr = ref.class_nbr, extra: Record<string, string | number | null> = {}) {
   return {
     hits: {
@@ -113,6 +126,55 @@ describe("ASU Promise compatibility", () => {
     });
   });
 
+  it("reads null optional fields as unknown instead of failing the check", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          body(ref.class_nbr, {
+            TITLE: null,
+            COURSETITLELONG: null,
+            WAITCAP: null,
+            FACILITYID: null,
+            MON: null,
+            TUES: null,
+            WED: null,
+            THURS: null,
+            FRI: null,
+            INSTRUCTORSLIST: null,
+            STARTTIME: null,
+            ENDTIME: null,
+          }),
+        ),
+      ),
+    );
+
+    expect(await fetchClassFromASU(ref, env, { useCache: false })).toMatchObject({
+      title: "Unknown",
+      seats_available: 5,
+      seats_capacity: 30,
+      instructor_name: "Staff",
+      meeting_times: "TBD",
+      location: "TBD",
+    });
+  });
+
+  it.each<Record<string, string | number | null>>([
+    { ENRLCAP: null },
+    { ENRLTOT: null },
+    { WAITTOT: null },
+    { ENRLTOT: "not-a-number" },
+    { ENRLTOT: "" },
+  ])("rejects unusable seat counts instead of reporting false availability", async (extra) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(body(ref.class_nbr, extra))));
+
+    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
+      name: "ApiError",
+      retryable: false,
+      message: expect.stringMatching(/invalid response|unusable seat counts/),
+    });
+  });
+
   it.each([401, 403, 429, 500])("preserves legacy error classes for HTTP %s", async (status) => {
     vi.stubGlobal(
       "fetch",
@@ -141,13 +203,30 @@ describe("ASU Promise compatibility", () => {
       await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
         name: "ApiError",
         message: expect.stringContaining("invalid response"),
+        retryable: false,
       });
     },
   );
 
-  it("maps invalid JSON to ApiError", async () => {
+  it("maps invalid JSON to a non-retryable ApiError", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("not JSON")));
-    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toBeInstanceOf(ApiError);
+    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
+      name: "ApiError",
+      retryable: false,
+    });
+  });
+
+  it.each<[string, BodyReadError]>([
+    ["network error", new TypeError("network error")],
+    ["abort", new DOMException("The operation was aborted.", "AbortError")],
+  ])("keeps a failed response body read retryable (%s)", async (_name, error) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(erroredResponse(error)));
+
+    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
+      name: "ApiError",
+      retryable: true,
+      message: expect.stringContaining("read failed"),
+    });
   });
 
   it.each([{ hits: { total: { value: 0 }, hits: [] } }, body("other")])(

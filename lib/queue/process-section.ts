@@ -224,7 +224,8 @@ export async function processSection(
         retryAfterSeconds: error.retryAfterSeconds,
       };
 
-    if (error instanceof ApiError) return retryOutcome(failure(message), 502);
+    if (error instanceof ApiError)
+      return error.retryable ? retryOutcome(failure(message), 502) : ackOutcome(failure(message));
 
     if (error instanceof NotificationLeaseBusy)
       return { ...retryOutcome(failure(message), 500), retryAfterSeconds: error.retryAfterSeconds };

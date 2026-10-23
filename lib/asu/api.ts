@@ -12,6 +12,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status?: number,
+    public retryable = true,
   ) {
     super(message);
     this.name = "ApiError";
@@ -50,6 +51,7 @@ function legacyError(error: AsuError): ApiError {
     AsuAuth: (e) => new AuthError(e.message),
     AsuRateLimited: (e) => new RateLimitError(e.message, e.retryAfterSeconds),
     AsuUpstream: (e) => new ApiError(e.message, e.status),
+    AsuInvalidResponse: (e) => new ApiError(e.message, e.status, false),
   });
 }
 

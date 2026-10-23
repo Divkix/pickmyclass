@@ -1,5 +1,6 @@
 import { Data, Effect, Option, Schema } from "effect";
 import { ASU_REQUEST_TIMEOUT_MS } from "@/lib/config";
+import { log } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
@@ -19,7 +20,13 @@ export class AsuUpstream extends Data.TaggedError("AsuUpstream")<{
   status?: number;
 }> {}
 
-export type AsuError = AsuNotFound | AsuAuth | AsuRateLimited | AsuUpstream;
+/** A 2xx response whose body does not match the API contract; retrying cannot fix it. */
+export class AsuInvalidResponse extends Data.TaggedError("AsuInvalidResponse")<{
+  message: string;
+  status?: number;
+}> {}
+
+export type AsuError = AsuNotFound | AsuAuth | AsuRateLimited | AsuUpstream | AsuInvalidResponse;
 
 // Unconfirmed on this endpoint, so an unexpected shape reads as unknown (null)
 // instead of failing every Section Check.
@@ -27,25 +34,29 @@ const LenientString = Schema.NullOr(Schema.String).pipe(
   Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
 );
 
+// ASU omits optional fields on some sections and returns null on others; both mean unknown.
+const OptionalNullableString = Schema.optionalKey(Schema.NullOr(Schema.String));
+const OptionalNullableStringArray = Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String)));
+
 const AsuApiClassItem = Schema.Struct({
   CLASSNBR: Schema.String,
   SUBJECT: Schema.String,
   CATALOGNBR: Schema.String,
-  TITLE: Schema.optionalKey(Schema.String),
-  COURSETITLELONG: Schema.optionalKey(Schema.String),
-  ENRLCAP: Schema.optionalKey(Schema.String),
-  ENRLTOT: Schema.optionalKey(Schema.String),
-  FACILITYID: Schema.optionalKey(Schema.String),
-  MON: Schema.optionalKey(Schema.String),
-  TUES: Schema.optionalKey(Schema.String),
-  WED: Schema.optionalKey(Schema.String),
-  THURS: Schema.optionalKey(Schema.String),
-  FRI: Schema.optionalKey(Schema.String),
-  WAITTOT: Schema.optionalKey(Schema.String),
-  WAITCAP: Schema.optionalKey(Schema.String),
-  INSTRUCTORSLIST: Schema.optionalKey(Schema.Array(Schema.String)),
-  STARTTIME: Schema.optionalKey(Schema.NullOr(Schema.String)),
-  ENDTIME: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  TITLE: OptionalNullableString,
+  COURSETITLELONG: OptionalNullableString,
+  ENRLCAP: Schema.String,
+  ENRLTOT: Schema.String,
+  FACILITYID: OptionalNullableString,
+  MON: OptionalNullableString,
+  TUES: OptionalNullableString,
+  WED: OptionalNullableString,
+  THURS: OptionalNullableString,
+  FRI: OptionalNullableString,
+  WAITTOT: Schema.String,
+  WAITCAP: OptionalNullableString,
+  INSTRUCTORSLIST: OptionalNullableStringArray,
+  STARTTIME: OptionalNullableString,
+  ENDTIME: OptionalNullableString,
   SESSIONCODE: Schema.optionalKey(LenientString),
   STARTDATE: Schema.optionalKey(LenientString),
   ENDDATE: Schema.optionalKey(LenientString),
@@ -126,22 +137,28 @@ function parseAsuDate(value: string): string | null {
     : null;
 }
 
-function mapToClassDetails(item: AsuApiClassItem): ClassDetails {
-  const rawCap = Number.parseInt(item.ENRLCAP || "0", 10);
-  const rawTot = Number.parseInt(item.ENRLTOT || "0", 10);
-  const rawWait = Number.parseInt(item.WAITTOT || "0", 10);
-  const enrlCap = Number.isNaN(rawCap) ? 0 : rawCap;
-  const enrlTot = Number.isNaN(rawTot) ? 0 : rawTot;
-  const waitTot = Number.isNaN(rawWait) ? 0 : rawWait;
+interface SeatCounts {
+  capacity: number;
+  enrolled: number;
+  waitlisted: number;
+}
 
+/** ASU sends counts as digit strings; anything else is unknown and must not become zero. */
+function parseSeatCount(value: string): number | null {
+  const trimmed = value.trim();
+
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : null;
+}
+
+function mapToClassDetails(item: AsuApiClassItem, seats: SeatCounts): ClassDetails {
   return {
     subject: item.SUBJECT,
     catalog_nbr: item.CATALOGNBR,
     title: item.COURSETITLELONG || item.TITLE || "Unknown",
     instructor_name: item.INSTRUCTORSLIST?.[0] || "Staff",
-    seats_available: Math.max(0, enrlCap - enrlTot),
-    seats_capacity: enrlCap,
-    non_reserved_seats: Math.max(0, enrlCap - enrlTot - waitTot),
+    seats_available: Math.max(0, seats.capacity - seats.enrolled),
+    seats_capacity: seats.capacity,
+    non_reserved_seats: Math.max(0, seats.capacity - seats.enrolled - seats.waitlisted),
     location: item.FACILITYID || "TBD",
     meeting_times: composeMeetingTimes(item),
     start_date: item.STARTDATE ? parseAsuDate(item.STARTDATE) : null,
@@ -210,14 +227,43 @@ export function fetchClassEffect(
 
         const body = yield* Effect.tryPromise({
           try: () => response.json(),
-          catch: () =>
-            new AsuUpstream({ message: "ASU API returned invalid JSON", status: response.status }),
+          catch: (error) => {
+            if (error instanceof SyntaxError) {
+              log("AsuClient").error(
+                `Invalid ASU JSON for ${ref.class_nbr}/${ref.term}:`,
+                String(error),
+              );
+
+              return new AsuInvalidResponse({
+                message: "ASU API returned invalid JSON",
+                status: response.status,
+              });
+            }
+
+            log("AsuClient").error(
+              `ASU response read failed for ${ref.class_nbr}/${ref.term}:`,
+              String(error),
+            );
+
+            return new AsuUpstream({
+              message: `ASU API response read failed: ${String(error)}`,
+              status: response.status,
+            });
+          },
         });
 
         const data = yield* Schema.decodeUnknownEffect(AsuApiResponse)(body).pipe(
+          Effect.tapError((error) =>
+            Effect.sync(() =>
+              log("AsuClient").error(
+                `Invalid ASU response for ${ref.class_nbr}/${ref.term}:`,
+                String(error),
+              ),
+            ),
+          ),
           Effect.mapError(
             () =>
-              new AsuUpstream({
+              new AsuInvalidResponse({
                 message: "ASU API returned an invalid response",
                 status: response.status,
               }),
@@ -233,7 +279,24 @@ export function fetchClassEffect(
             message: `Section ${ref.class_nbr} not found in response`,
           });
 
-        return mapToClassDetails(matching._source);
+        const capacity = parseSeatCount(matching._source.ENRLCAP);
+        const enrolled = parseSeatCount(matching._source.ENRLTOT);
+        const waitlisted = parseSeatCount(matching._source.WAITTOT);
+
+        if (capacity === null || enrolled === null || waitlisted === null) {
+          log("AsuClient").error(`Unusable ASU seat counts for ${ref.class_nbr}/${ref.term}:`, {
+            ENRLCAP: matching._source.ENRLCAP,
+            ENRLTOT: matching._source.ENRLTOT,
+            WAITTOT: matching._source.WAITTOT,
+          });
+
+          return yield* new AsuInvalidResponse({
+            message: `ASU API returned unusable seat counts for ${ref.class_nbr}`,
+            status: response.status,
+          });
+        }
+
+        return mapToClassDetails(matching._source, { capacity, enrolled, waitlisted });
       }),
     (controller) => Effect.sync(() => controller.abort()),
   ).pipe(
