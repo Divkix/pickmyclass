@@ -1,5 +1,8 @@
 type DeploymentEnvironment = "production" | "preview" | "development";
 
+// Both constants exist only in Vite-built code; Node scripts run with tsx must
+// guard them with `typeof` (see lib/log.ts).
+
 /** Set by `define` in vite.config.ts from the Workers Builds variables. */
 declare const __DEPLOYMENT_ENVIRONMENT__: DeploymentEnvironment;
 
