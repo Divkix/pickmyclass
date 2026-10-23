@@ -14,7 +14,7 @@
     "knip": "knip",
     "verify": "pnpm run check && pnpm run type-check && pnpm run knip",
     "preview": "vp build && wrangler dev",
-    "deploy": "POSTHOG_UPLOAD_SOURCEMAPS=true vp build && pnpm run db:migrate && wrangler deploy && wrangler triggers deploy && pnpm run seo:indexnow",
+    "deploy": "vp build && pnpm run db:migrate && wrangler deploy && wrangler triggers deploy && pnpm run seo:indexnow",
     "cf-typegen": "wrangler types --config wrangler.jsonc --env-file /dev/null --env-interface CloudflareEnv lib/cloudflare-env.d.ts",
     "test": "vp test run --project '!db'",
     "test:integration": "vp test run --project integration",
@@ -59,7 +59,6 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.64.0",
     "@effect/vitest": "^4.0.6",
-    "@posthog/rollup-plugin": "^1.6.2",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.6.5",

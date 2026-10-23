@@ -30,7 +30,6 @@ overrides:
 
 allowBuilds:
   "@clerk/shared": true
-  "@posthog/cli": true
   core-js: true
   esbuild: true
   sharp: true
@@ -55,8 +54,6 @@ peerDependencyRules:
 # these packages stay gated; safe to delete once these versions age in.
 minimumReleaseAgeExclude:
   - "@clerk/backend@3.26.1"
-  - "@posthog/cli@0.18.12"
-  - "@posthog/rollup-plugin@1.6.2"
   - "caniuse-lite@1.0.30001818"
   - "lucide-react@1.61.0"
 trustPolicy: no-downgrade
