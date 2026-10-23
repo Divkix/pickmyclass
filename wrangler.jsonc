@@ -78,6 +78,13 @@
       "enabled": true,
       "persist": true,
       "invocation_logs": true,
+      // Also sent to HyperDX; "persist" keeps a 7-day copy in Cloudflare.
+      "destinations": ["hyperdx-logs"],
+    },
+    "traces": {
+      "enabled": true,
+      "persist": true,
+      "destinations": ["hyperdx-traces"],
     },
   },
   "vars": {
