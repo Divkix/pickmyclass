@@ -16,8 +16,9 @@ import {
   prefersMarkdown,
 } from "./lib/worker/markdown-negotiation";
 import { getDb } from "./lib/db";
-import { errorFields, log } from "./lib/log";
+import { errorFields, errorName, log } from "./lib/log";
 import { sectionFields } from "./lib/section-ref";
+import { withSpan } from "./lib/telemetry/span";
 
 const workerLog = log("Worker");
 
@@ -130,63 +131,74 @@ export default {
     const db = getDb(env.HYPERDRIVE);
 
     const results = await Promise.allSettled(
-      batch.messages.map(async (message) => {
-        const msgStartTime = Date.now();
-
+      batch.messages.map((message) => {
         const fields = {
           message_id: message.id,
           attempts: message.attempts,
           ...sectionFields(message.body),
           cycle: message.body.cycle,
+          workflow_instance_id: message.body.workflow_instance_id,
         };
 
-        try {
-          const outcome = await processSection(db, message.body, env);
-          const duration_ms = Date.now() - msgStartTime;
+        // Workers tracing exposes no trace ids yet, so `cycle` and
+        // `workflow_instance_id` link this span back to the enqueueing run.
+        return withSpan("section_check", fields, async (span) => {
+          const msgStartTime = Date.now();
 
-          if (outcome.disposition === "ack") {
-            if (!outcome.result.success) {
-              queueLog.error("Non-retryable Section Check failure, acking", {
-                ...fields,
-                duration_ms,
-                "error.message": outcome.result.error,
-              });
-            } else {
-              queueLog.info("Processed Section Check", {
-                ...fields,
-                duration_ms,
-                emails_sent: outcome.result.emailsSent,
-                seat_became_available: outcome.result.changes.seatBecameAvailable,
-                instructor_assigned: outcome.result.changes.instructorAssigned,
-              });
+          try {
+            const outcome = await processSection(db, message.body, env);
+            span.setAttribute("section_check.disposition", outcome.disposition);
+
+            const duration_ms = Date.now() - msgStartTime;
+
+            if (outcome.disposition === "ack") {
+              if (!outcome.result.success) {
+                queueLog.error("Non-retryable Section Check failure, acking", {
+                  ...fields,
+                  duration_ms,
+                  "error.message": outcome.result.error,
+                });
+              } else {
+                queueLog.info("Processed Section Check", {
+                  ...fields,
+                  duration_ms,
+                  emails_sent: outcome.result.emailsSent,
+                  seat_became_available: outcome.result.changes.seatBecameAvailable,
+                  instructor_assigned: outcome.result.changes.instructorAssigned,
+                });
+              }
+
+              message.ack();
+
+              return { success: outcome.result.success };
             }
 
-            message.ack();
+            const delaySeconds = retryDelaySeconds(outcome, message.attempts);
+            queueLog.error("Section Check failed, retrying", {
+              ...fields,
+              duration_ms,
+              http_status: outcome.httpStatus,
+              retry_delay_s: delaySeconds,
+              "error.message": outcome.result.error,
+            });
+            message.retry(delaySeconds === undefined ? undefined : { delaySeconds });
 
-            return { success: outcome.result.success };
+            return { success: false };
+          } catch (error) {
+            span.setAttributes({
+              "section_check.disposition": "retry",
+              "error.type": errorName(error),
+            });
+            queueLog.error("Section Check threw, retrying", {
+              ...fields,
+              ...errorFields(error),
+              duration_ms: Date.now() - msgStartTime,
+            });
+            message.retry();
+
+            return { success: false };
           }
-
-          const delaySeconds = retryDelaySeconds(outcome, message.attempts);
-          queueLog.error("Section Check failed, retrying", {
-            ...fields,
-            duration_ms,
-            http_status: outcome.httpStatus,
-            retry_delay_s: delaySeconds,
-            "error.message": outcome.result.error,
-          });
-          message.retry(delaySeconds === undefined ? undefined : { delaySeconds });
-
-          return { success: false };
-        } catch (error) {
-          queueLog.error("Section Check threw, retrying", {
-            ...fields,
-            ...errorFields(error),
-            duration_ms: Date.now() - msgStartTime,
-          });
-          message.retry();
-
-          return { success: false };
-        }
+        });
       }),
     );
 

@@ -5,6 +5,7 @@ import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE, NOTIFICATION_FROM_EMAIL } from 
 import { type ErrorFields, errorFields, log } from "@/lib/log";
 import type { NotificationType } from "@/lib/types/notification";
 import { sectionFields } from "@/lib/section-ref";
+import { withSpan } from "@/lib/telemetry/span";
 import { generateUnsubscribeUrl } from "./unsubscribe-token";
 
 export type { ClassInfo } from "@/lib/types/class";
@@ -77,19 +78,25 @@ export async function sendBatchEmailsOptimized(
     let failure: EmailFailure | undefined;
 
     try {
-      ({ messageId } = await emailBinding.send({
-        to: email.to,
-        from: options.fromEmail || NOTIFICATION_FROM_EMAIL,
-        subject: isSeat
-          ? `🎉 Seat Available: ${email.classInfo.subject} ${email.classInfo.catalog_nbr} (${email.classInfo.class_nbr})`
-          : `👨‍🏫 Instructor Assigned: ${email.classInfo.subject} ${email.classInfo.catalog_nbr} (${email.classInfo.class_nbr})`,
-        html,
-        text: stripHtml(html),
-        headers: {
-          "List-Unsubscribe": `<${unsubscribeUrl}>`,
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        },
-      }));
+      // The send_email binding gets no runtime span; this one never names the recipient.
+      ({ messageId } = await withSpan(
+        "email.send",
+        { notification_type: email.type, ...sectionFields(email.classInfo) },
+        () =>
+          emailBinding.send({
+            to: email.to,
+            from: options.fromEmail || NOTIFICATION_FROM_EMAIL,
+            subject: isSeat
+              ? `🎉 Seat Available: ${email.classInfo.subject} ${email.classInfo.catalog_nbr} (${email.classInfo.class_nbr})`
+              : `👨‍🏫 Instructor Assigned: ${email.classInfo.subject} ${email.classInfo.catalog_nbr} (${email.classInfo.class_nbr})`,
+            html,
+            text: stripHtml(html),
+            headers: {
+              "List-Unsubscribe": `<${unsubscribeUrl}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          }),
+      ));
     } catch (error) {
       const parsed = emailFailureSchema.safeParse(error);
 

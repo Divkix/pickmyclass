@@ -1,5 +1,5 @@
 /** Primitives only, so every field indexes as its own queryable key in Workers Logs. */
-type LogValue = string | number | boolean | null | undefined;
+export type LogValue = string | number | boolean | null | undefined;
 
 /** Fields on one log line: opaque ids, counts and durations, never emails, names or tokens. */
 export type LogFields = Readonly<Record<string, LogValue>>;
@@ -95,6 +95,13 @@ function driverError(cause: unknown): DriverError {
   };
 }
 
+/** The error's own `name`, or `NonError` for a thrown value with no message. */
+export function errorName(cause: unknown): string {
+  if (!(cause instanceof Object && "message" in cause)) return "NonError";
+
+  return "name" in cause && isText(cause.name) ? cause.name : "Error";
+}
+
 /**
  * Log fields for a caught value, tolerating non-Error throws. A Drizzle
  * statement failure is reduced to the driver's message and SQLSTATE, and the
@@ -105,7 +112,7 @@ export function errorFields(cause: unknown): ErrorFields {
   if (!(cause instanceof Object && "message" in cause))
     return { "error.message": scrub(nonErrorMessage(cause)), "error.name": "NonError" };
 
-  const name = "name" in cause && isText(cause.name) ? cause.name : "Error";
+  const name = errorName(cause);
   const driver = driverError(cause);
   const message = scrub(driver.message);
   const fields: ErrorFields = { "error.message": message, "error.name": name };

@@ -33,6 +33,7 @@
     "lib/queue/notification-claims.ts",
     "lib/db/schema/pending-section-notifications.ts",
     "lib/workflows/cron-workflows.ts",
+    "lib/telemetry/span.ts",
     "lib/worker/api-errors.ts",
     "lib/worker/edge-html-cache.ts",
     "lib/worker/markdown-negotiation.ts",

@@ -14,21 +14,90 @@
  */
 import { env } from "cloudflare:workers";
 import { type NodePgDatabase, drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { Pool, type QueryConfig, type QueryResult } from "pg";
+import { errorFields } from "@/lib/log";
+import { withSpan } from "@/lib/telemetry/span";
 import * as schema from "./schema";
 
 export type Database = NodePgDatabase<typeof schema> & { $client: Pool };
 
+type PromiseQuery = (config: QueryConfig, values?: QueryConfig["values"]) => Promise<QueryResult>;
+
+const SQL_OPERATION = /^\s*(\w+)/;
+
+const SQL_PARENS = /\([^()]*\)/g;
+
+const SQL_TABLE = /\b(?:from|into|update)\s+(?:"?public"?\.)?"?(\w+)/i;
+
+const SQL_FUNCTION = /\bpublic\.(\w+)\s*\(/i;
+
+const QUERY_SPAN_ATTRIBUTES = { "db.system.name": "postgresql" } as const;
+
+/** Empties parenthesised groups, innermost first, so subqueries and calls can't name the statement. */
+function outerStatement(text: string): string {
+  let outer = text;
+
+  for (let depth = 0; depth < 8; depth += 1) {
+    const next = outer.replace(SQL_PARENS, "()");
+
+    if (next === outer) break;
+    outer = next;
+  }
+
+  return outer;
+}
+
+/**
+ * A low-cardinality span name from the statement's shape, such as
+ * `SELECT class_states` or `SELECT record_section_observation`. Bound values
+ * live in `values`, so the text never carries them.
+ */
+export function querySummary(text: string): string {
+  const operation = SQL_OPERATION.exec(text)?.[1]?.toUpperCase() ?? "QUERY";
+  const outer = outerStatement(text);
+  // The outer table, else the SECURITY DEFINER RPC a bare `SELECT public.fn()` calls.
+  const name = SQL_TABLE.exec(outer)?.[1] ?? SQL_FUNCTION.exec(outer)?.[1];
+
+  return name ? `${operation} ${name}` : operation;
+}
+
+/**
+ * Hyperdrive's Postgres sockets get no runtime span, so each pool query gets
+ * one. Transactions run on a checked-out client and stay unspanned; only
+ * `deleteSectionAndWatches` and the Clerk user-mirror upsert use them. A
+ * failure carries its SQLSTATE, since pg names every server error "error".
+ */
+function traceQueries(pool: Pool): Pool {
+  const query: PromiseQuery = pool.query.bind(pool);
+
+  const traced: PromiseQuery = (config, values) =>
+    withSpan(querySummary(config.text), QUERY_SPAN_ATTRIBUTES, async (span) => {
+      try {
+        const result = await query(config, values);
+        span.setAttribute("db.response.returned_rows", result.rows.length);
+
+        return result;
+      } catch (error) {
+        span.setAttributes({ "db.response.status_code": errorFields(error)["error.code"] });
+        throw error;
+      }
+    });
+
+  // SAFETY: Drizzle's node-postgres session only calls the promise form, query(config, values).
+  pool.query = traced as Pool["query"];
+
+  return pool;
+}
+
 export function getDb(hyperdrive: Hyperdrive): Database {
-  return drizzle({
-    client: new Pool({
-      connectionString: hyperdrive.connectionString,
-      max: 5,
-      connectionTimeoutMillis: 10_000,
-      idleTimeoutMillis: 20_000,
-    }),
-    schema,
+  const pool = new Pool({
+    connectionString: hyperdrive.connectionString,
+    max: 5,
+    connectionTimeoutMillis: 10_000,
+    idleTimeoutMillis: 20_000,
   });
+
+  return drizzle({ client: traceQueries(pool), schema });
 }
 
 export function getDbFromEnv(): Database {

@@ -2,7 +2,8 @@ import { Effect, Match } from "effect";
 import { fetchClassEffect, type AsuError } from "@/lib/asu/asu-client";
 import { TtlCache } from "@/lib/cache/ttl-cache";
 import { ASU_CACHE_TTL_MS } from "@/lib/config";
-import { sectionRefKey, type SectionRef } from "@/lib/section-ref";
+import { sectionFields, sectionRefKey, type SectionRef } from "@/lib/section-ref";
+import { withSpan } from "@/lib/telemetry/span";
 import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
 
@@ -68,8 +69,10 @@ export async function fetchClassFromASU(
 
   if (cached) return cached;
 
-  const result = await Effect.runPromise(
-    fetchClassEffect(ref, env).pipe(Effect.mapError(legacyError)),
+  // The runtime spans the fetch itself; this one names the section and, on a
+  // throw, the legacy error class (`NotFoundError`, `RateLimitError`, ...).
+  const result = await withSpan("asu.fetch_class", sectionFields(ref), () =>
+    Effect.runPromise(fetchClassEffect(ref, env).pipe(Effect.mapError(legacyError))),
   );
 
   asuApiCache.set(key, result);
