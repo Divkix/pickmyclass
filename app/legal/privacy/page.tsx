@@ -78,6 +78,12 @@ export default async function PrivacyPolicyPage() {
                     <strong>Technical Data:</strong> IP address (for security purposes only, not
                     stored long-term)
                   </li>
+                  <li>
+                    <strong>Diagnostics:</strong> Page views, load times, errors, the actions you
+                    take in the app, and session recordings with all text and form input masked.
+                    Signed-in records are linked to an opaque account ID, never your email. They are
+                    stored on servers we operate ourselves, not by a third-party analytics company.
+                  </li>
                 </ul>
 
                 <h3 className="text-lg font-semibold mt-4">2.3 Information We Do NOT Collect</h3>
@@ -103,8 +109,8 @@ export default async function PrivacyPolicyPage() {
                     account settings
                   </li>
                   <li>
-                    <strong>Service Improvements:</strong> Understand usage patterns to improve
-                    reliability (aggregated data only)
+                    <strong>Service Improvements:</strong> Find and fix errors and slow pages, and
+                    understand how the Service is used
                   </li>
                   <li>
                     <strong>Security:</strong> Detect and prevent abuse, fraud, or unauthorized
@@ -212,7 +218,14 @@ export default async function PrivacyPolicyPage() {
                   </li>
                 </ul>
 
-                <h3 className="text-lg font-semibold mt-4">5.3 What We Do NOT Use</h3>
+                <h3 className="text-lg font-semibold mt-4">5.3 Diagnostics Cookie</h3>
+                <p>
+                  <span className="font-mono text-sm">__rum_sid</span> groups one visit&apos;s
+                  diagnostics (see section 2.2) into a session. It holds a random ID, is
+                  first-party, and expires after 15 minutes of inactivity.
+                </p>
+
+                <h3 className="text-lg font-semibold mt-4">5.4 What We Do NOT Use</h3>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>No advertising cookies</li>
                   <li>No social media cookies</li>

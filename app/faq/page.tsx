@@ -123,7 +123,7 @@ const faqCategories = [
       {
         question: "What data does PickMyClass collect?",
         answer:
-          "We don't sell your data, don't run ads, and don't share your information with third parties. See our Privacy Policy for full details.",
+          "Your email address for notifications, the class sections you're watching, and diagnostic data about how the site performs (page loads, errors, and session recordings with all text and form input masked). Diagnostics stay on servers we run ourselves. We don't sell your data, don't run ads, and don't share your information with third parties. See our Privacy Policy for full details.",
       },
       {
         question: "How do I delete my account?",
