@@ -49,7 +49,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
     .limit(1);
 
   if (!user) {
-    log("Admin").error(`User ${userId} not found in mirror table`);
+    log("Admin").error("User not found in mirror table", { user_id: userId });
     notFound();
   }
 

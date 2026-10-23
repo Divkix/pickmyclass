@@ -39,7 +39,9 @@ export async function GET(request: Request) {
     const repairResult = await repairUserMirror(db, userId, clerkUser);
 
     if (!repairResult) {
-      log("Auth").error(`No primary email on Clerk user ${identity.clerkUserId}`);
+      log("Auth").error("No primary email on Clerk user", {
+        clerk_user_id: identity.clerkUserId,
+      });
 
       return consentRedirect(base, next, true);
     }

@@ -1,7 +1,7 @@
 import { Data, Effect, Option, Schema } from "effect";
 import { ASU_REQUEST_TIMEOUT_MS } from "@/lib/config";
 import { errorFields, log } from "@/lib/log";
-import type { SectionRef } from "@/lib/section-ref";
+import { type SectionRef, sectionFields } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
 import { buildUrl } from "@/lib/utils/url";
@@ -230,8 +230,7 @@ export function fetchClassEffect(
           catch: (error) => {
             if (error instanceof SyntaxError) {
               log("AsuClient").error("Invalid ASU JSON", {
-                class_nbr: ref.class_nbr,
-                term: ref.term,
+                ...sectionFields(ref),
                 http_status: response.status,
                 ...errorFields(error),
               });
@@ -243,8 +242,7 @@ export function fetchClassEffect(
             }
 
             log("AsuClient").error("ASU response read failed", {
-              class_nbr: ref.class_nbr,
-              term: ref.term,
+              ...sectionFields(ref),
               http_status: response.status,
               ...errorFields(error),
             });
@@ -260,8 +258,7 @@ export function fetchClassEffect(
           Effect.tapError((error) =>
             Effect.sync(() =>
               log("AsuClient").error("Invalid ASU response", {
-                class_nbr: ref.class_nbr,
-                term: ref.term,
+                ...sectionFields(ref),
                 ...errorFields(error),
               }),
             ),
@@ -290,8 +287,7 @@ export function fetchClassEffect(
 
         if (capacity === null || enrolled === null || waitlisted === null) {
           log("AsuClient").error("Unusable ASU seat counts", {
-            class_nbr: ref.class_nbr,
-            term: ref.term,
+            ...sectionFields(ref),
             ENRLCAP: matching._source.ENRLCAP,
             ENRLTOT: matching._source.ENRLTOT,
             WAITTOT: matching._source.WAITTOT,

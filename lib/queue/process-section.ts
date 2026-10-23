@@ -119,9 +119,11 @@ export async function processSection(
     }
 
     if (cycle && oldState?.last_checked_at && oldState.last_checked_at >= cycle) {
-      log("ProcessSection").info(
-        `Skipping ${classNbr}: last checked at ${oldState.last_checked_at}, cycle ${cycle}`,
-      );
+      log("ProcessSection").info("Skipping section already checked this cycle", {
+        ...sectionFields(ref),
+        cycle,
+        last_checked_at: oldState.last_checked_at,
+      });
 
       return ackOutcome({
         success: true,
@@ -151,7 +153,8 @@ export async function processSection(
 
     if (!recorded.applied) {
       log("ProcessSection").info(
-        `Skipping ${classNbr}: a newer observation or pending notification is already stored`,
+        "Skipping section, a newer observation or pending notification is already stored",
+        { ...sectionFields(ref), cycle },
       );
 
       return ackOutcome({
@@ -165,7 +168,12 @@ export async function processSection(
 
     if (recorded.intentCreated) emailsSent += await deliverPendingNotifications(db, ref, env);
     const duration = Date.now() - startTime;
-    log("ProcessSection").info(`✅ Completed ${classNbr} in ${duration}ms`);
+    log("ProcessSection").info("Completed Section Check", {
+      ...sectionFields(ref),
+      cycle,
+      duration_ms: duration,
+      emails_sent: emailsSent,
+    });
 
     return ackOutcome({
       success: true,

@@ -12,7 +12,7 @@ import {
   confirmNotificationDelivery,
   type NotificationDelivery,
 } from "@/lib/queue/notification-claims";
-import { type SectionRef, sectionRefKey } from "@/lib/section-ref";
+import { type SectionRef, sectionFields } from "@/lib/section-ref";
 import type { NotificationType } from "@/lib/types/notification";
 
 export interface SendSectionNotificationsParams {
@@ -119,9 +119,11 @@ export async function sendSectionNotifications(
     }));
 
     const succeeded = sent.filter((r) => r.success).length;
-    log("NotificationSender").info(
-      `Sent ${succeeded}/${sent.length} notifications for ${sectionRefKey(ref)}`,
-    );
+    log("NotificationSender").info("Sent section notifications", {
+      ...sectionFields(ref),
+      sent: succeeded,
+      total: sent.length,
+    });
 
     return sent;
   } finally {
