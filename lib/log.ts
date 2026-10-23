@@ -20,10 +20,16 @@ type LogResource = {
   "deployment.environment": DeploymentEnvironment;
 };
 
+// The `typeof` guards cover Node scripts run with tsx (`seo:indexnow` after
+// deploy), where the Vite defines don't exist.
 function logResource(versionId?: string): LogResource {
   return {
-    "service.version": versionId || __BUILD_COMMIT__,
-    "deployment.environment": __DEPLOYMENT_ENVIRONMENT__,
+    "service.version":
+      versionId || (typeof __BUILD_COMMIT__ === "undefined" ? "dev" : __BUILD_COMMIT__),
+    "deployment.environment":
+      typeof __DEPLOYMENT_ENVIRONMENT__ === "undefined"
+        ? "development"
+        : __DEPLOYMENT_ENVIRONMENT__,
   };
 }
 
