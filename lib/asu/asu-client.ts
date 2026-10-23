@@ -228,13 +228,25 @@ export function fetchClassEffect(
         const body = yield* Effect.tryPromise({
           try: () => response.json(),
           catch: (error) => {
+            if (error instanceof SyntaxError) {
+              log("AsuClient").error(
+                `Invalid ASU JSON for ${ref.class_nbr}/${ref.term}:`,
+                String(error),
+              );
+
+              return new AsuInvalidResponse({
+                message: "ASU API returned invalid JSON",
+                status: response.status,
+              });
+            }
+
             log("AsuClient").error(
-              `Invalid ASU JSON for ${ref.class_nbr}/${ref.term}:`,
+              `ASU response read failed for ${ref.class_nbr}/${ref.term}:`,
               String(error),
             );
 
-            return new AsuInvalidResponse({
-              message: "ASU API returned invalid JSON",
+            return new AsuUpstream({
+              message: `ASU API response read failed: ${String(error)}`,
               status: response.status,
             });
           },
