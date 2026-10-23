@@ -8,8 +8,7 @@
  * This must be a real string literal (not process.env.NEXT_PUBLIC_*), because
  * client bundles only get NEXT_PUBLIC_* values that existed at *build* time.
  * Wrangler `vars` alone are runtime-only and would leave the browser with
- * `ClerkProvider publishableKey={undefined}` (same trap as PostHog — see
- * lib/analytics/config.ts).
+ * `ClerkProvider publishableKey={undefined}`.
  *
  * OWNER ACTION REQUIRED (#351 cutover): replace the placeholder with the real
  * publishable key from the Clerk dashboard (starts with pk_live_ / pk_test_).

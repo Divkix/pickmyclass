@@ -1,13 +1,7 @@
 "use client";
 
 import { useAuth as useClerkAuth, useClerk, useUser } from "@clerk/react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
-import {
-  identifyAnalyticsUser,
-  resetAnalyticsIdentity,
-  trackAnalyticsEvent,
-} from "@/lib/analytics/client";
-import { claimLoginSession } from "@/lib/analytics/login-session";
+import { createContext, useCallback, useContext, useMemo } from "react";
 import { log } from "@/lib/log";
 
 interface CompatUser {
@@ -60,35 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [sessionId],
   );
 
-  const analyticsUserId = clerkUser ? (clerkUser.externalId ?? clerkUser.id) : null;
-  const analyticsEmail = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
-  // Reset only on a signed-in → signed-out transition, so sessions that end
-  // outside signOut() (expiry, sign-out in another tab) stop attributing events
-  // to the previous user. Resetting on every anonymous load would mint a new
-  // anonymous distinct id per page view and split one visitor into many.
-  const wasIdentified = useRef(false);
-  useEffect(() => {
-    if (analyticsUserId) {
-      identifyAnalyticsUser(analyticsUserId, { email: analyticsEmail });
-      wasIdentified.current = true;
-    } else if (!loading && wasIdentified.current) {
-      resetAnalyticsIdentity();
-      wasIdentified.current = false;
-    }
-  }, [analyticsUserId, analyticsEmail, loading]);
-
-  // Runs after identify above, so the event lands on the signed-in person.
-  useEffect(() => {
-    if (analyticsUserId && sessionId && claimLoginSession(() => window.localStorage, sessionId)) {
-      trackAnalyticsEvent("user_logged_in", {});
-    }
-  }, [analyticsUserId, sessionId]);
-
   const signOut = useCallback(async () => {
     try {
-      trackAnalyticsEvent("user_logged_out", {});
-      resetAnalyticsIdentity();
-      wasIdentified.current = false;
       await clerk.signOut();
       await fetch("/api/auth/signout", { method: "POST" });
     } catch (error) {

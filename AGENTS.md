@@ -70,7 +70,7 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 - After consent or admin changes, call `invalidateAuthorizationState`. `proxy.ts` caches `readAuthorizationState` for 30s.
 - CSP has two production shapes in `proxy.ts`. Session requests get a per-request nonce. Session-less public pages are edge-cached and get `'unsafe-inline'` with **no** nonce or hash, because either one makes browsers ignore `'unsafe-inline'`. An empty `'nonce-'` once blanked the homepage for anonymous users and Googlebot.
 - Never add `headers()` / `cookies()` to `app/layout.tsx`: static pages then 500. `useSearchParams` needs a `<Suspense>` boundary.
-- `lib/clerk/config.ts` and `lib/analytics/config.ts` hold public keys as **string literals** on purpose. `process.env.NEXT_PUBLIC_*` does not get inlined into the Worker build.
+- `lib/clerk/config.ts` holds the public Clerk key as a **string literal** on purpose. `process.env.NEXT_PUBLIC_*` does not get inlined into the Worker build.
 
 **Cloudflare config:**
 - Workflow `class_name`s in `wrangler.jsonc` must match the classes re-exported from `worker.ts`. Cron schedules live on the Workflow bindings; `triggers.crons` stays `[]`. `CronLockDO` was deleted in migration `v3`, so never reuse that name.
