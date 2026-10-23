@@ -91,6 +91,7 @@
     "MAX_WATCHES_PER_USER": "10",
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
     "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app",
+    "OTEL_COLLECTOR_URL": "https://otel.divkix.me",
   },
   "send_email": [
     {

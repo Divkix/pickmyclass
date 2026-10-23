@@ -4,6 +4,7 @@ import type { Env } from "./lib/types/env";
 import type { ClassCheckMessage } from "./lib/types/queue";
 import { MaintenanceWorkflow, SectionCheckWorkflow } from "./lib/workflows/cron-workflows";
 import { withJsonApiError } from "./lib/worker/api-errors";
+import { handleOtelIngest, isOtelIngestPath } from "./lib/worker/otel-ingest";
 import { edgeHtmlCache } from "./lib/worker/edge-html-cache";
 import {
   appendLinkEntry,
@@ -47,6 +48,10 @@ export { MaintenanceWorkflow, SectionCheckWorkflow };
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (isOtelIngestPath(url.pathname)) return handleOtelIngest(request, env, ctx);
+
     // Sanitize GET/HEAD requests with bodies - bots sometimes send these
     // Web API spec forbids Request objects with GET/HEAD + body
     const isGetOrHead = request.method === "GET" || request.method === "HEAD";
@@ -55,12 +60,10 @@ export default {
     if (isGetOrHead && hasBody) {
       workerLog.info("Sanitizing GET/HEAD request with body", {
         method: request.method,
-        path: new URL(request.url).pathname,
+        path: url.pathname,
       });
       request = new Request(request, { body: null });
     }
-
-    const url = new URL(request.url);
 
     // A `.md` URL is a request for the Markdown twin of the page it names.
     // Static assets win: /pricing.md is a real file, not a twin of /pricing.
