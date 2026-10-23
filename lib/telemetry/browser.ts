@@ -52,9 +52,10 @@ async function loadSdk(): Promise<HyperDX> {
     // PauseSessionReplay for client navigation into /admin.
     disableReplay: location.pathname.startsWith("/admin"),
     disableIntercom: true,
+    // Same build-time tags as the Worker's logs (vite.config.ts `define`).
     otelResourceAttributes: {
-      "deployment.environment":
-        location.hostname === "pickmyclass.app" ? "production" : "development",
+      "service.version": __BUILD_COMMIT__,
+      "deployment.environment": __DEPLOYMENT_ENVIRONMENT__,
     },
   });
 

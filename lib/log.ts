@@ -14,13 +14,38 @@ export type ErrorFields = {
   stack?: string;
 };
 
+/** OTel resource keys stamped on every line. */
+type LogResource = {
+  "service.version": string;
+  "deployment.environment": DeploymentEnvironment;
+};
+
+function logResource(versionId?: string): LogResource {
+  return {
+    "service.version": versionId || __BUILD_COMMIT__,
+    "deployment.environment": __DEPLOYMENT_ENVIRONMENT__,
+  };
+}
+
+// The build's commit until an entrypoint supplies the Worker version id.
+// Isolate-wide, which is fine: an isolate serves one Worker version.
+let resource = logResource();
+
+/**
+ * Called at the top of every Worker entrypoint. The version id is read per
+ * invocation because an isolate can outlive a bindings-only deploy.
+ */
+export function tagLogs(versionId: string | undefined): void {
+  resource = logResource(versionId);
+}
+
 /**
  * Logs one object per line (`{ level, scope, msg, ...fields }`), so Workers
  * Logs indexes every key for HyperDX instead of one opaque message string.
  * The reserved keys are written last so a field can't overwrite them.
  */
 function write(level: LogLevel, scope: string, msg: string, fields?: LogFields): void {
-  console[level]({ ...fields, level, scope, msg });
+  console[level]({ ...fields, ...resource, level, scope, msg });
 }
 
 export function log(scope: string) {
@@ -197,5 +222,5 @@ export function logEvent<E extends keyof ProductEventMap>(
   event: E,
   fields: ProductEventMap[E],
 ): void {
-  console.info({ event, ...fields });
+  console.info({ event, ...fields, ...resource });
 }

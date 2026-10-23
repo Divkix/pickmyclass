@@ -8,7 +8,7 @@ import { sql } from "drizzle-orm";
 import { getPastTermCodes } from "@/lib/asu/terms";
 import { type Database, getDb } from "@/lib/db";
 import { deletePastTermWatches, getSectionsToCheck } from "@/lib/db/queries";
-import { errorFields, log, logEvent } from "@/lib/log";
+import { errorFields, log, logEvent, tagLogs } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
 import { withSpan } from "@/lib/telemetry/span";
 import type { Env } from "@/lib/types/env";
@@ -23,6 +23,7 @@ const STEP_CONFIG = {
 } satisfies WorkflowStepConfig;
 
 interface CronWorkflowEnv {
+  CF_VERSION_METADATA?: Env["CF_VERSION_METADATA"];
   HYPERDRIVE: Env["HYPERDRIVE"];
   PICKMYCLASS_QUEUE: Pick<Env["PICKMYCLASS_QUEUE"], "sendBatch">;
 }
@@ -87,6 +88,7 @@ function rejectedReasons(
  */
 export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
   async run(event: Readonly<WorkflowEvent<unknown>>, step: WorkflowStep) {
+    tagLogs(this.env.CF_VERSION_METADATA?.id);
     const now = firedAt(event);
     const staggerGroup = staggerGroupFor(now);
     const cycle = cycleStamp(now, staggerGroup);
@@ -203,6 +205,8 @@ const MAINTENANCE_STEPS = ["expire stale notifications", "sweep past-term watche
 
 export class MaintenanceWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
   async run(_event: Readonly<WorkflowEvent<unknown>>, step: WorkflowStep) {
+    tagLogs(this.env.CF_VERSION_METADATA?.id);
+
     const [expired, swept] = await Promise.allSettled([
       step.do(MAINTENANCE_STEPS[0], STEP_CONFIG, () =>
         expireStaleNotifications(getDb(this.env.HYPERDRIVE)),

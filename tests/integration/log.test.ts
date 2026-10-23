@@ -1,6 +1,6 @@
 import { DrizzleQueryError } from "drizzle-orm/errors";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { errorFields, log, redactEmails } from "@/lib/log";
+import { errorFields, log, redactEmails, tagLogs } from "@/lib/log";
 
 describe("log", () => {
   afterEach(() => {
@@ -18,7 +18,23 @@ describe("log", () => {
       msg: "Section Check failed",
       class_nbr: "12345",
       attempts: 2,
+      "service.version": "dev",
+      "deployment.environment": "development",
     });
+  });
+
+  it("tags lines with the Worker version once an entrypoint supplies it", () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tagLogs("9f2c1d7e-version");
+    log("Queue").info("tagged", { "service.version": "spoofed" });
+    tagLogs(undefined);
+    log("Queue").info("untagged");
+
+    expect(infoSpy.mock.calls.map(([line]) => line)).toEqual([
+      expect.objectContaining({ msg: "tagged", "service.version": "9f2c1d7e-version" }),
+      expect.objectContaining({ msg: "untagged", "service.version": "dev" }),
+    ]);
   });
 
   it("never lets a field overwrite level, scope or msg", () => {
@@ -26,7 +42,9 @@ describe("log", () => {
 
     log("Queue").info("real", { msg: "fake", level: "error", scope: "Other" });
 
-    expect(infoSpy).toHaveBeenCalledWith({ level: "info", scope: "Queue", msg: "real" });
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ level: "info", scope: "Queue", msg: "real" }),
+    );
   });
 });
 
