@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import { formatAbsoluteDate } from "@/lib/utils/time-format";
 import { useRequireAuth } from "@/lib/hooks/useRequireAuth";
 
@@ -46,7 +46,7 @@ export default function SettingsPage() {
 
       setMessage({ type: "success", text: "Data exported successfully!" });
     } catch (error) {
-      log("Settings").error("Data export failed:", error);
+      log("Settings").error("Data export failed", errorFields(error));
       setMessage({ type: "error", text: "Failed to export data. Please try again." });
     } finally {
       setExportLoading(false);

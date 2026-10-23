@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import { safeInternalPath } from "@/lib/auth/safe-redirect";
 import { invalidateAuthorizationState } from "@/lib/auth/authorization-state";
 import { getClerkClient, getSessionIdentity } from "@/lib/auth/clerk-session";
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
         await db.execute(sql`SELECT public.accept_terms_and_verify_age(${userId}::text)`);
         invalidateAuthorizationState(userId);
       } catch (error) {
-        log("Auth").error("Failed to persist consent:", error);
+        log("Auth").error("Failed to persist consent", errorFields(error));
 
         return consentRedirect(base, next, true);
       }
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
 
     return NextResponse.redirect(`${base}${next}`);
   } catch (error) {
-    log("Auth").error("post-oauth handling failed:", error);
+    log("Auth").error("post-oauth handling failed", errorFields(error));
 
     return NextResponse.redirect(`${origin}/sign-in?error=oauth_failed`);
   }

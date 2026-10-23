@@ -1,6 +1,6 @@
 import { invalidateAuthorizationState } from "@/lib/auth/authorization-state";
 import { revokeAllUserSessions } from "@/lib/auth/clerk-session";
-import { log, logEvent } from "@/lib/log";
+import { errorFields, log, logEvent } from "@/lib/log";
 import { fail, ok } from "@/lib/api/response";
 import { withAuth } from "@/lib/api/withAuth";
 import { getDbFromEnv } from "@/lib/db";
@@ -25,7 +25,7 @@ export async function DELETE(request: Request) {
         try {
           await revokeAllUserSessions(user.clerkUserId);
         } catch (error) {
-          log("User").error("Failed to revoke Clerk sessions on delete:", error);
+          log("User").error("Failed to revoke Clerk sessions on delete", errorFields(error));
         }
 
         return ok({
@@ -35,13 +35,13 @@ export async function DELETE(request: Request) {
           permanent_deletion_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         });
       } catch (error) {
-        log("User").error("Delete account error:", error);
+        log("User").error("Delete account error", errorFields(error));
 
         return fail("Failed to delete account", 500);
       }
     });
   } catch (error) {
-    log("User").error("Delete account error:", error);
+    log("User").error("Delete account error", errorFields(error));
 
     return fail("Failed to delete account", 500);
   }

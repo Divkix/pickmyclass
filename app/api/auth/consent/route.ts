@@ -8,7 +8,7 @@ import { getClerkClient } from "@/lib/auth/clerk-session";
 import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
 import { getDbFromEnv } from "@/lib/db";
 import { repairUserMirror } from "@/lib/db/users";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
       await db.execute(sql`SELECT public.accept_terms_and_verify_age(${user.userId}::text)`);
     } catch (error) {
-      log("Consent").error("Failed to persist consent:", error);
+      log("Consent").error("Failed to persist consent", errorFields(error));
 
       return fail("Could not save consent", 500);
     }
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     return ok(null);
   } catch (error) {
     if (error instanceof UnauthorizedError) return fail("Unauthorized", 401);
-    log("Consent").error("Unexpected consent error:", error);
+    log("Consent").error("Unexpected consent error", errorFields(error));
 
     return fail("Could not save consent", 500);
   }

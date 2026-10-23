@@ -2,7 +2,7 @@
 
 import { useAuth as useClerkAuth, useClerk, useUser } from "@clerk/react";
 import { createContext, useCallback, useContext, useMemo } from "react";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 
 interface CompatUser {
   id: string;
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await clerk.signOut();
       await fetch("/api/auth/signout", { method: "POST" });
     } catch (error) {
-      log("AuthContext").error("Sign-out failed:", error);
+      log("AuthContext").error("Sign-out failed", errorFields(error));
       throw error;
     }
   }, [clerk]);

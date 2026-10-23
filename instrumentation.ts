@@ -1,4 +1,4 @@
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 
 interface RequestErrorContext {
   routerKind: "Pages Router" | "App Router";
@@ -23,14 +23,14 @@ export function onRequestError(
   context: RequestErrorContext,
 ): void {
   // Only render errors are normalised to an Error; route, action and
-  // middleware paths forward whatever was thrown.
-  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
-  const digest = error instanceof Error && error.digest ? ` digest=${error.digest}` : "";
-  // Middleware paths carry the query string, which can hold unsubscribe tokens.
-  const path = request.path.split("?")[0];
-
-  log("RequestError").error(
-    `${request.method} ${path} (${context.routeType} ${context.routePath})${digest}:`,
-    detail,
-  );
+  // middleware paths forward whatever was thrown, which errorFields tolerates.
+  log("RequestError").error("Unhandled request error", {
+    method: request.method,
+    // Middleware paths carry the query string, which can hold unsubscribe tokens.
+    path: request.path.split("?")[0],
+    route_type: context.routeType,
+    route_path: context.routePath,
+    digest: error instanceof Error ? error.digest : undefined,
+    ...errorFields(error),
+  });
 }

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 
 interface DeleteAccountModalProps {
   open: boolean;
@@ -50,7 +50,7 @@ export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalPro
 
       router.push("/sign-in?message=Account deleted successfully");
     } catch (err) {
-      log("DeleteAccount").error("Account deletion failed:", err);
+      log("DeleteAccount").error("Account deletion failed", errorFields(err));
       setError(err instanceof Error ? err.message : "Failed to delete account");
     } finally {
       setLoading(false);

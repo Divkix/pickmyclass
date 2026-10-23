@@ -10,7 +10,7 @@ import { escapeHtml } from "@/lib/utils/escape-html";
 import { getDbFromEnv } from "@/lib/db";
 import type { Database } from "@/lib/db";
 import { userProfiles } from "@/lib/db/schema";
-import { log, logEvent } from "@/lib/log";
+import { errorFields, log, logEvent } from "@/lib/log";
 
 function redactIdentifier(userId: string): string {
   return createHash("sha256").update(userId).digest("hex");
@@ -62,7 +62,7 @@ async function unsubscribeUser(
       .set({ notifications_enabled: false, unsubscribed_at: new Date().toISOString() })
       .where(eq(userProfiles.user_id, userId));
   } catch (dbError) {
-    log("Unsubscribe").error("Database error:", dbError);
+    log("Unsubscribe").error("Database error", errorFields(dbError));
     throw dbError;
   }
 
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
 
     return ok(null);
   } catch (error) {
-    log("Unsubscribe").error("Error processing unsubscribe:", error);
+    log("Unsubscribe").error("Error processing unsubscribe", errorFields(error));
 
     return fail("Internal server error", 500);
   }

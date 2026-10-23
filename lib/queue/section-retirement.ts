@@ -15,8 +15,8 @@ import {
   type SectionRemovalClassInfo,
 } from "@/lib/db/queries";
 import { sendAutoCleanupRemovalEmails } from "@/lib/email/templates/auto-cleanup";
-import { log } from "@/lib/log";
-import { type SectionRef, sectionRefKey } from "@/lib/section-ref";
+import { errorFields, log } from "@/lib/log";
+import { type SectionRef, sectionFields, sectionRefKey } from "@/lib/section-ref";
 
 export interface SectionRetirementParams {
   db: Database;
@@ -62,7 +62,7 @@ async function isAutoCleanupSuppressed(db: Database): Promise<boolean> {
 
     return false;
   } catch (e) {
-    log("SectionRetirement").warn("Auto-cleanup breaker check threw, failing open:", e);
+    log("SectionRetirement").warn("Auto-cleanup breaker check threw, failing open", errorFields(e));
 
     return false;
   }
@@ -79,7 +79,10 @@ export async function retireClassSection(
   try {
     strikeCount = await incrementConsecutiveNotFound(db, ref);
   } catch (incrementError) {
-    log("SectionRetirement").error(`Auto-cleanup increment failed for ${scope}:`, incrementError);
+    log("SectionRetirement").error("Auto-cleanup increment failed", {
+      ...sectionFields(ref),
+      ...errorFields(incrementError),
+    });
 
     return {
       status: "increment-failed",
@@ -112,10 +115,10 @@ export async function retireClassSection(
     try {
       await capConsecutiveNotFound(db, ref, AUTO_CLEANUP_THRESHOLD - 1);
     } catch (capError) {
-      log("SectionRetirement").warn(
-        `Failed to cap consecutive_not_found_count for ${scope}:`,
-        capError,
-      );
+      log("SectionRetirement").warn("Failed to cap consecutive_not_found_count", {
+        ...sectionFields(ref),
+        ...errorFields(capError),
+      });
     }
 
     return {
@@ -138,10 +141,10 @@ export async function retireClassSection(
       readSectionRemovalClassInfo(db, ref).catch((): SectionRemovalClassInfo | null => null),
     ]);
   } catch (watcherError) {
-    log("SectionRetirement").warn(
-      `Auto-cleanup: failed to fetch watchers for ${scope}:`,
-      watcherError,
-    );
+    log("SectionRetirement").warn("Auto-cleanup failed to fetch watchers", {
+      ...sectionFields(ref),
+      ...errorFields(watcherError),
+    });
 
     return {
       status: "watcher-read-failed",
@@ -160,7 +163,10 @@ export async function retireClassSection(
     const delResult = await deleteSectionAndWatches(db, ref);
     watchesDeleted = delResult.watchesDeleted;
   } catch (deleteError) {
-    log("SectionRetirement").error(`Auto-cleanup delete failed for ${scope}:`, deleteError);
+    log("SectionRetirement").error("Auto-cleanup delete failed", {
+      ...sectionFields(ref),
+      ...errorFields(deleteError),
+    });
 
     return {
       status: "delete-failed",
@@ -187,7 +193,10 @@ export async function retireClassSection(
       emailsAttempted = results.filter((r) => r.attempted).length;
       emailsSucceeded = results.filter((r) => r.success).length;
     } catch (emailError) {
-      log("SectionRetirement").warn(`Auto-cleanup email failed for ${scope}:`, emailError);
+      log("SectionRetirement").warn("Auto-cleanup email failed", {
+        ...sectionFields(ref),
+        ...errorFields(emailError),
+      });
     }
   }
 

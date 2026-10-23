@@ -15,7 +15,7 @@ import {
   prefersMarkdown,
 } from "./lib/worker/markdown-negotiation";
 import { getDb } from "./lib/db";
-import { log } from "./lib/log";
+import { errorFields, log } from "./lib/log";
 
 const workerLog = log("Worker");
 
@@ -136,15 +136,13 @@ export default {
 
           if (outcome.disposition === "ack") {
             if (!outcome.result.success) {
-              queueLog.error(
-                `Non-retryable error for ${message.body.class_nbr} in ${duration}ms:`,
-                outcome.result.error,
-              );
+              queueLog.error(`Non-retryable error for ${message.body.class_nbr} in ${duration}ms`, {
+                "error.message": outcome.result.error,
+              });
             } else {
-              queueLog.info(
-                `Processed ${message.body.class_nbr} in ${duration}ms:`,
-                outcome.result,
-              );
+              queueLog.info(`Processed ${message.body.class_nbr} in ${duration}ms`, {
+                emails_sent: outcome.result.emailsSent,
+              });
             }
 
             message.ack();
@@ -156,17 +154,19 @@ export default {
             };
           }
 
-          queueLog.error(
-            `Failed to process ${message.body.class_nbr} in ${duration}ms:`,
-            outcome.result.error,
-          );
+          queueLog.error(`Failed to process ${message.body.class_nbr} in ${duration}ms`, {
+            "error.message": outcome.result.error,
+          });
           const delaySeconds = retryDelaySeconds(outcome, message.attempts);
           message.retry(delaySeconds === undefined ? undefined : { delaySeconds });
 
           return { success: false, class_nbr: message.body.class_nbr, duration };
         } catch (error) {
           const duration = Date.now() - msgStartTime;
-          queueLog.error(`Retryable error for ${message.body.class_nbr} in ${duration}ms:`, error);
+          queueLog.error(
+            `Retryable error for ${message.body.class_nbr} in ${duration}ms`,
+            errorFields(error),
+          );
           message.retry();
 
           return { success: false, class_nbr: message.body.class_nbr, duration, error };

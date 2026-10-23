@@ -4,7 +4,7 @@ import { LogOut } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import { cn } from "@/lib/utils";
 
 interface SignOutButtonProps {
@@ -22,7 +22,7 @@ export function SignOutButton({ variant = "full", className }: SignOutButtonProp
       await signOut();
       window.location.href = "/sign-in";
     } catch (error) {
-      log("AdminSignOut").error("Sign-out failed:", error);
+      log("AdminSignOut").error("Sign-out failed", errorFields(error));
     }
   };
 

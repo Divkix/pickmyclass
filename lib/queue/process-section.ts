@@ -8,8 +8,8 @@ import {
 import { readSectionCheckState } from "@/lib/db/queries";
 import { RATE_LIMIT_RETRY_BASE_S, RATE_LIMIT_RETRY_MAX_S } from "@/lib/config";
 import type { Database } from "@/lib/db";
-import { log } from "@/lib/log";
-import { type SectionRef } from "@/lib/section-ref";
+import { errorFields, log } from "@/lib/log";
+import { type SectionRef, sectionFields } from "@/lib/section-ref";
 import { type ChangeResult, detectChanges } from "@/lib/queue/change-detector";
 import {
   deliverPendingNotifications,
@@ -146,8 +146,7 @@ export async function processSection(
     try {
       recorded = await recordSectionCheck(db, ref, newData, observedAt);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new SectionStateWriteFailed(message, changes, emailsSent);
+      throw new SectionStateWriteFailed(errorFields(error)["error.message"], changes, emailsSent);
     }
 
     if (!recorded.applied) {
@@ -176,8 +175,13 @@ export async function processSection(
       processingTimeMs: duration,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    log("ProcessSection").error(`Error processing ${classNbr}:`, message);
+    const fields = errorFields(error);
+    const message = fields["error.message"];
+    log("ProcessSection").error("Section Check failed", {
+      ...sectionFields(ref),
+      cycle,
+      ...fields,
+    });
 
     if (error instanceof SectionStateWriteFailed)
       return retryOutcome(
@@ -196,10 +200,13 @@ export async function processSection(
           fromEmail: env.NOTIFICATION_FROM_EMAIL,
         });
       } catch (retireError) {
-        const retireMessage = retireError instanceof Error ? retireError.message : "Unknown error";
-        log("ProcessSection").error(`Error retiring ${classNbr}:`, retireMessage);
+        const retireFields = errorFields(retireError);
+        log("ProcessSection").error("Section retirement failed", {
+          ...sectionFields(ref),
+          ...retireFields,
+        });
 
-        return retryOutcome(failure(retireMessage), 500);
+        return retryOutcome(failure(retireFields["error.message"]), 500);
       }
 
       if (retirement.deleted)

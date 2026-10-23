@@ -8,7 +8,7 @@ import { sql } from "drizzle-orm";
 import { getPastTermCodes } from "@/lib/asu/terms";
 import { type Database, getDb } from "@/lib/db";
 import { deletePastTermWatches, getSectionsToCheck } from "@/lib/db/queries";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
 import type { Env } from "@/lib/types/env";
 import type { ClassCheckMessage } from "@/lib/types/queue";
@@ -76,7 +76,7 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
     } catch (error) {
       // Best-effort here: the 04:05 maintenance run expires them too, and a
       // failed sweep must not block this cycle's checks.
-      log("SectionCheck").warn("Failed to expire stale notifications:", error);
+      log("SectionCheck").warn("Failed to expire stale notifications", errorFields(error));
     }
 
     const sections = await step.do("load sections", STEP_CONFIG, async () => {
