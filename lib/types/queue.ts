@@ -8,4 +8,6 @@ export interface ClassCheckMessage {
    * same cycle is a no-op, so duplicates do not re-fetch ASU or re-notify.
    */
   cycle?: string;
+  /** The enqueueing `SectionCheckWorkflow` instance, so a consumer log or span leads back to its run. */
+  workflow_instance_id?: string;
 }

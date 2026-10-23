@@ -10,6 +10,7 @@ import { type Database, getDb } from "@/lib/db";
 import { deletePastTermWatches, getSectionsToCheck } from "@/lib/db/queries";
 import { errorFields, log } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
+import { withSpan } from "@/lib/telemetry/span";
 import type { Env } from "@/lib/types/env";
 import type { ClassCheckMessage } from "@/lib/types/queue";
 import type { StaggerGroup } from "@/lib/types/stagger";
@@ -106,6 +107,7 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
 
       log("SectionCheck").info("Enqueueing sections", {
         cycle,
+        workflow_instance_id: event.instanceId,
         stagger_group: staggerGroup,
         sections: current.length,
       });
@@ -126,10 +128,24 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
         step.do(stepNames[index], STEP_CONFIG, async () => {
           const enqueuedAt = new Date().toISOString();
 
-          await this.env.PICKMYCLASS_QUEUE.sendBatch(
-            batch.map((section) => ({
-              body: { ...section, enqueued_at: enqueuedAt, cycle } satisfies ClassCheckMessage,
-            })),
+          const messages = batch.map((section) => ({
+            body: {
+              ...section,
+              enqueued_at: enqueuedAt,
+              cycle,
+              workflow_instance_id: event.instanceId,
+            } satisfies ClassCheckMessage,
+          }));
+
+          // Queue sends get no runtime span of their own.
+          await withSpan(
+            "queue.send_batch",
+            {
+              cycle,
+              workflow_instance_id: event.instanceId,
+              "messaging.batch.message_count": batch.length,
+            },
+            () => this.env.PICKMYCLASS_QUEUE.sendBatch(messages),
           );
 
           return batch.length;
