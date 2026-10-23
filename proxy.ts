@@ -31,7 +31,6 @@ const CSP_FONT_SRC = "font-src 'self' data:";
 const CSP_CONNECT_SRC = [
   "connect-src 'self'",
   "https://analytics.divkix.me",
-  "https://s.pickmyclass.app",
   ...CLERK_CSP.fapiHosts,
   ...CLERK_CSP.challengeHosts,
   ...CLERK_CSP.protectConnectHosts,

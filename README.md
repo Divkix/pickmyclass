@@ -252,7 +252,7 @@ pnpm run db:studio                            # Drizzle Studio
 
 ## Tech Stack
 
-- **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4, `@clerk/react` 6.14.5 via `ClerkClientProvider`, `posthog-js` via the typed boundary in `lib/analytics/` (public token + managed proxy host in `lib/analytics/config.ts`)
+- **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4, `@clerk/react` 6.14.5 via `ClerkClientProvider`
 - **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (Drizzle ORM over node-postgres) via Hyperdrive, Clerk (`@clerk/backend` 3.16.10 edge JWT), Supabase Realtime **removed** (polling only)
 - **Data Source**: ASU Class Search API (direct HTTP)
 - **Email**: Cloudflare Email Service

@@ -1,57 +1,7 @@
 import { resolve } from "node:path";
 import { cloudflare } from "@cloudflare/vite-plugin";
-import posthogRollupPlugin from "@posthog/rollup-plugin";
 import vinext from "vinext";
-import { defineConfig, loadEnv, type Plugin } from "vite-plus";
-import {
-  failOpenSourcemapUpload,
-  shouldUploadPosthogSourcemaps,
-} from "./lib/analytics/sourcemap-upload";
-import { log } from "./lib/log";
-
-/**
- * Builds the PostHog source-map upload plugin — ONLY when the deploy script
- * exports POSTHOG_UPLOAD_SOURCEMAPS=true. Ordinary builds (including
- * production builds and dry-runs) never upload, even when credentials exist.
- * Credentials come from Vite env loading (.env* + process.env) and are read
- * only here; they must never be inlined into client output.
- * Missing credentials warn and skip the upload (Cloudflare Builds has no
- * access to the gitignored local deploy env) — add them to the build env to
- * re-enable it. Upload is observability, never a deploy blocker: PostHog API
- * failures during the build are caught by failOpenSourcemapUpload.
- */
-function sourceMapUploadPlugin(mode: string): Plugin | null {
-  if (process.env.POSTHOG_UPLOAD_SOURCEMAPS !== "true") return null;
-
-  const uploadRequested = process.env.POSTHOG_UPLOAD_SOURCEMAPS === "true";
-  const env = loadEnv(mode, process.cwd(), "");
-  const apiKey = env.POSTHOG_API_KEY || process.env.POSTHOG_API_KEY;
-  const projectId = env.POSTHOG_PROJECT_ID || process.env.POSTHOG_PROJECT_ID;
-  const uploadSourceMaps = shouldUploadPosthogSourcemaps(uploadRequested, apiKey, projectId);
-
-  if (!uploadSourceMaps || !apiKey || !projectId) {
-    log("vite").warn(
-      "POSTHOG_UPLOAD_SOURCEMAPS=true but POSTHOG_API_KEY/POSTHOG_PROJECT_ID are unset; skipping source-map upload.",
-    );
-
-    return null;
-  }
-
-  const plugin: unknown = posthogRollupPlugin({
-    personalApiKey: apiKey,
-    projectId: projectId,
-    host: "https://us.posthog.com",
-    sourcemaps: {
-      enabled: true,
-      deleteAfterUpload: true,
-      releaseName: "pickmyclass",
-    },
-  });
-
-  // SAFETY: The PostHog plugin uses standard Rollup hooks supported by Vite+'s
-  // Rolldown compatibility layer; only the package contexts differ.
-  return failOpenSourcemapUpload(plugin as Plugin);
-}
+import { defineConfig } from "vite-plus";
 
 const IGNORE_PATTERNS = [
   "dist/**",
@@ -70,9 +20,8 @@ const IGNORE_PATTERNS = [
   "tools/oxlint/anti-slop/**",
 ];
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(() => {
   const isTest = Boolean(process.env.VITEST);
-  const sourcemapPlugin = isTest ? null : sourceMapUploadPlugin(mode);
 
   return {
     fmt: {
@@ -228,9 +177,6 @@ export default defineConfig(({ mode }) => {
           cloudflare({
             viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
           }),
-          // Top-level Vite plugin, per PostHog's Vite source-map docs; inside
-          // build.rollupOptions.plugins its Vite `config` hook is ignored.
-          ...(sourcemapPlugin ? [sourcemapPlugin] : []),
         ],
     optimizeDeps: {
       exclude: ["lucide-react"],

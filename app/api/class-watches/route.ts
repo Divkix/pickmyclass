@@ -14,10 +14,7 @@ import {
   readSectionAlertsEnded,
 } from "@/lib/db/queries";
 import { classWatches } from "@/lib/db/schema";
-import { log } from "@/lib/log";
-import type { AnalyticsEventMap } from "@/lib/analytics/events";
-import { postHogSessionIdFromHeaders } from "@/lib/analytics/session-id";
-import { captureServerEvent } from "@/lib/analytics/server";
+import { log, logEvent } from "@/lib/log";
 import type { JsonValue } from "@/lib/api/wire";
 import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
 import { sectionRefKey } from "@/lib/section-ref";
@@ -177,13 +174,7 @@ export async function POST(request: NextRequest) {
           log("API").error("Failed to mark onboarding complete:", dbError);
         }
 
-        const sessionId = postHogSessionIdFromHeaders(request.headers);
-
-        const eventProperties: AnalyticsEventMap["class_watch_created"] = { term, class_nbr };
-
-        if (sessionId) eventProperties.$session_id = sessionId;
-
-        captureServerEvent(user.userId, "class_watch_created", eventProperties);
+        logEvent("class_watch_created", { user_id: user.userId, term, class_nbr });
 
         return ok({ watch: watchDataRaw }, { status: 201 });
       } catch (error) {
@@ -218,9 +209,7 @@ export async function DELETE(request: NextRequest) {
           .delete(classWatches)
           .where(and(eq(classWatches.id, parsed.data.id), eq(classWatches.user_id, user.userId)));
 
-        captureServerEvent(user.userId, "class_watch_deleted", {
-          watch_id: parsed.data.id,
-        });
+        logEvent("class_watch_deleted", { user_id: user.userId, watch_id: parsed.data.id });
 
         return ok(undefined);
       } catch (error) {

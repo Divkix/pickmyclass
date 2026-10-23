@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { captureAnalyticsError } from "@/lib/analytics/client";
 import { log } from "@/lib/log";
 import "./globals.css";
 
@@ -15,7 +14,6 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     log("ErrorBoundary").error("Unhandled root error:", error);
-    captureAnalyticsError(error, { boundary: "global" });
   }, [error]);
 
   return (

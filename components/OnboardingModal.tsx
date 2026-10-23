@@ -2,7 +2,6 @@
 
 import { ArrowRight, CheckCircle2, ExternalLink, Lightbulb, Mail, Sparkles } from "lucide-react";
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { getPostHogSessionHeaders, trackAnalyticsEvent } from "@/lib/analytics/client";
 import {
   Dialog,
   DialogContent,
@@ -120,7 +119,6 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
   const announcement = `Step ${step} of 3: ${stepTitles[step]}`;
 
   useEffect(() => {
-    trackAnalyticsEvent("onboarding_started", {});
     const controller = new AbortController();
     fetch("/api/onboarding/popular-class", { signal: controller.signal })
       .then((response) => {
@@ -161,9 +159,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
     setSkipping(true);
 
     try {
-      const requestOptions: RequestInit = { method: "POST", headers: getPostHogSessionHeaders() };
-
-      const response = await fetch("/api/user/onboarding", requestOptions);
+      const response = await fetch("/api/user/onboarding", { method: "POST" });
 
       // SAFETY: response.json() matches Partial<OnboardingState> with optional error per API contract
       const data = (await response.json()) as Partial<OnboardingState> & { error?: string };
@@ -188,7 +184,6 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
 
   const handleWatchCreated = (watch: ClassWatchRow) => {
     setCreatedWatch(watch);
-    trackAnalyticsEvent("onboarding_completed", {});
     setStep((current) => (current === 2 ? 3 : current));
   };
 
@@ -204,10 +199,6 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
   const handleTrackPopular = () => {
     if (!popularClass) return;
     setPrefillClassNbr(popularClass.class_nbr);
-    trackAnalyticsEvent("onboarding_popular_class_tracked", {
-      class_nbr: popularClass.class_nbr,
-      term: popularClass.term,
-    });
     setStep(2);
   };
 

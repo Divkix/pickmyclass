@@ -15,7 +15,7 @@ const {
   mockGetDbFromEnv,
   mockGetSessionIdentity,
   mockFetchClassFromASU,
-  mockCaptureServerEvent,
+  mockLogEvent,
   AuthError,
   NotFoundError,
 } = vi.hoisted(() => {
@@ -27,7 +27,7 @@ const {
     mockGetDbFromEnv: vi.fn(),
     mockGetSessionIdentity: vi.fn(),
     mockFetchClassFromASU: vi.fn(),
-    mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
+    mockLogEvent: vi.fn(),
     NotFoundError: MockNotFoundError,
     AuthError: MockAuthError,
   };
@@ -47,8 +47,9 @@ vi.mock("@/lib/asu/api", () => ({
   AuthError,
 }));
 
-vi.mock("@/lib/analytics/server", () => ({
-  captureServerEvent: mockCaptureServerEvent,
+vi.mock("@/lib/log", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log")>()),
+  logEvent: mockLogEvent,
 }));
 
 vi.mock("cloudflare:workers", () => ({
@@ -154,15 +155,11 @@ function getRequest(): NextRequest {
   return new NextRequest("http://localhost:3000/api/class-watches");
 }
 
-function postRequest(body: Record<string, JsonValue>, sessionId?: string): NextRequest {
-  const headers = new Headers({ "Content-Type": "application/json" });
-
-  if (sessionId) headers.set("X-PostHog-Session-Id", sessionId);
-
+function postRequest(body: Record<string, JsonValue>): NextRequest {
   return new NextRequest("http://localhost:3000/api/class-watches", {
     method: "POST",
     body: JSON.stringify(body),
-    headers,
+    headers: { "Content-Type": "application/json" },
   });
 }
 
@@ -298,7 +295,7 @@ describe("/api/class-watches", () => {
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it("creates the watch atomically, persists state, completes onboarding, and fires analytics", async () => {
+    it("creates the watch atomically, persists state, completes onboarding, and logs the event", async () => {
       const rpcWatch: ClassWatchRow = {
         id: "watch-new",
         user_id: USER_ID,
@@ -313,9 +310,7 @@ describe("/api/class-watches", () => {
       h.next([]);
       h.next([]);
 
-      const response = await POST(
-        postRequest({ term, class_nbr: "12345" }, "c56a4180-65aa-42ec-a945-5fd21dec0538"),
-      );
+      const response = await POST(postRequest({ term, class_nbr: "12345" }));
 
       const data = await json<MutationResponse>(response);
 
@@ -333,10 +328,10 @@ describe("/api/class-watches", () => {
         h.statements.some((statement) => statement.sql.includes('update "user_profiles"')),
       ).toBe(true);
 
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, "class_watch_created", {
+      expect(mockLogEvent).toHaveBeenCalledWith("class_watch_created", {
+        user_id: USER_ID,
         term,
         class_nbr: "12345",
-        $session_id: "c56a4180-65aa-42ec-a945-5fd21dec0538",
       });
     });
 
@@ -356,7 +351,7 @@ describe("/api/class-watches", () => {
       expect(h.statements).toHaveLength(1);
       expect(h.statements[0].sql).toContain("public.section_alerts_ended(");
       expect(h.statements[0].params).toEqual(["2026-01-12", "2026-05-01"]);
-      expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+      expect(mockLogEvent).not.toHaveBeenCalled();
     });
 
     it("creates the watch while a dated section is still before its cutoff", async () => {
@@ -438,7 +433,7 @@ describe("/api/class-watches", () => {
       expect(data.error).toBe(
         "Maximum watches limit reached (10). Delete some watches to add more.",
       );
-      expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+      expect(mockLogEvent).not.toHaveBeenCalled();
     });
 
     it("maps unrelated RPC failures to a 500 creation error", async () => {
@@ -471,7 +466,8 @@ describe("/api/class-watches", () => {
 
       expect(response.status).toBe(201);
       expect(data.success).toBe(true);
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, "class_watch_created", {
+      expect(mockLogEvent).toHaveBeenCalledWith("class_watch_created", {
+        user_id: USER_ID,
         term,
         class_nbr: "12345",
       });
@@ -488,7 +484,7 @@ describe("/api/class-watches", () => {
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
 
-    it("deletes only the authenticated user’s matching watch and fires analytics", async () => {
+    it("deletes only the authenticated user’s matching watch and logs the event", async () => {
       const watchId = "d0a2b3c1-0000-4000-8000-000000000001";
       h.next([]);
 
@@ -503,7 +499,8 @@ describe("/api/class-watches", () => {
       expect(del.sql).toContain('delete from "class_watches"');
       expect(del.params).toEqual([watchId, USER_ID]);
 
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, "class_watch_deleted", {
+      expect(mockLogEvent).toHaveBeenCalledWith("class_watch_deleted", {
+        user_id: USER_ID,
         watch_id: watchId,
       });
     });

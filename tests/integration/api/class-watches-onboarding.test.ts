@@ -10,25 +10,20 @@ import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
 
 let h = createScriptedPostgres();
 
-const {
-  mockGetSessionIdentity,
-  mockFetchClassFromASU,
-  mockCaptureServerEvent,
-  AuthError,
-  NotFoundError,
-} = vi.hoisted(() => {
-  class MockAuthError extends Error {}
+const { mockGetSessionIdentity, mockFetchClassFromASU, mockLogEvent, AuthError, NotFoundError } =
+  vi.hoisted(() => {
+    class MockAuthError extends Error {}
 
-  class MockNotFoundError extends Error {}
+    class MockNotFoundError extends Error {}
 
-  return {
-    mockGetSessionIdentity: vi.fn(),
-    mockFetchClassFromASU: vi.fn(),
-    mockCaptureServerEvent: vi.fn().mockResolvedValue(undefined),
-    AuthError: MockAuthError,
-    NotFoundError: MockNotFoundError,
-  };
-});
+    return {
+      mockGetSessionIdentity: vi.fn(),
+      mockFetchClassFromASU: vi.fn(),
+      mockLogEvent: vi.fn(),
+      AuthError: MockAuthError,
+      NotFoundError: MockNotFoundError,
+    };
+  });
 
 vi.mock("@/lib/auth/clerk-session", () => ({
   getSessionIdentity: mockGetSessionIdentity,
@@ -44,8 +39,9 @@ vi.mock("@/lib/asu/api", () => ({
   NotFoundError,
 }));
 
-vi.mock("@/lib/analytics/server", () => ({
-  captureServerEvent: mockCaptureServerEvent,
+vi.mock("@/lib/log", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log")>()),
+  logEvent: mockLogEvent,
 }));
 
 vi.mock("cloudflare:workers", () => ({
@@ -199,11 +195,11 @@ describe("/api/class-watches onboarding wiring", () => {
       expect(guard?.sql).toContain("onboarding_completed_at");
       expect(guard?.params).toContain(USER_ID);
 
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith(
-        USER_ID,
-        "class_watch_created",
-        expect.objectContaining({ term, class_nbr: "12345" }),
-      );
+      expect(mockLogEvent).toHaveBeenCalledWith("class_watch_created", {
+        user_id: USER_ID,
+        term,
+        class_nbr: "12345",
+      });
     });
 
     it("still returns 201 when the first-watch guard rejects (non-fatal)", async () => {
@@ -218,7 +214,8 @@ describe("/api/class-watches onboarding wiring", () => {
       expect(body.success).toBe(true);
       expect(body.watch).toEqual(createdWatch);
 
-      expect(mockCaptureServerEvent).toHaveBeenCalledWith(USER_ID, "class_watch_created", {
+      expect(mockLogEvent).toHaveBeenCalledWith("class_watch_created", {
+        user_id: USER_ID,
         term,
         class_nbr: "12345",
       });

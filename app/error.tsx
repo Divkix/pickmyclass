@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { captureAnalyticsError } from "@/lib/analytics/client";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { log } from "@/lib/log";
@@ -15,7 +14,6 @@ export default function ErrorPage({
 }) {
   useEffect(() => {
     log("ErrorBoundary").error("Unhandled error:", error);
-    captureAnalyticsError(error, { boundary: "app" });
   }, [error]);
 
   return (

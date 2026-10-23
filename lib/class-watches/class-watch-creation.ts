@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { getPostHogSessionHeaders } from "@/lib/analytics/client";
 import { createClassWatchSchema } from "@/lib/api/schemas";
 import { parseOrThrow } from "@/lib/api/validation";
 import { isRecord, type WirePayload } from "@/lib/api/wire";
@@ -65,14 +64,9 @@ export function createClassWatchClient(request?: Request) {
       let response: Response;
 
       try {
-        const headers = new Headers({
-          "Content-Type": "application/json",
-          ...getPostHogSessionHeaders(),
-        });
-
         response = await (request ?? globalThis.fetch)("/api/class-watches", {
           method: "POST",
-          headers,
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(validated),
         });
       } catch {
