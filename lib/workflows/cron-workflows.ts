@@ -8,7 +8,7 @@ import { sql } from "drizzle-orm";
 import { getPastTermCodes } from "@/lib/asu/terms";
 import { type Database, getDb } from "@/lib/db";
 import { deletePastTermWatches, getSectionsToCheck } from "@/lib/db/queries";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
 import type { Env } from "@/lib/types/env";
 import type { ClassCheckMessage } from "@/lib/types/queue";
@@ -43,12 +43,22 @@ export function staggerGroupFor(time: Date): StaggerGroup {
   return Math.floor(time.getMinutes() / 15) % 2 === 0 ? "even" : "odd";
 }
 
-function rejectedReasons(results: PromiseSettledResult<unknown>[]): string[] {
-  return results.flatMap((result) =>
-    result.status === "rejected"
-      ? [result.reason instanceof Error ? result.reason.message : String(result.reason)]
-      : [],
-  );
+/**
+ * Logs each rejected step with its stack and returns the messages, so the
+ * instance's own error (which marks the run failed) names every cause.
+ */
+function rejectedReasons(
+  scope: string,
+  steps: readonly string[],
+  results: PromiseSettledResult<unknown>[],
+): string[] {
+  return results.flatMap((result, index) => {
+    if (result.status === "fulfilled") return [];
+    const fields = errorFields(result.reason);
+    log(scope).error("Workflow step failed after retries", { step: steps[index], ...fields });
+
+    return [fields["error.message"]];
+  });
 }
 
 /**
@@ -68,27 +78,40 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
     const cycle = `${now.toISOString()}:${staggerGroup}`;
 
     try {
-      const expired = await step.do("expire stale notifications", STEP_CONFIG, () =>
-        expireStaleNotifications(getDb(this.env.HYPERDRIVE)),
-      );
+      // Logs inside step callbacks run once; run() itself replays after each hibernation.
+      await step.do("expire stale notifications", STEP_CONFIG, async () => {
+        const expired = await expireStaleNotifications(getDb(this.env.HYPERDRIVE));
 
-      if (expired > 0) log("SectionCheck").info(`Expired ${expired} stale notification records`);
+        if (expired > 0)
+          log("SectionCheck").info("Expired stale notifications", { cycle, expired });
+
+        return expired;
+      });
     } catch (error) {
       // Best-effort here: the 04:05 maintenance run expires them too, and a
       // failed sweep must not block this cycle's checks.
-      log("SectionCheck").warn("Failed to expire stale notifications:", error);
+      log("SectionCheck").warn("Failed to expire stale notifications", {
+        cycle,
+        ...errorFields(error),
+      });
     }
 
     const sections = await step.do("load sections", STEP_CONFIG, async () => {
       const all = await getSectionsToCheck(getDb(this.env.HYPERDRIVE), staggerGroup);
       const pastTerms = new Set(getPastTermCodes());
 
-      return all.flatMap(({ class_nbr, term }): SectionRef[] =>
+      const current = all.flatMap(({ class_nbr, term }): SectionRef[] =>
         pastTerms.has(term) ? [] : [{ class_nbr, term }],
       );
-    });
 
-    log("SectionCheck").info(`Enqueueing ${sections.length} sections (cycle ${cycle})`);
+      log("SectionCheck").info("Enqueueing sections", {
+        cycle,
+        stagger_group: staggerGroup,
+        sections: current.length,
+      });
+
+      return current;
+    });
 
     const batches: SectionRef[][] = [];
 
@@ -96,9 +119,11 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
       batches.push(sections.slice(i, i + CF_QUEUE_SEND_BATCH_LIMIT));
     }
 
+    const stepNames = batches.map((_, index) => `enqueue batch ${index + 1}/${batches.length}`);
+
     const results = await Promise.allSettled(
       batches.map((batch, index) =>
-        step.do(`enqueue batch ${index + 1}/${batches.length}`, STEP_CONFIG, async () => {
+        step.do(stepNames[index], STEP_CONFIG, async () => {
           const enqueuedAt = new Date().toISOString();
 
           await this.env.PICKMYCLASS_QUEUE.sendBatch(
@@ -112,7 +137,7 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
       ),
     );
 
-    const failures = rejectedReasons(results);
+    const failures = rejectedReasons("SectionCheck", stepNames, results);
 
     if (failures.length > 0) {
       throw new Error(
@@ -124,29 +149,34 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
   }
 }
 
+const MAINTENANCE_STEPS = ["expire stale notifications", "sweep past-term watches"] as const;
+
 /**
  * Daily at 04:05 UTC: expire stale notification claims and delete watches for
  * past terms. The two steps are independent; either failing errors the instance
  * after the other has run.
  */
+
 export class MaintenanceWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
   async run(_event: Readonly<WorkflowEvent<unknown>>, step: WorkflowStep) {
     const [expired, swept] = await Promise.allSettled([
-      step.do("expire stale notifications", STEP_CONFIG, () =>
+      step.do(MAINTENANCE_STEPS[0], STEP_CONFIG, () =>
         expireStaleNotifications(getDb(this.env.HYPERDRIVE)),
       ),
-      step.do("sweep past-term watches", STEP_CONFIG, () =>
+      step.do(MAINTENANCE_STEPS[1], STEP_CONFIG, () =>
         deletePastTermWatches(getDb(this.env.HYPERDRIVE), getPastTermCodes()),
       ),
     ]);
 
     if (expired.status === "rejected" || swept.status === "rejected") {
-      throw new Error(`Maintenance failed: ${rejectedReasons([expired, swept]).join("; ")}`);
+      const reasons = rejectedReasons("Maintenance", MAINTENANCE_STEPS, [expired, swept]);
+      throw new Error(`Maintenance failed: ${reasons.join("; ")}`);
     }
 
-    log("Maintenance").info(
-      `Expired ${expired.value} stale notifications, swept ${swept.value} past-term watches`,
-    );
+    log("Maintenance").info("Maintenance complete", {
+      expired: expired.value,
+      swept: swept.value,
+    });
 
     return { expired: expired.value, swept: swept.value };
   }

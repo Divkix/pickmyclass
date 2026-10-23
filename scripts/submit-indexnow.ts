@@ -3,7 +3,7 @@
  * the deploy has already shipped, and a missed ping only delays a recrawl.
  */
 import { setTimeout as sleep } from "node:timers/promises";
-import { log } from "../lib/log";
+import { errorFields, log } from "../lib/log";
 import { submitSitemapToIndexNow } from "../lib/seo/indexnow";
 
 const indexNowLog = log("IndexNow");
@@ -22,7 +22,7 @@ try {
     indexNowLog.warn(`Skipped: ${outcome.reason}`);
   }
 } catch (error) {
-  indexNowLog.warn("Skipped after unexpected error:", error);
+  indexNowLog.warn("Skipped after unexpected error", errorFields(error));
 }
 
 process.exit(0);

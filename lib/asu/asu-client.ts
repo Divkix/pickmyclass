@@ -1,6 +1,6 @@
 import { Data, Effect, Option, Schema } from "effect";
 import { ASU_REQUEST_TIMEOUT_MS } from "@/lib/config";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
@@ -229,10 +229,12 @@ export function fetchClassEffect(
           try: () => response.json(),
           catch: (error) => {
             if (error instanceof SyntaxError) {
-              log("AsuClient").error(
-                `Invalid ASU JSON for ${ref.class_nbr}/${ref.term}:`,
-                String(error),
-              );
+              log("AsuClient").error("Invalid ASU JSON", {
+                class_nbr: ref.class_nbr,
+                term: ref.term,
+                http_status: response.status,
+                ...errorFields(error),
+              });
 
               return new AsuInvalidResponse({
                 message: "ASU API returned invalid JSON",
@@ -240,10 +242,12 @@ export function fetchClassEffect(
               });
             }
 
-            log("AsuClient").error(
-              `ASU response read failed for ${ref.class_nbr}/${ref.term}:`,
-              String(error),
-            );
+            log("AsuClient").error("ASU response read failed", {
+              class_nbr: ref.class_nbr,
+              term: ref.term,
+              http_status: response.status,
+              ...errorFields(error),
+            });
 
             return new AsuUpstream({
               message: `ASU API response read failed: ${String(error)}`,
@@ -255,10 +259,11 @@ export function fetchClassEffect(
         const data = yield* Schema.decodeUnknownEffect(AsuApiResponse)(body).pipe(
           Effect.tapError((error) =>
             Effect.sync(() =>
-              log("AsuClient").error(
-                `Invalid ASU response for ${ref.class_nbr}/${ref.term}:`,
-                String(error),
-              ),
+              log("AsuClient").error("Invalid ASU response", {
+                class_nbr: ref.class_nbr,
+                term: ref.term,
+                ...errorFields(error),
+              }),
             ),
           ),
           Effect.mapError(
@@ -284,7 +289,9 @@ export function fetchClassEffect(
         const waitlisted = parseSeatCount(matching._source.WAITTOT);
 
         if (capacity === null || enrolled === null || waitlisted === null) {
-          log("AsuClient").error(`Unusable ASU seat counts for ${ref.class_nbr}/${ref.term}:`, {
+          log("AsuClient").error("Unusable ASU seat counts", {
+            class_nbr: ref.class_nbr,
+            term: ref.term,
             ENRLCAP: matching._source.ENRLCAP,
             ENRLTOT: matching._source.ENRLTOT,
             WAITTOT: matching._source.WAITTOT,

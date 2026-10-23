@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { DEFAULT_SITE_URL, UNSUBSCRIBE_TOKEN_EXPIRY_DAYS } from "@/lib/config";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import { timingSafeCompare } from "@/lib/utils/crypto";
 
 function getSigningSecret(): string {
@@ -63,7 +63,7 @@ export function verifyUnsubscribeToken(token: string): string | null {
 
     return userId;
   } catch (error) {
-    log("UnsubscribeToken").error("Error verifying token:", error);
+    log("UnsubscribeToken").error("Error verifying token", errorFields(error));
 
     return null;
   }

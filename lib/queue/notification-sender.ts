@@ -5,7 +5,7 @@ import {
   getNotificationWatchers,
 } from "@/lib/db/queries";
 import { type ClassInfo, type OutboundEmail, sendBatchEmailsOptimized } from "@/lib/email/send";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import type { ChangeResult } from "@/lib/queue/change-detector";
 import {
   claimNotifications,
@@ -47,7 +47,10 @@ async function rollbackClaims(db: Database, notificationIds: string[]): Promise<
   try {
     await deleteNotificationRecordsByIds(db, notificationIds);
   } catch (error) {
-    log("NotificationSender").warn("Failed to rollback notification records:", error);
+    log("NotificationSender").warn("Failed to roll back notification records", {
+      notification_count: notificationIds.length,
+      ...errorFields(error),
+    });
   }
 }
 

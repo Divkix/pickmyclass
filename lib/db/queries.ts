@@ -4,8 +4,8 @@ import { z } from "zod";
 import type { Database } from "@/lib/db";
 import { driverErrorMessage } from "@/lib/db/pg-errors";
 import { classStates, classWatches } from "@/lib/db/schema";
-import { log } from "@/lib/log";
-import type { SectionRef } from "@/lib/section-ref";
+import { errorFields, log } from "@/lib/log";
+import { type SectionRef, sectionFields } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
 import type { ClassStateRow } from "@/lib/types/class-watch";
 import type { NotificationType } from "@/lib/types/notification";
@@ -74,10 +74,7 @@ export async function getClassWatchers(db: Database, ref: SectionRef): Promise<C
       created_at: normalizeIsoTimestamp(row.created_at),
     }));
   } catch (error) {
-    log("DB").error(
-      `Error fetching watchers for section ${ref.class_nbr} (term ${ref.term}):`,
-      error,
-    );
+    log("DB").error("Error fetching watchers", { ...sectionFields(ref), ...errorFields(error) });
     throw new Error(`Failed to fetch watchers: ${driverErrorMessage(error)}`);
   }
 }
@@ -101,10 +98,10 @@ export async function getNotificationWatchers(
       watch_id: row.watch_id,
     }));
   } catch (error) {
-    log("DB").error(
-      `Error fetching notification watchers for section ${ref.class_nbr} (term ${ref.term}):`,
-      error,
-    );
+    log("DB").error("Error fetching notification watchers", {
+      ...sectionFields(ref),
+      ...errorFields(error),
+    });
     throw new Error(`Failed to fetch notification watchers: ${driverErrorMessage(error)}`);
   }
 }
@@ -122,7 +119,7 @@ export async function getSectionsToCheck(
 
     return rows.map((row) => ({ class_nbr: row.class_nbr, term: row.term }));
   } catch (error) {
-    log("DB").error(`Error fetching sections to check:`, error);
+    log("DB").error("Error fetching sections to check", errorFields(error));
     throw new Error(`Failed to fetch sections: ${driverErrorMessage(error)}`);
   }
 }
@@ -213,7 +210,7 @@ export async function getMostWatchedClass(db: Database, term: string): Promise<S
 
     return { class_nbr: row.class_nbr, term: row.term };
   } catch (error) {
-    log("DB").error(`Error fetching most watched class for term ${term}:`, error);
+    log("DB").error("Error fetching most watched class", { term, ...errorFields(error) });
     throw new Error(`Failed to fetch most watched class: ${driverErrorMessage(error)}`);
   }
 }
@@ -235,7 +232,10 @@ export async function resetNotificationsForSection(
       `Reset ${notificationType} notifications for section ${ref.class_nbr} (${deleted} records deleted)`,
     );
   } catch (error) {
-    log("DB").error("Error resetting notifications:", error);
+    log("DB").error("Error resetting notifications", {
+      ...sectionFields(ref),
+      ...errorFields(error),
+    });
     throw new Error(`Failed to reset notifications: ${driverErrorMessage(error)}`);
   }
 }
@@ -261,7 +261,7 @@ export async function deleteNotificationRecords(
 
     return deleted;
   } catch (error) {
-    log("DB").error("Error deleting notification records:", error);
+    log("DB").error("Error deleting notification records", errorFields(error));
     throw new Error(`Failed to delete notification records: ${driverErrorMessage(error)}`);
   }
 }
@@ -286,7 +286,7 @@ export async function deleteNotificationRecordsByIds(
 
     return deleted;
   } catch (error) {
-    log("DB").error("Error deleting notification records by id:", error);
+    log("DB").error("Error deleting notification records by id", errorFields(error));
     throw new Error(`Failed to delete notification records by id: ${driverErrorMessage(error)}`);
   }
 }
@@ -304,7 +304,7 @@ export async function deletePastTermWatches(db: Database, termCodes: string[]): 
 
     return deleted.length;
   } catch (error) {
-    log("DB").error("Error deleting past-term watches:", error);
+    log("DB").error("Error deleting past-term watches", errorFields(error));
     throw new Error(`Failed to delete past-term watches: ${driverErrorMessage(error)}`);
   }
 }
@@ -350,7 +350,10 @@ export async function tryRecordNotificationsBatch(
 
     return claimed;
   } catch (error) {
-    log("DB").error("Error in batch notification check:", error);
+    log("DB").error("Error claiming notifications", {
+      notification_type: notificationType,
+      ...errorFields(error),
+    });
     throw new Error(`Failed to batch record notifications: ${driverErrorMessage(error)}`);
   }
 }
@@ -441,10 +444,10 @@ export async function incrementConsecutiveNotFound(db: Database, ref: SectionRef
 
     return newCount;
   } catch (error) {
-    log("DB").error(
-      `Error incrementing consecutive_not_found_count for ${ref.class_nbr} (term ${ref.term}):`,
-      error,
-    );
+    log("DB").error("Error incrementing consecutive_not_found_count", {
+      ...sectionFields(ref),
+      ...errorFields(error),
+    });
     throw new Error(
       `Failed to increment consecutive_not_found_count: ${driverErrorMessage(error)}`,
     );
@@ -479,7 +482,10 @@ export async function deleteSectionAndWatches(
 
     return result;
   } catch (error) {
-    log("DB").error("Error deleting section and watches:", error);
+    log("DB").error("Error deleting section and watches", {
+      ...sectionFields(ref),
+      ...errorFields(error),
+    });
     throw new Error(`Failed to delete section: ${driverErrorMessage(error)}`);
   }
 }
@@ -508,7 +514,7 @@ export async function readAutoCleanupBreakerCounts(db: Database): Promise<{
       flagged: Number(flaggedRows[0]?.value ?? 0),
     };
   } catch (error) {
-    log("DB").error("Error reading auto-cleanup breaker counts:", error);
+    log("DB").error("Error reading auto-cleanup breaker counts", errorFields(error));
     throw new Error(`Failed to read auto-cleanup breaker counts: ${driverErrorMessage(error)}`);
   }
 }
@@ -533,10 +539,10 @@ export async function capConsecutiveNotFound(
       `Capped consecutive_not_found_count at ${maxCount} for ${ref.class_nbr} (term ${ref.term})`,
     );
   } catch (error) {
-    log("DB").error(
-      `Error capping consecutive_not_found_count for ${ref.class_nbr} (term ${ref.term}):`,
-      error,
-    );
+    log("DB").error("Error capping consecutive_not_found_count", {
+      ...sectionFields(ref),
+      ...errorFields(error),
+    });
     throw new Error(`Failed to cap consecutive_not_found_count: ${driverErrorMessage(error)}`);
   }
 }
@@ -558,10 +564,10 @@ export async function readSectionRemovalClassInfo(
 
     return rows[0] ?? null;
   } catch (error) {
-    log("DB").error(
-      `Error fetching removal class info for ${ref.class_nbr} (term ${ref.term}):`,
-      error,
-    );
+    log("DB").error("Error fetching removal class info", {
+      ...sectionFields(ref),
+      ...errorFields(error),
+    });
     throw new Error(`Failed to fetch removal class info: ${driverErrorMessage(error)}`);
   }
 }
@@ -607,10 +613,10 @@ export async function readSectionCheckState(
 
     return { ...row, last_checked_at: normalizeIsoTimestamp(row.last_checked_at) };
   } catch (error) {
-    log("DB").error(
-      `Error fetching section check state for ${ref.class_nbr} (term ${ref.term}):`,
-      error,
-    );
+    log("DB").error("Error fetching section check state", {
+      ...sectionFields(ref),
+      ...errorFields(error),
+    });
     throw new Error(`Failed to fetch section check state: ${driverErrorMessage(error)}`);
   }
 }

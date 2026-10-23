@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { classWatchCreation } from "@/lib/class-watches/class-watch-creation";
 import { useSwipe } from "@/lib/hooks/useSwipe";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
 import { formatAbsoluteDate } from "@/lib/utils/time-format";
 import { ClassDetailsDialog } from "@/components/ClassDetailsDialog";
@@ -74,7 +74,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
         isSwipeDeletingRef.current = false;
         setSwipeOffset(0);
       } catch (error) {
-        log("ClassWatchCard").error("Swipe delete failed:", error);
+        log("ClassWatchCard").error("Swipe delete failed", errorFields(error));
         toast.error("Failed to delete watch. Please try again.");
         isSwipeDeletingRef.current = false;
         setSwipeOffset(0);
@@ -96,7 +96,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
 
       onRestore?.();
     } catch (error) {
-      log("ClassWatchCard").error("Watch restore failed:", error);
+      log("ClassWatchCard").error("Watch restore failed", errorFields(error));
       toast.error("Failed to restore watch. Please add it again manually.");
     }
   };
@@ -110,7 +110,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
       showRemovedToast();
       setShowDeleteConfirm(false);
     } catch (error) {
-      log("ClassWatchCard").error("Watch delete failed:", error);
+      log("ClassWatchCard").error("Watch delete failed", errorFields(error));
       toast.error("Failed to delete watch. Please try again.");
     } finally {
       setIsDeleting(false);

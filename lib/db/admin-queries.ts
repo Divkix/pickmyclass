@@ -7,7 +7,7 @@ import type { Database } from "@/lib/db";
 import { driverErrorMessage, isUndefinedFunction } from "@/lib/db/pg-errors";
 import { sectionAlertsEnded } from "@/lib/db/queries";
 import { classStates, classWatches, notificationsSent, userProfiles } from "@/lib/db/schema";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import type { ClassStateRow } from "@/lib/types/class-watch";
 import type { NotificationType } from "@/lib/types/notification";
 
@@ -48,7 +48,7 @@ export async function getTotalEmailsSent(db: Database): Promise<number> {
 
     return result;
   } catch (error) {
-    log("Admin").error("Error fetching total emails sent:", error);
+    log("Admin").error("Error fetching total emails sent", errorFields(error));
     throw new Error(`Failed to fetch email count: ${driverErrorMessage(error)}`);
   }
 }
@@ -69,7 +69,7 @@ export async function getTotalUsers(db: Database): Promise<number> {
 
     return result;
   } catch (error) {
-    log("Admin").error("Error counting users:", error);
+    log("Admin").error("Error counting users", errorFields(error));
     throw new Error(`Failed to count users: ${driverErrorMessage(error)}`);
   }
 }
@@ -91,7 +91,7 @@ export async function getAdminCount(db: Database): Promise<number> {
 
     return result;
   } catch (error) {
-    log("Admin").error("Error fetching admin count:", error);
+    log("Admin").error("Error fetching admin count", errorFields(error));
     throw new Error(`Failed to fetch admin count: ${driverErrorMessage(error)}`);
   }
 }
@@ -115,7 +115,7 @@ export async function getTotalClassesWatched(db: Database): Promise<number> {
 
     return result;
   } catch (error) {
-    log("Admin").error("Error counting distinct classes watched:", error);
+    log("Admin").error("Error counting distinct classes watched", errorFields(error));
     throw new Error(`Failed to fetch class count: ${driverErrorMessage(error)}`);
   }
 }
@@ -267,7 +267,7 @@ export async function getUsersPage(
 
     return { rows: mapped, total };
   } catch (error) {
-    log("Admin").error(`Error fetching users page:`, error);
+    log("Admin").error("Error fetching users page", errorFields(error));
     throw new Error(`Failed to fetch users page: ${driverErrorMessage(error)}`);
   }
 }
@@ -357,7 +357,7 @@ export async function getClassesPage(
 
     return { rows: mapped, total, totalWatchers, fullClasses };
   } catch (error) {
-    log("Admin").error(`Error fetching classes page:`, error);
+    log("Admin").error("Error fetching classes page", errorFields(error));
     throw new Error(`Failed to fetch classes page: ${driverErrorMessage(error)}`);
   }
 }
@@ -378,7 +378,7 @@ export async function getDistinctSubjects(db: Database): Promise<string[]> {
 
     return result;
   } catch (error) {
-    log("Admin").error("Error fetching distinct subjects:", error);
+    log("Admin").error("Error fetching distinct subjects", errorFields(error));
     throw new Error(`Failed to fetch subjects: ${driverErrorMessage(error)}`);
   }
 }
@@ -450,7 +450,7 @@ export async function getRecentActivity(
       return fallback;
     }
 
-    log("Admin").error("Error fetching recent activity:", error);
+    log("Admin").error("Error fetching recent activity", errorFields(error));
     throw new Error(`Failed to fetch recent activity: ${driverErrorMessage(error)}`);
   }
 }
@@ -491,7 +491,7 @@ export async function getUserWatches(db: Database, userId: string): Promise<Watc
 
     return watchesWithClass;
   } catch (error) {
-    log("Admin").error(`Error fetching watches for user ${userId}:`, error);
+    log("Admin").error("Error fetching user watches", { user_id: userId, ...errorFields(error) });
     throw new Error(`Failed to fetch user watches: ${driverErrorMessage(error)}`);
   }
 }

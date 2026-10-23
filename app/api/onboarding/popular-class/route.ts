@@ -4,7 +4,7 @@ import { withAuth } from "@/lib/api/withAuth";
 import { type ClassDetails, fetchClassFromASU } from "@/lib/asu/api";
 import { getDbFromEnv } from "@/lib/db";
 import { getMostWatchedClass } from "@/lib/db/queries";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import { getSelectableTerms } from "@/lib/asu/terms";
 
 export interface PopularClass {
@@ -38,10 +38,11 @@ export async function GET(request: Request) {
       try {
         details = await fetchClassFromASU(popular, asuEnv);
       } catch (error) {
-        log("Onboarding").warn(
-          `Popular class ${popular.class_nbr} (term ${popular.term}) failed ASU validation:`,
-          error instanceof Error ? error.message : error,
-        );
+        log("Onboarding").warn("Popular class failed ASU validation", {
+          class_nbr: popular.class_nbr,
+          term: popular.term,
+          ...errorFields(error),
+        });
 
         return ok({ popularClass: null });
       }
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
     } catch (error) {
       // The modal treats a missing popular class as optional, so a lookup
       // failure must not break onboarding.
-      log("Onboarding").error("Popular class error:", error);
+      log("Onboarding").error("Popular class error", errorFields(error));
 
       return ok({ popularClass: null });
     }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { desc, eq, getTableColumns, sql } from "drizzle-orm";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import { fail } from "@/lib/api/response";
 import { withAuth } from "@/lib/api/withAuth";
 import { getDbFromEnv } from "@/lib/db";
@@ -136,13 +136,13 @@ export async function GET(request: Request) {
           },
         });
       } catch (error) {
-        log("User").error("Export error:", error);
+        log("User").error("Export error", errorFields(error));
 
         return fail("Failed to export data", 500);
       }
     });
   } catch (error) {
-    log("User").error("Export error:", error);
+    log("User").error("Export error", errorFields(error));
 
     return fail("Failed to export data", 500);
   }

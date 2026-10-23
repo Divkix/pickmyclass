@@ -15,7 +15,8 @@ import {
   prefersMarkdown,
 } from "./lib/worker/markdown-negotiation";
 import { getDb } from "./lib/db";
-import { log } from "./lib/log";
+import { errorFields, log } from "./lib/log";
+import { sectionFields } from "./lib/section-ref";
 
 const workerLog = log("Worker");
 
@@ -52,9 +53,10 @@ export default {
     const hasBody = request.body !== null;
 
     if (isGetOrHead && hasBody) {
-      workerLog.info(
-        `Sanitizing ${request.method} request with body from ${request.headers.get("cf-connecting-ip") || "unknown"} to ${request.url}`,
-      );
+      workerLog.info("Sanitizing GET/HEAD request with body", {
+        method: request.method,
+        path: new URL(request.url).pathname,
+      });
       request = new Request(request, { body: null });
     }
 
@@ -120,9 +122,7 @@ export default {
     _ctx: ExecutionContext,
   ): Promise<void> {
     const startTime = Date.now();
-    queueLog.info(
-      `Processing batch of ${batch.messages.length} messages from queue: ${batch.queue}`,
-    );
+    queueLog.info("Processing batch", { queue: batch.queue, messages: batch.messages.length });
 
     const db = getDb(env.HYPERDRIVE);
 
@@ -130,56 +130,70 @@ export default {
       batch.messages.map(async (message) => {
         const msgStartTime = Date.now();
 
+        const fields = {
+          message_id: message.id,
+          attempts: message.attempts,
+          ...sectionFields(message.body),
+          cycle: message.body.cycle,
+        };
+
         try {
           const outcome = await processSection(db, message.body, env);
-          const duration = Date.now() - msgStartTime;
+          const duration_ms = Date.now() - msgStartTime;
 
           if (outcome.disposition === "ack") {
             if (!outcome.result.success) {
-              queueLog.error(
-                `Non-retryable error for ${message.body.class_nbr} in ${duration}ms:`,
-                outcome.result.error,
-              );
+              queueLog.error("Non-retryable Section Check failure, acking", {
+                ...fields,
+                duration_ms,
+                "error.message": outcome.result.error,
+              });
             } else {
-              queueLog.info(
-                `Processed ${message.body.class_nbr} in ${duration}ms:`,
-                outcome.result,
-              );
+              queueLog.info("Processed Section Check", {
+                ...fields,
+                duration_ms,
+                emails_sent: outcome.result.emailsSent,
+                seat_became_available: outcome.result.changes.seatBecameAvailable,
+                instructor_assigned: outcome.result.changes.instructorAssigned,
+              });
             }
 
             message.ack();
 
-            return {
-              success: outcome.result.success,
-              class_nbr: message.body.class_nbr,
-              duration,
-            };
+            return { success: outcome.result.success };
           }
 
-          queueLog.error(
-            `Failed to process ${message.body.class_nbr} in ${duration}ms:`,
-            outcome.result.error,
-          );
           const delaySeconds = retryDelaySeconds(outcome, message.attempts);
+          queueLog.error("Section Check failed, retrying", {
+            ...fields,
+            duration_ms,
+            http_status: outcome.httpStatus,
+            retry_delay_s: delaySeconds,
+            "error.message": outcome.result.error,
+          });
           message.retry(delaySeconds === undefined ? undefined : { delaySeconds });
 
-          return { success: false, class_nbr: message.body.class_nbr, duration };
+          return { success: false };
         } catch (error) {
-          const duration = Date.now() - msgStartTime;
-          queueLog.error(`Retryable error for ${message.body.class_nbr} in ${duration}ms:`, error);
+          queueLog.error("Section Check threw, retrying", {
+            ...fields,
+            ...errorFields(error),
+            duration_ms: Date.now() - msgStartTime,
+          });
           message.retry();
 
-          return { success: false, class_nbr: message.body.class_nbr, duration, error };
+          return { success: false };
         }
       }),
     );
 
     const successful = results.filter((r) => r.status === "fulfilled" && r.value.success).length;
-    const failed = results.length - successful;
-    const totalDuration = Date.now() - startTime;
 
-    queueLog.info(
-      `Batch complete in ${totalDuration}ms: ${successful} successful, ${failed} failed`,
-    );
+    queueLog.info("Batch complete", {
+      queue: batch.queue,
+      duration_ms: Date.now() - startTime,
+      successful,
+      failed: results.length - successful,
+    });
   },
 } satisfies ExportedHandler<Env, ClassCheckMessage>;

@@ -1,15 +1,114 @@
-type LogMethods = {
-  info(...args: unknown[]): void;
-  warn(...args: unknown[]): void;
-  error(...args: unknown[]): void;
+/** Primitives only, so every field indexes as its own queryable key in Workers Logs. */
+type LogValue = string | number | boolean | null | undefined;
+
+/** Fields on one log line: opaque ids, counts and durations, never emails, names or tokens. */
+export type LogFields = Readonly<Record<string, LogValue>>;
+
+type LogLevel = "info" | "warn" | "error";
+
+// A type alias, not an interface, so it stays assignable to `LogFields`.
+export type ErrorFields = {
+  "error.message": string;
+  "error.name": string;
+  "error.code"?: string;
+  stack?: string;
 };
+
+/**
+ * Logs one object per line (`{ level, scope, msg, ...fields }`), so Workers
+ * Logs indexes every key for HyperDX instead of one opaque message string.
+ * The reserved keys are written last so a field can't overwrite them.
+ */
+function write(level: LogLevel, scope: string, msg: string, fields?: LogFields): void {
+  console[level]({ ...fields, level, scope, msg });
+}
 
 export function log(scope: string) {
   return {
-    info: (...args: unknown[]) => console.info(`[${scope}]`, ...args),
-    warn: (...args: unknown[]) => console.warn(`[${scope}]`, ...args),
-    error: (...args: unknown[]) => console.error(`[${scope}]`, ...args),
-  } satisfies LogMethods;
+    info: (msg: string, fields?: LogFields) => write("info", scope, msg, fields),
+    warn: (msg: string, fields?: LogFields) => write("warn", scope, msg, fields),
+    error: (msg: string, fields?: LogFields) => write("error", scope, msg, fields),
+  };
+}
+
+const MAX_MESSAGE_LENGTH = 1000;
+
+const EMAIL_PATTERN = /[^\s@"'<>()]+@[^\s@"'<>()]+\.[^\s@"'<>()]+/g;
+
+// V8 (`    at fn (url:1:2)`) and Firefox/Safari (`fn@url:1:2`) stack frames.
+const STACK_FRAME = /^\s*at |@\S*:\d+:\d+$/;
+
+/** Provider and driver messages can echo a recipient or a row value back. */
+function scrub(text: string): string {
+  return text.slice(0, MAX_MESSAGE_LENGTH).replace(EMAIL_PATTERN, "[email]");
+}
+
+// `instanceof` rather than `typeof`, which the anti-slop lint bans.
+function isText(cause: unknown): cause is string {
+  return Object(cause) instanceof String;
+}
+
+function nonErrorMessage(cause: unknown): string {
+  if (isText(cause)) return cause;
+
+  try {
+    return JSON.stringify(cause) ?? String(cause);
+  } catch {
+    return String(cause);
+  }
+}
+
+interface DriverError {
+  message: string;
+  code?: string;
+}
+
+/**
+ * Drizzle wraps a failed statement as `Failed query: <sql> params: <values>`
+ * with the driver error on `.cause`. Same unwrap as `lib/db/pg-errors.ts`,
+ * inlined to keep zod out of the client bundle.
+ */
+function driverError(cause: unknown): DriverError {
+  let current = cause;
+
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (!(current instanceof Object && "query" in current && "params" in current)) break;
+
+    if (!("cause" in current) || current.cause === undefined) break;
+    current = current.cause;
+  }
+
+  if (!(current instanceof Object)) return { message: nonErrorMessage(current) };
+
+  return {
+    message:
+      "message" in current && isText(current.message) ? current.message : nonErrorMessage(current),
+    code: "code" in current && isText(current.code) ? current.code : undefined,
+  };
+}
+
+/**
+ * Log fields for a caught value, tolerating non-Error throws. A Drizzle
+ * statement failure is reduced to the driver's message and SQLSTATE, and the
+ * stack keeps only its frames under a rebuilt header, so bound SQL params never
+ * reach telemetry. Email addresses are redacted and messages are capped.
+ */
+export function errorFields(cause: unknown): ErrorFields {
+  if (!(cause instanceof Object && "message" in cause))
+    return { "error.message": scrub(nonErrorMessage(cause)), "error.name": "NonError" };
+
+  const name = "name" in cause && isText(cause.name) ? cause.name : "Error";
+  const driver = driverError(cause);
+  const message = scrub(driver.message);
+  const fields: ErrorFields = { "error.message": message, "error.name": name };
+
+  if (driver.code) fields["error.code"] = driver.code;
+  const stack = "stack" in cause && isText(cause.stack) ? cause.stack : "";
+  const frames = stack.split("\n").filter((line) => STACK_FRAME.test(line));
+
+  if (frames.length > 0) fields.stack = [`${name}: ${message}`, ...frames].join("\n");
+
+  return fields;
 }
 
 /** Product events and their fields: opaque ids only, never emails, names or other PII. */

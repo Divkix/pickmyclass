@@ -24,7 +24,7 @@ import { type ClerkClient, createClerkClient } from "@clerk/backend";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk/config";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 
 export interface SessionIdentity {
   userId: string;
@@ -121,7 +121,7 @@ export async function getSessionIdentity(request: Request): Promise<SessionIdent
 
     return { userId: extId ?? clerkUserId, clerkUserId, sessionId: sessionId ?? null };
   } catch (error) {
-    log("Auth").error("Clerk session verification failed:", error);
+    log("Auth").error("Clerk session verification failed", errorFields(error));
 
     return null;
   }

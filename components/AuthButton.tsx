@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 
 export function AuthButton() {
   const { user, loading, signOut } = useAuth();
@@ -16,7 +16,7 @@ export function AuthButton() {
       setSigningOut(true);
       await signOut();
     } catch (error) {
-      log("AuthButton").error("Sign-out failed:", error);
+      log("AuthButton").error("Sign-out failed", errorFields(error));
     } finally {
       window.location.href = "/sign-in";
     }

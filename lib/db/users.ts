@@ -5,7 +5,7 @@ import { z } from "zod";
 import { TtlCache } from "@/lib/cache/ttl-cache";
 import type { Database } from "@/lib/db";
 import { users, userProfiles } from "@/lib/db/schema";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 
 export interface UserVerificationState {
   email: string;
@@ -279,7 +279,7 @@ export async function softDeleteUserById(db: Database, userId: string): Promise<
 
     return targetIds.length;
   } catch (error) {
-    log("Users").error("Failed to soft-delete user profile:", error);
+    log("Users").error("Failed to soft-delete user profile", errorFields(error));
     throw error;
   }
 }

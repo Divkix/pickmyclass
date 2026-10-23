@@ -2,8 +2,9 @@ import { z } from "zod";
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from "./templates";
 import type { ClassInfo } from "@/lib/types/class";
 import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE, NOTIFICATION_FROM_EMAIL } from "@/lib/config";
-import { log } from "@/lib/log";
+import { type ErrorFields, errorFields, log } from "@/lib/log";
 import type { NotificationType } from "@/lib/types/notification";
+import { sectionFields } from "@/lib/section-ref";
 import { generateUnsubscribeUrl } from "./unsubscribe-token";
 
 export type { ClassInfo } from "@/lib/types/class";
@@ -50,6 +51,7 @@ export function isFatalEmailCode(code: string): boolean {
 interface EmailFailure {
   code: string;
   message: string;
+  fields: ErrorFields;
 }
 
 /** Sequential sends with a pause only between full batches. */
@@ -94,6 +96,7 @@ export async function sendBatchEmailsOptimized(
       failure = {
         code: (parsed.success && parsed.data.code) || "UNKNOWN",
         message: (parsed.success && parsed.data.message) || "Email send failed",
+        fields: errorFields(error),
       };
     }
 
@@ -105,22 +108,32 @@ export async function sendBatchEmailsOptimized(
     await options.onResult?.(index, result);
 
     if (!failure) continue;
-    log("Email").error(`Failed to send to ${email.to}: ${failure.code} - ${failure.message}`);
+    log("Email").error("Email send failed", {
+      user_id: email.userId,
+      notification_type: email.type,
+      ...sectionFields(email.classInfo),
+      // Normalised provider code (UNKNOWN when absent), which the fatal check keys on.
+      "email.code": failure.code,
+      ...failure.fields,
+    });
 
     if (isFatalEmailCode(failure.code)) {
       for (let i = index + 1; i < emails.length; i++)
         results.push({ success: false, error: `Skipped: ${failure.code} limit reached` });
-      log("Email").warn(
-        `Stopped batch after ${failure.code} at email ${index + 1}/${emails.length}`,
-      );
+      log("Email").warn("Stopped email batch on fatal provider error", {
+        "email.code": failure.code,
+        position: index + 1,
+        total: emails.length,
+      });
       break;
     }
   }
 
   if (emails.length > 0)
-    log("Email").info(
-      `Batch complete: ${results.filter((r) => r.success).length}/${emails.length} sent successfully`,
-    );
+    log("Email").info("Email batch complete", {
+      sent: results.filter((r) => r.success).length,
+      total: emails.length,
+    });
 
   return results;
 }

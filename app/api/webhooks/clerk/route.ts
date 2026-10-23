@@ -19,7 +19,7 @@ import { fail, ok } from "@/lib/api/response";
 import { clearAuthorizationStateCache } from "@/lib/auth/authorization-state";
 import { getDbFromEnv } from "@/lib/db";
 import { softDeleteUserById, syncUserMirrorFromClerkUser } from "@/lib/db/users";
-import { log, logEvent } from "@/lib/log";
+import { errorFields, log, logEvent } from "@/lib/log";
 
 const clerkWebhookEnvSchema = z.object({
   CLERK_WEBHOOK_SIGNING_SECRET: z.string().optional(),
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   try {
     event = await verifyWebhook(request, { signingSecret: CLERK_WEBHOOK_SIGNING_SECRET });
   } catch (error) {
-    log("ClerkWebhook").warn("Signature verification failed:", error);
+    log("ClerkWebhook").warn("Signature verification failed", errorFields(error));
 
     return fail("Invalid signature", 400);
   }
@@ -83,7 +83,10 @@ export async function POST(request: Request) {
 
     return ok(null);
   } catch (error) {
-    log("ClerkWebhook").error(`Failed to process ${event.type}:`, error);
+    log("ClerkWebhook").error("Failed to process webhook", {
+      event_type: event.type,
+      ...errorFields(error),
+    });
 
     return fail("Webhook processing failed", 500);
   }

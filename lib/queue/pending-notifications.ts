@@ -4,10 +4,10 @@ import { z } from "zod";
 import { NOTIFICATION_LEASE_SECONDS } from "@/lib/config";
 import type { Database } from "@/lib/db";
 import { driverErrorMessage } from "@/lib/db/pg-errors";
-import { log } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import { pendingSectionNotifications } from "@/lib/db/schema";
 import { sendSectionNotifications } from "@/lib/queue/notification-sender";
-import type { SectionRef } from "@/lib/section-ref";
+import { type SectionRef, sectionFields } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
 
@@ -150,7 +150,10 @@ export async function deliverPendingNotifications(
           .set({ lease_id: null, leased_until: null })
           .where(ownsNotification(ref, owned));
       } catch (error) {
-        log("PendingNotifications").warn("Failed to release notification lease:", error);
+        log("PendingNotifications").warn("Failed to release notification lease", {
+          ...sectionFields(ref),
+          ...errorFields(error),
+        });
       }
     }
   }

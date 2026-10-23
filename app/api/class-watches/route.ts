@@ -14,7 +14,7 @@ import {
   readSectionAlertsEnded,
 } from "@/lib/db/queries";
 import { classWatches } from "@/lib/db/schema";
-import { log, logEvent } from "@/lib/log";
+import { errorFields, log, logEvent } from "@/lib/log";
 import type { JsonValue } from "@/lib/api/wire";
 import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
 import { sectionRefKey } from "@/lib/section-ref";
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
             .where(eq(classWatches.user_id, user.userId))
             .orderBy(desc(classWatches.created_at)),
           readOnboardingState(db, user.userId).catch((error) => {
-            log("API").error("Failed to read onboarding state:", error);
+            log("API").error("Failed to read onboarding state", errorFields(error));
 
             return toOnboardingState(null);
           }),
@@ -66,13 +66,13 @@ export async function GET(request: NextRequest) {
           onboarding,
         });
       } catch (error) {
-        log("API").error("Error fetching class watches:", error);
+        log("API").error("Error fetching class watches", errorFields(error));
 
         return fail("Failed to fetch class watches", 500);
       }
     });
   } catch (error) {
-    log("API").error("Error fetching class watches:", error);
+    log("API").error("Error fetching class watches", errorFields(error));
 
     return fail("Failed to fetch class watches", 500);
   }
@@ -104,12 +104,12 @@ export async function POST(request: NextRequest) {
           }
 
           if (error instanceof AuthError) {
-            log("API").error("ASU API auth error:", error instanceof Error ? error.message : error);
+            log("API").error("ASU API auth error", errorFields(error));
 
             return fail("Service temporarily unavailable", 503);
           }
 
-          log("API").error("Failed to fetch class details:", error);
+          log("API").error("Failed to fetch class details", errorFields(error));
 
           return fail("Failed to fetch class details", 500);
         }
@@ -165,26 +165,26 @@ export async function POST(request: NextRequest) {
           // the strike counter and the freshest snapshot).
           await insertClassStateIfMissing(db, { class_nbr, term }, classDetails);
         } catch (dbError) {
-          log("API").error("Failed to seed class state:", dbError);
+          log("API").error("Failed to seed class state", errorFields(dbError));
         }
 
         try {
           await applyFirstWatchGuard(db, user.userId);
         } catch (dbError) {
-          log("API").error("Failed to mark onboarding complete:", dbError);
+          log("API").error("Failed to mark onboarding complete", errorFields(dbError));
         }
 
         logEvent("class_watch_created", { user_id: user.userId, term, class_nbr });
 
         return ok({ watch: watchDataRaw }, { status: 201 });
       } catch (error) {
-        log("API").error("Error creating class watch:", error);
+        log("API").error("Error creating class watch", errorFields(error));
 
         return fail("Failed to create class watch", 500);
       }
     });
   } catch (error) {
-    log("API").error("Error creating class watch:", error);
+    log("API").error("Error creating class watch", errorFields(error));
 
     return fail("Failed to create class watch", 500);
   }
@@ -213,13 +213,13 @@ export async function DELETE(request: NextRequest) {
 
         return ok(undefined);
       } catch (error) {
-        log("API").error("Error deleting class watch:", error);
+        log("API").error("Error deleting class watch", errorFields(error));
 
         return fail("Failed to delete class watch", 500);
       }
     });
   } catch (error) {
-    log("API").error("Error deleting class watch:", error);
+    log("API").error("Error deleting class watch", errorFields(error));
 
     return fail("Failed to delete class watch", 500);
   }

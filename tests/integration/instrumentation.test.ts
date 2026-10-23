@@ -19,11 +19,19 @@ describe("onRequestError", () => {
     onRequestError(error, { path: "/api/unsubscribe?token=secret", method: "GET" }, routeContext);
 
     expect(errorSpy).toHaveBeenCalledTimes(1);
-    const [scope, summary, detail] = errorSpy.mock.calls[0];
-    expect(scope).toBe("[RequestError]");
-    expect(summary).toBe("GET /api/unsubscribe (middleware /api/unsubscribe) digest=123:");
-    expect(detail).toContain("Error: boom");
-    expect(detail).toContain("instrumentation.test.ts");
+    const [line] = errorSpy.mock.calls[0];
+    expect(line).toMatchObject({
+      level: "error",
+      scope: "RequestError",
+      method: "GET",
+      path: "/api/unsubscribe",
+      route_type: "middleware",
+      route_path: "/api/unsubscribe",
+      digest: "123",
+      "error.message": "boom",
+    });
+    expect(line.stack).toContain("Error: boom");
+    expect(line.stack).toContain("instrumentation.test.ts");
     expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("secret");
   });
 
@@ -35,6 +43,9 @@ describe("onRequestError", () => {
 
     onRequestError(thrown, { path: "/api/x", method: "POST" }, routeContext);
 
-    expect(errorSpy.mock.calls[0][2]).toBe("thrown: nope");
+    expect(errorSpy.mock.calls[0][0]).toMatchObject({
+      "error.name": "Thrown",
+      "error.message": "nope",
+    });
   });
 });
