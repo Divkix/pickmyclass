@@ -1065,6 +1065,12 @@ describe("locked section retirement", () => {
     });
     expect(await getClassWatchers(db, ref)).toHaveLength(1);
     expect((await readSectionCheckState(db, ref))?.consecutive_not_found_count).toBe(0);
+    await db
+      .delete(classWatches)
+      .where(and(eq(classWatches.class_nbr, ref.class_nbr), eq(classWatches.term, ref.term)));
+    await db
+      .delete(classStates)
+      .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)));
   });
 
   it("rolls back the whole transaction when any statement fails", async () => {
@@ -1241,7 +1247,6 @@ describe("admin queries (representative RPC + builder results)", () => {
     expect(rowA?.subject).toBe(SUBJECT);
     expect(rowA?.watcher_count).toBe(3);
     expect(rowA?.seat_emails).toBe(0);
-    expect(rowA?.consecutive_not_found_count).toBe(0);
     expect(isIsoZ(rowA?.last_checked_at)).toBe(true);
     expect(isIsoZ(rowA?.last_changed_at)).toBe(true);
   });

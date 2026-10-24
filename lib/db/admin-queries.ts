@@ -1,5 +1,4 @@
 import { and, count, desc, eq, sql } from "drizzle-orm";
-import { z } from "zod";
 
 import { TtlCache } from "@/lib/cache/ttl-cache";
 import { ADMIN_CACHE_TTL_MS } from "@/lib/config";
@@ -21,16 +20,6 @@ type WatchCountFilter = "all" | "none" | "1-5" | "6-10" | "10+";
 
 function toIsoTimestamp(value: string): string {
   return new Date(value).toISOString();
-}
-
-type ConsecutiveCountRow = { consecutive_not_found_count?: number };
-
-const consecutiveCountSchema = z.number();
-
-function normalizeConsecutiveCount(row: ConsecutiveCountRow): number {
-  const parsed = consecutiveCountSchema.safeParse(row.consecutive_not_found_count);
-
-  return parsed.success ? parsed.data : 0;
 }
 
 type CountRpcRow = { count: string };
@@ -178,7 +167,7 @@ type ClassWatch = typeof classWatches.$inferSelect;
 
 export interface ClassWithWatchers extends Omit<
   ClassState,
-  "start_date" | "end_date" | "session_code"
+  "start_date" | "end_date" | "session_code" | "consecutive_not_found_count"
 > {
   watcher_count: number;
   seat_emails: number;
@@ -287,7 +276,6 @@ type ClassesPageRpcRow = {
   meeting_times: string | null;
   last_checked_at: string;
   last_changed_at: string;
-  consecutive_not_found_count?: number;
   watcher_count: string;
   seat_emails: string;
   instructor_emails: string;
@@ -343,7 +331,6 @@ export async function getClassesPage(
       meeting_times: row.meeting_times ?? null,
       last_checked_at: toIsoTimestamp(row.last_checked_at),
       last_changed_at: toIsoTimestamp(row.last_changed_at),
-      consecutive_not_found_count: normalizeConsecutiveCount(row),
       watcher_count: Number(row.watcher_count),
       seat_emails: Number(row.seat_emails),
       instructor_emails: Number(row.instructor_emails),
