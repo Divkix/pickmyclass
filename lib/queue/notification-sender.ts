@@ -93,14 +93,12 @@ export async function sendSectionNotifications(
       }
     }
 
-    const deliveredIds: string[] = [];
-
     const results = await sendBatchEmailsOptimized(emails, emailBinding, {
       fromEmail,
       onSending: (index) => {
         emails[index].claim.status = "in-flight";
       },
-      onResult: (index, result) => {
+      onResult: async (index, result) => {
         const claim = emails[index].claim;
         // A timed-out send may still deliver: keep the claim in flight so a retry cannot duplicate it.
         claim.status = result.success
@@ -109,12 +107,12 @@ export async function sendSectionNotifications(
             ? "in-flight"
             : "failed";
 
-        if (result.success) deliveredIds.push(claim.notificationId);
+        // Confirm before the next send: a Worker that dies mid-batch then only risks the one
+        // email in flight, not every email already sent. A failed confirm stops the batch.
+        if (result.success && delivery)
+          await confirmNotificationDelivery(db, [claim.notificationId], delivery);
       },
     });
-
-    // One round trip for the whole section instead of one per recipient.
-    if (delivery) await confirmNotificationDelivery(db, deliveredIds, delivery);
 
     const sent = results.map((result, index): SentNotification => ({
       success: result.success,
