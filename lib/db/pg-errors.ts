@@ -101,8 +101,10 @@ export function isUndefinedFunction(cause: unknown): boolean {
 }
 
 // Connection exceptions (08), operator intervention such as a failover (57P01-57P03),
-// serialization failures and deadlocks (40001, 40P01) and exhausted resources (53).
-const TRANSIENT_SQLSTATE = /^(08|53|57P0[1-3]|40001$|40P01$)/;
+// serialization failures and deadlocks (40001, 40P01), exhausted resources (53),
+// a cancelled statement (57014), a lock that was not available (55P03) and a
+// read-only transaction after a failover (25006).
+const TRANSIENT_SQLSTATE = /^(08|53|57P0[1-3]|40001$|40P01$|57014$|55P03$|25006$)/;
 
 const SQLSTATE = /^[0-9A-Z]{5}$/;
 
