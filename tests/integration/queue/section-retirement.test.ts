@@ -51,4 +51,25 @@ describe("Section Check retirement", () => {
     expect(pg.transactionCount).toBe(0);
     expect(env.send).not.toHaveBeenCalled();
   });
+
+  it("logs an unreadable class name and still retires the section", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const pg = createScriptedPostgres();
+    pg.next([{ new_count: 3 }]);
+    pg.next([{ value: 100 }]);
+    pg.next([{ value: 1 }]);
+    pg.next([{ ...watcher, created_at: "2026-10-15T00:00:00.000Z" }]);
+    pg.failNext(new Error("connection reset"));
+    pg.next([{ id: watcher.watch_id }]);
+    pg.next([{ id: "state-1" }]);
+    const env = environment();
+
+    expect(await retireClassSection({ db: pg.db, ref, emailBinding: env.EMAIL })).toMatchObject({
+      status: "retired",
+      watchesDeleted: 1,
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ msg: "Auto-cleanup could not read the class name" }),
+    );
+  });
 });
