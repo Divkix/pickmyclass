@@ -29,6 +29,16 @@ const SERVER_CLERK_OPTIMIZE_DEPS = {
   include: ["@clerk/backend > standardwebhooks"],
 };
 
+// Tests run without the vinext plugin, so the next/* imports the app uses resolve to vinext's
+// shims directly (the default variants; the Worker's RSC build picks next/navigation's
+// react-server one). There is no `next` package to fall back on.
+const NEXT_SHIM_ALIASES = Object.fromEntries(
+  ["headers", "image", "link", "navigation", "script", "server"].map((name) => [
+    `next/${name}`,
+    `vinext/shims/${name}`,
+  ]),
+);
+
 // Workers Builds sets these on every build; production deploys come from main.
 // https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables
 function deploymentEnvironment(): DeploymentEnvironment {
@@ -45,7 +55,7 @@ export default defineConfig(() => {
       ignorePatterns: [
         ...IGNORE_PATTERNS,
         "**/*.md", // Markdown is not formatted.
-        "next-env.d.ts", // Generated Next.js declarations.
+        "next-env.d.ts", // Written by `vinext typegen`.
         "db/migrations/*.sql", // Generated database migrations.
         "**/*.lock", // Package lockfiles.
         "**/pnpm-lock.yaml", // pnpm lockfiles.
@@ -145,6 +155,7 @@ export default defineConfig(() => {
     },
     test: {
       alias: {
+        ...NEXT_SHIM_ALIASES,
         "@": resolve(import.meta.dirname, "./"),
         "cloudflare:workers": resolve(import.meta.dirname, "./tests/mocks/cloudflare-workers.ts"),
         "cloudflare:workflows": resolve(
