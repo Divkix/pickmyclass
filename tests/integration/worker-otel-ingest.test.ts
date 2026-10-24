@@ -37,6 +37,22 @@ function otlp(path: string, body: string, headers: Record<string, string> = {}):
   });
 }
 
+async function gzipped(path: string, body: string): Promise<Request> {
+  const compressed = await new Response(
+    new Blob([body]).stream().pipeThrough(new CompressionStream("gzip")),
+  ).arrayBuffer();
+
+  return new Request(`https://pickmyclass.app${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "content-encoding": "gzip",
+      "content-length": String(compressed.byteLength),
+    },
+    body: compressed,
+  });
+}
+
 // Node's Request has no `cf`; the Worker runtime sets it from the edge.
 function fromCountry(request: Request, country: string | undefined): Request {
   Object.defineProperty(request, "cf", { value: { country, city: "Tempe", region: "Arizona" } });
@@ -115,16 +131,58 @@ describe("browser telemetry ingest", () => {
     });
   });
 
-  it("passes compressed batches through unchanged", async () => {
-    const request = fromCountry(
-      otlp("/otel/v1/logs", "student@asu.edu", { "content-encoding": "gzip" }),
-      "US",
-    );
+  it("inflates, scrubs and forwards a gzipped JSON batch uncompressed", async () => {
+    const body = JSON.stringify({
+      href: "https://pickmyclass.app/admin/users?search=student%40asu.edu",
+      message: "lookup for student@asu.edu",
+    });
+
+    const request = fromCountry(await gzipped("/otel/v1/logs", body), "US");
+
+    expect(JSON.parse(await forwardedJson(request))).toEqual({
+      href: "https://pickmyclass.app/admin/users",
+      message: "lookup for [email]",
+    });
+    const headers = new Headers(upstream.mock.lastCall?.[1]?.headers);
+    expect(headers.has("content-encoding")).toBe(false);
+    expect(headers.get("content-type")).toBe("application/json");
+  });
+
+  it("tags a gzipped trace batch with the visitor's country", async () => {
+    const request = fromCountry(await gzipped("/otel/v1/traces", traceBatch), "US");
+
+    const [resource] = JSON.parse(await forwardedJson(request)).resourceSpans;
+    expect(JSON.stringify(resource)).toContain('"stringValue":"US"');
+  });
+
+  it("drops a gzipped batch that inflates past the cap", async () => {
+    const bomb = JSON.stringify({ message: "a".repeat(9 * 1024 * 1024) });
+
+    await handleOtelIngest(await gzipped("/otel/v1/logs", bomb), env, ctx);
+    await Promise.all(pending);
+
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("drops a batch that claims gzip but is not", async () => {
+    const request = otlp("/otel/v1/logs", "student@asu.edu", { "content-encoding": "gzip" });
 
     await handleOtelIngest(request, env, ctx);
     await Promise.all(pending);
 
-    // SAFETY: a compressed batch is forwarded as the raw ArrayBuffer read from the request.
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("passes non-JSON batches through unchanged", async () => {
+    const request = otlp("/otel/v1/logs", "student@asu.edu", {
+      "content-type": "application/x-protobuf",
+      "content-encoding": "gzip",
+    });
+
+    await handleOtelIngest(request, env, ctx);
+    await Promise.all(pending);
+
+    // SAFETY: a passthrough batch is forwarded as the raw ArrayBuffer read from the request.
     const forwarded = upstream.mock.calls[0][1]?.body as ArrayBuffer;
     expect(new TextDecoder().decode(forwarded)).toBe("student@asu.edu");
   });
