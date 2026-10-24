@@ -1592,6 +1592,26 @@ describe("durable Section Check notifications", () => {
     ).toHaveLength(0);
   });
 
+  it("does not notify on the first real observation after NotFound placeholders", async () => {
+    const ref = { class_nbr: `${RUN}-placeholder`, term: TERM };
+    await incrementConsecutiveNotFound(db, ref);
+    await db.insert(classWatches).values({
+      ...ref,
+      user_id: U_MAIN,
+      subject: SUBJECT,
+      catalog_nbr: "110",
+    });
+
+    expect(await recordSectionCheck(db, ref, queueDetails, new Date())).toEqual({
+      applied: true,
+      intentCreated: false,
+    });
+    const env = environment();
+    expect(await deliverPendingNotifications(db, ref, env)).toBe(0);
+    expect(env.send).not.toHaveBeenCalled();
+    expect((await readSectionCheckState(db, ref))?.consecutive_not_found_count).toBe(0);
+  });
+
   it("resets both notification types atomically and rejects stale observations", async () => {
     const ref = { class_nbr: `${RUN}-pending-reset`, term: TERM };
     await recordSectionCheck(
@@ -1664,7 +1684,18 @@ describe("durable Section Check notifications", () => {
     ).toBe(true);
     expect((await readDates())?.end_date).toBe("2026-10-09");
     expect((await recordSectionCheck(db, ref, queueDetails, new Date())).applied).toBe(true);
-    expect(await readDates()).toEqual({ start_date: null, end_date: null, session_code: null });
+    expect(await readDates()).toEqual({
+      start_date: "2026-08-20",
+      end_date: "2026-10-09",
+      session_code: null,
+    });
+
+    const { rows } = await db.execute<{ cutoff: string }>(
+      sql`SELECT public.section_alert_cutoff(start_date, end_date)::text AS cutoff
+        FROM public.class_states WHERE class_nbr = ${ref.class_nbr} AND term = ${ref.term}`,
+    );
+
+    expect(rows[0].cutoff).toBe("2026-09-04");
   });
 });
 
