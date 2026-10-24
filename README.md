@@ -84,7 +84,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/email/send.ts` | Cloudflare Email Service batch sender |
 | `lib/class-watches/class-watch-creation.ts` | Browser-side watch creation policy and transport |
 | `lib/cache/ttl-cache.ts` | TTL cache for ASU API responses |
-| `lib/api/schemas.ts` | Queue message validation schemas |
+| `lib/api/schemas.ts` | API request validation schemas (watches, consent) |
 | `proxy.ts` | vinext middleware — auth gate (Clerk), redirects, security headers + CSP (see `lib/auth/decide-gate.ts`) |
 | `app/sign-in/[[...sign-in]]/page.tsx`, `app/sign-up/[[...sign-up]]/page.tsx` | Clerk hosted `<SignIn>`/`<SignUp>` components (`routing="path"`) |
 
@@ -92,7 +92,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 
 | Route | Methods | Description |
 |-------|---------|-------------|
-| `app/api/auth/signout/route.ts` | POST | Sign out (`clerk.signOut` + `revokeSession` + clear `CLERK_COOKIES_TO_CLEAR`) |
+| `app/api/auth/signout/route.ts` | POST | Sign out (`revokeSession` + clear Clerk cookies) |
 | `app/api/auth/consent/route.ts` | POST | Only endpoint for recording form consent (`age_verified`/`agreed_to_terms`) |
 | `app/api/webhooks/clerk/route.ts` | POST | Svix `verifyWebhook` (`whsec_...`) → `syncUserMirrorFromClerkUser` (`user.created/updated/deleted`) |
 | `app/auth/post-oauth/route.ts` | GET | Mirror repair (can restore Clerk metadata consent) + consent routing; no query-param consent |
@@ -116,7 +116,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 - [pnpm](https://pnpm.io/) 12.14.0
 - [PlanetScale](https://planetscale.com/) Postgres (PS-5) + Cloudflare Hyperdrive (`--caching-disabled`)
 - [Clerk](https://clerk.com/) (Hobby free ≤50k MRU) — OAuth app for Google, custom domain `clerk.your-domain.com`
-- [Cloudflare Account](https://cloudflare.com/) (Workers, Queues, KV, Email Service)
+- [Cloudflare Account](https://cloudflare.com/) (Workers, Queues, Workflows, Email Service)
 - ASU API access (`ASU_API_BASE_URL` + `ASU_API_TOKEN`)
 
 ### 1. Clone and Install
@@ -140,7 +140,7 @@ pnpm install
 
 ### 3. Configure Clerk
 
-1. Create Clerk production instance; set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (`pk_live_...`) literal in `lib/clerk/config.ts` (and `CLERK_CSP` if custom domain).
+1. Create Clerk production instance; set the publishable key (`pk_live_...`) literal in `lib/clerk/config.ts` (and `CLERK_CSP` if custom domain).
 2. Sessions → Customize token → `{"ext_id":"{{user.external_id || user.id}}"}` (short ID `ext_id` is the app’s `user_id`).
 3. Webhooks → Add Endpoint `https://your-domain.com/api/webhooks/clerk` (events `user.created/updated/deleted`, secret `whsec_...`).
 4. Social Connections → Google → Client ID/Secret (Cloud Console redirect `https://clerk.your-domain.com/v1/oauth_callback`, origins `https://your-domain.com` + `https://clerk.your-domain.com`).
@@ -152,7 +152,6 @@ Copy `.env.example` to `.env.local` (or `.dev.vars` for `wrangler dev`):
 
 | Variable | Description | Where to Get It |
 |----------|-------------|-----------------|
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key (`pk_live_...`) | Clerk Dashboard → API Keys (also literal in `lib/clerk/config.ts`) |
 | `CLERK_SECRET_KEY` | Clerk secret key (`sk_live_...`) | Clerk Dashboard → API Keys |
 | `CLERK_JWT_KEY` | Clerk session PEM (`-----BEGIN PUBLIC KEY-----...`) | Clerk Dashboard → API Keys → bottom JWT public key/PEM |
 | `CLERK_WEBHOOK_SIGNING_SECRET` | Svix webhook secret (`whsec_...`) | Clerk Dashboard → Webhooks → Signing Secret |
@@ -166,7 +165,6 @@ Copy `.env.example` to `.env.local` (or `.dev.vars` for `wrangler dev`):
 
 ```bash
 wrangler secret put CLERK_SECRET_KEY
-wrangler secret put CLERK_PUBLISHABLE_KEY
 wrangler secret put CLERK_JWT_KEY
 wrangler secret put CLERK_WEBHOOK_SIGNING_SECRET
 wrangler secret put ASU_API_BASE_URL
@@ -178,7 +176,7 @@ wrangler secret put UNSUBSCRIBE_SIGNING_SECRET
 ### 6. Deploy
 
 ```bash
-pnpm run deploy   # vp build + wrangler deploy + wrangler triggers deploy
+pnpm run deploy   # vp build + db:migrate + wrangler deploy + triggers deploy + IndexNow ping
 ```
 
 App live at `https://your-worker.workers.dev` or custom domain.
@@ -306,7 +304,7 @@ db/
   └── migrations/            # Frozen pre-drizzle SQL history; superseded by migrations_pg/0000-0001
 
 worker.ts                    # Custom Cloudflare Worker
-wrangler.jsonc               # Cloudflare Workers config (HYPERDRIVE, CLERK_* secrets, cron)
+wrangler.jsonc               # Cloudflare Workers config (Hyperdrive, Queues, Workflow schedules)
 ```
 
 > **Note:** `lib/utils.ts` is the shadcn/ui utility file (contains the `cn` function), while `lib/utils/` is a directory for custom utility functions. Both coexist by design.
@@ -317,7 +315,7 @@ wrangler.jsonc               # Cloudflare Workers config (HYPERDRIVE, CLERK_* se
 2. **Every 15 minutes** - Workflow schedules enqueue half the watched sections (even/odd stagger), so each section is checked every 30 minutes
 3. **Queue consumers process** - 20 concurrent Workers query ASU API in parallel
 4. **Change detection** - Compare new state with PostgreSQL cached state (`non_reserved_seats ?? seats_available`)
-5. **Atomic deduplication** - `claimNotifications` calls the intent-aware `claim_section_notifications` RPC; an `expire_stale_notifications()` sweep on every cron tail + the hourly maintenance run frees expired slots
+5. **Atomic deduplication** - `claimNotifications` calls the intent-aware `claim_section_notifications` RPC; an `expire_stale_notifications()` sweep on every `SectionCheckWorkflow` run + the hourly maintenance run frees expired slots
 6. **Email notification** - Cloudflare Email Service sends alerts for available seats
 7. **Dashboard polls** - `useRealtimeClassStates` polls `/api/class-watches/states` (not Realtime)
 

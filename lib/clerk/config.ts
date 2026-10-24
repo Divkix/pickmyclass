@@ -9,11 +9,6 @@
  * client bundles only get NEXT_PUBLIC_* values that existed at *build* time.
  * Wrangler `vars` alone are runtime-only and would leave the browser with
  * `ClerkProvider publishableKey={undefined}`.
- *
- * OWNER ACTION REQUIRED (#351 cutover): replace the placeholder with the real
- * publishable key from the Clerk dashboard (starts with pk_live_ / pk_test_).
- * Until then every Clerk call fails fast with an invalid-key error, which is
- * deliberate — a loud failure beats silently pointing at a nonexistent instance.
  */
 export const CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsucGlja215Y2xhc3MuYXBwJA";
 

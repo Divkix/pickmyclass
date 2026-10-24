@@ -201,7 +201,7 @@ How did you test these changes?
 
 - Use `lib/cache/ttl-cache.ts` for time-to-live caching
 - Default TTL for ASU API responses: 2 minutes
-- Cache key format: `[provider]-[endpoint]` (e.g., `asu-class-${classNbr}`)
+- Cache key: `sectionRefKey(ref)` from `lib/section-ref.ts` (`${term}:${class_nbr}`)
 
 ### React Contexts
 

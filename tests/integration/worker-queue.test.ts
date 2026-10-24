@@ -164,7 +164,7 @@ const mockEnv = {
   NOTIFICATION_FROM_EMAIL: "no-reply@test.com",
 } as Parameters<(typeof import("@/worker"))["default"]["queue"]>[1];
 
-// SAFETY: worker.ts queue/scheduled declare `_ctx` and never read it (lines 174,215);
+// SAFETY: worker.ts `queue` declares `_ctx` and never reads it;
 // no code under test reads or calls any member of this context double.
 const testCtx = {} as ExecutionContext;
 
