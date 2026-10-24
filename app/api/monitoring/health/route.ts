@@ -51,7 +51,7 @@ export async function GET(request: Request) {
     }
   };
 
-  const [dbResult, asuResult] = await Promise.allSettled([
+  const [dbResult, asuResult] = await Promise.all([
     (async () => {
       try {
         const db = getDbFromEnv();
@@ -83,41 +83,18 @@ export async function GET(request: Request) {
     })(),
   ]);
 
-  if (dbResult.status === "fulfilled") {
-    const v = dbResult.value;
-
-    if (v.kind === "db_ok") {
-      health.checks.database = { status: "healthy", latency_ms: v.latency_ms };
-    } else {
-      health.checks.database = { status: "unhealthy", error: v.message };
-      escalateStatus("degraded");
-    }
+  if (dbResult.kind === "db_ok") {
+    health.checks.database = { status: "healthy", latency_ms: dbResult.latency_ms };
   } else {
-    health.checks.database = {
-      status: "unhealthy",
-      error: dbResult.reason instanceof Error ? dbResult.reason.message : "Unknown error",
-    };
-    escalateStatus("unhealthy");
+    health.checks.database = { status: "unhealthy", error: dbResult.message };
+    escalateStatus("degraded");
   }
 
-  if (asuResult.status === "fulfilled") {
-    const v = asuResult.value;
-
-    if (v.kind === "asu_ok") {
-      health.checks.asu_api = { name: "ASU API", status: "healthy" };
-    } else {
-      health.checks.asu_api = { name: "ASU API", status: "unhealthy", error: v.message };
-      escalateStatus("degraded");
-    }
+  if (asuResult.kind === "asu_ok") {
+    health.checks.asu_api = { name: "ASU API", status: "healthy" };
   } else {
-    const msg = asuResult.reason instanceof Error ? asuResult.reason.message : "Unknown error";
-
-    if (asuResult.reason instanceof NotFoundError) {
-      health.checks.asu_api = { name: "ASU API", status: "healthy" };
-    } else {
-      health.checks.asu_api = { name: "ASU API", status: "unhealthy", error: msg };
-      escalateStatus("degraded");
-    }
+    health.checks.asu_api = { name: "ASU API", status: "unhealthy", error: asuResult.message };
+    escalateStatus("degraded");
   }
 
   const requiredEnvVars = ["ASU_API_BASE_URL", "ASU_API_TOKEN", "CRON_SECRET"];
