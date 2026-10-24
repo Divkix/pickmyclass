@@ -1,5 +1,6 @@
 import { Client, Pool, type PoolClient, type QueryConfig, type QueryResult } from "pg";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { getDb } from "@/lib/db";
 import { DbQueryFailed, DbQueryTimedOut } from "@/lib/db/errors";
 import { guardPool, guardQuery, type PromiseQuery } from "@/lib/db/guard";
 import {
@@ -188,5 +189,30 @@ describe("guardPool", () => {
     const error = await caught(guardPool(pool, operation, 20).query({ text: "select slow" }));
 
     expect(error).toBeInstanceOf(DbQueryTimedOut);
+  });
+});
+
+describe("getDb", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("handles and logs an idle pool error without an unhandled event", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // SAFETY: getDb only reads connectionString; this test never opens a connection.
+    const db = getDb({ connectionString: "postgres://localhost/test" } as Hyperdrive);
+    const error = serverError("ECONNRESET", "connection terminated unexpectedly");
+
+    try {
+      expect(() => db.$client.emit("error", error)).not.toThrow();
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          scope: "DB",
+          msg: "Idle database client error",
+          "error.code": "ECONNRESET",
+          "error.message": "connection terminated unexpectedly",
+        }),
+      );
+    } finally {
+      await db.$client.end();
+    }
   });
 });
