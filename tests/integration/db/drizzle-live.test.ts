@@ -26,6 +26,7 @@ import {
   getSectionsToCheck,
   incrementConsecutiveNotFound,
   insertClassStateIfMissing,
+  listExpiredClerkIdentities,
   purgeExpiredData,
   readAutoCleanupBreakerCounts,
   readSectionCheckState,
@@ -1752,6 +1753,38 @@ describe("section alert cutoff", () => {
 
 describe("purge_expired_data retention", () => {
   const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+
+  it("lists the Clerk ids of accounts the purge deletes, with an hour of lead", async () => {
+    const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
+    const expired = uid("clerk-expired");
+    const nearCutoff = uid("clerk-near");
+    const recent = uid("clerk-recent");
+    const noClerkRow = uid("clerk-none");
+    const clerkAsId = `user_${RUN}_asid`;
+
+    await db.insert(users).values([
+      { id: expired, clerk_user_id: `clerk_${expired}`, email: mail(expired) },
+      { id: nearCutoff, clerk_user_id: `clerk_${nearCutoff}`, email: mail(nearCutoff) },
+      { id: recent, clerk_user_id: `clerk_${recent}`, email: mail(recent) },
+      { id: noClerkRow, email: mail(noClerkRow) },
+      { id: clerkAsId, email: mail(clerkAsId) },
+    ]);
+    await db.insert(userProfiles).values([
+      { user_id: expired, is_disabled: true, disabled_at: hoursAgo(24 * 31) },
+      { user_id: nearCutoff, is_disabled: true, disabled_at: hoursAgo(24 * 30 - 0.5) },
+      { user_id: recent, is_disabled: true, disabled_at: hoursAgo(24 * 29) },
+      { user_id: noClerkRow, is_disabled: true, disabled_at: hoursAgo(24 * 31) },
+      { user_id: clerkAsId, is_disabled: true, disabled_at: hoursAgo(24 * 31) },
+    ]);
+
+    const ids = await listExpiredClerkIdentities(db);
+
+    expect(ids).toContain(`clerk_${expired}`);
+    expect(ids).toContain(`clerk_${nearCutoff}`);
+    expect(ids).toContain(clerkAsId);
+    expect(ids).not.toContain(`clerk_${recent}`);
+    expect(ids).not.toContain(noClerkRow);
+  });
 
   it("deletes data past the privacy policy's windows and keeps everything inside them", async () => {
     const term = `${RUN}-t5`;

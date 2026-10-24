@@ -14,6 +14,10 @@ import {
 } from "@/lib/workflows/cron-workflows";
 import { NonRetryableError } from "cloudflare:workflows";
 
+const { deleteClerkUser } = vi.hoisted(() => ({ deleteClerkUser: vi.fn() }));
+
+vi.mock("@/lib/auth/clerk-session", () => ({ deleteClerkUser }));
+
 vi.mock("@/lib/queue/process-section", () => ({
   processSection: vi.fn(),
   retryDelaySeconds: () => undefined,
@@ -271,6 +275,13 @@ describe("pipeline events", () => {
 });
 
 describe("MaintenanceWorkflow", () => {
+  const rowFor = (text: string) =>
+    text.includes("purge_expired_data")
+      ? purgeRow
+      : text.includes("AS clerk_user_id")
+        ? { clerk_user_id: "user_expired" }
+        : { expired: 3 };
+
   const purgeRow = { accounts_purged: 2, notifications_purged: 5, class_states_purged: 1 };
 
   function run(query: (text: string) => Promise<QueryResult>) {
@@ -306,12 +317,12 @@ describe("MaintenanceWorkflow", () => {
   it("purges data past the retention windows and reports the counts", async () => {
     const statements: string[] = [];
 
+    deleteClerkUser.mockResolvedValue(undefined);
+
     const outcome = await run((text) => {
       statements.push(text);
 
-      return Promise.resolve(
-        result([text.includes("purge_expired_data") ? purgeRow : { expired: 3 }]),
-      );
+      return Promise.resolve(result([rowFor(text)]));
     });
 
     expect(statements.some((text) => text.includes("public.purge_expired_data()"))).toBe(true);
@@ -321,15 +332,34 @@ describe("MaintenanceWorkflow", () => {
       accountsPurged: 2,
       notificationsPurged: 5,
       classStatesPurged: 1,
+      clerkIdentitiesDeleted: 1,
     });
+    expect(deleteClerkUser).toHaveBeenCalledWith("user_expired");
+  });
+
+  it("keeps the rows the purge needs when a Clerk identity cannot be deleted", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    deleteClerkUser.mockRejectedValue(new Error("clerk unavailable"));
+    const statements: string[] = [];
+
+    await expect(
+      run((text) => {
+        statements.push(text);
+
+        return Promise.resolve(result([rowFor(text)]));
+      }),
+    ).rejects.toThrow(/Maintenance failed/);
+    expect(statements.some((text) => text.includes("purge_expired_data"))).toBe(false);
   });
 
   it("fails the instance when the purge fails, so the missed retention shows up", async () => {
+    deleteClerkUser.mockResolvedValue(undefined);
+
     await expect(
       run((text) =>
         text.includes("purge_expired_data")
           ? Promise.reject(new Error("connection reset"))
-          : Promise.resolve(result([{ expired: 0 }])),
+          : Promise.resolve(result([rowFor(text)])),
       ),
     ).rejects.toThrow(/purge expired data|Failed to purge expired data/);
   });

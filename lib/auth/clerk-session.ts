@@ -220,3 +220,14 @@ export async function revokeSession(sessionId: string): Promise<void> {
 export function getClerkUser(clerkUserId: string): Promise<User> {
   return clerkCall("users.getUser", () => buildClerkClient().users.getUser(clerkUserId));
 }
+
+/** Deletes the Clerk identity (email, name, credentials). Already gone (404) counts as done. */
+export async function deleteClerkUser(clerkUserId: string): Promise<void> {
+  try {
+    await clerkCall("users.deleteUser", () => buildClerkClient().users.deleteUser(clerkUserId));
+  } catch (error) {
+    if (error instanceof ClerkCallFailed && error.status === 404) return;
+
+    throw error;
+  }
+}
