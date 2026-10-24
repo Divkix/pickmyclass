@@ -3,6 +3,7 @@ import type { ClassCheckMessage } from "@/lib/types/queue";
 
 const mockProcessSection = vi.fn();
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/queue/process-section", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/queue/process-section")>()),
   processSection: (...args: unknown[]) => mockProcessSection(...args),
@@ -12,6 +13,7 @@ const DB_HANDLE = { __dbHandle: "queue-invocation-db" } as const;
 
 const mockGetDb = vi.fn((_hyperdrive: CloudflareEnv["HYPERDRIVE"]) => DB_HANDLE);
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/db", () => ({
   getDb: (hyperdrive: CloudflareEnv["HYPERDRIVE"]) => mockGetDb(hyperdrive),
 }));

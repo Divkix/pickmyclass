@@ -7,8 +7,10 @@ const { cacheGet, cacheIsEligible, cachePut } = vi.hoisted(() => ({
   cachePut: vi.fn(),
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/queue/process-section", () => ({ processSection: vi.fn() }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/worker/edge-html-cache", () => ({
   edgeHtmlCache: {
     isEligible: cacheIsEligible,

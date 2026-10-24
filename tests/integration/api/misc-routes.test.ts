@@ -7,6 +7,7 @@ const { mockGetSessionIdentity, mockRevokeSession } = vi.hoisted(() => ({
   mockRevokeSession: vi.fn(),
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/auth/clerk-session", () => ({
   getSessionIdentity: mockGetSessionIdentity,
   revokeSession: mockRevokeSession,

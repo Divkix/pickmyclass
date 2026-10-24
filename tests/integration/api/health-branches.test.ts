@@ -33,6 +33,7 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
 
   const env = { ...baseEnv, ...options.envOverrides };
 
+  // oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
   vi.doMock("cloudflare:workers", () => ({ env }));
 
   class MockNotFoundError extends Error {}
@@ -45,6 +46,7 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
     fetchClassFromASU.mockRejectedValue(new MockNotFoundError("not found but reachable"));
   }
 
+  // oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
   vi.doMock("@/lib/asu/api", () => ({
     fetchClassFromASU,
     NotFoundError: MockNotFoundError,
@@ -66,6 +68,7 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
     select: () => ({ from: () => ({ limit: dbProbe }) }),
   }));
 
+  // oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
   vi.doMock("@/lib/db", () => ({ getDbFromEnv }));
 
   const mod = await import("@/app/api/monitoring/health/route");

@@ -42,15 +42,18 @@ const { recorder, mockVerifyUnsubscribeToken, mockLogEvent } = vi.hoisted(() => 
   };
 });
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/email/unsubscribe-token", () => ({
   verifyUnsubscribeToken: mockVerifyUnsubscribeToken,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/log", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/log")>()),
   logEvent: mockLogEvent,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/db", () => ({
   getDbFromEnv: () => scriptedDatabase(),
 }));

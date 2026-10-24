@@ -20,29 +20,35 @@ const {
   NotFoundError: class NotFoundError extends Error {},
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/auth/clerk-session", () => ({
   getSessionIdentity: mockGetSessionIdentity,
 }));
 
 const requestDb = { __sentinel: "popular-class-request-db" };
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/db", () => ({
   getDbFromEnv: () => requestDb,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/db/queries", () => ({
   getMostWatchedClass: (...args: unknown[]) => mockGetMostWatchedClass(...args),
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/asu/api", () => ({
   fetchClassFromASU: (...args: unknown[]) => mockFetchClassFromASU(...args),
   NotFoundError,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/asu/terms", () => ({
   getSelectableTerms: (...args: unknown[]) => mockGetSelectableTerms(...args),
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("cloudflare:workers", () => ({
   env: {
     ASU_API_BASE_URL: "https://mock-asu-api.example.com",

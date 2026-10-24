@@ -24,19 +24,23 @@ const {
   };
 });
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/auth/clerk-session", () => ({
   getSessionIdentity: mockGetSessionIdentity,
   revokeSession: mockRevokeSession,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/auth/authorization-state", () => ({
   readAuthorizationState: mockReadAuthorizationState,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/db/users", () => ({
   readUserVerification: mockReadUserVerification,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/db", () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));

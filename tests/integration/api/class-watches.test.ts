@@ -33,25 +33,30 @@ const {
   };
 });
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/auth/clerk-session", () => ({
   getSessionIdentity: mockGetSessionIdentity,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/db", () => ({
   getDbFromEnv: (...args: unknown[]) => mockGetDbFromEnv(...args),
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/asu/api", () => ({
   fetchClassFromASU: mockFetchClassFromASU,
   NotFoundError,
   AuthError,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/log", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/log")>()),
   logEvent: mockLogEvent,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("cloudflare:workers", () => ({
   env: {
     ASU_API_BASE_URL: "https://mock-asu-api.example.com",

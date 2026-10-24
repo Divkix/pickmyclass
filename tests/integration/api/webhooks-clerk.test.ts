@@ -32,22 +32,27 @@ const {
   };
 });
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@clerk/backend/webhooks", () => ({
   verifyWebhook: mockVerifyWebhook,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("cloudflare:workers", () => ({ env: webhookEnv }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/db/users", () => ({
   syncUserMirrorFromClerkUser: mockSyncUserMirrorFromClerkUser,
   softDeleteUserById: mockSoftDeleteUserById,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/log", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/log")>()),
   logEvent: mockLogEvent,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/db", () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));

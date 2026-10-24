@@ -11,10 +11,12 @@ const { mockGetDbFromEnv, mockGetSessionIdentity } = vi.hoisted(() => ({
   mockGetSessionIdentity: vi.fn(),
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/auth/clerk-session", () => ({
   getSessionIdentity: mockGetSessionIdentity,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/db", () => ({
   getDbFromEnv: (...args: unknown[]) => mockGetDbFromEnv(...args),
 }));

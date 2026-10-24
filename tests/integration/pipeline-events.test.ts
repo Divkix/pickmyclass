@@ -8,6 +8,7 @@ import type { WorkflowStep, WorkflowStepConfig } from "cloudflare:workers";
 import type { ClassCheckMessage } from "@/lib/types/queue";
 import { SectionCheckWorkflow, cycleElapsedMs, cycleStamp } from "@/lib/workflows/cron-workflows";
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/queue/process-section", () => ({
   processSection: vi.fn(),
   retryDelaySeconds: () => undefined,

@@ -48,6 +48,7 @@ const {
   };
 });
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/auth/require-user", () => {
   class UnauthorizedError extends Error {
     constructor(message = "Unauthorized") {
@@ -59,19 +60,23 @@ vi.mock("@/lib/auth/require-user", () => {
   return { requireUser: mockRequireUser, UnauthorizedError };
 });
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/auth/clerk-session", () => ({
   revokeAllUserSessions: mockRevokeAllUserSessions,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/auth/authorization-state", () => ({
   invalidateAuthorizationState: mockInvalidateAuthorizationState,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/log", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/log")>()),
   logEvent: mockLogEvent,
 }));
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/db", () => ({
   getDbFromEnv: () => scriptedDatabase(),
 }));

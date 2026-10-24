@@ -21,6 +21,9 @@ const IGNORE_PATTERNS = [
   "tools/oxlint/anti-slop/**",
 ];
 
+const VI_MOCK_MESSAGE =
+  "Inject the dependency instead of mocking its module (AGENTS.md → Conventions → Tests).";
+
 // Workers Builds sets these on every build; production deploys come from main.
 // https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables
 function deploymentEnvironment(): DeploymentEnvironment {
@@ -45,7 +48,7 @@ export default defineConfig(() => {
     },
     lint: {
       plugins: ["react", "typescript", "jsx-a11y", "oxc"],
-      options: { typeAware: true, typeCheck: true },
+      options: { typeAware: true, typeCheck: true, reportUnusedDisableDirectives: "error" },
       jsPlugins: [
         { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" },
         { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
@@ -54,6 +57,18 @@ export default defineConfig(() => {
       rules: {
         "vite-plus/prefer-vite-plus-imports": "error",
         "no-console": "error",
+        // anti-slop/no-module-mocking only recognises `vi` from "vitest", and every test imports it
+        // from "vite-plus/test", so module mocks are rejected here instead. `vitest` is the same
+        // object as `vi` (and vitest hoists `vitest.mock` too), so both names are banned. Each
+        // legacy call carries an oxlint-disable-next-line directive; reportUnusedDisableDirectives
+        // fails a directive left behind once its mock is gone, so the count only shrinks.
+        "no-restricted-properties": [
+          "error",
+          { object: "vi", property: "mock", message: VI_MOCK_MESSAGE },
+          { object: "vi", property: "doMock", message: VI_MOCK_MESSAGE },
+          { object: "vitest", property: "mock", message: VI_MOCK_MESSAGE },
+          { object: "vitest", property: "doMock", message: VI_MOCK_MESSAGE },
+        ],
         "oxc/no-accumulating-spread": "error",
         "typescript/no-explicit-any": "warn",
         "typescript/no-unused-vars": "error",

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { Env } from "@/lib/types/env";
 import { handleOtelIngest } from "@/lib/worker/otel-ingest";
 
+// oxlint-disable-next-line no-restricted-properties -- legacy module mock (delete when this test injects its deps)
 vi.mock("@/lib/queue/process-section", () => ({ processSection: vi.fn() }));
 
 const worker = (await import("@/worker")).default;
