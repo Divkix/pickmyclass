@@ -135,7 +135,22 @@ describe("guardPool", () => {
     checkedOut.release();
 
     expect(checkedOut.query).toBe(original);
-    expect(release).toHaveBeenCalledOnce();
+    expect(release).toHaveBeenCalledExactlyOnceWith(undefined);
+  });
+
+  it("releases a connection whose statement timed out with the error, so the pool discards it", async () => {
+    const client = hungClient();
+    const release = vi.fn();
+    client.release = release;
+    vi.spyOn(Pool.prototype, "connect").mockImplementation(() => Promise.resolve(client));
+    const pool = guardPool(new Pool(), operation, 20);
+    const checkedOut = await pool.connect();
+    const timedOut = await caught(checkedOut.query({ text: "update slow" }));
+
+    checkedOut.release();
+
+    expect(timedOut).toBeInstanceOf(DbQueryTimedOut);
+    expect(release).toHaveBeenCalledExactlyOnceWith(timedOut);
   });
 
   it("leaves the callback form untouched, which pg-pool's own query() depends on", () => {

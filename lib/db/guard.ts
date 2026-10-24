@@ -58,6 +58,10 @@ export function guardQuery(
  * Guards `client.query` for one checkout. The pool reuses the connection, and
  * `pool.query` calls it with `query(text, values, callback)`, so the original
  * must be back in place when the connection is released.
+ *
+ * A timed-out statement keeps running on the connection (and may hold its
+ * transaction open), so that checkout releases with an error: pg-pool then
+ * destroys the connection instead of handing it to the next borrower.
  */
 function guardClient(
   client: PoolClient,
@@ -67,14 +71,22 @@ function guardClient(
   const release = client.release.bind(client);
   // SAFETY: Drizzle's node-postgres session only calls the promise form, query(config, values).
   const query: PromiseQuery = client.query.bind(client) as PromiseQuery;
+  const guarded = guardQuery(query, operation, timeoutMs);
+  let timedOut: DbQueryTimedOut | undefined;
+
+  const tracked: PromiseQuery = (config, values) =>
+    guarded(config, values).catch((error: Error) => {
+      if (error instanceof DbQueryTimedOut) timedOut = error;
+      throw error;
+    });
 
   // SAFETY: the guarded function has the same promise-form signature it replaces.
-  client.query = guardQuery(query, operation, timeoutMs) as PoolClient["query"];
-  client.release = (...args) => {
+  client.query = tracked as PoolClient["query"];
+  client.release = (error) => {
     // `query` is a prototype method: dropping the own property restores it.
     Reflect.deleteProperty(client, "query");
     client.release = release;
-    release(...args);
+    release(error || timedOut);
   };
 
   return client;
