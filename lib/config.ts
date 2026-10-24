@@ -64,7 +64,10 @@ export const AUTO_CLEANUP_THRESHOLD = 3;
 
 export const AUTO_CLEANUP_BREAKER_RATIO = 0.2;
 
-export const AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE = 500;
+// 25 sequential 10s sends + two 75ms pauses = 250.15s, below the 15-minute
+// Queue wall limit. Five messages/batch use at most 125 removal-email subrequests,
+// leaving ample room under the 1,000 Cloudflare-service subrequest limit for DB I/O.
+export const AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE = 25;
 
 /** Queue retry delay after an ASU 429: doubles per attempt from the base, capped. */
 export const RATE_LIMIT_RETRY_BASE_S = 60;

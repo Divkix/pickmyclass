@@ -181,6 +181,7 @@ export async function sendAutoCleanupRemovalEmails(
       ...sectionFields(ref),
       watchers: watchers.length,
       email_cap: AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
+      removed_without_email: watchers.length - AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
     });
     watchers = watchers.slice(0, AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE);
   }

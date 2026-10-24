@@ -336,49 +336,45 @@ export async function incrementConsecutiveNotFound(db: Database, ref: SectionRef
   }
 }
 
-export async function deleteSectionAndWatches(
+const sectionRetirementSchema = z.object({
+  retired: z.boolean(),
+  watches_deleted: z.number().int().nonnegative(),
+  class_info: z
+    .object({
+      subject: z.string().nullable(),
+      catalog_nbr: z.string().nullable(),
+      title: z.string().nullable(),
+    })
+    .nullable(),
+  watchers: z.array(z.object({ user_id: z.string(), email: z.string(), watch_id: z.string() })),
+});
+
+export type SectionRetirementResult = z.infer<typeof sectionRetirementSchema>;
+
+export async function retireSectionIfNotFound(
   db: Database,
   ref: SectionRef,
-): Promise<{ watchesDeleted: number; stateDeleted: boolean }> {
+  threshold: number,
+): Promise<SectionRetirementResult> {
   try {
-    const result = await db.transaction(async (tx) => {
-      const deletedWatches = await tx
-        .delete(classWatches)
-        .where(and(eq(classWatches.class_nbr, ref.class_nbr), eq(classWatches.term, ref.term)))
-        .returning({ id: classWatches.id });
+    const { rows } = await db.execute<{
+      retired: unknown;
+      watches_deleted: unknown;
+      class_info: unknown;
+      watchers: unknown;
+    }>(
+      sql`SELECT * FROM public.retire_section_locked(${ref.class_nbr}::text, ${ref.term}::text, ${threshold}::integer)`,
+    );
 
-      const deletedState = await tx
-        .delete(classStates)
-        .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))
-        .returning({ id: classStates.id });
-
-      return {
-        watchesDeleted: deletedWatches.length,
-        stateDeleted: deletedState.length > 0,
-      };
-    });
-
-    log("DB").info("Deleted section and watches", {
-      ...sectionFields(ref),
-      watches_deleted: result.watchesDeleted,
-      state_deleted: result.stateDeleted,
-    });
-
-    return result;
+    return sectionRetirementSchema.parse(rows[0]);
   } catch (error) {
-    log("DB").error("Error deleting section and watches", {
+    log("DB").error("Error retiring section", {
       ...sectionFields(ref),
       ...errorFields(error),
     });
-    throw new Error(`Failed to delete section: ${driverErrorMessage(error)}`, { cause: error });
+    throw new Error(`Failed to retire section: ${driverErrorMessage(error)}`, { cause: error });
   }
 }
-
-export type SectionRemovalClassInfo = {
-  subject: string | null;
-  catalog_nbr: string | null;
-  title: string | null;
-};
 
 export async function readAutoCleanupBreakerCounts(db: Database): Promise<{
   total: number;
@@ -431,33 +427,6 @@ export async function capConsecutiveNotFound(
       ...errorFields(error),
     });
     throw new Error(`Failed to cap consecutive_not_found_count: ${driverErrorMessage(error)}`, {
-      cause: error,
-    });
-  }
-}
-
-export async function readSectionRemovalClassInfo(
-  db: Database,
-  ref: SectionRef,
-): Promise<SectionRemovalClassInfo | null> {
-  try {
-    const rows = await db
-      .select({
-        subject: classStates.subject,
-        catalog_nbr: classStates.catalog_nbr,
-        title: classStates.title,
-      })
-      .from(classStates)
-      .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))
-      .limit(1);
-
-    return rows[0] ?? null;
-  } catch (error) {
-    log("DB").error("Error fetching removal class info", {
-      ...sectionFields(ref),
-      ...errorFields(error),
-    });
-    throw new Error(`Failed to fetch removal class info: ${driverErrorMessage(error)}`, {
       cause: error,
     });
   }

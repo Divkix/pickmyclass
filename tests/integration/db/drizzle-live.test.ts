@@ -4,6 +4,7 @@ import type { EmailAddressJSON, UserJSON, VerificationJSON } from "@clerk/backen
 import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
+import { AUTO_CLEANUP_THRESHOLD } from "@/lib/config";
 import { getDb } from "@/lib/db";
 import {
   PG_RAISE_EXCEPTION,
@@ -18,7 +19,6 @@ import {
 import {
   capConsecutiveNotFound,
   deletePastTermWatches,
-  deleteSectionAndWatches,
   getClassWatchers,
   getMostWatchedClass,
   getNotificationWatchers,
@@ -29,8 +29,7 @@ import {
   purgeExpiredData,
   readAutoCleanupBreakerCounts,
   readSectionCheckState,
-  readSectionRemovalClassInfo,
-
+  retireSectionIfNotFound,
 } from "@/lib/db/queries";
 import {
   getAdminCount,
@@ -759,12 +758,7 @@ describe("upsertClassState / section-check pipeline ops", () => {
     expect((await readSectionCheckState(db, REF_INC))?.consecutive_not_found_count).toBe(1);
   });
 
-  it("reads removal info and breaker counts", async () => {
-    expect(await readSectionRemovalClassInfo(db, REF_INC)).toEqual({
-      subject: "",
-      catalog_nbr: "",
-      title: null,
-    });
+  it("reads cleanup breaker counts", async () => {
     const breaker = await readAutoCleanupBreakerCounts(db);
     expect(z.number().safeParse(breaker.total).success).toBe(true);
     expect(z.number().safeParse(breaker.flagged).success).toBe(true);
@@ -997,8 +991,8 @@ describe("notification dedup lifecycle", () => {
   });
 });
 
-describe("deleteSectionAndWatches transactional cleanup", () => {
-  it("hard-deletes watches (cascading notifications) and state atomically", async () => {
+describe("locked section retirement", () => {
+  it("retires only at the threshold, returning the deleted recipients and cascading notifications", async () => {
     const before = await scalarCount(
       db
         .select({ n: count() })
@@ -1008,8 +1002,26 @@ describe("deleteSectionAndWatches transactional cleanup", () => {
 
     expect(before).toBe(2);
 
-    const result = await deleteSectionAndWatches(db, REF_C);
-    expect(result).toEqual({ watchesDeleted: 2, stateDeleted: true });
+    for (let i = 0; i < AUTO_CLEANUP_THRESHOLD - 1; i++) {
+      await incrementConsecutiveNotFound(db, REF_C);
+    }
+
+    expect(await retireSectionIfNotFound(db, REF_C, AUTO_CLEANUP_THRESHOLD)).toMatchObject({
+      retired: false,
+      watches_deleted: 0,
+      watchers: [],
+    });
+    expect(await getClassWatchers(db, REF_C)).toHaveLength(2);
+    await incrementConsecutiveNotFound(db, REF_C);
+    const result = await retireSectionIfNotFound(db, REF_C, AUTO_CLEANUP_THRESHOLD);
+    expect(result).toMatchObject({
+      retired: true,
+      watches_deleted: 2,
+      class_info: { subject: SUBJECT, catalog_nbr: "310", title: `Live Probe ${RUN}` },
+    });
+    expect(result.watchers.map((watcher) => watcher.watch_id).sort()).toEqual(
+      [W_C_1, W_C_2].sort(),
+    );
 
     const watchesLeft = await scalarCount(
       db
@@ -1029,6 +1041,30 @@ describe("deleteSectionAndWatches transactional cleanup", () => {
     );
 
     expect(notificationsLeft).toBe(0);
+  });
+
+  it("does not retire if a successful observation reset the third strike", async () => {
+    const ref = { class_nbr: `${RUN}-retirement-reset`, term: TERM };
+    await db.insert(classWatches).values({
+      ...ref,
+      user_id: U_MAIN,
+      subject: SUBJECT,
+      catalog_nbr: "110",
+    });
+
+    for (let i = 0; i < AUTO_CLEANUP_THRESHOLD; i++) {
+      await incrementConsecutiveNotFound(db, ref);
+    }
+
+    await recordSectionCheck(db, ref, queueDetails, new Date());
+    expect(await retireSectionIfNotFound(db, ref, AUTO_CLEANUP_THRESHOLD)).toEqual({
+      retired: false,
+      watches_deleted: 0,
+      class_info: null,
+      watchers: [],
+    });
+    expect(await getClassWatchers(db, ref)).toHaveLength(1);
+    expect((await readSectionCheckState(db, ref))?.consecutive_not_found_count).toBe(0);
   });
 
   it("rolls back the whole transaction when any statement fails", async () => {

@@ -66,8 +66,8 @@ const statementSummary = (config: QueryConfig): string => querySummary(config.te
  * Hyperdrive's Postgres sockets get no runtime span, so each pool query gets
  * one. Every statement, spanned or not, also runs under the `guardPool`
  * timeout and fails with a typed `DbError`. Transactions run on a checked-out
- * client that is guarded but stays unspanned; only `deleteSectionAndWatches`
- * and the Clerk user-mirror upsert use them. A failure carries its SQLSTATE,
+ * client that is guarded but stays unspanned; the Clerk user-mirror upsert
+ * uses them. A failure carries its SQLSTATE,
  * since pg names every server error "error".
  */
 function traceQueries(pool: Pool): Pool {
