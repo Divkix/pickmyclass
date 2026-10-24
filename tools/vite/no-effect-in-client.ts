@@ -10,6 +10,11 @@ import type { Plugin } from "vite-plus";
  */
 const SERVER_ONLY_PACKAGES = ["effect", "@effect/*"];
 
+/** `SERVER_ONLY_PACKAGES` as gitignore-style `no-restricted-imports` groups, subpaths included. */
+export const SERVER_ONLY_IMPORT_GROUPS = SERVER_ONLY_PACKAGES.flatMap((name) =>
+  name.endsWith("/*") ? [name] : [name, `${name}/*`],
+);
+
 function specifierPattern(packages: readonly string[]): RegExp {
   const names = packages.map((name) =>
     name.endsWith("/*")

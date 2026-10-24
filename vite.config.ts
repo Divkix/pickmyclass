@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import vinext from "vinext";
 import { defineConfig } from "vite-plus";
-import { noEffectInClient } from "./tools/vite/no-effect-in-client";
+import { noEffectInClient, SERVER_ONLY_IMPORT_GROUPS } from "./tools/vite/no-effect-in-client";
 
 const IGNORE_PATTERNS = [
   "dist/**",
@@ -119,6 +119,33 @@ export default defineConfig(() => {
             "anti-slop-effect/no-manual-tagged-construction": "error",
             "anti-slop-effect/no-service-constructor-imports": "error",
             "anti-slop-effect/prefer-effect-match": "error",
+          },
+        },
+        {
+          // Client-reachable modules. The build guard sees only value imports the browser bundle
+          // reaches today; this also rejects type imports and modules no client imports yet.
+          files: [
+            "components/**",
+            "lib/api/schemas.ts",
+            "lib/asu/terms.ts",
+            "lib/db/schema/**",
+            "lib/hooks/**",
+            "lib/log.ts",
+            "lib/types/**",
+          ],
+          rules: {
+            "no-restricted-imports": [
+              "error",
+              {
+                patterns: [
+                  {
+                    group: SERVER_ONLY_IMPORT_GROUPS,
+                    message:
+                      "Effect is server-only; keep it out of client-reachable modules (AGENTS.md → Effect).",
+                  },
+                ],
+              },
+            ],
           },
         },
         {
