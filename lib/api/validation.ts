@@ -44,6 +44,21 @@ export function parseOrFail<T>(
   return { success: true, data: parsed.data };
 }
 
+export async function parseJsonOrFail<T>(
+  schema: ZodType<T>,
+  request: Request,
+): Promise<{ success: true; data: T } | { success: false; response: NextResponse }> {
+  let body: JsonValue;
+
+  try {
+    body = await request.json<JsonValue>();
+  } catch {
+    return { success: false, response: fail("Invalid input", 400) };
+  }
+
+  return parseOrFail(schema, body);
+}
+
 export function parseOrThrow<T>(
   schema: ZodType<T>,
   // SAFETY: `data` is a wire JSON value from the request body; the schema is the decoder
