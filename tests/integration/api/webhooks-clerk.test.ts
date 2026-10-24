@@ -191,7 +191,10 @@ describe("POST /api/webhooks/clerk", () => {
     expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
     expect(mockSyncUserMirrorFromClerkUser).toHaveBeenCalledTimes(1);
     expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][0]).toBe(dbHandle);
-    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][1]).toBe(user);
+    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][1]).toMatchObject({
+      id: user.id,
+      email_addresses: [expect.objectContaining({ email_address: "Primary.User@Example.com" })],
+    });
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
   });
 
@@ -284,9 +287,35 @@ describe("POST /api/webhooks/clerk", () => {
     expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
     expect(mockSyncUserMirrorFromClerkUser).toHaveBeenCalledTimes(1);
     expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][0]).toBe(dbHandle);
-    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][1]).toBe(user);
+    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][1]).toMatchObject({
+      id: user.id,
+      email_addresses: [expect.objectContaining({ email_address: "Primary.User@Example.com" })],
+    });
     expect(mockSoftDeleteUserById).not.toHaveBeenCalled();
     expect(mockLogEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a signed user payload that does not match the expected shape with 422", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const malformed = clerkUserFixture();
+    Reflect.set(malformed, "email_addresses", "none");
+
+    const event: UserUpsertEvent = {
+      type: "user.updated",
+      object: "event",
+      data: malformed,
+      ...svixDelivery,
+    };
+
+    mockVerifyWebhook.mockResolvedValue(event);
+
+    const response = await POST(signedRequest());
+
+    expect(response.status).toBe(422);
+    expect(mockSyncUserMirrorFromClerkUser).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      expect.objectContaining({ msg: "Webhook user payload does not match the expected shape" }),
+    );
   });
 
   it("returns 500 so Svix redelivers when the mirror sync throws", async () => {
@@ -361,7 +390,10 @@ describe("POST /api/webhooks/clerk", () => {
     expect(data).toEqual({ success: true });
     expect(mockSyncUserMirrorFromClerkUser).toHaveBeenCalledTimes(1);
     expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][0]).toBe(dbHandle);
-    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][1]).toBe(user);
+    expect(mockSyncUserMirrorFromClerkUser.mock.calls[0][1]).toMatchObject({
+      id: user.id,
+      email_addresses: [],
+    });
   });
 
   it("applies the soft delete to the profile on user.deleted", async () => {
