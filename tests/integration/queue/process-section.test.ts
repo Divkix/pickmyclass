@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { ApiError, AuthError, NotFoundError, RateLimitError } from "@/lib/asu/api";
+import { DbQueryFailed, DbQueryTimedOut } from "@/lib/db/errors";
 import { processSection } from "@/lib/queue/process-section";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
 import { changes, claim, details, environment, ref, state, watcher } from "./fixtures";
@@ -124,6 +125,53 @@ describe("processSection", () => {
       },
     });
     expect(pg.statements).toHaveLength(2);
+  });
+
+  const rejected = () =>
+    new DbQueryFailed({
+      message: "invalid input syntax",
+      operation: "select",
+      code: "22P02",
+      retryable: false,
+      cause: new Error("invalid input syntax"),
+    });
+
+  const timedOut = () =>
+    new DbQueryTimedOut({
+      message: "timed out",
+      operation: "select",
+      timeoutMs: 15_000,
+      retryable: true,
+    });
+
+  it.each([
+    ["acks a state read the database rejects for good", rejected, "ack"],
+    ["retries a state read that timed out", timedOut, "retry"],
+  ])("%s", async (_label, failure, disposition) => {
+    const pg = createScriptedPostgres();
+    pg.failNext(failure());
+    const fetchClass = vi.fn();
+
+    expect(await processSection(pg.db, ref, environment(), { fetchClass })).toMatchObject({
+      disposition,
+      result: { success: false },
+    });
+    expect(fetchClass).not.toHaveBeenCalled();
+  });
+
+  it("acks an upsert the database rejects for good and preserves detected changes", async () => {
+    const pg = createScriptedPostgres();
+    pg.next([state()]);
+    pg.failNext(rejected());
+
+    expect(
+      await processSection(pg.db, ref, environment(), {
+        fetchClass: vi.fn().mockResolvedValue(details),
+      }),
+    ).toMatchObject({
+      disposition: "ack",
+      result: { success: false, changes: { seatBecameAvailable: true } },
+    });
   });
 
   it.each([

@@ -8,6 +8,7 @@ import {
 import { readSectionCheckState } from "@/lib/db/queries";
 import { RATE_LIMIT_RETRY_BASE_S, RATE_LIMIT_RETRY_MAX_S } from "@/lib/config";
 import type { Database } from "@/lib/db";
+import { isPermanentFailure } from "@/lib/effect/failure";
 import { errorFields, log } from "@/lib/log";
 import { type SectionRef, sectionFields } from "@/lib/section-ref";
 import { type ChangeResult, detectChanges } from "@/lib/queue/change-detector";
@@ -70,6 +71,15 @@ function retryOutcome(result: ProcessingResult, httpStatus: 429 | 502 | 500): Se
   return { disposition: "retry", result, httpStatus, retryable: true };
 }
 
+/**
+ * A thrown failure that carries `retryable: false` anywhere in its cause chain
+ * (a constraint violation, a rejected payload) fails the same way on every
+ * delivery, so it is acked; the next Cron Cycle checks the section again.
+ */
+function thrownOutcome(permanent: boolean, result: ProcessingResult): SectionCheckOutcome {
+  return permanent ? ackOutcome(result) : retryOutcome(result, 500);
+}
+
 function failedResult(classNbr: string, duration: number, error: string): ProcessingResult {
   return {
     success: false,
@@ -84,10 +94,11 @@ function failedResult(classNbr: string, duration: number, error: string): Proces
 class SectionStateWriteFailed extends Error {
   constructor(
     message: string,
+    cause: unknown,
     public changes: ChangeResult,
     public emailsSent: number,
   ) {
-    super(message);
+    super(message, { cause });
   }
 }
 
@@ -148,7 +159,12 @@ export async function processSection(
     try {
       recorded = await recordSectionCheck(db, ref, newData, observedAt);
     } catch (error) {
-      throw new SectionStateWriteFailed(errorFields(error)["error.message"], changes, emailsSent);
+      throw new SectionStateWriteFailed(
+        errorFields(error)["error.message"],
+        error,
+        changes,
+        emailsSent,
+      );
     }
 
     if (!recorded.applied) {
@@ -185,10 +201,11 @@ export async function processSection(
     });
 
     if (error instanceof SectionStateWriteFailed)
-      return retryOutcome(
-        { ...failure(message), changes: error.changes, emailsSent: error.emailsSent },
-        500,
-      );
+      return thrownOutcome(isPermanentFailure(error), {
+        ...failure(message),
+        changes: error.changes,
+        emailsSent: error.emailsSent,
+      });
 
     if (error instanceof NotFoundError) {
       let retirement: SectionRetirementOutcome;
@@ -207,7 +224,10 @@ export async function processSection(
           ...retireFields,
         });
 
-        return retryOutcome(failure(retireFields["error.message"]), 500);
+        return thrownOutcome(
+          retireError instanceof Error && isPermanentFailure(retireError),
+          failure(retireFields["error.message"]),
+        );
       }
 
       if (retirement.deleted)
@@ -238,7 +258,7 @@ export async function processSection(
     if (error instanceof NotificationLeaseBusy)
       return { ...retryOutcome(failure(message), 500), retryAfterSeconds: error.retryAfterSeconds };
 
-    return retryOutcome(failure(message), 500);
+    return thrownOutcome(error instanceof Error && isPermanentFailure(error), failure(message));
   }
 }
 
