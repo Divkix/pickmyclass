@@ -14,14 +14,13 @@
  */
 import { env } from "cloudflare:workers";
 import { type NodePgDatabase, drizzle } from "drizzle-orm/node-postgres";
-import { Pool, type QueryConfig, type QueryResult } from "pg";
+import { Pool, type QueryConfig } from "pg";
+import { guardPool, type PromiseQuery } from "@/lib/db/guard";
 import { errorFields } from "@/lib/log";
 import { withSpan } from "@/lib/telemetry/span";
 import * as schema from "./schema";
 
 export type Database = NodePgDatabase<typeof schema> & { $client: Pool };
-
-type PromiseQuery = (config: QueryConfig, values?: QueryConfig["values"]) => Promise<QueryResult>;
 
 const SQL_OPERATION = /^\s*(\w+)/;
 
@@ -61,14 +60,18 @@ export function querySummary(text: string): string {
   return name ? `${operation} ${name}` : operation;
 }
 
+const statementSummary = (config: QueryConfig): string => querySummary(config.text);
+
 /**
  * Hyperdrive's Postgres sockets get no runtime span, so each pool query gets
- * one. Transactions run on a checked-out client and stay unspanned; only
- * `deleteSectionAndWatches` and the Clerk user-mirror upsert use them. A
- * failure carries its SQLSTATE, since pg names every server error "error".
+ * one. Every statement, spanned or not, also runs under the `guardPool`
+ * timeout and fails with a typed `DbError`. Transactions run on a checked-out
+ * client that is guarded but stays unspanned; only `deleteSectionAndWatches`
+ * and the Clerk user-mirror upsert use them. A failure carries its SQLSTATE,
+ * since pg names every server error "error".
  */
 function traceQueries(pool: Pool): Pool {
-  const query: PromiseQuery = pool.query.bind(pool);
+  const query: PromiseQuery = guardPool(pool, statementSummary).query.bind(pool);
 
   const traced: PromiseQuery = (config, values) =>
     withSpan(querySummary(config.text), QUERY_SPAN_ATTRIBUTES, async (span) => {
