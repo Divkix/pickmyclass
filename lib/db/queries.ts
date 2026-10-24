@@ -639,3 +639,32 @@ export async function readSectionCheckState(
     throw new Error(`Failed to fetch section check state: ${driverErrorMessage(error)}`);
   }
 }
+
+const purgedSchema = z.object({
+  accounts_purged: z.number(),
+  notifications_purged: z.number(),
+  class_states_purged: z.number(),
+});
+
+export type PurgedData = {
+  accountsPurged: number;
+  notificationsPurged: number;
+  classStatesPurged: number;
+};
+
+/** Deletes data past the privacy policy's retention windows (see migration 0012). */
+export async function purgeExpiredData(db: Database): Promise<PurgedData> {
+  try {
+    const { rows } = await db.execute(sql`SELECT * FROM public.purge_expired_data()`);
+    const purged = purgedSchema.parse(rows[0]);
+
+    return {
+      accountsPurged: purged.accounts_purged,
+      notificationsPurged: purged.notifications_purged,
+      classStatesPurged: purged.class_states_purged,
+    };
+  } catch (error) {
+    log("DB").error("Error purging expired data", errorFields(error));
+    throw new Error(`Failed to purge expired data: ${driverErrorMessage(error)}`);
+  }
+}
