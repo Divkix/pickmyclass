@@ -126,4 +126,65 @@ describe("sendSectionNotifications", () => {
     // Nothing after the claim: a rollback would have deleted the row a retry must find.
     expect(pg.statements.flatMap((statement) => statement.params)).not.toContain("claim-1");
   });
+
+  describe("under a delivery lease", () => {
+    const delivery = { id: "intent-1", leaseId: "lease-1" };
+    const second = { ...watcher, watch_id: "watch-2", email: "second@test.com" };
+    const secondClaim = { notification_id: "claim-2", class_watch_id: "watch-2" };
+
+    it("confirms each delivery before the next send, so a crash only risks the email in flight", async () => {
+      const pg = createScriptedPostgres();
+      pg.next([watcher, second]);
+      pg.next([claim, secondClaim]);
+      pg.next();
+      pg.next();
+      const env = environment();
+      const statementsAtSend: number[] = [];
+
+      env.send.mockImplementation(() => {
+        statementsAtSend.push(pg.statements.length);
+
+        return Promise.resolve({ messageId: "message-1" });
+      });
+
+      await sendSectionNotifications({
+        db: pg.db,
+        ref,
+        classInfo: { ...details, ...ref },
+        changes,
+        emailBinding: env.EMAIL,
+        delivery,
+      });
+
+      // Two statements before the first send (watchers, claim); one confirm sits between the sends.
+      expect(statementsAtSend).toEqual([2, 3]);
+      expect(pg.statements[2].sql).toMatch(/^update "notifications_sent"/);
+      expect(pg.statements[2].params).toContain("claim-1");
+      expect(pg.statements[3].params).toContain("claim-2");
+    });
+
+    it("stops the batch when a confirmation fails, keeping the sent claim and releasing the unsent one", async () => {
+      const pg = createScriptedPostgres();
+      pg.next([watcher, second]);
+      pg.next([claim, secondClaim]);
+      pg.failNext(new Error("connection reset"));
+      pg.next();
+      const env = environment();
+
+      await expect(
+        sendSectionNotifications({
+          db: pg.db,
+          ref,
+          classInfo: { ...details, ...ref },
+          changes,
+          emailBinding: env.EMAIL,
+          delivery,
+        }),
+      ).rejects.toThrow(/Failed query: update "notifications_sent"/);
+      expect(env.send).toHaveBeenCalledTimes(1);
+      // The rollback deletes the unsent claim only; the sent one stays for the retry to resume.
+      expect(pg.statements.at(-1)?.params).toContain("claim-2");
+      expect(pg.statements.at(-1)?.params).not.toContain("claim-1");
+    });
+  });
 });
