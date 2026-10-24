@@ -26,6 +26,10 @@ function isSignal(value: string | undefined): value is OtelSignal {
 
 const MAX_BODY_BYTES = 1024 * 1024;
 
+// A compressed JSON batch is inspected after inflating; the cap stops a small body from expanding
+// into more than the Worker should hold.
+const MAX_INFLATED_BYTES = 8 * MAX_BODY_BYTES;
+
 const FORWARDED_HEADERS = ["content-type", "content-encoding"] as const;
 
 // A query string or fragment can carry a token or an admin search term.
@@ -97,24 +101,73 @@ function tagCountry(json: string, country: string): string {
   return JSON.stringify(parsed.data);
 }
 
+/** Inflates a gzip body, or `null` when it is corrupt or expands past `MAX_INFLATED_BYTES`. */
+async function gunzip(body: ArrayBuffer): Promise<ArrayBuffer | null> {
+  const reader = new Blob([body]).stream().pipeThrough(new DecompressionStream("gzip")).getReader();
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+      total += value.byteLength;
+
+      if (total > MAX_INFLATED_BYTES) {
+        await reader.cancel();
+
+        return null;
+      }
+
+      chunks.push(value);
+    }
+  } catch {
+    return null;
+  }
+
+  const inflated = new Uint8Array(total);
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    inflated.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return inflated.buffer;
+}
+
 /**
- * Uncompressed JSON batches (traces, console logs) gain the visitor's country
- * and lose email addresses and URL query strings before they leave the Worker.
- * Anything else, such as the gzipped protobuf of session replay, passes through
- * untouched; the SDK masks replay text and inputs.
+ * JSON batches (traces, console logs) gain the visitor's country and lose
+ * email addresses and URL query strings before they leave the Worker. A gzipped
+ * JSON batch is inflated first and forwarded uncompressed (`headers` loses its
+ * `content-encoding`); one that cannot be inflated is dropped, because it
+ * cannot be scrubbed. Anything else, such as the gzipped protobuf of session
+ * replay, passes through untouched; the SDK masks replay text and inputs.
+ *
+ * `null` means drop the batch.
  */
-function prepareBody(
+async function prepareBody(
   body: ArrayBuffer,
   headers: Headers,
   country: string | undefined,
-): ArrayBuffer | string {
-  const isPlainJson =
-    headers.get("content-type")?.startsWith("application/json") &&
-    UNCOMPRESSED.has(headers.get("content-encoding"));
+): Promise<ArrayBuffer | string | null> {
+  if (!headers.get("content-type")?.startsWith("application/json")) return body;
 
-  if (!isPlainJson) return body;
+  const encoding = headers.get("content-encoding");
+  let plain: ArrayBuffer | null = body;
 
-  const json = new TextDecoder().decode(body);
+  if (encoding === "gzip") {
+    plain = await gunzip(body);
+
+    if (plain === null) return null;
+    headers.delete("content-encoding");
+  } else if (!UNCOMPRESSED.has(encoding)) {
+    return body;
+  }
+
+  const json = new TextDecoder().decode(plain);
 
   // Tag before scrubbing: re-serializing turns an escaped `\u0040` into a
   // literal `@` that redactEmails must still see.
@@ -194,8 +247,18 @@ export async function handleOtelIngest(
   }
 
   const endpoint = `${collector.replace(/\/+$/, "")}/v1/${signal}`;
+  const country = visitorCountry(request);
+
   ctx.waitUntil(
-    forward(signal, endpoint, headers, prepareBody(body, headers, visitorCountry(request))),
+    prepareBody(body, headers, country).then((prepared) => {
+      if (prepared === null) {
+        ingestLog.warn("Dropped a compressed JSON batch that could not be inspected", { signal });
+
+        return;
+      }
+
+      return forward(signal, endpoint, headers, prepared);
+    }),
   );
 
   return new Response(null, { status: 202 });
