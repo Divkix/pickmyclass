@@ -16,7 +16,7 @@ import { env } from "cloudflare:workers";
 import { type NodePgDatabase, drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type QueryConfig } from "pg";
 import { guardPool, type PromiseQuery } from "@/lib/db/guard";
-import { errorFields } from "@/lib/log";
+import { errorFields, log } from "@/lib/log";
 import { withSpan } from "@/lib/telemetry/span";
 import * as schema from "./schema";
 
@@ -98,6 +98,10 @@ export function getDb(hyperdrive: Hyperdrive): Database {
     max: 5,
     connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 20_000,
+  });
+
+  pool.on("error", (error) => {
+    log("DB").warn("Idle database client error", { ...errorFields(error) });
   });
 
   return drizzle({ client: traceQueries(pool), schema });
