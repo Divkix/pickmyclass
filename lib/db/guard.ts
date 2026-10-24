@@ -4,8 +4,9 @@
  * out for transactions, so no query helper opts in or out.
  *
  * Client-side only: the abandoned statement keeps running until the server
- * finishes it or the invocation ends. Hyperdrive's handling of a
- * `statement_timeout` startup parameter is undocumented, so none is sent.
+ * finishes it or the database's 20s `statement_timeout` cancels it (see
+ * AGENTS.md). Hyperdrive's handling of a `statement_timeout` startup parameter
+ * is undocumented, so none is sent.
  *
  * @module lib/db/guard
  */
