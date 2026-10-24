@@ -17,9 +17,9 @@ export type OnboardingState = {
 
 export type OnboardingPayload = OnboardingState & Record<string, JsonValue>;
 
-export type OnboardingStatus = "pending" | "skipped" | "completed";
+type OnboardingStatus = "pending" | "skipped" | "completed";
 
-export function onboardingStatus(row: OnboardingRow | null): OnboardingStatus {
+function onboardingStatus(row: OnboardingRow | null): OnboardingStatus {
   if (!row) return "completed";
 
   if (row.onboarding_completed_at) return "completed";

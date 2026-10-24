@@ -123,7 +123,7 @@ function generateTerms(fromYear: number, toYear: number): AsuTerm[] {
   return terms;
 }
 
-export function encodeTermCode(year: number, season: AsuSeason): string {
+function encodeTermCode(year: number, season: AsuSeason): string {
   const yy = year % 100;
 
   return `2${String(yy).padStart(2, "0")}${SEASON_SUFFIX[season]}`;

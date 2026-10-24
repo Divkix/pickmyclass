@@ -26,11 +26,11 @@ export function isPublicRoute(pathname: string): boolean {
   );
 }
 
-export function isProtectedRoute(pathname: string): boolean {
+function isProtectedRoute(pathname: string): boolean {
   return PROTECTED_ROUTE_PREFIXES.some((prefix) => isPathPrefix(pathname, prefix));
 }
 
-export function getRedirectPath(authState: AuthorizationState | null): string {
+function getRedirectPath(authState: AuthorizationState | null): string {
   if (authState && !authState.has_consent) return "/consent";
 
   return authState?.is_admin ? "/admin" : "/dashboard";

@@ -21,7 +21,7 @@ const CLERK_SESSION_COOKIE_PREFIXES = [
   "__clerk_handshake",
 ] as const;
 
-export function isClerkSessionCookieName(cookieName: string): boolean {
+function isClerkSessionCookieName(cookieName: string): boolean {
   return CLERK_SESSION_COOKIE_PREFIXES.some(
     (prefix) => cookieName === prefix || cookieName.startsWith(`${prefix}_`),
   );
@@ -47,7 +47,7 @@ export function hasClerkSessionCookiesInHeader(cookieHeader: string | null): boo
   );
 }
 
-export const CLERK_COOKIES_TO_CLEAR = [
+const CLERK_COOKIES_TO_CLEAR = [
   "__session",
   "__client_uat",
   "__refresh",

@@ -45,7 +45,7 @@ function firedAt(event: Readonly<WorkflowEvent<unknown>>): Date {
   return new Date(event.schedule?.scheduledTime ?? event.timestamp.getTime());
 }
 
-export function staggerGroupFor(time: Date): StaggerGroup {
+function staggerGroupFor(time: Date): StaggerGroup {
   return Math.floor(time.getMinutes() / 15) % 2 === 0 ? "even" : "odd";
 }
 

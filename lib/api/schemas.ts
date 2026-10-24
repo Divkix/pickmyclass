@@ -14,17 +14,13 @@ const selectableTermRefinement = {
   path: ["term"],
 };
 
-function isSelectableTermCode(term: string): boolean {
-  return isTermSelectable(term);
-}
-
 const classWatchFieldsSchema = z.object({
   term: termSchema.min(1, "Term is required"),
   class_nbr: classNbrSchema.min(1, "Class number is required"),
 });
 
 export const createClassWatchSchema = classWatchFieldsSchema.refine(
-  (data) => isSelectableTermCode(data.term),
+  (data) => isTermSelectable(data.term),
   selectableTermRefinement,
 );
 

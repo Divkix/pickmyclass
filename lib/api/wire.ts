@@ -21,7 +21,7 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   ]),
 );
 
-export const wirePayloadSchema = z.record(z.string(), jsonValueSchema);
+const wirePayloadSchema = z.record(z.string(), jsonValueSchema);
 
 // SAFETY: type guard decodes unknown wire payload at I/O boundary
 export function isRecord(value: unknown): value is WirePayload {

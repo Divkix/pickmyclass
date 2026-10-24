@@ -2,7 +2,7 @@ import type { Variants } from "framer-motion";
 
 const easeOutExpo = [0.16, 1, 0.3, 1] as const;
 
-export const reduceMotion = (variants: Variants): Variants => {
+const reduceMotion = (variants: Variants): Variants => {
   if (
     typeof window !== "undefined" &&
     window.matchMedia?.("(prefers-reduced-motion: reduce)").matches

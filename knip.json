@@ -3,9 +3,6 @@
   "project": ["**/*.{ts,tsx,css}"],
   "ignore": ["tests/mocks/**", "tools/oxlint/anti-slop/**"],
   "ignoreDependencies": ["cloudflare"],
-  "ignoreExportsUsedInFile": true,
-  "includeEntryExports": false,
-  "ignoreIssues": {
-    "lib/db/users.ts": ["exports"]
-  }
+  "ignoreExportsUsedInFile": false,
+  "includeEntryExports": false
 }
