@@ -22,6 +22,12 @@ export const EMAIL_BATCH_SIZE = 10;
 
 export const EMAIL_BATCH_DELAY_MS = 75;
 
+/**
+ * Longest one `send_email` call may take. A timeout leaves delivery unknown, so
+ * the claim stays in flight instead of being released.
+ */
+export const EMAIL_SEND_TIMEOUT_MS = 10_000;
+
 // Longer than the queue consumer's wall-time budget; a crashed owner can be replaced.
 export const NOTIFICATION_LEASE_SECONDS = 960;
 
