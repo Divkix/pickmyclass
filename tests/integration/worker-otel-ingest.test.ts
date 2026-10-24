@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { COLLECTOR_TIMEOUT_MS } from "@/lib/config";
 import type { Env } from "@/lib/types/env";
 import { handleOtelIngest } from "@/lib/worker/otel-ingest";
 
@@ -232,6 +233,34 @@ describe("browser telemetry ingest", () => {
 
     expect(logged).not.toContain(keyed.OTEL_BROWSER_INGEST_KEY);
     expect(logged).not.toContain("authorization");
+  });
+
+  it("gives up on a collector that never answers and aborts the request", async () => {
+    vi.useFakeTimers();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    let aborted = false;
+
+    upstream.mockImplementationOnce(
+      (_url, init) =>
+        new Promise<Response>(() => {
+          init?.signal?.addEventListener("abort", () => {
+            aborted = true;
+          });
+        }),
+    );
+
+    await handleOtelIngest(otlp("/otel/v1/traces", "{}"), env, ctx);
+    await vi.advanceTimersByTimeAsync(COLLECTOR_TIMEOUT_MS);
+    await Promise.all(pending);
+    vi.useRealTimers();
+
+    expect(aborted).toBe(true);
+    expect(error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        msg: "Collector unreachable for browser telemetry",
+        timed_out: true,
+      }),
+    );
   });
 
   it("answers ahead of the app router", async () => {

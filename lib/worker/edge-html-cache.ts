@@ -1,5 +1,9 @@
 import { hasClerkSessionCookiesInHeader } from "@/lib/auth/clerk-cookies";
 import { EDGE_HTML_CACHE_TTL_S } from "@/lib/config";
+import { errorFields, log } from "@/lib/log";
+import { edgeCacheCall } from "@/lib/worker/calls";
+
+const cacheLog = log("EdgeCache");
 
 const EDGE_CACHE_EXACT_PATHS = new Set(["/", "/faq", "/about", "/blog", "/legal"]);
 
@@ -46,8 +50,17 @@ export function createEdgeHtmlCache(resolveCache: () => EdgeCacheStore) {
       );
     },
 
-    get(request: Request, versionId?: string): Promise<Response | undefined> {
-      return resolveCache().match(cacheKey(request, versionId));
+    /** A failing cache is a miss: the page renders instead of the request erroring. */
+    async get(request: Request, versionId?: string): Promise<Response | undefined> {
+      try {
+        return await edgeCacheCall("match", () =>
+          resolveCache().match(cacheKey(request, versionId)),
+        );
+      } catch (error) {
+        cacheLog.warn("Edge cache read failed, rendering instead", errorFields(error));
+
+        return undefined;
+      }
     },
 
     put(request: Request, versionId: string | undefined, response: Response): Promise<void> | null {
@@ -60,7 +73,10 @@ export function createEdgeHtmlCache(resolveCache: () => EdgeCacheStore) {
       const toStore = new Response(response.clone().body, response);
       toStore.headers.set("Cache-Control", `public, s-maxage=${EDGE_HTML_CACHE_TTL_S}`);
 
-      return resolveCache().put(cacheKey(request, versionId), toStore);
+      // Settles after the response is sent (waitUntil), so it logs instead of rejecting.
+      return edgeCacheCall("put", () =>
+        resolveCache().put(cacheKey(request, versionId), toStore),
+      ).catch((error: Error) => cacheLog.warn("Edge cache write failed", errorFields(error)));
     },
   };
 }
