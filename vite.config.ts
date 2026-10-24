@@ -134,8 +134,6 @@ export default defineConfig(() => {
       "package.json": ["bash -c 'pnpm install'", "git add pnpm-lock.yaml"],
     },
     test: {
-      globals: true,
-      typecheck: { enabled: true, tsconfig: "./tsconfig.json" },
       alias: {
         "@": resolve(import.meta.dirname, "./"),
         "cloudflare:workers": resolve(import.meta.dirname, "./tests/mocks/cloudflare-workers.ts"),
@@ -187,17 +185,7 @@ export default defineConfig(() => {
           "components/**/*.{ts,tsx}",
           "worker.ts",
         ],
-        exclude: [
-          "node_modules",
-          ".next",
-          "**/*.d.ts",
-          "**/types.ts",
-          "lib/types/**",
-          "next.config.ts",
-          "postcss.config.mjs",
-          "tests/**",
-          "lib/clerk/config.ts",
-        ],
+        exclude: ["**/*.d.ts", "lib/types/**", "lib/clerk/config.ts"],
       },
     },
     plugins: isTest

@@ -17,7 +17,6 @@
     "deploy": "vp build && pnpm run db:migrate && wrangler deploy && wrangler triggers deploy && pnpm run seo:indexnow",
     "cf-typegen": "wrangler types --config wrangler.jsonc --env-file /dev/null --env-interface CloudflareEnv lib/cloudflare-env.d.ts",
     "test": "vp test run --project '!db'",
-    "test:integration": "vp test run --project integration",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
