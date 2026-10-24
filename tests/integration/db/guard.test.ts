@@ -97,9 +97,15 @@ describe("isTransientDbFailure", () => {
     ["out of memory", "53200", true],
     ["socket reset", "ECONNRESET", true],
     ["connection refused", "ECONNREFUSED", true],
+    ["broken pipe (five letters, not a SQLSTATE)", "EPIPE", true],
+    ["idle session timeout", "57P05", true],
+    ["idle in transaction timeout", "25P03", true],
+    ["transaction timeout", "25P04", true],
+    ["database dropped", "57P04", false],
     ["unique violation", "23505", false],
     ["undefined function", "42883", false],
     ["raised exception", "P0001", false],
+    ["feature not supported (letter in class)", "0A000", false],
   ])("%s (%s)", (_label, code, expected) => {
     expect(isTransientDbFailure(serverError(code, "x"))).toBe(expected);
   });

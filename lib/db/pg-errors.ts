@@ -102,11 +102,14 @@ export function isUndefinedFunction(cause: unknown): boolean {
 
 // Connection exceptions (08), operator intervention such as a failover (57P01-57P03),
 // serialization failures and deadlocks (40001, 40P01), exhausted resources (53),
-// a cancelled statement (57014), a lock that was not available (55P03) and a
-// read-only transaction after a failover (25006).
-const TRANSIENT_SQLSTATE = /^(08|53|57P0[1-3]|40001$|40P01$|57014$|55P03$|25006$)/;
+// a cancelled statement (57014), a lock that was not available (55P03), a
+// read-only transaction after a failover (25006), and the server's own session,
+// idle-in-transaction and transaction timeouts (57P05, 25P03, 25P04).
+const TRANSIENT_SQLSTATE = /^(08|53|57P0[1235]$|40001$|40P01$|57014$|55P03$|25006$|25P0[34]$)/;
 
-const SQLSTATE = /^[0-9A-Z]{5}$/;
+// Every SQLSTATE class is a digit and a digit or letter, or one of F0, HV, P0, XX.
+// A Node socket code can be five capitals too (EPIPE), so the class decides.
+const SQLSTATE = /^(?:[0-9][0-9A-Z]|F0|HV|P0|XX)[0-9A-Z]{3}$/;
 
 /**
  * Whether another attempt can succeed. A statement the server answered with a
