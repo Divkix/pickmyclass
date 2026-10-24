@@ -19,7 +19,11 @@ import { fail, ok } from "@/lib/api/response";
 import { clerkWebhookUserSchema } from "@/lib/auth/clerk-webhook-schema";
 import { clearAuthorizationStateCache } from "@/lib/auth/authorization-state";
 import { getDbFromEnv } from "@/lib/db";
-import { softDeleteUserById, syncUserMirrorFromClerkUser } from "@/lib/db/users";
+import {
+  clearUserVerificationCache,
+  softDeleteUserById,
+  syncUserMirrorFromClerkUser,
+} from "@/lib/db/users";
 import { errorFields, log, logEvent } from "@/lib/log";
 
 const clerkWebhookEnvSchema = z.object({
@@ -91,9 +95,10 @@ export async function POST(request: Request) {
         await softDeleteUserById(db, id);
         // The event only carries the Clerk id while the gate caches by app id
         // (the migrated Supabase UUID for old accounts), so drop the small
-        // per-isolate cache wholesale rather than guess the key. Deletes are
+        // per-isolate caches wholesale rather than guess the key. Deletes are
         // rare; the cost is re-reading state on the next request.
         clearAuthorizationStateCache();
+        clearUserVerificationCache();
       }
 
       return ok(null);

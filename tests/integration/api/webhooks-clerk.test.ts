@@ -38,7 +38,8 @@ vi.mock("@clerk/backend/webhooks", () => ({
 
 vi.mock("cloudflare:workers", () => ({ env: webhookEnv }));
 
-vi.mock("@/lib/db/users", () => ({
+vi.mock("@/lib/db/users", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/users")>()),
   syncUserMirrorFromClerkUser: mockSyncUserMirrorFromClerkUser,
   softDeleteUserById: mockSoftDeleteUserById,
 }));
@@ -53,6 +54,12 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { POST } from "@/app/api/webhooks/clerk/route";
+import {
+  clearAuthorizationStateCache,
+  readAuthorizationState,
+} from "@/lib/auth/authorization-state";
+import { clearUserVerificationCache, readUserVerification } from "@/lib/db/users";
+import { createScriptedPostgres } from "@/tests/mocks/scripted-postgres";
 
 const WEBHOOK_SIGNING_SECRET = "whsec_test_binding";
 
@@ -144,11 +151,16 @@ describe("POST /api/webhooks/clerk", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    clearAuthorizationStateCache();
+    clearUserVerificationCache();
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
+    clearAuthorizationStateCache();
+    clearUserVerificationCache();
+    vi.useRealTimers();
     errorSpy.mockRestore();
     warnSpy.mockRestore();
   });
@@ -396,7 +408,26 @@ describe("POST /api/webhooks/clerk", () => {
     });
   });
 
-  it("applies the soft delete to the profile on user.deleted", async () => {
+  it("soft-deletes and invalidates both cached states for a migrated app id", async () => {
+    vi.useFakeTimers();
+    const appUserId = "6f1c2a3e-1111-4444-8888-123456789abc";
+    const pg = createScriptedPostgres();
+    const verification = { email: "student@example.com", email_confirmed_at: null };
+
+    const profile = {
+      is_admin: true,
+      is_disabled: false,
+      age_verified_at: "2026-10-01T00:00:00.000Z",
+      agreed_to_terms_at: "2026-10-01T00:00:00.000Z",
+    };
+
+    pg.next([verification]);
+    pg.next([profile]);
+    expect(await readUserVerification(pg.db, appUserId, { cache: true })).toEqual(verification);
+    expect(await readAuthorizationState(pg.db, appUserId, { cache: true })).toMatchObject({
+      is_disabled: false,
+    });
+
     const event: UserDeletedEvent = {
       type: "user.deleted",
       object: "event",
@@ -420,6 +451,22 @@ describe("POST /api/webhooks/clerk", () => {
     expect(mockSoftDeleteUserById).toHaveBeenCalledTimes(1);
     expect(mockSoftDeleteUserById).toHaveBeenCalledWith(dbHandle, CLERK_USER_ID);
     expect(mockSyncUserMirrorFromClerkUser).not.toHaveBeenCalled();
+
+    const updatedVerification = {
+      ...verification,
+      email_confirmed_at: "2026-10-24T00:00:00.000Z",
+    };
+
+    pg.next([updatedVerification]);
+    pg.next([{ ...profile, is_disabled: true }]);
+
+    expect(await readUserVerification(pg.db, appUserId, { cache: true })).toEqual(
+      updatedVerification,
+    );
+    expect(await readAuthorizationState(pg.db, appUserId, { cache: true })).toMatchObject({
+      is_disabled: true,
+    });
+    expect(pg.statements).toHaveLength(4);
   });
 
   it("acknowledges user.deleted events without an id without deleting anything", async () => {
