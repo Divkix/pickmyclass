@@ -25,7 +25,7 @@ Recovering the base for a three-way merge: fetch the upstream tree at the baseli
 | Plugin | Entry point | Registered |
 | --- | --- | --- |
 | `anti-slop` | `tools/oxlint/anti-slop/index.ts` | yes, with all 18 generic rules at `error` plus native `oxc/no-accumulating-spread`, in `vite.config.ts` |
-| `anti-slop-effect` | `tools/oxlint/anti-slop/effect/index.ts` | yes, plugin loaded globally; all 5 rules at `error` only through a `lint.overrides` entry for `lib/asu/**` and `tests/integration/asu/**` |
+| `anti-slop-effect` | `tools/oxlint/anti-slop/effect/index.ts` | yes, plugin loaded globally; all 5 rules at `error` only through a `lint.overrides` entry for Effect's server paths (`files`/`excludeFiles` in `vite.config.ts`) |
 
 ## Dependency pair
 
@@ -38,7 +38,7 @@ There is no direct `oxlint` or `@oxlint/plugins` dependency. `vp lint` runs the 
 
 ## Effect rule scope
 
-Enabled 2026-10-15. `effect` is a direct dependency but `AGENTS.md` confines it to the ASU client, so the Effect rules apply only there. Enabled repo-wide, `prefer-effect-match` flagged chained literal ternaries in non-Effect code (`components/admin/SortableHeader.tsx`, `lib/email/templates/index.ts`, `app/api/monitoring/health/route.ts`), and obeying it would have pulled Effect past that boundary. If Effect spreads to other modules, widen the override's `files` to match.
+Enabled 2026-10-15 for the ASU client only. Widened 2026-10-24 to the server side of the seat-check pipeline (`lib/asu`, `lib/db`, `lib/email`, `lib/queue`, `lib/workflows`, `worker.ts` and their tests), minus the client-reachable `lib/asu/terms.ts` and `lib/db/schema/**` (`excludeFiles`; oxlint ignores negated `files` globs). `AGENTS.md` → Effect owns the scope. Enabled repo-wide, `prefer-effect-match` flags chained literal ternaries in non-Effect code (`components/admin/SortableHeader.tsx`, `app/api/monitoring/health/route.ts`), and obeying it in a browser-reachable module would pull Effect into the client bundle, which `tools/vite/no-effect-in-client.ts` fails the build on. Add a path to the override before Effect enters it.
 
 ## Updating
 

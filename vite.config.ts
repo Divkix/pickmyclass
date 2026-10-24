@@ -78,8 +78,24 @@ export default defineConfig(() => {
       },
       overrides: [
         {
-          // Effect is confined to the ASU client (see AGENTS.md), so its rules are too.
-          files: ["lib/asu/**", "tests/integration/asu/**"],
+          // Effect's server paths (AGENTS.md → Effect). Add a path before Effect enters it.
+          // Client-reachable modules stay out: Match there would put Effect in the browser
+          // bundle, which the build rejects (tools/vite/no-effect-in-client.ts).
+          files: [
+            "lib/asu/**",
+            "lib/db/**",
+            "lib/email/**",
+            "lib/queue/**",
+            "lib/workflows/**",
+            "worker.ts",
+            "tests/integration/asu/**",
+            "tests/integration/db/**",
+            "tests/integration/email/**",
+            "tests/integration/queue/**",
+            "tests/integration/worker-queue.test.ts",
+            "tests/integration/pipeline-events.test.ts",
+          ],
+          excludeFiles: ["lib/asu/terms.ts", "lib/db/schema/**"],
           rules: {
             "anti-slop-effect/no-manual-effect-error-tag": "error",
             "anti-slop-effect/no-manual-tag-comparison": "error",
