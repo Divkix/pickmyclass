@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import vinext from "vinext";
 import { defineConfig } from "vite-plus";
+import { noEffectInClient } from "./tools/vite/no-effect-in-client";
 
 const IGNORE_PATTERNS = [
   "dist/**",
@@ -181,6 +182,7 @@ export default defineConfig(() => {
     plugins: isTest
       ? []
       : [
+          noEffectInClient(),
           vinext(),
           cloudflare({
             viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
