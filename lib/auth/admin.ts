@@ -1,10 +1,9 @@
 import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import { readAuthorizationState } from "@/lib/auth/authorization-state";
-import { getSessionIdentityFromHeaders } from "@/lib/auth/clerk-session";
+import { requirePageIdentity } from "@/lib/auth/page-session";
 import { getDbFromEnv } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 
@@ -18,12 +17,7 @@ export interface AdminUser {
 /** One guard execution per request render, shared by the admin layout and its page. */
 export const verifyAdmin = cache(async (): Promise<AdminUser> => {
   const db = getDbFromEnv();
-  const headerStore = await headers();
-  const identity = await getSessionIdentityFromHeaders(headerStore);
-
-  if (!identity) {
-    redirect("/sign-in");
-  }
+  const identity = await requirePageIdentity();
 
   const authState = await readAuthorizationState(db, identity.userId, { cache: false });
 

@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { type NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { withAuth } from "@/lib/api/withAuth";
@@ -9,62 +9,21 @@ import { AuthError, type ClassDetails, fetchClassFromASU, NotFoundError } from "
 import { getDbFromEnv } from "@/lib/db";
 import { getPgError, isRaisedException, isUniqueViolation } from "@/lib/db/pg-errors";
 import {
-  getWatchedClassStates,
   insertClassStateIfMissing,
   readClassWatchPreflight,
   readSectionAlertsEnded,
 } from "@/lib/db/queries";
 import { classWatches } from "@/lib/db/schema";
 import { errorFields, log, logEvent } from "@/lib/log";
-import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
-import { sectionRefKey } from "@/lib/section-ref";
-import { applyFirstWatchGuard, readOnboardingState, toOnboardingState } from "@/lib/onboarding";
-
-const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || "10", 10);
+import type { ClassWatchRow } from "@/lib/types/class-watch";
+import { applyFirstWatchGuard } from "@/lib/onboarding";
+import { MAX_WATCHES_PER_USER, readWatchlist } from "@/lib/class-watches/watchlist";
 
 export async function GET(request: NextRequest) {
   try {
-    return await withAuth(request, async (user) => {
-      const db = getDbFromEnv();
-
-      const [watches, onboarding] = await Promise.all([
-        db
-          .select({
-            id: classWatches.id,
-            class_nbr: classWatches.class_nbr,
-            term: classWatches.term,
-            subject: classWatches.subject,
-            catalog_nbr: classWatches.catalog_nbr,
-            created_at: classWatches.created_at,
-          })
-          .from(classWatches)
-          .where(eq(classWatches.user_id, user.userId))
-          .orderBy(desc(classWatches.created_at)),
-        readOnboardingState(db, user.userId).catch((error) => {
-          log("API").error("Failed to read onboarding state", errorFields(error));
-
-          return toOnboardingState(null);
-        }),
-      ]);
-
-      const classNumbers = watches.map((watch) => watch.class_nbr);
-      const joinedStates = await getWatchedClassStates(db, user.userId, classNumbers);
-
-      const statesMap: Record<string, ClassStateRow> = Object.fromEntries(
-        joinedStates.map((state) => [sectionRefKey(state), state]),
-      );
-
-      const watchesWithStates = watches.map((watch) => ({
-        ...watch,
-        class_state: statesMap[sectionRefKey(watch)] ?? null,
-      }));
-
-      return ok({
-        watches: watchesWithStates,
-        maxWatches: MAX_WATCHES_PER_USER,
-        onboarding,
-      });
-    });
+    return await withAuth(request, async (user) =>
+      ok(await readWatchlist(getDbFromEnv(), user.userId)),
+    );
   } catch (error) {
     log("API").error("Error fetching class watches", errorFields(error));
 
