@@ -12,18 +12,19 @@ import {
 } from "@/components/blog";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/landing/JsonLd";
+import { getBlogPost } from "@/lib/blog/posts";
+
+const post = getBlogPost("asu-class-search");
 
 export const metadata: Metadata = {
   title: "Find Open ASU Classes & Track Full Courses",
-  description:
-    "Use ASU Class Search to review sections and availability. If a section is full, check ASU's options or track it for seat-opening email alerts.",
+  description: post.description,
   alternates: {
     canonical: "/blog/asu-class-search",
   },
   openGraph: {
-    title: "Find Open ASU Classes: Search Sections and Track Full Courses",
-    description:
-      "Use ASU Class Search to review sections and availability. If a section is full, check ASU's options or track it for seat-opening email alerts.",
+    title: post.title,
+    description: post.description,
     type: "article",
     publishedTime: "2026-06-18T00:00:00Z",
     modifiedTime: "2026-09-28T00:00:00Z",
@@ -36,9 +37,8 @@ export const dynamic = "error";
 const articleSchema = {
   "@context": "https://schema.org",
   "@type": "Article",
-  headline: "Find Open ASU Classes: Search Sections and Track Full Courses",
-  description:
-    "Use ASU Class Search to review sections and availability. If a section is full, check ASU's options or track it for seat-opening email alerts.",
+  headline: post.title,
+  description: post.description,
   datePublished: "2026-06-18T00:00:00Z",
   dateModified: "2026-09-28T00:00:00Z",
   author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
@@ -97,10 +97,10 @@ export default async function ASUClassSearchPost() {
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
           <BlogPostHeader
             breadcrumb="ASU Class Search"
-            title="Find Open ASU Classes: Search Sections and Track Full Courses"
-            dateTime="2026-06-18"
-            date="June 18, 2026"
-            readTime="4 min read"
+            title={post.title}
+            dateTime={post.publishedAt}
+            dateModified={post.dateModified}
+            readTime={post.readingTime}
           />
 
           <ShortAnswer>

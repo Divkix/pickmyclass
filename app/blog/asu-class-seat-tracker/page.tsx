@@ -12,16 +12,18 @@ import {
 } from "@/components/blog";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/landing/JsonLd";
+import { getBlogPost } from "@/lib/blog/posts";
+
+const post = getBlogPost("asu-class-seat-tracker");
 
 export const metadata: Metadata = {
   title: "ASU Class Seat Tracker: Get Open Seat Alerts",
-  description:
-    "Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.",
+  description: post.description,
   alternates: {
     canonical: "/blog/asu-class-seat-tracker",
   },
   openGraph: {
-    title: "ASU Class Seat Tracker: How to Get Notified When Seats Open",
+    title: post.title,
     description:
       "Stop refreshing MyASU. Automatically track ASU class seat availability and get email alerts when seats open.",
     type: "article",
@@ -35,9 +37,8 @@ export const dynamic = "error";
 const articleSchema = {
   "@context": "https://schema.org",
   "@type": "Article",
-  headline: "ASU Class Seat Tracker: How to Get Notified When Seats Open",
-  description:
-    "Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.",
+  headline: post.title,
+  description: post.description,
   datePublished: "2026-03-27T00:00:00Z",
   dateModified: "2026-06-18T00:00:00Z",
   author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
@@ -78,7 +79,6 @@ const comparisonRows = [
     effort: "None",
     cost: "100% Free",
     success: "High",
-    highlight: true,
   },
 ];
 
@@ -153,11 +153,10 @@ export default async function ASUClassSeatTrackerPost() {
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
           <BlogPostHeader
             breadcrumb="ASU Class Seat Tracker"
-            title="ASU Class Seat Tracker: How to Get Notified When Seats Open"
-            dateTime="2026-03-27"
-            date="March 27, 2026"
-            updated="Updated June 18, 2026"
-            readTime="8 min read"
+            title={post.title}
+            dateTime={post.publishedAt}
+            dateModified={post.dateModified}
+            readTime={post.readingTime}
           />
 
           <p className="text-lg text-muted-foreground leading-relaxed">
@@ -279,7 +278,11 @@ export default async function ASUClassSeatTrackerPost() {
           <p className="text-muted-foreground leading-relaxed">
             A few ways to track ASU class seats exist. Here's how they actually compare:
           </p>
-          <ComparisonTable columns={comparisonColumns} rows={comparisonRows} />
+          <ComparisonTable
+            columns={comparisonColumns}
+            rows={comparisonRows}
+            highlightedRow="PickMyClass"
+          />
           <p className="text-muted-foreground leading-relaxed">
             PickMyClass checks frequently, costs nothing, and actually works. That's the difference.
           </p>

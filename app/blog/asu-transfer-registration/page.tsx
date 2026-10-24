@@ -12,16 +12,18 @@ import {
 } from "@/components/blog";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/landing/JsonLd";
+import { getBlogPost } from "@/lib/blog/posts";
+
+const post = getBlogPost("asu-transfer-registration");
 
 export const metadata: Metadata = {
   title: "ASU Transfer Student Registration Guide",
-  description:
-    "ASU registration for transfer students: how transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.",
+  description: post.description,
   alternates: {
     canonical: "/blog/asu-transfer-registration",
   },
   openGraph: {
-    title: "ASU Transfer Student Registration: Complete Guide for MyPath2ASU Students",
+    title: post.title,
     description:
       "How transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.",
     type: "article",
@@ -35,9 +37,8 @@ export const dynamic = "error";
 const articleSchema = {
   "@context": "https://schema.org",
   "@type": "Article",
-  headline: "ASU Transfer Student Registration: Complete Guide for MyPath2ASU Students",
-  description:
-    "ASU registration for transfer students: how transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.",
+  headline: post.title,
+  description: post.description,
   datePublished: "2026-04-26T00:00:00Z",
   dateModified: "2026-06-18T00:00:00Z",
   author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
@@ -118,11 +119,10 @@ export default async function ASUTransferRegistrationPost() {
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
           <BlogPostHeader
             breadcrumb="ASU Transfer Student Registration"
-            title="ASU Transfer Student Registration: Complete Guide for MyPath2ASU Students"
-            dateTime="2026-04-26"
-            date="April 26, 2026"
-            updated="Updated June 18, 2026"
-            readTime="8 min read"
+            title={post.title}
+            dateTime={post.publishedAt}
+            dateModified={post.dateModified}
+            readTime={post.readingTime}
           />
 
           <p className="text-lg text-muted-foreground leading-relaxed">

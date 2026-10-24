@@ -8,18 +8,19 @@ import {
 } from "@/components/blog";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/landing/JsonLd";
+import { getBlogPost } from "@/lib/blog/posts";
+
+const post = getBlogPost("best-asu-class-seat-tracker");
 
 export const metadata: Metadata = {
-  title: "Best ASU Class Seat Tracker 2026: Free vs Paid",
-  description:
-    "Compare ASU seat trackers by published price, campus coverage, alert channel, check cadence and limits. Details checked September 28, 2026.",
+  title: post.title,
+  description: post.description,
   alternates: {
     canonical: "/blog/best-asu-class-seat-tracker",
   },
   openGraph: {
-    title: "Best ASU Class Seat Tracker 2026: Free vs Paid",
-    description:
-      "Compare ASU seat trackers by published price, campus coverage, alert channel, check cadence and limits. Details checked September 28, 2026.",
+    title: post.title,
+    description: post.description,
     type: "article",
     publishedTime: "2026-06-18T00:00:00Z",
     modifiedTime: "2026-09-28T00:00:00Z",
@@ -33,8 +34,7 @@ const articleSchema = {
   "@context": "https://schema.org",
   "@type": "Article",
   headline: "Best ASU Class Seat Tracker in 2026 (Free vs Paid)",
-  description:
-    "Compare ASU seat trackers by published price, campus coverage, alert channel, check cadence and limits. Details checked September 28, 2026.",
+  description: post.description,
   datePublished: "2026-06-18T00:00:00Z",
   dateModified: "2026-09-28T00:00:00Z",
   author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
@@ -83,7 +83,6 @@ const comparisonRows = [
     cadence: "30 minutes (site claim; scheduler uses two staggered groups).",
     limits:
       "Email alerts only; you still register through ASU. Does not ask for MyASU credentials.",
-    highlight: true,
   },
   {
     tool: "ASUClassFinder",
@@ -139,10 +138,9 @@ export default function BestASUSeatTrackerPost() {
           <BlogPostHeader
             breadcrumb="Best ASU Class Seat Tracker"
             title="Best ASU Class Seat Tracker in 2026 (Free vs Paid)"
-            dateTime="2026-06-18"
-            date="June 18, 2026"
-            updated="Updated September 28, 2026"
-            readTime="8 min read"
+            dateTime={post.publishedAt}
+            dateModified={post.dateModified}
+            readTime={post.readingTime}
           />
 
           <p className="text-lg text-muted-foreground leading-relaxed">
@@ -176,6 +174,7 @@ export default function BestASUSeatTrackerPost() {
           <ComparisonTable
             columns={comparisonColumns}
             rows={comparisonRows}
+            highlightedRow="PickMyClass"
             caption="Vendor-published claims checked 28 Sep 2026. ‘Not stated’ means the linked public pages did not specify it."
           />
           <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">Primary sources</h3>

@@ -3,16 +3,18 @@ import Link from "next/link";
 import { BlogAuthor, BlogPostHeader, RelatedArticles, TableOfContents } from "@/components/blog";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/landing/JsonLd";
+import { getBlogPost } from "@/lib/blog/posts";
+
+const post = getBlogPost("asu-waitlist-guide");
 
 export const metadata: Metadata = {
   title: "ASU Waitlist Guide: Full Classes & No Waitlist",
-  description:
-    "Full ASU class? Check for a waitlist, next steps if none appears, and where to verify deadlines or seat restrictions. ASU guidance checked 28 Sep 2026.",
+  description: post.description,
   alternates: {
     canonical: "/blog/asu-waitlist-guide",
   },
   openGraph: {
-    title: "How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)",
+    title: post.title,
     description:
       "ASU course waitlist guide: verify section-level options, deadlines and seat restrictions. Official ASU guidance checked 28 Sep 2026.",
     type: "article",
@@ -27,9 +29,8 @@ export const dynamic = "error";
 const articleSchema = {
   "@context": "https://schema.org",
   "@type": "Article",
-  headline: "How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)",
-  description:
-    "Full ASU class? Check for a waitlist, next steps if none appears, and where to verify deadlines or seat restrictions. ASU guidance checked 28 Sep 2026.",
+  headline: post.title,
+  description: post.description,
   datePublished: "2026-04-26T00:00:00Z",
   dateModified: "2026-09-28T00:00:00Z",
   author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
@@ -90,11 +91,10 @@ export default function ASUWaitlistGuidePost() {
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
           <BlogPostHeader
             breadcrumb="ASU Waitlist Guide"
-            title="How to Add a Full ASU Class to the Waitlist (And What to Do If There's No Waitlist)"
-            dateTime="2026-04-26"
-            date="April 26, 2026"
-            updated="Updated September 28, 2026"
-            readTime="5 min read"
+            title={post.title}
+            dateTime={post.publishedAt}
+            dateModified={post.dateModified}
+            readTime={post.readingTime}
           />
 
           <p className="text-lg text-muted-foreground leading-relaxed">

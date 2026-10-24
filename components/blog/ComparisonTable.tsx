@@ -12,17 +12,16 @@ interface ComparisonColumn {
   label: string;
 }
 
-type ComparisonRow = {
-  [key: string]: string | boolean | undefined;
-};
+type ComparisonRow = Record<string, string>;
 
 interface ComparisonTableProps {
   columns: ComparisonColumn[];
   rows: ComparisonRow[];
   caption?: string;
+  highlightedRow?: string;
 }
 
-export function ComparisonTable({ columns, rows, caption }: ComparisonTableProps) {
+export function ComparisonTable({ columns, rows, caption, highlightedRow }: ComparisonTableProps) {
   return (
     <div className="not-prose my-6 overflow-x-auto rounded-lg border border-border">
       <Table>
@@ -37,21 +36,29 @@ export function ComparisonTable({ columns, rows, caption }: ComparisonTableProps
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row) => (
-            <TableRow
-              key={String(row[columns[0].key])}
-              className={row.highlight ? "bg-primary/5 border-l-2 border-l-primary" : ""}
-            >
-              {columns.map((col) => (
-                <TableCell
-                  key={col.key}
-                  className={`${row.highlight && col.key === columns[0].key ? "font-medium text-foreground" : ""}`}
-                >
-                  {row[col.key]}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
+          {rows.map((row) => {
+            const labelKey = columns[0].key;
+            const label = row[labelKey];
+            const highlighted = label === highlightedRow;
+
+            return (
+              <TableRow
+                key={label}
+                className={highlighted ? "bg-primary/5 border-l-2 border-l-primary" : ""}
+              >
+                {columns.map((col) => (
+                  <TableCell
+                    key={col.key}
+                    className={
+                      highlighted && col.key === labelKey ? "font-medium text-foreground" : ""
+                    }
+                  >
+                    {row[col.key]}
+                  </TableCell>
+                ))}
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

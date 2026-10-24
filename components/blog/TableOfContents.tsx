@@ -36,29 +36,20 @@ export function TableOfContents({ items }: TableOfContentsProps) {
     return () => observer.disconnect();
   }, [items]);
 
-  const handleClick = (id: string) => {
-    const element = document.getElementById(id);
-
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
-
   return (
     <div className="not-prose rounded-lg border border-border bg-card p-6 my-8">
       <h2 className="font-semibold text-foreground mb-4">Table of Contents</h2>
       <nav className="space-y-2">
         {items.map((item) => (
-          <button
-            type="button"
+          <a
             key={item.id}
-            onClick={() => handleClick(item.id)}
-            className={`block text-left text-sm transition-colors hover:text-primary ${
+            href={`#${item.id}`}
+            className={`block text-sm transition-colors hover:text-primary ${
               item.level === 2 ? "" : "ml-4"
             } ${activeId === item.id ? "text-primary font-medium" : "text-muted-foreground"}`}
           >
             {item.text}
-          </button>
+          </a>
         ))}
       </nav>
     </div>

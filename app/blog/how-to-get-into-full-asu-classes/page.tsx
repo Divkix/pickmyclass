@@ -13,16 +13,18 @@ import {
 } from "@/components/blog";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/landing/JsonLd";
+import { getBlogPost } from "@/lib/blog/posts";
+
+const post = getBlogPost("how-to-get-into-full-asu-classes");
 
 export const metadata: Metadata = {
   title: "How to Get Into Full ASU Classes: 7 Strategies",
-  description:
-    "Practical strategies to get into full ASU classes during registration and add/drop period. From waitlist tips to automated seat tracking tools.",
+  description: post.description,
   alternates: {
     canonical: "/blog/how-to-get-into-full-asu-classes",
   },
   openGraph: {
-    title: "How to Get Into Full Classes at ASU: 7 Strategies That Work",
+    title: post.title,
     description:
       "Practical strategies to get into full ASU classes during registration and add/drop period.",
     type: "article",
@@ -36,9 +38,8 @@ export const dynamic = "error";
 const articleSchema = {
   "@context": "https://schema.org",
   "@type": "Article",
-  headline: "How to Get Into Full Classes at ASU: 7 Strategies That Work",
-  description:
-    "Practical strategies to get into full ASU classes during registration and add/drop period. From waitlist tips to automated seat tracking tools.",
+  headline: post.title,
+  description: post.description,
   datePublished: "2026-03-27T00:00:00Z",
   dateModified: "2026-06-18T00:00:00Z",
   author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
@@ -88,7 +89,6 @@ const strategyRows = [
     when: "Anytime",
     effort: "Low",
     success: "High",
-    highlight: true,
   },
   {
     strategy: "Add/drop monitoring",
@@ -167,11 +167,10 @@ export default async function HowToGetIntoFullClassesPost() {
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
           <BlogPostHeader
             breadcrumb="How to Get Into Full Classes"
-            title="How to Get Into Full Classes at ASU: 7 Strategies That Work"
-            dateTime="2026-03-27"
-            date="March 27, 2026"
-            updated="Updated June 18, 2026"
-            readTime="7 min read"
+            title={post.title}
+            dateTime={post.publishedAt}
+            dateModified={post.dateModified}
+            readTime={post.readingTime}
           />
 
           <p className="text-lg text-muted-foreground leading-relaxed">
@@ -327,7 +326,11 @@ export default async function HowToGetIntoFullClassesPost() {
           <p className="text-muted-foreground leading-relaxed">
             Here's how all seven strategies stack up on effort, timing, and success rate:
           </p>
-          <ComparisonTable columns={strategyColumns} rows={strategyRows} />
+          <ComparisonTable
+            columns={strategyColumns}
+            rows={strategyRows}
+            highlightedRow="Auto seat tracking"
+          />
           <p className="text-muted-foreground leading-relaxed">
             The sweet spot is combining low-effort, high-success strategies. Automated seat tracking
             plus having backup schedules ready gives you the best odds with the least stress.

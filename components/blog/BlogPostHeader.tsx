@@ -1,21 +1,22 @@
 import Link from "next/link";
+import { formatAbsoluteDate } from "@/lib/utils/time-format";
+
+const dateFormat: Intl.DateTimeFormatOptions = { month: "long", timeZone: "UTC" };
 
 interface BlogPostHeaderProps {
   breadcrumb: string;
   title: string;
   dateTime: string;
-  date: string;
   readTime: string;
-  updated?: string;
+  dateModified?: string;
 }
 
 export function BlogPostHeader({
   breadcrumb,
   title,
   dateTime,
-  date,
   readTime,
-  updated,
+  dateModified,
 }: BlogPostHeaderProps) {
   return (
     <>
@@ -38,11 +39,11 @@ export function BlogPostHeader({
           {title}
         </h1>
         <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-          <time dateTime={dateTime}>{date}</time>
-          {updated && (
+          <time dateTime={dateTime}>{formatAbsoluteDate(dateTime, dateFormat)}</time>
+          {dateModified && (
             <>
               <span>·</span>
-              <span>{updated}</span>
+              <span>Updated {formatAbsoluteDate(dateModified, dateFormat)}</span>
             </>
           )}
           <span>{readTime}</span>

@@ -11,16 +11,18 @@ import {
 } from "@/components/blog";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/landing/JsonLd";
+import { getBlogPost } from "@/lib/blog/posts";
+
+const post = getBlogPost("myasu-search-tips");
 
 export const metadata: Metadata = {
   title: "MyASU Class Search: 10 Hidden Features",
-  description:
-    "Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips to find the perfect classes faster.",
+  description: post.description,
   alternates: {
     canonical: "/blog/myasu-search-tips",
   },
   openGraph: {
-    title: "MyASU Class Search: 10 Hidden Features Most Students Don't Know",
+    title: post.title,
     description:
       "Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips.",
     type: "article",
@@ -34,9 +36,8 @@ export const dynamic = "error";
 const articleSchema = {
   "@context": "https://schema.org",
   "@type": "Article",
-  headline: "MyASU Class Search: 10 Hidden Features Most Students Don't Know",
-  description:
-    "Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips to find the perfect classes faster.",
+  headline: post.title,
+  description: post.description,
   datePublished: "2026-04-26T00:00:00Z",
   dateModified: "2026-06-18T00:00:00Z",
   author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
@@ -117,11 +118,10 @@ export default async function MyASUSearchTipsPost() {
         <article className="prose prose-neutral dark:prose-invert mx-auto max-w-3xl">
           <BlogPostHeader
             breadcrumb="MyASU Search Tips"
-            title="MyASU Class Search: 10 Hidden Features Most Students Don't Know"
-            dateTime="2026-04-26"
-            date="April 26, 2026"
-            updated="Updated June 18, 2026"
-            readTime="7 min read"
+            title={post.title}
+            dateTime={post.publishedAt}
+            dateModified={post.dateModified}
+            readTime={post.readingTime}
           />
 
           <p className="text-lg text-muted-foreground leading-relaxed">
