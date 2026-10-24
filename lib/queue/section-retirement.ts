@@ -158,9 +158,7 @@ export async function retireClassSection(
   if (!retirement.retired) {
     log("SectionRetirement").info(
       "Auto-cleanup skipped after counter changed or state disappeared",
-      {
-        ...sectionFields(ref),
-      },
+      sectionFields(ref),
     );
 
     return {
