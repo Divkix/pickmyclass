@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/table";
 import type { ClassSortField } from "@/lib/db/admin-queries";
 import type { ClassWithWatchers } from "@/lib/db/admin-queries";
+import { useHydrated } from "@/lib/hooks/useHydrated";
 import { useTableNavigate } from "@/lib/hooks/useTableNavigate";
 import { getSeatBadgeVariant } from "@/lib/utils/seat-badge";
-import { formatRelativeTime } from "@/lib/utils/time-format";
+import { formatAbsoluteDate, formatRelativeTime } from "@/lib/utils/time-format";
 import { SortableHeader } from "./SortableHeader";
 import { ClassesTableFiltersComponent } from "./ClassesTableFilters";
 import { TablePagination } from "./TablePagination";
@@ -52,6 +53,7 @@ export function ClassesTable({
 }: ClassesTableProps) {
   const router = useRouter();
   const navigate = useTableNavigate();
+  const mounted = useHydrated();
 
   const handleSortClick = (field: ClassSortField) => {
     if (sort === field) {
@@ -237,7 +239,9 @@ export function ClassesTable({
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right text-sm text-muted-foreground">
-                    {formatRelativeTime(classItem.last_checked_at)}
+                    {mounted
+                      ? formatRelativeTime(classItem.last_checked_at)
+                      : formatAbsoluteDate(classItem.last_checked_at)}
                   </TableCell>
                 </TableRow>
               ))
