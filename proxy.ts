@@ -152,19 +152,9 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // crypto.randomUUID() is available in both Node.js 19+ and Cloudflare Workers.
-  const nonce = !isDevelopment ? crypto.randomUUID() : "";
-  const csp = isDevelopment ? DEV_CSP : buildNonceCsp(nonce);
-
-  const requestHeadersWithNonce = new Headers(request.headers);
-
-  if (!isDevelopment) {
-    requestHeadersWithNonce.set("x-nonce", nonce);
-  }
-
-  const passThrough = NextResponse.next({
-    request: { headers: requestHeadersWithNonce },
-  });
+  // vinext reads the nonce from the response's CSP header and stamps it on its
+  // framework scripts. crypto.randomUUID() exists in Node.js 19+ and Workers.
+  const csp = isDevelopment ? DEV_CSP : buildNonceCsp(crypto.randomUUID());
 
   const identity = await getSessionIdentity(request);
 
@@ -216,7 +206,7 @@ export async function proxy(request: NextRequest) {
     }
 
     case "allow": {
-      response = passThrough;
+      response = NextResponse.next();
       break;
     }
   }
@@ -225,10 +215,6 @@ export async function proxy(request: NextRequest) {
 
   return response;
 }
-
-export const middleware = proxy;
-
-export default proxy;
 
 export const config = {
   matcher: [

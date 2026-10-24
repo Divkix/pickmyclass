@@ -41,7 +41,7 @@ vi.mock("@/lib/db", () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));
 
-import proxy from "@/proxy";
+import { proxy } from "@/proxy";
 
 const ORIGIN = "http://localhost:3000";
 
