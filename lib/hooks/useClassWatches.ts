@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import type { OnboardingState } from "@/components/OnboardingModal";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { usePullToRefresh } from "@/lib/hooks/usePullToRefresh";
 import { useRealtimeClassStates } from "@/lib/hooks/useRealtimeClassStates";
-import { completeOnFirstWatch } from "@/lib/onboarding";
+import { completeOnFirstWatch, type OnboardingState } from "@/lib/onboarding";
 import { sectionRefKey } from "@/lib/section-ref";
 import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
 
