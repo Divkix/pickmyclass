@@ -63,6 +63,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   };
 
   const handleSwipeDelete = async () => {
+    if (isSwipeDeletingRef.current) return;
     isSwipeDeletingRef.current = true;
     setSwipeOffset(-500);
     deletedWatchRef.current = watch;
