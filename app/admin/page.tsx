@@ -141,7 +141,8 @@ export default async function AdminDashboardPage() {
 
       <div className="text-xs text-muted-foreground text-center py-4 border-t border-border/40">
         <p>
-          Admin dashboard for PickMyClass monitoring system. Times shown in your local timezone.
+          Admin dashboard for PickMyClass monitoring system. Times shown in Arizona time
+          (America/Phoenix).
         </p>
       </div>
     </div>

@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { UserSortField, UserWithWatchCount } from "@/lib/db/admin-queries";
+import { useHydrated } from "@/lib/hooks/useHydrated";
 import { useTableNavigate } from "@/lib/hooks/useTableNavigate";
 import { formatAbsoluteDate, formatRelativeDate } from "@/lib/utils/time-format";
 import { SortableHeader } from "./SortableHeader";
@@ -40,10 +41,10 @@ const notificationStatusDisplay = {
   disabled: { label: "Disabled", variant: "destructive" },
 } as const;
 
-function formatDate(dateString: string | null): string {
+function formatDate(dateString: string | null, mounted: boolean): string {
   if (!dateString) return "Never";
 
-  const relative = formatRelativeDate(dateString);
+  const relative = mounted ? formatRelativeDate(dateString) : null;
 
   if (relative) return relative;
 
@@ -64,6 +65,7 @@ export function UsersTable({
 }: UsersTableProps) {
   const router = useRouter();
   const navigate = useTableNavigate();
+  const mounted = useHydrated();
 
   const handleSortClick = (field: UserSortField) => {
     if (sort === field) {
@@ -190,12 +192,12 @@ export function UsersTable({
                     </TableCell>
                     <TableCell>
                       <span className="text-muted-foreground text-sm">
-                        {formatDate(user.created_at)}
+                        {formatDate(user.created_at, mounted)}
                       </span>
                     </TableCell>
                     <TableCell>
                       <span className="text-muted-foreground text-sm">
-                        {formatDate(user.last_sign_in_at)}
+                        {formatDate(user.last_sign_in_at, mounted)}
                       </span>
                     </TableCell>
                     <TableCell>

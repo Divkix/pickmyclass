@@ -47,7 +47,7 @@ export function formatAbsoluteDate(d: string | Date, opts?: Intl.DateTimeFormatO
     year: "numeric",
     month: "short",
     day: "numeric",
-    timeZone: "UTC",
+    timeZone: "America/Phoenix",
     ...opts,
   });
 }
