@@ -40,12 +40,12 @@ export default function AddClassPage() {
       <Header />
       <main id="main" tabIndex={-1} className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-6">
-          <Link href="/dashboard">
-            <Button variant="ghost" className="gap-2">
+          <Button asChild variant="ghost" className="gap-2">
+            <Link href="/dashboard">
               <ArrowLeft className="size-4" />
               Back to Dashboard
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
 
         <div className="mb-6">

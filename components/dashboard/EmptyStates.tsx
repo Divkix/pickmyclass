@@ -25,12 +25,12 @@ export function EmptyWatchlist() {
         Join <span className="font-semibold text-asu-maroon">2,400+</span> Sun Devils already using
         PickMyClass
       </p>
-      <Link href="/dashboard/add">
-        <Button variant="gradient">
+      <Button asChild variant="gradient">
+        <Link href="/dashboard/add">
           <Plus className="size-4" />
           Add Your First Class
-        </Button>
-      </Link>
+        </Link>
+      </Button>
     </m.div>
   );
 }

@@ -18,12 +18,12 @@ export function FinishSetupCard() {
             </p>
           </div>
         </div>
-        <Link href="/dashboard/add" className="shrink-0">
-          <Button variant="gradient" className="gap-2 w-full sm:w-auto">
+        <Button asChild variant="gradient" className="gap-2 w-full sm:w-auto">
+          <Link href="/dashboard/add">
             Add a class
             <ArrowRight className="size-4" />
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </CardContent>
     </Card>
   );

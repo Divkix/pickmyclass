@@ -73,24 +73,24 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
             <span className="truncate">{userEmail}</span>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            <Link href="/admin">
-              <Button variant="ghost" size="sm" className="gap-2">
+            <Button asChild variant="ghost" size="sm" className="gap-2">
+              <Link href="/admin">
                 <LayoutDashboard className="size-4" />
                 Dashboard
-              </Button>
-            </Link>
-            <Link href="/admin/classes">
-              <Button variant="ghost" size="sm" className="gap-2">
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="gap-2">
+              <Link href="/admin/classes">
                 <BookOpen className="size-4" />
                 Classes
-              </Button>
-            </Link>
-            <Link href="/admin/users">
-              <Button variant="ghost" size="sm" className="gap-2">
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="gap-2">
+              <Link href="/admin/users">
                 <Users className="size-4" />
                 Users
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
 

@@ -88,12 +88,12 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
             View detailed information and class watches for this user
           </p>
         </div>
-        <Link href="/admin/users">
-          <Button variant="outline" size="sm" className="gap-2">
+        <Button asChild variant="outline" size="sm" className="gap-2">
+          <Link href="/admin/users">
             <ArrowLeft className="size-4" />
             Back to Users
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       <Card className="mb-8">

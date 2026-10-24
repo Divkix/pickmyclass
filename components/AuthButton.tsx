@@ -33,14 +33,12 @@ export function AuthButton() {
   if (!user) {
     return (
       <div className="flex items-center gap-2 sm:gap-4">
-        <Link href="/sign-in">
-          <Button variant="ghost" className="min-h-11">
-            Sign in
-          </Button>
-        </Link>
-        <Link href="/sign-up">
-          <Button className="min-h-11">Sign up</Button>
-        </Link>
+        <Button asChild variant="ghost" className="min-h-11">
+          <Link href="/sign-in">Sign in</Link>
+        </Button>
+        <Button asChild className="min-h-11">
+          <Link href="/sign-up">Sign up</Link>
+        </Button>
       </div>
     );
   }

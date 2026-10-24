@@ -128,12 +128,12 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <Link href="/dashboard/add" className="w-full sm:w-auto">
-            <Button variant="gradient" className="w-full gap-2 sm:w-auto">
+          <Button asChild variant="gradient" className="w-full gap-2 sm:w-auto">
+            <Link href="/dashboard/add">
               <Plus className="size-4" />
               Add Class
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </m.div>
 
         {isLoadingWatches && (
