@@ -51,6 +51,17 @@ describe("submitSitemapToIndexNow", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("reports the last attempt's reason, not the first", async () => {
+    const keyReplies = [new Response("", { status: 503 }), new Response("an-old-key")];
+    const fetch = vi.fn(() => Promise.resolve(keyReplies.shift() ?? new Response(INDEXNOW_KEY)));
+
+    expect(await submitSitemapToIndexNow(runtime(fetch))).toEqual({
+      kind: "skipped",
+      reason: `key file not live at ${keyUrl}: ${keyUrl} does not hold the key`,
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("says why the sitemap was unavailable", async () => {
     const fetch = vi.fn((url: string | URL | Request) =>
       Promise.resolve(

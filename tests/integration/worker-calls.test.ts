@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { EDGE_CACHE_TIMEOUT_MS } from "@/lib/config";
 import type { Env } from "@/lib/types/env";
 import { collectorCall, edgeCacheCall, fetchAsset } from "@/lib/worker/calls";
 import { createEdgeHtmlCache } from "@/lib/worker/edge-html-cache";
@@ -89,9 +90,9 @@ describe("edge HTML cache degradation", () => {
     );
   });
 
-  it("treats a hung cache read as a miss", async () => {
+  it("treats a hung cache read as a miss and logs the timeout", async () => {
     vi.useFakeTimers();
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const cache = createEdgeHtmlCache(() => ({
       match: () => new Promise(() => {}),
@@ -100,9 +101,15 @@ describe("edge HTML cache degradation", () => {
 
     const read = cache.get(request, "v1");
 
-    await vi.advanceTimersByTimeAsync(3_000);
+    await vi.advanceTimersByTimeAsync(EDGE_CACHE_TIMEOUT_MS);
 
     expect(await read).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        msg: "Edge cache read failed, rendering instead",
+        "error.name": "EdgeCacheTimedOut",
+      }),
+    );
   });
 
   it("logs a failed cache write instead of rejecting the waitUntil promise", async () => {
