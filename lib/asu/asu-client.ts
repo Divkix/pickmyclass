@@ -1,5 +1,6 @@
 import { Data, Effect, Option, Schema } from "effect";
 import { ASU_REQUEST_TIMEOUT_MS } from "@/lib/config";
+import { externalCall } from "@/lib/effect/external-call";
 import { errorFields, log } from "@/lib/log";
 import { type SectionRef, sectionFields } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
@@ -20,13 +21,21 @@ export class AsuUpstream extends Data.TaggedError("AsuUpstream")<{
   status?: number;
 }> {}
 
+export class AsuTimedOut extends Data.TaggedError("AsuTimedOut")<{ message: string }> {}
+
 /** A 2xx response whose body does not match the API contract; retrying cannot fix it. */
 export class AsuInvalidResponse extends Data.TaggedError("AsuInvalidResponse")<{
   message: string;
   status?: number;
 }> {}
 
-export type AsuError = AsuNotFound | AsuAuth | AsuRateLimited | AsuUpstream | AsuInvalidResponse;
+export type AsuError =
+  | AsuNotFound
+  | AsuAuth
+  | AsuRateLimited
+  | AsuUpstream
+  | AsuTimedOut
+  | AsuInvalidResponse;
 
 // Unconfirmed on this endpoint, so an unexpected shape reads as unknown (null)
 // instead of failing every Section Check.
@@ -186,127 +195,126 @@ export function fetchClassEffect(
   ref: SectionRef,
   env: Pick<Env, "ASU_API_BASE_URL" | "ASU_API_TOKEN">,
 ): Effect.Effect<ClassDetails, AsuError> {
-  return Effect.acquireUseRelease(
-    Effect.sync(() => new AbortController()),
-    (controller) =>
-      Effect.gen(function* () {
-        if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN) {
-          return yield* new AsuUpstream({
-            message: "ASU API environment variables not configured",
-          });
-        }
+  return Effect.gen(function* () {
+    if (!env.ASU_API_BASE_URL || !env.ASU_API_TOKEN) {
+      return yield* new AsuUpstream({
+        message: "ASU API environment variables not configured",
+      });
+    }
 
-        const url = buildClassSearchUrl(env.ASU_API_BASE_URL, ref.class_nbr, ref.term);
+    const url = buildClassSearchUrl(env.ASU_API_BASE_URL, ref.class_nbr, ref.term);
 
-        const response = yield* Effect.tryPromise({
-          try: () =>
-            fetch(url, {
-              headers: { Authorization: normalizeAuthHeader(env.ASU_API_TOKEN) },
-              signal: controller.signal,
-            }),
-          catch: () => new AsuUpstream({ message: "ASU API request failed" }),
+    const { response, body } = yield* externalCall(
+      async (signal) => {
+        const response = await fetch(url, {
+          headers: { Authorization: normalizeAuthHeader(env.ASU_API_TOKEN) },
+          signal,
         });
 
         if (response.status === 401 || response.status === 403) {
-          return yield* new AsuAuth({ message: "ASU API token expired or invalid" });
+          throw new AsuAuth({ message: "ASU API token expired or invalid" });
         }
 
         if (response.status === 429) {
-          return yield* new AsuRateLimited({
+          throw new AsuRateLimited({
             message: "ASU API rate limit hit",
             retryAfterSeconds: parseRetryAfterSeconds(response.headers.get("retry-after")),
           });
         }
 
         if (!response.ok) {
-          return yield* new AsuUpstream({
+          throw new AsuUpstream({
             message: `ASU API returned ${response.status}`,
             status: response.status,
           });
         }
 
-        const body = yield* Effect.tryPromise({
-          try: () => response.json(),
-          catch: (error) => {
-            if (error instanceof SyntaxError) {
-              log("AsuClient").error("Invalid ASU JSON", {
-                ...sectionFields(ref),
-                http_status: response.status,
-                ...errorFields(error),
-              });
+        try {
+          return { response, body: await response.json() };
+        } catch (error) {
+          if (signal.aborted) throw error;
 
-              return new AsuInvalidResponse({
-                message: "ASU API returned invalid JSON",
-                status: response.status,
-              });
-            }
-
-            log("AsuClient").error("ASU response read failed", {
+          if (error instanceof SyntaxError) {
+            log("AsuClient").error("Invalid ASU JSON", {
               ...sectionFields(ref),
               http_status: response.status,
               ...errorFields(error),
             });
 
-            return new AsuUpstream({
-              message: `ASU API response read failed: ${String(error)}`,
+            throw new AsuInvalidResponse({
+              message: "ASU API returned invalid JSON",
               status: response.status,
             });
-          },
-        });
+          }
 
-        const data = yield* Schema.decodeUnknownEffect(AsuApiResponse)(body).pipe(
-          Effect.tapError((error) =>
-            Effect.sync(() =>
-              log("AsuClient").error("Invalid ASU response", {
-                ...sectionFields(ref),
-                ...errorFields(error),
-              }),
-            ),
-          ),
-          Effect.mapError(
-            () =>
-              new AsuInvalidResponse({
-                message: "ASU API returned an invalid response",
-                status: response.status,
-              }),
-          ),
-        );
-
-        if (data.hits.hits.length === 0)
-          return yield* new AsuNotFound({ message: `Section ${ref.class_nbr} not found` });
-        const matching = data.hits.hits.find((hit) => hit._source.CLASSNBR === ref.class_nbr);
-
-        if (!matching)
-          return yield* new AsuNotFound({
-            message: `Section ${ref.class_nbr} not found in response`,
-          });
-
-        const capacity = parseSeatCount(matching._source.ENRLCAP);
-        const enrolled = parseSeatCount(matching._source.ENRLTOT);
-        const waitlisted = parseSeatCount(matching._source.WAITTOT);
-
-        if (capacity === null || enrolled === null || waitlisted === null) {
-          log("AsuClient").error("Unusable ASU seat counts", {
+          log("AsuClient").error("ASU response read failed", {
             ...sectionFields(ref),
-            ENRLCAP: matching._source.ENRLCAP,
-            ENRLTOT: matching._source.ENRLTOT,
-            WAITTOT: matching._source.WAITTOT,
+            http_status: response.status,
+            ...errorFields(error),
           });
 
-          return yield* new AsuInvalidResponse({
-            message: `ASU API returned unusable seat counts for ${ref.class_nbr}`,
+          throw new AsuUpstream({
+            message: `ASU API response read failed: ${String(error)}`,
             status: response.status,
           });
         }
+      },
+      ASU_REQUEST_TIMEOUT_MS,
+      (error) =>
+        error instanceof AsuAuth ||
+        error instanceof AsuRateLimited ||
+        error instanceof AsuUpstream ||
+        error instanceof AsuInvalidResponse
+          ? error
+          : new AsuUpstream({ message: "ASU API request failed" }),
+      () => new AsuTimedOut({ message: "ASU API request timed out" }),
+    );
 
-        return mapToClassDetails(matching._source, { capacity, enrolled, waitlisted });
-      }),
-    (controller) => Effect.sync(() => controller.abort()),
-  ).pipe(
-    Effect.timeoutOrElse({
-      duration: ASU_REQUEST_TIMEOUT_MS,
-      orElse: () =>
-        Effect.fail(new AsuUpstream({ message: "ASU API request timed out", status: 408 })),
-    }),
-  );
+    const data = yield* Schema.decodeUnknownEffect(AsuApiResponse)(body).pipe(
+      Effect.tapError((error) =>
+        Effect.sync(() =>
+          log("AsuClient").error("Invalid ASU response", {
+            ...sectionFields(ref),
+            ...errorFields(error),
+          }),
+        ),
+      ),
+      Effect.mapError(
+        () =>
+          new AsuInvalidResponse({
+            message: "ASU API returned an invalid response",
+            status: response.status,
+          }),
+      ),
+    );
+
+    if (data.hits.hits.length === 0)
+      return yield* new AsuNotFound({ message: `Section ${ref.class_nbr} not found` });
+    const matching = data.hits.hits.find((hit) => hit._source.CLASSNBR === ref.class_nbr);
+
+    if (!matching)
+      return yield* new AsuNotFound({
+        message: `Section ${ref.class_nbr} not found in response`,
+      });
+
+    const capacity = parseSeatCount(matching._source.ENRLCAP);
+    const enrolled = parseSeatCount(matching._source.ENRLTOT);
+    const waitlisted = parseSeatCount(matching._source.WAITTOT);
+
+    if (capacity === null || enrolled === null || waitlisted === null) {
+      log("AsuClient").error("Unusable ASU seat counts", {
+        ...sectionFields(ref),
+        ENRLCAP: matching._source.ENRLCAP,
+        ENRLTOT: matching._source.ENRLTOT,
+        WAITTOT: matching._source.WAITTOT,
+      });
+
+      return yield* new AsuInvalidResponse({
+        message: `ASU API returned unusable seat counts for ${ref.class_nbr}`,
+        status: response.status,
+      });
+    }
+
+    return mapToClassDetails(matching._source, { capacity, enrolled, waitlisted });
+  });
 }

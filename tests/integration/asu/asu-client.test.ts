@@ -9,7 +9,7 @@ import {
   NotFoundError,
   RateLimitError,
 } from "@/lib/asu/api";
-import { AsuUpstream, fetchClassEffect, parseRetryAfterSeconds } from "@/lib/asu/asu-client";
+import { AsuTimedOut, fetchClassEffect, parseRetryAfterSeconds } from "@/lib/asu/asu-client";
 import { ASU_REQUEST_TIMEOUT_MS } from "@/lib/config";
 
 const ref = { class_nbr: "98765", term: "2267" };
@@ -57,6 +57,7 @@ function body(classNbr = ref.class_nbr, extra: Record<string, string | number | 
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -176,18 +177,57 @@ describe("ASU Promise compatibility", () => {
     });
   });
 
-  it.each([401, 403, 429, 500])("preserves legacy error classes for HTTP %s", async (status) => {
+  it.each<[number, typeof ApiError, number]>([
+    [401, AuthError, 401],
+    [403, AuthError, 401],
+    [429, RateLimitError, 429],
+    [500, ApiError, 500],
+  ])(
+    "preserves legacy error classes and status for HTTP %s",
+    async (status, expected, legacyStatus) => {
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockResolvedValue(new Response(null, { status, headers: { "retry-after": "123" } })),
+      );
+      const pending = fetchClassFromASU(ref, env, { useCache: false });
+
+      await expect(pending).rejects.toBeInstanceOf(expected);
+      await expect(pending).rejects.toMatchObject({ status: legacyStatus, retryable: true });
+
+      if (status === 429) await expect(pending).rejects.toMatchObject({ retryAfterSeconds: 123 });
+    },
+  );
+
+  it.each<[string, number | undefined]>([
+    ["Thu, 15 Oct 2026 12:02:00 GMT", 120],
+    ["invalid", undefined],
+  ])("preserves Retry-After %s through the legacy adapter", async (header, retryAfterSeconds) => {
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-15T12:00:00Z"));
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(new Response(null, { status, headers: { "retry-after": "123" } })),
+      vi
+        .fn()
+        .mockResolvedValue(new Response(null, { status: 429, headers: { "retry-after": header } })),
     );
-    const expected = status === 429 ? RateLimitError : status < 429 ? AuthError : ApiError;
-    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toBeInstanceOf(expected);
 
-    if (status === 429)
-      await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
-        retryAfterSeconds: 123,
-      });
+    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
+      name: "RateLimitError",
+      status: 429,
+      retryAfterSeconds,
+    });
+  });
+
+  it("keeps transport failures retryable without an HTTP status", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
+
+    await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
+      name: "ApiError",
+      message: "ASU API request failed",
+      status: undefined,
+      retryable: true,
+    });
   });
 
   it.each([
@@ -203,6 +243,7 @@ describe("ASU Promise compatibility", () => {
       );
       await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
         name: "ApiError",
+        status: 200,
         message: expect.stringContaining("invalid response"),
         retryable: false,
       });
@@ -227,6 +268,7 @@ describe("ASU Promise compatibility", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("not JSON")));
     await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
       name: "ApiError",
+      status: 200,
       retryable: false,
     });
   });
@@ -239,9 +281,98 @@ describe("ASU Promise compatibility", () => {
 
     await expect(fetchClassFromASU(ref, env, { useCache: false })).rejects.toMatchObject({
       name: "ApiError",
+      status: 200,
       retryable: true,
       message: expect.stringContaining("read failed"),
     });
+  });
+
+  it("includes body reads in the total timeout and maps their abort to a retryable 408", async () => {
+    vi.useFakeTimers();
+    let requestSignal: AbortSignal | undefined;
+    let bodyController: ReadableStreamDefaultController<Uint8Array> | undefined;
+
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          bodyController = controller;
+        },
+      }),
+    );
+
+    const json = vi.spyOn(response, "json");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, options: RequestInit) => {
+        if (options.signal) {
+          requestSignal = options.signal;
+          options.signal.addEventListener(
+            "abort",
+            () =>
+              bodyController?.error(new DOMException("The operation was aborted.", "AbortError")),
+            { once: true },
+          );
+        }
+
+        const { promise, resolve } = Promise.withResolvers<Response>();
+        setTimeout(() => resolve(response), ASU_REQUEST_TIMEOUT_MS / 2);
+
+        return promise;
+      }),
+    );
+
+    const pending = fetchClassFromASU(ref, env, { useCache: false }).then(
+      () => undefined,
+      (error: Error) => error,
+    );
+
+    await vi.advanceTimersByTimeAsync(ASU_REQUEST_TIMEOUT_MS / 2);
+    expect(json).toHaveBeenCalledOnce();
+    expect(requestSignal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(ASU_REQUEST_TIMEOUT_MS / 2);
+    const error = await pending;
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      message: "ASU API request timed out",
+      status: 408,
+      retryable: true,
+    });
+    expect(requestSignal?.aborted).toBe(true);
+  });
+
+  it("aborts the request when interrupted during a body read", async () => {
+    const readingBody = Promise.withResolvers<void>();
+    let requestSignal: AbortSignal | undefined;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, options: RequestInit) => {
+        requestSignal = options.signal ?? undefined;
+        const response = new Response();
+        vi.spyOn(response, "json").mockImplementation(() => {
+          readingBody.resolve();
+
+          return Promise.withResolvers<never>().promise;
+        });
+
+        return Promise.resolve(response);
+      }),
+    );
+    const controller = new AbortController();
+
+    const pending = Effect.runPromise(fetchClassEffect(ref, env), {
+      signal: controller.signal,
+    }).then(
+      () => undefined,
+      (error: Error) => error,
+    );
+
+    await readingBody.promise;
+    controller.abort();
+    expect(await pending).toBeInstanceOf(Error);
+    expect(requestSignal?.aborted).toBe(true);
   });
 
   it.each([{ hits: { total: { value: 0 }, hits: [] } }, body("other")])(
@@ -286,8 +417,9 @@ effectIt.effect("times out and aborts the ASU request with TestClock", () =>
     const fiber = yield* fetchClassEffect(ref, env).pipe(Effect.flip, Effect.forkChild);
     yield* TestClock.adjust(ASU_REQUEST_TIMEOUT_MS);
     const error = yield* Fiber.join(fiber);
-    expect(error).toBeInstanceOf(AsuUpstream);
-    expect(error).toMatchObject({ status: 408 });
+    expect(error).toBeInstanceOf(AsuTimedOut);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toBe("ASU API request timed out");
     expect(requestSignal?.aborted).toBe(true);
   }),
 );
