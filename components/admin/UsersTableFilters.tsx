@@ -42,8 +42,12 @@ export function UsersTableFiltersComponent({
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
+            aria-hidden="true"
+          />
           <Input
+            aria-label="Search users by email"
             placeholder="Search by email..."
             value={localSearch}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -91,7 +95,7 @@ export function UsersTableFiltersComponent({
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">Filters active</p>
           <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 gap-1.5">
-            <X className="size-4" />
+            <X className="size-4" aria-hidden="true" />
             Clear Filters
           </Button>
         </div>
