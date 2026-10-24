@@ -680,16 +680,18 @@ export type PurgedData = {
 const clerkIdsSchema = z.array(z.object({ clerk_user_id: z.string() }));
 
 /**
- * Clerk ids of the accounts `purge_expired_data` is about to delete, plus an hour of lead: an
- * account that crosses the 30-day mark between this read and the purge still loses its identity.
+ * Clerk ids of up to `limit` accounts past the 30-day mark, oldest first. Accounts with no
+ * Clerk identity (a legacy id and no clerk_user_id) are left to `purge_expired_data`.
  */
-export async function listExpiredClerkIdentities(db: Database): Promise<string[]> {
+export async function listExpiredClerkIdentities(db: Database, limit: number): Promise<string[]> {
   try {
     const { rows } = await db.execute(sql`SELECT coalesce(u.clerk_user_id, u.id) AS clerk_user_id
       FROM public.users u JOIN public.user_profiles p ON p.user_id = u.id
       WHERE p.is_disabled AND p.disabled_at IS NOT NULL
-        AND p.disabled_at < now() - interval '30 days' + interval '1 hour'
-        AND (u.clerk_user_id IS NOT NULL OR u.id LIKE 'user\_%')`);
+        AND p.disabled_at < now() - interval '30 days'
+        AND (u.clerk_user_id IS NOT NULL OR starts_with(u.id, 'user_'))
+      ORDER BY p.disabled_at
+      LIMIT ${limit}::integer`);
 
     return clerkIdsSchema.parse(rows).map((row) => row.clerk_user_id);
   } catch (error) {
@@ -700,10 +702,22 @@ export async function listExpiredClerkIdentities(db: Database): Promise<string[]
   }
 }
 
-/** Deletes data past the privacy policy's retention windows (see migration 0012). */
-export async function purgeExpiredData(db: Database): Promise<PurgedData> {
+/**
+ * Deletes data past the privacy policy's retention windows (migrations 0012, 0013). An expired
+ * account with a Clerk identity goes only once its id is in `deletedClerkIds`.
+ */
+export async function purgeExpiredData(
+  db: Database,
+  deletedClerkIds: readonly string[],
+): Promise<PurgedData> {
   try {
-    const { rows } = await db.execute(sql`SELECT * FROM public.purge_expired_data()`);
+    // Compose the text[] server-side from separately-bound scalars; the cast covers an empty list.
+    const idParams = deletedClerkIds.map((id) => sql`${id}::text`);
+
+    const { rows } = await db.execute(
+      sql`SELECT * FROM public.purge_expired_data(ARRAY[${sql.join(idParams, sql`, `)}]::text[])`,
+    );
+
     const purged = purgedSchema.parse(rows[0]);
 
     return {

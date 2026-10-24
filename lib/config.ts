@@ -13,6 +13,13 @@ export const DB_QUERY_TIMEOUT_MS = 15_000;
 /** Longest one Clerk Backend API call may take before the request stops waiting. */
 export const CLERK_REQUEST_TIMEOUT_MS = 8_000;
 
+/**
+ * Expired accounts whose Clerk identity one Maintenance run deletes. Each delete
+ * is a subrequest and Workflows Free allows 50 per instance, so a backlog drains
+ * over several daily runs instead of failing every run.
+ */
+export const CLERK_PURGE_BATCH_SIZE = 25;
+
 /** Cache API reads and writes are local to the colo; a slow one is skipped, not waited for. */
 export const EDGE_CACHE_TIMEOUT_MS = 3_000;
 

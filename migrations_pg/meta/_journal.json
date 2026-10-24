@@ -92,6 +92,13 @@
       "when": 1792832471895,
       "tag": "0012_purge_expired_data",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792858848426,
+      "tag": "0013_purge_confirmed_accounts",
+      "breakpoints": true
     }
   ]
 }

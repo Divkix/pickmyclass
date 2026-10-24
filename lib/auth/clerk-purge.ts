@@ -1,46 +1,60 @@
 /**
- * Deletes the Clerk identity of every account the retention purge is about to
- * remove. The privacy policy promises disabled accounts are "permanently
- * deleted" after 30 days; the `users` row alone is not the account, because
- * Clerk keeps the email, name and credentials.
+ * The retention purge for expired accounts. The privacy policy promises
+ * disabled accounts are "permanently deleted" after 30 days; the `users` row
+ * alone is not the account, because Clerk keeps the email, name and
+ * credentials.
  *
- * Runs before `purgeExpiredData`: the purge drops the row that maps an account
- * to its Clerk id, so a failure here must stop the purge and leave the row for
- * the next run to retry.
+ * The purge drops the row that maps an account to its Clerk id, so it only
+ * takes the accounts whose identity Clerk confirmed gone. Identities go in
+ * batches of `CLERK_PURGE_BATCH_SIZE` (each delete is a subrequest); the rest
+ * keep their rows for the next run.
  *
  * @module lib/auth/clerk-purge
  */
 import { ClerkIdentityDeletionIncomplete } from "@/lib/auth/clerk-errors";
 import { deleteClerkUser } from "@/lib/auth/clerk-session";
+import { CLERK_PURGE_BATCH_SIZE } from "@/lib/config";
 import type { Database } from "@/lib/db";
-import { listExpiredClerkIdentities } from "@/lib/db/queries";
+import { type PurgedData, listExpiredClerkIdentities, purgeExpiredData } from "@/lib/db/queries";
 import { errorFields, log } from "@/lib/log";
 
-/** Attempts every account, then reports the ones that kept their identity. */
-export async function deleteExpiredClerkIdentities(db: Database): Promise<number> {
-  const clerkUserIds = await listExpiredClerkIdentities(db);
+export type RetentionPurge = PurgedData & { clerkIdentitiesDeleted: number };
 
-  const results = await Promise.allSettled(clerkUserIds.map((id) => deleteClerkUser(id)));
+/**
+ * Deletes one batch of Clerk identities, purges the confirmed accounts and the
+ * other expired data, then fails if any identity survived so the step retries it.
+ */
+export async function purgeExpiredAccounts(db: Database): Promise<RetentionPurge> {
+  const clerkUserIds = await listExpiredClerkIdentities(db, CLERK_PURGE_BATCH_SIZE);
 
-  let failed = 0;
+  const outcomes = await Promise.all(
+    clerkUserIds.map((id) =>
+      deleteClerkUser(id).then(
+        () => id,
+        (error: Error) => {
+          log("ClerkPurge").error("Failed to delete expired Clerk identity", {
+            clerk_user_id: id,
+            ...errorFields(error),
+          });
 
-  for (const [index, result] of results.entries()) {
-    if (result.status === "fulfilled") continue;
-    failed += 1;
-    log("ClerkPurge").error("Failed to delete expired Clerk identity", {
-      clerk_user_id: clerkUserIds[index],
-      ...errorFields(result.reason),
-    });
-  }
+          return null;
+        },
+      ),
+    ),
+  );
+
+  const deleted = outcomes.flatMap((id) => (id === null ? [] : [id]));
+  const purged = await purgeExpiredData(db, deleted);
+  const failed = clerkUserIds.length - deleted.length;
 
   if (failed > 0) {
     throw new ClerkIdentityDeletionIncomplete({
-      message: `Deleted ${results.length - failed} of ${results.length} expired Clerk identities`,
+      message: `Deleted ${deleted.length} of ${clerkUserIds.length} expired Clerk identities`,
       failed,
-      total: results.length,
+      total: clerkUserIds.length,
       retryable: true,
     });
   }
 
-  return results.length;
+  return { ...purged, clerkIdentitiesDeleted: deleted.length };
 }

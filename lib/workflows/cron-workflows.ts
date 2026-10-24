@@ -6,10 +6,10 @@ import {
 } from "cloudflare:workers";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
-import { deleteExpiredClerkIdentities } from "@/lib/auth/clerk-purge";
+import { purgeExpiredAccounts } from "@/lib/auth/clerk-purge";
 import { getPastTermCodes } from "@/lib/asu/terms";
 import { type Database, getDb } from "@/lib/db";
-import { deletePastTermWatches, getSectionsToCheck, purgeExpiredData } from "@/lib/db/queries";
+import { deletePastTermWatches, getSectionsToCheck } from "@/lib/db/queries";
 import { errorFields, log, logEvent, tagLogs } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
 import { sendQueueBatch } from "@/lib/queue/transport";
@@ -231,14 +231,7 @@ export class MaintenanceWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
         ),
       ),
       step.do(MAINTENANCE_STEPS[2], STEP_CONFIG, () =>
-        failPermanently(async () => {
-          const db = getDb(this.env.HYPERDRIVE);
-
-          // First: the purge drops the row that maps an account to its Clerk id.
-          const identities = await deleteExpiredClerkIdentities(db);
-
-          return { ...(await purgeExpiredData(db)), clerkIdentitiesDeleted: identities };
-        }),
+        failPermanently(() => purgeExpiredAccounts(getDb(this.env.HYPERDRIVE))),
       ),
     ]);
 

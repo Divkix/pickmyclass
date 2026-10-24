@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { Pool, type QueryResult } from "pg";
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { QUEUE_MAX_RETRIES } from "@/lib/config";
+import { ClerkIdentityDeletionIncomplete } from "@/lib/auth/clerk-errors";
 import { processSection, type SectionCheckOutcome } from "@/lib/queue/process-section";
 import type { Env } from "@/lib/types/env";
 import type { WorkflowStep, WorkflowStepConfig } from "cloudflare:workers";
@@ -285,7 +286,7 @@ describe("MaintenanceWorkflow", () => {
       return Promise.resolve(result([rowFor(text)]));
     });
 
-    expect(statements.some((text) => text.includes("public.purge_expired_data()"))).toBe(true);
+    expect(statements.some((text) => text.includes("public.purge_expired_data("))).toBe(true);
     expect(outcome).toEqual({
       expired: 3,
       swept: 1,
@@ -297,19 +298,14 @@ describe("MaintenanceWorkflow", () => {
     expect(deleteClerkUser).toHaveBeenCalledWith("user_expired");
   });
 
-  it("keeps the rows the purge needs when a Clerk identity cannot be deleted", async () => {
+  it("fails the step when a Clerk identity cannot be deleted, so it is retried", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     deleteClerkUser.mockRejectedValue(new Error("clerk unavailable"));
-    const statements: string[] = [];
 
-    await expect(
-      run((text) => {
-        statements.push(text);
-
-        return Promise.resolve(result([rowFor(text)]));
-      }),
-    ).rejects.toThrow(/Maintenance failed/);
-    expect(statements.some((text) => text.includes("purge_expired_data"))).toBe(false);
+    await expect(run((text) => Promise.resolve(result([rowFor(text)])))).rejects.toThrow(
+      /Maintenance failed/,
+    );
+    expect(stepFailures.get("purge expired data")).toBeInstanceOf(ClerkIdentityDeletionIncomplete);
   });
 
   it("fails the instance when the purge fails, so the missed retention shows up", async () => {
