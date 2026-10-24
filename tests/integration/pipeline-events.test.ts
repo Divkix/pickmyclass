@@ -6,7 +6,13 @@ import { processSection, type SectionCheckOutcome } from "@/lib/queue/process-se
 import type { Env } from "@/lib/types/env";
 import type { WorkflowStep, WorkflowStepConfig } from "cloudflare:workers";
 import type { ClassCheckMessage } from "@/lib/types/queue";
-import { SectionCheckWorkflow, cycleElapsedMs, cycleStamp } from "@/lib/workflows/cron-workflows";
+import {
+  MaintenanceWorkflow,
+  SectionCheckWorkflow,
+  cycleElapsedMs,
+  cycleStamp,
+} from "@/lib/workflows/cron-workflows";
+import { NonRetryableError } from "cloudflare:workflows";
 
 vi.mock("@/lib/queue/process-section", () => ({
   processSection: vi.fn(),
@@ -207,6 +213,54 @@ describe("pipeline events", () => {
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({ msg: "Failed to expire stale notifications" }),
     );
+  });
+
+  it("stops retrying a maintenance step that fails permanently, and keeps retrying a transient one", async () => {
+    const empty: QueryResult = { command: "SELECT", rowCount: 0, oid: 0, fields: [], rows: [] };
+
+    const outcomes = [
+      Object.assign(new Error("relation missing"), { code: "42P01" }),
+      empty,
+      Object.assign(new Error("server restarting"), { code: "57P01" }),
+      empty,
+    ];
+
+    vi.spyOn(Pool.prototype, "query").mockImplementation(() => {
+      const outcome = outcomes.shift();
+
+      return outcome instanceof Error ? Promise.reject(outcome) : Promise.resolve(empty);
+    });
+
+    const workflow = new MaintenanceWorkflow(ctx, {
+      HYPERDRIVE: env.HYPERDRIVE,
+      PICKMYCLASS_QUEUE: { sendBatch: vi.fn() },
+    });
+
+    const failures: unknown[] = [];
+
+    const step = {
+      do: <T>(_name: string, _config: WorkflowStepConfig, run: () => Promise<T>) =>
+        run().catch((error: Error) => {
+          failures.push(error);
+          throw error;
+        }),
+    };
+
+    const event = {
+      payload: {},
+      timestamp: firedAt,
+      instanceId: "wf-m",
+      workflowName: "maintenance",
+    };
+
+    // SAFETY: run() only calls step.do, always with a config.
+    const steps = step as WorkflowStep;
+
+    await expect(workflow.run(event, steps)).rejects.toThrow("Maintenance failed");
+    expect(failures[0]).toBeInstanceOf(NonRetryableError);
+
+    await expect(workflow.run(event, steps)).rejects.toThrow("Maintenance failed");
+    expect(failures[1]).not.toBeInstanceOf(NonRetryableError);
   });
 
   it("measures cycle age from the stamp's fire time", () => {
