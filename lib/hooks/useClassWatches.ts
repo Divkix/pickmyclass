@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import type { Watchlist, WatchWithState } from "@/lib/class-watches/watchlist";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { usePullToRefresh } from "@/lib/hooks/usePullToRefresh";
 import { useRealtimeClassStates } from "@/lib/hooks/useRealtimeClassStates";
@@ -9,50 +10,44 @@ import { completeOnFirstWatch, type OnboardingState } from "@/lib/onboarding";
 import { sectionRefKey } from "@/lib/section-ref";
 import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
 
-type ClassWatch = ClassWatchRow & {
-  class_state?: ClassStateRow | null;
-};
-
-interface GetClassWatchesResponse {
-  watches: ClassWatch[];
-  maxWatches: number;
-  onboarding?: OnboardingState;
-}
-
 export interface ClassWatchStats {
   totalWatches: number;
   availableSeats: number;
   fullClasses: number;
 }
 
-async function requestWatches(): Promise<GetClassWatchesResponse> {
+async function requestWatches(): Promise<Watchlist> {
   const response = await fetch("/api/class-watches");
 
   if (!response.ok) {
     throw new Error("Failed to fetch class watches");
   }
 
-  // SAFETY: /api/class-watches returns JSON shaped as GetClassWatchesResponse per API contract
-  return (await response.json()) as GetClassWatchesResponse;
+  // SAFETY: /api/class-watches returns JSON shaped as Watchlist per API contract
+  return (await response.json()) as Watchlist;
 }
 
-export function useClassWatches() {
-  const { user, loading: authLoading } = useAuth();
-  const [watches, setWatches] = useState<ClassWatch[]>([]);
-  const [maxWatches, setMaxWatches] = useState<number>(10);
-  const [isLoadingWatches, setIsLoadingWatches] = useState(true);
+/**
+ * Dashboard state seeded from the server-rendered `initial` watchlist, so the first view
+ * needs no fetch. It refetches on pull-to-refresh, after restore, and when the Clerk user
+ * stops matching the one the server rendered for.
+ */
+export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
+  const { user } = useAuth();
+  const [watches, setWatches] = useState<WatchWithState[]>(initial.watches);
+  const [maxWatches, setMaxWatches] = useState(initial.maxWatches);
+  const [isLoadingWatches, setIsLoadingWatches] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
-  const [previousUser, setPreviousUser] = useState(user);
+  const [onboarding, setOnboarding] = useState<OnboardingState>(initial.onboarding);
+  const [ownerId, setOwnerId] = useState(ownerClerkUserId);
+  const [ownerChanges, setOwnerChanges] = useState(0);
 
-  if (user !== previousUser) {
-    setPreviousUser(user);
-
-    if (user) {
-      setIsLoadingWatches(true);
-      setError(null);
-    }
+  if (user && user.id !== ownerId) {
+    setOwnerId(user.id);
+    setOwnerChanges((count) => count + 1);
+    setIsLoadingWatches(true);
+    setError(null);
   }
 
   const classNumbers = useMemo(() => watches.map((w) => w.class_nbr), [watches]);
@@ -87,10 +82,9 @@ export function useClassWatches() {
       requestWatches()
         .then(
           (data) => {
-            setWatches(data.watches || []);
-            setMaxWatches(data.maxWatches || 10);
-
-            if (data.onboarding) setOnboarding(data.onboarding);
+            setWatches(data.watches);
+            setMaxWatches(data.maxWatches);
+            setOnboarding(data.onboarding);
 
             return data;
           },
@@ -107,7 +101,7 @@ export function useClassWatches() {
     [],
   );
 
-  const fetchWatches = useCallback(async (): Promise<GetClassWatchesResponse> => {
+  const fetchWatches = useCallback(async (): Promise<Watchlist> => {
     setIsLoadingWatches(true);
     setError(null);
 
@@ -115,10 +109,10 @@ export function useClassWatches() {
   }, [loadWatches]);
 
   useEffect(() => {
-    if (user) {
+    if (ownerChanges > 0) {
       void loadWatches().catch(() => {});
     }
-  }, [user, loadWatches]);
+  }, [ownerChanges, loadWatches]);
 
   const handleRefresh = async () => {
     try {
@@ -127,7 +121,7 @@ export function useClassWatches() {
         classNumbers.length > 0 ? refetchClassStates() : Promise.resolve(),
       ]);
 
-      const watchCount = watchData?.watches?.length ?? watches.length;
+      const watchCount = watchData.watches.length;
 
       const timeString = new Date().toLocaleTimeString("en-US", {
         hour: "numeric",
@@ -150,9 +144,9 @@ export function useClassWatches() {
     resistance: 2.5,
   });
 
-  const handleOnboardingCompleted = useCallback((watch: ClassWatch) => {
-    setWatches((prev) => [watch, ...prev]);
-    setOnboarding((prev) => (prev ? completeOnFirstWatch(prev) : prev));
+  const handleOnboardingCompleted = useCallback((watch: ClassWatchRow) => {
+    setWatches((prev) => [{ ...watch, class_state: null }, ...prev]);
+    setOnboarding((prev) => completeOnFirstWatch(prev));
   }, []);
 
   const handleDeleteWatch = async (watchId: string) => {
@@ -204,8 +198,6 @@ export function useClassWatches() {
   }, [watches, classStates]);
 
   return {
-    user,
-    authLoading,
     watches,
     maxWatches,
     isLoadingWatches,

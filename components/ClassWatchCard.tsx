@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { classWatchCreation } from "@/lib/class-watches/class-watch-creation";
 import { useSwipe } from "@/lib/hooks/useSwipe";
 import { errorFields, log } from "@/lib/log";
-import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
+import type { ClassStateRow, UserClassWatch } from "@/lib/types/class-watch";
 import { formatAbsoluteDate } from "@/lib/utils/time-format";
 import { ClassDetailsDialog } from "@/components/ClassDetailsDialog";
 import { ClassStateIndicator } from "@/components/ClassStateIndicator";
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ClassWatchCardProps {
-  watch: ClassWatchRow;
+  watch: UserClassWatch;
   classState: ClassStateRow | null;
   onDelete: (watchId: string) => Promise<void>;
   onRestore?: () => void;
@@ -27,7 +27,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
-  const deletedWatchRef = useRef<ClassWatchRow | null>(null);
+  const deletedWatchRef = useRef<UserClassWatch | null>(null);
   const swipeDeleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSwipeDeletingRef = useRef(false);
 

@@ -9,7 +9,7 @@ import type { ClassStateRow, UserClassWatch } from "@/lib/types/class-watch";
 
 export const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || "10", 10);
 
-type WatchWithState = UserClassWatch & { class_state: ClassStateRow | null };
+export type WatchWithState = UserClassWatch & { class_state: ClassStateRow | null };
 
 export interface Watchlist {
   watches: WatchWithState[];

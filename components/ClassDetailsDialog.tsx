@@ -1,6 +1,6 @@
 "use client";
 
-import type { ClassStateRow, ClassWatchRow } from "@/lib/types/class-watch";
+import type { ClassStateRow, UserClassWatch } from "@/lib/types/class-watch";
 import { getRateMyProfessorUrl } from "@/lib/utils/ratemyprofessor";
 import { formatAbsoluteDate } from "@/lib/utils/time-format";
 import { ExternalLink } from "lucide-react";
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 
 interface ClassDetailsDialogProps {
-  watch: ClassWatchRow;
+  watch: UserClassWatch;
   classState: ClassStateRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
