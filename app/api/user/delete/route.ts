@@ -14,7 +14,9 @@ export async function DELETE(request: Request) {
 
         try {
           await softDeleteUserById(getDbFromEnv(), user.userId);
-        } catch {
+        } catch (error) {
+          log("User").error("Failed to disable account", errorFields(error));
+
           return fail("Failed to delete account", 500);
         }
 
