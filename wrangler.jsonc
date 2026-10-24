@@ -52,7 +52,7 @@
         "max_retries": 3,
         "retry_delay": 60,
         // No consumer on the DLQ: exhausted messages stay there to inspect or
-        // redrive from the dashboard (24h retention on Workers Free).
+        // redrive from the dashboard (4-day retention on Workers Paid).
         "dead_letter_queue": "pickmyclass-dlq",
       },
     ],
