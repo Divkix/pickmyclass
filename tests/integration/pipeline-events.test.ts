@@ -219,54 +219,6 @@ describe("pipeline events", () => {
     );
   });
 
-  it("stops retrying a maintenance step that fails permanently, and keeps retrying a transient one", async () => {
-    const empty: QueryResult = { command: "SELECT", rowCount: 0, oid: 0, fields: [], rows: [] };
-
-    const outcomes = [
-      Object.assign(new Error("relation missing"), { code: "42P01" }),
-      empty,
-      Object.assign(new Error("server restarting"), { code: "57P01" }),
-      empty,
-    ];
-
-    vi.spyOn(Pool.prototype, "query").mockImplementation(() => {
-      const outcome = outcomes.shift();
-
-      return outcome instanceof Error ? Promise.reject(outcome) : Promise.resolve(empty);
-    });
-
-    const workflow = new MaintenanceWorkflow(ctx, {
-      HYPERDRIVE: env.HYPERDRIVE,
-      PICKMYCLASS_QUEUE: { sendBatch: vi.fn() },
-    });
-
-    const failures: unknown[] = [];
-
-    const step = {
-      do: <T>(_name: string, _config: WorkflowStepConfig, run: () => Promise<T>) =>
-        run().catch((error: Error) => {
-          failures.push(error);
-          throw error;
-        }),
-    };
-
-    const event = {
-      payload: {},
-      timestamp: firedAt,
-      instanceId: "wf-m",
-      workflowName: "maintenance",
-    };
-
-    // SAFETY: run() only calls step.do, always with a config.
-    const steps = step as WorkflowStep;
-
-    await expect(workflow.run(event, steps)).rejects.toThrow("Maintenance failed");
-    expect(failures[0]).toBeInstanceOf(NonRetryableError);
-
-    await expect(workflow.run(event, steps)).rejects.toThrow("Maintenance failed");
-    expect(failures[1]).not.toBeInstanceOf(NonRetryableError);
-  });
-
   it("measures cycle age from the stamp's fire time", () => {
     expect(cycleElapsedMs(cycle, Date.parse("2026-10-23T15:20:00.000Z"))).toBe(20 * 60_000);
     expect(cycleElapsedMs(undefined, Date.now())).toBeUndefined();
@@ -284,6 +236,8 @@ describe("MaintenanceWorkflow", () => {
 
   const purgeRow = { accounts_purged: 2, notifications_purged: 5, class_states_purged: 1 };
 
+  const stepFailures = new Map<string, Error>();
+
   function run(query: (text: string) => Promise<QueryResult>) {
     vi.spyOn(Pool.prototype, "query").mockImplementation(
       // SAFETY: the workflow only uses the promise form, query(config, values).
@@ -295,8 +249,14 @@ describe("MaintenanceWorkflow", () => {
       PICKMYCLASS_QUEUE: { sendBatch: vi.fn() },
     });
 
+    stepFailures.clear();
+
     const step = {
-      do: <T>(_name: string, _config: WorkflowStepConfig, work: () => Promise<T>) => work(),
+      do: <T>(name: string, _config: WorkflowStepConfig, work: () => Promise<T>) =>
+        work().catch((error: Error) => {
+          stepFailures.set(name, error);
+          throw error;
+        }),
     };
 
     return workflow.run(
@@ -362,6 +322,23 @@ describe("MaintenanceWorkflow", () => {
           : Promise.resolve(result([rowFor(text)])),
       ),
     ).rejects.toThrow(/purge expired data|Failed to purge expired data/);
+  });
+
+  // The sweep and purge steps fail inside query helpers that rewrap the driver error.
+  it.each([
+    ["stops retrying every step whose statement the server rejects for good", "42P01", true],
+    ["leaves a failover to each step's own retries", "57P01", false],
+  ])("%s", async (_label, code, permanent) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      run(() => Promise.reject(Object.assign(new Error("boom"), { code }))),
+    ).rejects.toThrow(/Maintenance failed/);
+
+    expect(stepFailures.size).toBe(3);
+
+    for (const failure of stepFailures.values())
+      expect(failure instanceof NonRetryableError).toBe(permanent);
   });
 });
 

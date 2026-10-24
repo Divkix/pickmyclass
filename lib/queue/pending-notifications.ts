@@ -37,7 +37,9 @@ export async function recordSectionCheck(
 
     return recordedSchema.parse(rows[0]);
   } catch (error) {
-    throw new Error(`Failed to record section check: ${driverErrorMessage(error)}`);
+    throw new Error(`Failed to record section check: ${driverErrorMessage(error)}`, {
+      cause: error,
+    });
   }
 }
 
