@@ -39,6 +39,4 @@ export const CLERK_CSP = {
   protectHosts: ["https://*.protect.clerk.com"],
   /** connect-src only. The trailing `:*` is required. */
   protectConnectHosts: ["https://*.protect.clerk.com:*"],
-  /** Clerk avatar/image host for img-src. */
-  imgHosts: ["https://img.clerk.com"],
 } as const;

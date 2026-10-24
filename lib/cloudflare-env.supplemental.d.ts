@@ -3,7 +3,6 @@ declare namespace Cloudflare {
     CRON_SECRET: string;
     UNSUBSCRIBE_SIGNING_SECRET?: string;
     CLERK_SECRET_KEY: string;
-    CLERK_PUBLISHABLE_KEY: string;
     CLERK_JWT_KEY?: string;
     CLERK_WEBHOOK_SIGNING_SECRET: string;
     ASU_API_BASE_URL: string;
@@ -17,7 +16,6 @@ declare namespace NodeJS {
     CRON_SECRET: string;
     UNSUBSCRIBE_SIGNING_SECRET?: string;
     CLERK_SECRET_KEY: string;
-    CLERK_PUBLISHABLE_KEY: string;
     CLERK_JWT_KEY?: string;
     CLERK_WEBHOOK_SIGNING_SECRET: string;
     ASU_API_BASE_URL: string;

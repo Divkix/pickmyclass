@@ -45,26 +45,16 @@ next-env.d.ts
 .wrangler
 worker-configuration.d.ts
 
-# supabase local files
-supabase/.temp/
-supabase/.branches/
-
 # git worktrees
 .worktrees/
 
-# sentry
-.sentryclirc
-sentry.properties
 # vinext build cache
 .vinext/
 /dist/
 /worker/
-.env.local
 
-# Wrangler local secrets (Clerk keys, spike keypair)
+# Wrangler local secrets
 .dev.vars
-scripts/.clerk-spike-token.txt
-scripts/.clerk-spike-private.pem
 
 # Vendored Oxlint rules are tooling this repo owns and ships; a global
 # `vendor/` ignore must not silently skip them (it did once — the plugin then
