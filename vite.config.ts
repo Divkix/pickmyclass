@@ -61,7 +61,8 @@ export default defineConfig(() => {
         "anti-slop/no-chained-type-assertions": "error",
         "anti-slop/no-conditional-empty-object-spread": "error",
         "anti-slop/no-known-value-widening": "error",
-        "anti-slop/no-module-mocking": "error",
+        // Tests intentionally stub external services, including through vite-plus/test module mocks.
+        "anti-slop/no-module-mocking": "off",
         "anti-slop/no-object-parameters": "error",
         "anti-slop/no-reflect-apply": "error",
         "anti-slop/no-reflect-get": "error",

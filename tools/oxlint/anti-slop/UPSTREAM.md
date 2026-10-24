@@ -24,12 +24,12 @@ Recovering the base for a three-way merge: fetch the upstream tree at the baseli
 
 | Plugin | Entry point | Registered |
 | --- | --- | --- |
-| `anti-slop` | `tools/oxlint/anti-slop/index.ts` | yes, with all 18 generic rules at `error` plus native `oxc/no-accumulating-spread`, in `vite.config.ts` |
+| `anti-slop` | `tools/oxlint/anti-slop/index.ts` | yes, with 17 generic rules at `error` and `no-module-mocking` explicitly off (tests stub external services), plus native `oxc/no-accumulating-spread`, in `vite.config.ts` |
 | `anti-slop-effect` | `tools/oxlint/anti-slop/effect/index.ts` | yes, plugin loaded globally; all 5 rules at `error` only through a `lint.overrides` entry for `lib/asu/**` and `tests/integration/asu/**` |
 
 ## Dependency pair
 
-There is no direct `oxlint` or `@oxlint/plugins` dependency. `vp lint` runs the `oxlint` 1.87.0 bundled with `vite-plus` 1.1.0, and the plugin imports its API from `vite-plus/lint/plugins`, so the linter and plugin API always move together with the toolchain.
+There is no direct `oxlint` or `@oxlint/plugins` dependency. `vp lint` runs the `oxlint` 1.88.0 bundled with `vite-plus` 1.3.0, and the plugin imports its API from `vite-plus/lint/plugins`, so the linter and plugin API always move together with the toolchain.
 
 ## Local deviations
 
