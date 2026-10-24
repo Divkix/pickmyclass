@@ -72,6 +72,8 @@ export default defineConfig(() => {
         "oxc/no-accumulating-spread": "error",
         "typescript/no-explicit-any": "warn",
         "typescript/no-unused-vars": "error",
+        // A new union member fails lint until every switch over it handles the case.
+        "typescript/switch-exhaustiveness-check": "error",
         "anti-slop/no-array-filter-map": "error",
         "anti-slop/no-reduce-accumulator-copy": "error",
         "anti-slop/no-chained-type-assertions": "error",
