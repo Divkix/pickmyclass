@@ -2,18 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { ApiError, AuthError, NotFoundError, RateLimitError } from "@/lib/asu/api";
 import { processSection } from "@/lib/queue/process-section";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
-import { changes, claim, details, environment, ref, state, watcher } from "./fixtures";
-
-const pending = {
-  id: "intent-1",
-  class_nbr: ref.class_nbr,
-  term: ref.term,
-  class_info: { ...details, ...ref },
-  changes: { ...changes },
-  expires_at: "2026-10-15T15:00:00.000Z",
-  lease_id: null,
-  leased_until: null,
-};
+import { claim, details, environment, pending, ref, state, watcher } from "./fixtures";
 
 function recorded(applied: boolean, intentCreated: boolean) {
   return { applied, intent_created: intentCreated };

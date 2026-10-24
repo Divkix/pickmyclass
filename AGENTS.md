@@ -14,11 +14,12 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 | Dev server | `pnpm run dev` (vinext; one instance per checkout: a second one exits and prints the running server's URL) |
 | Build | `pnpm run build` |
 | Real Worker locally | `pnpm run preview` (build + `wrangler dev`); run before any deploy |
-| All non-DB tests | `pnpm run test` · with coverage reports (no minimum threshold): `pnpm run test:coverage` |
+| All tests except the opt-in `db` and `bench` projects | `pnpm run test` · with coverage reports (no minimum threshold): `pnpm run test:coverage` |
 | One file | `pnpm run test tests/integration/api/onboarding.test.ts` |
 | One test | `pnpm run test tests/integration/api/onboarding.test.ts -t "/api/user/onboarding"` |
 | Test projects/watch | `pnpm run test:integration` · `pnpm run test:watch` |
 | Live DB test | `DATABASE_URL=… pnpm run test:db` against a disposable Postgres after `pnpm run db:migrate` (excluded from the normal run) |
+| CPU bench | `pnpm run bench` (`tests/integration/bench/`, excluded from the normal run): the real `processSection`, ASU client (over a stubbed `fetch`), queue consumer (`worker.queue()`) and `SectionCheckWorkflow.run` over scripted Postgres, warm (2,000 runs per path first). One JSON line per path with CPU µs per Section Check, queue message or Workflow run (p50, p95, mean). Compare against the same bench at the pre-Effect baseline commit (see Conventions → Effect) on the same machine; the delta against the parent commit only shows what one change costs. p50 and mean usually repeat within ~5%, p95 within ~15%; rerun when one run disagrees |
 | DB migration | `pnpm run db:generate` (or `pnpm run db:generate --custom --name=<n>`), then `DATABASE_URL=… pnpm run db:migrate` (direct PlanetScale URL) |
 | Format + lint | `pnpm run check` · autofix: `pnpm run fix` |
 | Type-check | `pnpm run type-check` (two passes: app `tsconfig.json`, then `tsconfig.worker.json`) |
@@ -35,7 +36,7 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 - `migrations_pg/`: drizzle-kit migrations, the real schema history, tracked in `drizzle.__drizzle_migrations`. `lib/db/schema/` is the source of truth for tables: edit it, then `db:generate`. Functions, triggers and data fixes go in `pnpm run db:generate --custom` files; change a function with `CREATE OR REPLACE` in a new migration, never edit an applied file. `0000_baseline` + `0001_baseline_functions` reproduce prod as of 2026-10-01. `db/migrations/` is frozen pre-drizzle history; never add to it.
 - `lib/utils.ts` is shadcn's `cn()` only. Custom helpers go in `lib/utils/`. The split is intentional, so leave both.
 - `lib/seo/`: sitemap, `/llms.txt` and `/llms-full.txt` route handlers, lastmod map, IndexNow.
-- `tests/integration`: all tests live here, not next to source. The `test` block in `vite.config.ts` defines `integration` and opt-in `db` projects. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through `test.alias`. `tests/mocks/scripted-postgres.ts` is a scripted node-postgres transport for API integration tests.
+- `tests/integration`: all tests live here, not next to source. The `test` block in `vite.config.ts` defines `integration` and the opt-in `db` and `bench` projects. `tests/mocks/` stubs `cloudflare:workers` and the vinext entry through `test.alias`. `tests/mocks/scripted-postgres.ts` is a scripted node-postgres transport for API integration tests.
 - `tools/oxlint/anti-slop/`: vendored lint plugin (see Gotchas).
 
 ## Conventions (enforced by lint or used everywhere)

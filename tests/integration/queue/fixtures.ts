@@ -55,3 +55,15 @@ export const changes = {
   instructorAssigned: false,
   newOpenSeats: 2,
 };
+
+/** A pending_section_notifications row for `ref`, unleased. */
+export const pending = {
+  id: "intent-1",
+  class_nbr: ref.class_nbr,
+  term: ref.term,
+  class_info: { ...details, ...ref },
+  changes: { ...changes },
+  expires_at: "2026-10-15T15:00:00.000Z",
+  lease_id: null,
+  leased_until: null,
+};

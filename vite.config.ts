@@ -171,6 +171,7 @@ export default defineConfig(() => {
               "dist",
               ".worktrees/**",
               "tests/integration/db/drizzle-live.test.ts",
+              "tests/integration/bench/**",
             ],
           },
         },
@@ -185,6 +186,20 @@ export default defineConfig(() => {
             testTimeout: 30_000,
             hookTimeout: 60_000,
             teardownTimeout: 30_000,
+          },
+        },
+        {
+          // CPU per Section Check (`pnpm run bench`); serial so runs don't share the CPU.
+          test: {
+            name: "bench",
+            environment: "node",
+            include: ["tests/integration/bench/**/*.test.ts"],
+            // The bench collects the heap before sampling each path.
+            execArgv: ["--expose-gc"],
+            fileParallelism: false,
+            maxWorkers: 1,
+            sequence: { concurrent: false },
+            testTimeout: 60_000,
           },
         },
       ],
