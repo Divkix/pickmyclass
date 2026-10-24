@@ -26,6 +26,8 @@ import {
   getSectionsToCheck,
   incrementConsecutiveNotFound,
   insertClassStateIfMissing,
+  listExpiredClerkIdentities,
+  purgeExpiredData,
   readAutoCleanupBreakerCounts,
   readSectionCheckState,
   readSectionRemovalClassInfo,
@@ -1746,5 +1748,131 @@ describe("section alert cutoff", () => {
       [sections.live.ref.class_nbr]: false,
       [sections.unknown.ref.class_nbr]: false,
     });
+  });
+});
+
+describe("purge_expired_data retention", () => {
+  const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+
+  it("lists the Clerk ids of accounts the purge deletes, with an hour of lead", async () => {
+    const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
+    const expired = uid("clerk-expired");
+    const nearCutoff = uid("clerk-near");
+    const recent = uid("clerk-recent");
+    const noClerkRow = uid("clerk-none");
+    const clerkAsId = `user_${RUN}_asid`;
+
+    await db.insert(users).values([
+      { id: expired, clerk_user_id: `clerk_${expired}`, email: mail(expired) },
+      { id: nearCutoff, clerk_user_id: `clerk_${nearCutoff}`, email: mail(nearCutoff) },
+      { id: recent, clerk_user_id: `clerk_${recent}`, email: mail(recent) },
+      { id: noClerkRow, email: mail(noClerkRow) },
+      { id: clerkAsId, email: mail(clerkAsId) },
+    ]);
+    await db.insert(userProfiles).values([
+      { user_id: expired, is_disabled: true, disabled_at: hoursAgo(24 * 31) },
+      { user_id: nearCutoff, is_disabled: true, disabled_at: hoursAgo(24 * 30 - 0.5) },
+      { user_id: recent, is_disabled: true, disabled_at: hoursAgo(24 * 29) },
+      { user_id: noClerkRow, is_disabled: true, disabled_at: hoursAgo(24 * 31) },
+      { user_id: clerkAsId, is_disabled: true, disabled_at: hoursAgo(24 * 31) },
+    ]);
+
+    const ids = await listExpiredClerkIdentities(db);
+
+    expect(ids).toContain(`clerk_${expired}`);
+    expect(ids).toContain(`clerk_${nearCutoff}`);
+    expect(ids).toContain(clerkAsId);
+    expect(ids).not.toContain(`clerk_${recent}`);
+    expect(ids).not.toContain(noClerkRow);
+  });
+
+  it("deletes data past the privacy policy's windows and keeps everything inside them", async () => {
+    const term = `${RUN}-t5`;
+    const expiredUser = uid("purge-expired");
+    const recentUser = uid("purge-recent");
+    const activeUser = uid("purge-active");
+
+    await db.insert(users).values(
+      [expiredUser, recentUser, activeUser].map((id) => ({
+        id,
+        clerk_user_id: `clerk_${id}`,
+        email: mail(id),
+      })),
+    );
+    await db
+      .insert(userProfiles)
+      .values([
+        { user_id: expiredUser, is_disabled: true, disabled_at: daysAgo(31) },
+        { user_id: recentUser, is_disabled: true, disabled_at: daysAgo(29) },
+        { user_id: activeUser },
+      ]);
+
+    const watched = { class_nbr: `${RUN}20`, term };
+    const unwatchedStale = { class_nbr: `${RUN}22`, term };
+    const unwatchedFresh = { class_nbr: `${RUN}24`, term };
+
+    for (const ref of [watched, unwatchedStale, unwatchedFresh])
+      await insertClassStateIfMissing(db, ref, queueDetails);
+
+    await db
+      .update(classStates)
+      .set({ last_checked_at: daysAgo(200) })
+      .where(inArray(classStates.class_nbr, [watched.class_nbr, unwatchedStale.class_nbr]));
+
+    const [watch] = await db
+      .insert(classWatches)
+      .values({ ...watched, user_id: activeUser, subject: SUBJECT, catalog_nbr: "120" })
+      .returning({ id: classWatches.id });
+
+    await db.insert(notificationsSent).values([
+      {
+        class_watch_id: watch.id,
+        notification_type: "seat_available",
+        sent_at: daysAgo(400),
+        is_active: false,
+      },
+      {
+        class_watch_id: watch.id,
+        notification_type: "seat_available",
+        sent_at: daysAgo(10),
+        is_active: false,
+      },
+    ]);
+
+    const purged = await purgeExpiredData(db);
+
+    expect(purged.accountsPurged).toBeGreaterThanOrEqual(1);
+    expect(purged.notificationsPurged).toBeGreaterThanOrEqual(1);
+    expect(purged.classStatesPurged).toBeGreaterThanOrEqual(1);
+
+    const remainingUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(inArray(users.id, [expiredUser, recentUser, activeUser]));
+
+    expect(remainingUsers.map((u) => u.id).sort()).toEqual([activeUser, recentUser].sort());
+
+    const orphanedProfiles = await db
+      .select({ id: userProfiles.user_id })
+      .from(userProfiles)
+      .where(eq(userProfiles.user_id, expiredUser));
+
+    expect(orphanedProfiles).toEqual([]);
+
+    const remainingNotifications = await db
+      .select({ sent_at: notificationsSent.sent_at })
+      .from(notificationsSent)
+      .where(eq(notificationsSent.class_watch_id, watch.id));
+
+    expect(remainingNotifications).toHaveLength(1);
+
+    const remainingStates = await db
+      .select({ class_nbr: classStates.class_nbr })
+      .from(classStates)
+      .where(eq(classStates.term, term));
+
+    expect(remainingStates.map((s) => s.class_nbr).sort()).toEqual(
+      [watched.class_nbr, unwatchedFresh.class_nbr].sort(),
+    );
   });
 });

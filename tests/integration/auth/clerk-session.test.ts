@@ -1,13 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-const { createClerkClient, authenticateRequest, getSessionList, revokeSessionCall, getUser } =
-  vi.hoisted(() => ({
-    createClerkClient: vi.fn(),
-    authenticateRequest: vi.fn(),
-    getSessionList: vi.fn(),
-    revokeSessionCall: vi.fn(),
-    getUser: vi.fn(),
-  }));
+const {
+  createClerkClient,
+  authenticateRequest,
+  getSessionList,
+  revokeSessionCall,
+  getUser,
+  deleteUser,
+} = vi.hoisted(() => ({
+  createClerkClient: vi.fn(),
+  authenticateRequest: vi.fn(),
+  getSessionList: vi.fn(),
+  revokeSessionCall: vi.fn(),
+  getUser: vi.fn(),
+  deleteUser: vi.fn(),
+}));
 
 vi.mock("@clerk/backend", () => ({ createClerkClient }));
 
@@ -21,6 +28,7 @@ import {
   SessionRevocationIncomplete,
 } from "@/lib/auth/clerk-errors";
 import {
+  deleteClerkUser,
   getClerkUser,
   getSessionIdentity,
   revokeAllUserSessions,
@@ -40,7 +48,7 @@ describe("clerk-session", () => {
     createClerkClient.mockImplementation(() => ({
       authenticateRequest,
       sessions: { getSessionList, revokeSession: revokeSessionCall },
-      users: { getUser },
+      users: { getUser, deleteUser },
     }));
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
@@ -116,6 +124,28 @@ describe("clerk-session", () => {
     revokeSessionCall.mockResolvedValue({});
 
     await expect(revokeAllUserSessions("user_1")).resolves.toBeUndefined();
+  });
+
+  it("deletes a Clerk identity, counts an already-deleted one as done, and reports other failures", async () => {
+    const { ClerkAPIResponseError } =
+      await vi.importActual<typeof import("@clerk/backend/errors")>("@clerk/backend/errors");
+
+    const apiError = (status: number) =>
+      new ClerkAPIResponseError("clerk said no", { data: [], status });
+
+    deleteUser
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(apiError(404))
+      .mockRejectedValueOnce(apiError(503));
+
+    await expect(deleteClerkUser("user_1")).resolves.toBeUndefined();
+    await expect(deleteClerkUser("user_2")).resolves.toBeUndefined();
+    expect(await caught(deleteClerkUser("user_3"))).toMatchObject({
+      operation: "users.deleteUser",
+      status: 503,
+      retryable: true,
+    });
+    expect(deleteUser).toHaveBeenNthCalledWith(1, "user_1");
   });
 
   it("treats a failed verification as signed out and logs it", async () => {
