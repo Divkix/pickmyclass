@@ -5,14 +5,11 @@ import {
   AUTO_CLEANUP_THRESHOLD,
 } from "@/lib/config";
 import {
-  type ClassWatcher,
+  type SectionRetirementResult,
   capConsecutiveNotFound,
-  deleteSectionAndWatches,
-  getClassWatchers,
   incrementConsecutiveNotFound,
   readAutoCleanupBreakerCounts,
-  readSectionRemovalClassInfo,
-  type SectionRemovalClassInfo,
+  retireSectionIfNotFound,
 } from "@/lib/db/queries";
 import { sendAutoCleanupRemovalEmails } from "@/lib/email/templates/auto-cleanup";
 import { errorFields, log } from "@/lib/log";
@@ -29,7 +26,7 @@ export type SectionRetirementStatus =
   | "tracked"
   | "increment-failed"
   | "suppressed"
-  | "watcher-read-failed"
+  | "not-retired"
   | "delete-failed"
   | "retired";
 
@@ -137,44 +134,10 @@ export async function retireClassSection(
     };
   }
 
-  let watchers: ClassWatcher[];
-  let classInfo: SectionRemovalClassInfo | null;
+  let retirement: SectionRetirementResult;
 
   try {
-    [watchers, classInfo] = await Promise.all([
-      getClassWatchers(db, ref),
-      readSectionRemovalClassInfo(db, ref).catch((error): SectionRemovalClassInfo | null => {
-        // The removal email falls back to a generic subject, so this read must not stop the cleanup.
-        log("SectionRetirement").warn("Auto-cleanup could not read the class name", {
-          ...sectionFields(ref),
-          ...errorFields(error),
-        });
-
-        return null;
-      }),
-    ]);
-  } catch (watcherError) {
-    log("SectionRetirement").warn("Auto-cleanup failed to fetch watchers", {
-      ...sectionFields(ref),
-      ...errorFields(watcherError),
-    });
-
-    return {
-      status: "watcher-read-failed",
-      strikeCount,
-      suppressed: false,
-      deleted: false,
-      watchesDeleted: 0,
-      emailsAttempted: 0,
-      emailsSucceeded: 0,
-    };
-  }
-
-  let watchesDeleted = 0;
-
-  try {
-    const delResult = await deleteSectionAndWatches(db, ref);
-    watchesDeleted = delResult.watchesDeleted;
+    retirement = await retireSectionIfNotFound(db, ref, AUTO_CLEANUP_THRESHOLD);
   } catch (deleteError) {
     log("SectionRetirement").error("Auto-cleanup delete failed", {
       ...sectionFields(ref),
@@ -192,13 +155,33 @@ export async function retireClassSection(
     };
   }
 
+  if (!retirement.retired) {
+    log("SectionRetirement").info(
+      "Auto-cleanup skipped after counter changed or state disappeared",
+      {
+        ...sectionFields(ref),
+      },
+    );
+
+    return {
+      status: "not-retired",
+      strikeCount,
+      suppressed: false,
+      deleted: false,
+      watchesDeleted: 0,
+      emailsAttempted: 0,
+      emailsSucceeded: 0,
+    };
+  }
+
+  const watchesDeleted = retirement.watches_deleted;
   let emailsAttempted = 0;
   let emailsSucceeded = 0;
 
   if (watchesDeleted > 0) {
     try {
       const results = await sendAutoCleanupRemovalEmails(
-        { ref, classInfo, watchers },
+        { ref, classInfo: retirement.class_info, watchers: retirement.watchers },
         emailBinding,
         fromEmail,
       );
@@ -213,7 +196,8 @@ export async function retireClassSection(
     }
   }
 
-  // Watches past the email cap are removed without email: an accepted trade-off vs paging.
+  // Removal emails are at-most-once: deletion commits before sending. A crash,
+  // provider error or cap loses unsent mail; redelivery never resumes this batch.
   log("SectionRetirement").info("Auto-cleanup retired section", {
     ...sectionFields(ref),
     watches_deleted: watchesDeleted,

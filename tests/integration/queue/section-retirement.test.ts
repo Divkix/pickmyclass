@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { EMAIL_SEND_TIMEOUT_MS } from "@/lib/config";
+import {
+  AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE,
+  EMAIL_BATCH_DELAY_MS,
+  EMAIL_SEND_TIMEOUT_MS,
+} from "@/lib/config";
 import { sendAutoCleanupRemovalEmails } from "@/lib/email/templates/auto-cleanup";
 import { retireClassSection } from "@/lib/queue/section-retirement";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
@@ -11,6 +15,7 @@ describe("Section Check retirement", () => {
   });
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it("retires the SectionRef on the third NotFound and notifies its watchers", async () => {
@@ -18,10 +23,14 @@ describe("Section Check retirement", () => {
     pg.next([{ new_count: 3 }]);
     pg.next([{ value: 100 }]);
     pg.next([{ value: 1 }]);
-    pg.next([{ ...watcher, created_at: "2026-10-15T00:00:00.000Z" }]);
-    pg.next([{ subject: details.subject, catalog_nbr: details.catalog_nbr, title: details.title }]);
-    pg.next([{ id: watcher.watch_id }]);
-    pg.next([{ id: "state-1" }]);
+    pg.next([
+      {
+        retired: true,
+        watches_deleted: 1,
+        class_info: details,
+        watchers: [watcher],
+      },
+    ]);
     const env = environment();
     expect(await retireClassSection({ db: pg.db, ref, emailBinding: env.EMAIL })).toMatchObject({
       status: "retired",
@@ -30,9 +39,6 @@ describe("Section Check retirement", () => {
       watchesDeleted: 1,
       emailsSucceeded: 1,
     });
-    expect(pg.transactionCount).toBe(1);
-    expect(pg.statements[5].params).toEqual([ref.class_nbr, ref.term]);
-    expect(pg.statements[6].params).toEqual([ref.class_nbr, ref.term]);
     expect(env.send).toHaveBeenCalledOnce();
   });
 
@@ -54,24 +60,26 @@ describe("Section Check retirement", () => {
     expect(env.send).not.toHaveBeenCalled();
   });
 
-  it("logs an unreadable class name and still retires the section", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("keeps watches and sends nothing when a successful observation reset the counter", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
     const pg = createScriptedPostgres();
     pg.next([{ new_count: 3 }]);
     pg.next([{ value: 100 }]);
     pg.next([{ value: 1 }]);
-    pg.next([{ ...watcher, created_at: "2026-10-15T00:00:00.000Z" }]);
-    pg.failNext(new Error("connection reset"));
-    pg.next([{ id: watcher.watch_id }]);
-    pg.next([{ id: "state-1" }]);
+    pg.next([{ retired: false, watches_deleted: 0, class_info: null, watchers: [] }]);
     const env = environment();
 
     expect(await retireClassSection({ db: pg.db, ref, emailBinding: env.EMAIL })).toMatchObject({
-      status: "retired",
-      watchesDeleted: 1,
+      status: "not-retired",
+      deleted: false,
+      watchesDeleted: 0,
+      emailsAttempted: 0,
     });
-    expect(warn).toHaveBeenCalledWith(
-      expect.objectContaining({ msg: "Auto-cleanup could not read the class name" }),
+    expect(env.send).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        msg: "Auto-cleanup skipped after counter changed or state disappeared",
+      }),
     );
   });
 });
@@ -84,6 +92,41 @@ describe("sendAutoCleanupRemovalEmails", () => {
     vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+  });
+
+  it("bounds even all-timeout removal batches and logs recipients beyond the cap", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const env = environment();
+    env.send.mockImplementation(() => new Promise(() => {}));
+
+    const watchers = Array.from({ length: AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE + 2 }, (_, i) => ({
+      ...watcher,
+      user_id: `user-${i}`,
+      watch_id: `watch-${i}`,
+    }));
+
+    const started = Date.now();
+    const pending = sendAutoCleanupRemovalEmails({ ref, watchers }, env.EMAIL);
+
+    await vi.runAllTimersAsync();
+
+    const results = await pending;
+    expect(results).toHaveLength(AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE);
+    expect(results.every((result) => result.attempted && !result.success)).toBe(true);
+    expect(env.send).toHaveBeenCalledTimes(AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE);
+    expect(Date.now() - started).toBe(
+      AUTO_CLEANUP_MAX_EMAILS_PER_CYCLE * EMAIL_SEND_TIMEOUT_MS + 2 * EMAIL_BATCH_DELAY_MS,
+    );
+    expect(Date.now() - started).toBeLessThan(15 * 60 * 1000);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        msg: "Auto-cleanup watchers exceed the email cap, truncating",
+        removed_without_email: 2,
+      }),
+    );
   });
 
   it("counts a timed-out removal email as attempted but not sent, and keeps sending", async () => {
