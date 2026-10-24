@@ -13,6 +13,13 @@ export const DB_QUERY_TIMEOUT_MS = 15_000;
 /** Longest one Clerk Backend API call may take before the request stops waiting. */
 export const CLERK_REQUEST_TIMEOUT_MS = 8_000;
 
+/** Cache API reads and writes are local to the colo; a slow one is skipped, not waited for. */
+export const EDGE_CACHE_TIMEOUT_MS = 3_000;
+
+export const COLLECTOR_TIMEOUT_MS = 10_000;
+
+export const ASSETS_FETCH_TIMEOUT_MS = 10_000;
+
 export const ASU_CACHE_TTL_MS = 2 * 60 * 1000;
 
 export const ADMIN_CACHE_TTL_MS = 600_000;

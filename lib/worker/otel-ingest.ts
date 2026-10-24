@@ -9,6 +9,8 @@
 import { z } from "zod";
 import { errorFields, log, redactEmails } from "@/lib/log";
 import type { Env } from "@/lib/types/env";
+import { collectorCall } from "@/lib/worker/calls";
+import { CollectorCallFailed, CollectorCallTimedOut } from "@/lib/worker/errors";
 
 const OTEL_PATH = /^\/otel(\/|$)/;
 
@@ -23,8 +25,6 @@ function isSignal(value: string | undefined): value is OtelSignal {
 }
 
 const MAX_BODY_BYTES = 1024 * 1024;
-
-const UPSTREAM_TIMEOUT_MS = 10_000;
 
 const FORWARDED_HEADERS = ["content-type", "content-encoding"] as const;
 
@@ -132,14 +132,13 @@ async function forward(
   body: ArrayBuffer | string,
 ): Promise<void> {
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body,
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    });
+    const response = await collectorCall(async (abort) => {
+      const upstream = await fetch(url, { method: "POST", headers, body, signal: abort });
 
-    await response.body?.cancel();
+      await upstream.body?.cancel();
+
+      return upstream;
+    });
 
     if (!response.ok)
       ingestLog.error("Collector rejected browser telemetry", {
@@ -149,7 +148,8 @@ async function forward(
   } catch (error) {
     ingestLog.error("Collector unreachable for browser telemetry", {
       signal,
-      ...errorFields(error),
+      ...errorFields(error instanceof CollectorCallFailed ? error.cause : error),
+      timed_out: error instanceof CollectorCallTimedOut,
     });
   }
 }
