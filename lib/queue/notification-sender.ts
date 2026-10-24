@@ -102,7 +102,12 @@ export async function sendSectionNotifications(
       },
       onResult: (index, result) => {
         const claim = emails[index].claim;
-        claim.status = result.success ? "delivered" : "failed";
+        // A timed-out send may still deliver: keep the claim in flight so a retry cannot duplicate it.
+        claim.status = result.success
+          ? "delivered"
+          : result.outcomeUnknown
+            ? "in-flight"
+            : "failed";
 
         if (result.success) deliveredIds.push(claim.notificationId);
       },

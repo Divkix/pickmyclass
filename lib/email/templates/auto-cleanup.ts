@@ -6,7 +6,9 @@ import {
   NOTIFICATION_FROM_EMAIL,
 } from "@/lib/config";
 import { generateUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
+import { EmailSendFailed, EmailTimedOut } from "@/lib/email/errors";
 import { isFatalEmailCode } from "@/lib/email/send";
+import { sendEmailMessage } from "@/lib/email/transport";
 import { errorFields, log } from "@/lib/log";
 import { type SectionRef, sectionFields } from "@/lib/section-ref";
 import { escapeHtml } from "@/lib/utils/escape-html";
@@ -205,7 +207,7 @@ export async function sendAutoCleanupRemovalEmails(
     });
 
     try {
-      await emailBinding.send({
+      await sendEmailMessage(emailBinding, {
         to: watcher.email,
         from,
         subject: built.subject,
@@ -219,10 +221,14 @@ export async function sendAutoCleanupRemovalEmails(
 
       results.push({ success: true, watchId: watcher.watch_id, attempted: true });
     } catch (error) {
-      // SAFETY: unknown catch shape narrowed to optional code/message; fallback preserves invariant
-      const errorObj = error as { code?: string; message?: string };
-      const errorMessage = errorObj.message || "Email send failed";
-      const errorCode = errorObj.code || "UNKNOWN";
+      const errorCode =
+        error instanceof EmailSendFailed
+          ? error.code
+          : error instanceof EmailTimedOut
+            ? "TIMEOUT"
+            : "UNKNOWN";
+
+      const errorMessage = error instanceof Error ? error.message : "Email send failed";
 
       log("Email").error("Auto-cleanup email send failed", {
         ...sectionFields(ref),

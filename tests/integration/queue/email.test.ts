@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE } from "@/lib/config";
+import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE, EMAIL_SEND_TIMEOUT_MS } from "@/lib/config";
 import { sendBatchEmailsOptimized, type OutboundEmail } from "@/lib/email/send";
 import { details, environment, ref } from "./fixtures";
 
@@ -66,5 +66,35 @@ describe("sendBatchEmailsOptimized", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(await result).toHaveLength(EMAIL_BATCH_SIZE + 1);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe("sendBatchEmailsOptimized timeouts", () => {
+  beforeEach(() => {
+    vi.stubEnv("UNSUBSCRIBE_SIGNING_SECRET", "test-signing-secret");
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("marks a timed-out send as unknown and keeps sending the rest", async () => {
+    vi.useFakeTimers();
+    const env = environment();
+    env.send.mockImplementationOnce(() => new Promise(() => {}));
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const pending = sendBatchEmailsOptimized(emails(2), env.EMAIL);
+
+    await vi.advanceTimersByTimeAsync(EMAIL_SEND_TIMEOUT_MS);
+    const results = await pending;
+
+    expect(results[0]).toEqual({
+      success: false,
+      error: expect.stringContaining("TIMEOUT"),
+      outcomeUnknown: true,
+    });
+    expect(results[1]?.success).toBe(true);
   });
 });
