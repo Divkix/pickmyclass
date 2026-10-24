@@ -15,8 +15,6 @@ import type { OnboardingState } from "@/lib/onboarding";
 import { trackBrowserAction } from "@/lib/telemetry/browser";
 import type { ClassWatchRow } from "@/lib/types/class-watch";
 
-export type { OnboardingState };
-
 type Step = 1 | 2 | 3;
 
 const stepTitles = {
@@ -159,6 +157,11 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
     if (skippingRef.current) return;
     skippingRef.current = true;
     setSkipping(true);
+    onSkipped({
+      onboarding_completed_at: null,
+      onboarding_skipped_at: new Date().toISOString(),
+      needs_onboarding: false,
+    });
 
     try {
       const response = await fetch("/api/user/onboarding", { method: "POST" });
