@@ -85,6 +85,13 @@
       "when": 1792281872485,
       "tag": "0011_drop_record_section_check",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792832471895,
+      "tag": "0012_purge_expired_data",
+      "breakpoints": true
     }
   ]
 }

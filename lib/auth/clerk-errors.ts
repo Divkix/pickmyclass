@@ -32,3 +32,13 @@ export class SessionRevocationIncomplete extends Data.TaggedError("SessionRevoca
   total: number;
   retryable: true;
 }> {}
+
+/** Some expired accounts kept their Clerk identity; the rest were deleted. */
+export class ClerkIdentityDeletionIncomplete extends Data.TaggedError(
+  "ClerkIdentityDeletionIncomplete",
+)<{
+  message: string;
+  failed: number;
+  total: number;
+  retryable: true;
+}> {}

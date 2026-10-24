@@ -639,3 +639,53 @@ export async function readSectionCheckState(
     throw new Error(`Failed to fetch section check state: ${driverErrorMessage(error)}`);
   }
 }
+
+const purgedSchema = z.object({
+  accounts_purged: z.number(),
+  notifications_purged: z.number(),
+  class_states_purged: z.number(),
+});
+
+export type PurgedData = {
+  accountsPurged: number;
+  notificationsPurged: number;
+  classStatesPurged: number;
+};
+
+const clerkIdsSchema = z.array(z.object({ clerk_user_id: z.string() }));
+
+/**
+ * Clerk ids of the accounts `purge_expired_data` is about to delete, plus an hour of lead: an
+ * account that crosses the 30-day mark between this read and the purge still loses its identity.
+ */
+export async function listExpiredClerkIdentities(db: Database): Promise<string[]> {
+  try {
+    const { rows } = await db.execute(sql`SELECT coalesce(u.clerk_user_id, u.id) AS clerk_user_id
+      FROM public.users u JOIN public.user_profiles p ON p.user_id = u.id
+      WHERE p.is_disabled AND p.disabled_at IS NOT NULL
+        AND p.disabled_at < now() - interval '30 days' + interval '1 hour'
+        AND (u.clerk_user_id IS NOT NULL OR u.id LIKE 'user\_%')`);
+
+    return clerkIdsSchema.parse(rows).map((row) => row.clerk_user_id);
+  } catch (error) {
+    log("DB").error("Error listing expired Clerk identities", errorFields(error));
+    throw new Error(`Failed to list expired Clerk identities: ${driverErrorMessage(error)}`);
+  }
+}
+
+/** Deletes data past the privacy policy's retention windows (see migration 0012). */
+export async function purgeExpiredData(db: Database): Promise<PurgedData> {
+  try {
+    const { rows } = await db.execute(sql`SELECT * FROM public.purge_expired_data()`);
+    const purged = purgedSchema.parse(rows[0]);
+
+    return {
+      accountsPurged: purged.accounts_purged,
+      notificationsPurged: purged.notifications_purged,
+      classStatesPurged: purged.class_states_purged,
+    };
+  } catch (error) {
+    log("DB").error("Error purging expired data", errorFields(error));
+    throw new Error(`Failed to purge expired data: ${driverErrorMessage(error)}`);
+  }
+}

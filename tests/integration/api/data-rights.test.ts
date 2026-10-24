@@ -378,6 +378,7 @@ describe("user data rights APIs", () => {
     });
 
     it("fails account deletion when the soft delete update fails", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
       recorder.outcomes.push(new Error("update failed"));
 
       const response = await DELETE(
@@ -388,6 +389,9 @@ describe("user data rights APIs", () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe("Failed to delete account");
+      expect(error).toHaveBeenCalledWith(
+        expect.objectContaining({ msg: "Failed to disable account" }),
+      );
       expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
       expect(mockLogEvent).not.toHaveBeenCalled();
       expect(mockRevokeAllUserSessions).not.toHaveBeenCalled();
