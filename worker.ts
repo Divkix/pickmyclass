@@ -12,6 +12,7 @@ import {
   cycleElapsedMs,
 } from "./lib/workflows/cron-workflows";
 import { withJsonApiError } from "./lib/worker/api-errors";
+import { fetchAsset } from "./lib/worker/calls";
 import { handleOtelIngest, isOtelIngestPath } from "./lib/worker/otel-ingest";
 import { edgeHtmlCache } from "./lib/worker/edge-html-cache";
 import {
@@ -84,7 +85,7 @@ export default {
     const markdownPath = markdownSourcePath(url.pathname);
 
     if (markdownPath && isGetOrHead) {
-      const asset = await env.ASSETS.fetch(request);
+      const asset = await fetchAsset(env.ASSETS, request);
 
       if (asset.status !== 404) return asset;
 
