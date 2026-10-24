@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { InstructorAssignedEmailTemplate, SeatAvailableEmailTemplate } from "./templates";
 import type { ClassInfo } from "@/lib/types/class";
 import { EMAIL_BATCH_DELAY_MS, EMAIL_BATCH_SIZE, NOTIFICATION_FROM_EMAIL } from "@/lib/config";
@@ -7,6 +6,8 @@ import type { NotificationType } from "@/lib/types/notification";
 import { sectionFields } from "@/lib/section-ref";
 import { withSpan } from "@/lib/telemetry/span";
 import { generateUnsubscribeUrl } from "./unsubscribe-token";
+import { EmailSendFailed, EmailTimedOut } from "./errors";
+import { sendEmailMessage } from "./transport";
 
 export type { ClassInfo } from "@/lib/types/class";
 
@@ -21,6 +22,8 @@ interface EmailResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  /** The send timed out: the provider may still deliver, so never treat it as not sent. */
+  outcomeUnknown?: boolean;
 }
 
 interface SendBatchEmailOptions {
@@ -36,11 +39,6 @@ export interface OutboundEmail {
   type: NotificationType;
 }
 
-const emailFailureSchema = z.object({
-  code: z.string().optional(),
-  message: z.string().optional(),
-});
-
 export function isFatalEmailCode(code: string): boolean {
   return (
     code === "E_RATE_LIMIT_EXCEEDED" ||
@@ -53,6 +51,19 @@ interface EmailFailure {
   code: string;
   message: string;
   fields: ErrorFields;
+  outcomeUnknown: boolean;
+}
+
+function describeFailure(error: Error): EmailFailure {
+  const fields = errorFields(error);
+
+  if (error instanceof EmailTimedOut)
+    return { code: "TIMEOUT", message: error.message, fields, outcomeUnknown: true };
+
+  if (error instanceof EmailSendFailed)
+    return { code: error.code, message: error.message, fields, outcomeUnknown: false };
+
+  return { code: "UNKNOWN", message: "Email send failed", fields, outcomeUnknown: false };
 }
 
 /** Sequential sends with a pause only between full batches. */
@@ -86,7 +97,7 @@ export async function sendBatchEmailsOptimized(
         "email.send",
         { notification_type: email.type, ...sectionFields(email.classInfo) },
         () =>
-          emailBinding.send({
+          sendEmailMessage(emailBinding, {
             to: email.to,
             from: options.fromEmail || NOTIFICATION_FROM_EMAIL,
             subject: isSeat
@@ -101,17 +112,16 @@ export async function sendBatchEmailsOptimized(
           }),
       ));
     } catch (error) {
-      const parsed = emailFailureSchema.safeParse(error);
-
-      failure = {
-        code: (parsed.success && parsed.data.code) || "UNKNOWN",
-        message: (parsed.success && parsed.data.message) || "Email send failed",
-        fields: errorFields(error),
-      };
+      // sendEmailMessage only rejects with its own typed failures.
+      failure = describeFailure(error instanceof Error ? error : new Error(String(error)));
     }
 
     const result: EmailResult = failure
-      ? { success: false, error: `${failure.code}: ${failure.message}` }
+      ? {
+          success: false,
+          error: `${failure.code}: ${failure.message}`,
+          ...(failure.outcomeUnknown && { outcomeUnknown: true }),
+        }
       : { success: true, messageId };
 
     results.push(result);

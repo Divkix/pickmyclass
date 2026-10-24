@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { EMAIL_SEND_TIMEOUT_MS } from "@/lib/config";
 import { sendSectionNotifications } from "@/lib/queue/notification-sender";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
 import { changes, claim, details, environment, ref, watcher } from "./fixtures";
@@ -91,5 +92,38 @@ describe("sendSectionNotifications", () => {
     expect(results.map((r) => r.success)).toEqual([false, true]);
     expect(pg.statements.at(-1)?.params).toContain("claim-1");
     expect(pg.statements.at(-1)?.params).not.toContain("instructor-claim");
+  });
+
+  it("keeps the claim in flight when the send times out, since the provider may still deliver", async () => {
+    vi.useFakeTimers();
+    const pg = createScriptedPostgres();
+    pg.next([watcher]);
+    pg.next([claim]);
+    pg.next();
+    const env = environment();
+    env.send.mockImplementationOnce(() => new Promise(() => {}));
+
+    const pending = sendSectionNotifications({
+      db: pg.db,
+      ref,
+      classInfo: { ...details, ...ref },
+      changes,
+      emailBinding: env.EMAIL,
+    });
+
+    await vi.advanceTimersByTimeAsync(EMAIL_SEND_TIMEOUT_MS);
+    const results = await pending;
+    vi.useRealTimers();
+
+    expect(results).toEqual([
+      {
+        success: false,
+        watchId: watcher.watch_id,
+        type: "seat_available",
+        error: expect.stringContaining("TIMEOUT"),
+      },
+    ]);
+    // Nothing after the claim: a rollback would have deleted the row a retry must find.
+    expect(pg.statements.flatMap((statement) => statement.params)).not.toContain("claim-1");
   });
 });
