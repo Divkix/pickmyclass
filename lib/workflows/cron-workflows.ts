@@ -228,7 +228,7 @@ export class MaintenanceWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
         ),
       ),
       step.do(MAINTENANCE_STEPS[2], STEP_CONFIG, () =>
-        purgeExpiredData(getDb(this.env.HYPERDRIVE)),
+        failPermanently(() => purgeExpiredData(getDb(this.env.HYPERDRIVE))),
       ),
     ]);
 
