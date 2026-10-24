@@ -43,7 +43,7 @@ vinext App (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (Drizz
       |         |                               ^
       |         | Clerk FAPI (clerk.*)          | polling GET /api/class-watches/states
       v         v                               | (30–60s, sectionRefKey)
-Workflow schedules (every 15 min + 04:05 maintenance)  |
+Workflow schedules (every 15 min + hourly maintenance) |
       |
       v
 SectionCheckWorkflow (retried steps; enqueues in batches of 100)
@@ -69,7 +69,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | Component | Purpose |
 |-----------|---------|
 | `worker.ts` | Custom Cloudflare Worker with fetch and queue handlers; re-exports the Workflow classes |
-| `lib/workflows/cron-workflows.ts` | `SectionCheckWorkflow` (enqueue checks) and `MaintenanceWorkflow` (daily sweeps) |
+| `lib/workflows/cron-workflows.ts` | `SectionCheckWorkflow` (enqueue checks) and `MaintenanceWorkflow` (hourly sweeps and retention purge) |
 | `lib/worker/edge-html-cache.ts` | Edge HTML cache eligibility, keying, lookup, and storage rules |
 | `lib/db/index.ts` | Request-scoped Drizzle over node-postgres (`getDb`/`getDbFromEnv` via the `HYPERDRIVE` binding) |
 | `lib/db/queries.ts` | Database query helpers (Drizzle builders for CRUD, typed SQL for SECURITY DEFINER RPCs) |
@@ -107,7 +107,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 
 ### Workflows
 
-**SectionCheckWorkflow** (`0,15,30,45 * * * *`) and **MaintenanceWorkflow** (`5 4 * * *`) run from `schedules` on their bindings in `wrangler.jsonc`. Each step retries on its own; runs are listed in Dashboard → Workers & Pages → Workflows. Trigger one by hand with `wrangler workflows trigger pickmyclass-section-check`.
+**SectionCheckWorkflow** (`0,15,30,45 * * * *`) and **MaintenanceWorkflow** (`5 * * * *`) run from `schedules` on their bindings in `wrangler.jsonc`. Each step retries on its own; runs are listed in Dashboard → Workers & Pages → Workflows. Trigger one by hand with `wrangler workflows trigger pickmyclass-section-check`.
 
 ## Self-Hosting Guide
 
@@ -318,7 +318,7 @@ wrangler.jsonc               # Cloudflare Workers config (HYPERDRIVE, CLERK_* se
 2. **Every 15 minutes** - Workflow schedules enqueue half the watched sections (even/odd stagger), so each section is checked every 30 minutes
 3. **Queue consumers process** - 20 concurrent Workers query ASU API in parallel
 4. **Change detection** - Compare new state with PostgreSQL cached state (`non_reserved_seats ?? seats_available`)
-5. **Atomic deduplication** - a partial unique index (`is_active=TRUE`) + `try_record_notifications_batch` claims recipients; an `expire_stale_notifications()` sweep on every cron tail + the 04:05 maintenance run frees expired slots
+5. **Atomic deduplication** - a partial unique index (`is_active=TRUE`) + `try_record_notifications_batch` claims recipients; an `expire_stale_notifications()` sweep on every cron tail + the hourly maintenance run frees expired slots
 6. **Email notification** - Cloudflare Email Service sends alerts for available seats
 7. **Dashboard polls** - `useRealtimeClassStates` polls `/api/class-watches/states` (not Realtime)
 

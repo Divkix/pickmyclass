@@ -110,7 +110,7 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
         }),
       );
     } catch (error) {
-      // Best-effort here: the 04:05 maintenance run expires them too, and a
+      // Best-effort here: the hourly maintenance run expires them too, and a
       // failed sweep must not block this cycle's checks.
       log("SectionCheck").warn("Failed to expire stale notifications", {
         cycle,
@@ -212,7 +212,7 @@ const MAINTENANCE_STEPS = [
 ] as const;
 
 /**
- * Daily at 04:05 UTC: expire stale notification claims, delete watches for past
+ * Hourly at :05: expire stale notification claims, delete watches for past
  * terms, and purge data past the privacy policy's retention windows. The steps
  * are independent; any failing errors the instance after the others have run.
  */

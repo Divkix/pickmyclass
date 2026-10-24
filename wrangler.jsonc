@@ -33,7 +33,7 @@
       "name": "pickmyclass-maintenance",
       "binding": "MAINTENANCE_WORKFLOW",
       "class_name": "MaintenanceWorkflow",
-      "schedules": ["5 4 * * *"],
+      "schedules": ["5 * * * *"],
     },
   ],
   "queues": {
