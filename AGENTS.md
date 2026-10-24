@@ -77,7 +77,7 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 - Workers Free plan limits: Workflow steps get 10ms CPU and 1,024 steps per instance, so keep steps small and I/O-bound. Queues allow roughly 10k ops/day (~3 per message). The DLQ `pickmyclass-dlq` has no consumer; inspect or redrive it from the dashboard.
 - Secrets (`CLERK_*`, `ASU_API_*`, `CRON_SECRET`, `UNSUBSCRIBE_SIGNING_SECRET`) are set with `wrangler secret put`, never in `wrangler.jsonc`. Local values go in `.dev.vars` and `.env.local`, both gitignored; `.env.example` lists them.
 - `lib/cloudflare-env.d.ts` is **generated** by `pnpm run cf-typegen`, which also rewrites the whole runtime-types section. Commit only the binding hunks unless you mean to bump runtime types. Hand-written additions go in `lib/cloudflare-env.supplemental.d.ts`.
-- A new file imported by `worker.ts` must be added to `tsconfig.worker.json` → `include`, or it is never type-checked.
+- The app pass (`tsconfig.json`) type-checks every file outside `tools/`; the worker pass (`tsconfig.worker.json`: ES2022 lib, no DOM) checks its `include` list and whatever those files import. List a new file that `worker.ts` imports in that `include` anyway, so it keeps the Worker-only check if the import chain changes.
 - Local `dev` / `preview` reach Postgres at `wrangler.jsonc`'s `localConnectionString` (`localhost:5432`); override with `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`.
 
 **SEO**:
