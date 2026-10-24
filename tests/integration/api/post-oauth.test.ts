@@ -1,5 +1,3 @@
-import { type SQL } from "drizzle-orm";
-import { PgDialect } from "drizzle-orm/pg-core";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -12,7 +10,7 @@ const {
   mockRepairUserMirror,
   mockInvalidateAuthorizationState,
 } = vi.hoisted(() => {
-  const mockExecute = vi.fn<(query: SQL) => Promise<unknown[]>>();
+  const mockExecute = vi.fn();
   const mockGetUser = vi.fn();
 
   return {
@@ -156,31 +154,16 @@ describe("GET /auth/post-oauth", () => {
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
-  it("records confirmed consent via one bound RPC, then invalidates authorization state before redirecting", async () => {
-    mockRepairUserMirror.mockResolvedValueOnce({ hasConsent: false });
-
-    const response = await GET(getRequest("?next=/dashboard&consent=confirmed"));
-
-    expect(mockExecute).toHaveBeenCalledTimes(1);
-    const query = mockExecute.mock.calls[0][0];
-    expect(new PgDialect().sqlToQuery(query).sql.replace(/\s+/g, " ").trim()).toBe(
-      "SELECT public.accept_terms_and_verify_age($1::text)",
+  it("ignores cross-site GET consent claims and requires the consent form POST", async () => {
+    const response = await GET(
+      getRequest("?next=/dashboard&consent=confirmed", {
+        "sec-fetch-site": "cross-site",
+        referer: "https://evil.example/",
+      }),
     );
-    expect(new PgDialect().sqlToQuery(query).params).toEqual(["user-1"]);
-    expect(mockInvalidateAuthorizationState).toHaveBeenCalledTimes(1);
-    expect(mockInvalidateAuthorizationState).toHaveBeenCalledWith("user-1");
-    expect(mockExecute.mock.invocationCallOrder[0]).toBeLessThan(
-      mockInvalidateAuthorizationState.mock.invocationCallOrder[0],
-    );
-    expect(locationOf(response)).toBe(`${ORIGIN}/dashboard`);
-  });
 
-  it("does not invalidate authorization state when the consent RPC fails and falls back to save_failed", async () => {
-    mockExecute.mockRejectedValueOnce(new Error("database unavailable"));
-
-    const response = await GET(getRequest("?next=/dashboard&consent=confirmed"));
-
-    expect(locationOf(response)).toBe(`${ORIGIN}/consent?error=save_failed&next=%2Fdashboard`);
+    expect(locationOf(response)).toBe(`${ORIGIN}/consent?next=%2Fdashboard`);
+    expect(mockExecute).not.toHaveBeenCalled();
     expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 

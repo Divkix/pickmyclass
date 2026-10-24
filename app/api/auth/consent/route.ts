@@ -2,25 +2,23 @@ import { sql } from "drizzle-orm";
 import { type NextRequest } from "next/server";
 import { consentSchema } from "@/lib/api/schemas";
 import { fail, ok } from "@/lib/api/response";
-import { parseOrFail } from "@/lib/api/validation";
+import { parseJsonOrFail } from "@/lib/api/validation";
+import { withAuth } from "@/lib/api/withAuth";
 import { invalidateAuthorizationState } from "@/lib/auth/authorization-state";
 import { getClerkUser } from "@/lib/auth/clerk-session";
-import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
 import { getDbFromEnv } from "@/lib/db";
 import { repairUserMirror } from "@/lib/db/users";
 import { errorFields, log } from "@/lib/log";
 
 export async function POST(request: NextRequest) {
   try {
-    const parsed = parseOrFail(consentSchema, await request.json());
+    return await withAuth(request, async (user) => {
+      const parsed = await parseJsonOrFail(consentSchema, request);
 
-    if (!parsed.success) {
-      return parsed.response;
-    }
+      if (!parsed.success) {
+        return parsed.response;
+      }
 
-    const { user } = await requireUser(request);
-
-    try {
       const db = getDbFromEnv();
       const clerkUser = await getClerkUser(user.clerkUserId);
       const result = await repairUserMirror(db, user.userId, clerkUser);
@@ -34,18 +32,13 @@ export async function POST(request: NextRequest) {
       }
 
       await db.execute(sql`SELECT public.accept_terms_and_verify_age(${user.userId}::text)`);
-    } catch (error) {
-      log("Consent").error("Failed to persist consent", errorFields(error));
 
-      return fail("Could not save consent", 500);
-    }
+      invalidateAuthorizationState(user.userId);
 
-    invalidateAuthorizationState(user.userId);
-
-    return ok(null);
+      return ok(null);
+    });
   } catch (error) {
-    if (error instanceof UnauthorizedError) return fail("Unauthorized", 401);
-    log("Consent").error("Unexpected consent error", errorFields(error));
+    log("Consent").error("Failed to persist consent", errorFields(error));
 
     return fail("Could not save consent", 500);
   }

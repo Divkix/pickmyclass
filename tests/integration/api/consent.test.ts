@@ -1,7 +1,7 @@
 import { type SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const {
   dbHandle,
@@ -83,6 +83,47 @@ describe("POST /api/auth/consent", () => {
     mockRepairUserMirror.mockResolvedValue({ hasConsent: false });
     mockGetUser.mockResolvedValue(CLERK_USER);
     mockExecute.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("rejects malformed JSON as invalid input without logging an internal error", async () => {
+    const loggedError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await POST(
+      new NextRequest("https://pickmyclass.app/api/auth/consent", {
+        method: "POST",
+        body: "{",
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ success: false, error: "Invalid input" });
+    expect(loggedError).not.toHaveBeenCalled();
+    expect(mockGetUser).not.toHaveBeenCalled();
+    expect(mockRepairUserMirror).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  it("authenticates before reading even a malformed request body", async () => {
+    mockRequireUser.mockRejectedValueOnce(new UnauthorizedError());
+
+    const malformed = new NextRequest("https://pickmyclass.app/api/auth/consent", {
+      method: "POST",
+      body: "{",
+    });
+
+    const readBody = vi.spyOn(malformed, "json");
+
+    const response = await POST(malformed);
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ success: false, error: "Unauthorized" });
+    expect(readBody).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it("rejects requests that do not explicitly confirm both statements", async () => {
