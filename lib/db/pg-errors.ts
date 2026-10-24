@@ -99,3 +99,22 @@ export function isRaisedException(cause: unknown): boolean {
 export function isUndefinedFunction(cause: unknown): boolean {
   return viewCaughtDriver(cause).pgError?.code === PG_UNDEFINED_FUNCTION;
 }
+
+// Connection exceptions (08), operator intervention such as a failover (57P01-57P03),
+// serialization failures and deadlocks (40001, 40P01) and exhausted resources (53).
+const TRANSIENT_SQLSTATE = /^(08|53|57P0[1-3]|40001$|40P01$)/;
+
+const SQLSTATE = /^[0-9A-Z]{5}$/;
+
+/**
+ * Whether another attempt can succeed. A statement the server answered with a
+ * constraint, syntax or application error (23xxx, 42xxx, P0001) never can. A
+ * `code` that is not a SQLSTATE is a Node socket error (ECONNRESET,
+ * ECONNREFUSED, ETIMEDOUT): the connection failed, so it is worth another
+ * attempt, as is an error with no code at all.
+ */
+export function isTransientDbFailure(cause: unknown): boolean {
+  const code = viewCaughtDriver(cause).pgError?.code;
+
+  return code === undefined || !SQLSTATE.test(code) || TRANSIENT_SQLSTATE.test(code);
+}

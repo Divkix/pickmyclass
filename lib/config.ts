@@ -4,6 +4,12 @@ export const DEFAULT_SITE_URL = "https://pickmyclass.app";
 
 export const ASU_REQUEST_TIMEOUT_MS = 10_000;
 
+/**
+ * Longest a single statement may take before the Worker stops waiting. Shorter
+ * than a Workflow step's 2-minute timeout so the step's own retry still runs.
+ */
+export const DB_QUERY_TIMEOUT_MS = 15_000;
+
 export const ASU_CACHE_TTL_MS = 2 * 60 * 1000;
 
 export const ADMIN_CACHE_TTL_MS = 600_000;
