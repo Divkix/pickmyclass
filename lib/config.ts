@@ -15,8 +15,8 @@ export const CLERK_REQUEST_TIMEOUT_MS = 8_000;
 
 /**
  * Expired accounts whose Clerk identity one Maintenance run deletes. Each delete
- * is a subrequest and Workflows Free allows 50 per instance, so a backlog drains
- * over several daily runs instead of failing every run.
+ * is a subrequest and Workflows Free allows 50 per instance, so the purge keeps
+ * up through hourly runs (600 accounts a day) instead of one large run.
  */
 export const CLERK_PURGE_BATCH_SIZE = 25;
 
