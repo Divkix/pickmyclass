@@ -149,7 +149,9 @@ export async function processSection(
     const observedAt = new Date();
     const changes = detectChanges(oldState, newData);
 
-    if (!oldState) {
+    // A NotFound placeholder is no prior observation either; record_section_observation
+    // applies the same rule to alerts, so these flags match what was emailed.
+    if (!oldState?.observed) {
       changes.seatBecameAvailable = false;
       changes.instructorAssigned = false;
     }

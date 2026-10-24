@@ -646,6 +646,7 @@ describe("upsertClassState / section-check pipeline ops", () => {
       instructor_name: "Dr. Fixture",
       consecutive_not_found_count: 0,
       last_checked_at: expect.any(String),
+      observed: true,
     });
   });
 
@@ -669,6 +670,7 @@ describe("upsertClassState / section-check pipeline ops", () => {
     const state = await readSectionCheckState(db, REF_INC);
     expect(state?.consecutive_not_found_count).toBe(6);
     expect(state?.last_checked_at).toBeDefined();
+    expect(state?.observed).toBe(false);
   });
 
   it("seeds a missing row but never clobbers pipeline state or the strike counter", async () => {
