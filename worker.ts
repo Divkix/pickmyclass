@@ -25,7 +25,6 @@ import {
   prefersMarkdown,
 } from "./lib/worker/markdown-negotiation";
 import { getDb } from "./lib/db";
-import { isPermanentFailure } from "./lib/effect/failure";
 import { classCheckMessageSchema } from "./lib/queue/message-schema";
 import { QUEUE_MAX_RETRIES } from "./lib/config";
 import { errorFields, errorName, log, logEvent, tagLogs } from "./lib/log";
@@ -232,19 +231,7 @@ export default {
 
             return complete("failed", "retry", outcome.result);
           } catch (error) {
-            if (error instanceof Error && isPermanentFailure(error)) {
-              // Fails identically on every delivery; the next Cron Cycle checks the section again.
-              span.setAttribute("error.type", errorName(error));
-              queueLog.error("Section Check failed permanently, acking", {
-                ...fields,
-                ...errorFields(error),
-                duration_ms: Date.now() - msgStartTime,
-              });
-              message.ack();
-
-              return complete("threw", "ack");
-            }
-
+            // processSection decides ack/retry for its own failures; reaching here is a defect.
             span.setAttribute("error.type", errorName(error));
             queueLog.error("Section Check threw, retrying", {
               ...fields,

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { DbQueryFailed, DbQueryTimedOut } from "@/lib/db/errors";
 import type { ClassCheckMessage } from "@/lib/types/queue";
 
 const mockProcessSection = vi.fn();
@@ -321,38 +320,5 @@ describe("worker queue handler — direct processSection call ack/retry mapping"
     expect(bad.retry).toHaveBeenCalledOnce();
     expect(bad.ack).not.toHaveBeenCalled();
     expect(mockProcessSection).not.toHaveBeenCalled();
-  });
-
-  it("acks a message whose failure can never succeed, such as a rejected statement", async () => {
-    mockProcessSection.mockRejectedValue(
-      new DbQueryFailed({
-        message: "invalid input syntax",
-        operation: "select",
-        code: "22P02",
-        retryable: false,
-        cause: new Error("invalid input syntax"),
-      }),
-    );
-    const msg = makeMessage("11111");
-    await worker.queue(makeBatch([msg]), mockEnv, testCtx);
-
-    expect(msg.ack).toHaveBeenCalledOnce();
-    expect(msg.retry).not.toHaveBeenCalled();
-  });
-
-  it("retries a database timeout", async () => {
-    mockProcessSection.mockRejectedValue(
-      new DbQueryTimedOut({
-        message: "timed out",
-        operation: "select",
-        timeoutMs: 15_000,
-        retryable: true,
-      }),
-    );
-    const msg = makeMessage("11111");
-    await worker.queue(makeBatch([msg]), mockEnv, testCtx);
-
-    expect(msg.retry).toHaveBeenCalledOnce();
-    expect(msg.ack).not.toHaveBeenCalled();
   });
 });

@@ -148,31 +148,33 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
 
     const results = await Promise.allSettled(
       batches.map((batch, index) =>
-        step.do(stepNames[index], STEP_CONFIG, async () => {
-          const enqueuedAt = new Date().toISOString();
+        step.do(stepNames[index], STEP_CONFIG, () =>
+          failPermanently(async () => {
+            const enqueuedAt = new Date().toISOString();
 
-          const messages = batch.map((section) => ({
-            body: {
-              ...section,
-              enqueued_at: enqueuedAt,
-              cycle,
-              workflow_instance_id: event.instanceId,
-            } satisfies ClassCheckMessage,
-          }));
+            const messages = batch.map((section) => ({
+              body: {
+                ...section,
+                enqueued_at: enqueuedAt,
+                cycle,
+                workflow_instance_id: event.instanceId,
+              } satisfies ClassCheckMessage,
+            }));
 
-          // Queue sends get no runtime span of their own.
-          await withSpan(
-            "queue.send_batch",
-            {
-              cycle,
-              workflow_instance_id: event.instanceId,
-              "messaging.batch.message_count": batch.length,
-            },
-            () => sendQueueBatch(this.env.PICKMYCLASS_QUEUE, messages),
-          );
+            // Queue sends get no runtime span of their own.
+            await withSpan(
+              "queue.send_batch",
+              {
+                cycle,
+                workflow_instance_id: event.instanceId,
+                "messaging.batch.message_count": batch.length,
+              },
+              () => sendQueueBatch(this.env.PICKMYCLASS_QUEUE, messages),
+            );
 
-          return batch.length;
-        }),
+            return batch.length;
+          }),
+        ),
       ),
     );
 
