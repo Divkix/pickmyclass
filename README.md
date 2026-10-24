@@ -12,7 +12,7 @@ Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hype
 - **Instructor Tracking** - Get notified when "Staff" instructors are assigned to specific professors
 - **Polling Live States** - Dashboard polls `GET /api/class-watches/states` every 30–60s (Realtime removed; data only changes on 30-min cron)
 - **Email Notifications** - Instant email alerts via Cloudflare Email Service when changes are detected
-- **Smart Deduplication** - Prevents duplicate notifications using atomic PostgreSQL operations
+- **Smart Deduplication** - Atomic notification claims retain confirmed sends; at-least-once retries can duplicate an unconfirmed send
 - **Scalable Queue Processing** - Handles 10,000+ users with parallel Cloudflare Queues
 - **30-Minute Checks** - Automated checks via Cloudflare Workers Cron Triggers
 
@@ -93,9 +93,9 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | Route | Methods | Description |
 |-------|---------|-------------|
 | `app/api/auth/signout/route.ts` | POST | Sign out (`clerk.signOut` + `revokeSession` + clear `CLERK_COOKIES_TO_CLEAR`) |
-| `app/api/auth/consent/route.ts` | POST | Record `age_verified`/`agreed_to_terms` |
+| `app/api/auth/consent/route.ts` | POST | Only endpoint for recording form consent (`age_verified`/`agreed_to_terms`) |
 | `app/api/webhooks/clerk/route.ts` | POST | Svix `verifyWebhook` (`whsec_...`) → `syncUserMirrorFromClerkUser` (`user.created/updated/deleted`) |
-| `app/auth/post-oauth/route.ts` | GET | OAuth consent + `repairUserMirror` |
+| `app/auth/post-oauth/route.ts` | GET | Mirror repair (can restore Clerk metadata consent) + consent routing; no query-param consent |
 | `app/api/class-watches/route.ts` | GET, POST, DELETE | Create, read, and delete class watches (no update) |
 | `app/api/class-watches/states/route.ts` | GET | Polling endpoint for live class states |
 | `app/api/monitoring/health/route.ts` | GET | System health check (DB, ASU API, email, config) |
@@ -232,13 +232,12 @@ pnpm run knip             # Find unused exports/dependencies (no DATABASE_URL ne
 pnpm run cf-typegen       # Generate TypeScript types for Cloudflare env (lib/cloudflare-env.d.ts)
 pnpm run type-check       # tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
 pnpm run test             # Run integration project (live DB excluded)
-pnpm run test:integration # Run integration project
 pnpm run test:coverage    # Run integration tests with coverage reports (no minimum threshold)
 pnpm run test:watch       # Watch non-DB projects
 pnpm run test:ui          # Interactive non-DB test UI
 ```
 
-Tests and root coverage settings live in the `test` block of `vite.config.ts`. The live database project runs separately with `DATABASE_URL=… pnpm run test:db`.
+Tests and root coverage settings live in the `test` block of `vite.config.ts`. Live database tests are opt-in locally with `DATABASE_URL=… pnpm run test:db`; CI migrates a disposable PostgreSQL 18 database and runs `test:db`, and failures block `CI Success`.
 
 ### Database Commands
 
@@ -252,8 +251,8 @@ pnpm run db:studio                            # Drizzle Studio
 
 ## Tech Stack
 
-- **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4, `@clerk/react` 6.14.5 via `ClerkClientProvider`
-- **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (Drizzle ORM over node-postgres) via Hyperdrive, Clerk (`@clerk/backend` 3.16.10 edge JWT), Supabase Realtime **removed** (polling only)
+- **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4, `@clerk/react` via `ClerkClientProvider`
+- **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (Drizzle ORM over node-postgres) via Hyperdrive, Clerk (`@clerk/backend` edge JWT), Supabase Realtime **removed** (polling only)
 - **Data Source**: ASU Class Search API (direct HTTP)
 - **Email**: Cloudflare Email Service
 - **Deployment**: Cloudflare Workers + Queues + Workflows
@@ -318,7 +317,7 @@ wrangler.jsonc               # Cloudflare Workers config (HYPERDRIVE, CLERK_* se
 2. **Every 15 minutes** - Workflow schedules enqueue half the watched sections (even/odd stagger), so each section is checked every 30 minutes
 3. **Queue consumers process** - 20 concurrent Workers query ASU API in parallel
 4. **Change detection** - Compare new state with PostgreSQL cached state (`non_reserved_seats ?? seats_available`)
-5. **Atomic deduplication** - a partial unique index (`is_active=TRUE`) + `try_record_notifications_batch` claims recipients; an `expire_stale_notifications()` sweep on every cron tail + the hourly maintenance run frees expired slots
+5. **Atomic deduplication** - `claimNotifications` calls the intent-aware `claim_section_notifications` RPC; an `expire_stale_notifications()` sweep on every cron tail + the hourly maintenance run frees expired slots
 6. **Email notification** - Cloudflare Email Service sends alerts for available seats
 7. **Dashboard polls** - `useRealtimeClassStates` polls `/api/class-watches/states` (not Realtime)
 
@@ -337,17 +336,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 ### Dependency Updates
 
-Dependabot checks npm and GitHub Actions every day, holding each new version back for one day before proposing it
-(security updates skip that wait). Minor and patch PRs squash-merge on their own once the required checks —
-`CI Success`, `GitGuardian Security Checks` and the Cloudflare Workers build — plus every other reported check
-and commit status are an exact success (a `skipped` or `neutral` check does not count as green); majors are never
-auto-merged and instead get a review request for `@Divkix`. The gate,
-`.github/workflows/dependabot-automerge.yml`, only reads PR metadata (it never checks out or runs PR code),
-re-validates the PR on every poll and again right before merging, polls for up to 45 minutes, and merges the
-exact commit it validated. Versions in `package.json` and
-`pnpm-workspace.yaml` are caret ranges under pnpm's default 24-hour release age; exact-version
-`minimumReleaseAgeExclude` entries cover the versions admitted by the 2026-10-22 one-shot security
-upgrade, so future releases stay gated. See [CONTRIBUTING.md](CONTRIBUTING.md#addingupdating-dependencies) for the details.
+See [AGENTS.md → Toolchain](AGENTS.md#toolchain) for the dependency policy and automation gate, and [CONTRIBUTING.md](CONTRIBUTING.md#addingupdating-dependencies) for the update workflow.
 
 ## License
 
