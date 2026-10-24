@@ -18,6 +18,9 @@ export const UNSUBSCRIBE_TOKEN_EXPIRY_DAYS = 90;
 
 export const EDGE_HTML_CACHE_TTL_S = 3600;
 
+/** Longest one Queue `sendBatch` may take; a Workflow step's retry covers a miss. */
+export const QUEUE_SEND_TIMEOUT_MS = 10_000;
+
 export const EMAIL_BATCH_SIZE = 10;
 
 export const EMAIL_BATCH_DELAY_MS = 75;

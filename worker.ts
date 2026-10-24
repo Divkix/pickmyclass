@@ -24,6 +24,8 @@ import {
   prefersMarkdown,
 } from "./lib/worker/markdown-negotiation";
 import { getDb } from "./lib/db";
+import { isPermanentFailure } from "./lib/effect/failure";
+import { classCheckMessageSchema } from "./lib/queue/message-schema";
 import { QUEUE_MAX_RETRIES } from "./lib/config";
 import { errorFields, errorName, log, logEvent, tagLogs } from "./lib/log";
 import { sectionFields } from "./lib/section-ref";
@@ -142,13 +144,33 @@ export default {
     const db = getDb(env.HYPERDRIVE);
 
     const results = await Promise.allSettled(
-      batch.messages.map((message) => {
+      batch.messages.map((delivery) => {
+        const parsed = classCheckMessageSchema.safeParse(delivery.body);
+
+        if (!parsed.success) {
+          // Retried until max_retries so the body lands in the DLQ, where it can be inspected.
+          queueLog.error("Invalid queue message, retrying toward the dead-letter queue", {
+            message_id: delivery.id,
+            attempts: delivery.attempts,
+            "error.message": parsed.error.issues
+              .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+              .join("; "),
+          });
+          delivery.retry();
+
+          return Promise.resolve({ success: false });
+        }
+
+        // The runtime's own message object: spreading it would drop ack() and retry().
+        const message = delivery;
+        const body = parsed.data;
+
         const fields = {
           message_id: message.id,
           attempts: message.attempts,
-          ...sectionFields(message.body),
-          cycle: message.body.cycle,
-          workflow_instance_id: message.body.workflow_instance_id,
+          ...sectionFields(body),
+          cycle: body.cycle,
+          workflow_instance_id: body.workflow_instance_id,
         };
 
         // Workers tracing exposes no trace ids yet, so `cycle` and
@@ -163,14 +185,14 @@ export default {
           ) => {
             span.setAttribute("section_check.disposition", disposition);
             logEvent("section_check_completed", {
-              ...sectionFields(message.body),
-              cycle: message.body.cycle,
-              workflow_instance_id: message.body.workflow_instance_id,
+              ...sectionFields(body),
+              cycle: body.cycle,
+              workflow_instance_id: body.workflow_instance_id,
               result,
               disposition,
               attempts: message.attempts,
               duration_ms: Date.now() - msgStartTime,
-              cycle_elapsed_ms: cycleElapsedMs(message.body.cycle, Date.now()),
+              cycle_elapsed_ms: cycleElapsedMs(body.cycle, Date.now()),
               emails_sent: processed?.emailsSent ?? 0,
               seat_opened: processed?.changes.seatBecameAvailable ?? false,
               instructor_assigned: processed?.changes.instructorAssigned ?? false,
@@ -181,7 +203,7 @@ export default {
           };
 
           try {
-            const outcome = await processSection(db, message.body, env);
+            const outcome = await processSection(db, body, env);
             const duration_ms = Date.now() - msgStartTime;
 
             if (outcome.disposition === "ack") {
@@ -209,6 +231,19 @@ export default {
 
             return complete("failed", "retry", outcome.result);
           } catch (error) {
+            if (error instanceof Error && isPermanentFailure(error)) {
+              // Fails identically on every delivery; the next Cron Cycle checks the section again.
+              span.setAttribute("error.type", errorName(error));
+              queueLog.error("Section Check failed permanently, acking", {
+                ...fields,
+                ...errorFields(error),
+                duration_ms: Date.now() - msgStartTime,
+              });
+              message.ack();
+
+              return complete("threw", "ack");
+            }
+
             span.setAttribute("error.type", errorName(error));
             queueLog.error("Section Check threw, retrying", {
               ...fields,

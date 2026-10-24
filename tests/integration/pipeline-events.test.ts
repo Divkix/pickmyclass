@@ -172,6 +172,43 @@ describe("pipeline events", () => {
     ]);
   });
 
+  it("does not read a malformed expire_stale_notifications result as zero", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result: QueryResult = {
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
+      rows: [{ expired: "many", class_nbr: "12345", term: "2297" }],
+    };
+
+    vi.spyOn(Pool.prototype, "query").mockImplementation(() => Promise.resolve(result));
+
+    const workflow = new SectionCheckWorkflow(ctx, {
+      HYPERDRIVE: env.HYPERDRIVE,
+      PICKMYCLASS_QUEUE: { sendBatch: vi.fn().mockResolvedValue(undefined) },
+    });
+
+    const step = {
+      do: <T>(_name: string, _config: WorkflowStepConfig, run: () => Promise<T>) => run(),
+    };
+
+    const event = {
+      payload: {},
+      timestamp: firedAt,
+      instanceId: "wf-1",
+      workflowName: "section-check",
+    };
+
+    // SAFETY: run() only calls step.do, always with a config.
+    await workflow.run(event, step as WorkflowStep);
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ msg: "Failed to expire stale notifications" }),
+    );
+  });
+
   it("measures cycle age from the stamp's fire time", () => {
     expect(cycleElapsedMs(cycle, Date.parse("2026-10-23T15:20:00.000Z"))).toBe(20 * 60_000);
     expect(cycleElapsedMs(undefined, Date.now())).toBeUndefined();

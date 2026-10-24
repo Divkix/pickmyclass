@@ -5,15 +5,18 @@ import {
   type WorkflowStepConfig,
 } from "cloudflare:workers";
 import { sql } from "drizzle-orm";
+import { z } from "zod";
 import { getPastTermCodes } from "@/lib/asu/terms";
 import { type Database, getDb } from "@/lib/db";
 import { deletePastTermWatches, getSectionsToCheck } from "@/lib/db/queries";
 import { errorFields, log, logEvent, tagLogs } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
+import { sendQueueBatch } from "@/lib/queue/transport";
 import { withSpan } from "@/lib/telemetry/span";
 import type { Env } from "@/lib/types/env";
 import type { ClassCheckMessage } from "@/lib/types/queue";
 import type { StaggerGroup } from "@/lib/types/stagger";
+import { failPermanently } from "@/lib/workflows/step-errors";
 
 const CF_QUEUE_SEND_BATCH_LIMIT = 100;
 
@@ -28,12 +31,12 @@ interface CronWorkflowEnv {
   PICKMYCLASS_QUEUE: Pick<Env["PICKMYCLASS_QUEUE"], "sendBatch">;
 }
 
-async function expireStaleNotifications(db: Database): Promise<number> {
-  const { rows } = await db.execute<{ expired: unknown }>(
-    sql`SELECT public.expire_stale_notifications() AS expired`,
-  );
+const expiredRowSchema = z.object({ expired: z.coerce.number().int().nonnegative() });
 
-  return Number(rows[0]?.expired ?? 0);
+async function expireStaleNotifications(db: Database): Promise<number> {
+  const { rows } = await db.execute(sql`SELECT public.expire_stale_notifications() AS expired`);
+
+  return expiredRowSchema.parse(rows[0]).expired;
 }
 
 /** The scheduled fire time, or the manual-trigger time when started with `wrangler workflows trigger`. */
@@ -95,14 +98,16 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
 
     try {
       // Logs inside step callbacks run once; run() itself replays after each hibernation.
-      await step.do("expire stale notifications", STEP_CONFIG, async () => {
-        const expired = await expireStaleNotifications(getDb(this.env.HYPERDRIVE));
+      await step.do("expire stale notifications", STEP_CONFIG, () =>
+        failPermanently(async () => {
+          const expired = await expireStaleNotifications(getDb(this.env.HYPERDRIVE));
 
-        if (expired > 0)
-          log("SectionCheck").info("Expired stale notifications", { cycle, expired });
+          if (expired > 0)
+            log("SectionCheck").info("Expired stale notifications", { cycle, expired });
 
-        return expired;
-      });
+          return expired;
+        }),
+      );
     } catch (error) {
       // Best-effort here: the 04:05 maintenance run expires them too, and a
       // failed sweep must not block this cycle's checks.
@@ -112,23 +117,25 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
       });
     }
 
-    const sections = await step.do("load sections", STEP_CONFIG, async () => {
-      const all = await getSectionsToCheck(getDb(this.env.HYPERDRIVE), staggerGroup);
-      const pastTerms = new Set(getPastTermCodes());
+    const sections = await step.do("load sections", STEP_CONFIG, () =>
+      failPermanently(async () => {
+        const all = await getSectionsToCheck(getDb(this.env.HYPERDRIVE), staggerGroup);
+        const pastTerms = new Set(getPastTermCodes());
 
-      const current = all.flatMap(({ class_nbr, term }): SectionRef[] =>
-        pastTerms.has(term) ? [] : [{ class_nbr, term }],
-      );
+        const current = all.flatMap(({ class_nbr, term }): SectionRef[] =>
+          pastTerms.has(term) ? [] : [{ class_nbr, term }],
+        );
 
-      log("SectionCheck").info("Enqueueing sections", {
-        cycle,
-        workflow_instance_id: event.instanceId,
-        stagger_group: staggerGroup,
-        sections: current.length,
-      });
+        log("SectionCheck").info("Enqueueing sections", {
+          cycle,
+          workflow_instance_id: event.instanceId,
+          stagger_group: staggerGroup,
+          sections: current.length,
+        });
 
-      return current;
-    });
+        return current;
+      }),
+    );
 
     const batches: SectionRef[][] = [];
 
@@ -160,7 +167,7 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
               workflow_instance_id: event.instanceId,
               "messaging.batch.message_count": batch.length,
             },
-            () => this.env.PICKMYCLASS_QUEUE.sendBatch(messages),
+            () => sendQueueBatch(this.env.PICKMYCLASS_QUEUE, messages),
           );
 
           return batch.length;
