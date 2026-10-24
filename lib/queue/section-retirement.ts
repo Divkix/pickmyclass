@@ -143,7 +143,15 @@ export async function retireClassSection(
   try {
     [watchers, classInfo] = await Promise.all([
       getClassWatchers(db, ref),
-      readSectionRemovalClassInfo(db, ref).catch((): SectionRemovalClassInfo | null => null),
+      readSectionRemovalClassInfo(db, ref).catch((error): SectionRemovalClassInfo | null => {
+        // The removal email falls back to a generic subject, so this read must not stop the cleanup.
+        log("SectionRetirement").warn("Auto-cleanup could not read the class name", {
+          ...sectionFields(ref),
+          ...errorFields(error),
+        });
+
+        return null;
+      }),
     ]);
   } catch (watcherError) {
     log("SectionRetirement").warn("Auto-cleanup failed to fetch watchers", {
