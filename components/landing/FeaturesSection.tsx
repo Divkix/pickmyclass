@@ -1,21 +1,11 @@
-"use client";
-
-import { m } from "framer-motion";
 import { Bell, RefreshCw, TrendingUp, User } from "lucide-react";
 import Link from "next/link";
-import { fadeInUp, staggerContainer, staggerItem } from "@/lib/animations";
 
 export function FeaturesSection() {
   return (
     <section className="border-b border-border px-6 py-20">
       <div className="mx-auto max-w-6xl">
-        <m.div
-          className="mb-12 max-w-2xl"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={fadeInUp}
-        >
+        <div className="animation-hidden mb-12 max-w-2xl">
           <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             We get it. <span className="text-emphasis">Registration sucks.</span>
           </h2>
@@ -23,19 +13,10 @@ export function FeaturesSection() {
             You&apos;ve got better things to do than stare at MyASU all day. Here&apos;s what we
             handle while you live your life.
           </p>
-        </m.div>
+        </div>
 
-        <m.div
-          className="grid gap-4 md:grid-cols-3 md:grid-rows-2"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={staggerContainer}
-        >
-          <m.article
-            className="flex flex-col justify-between gap-6 rounded-xl border border-primary/20 bg-primary p-7 text-primary-foreground shadow-smooth md:col-span-2 md:row-span-2"
-            variants={staggerItem}
-          >
+        <div className="grid gap-4 md:grid-cols-3 md:grid-rows-2">
+          <article className="animation-hidden flex flex-col justify-between gap-6 rounded-xl border border-primary/20 bg-primary p-7 text-primary-foreground shadow-smooth [animation-delay:100ms] md:col-span-2 md:row-span-2">
             <div className="flex size-12 items-center justify-center rounded-lg bg-primary-foreground/10">
               <RefreshCw className="size-6 text-accent" aria-hidden="true" />
             </div>
@@ -58,12 +39,9 @@ export function FeaturesSection() {
                 </span>
               </div>
             </div>
-          </m.article>
+          </article>
 
-          <m.article
-            className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-smooth"
-            variants={staggerItem}
-          >
+          <article className="animation-hidden flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-smooth [animation-delay:200ms]">
             <div className="flex size-11 items-center justify-center rounded-lg bg-accent/20">
               <User className="size-5 text-primary" aria-hidden="true" />
             </div>
@@ -74,12 +52,9 @@ export function FeaturesSection() {
                 time to check RateMyProfessors.
               </p>
             </div>
-          </m.article>
+          </article>
 
-          <m.article
-            className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-smooth"
-            variants={staggerItem}
-          >
+          <article className="animation-hidden flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-smooth [animation-delay:300ms]">
             <div className="flex size-11 items-center justify-center rounded-lg bg-primary/10">
               <TrendingUp className="size-5 text-primary" aria-hidden="true" />
             </div>
@@ -97,21 +72,15 @@ export function FeaturesSection() {
                 .
               </p>
             </div>
-          </m.article>
-        </m.div>
+          </article>
+        </div>
 
-        <m.div
-          className="mt-4 flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 px-6 py-4"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeInUp}
-        >
+        <div className="animation-hidden mt-4 flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 px-6 py-4 [animation-delay:400ms]">
           <Bell className="size-5 shrink-0 text-primary" aria-hidden="true" />
           <p className="text-sm text-muted-foreground">
             One email per change. No marketing, no digests, no noise — just the alerts that matter.
           </p>
-        </m.div>
+        </div>
       </div>
     </section>
   );

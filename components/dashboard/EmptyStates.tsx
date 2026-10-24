@@ -10,7 +10,7 @@ export function EmptyWatchlist() {
   return (
     <m.div
       className="text-center py-16 bg-muted/20 rounded-xl border-2 border-dashed border-border"
-      initial="hidden"
+      initial={false}
       animate="visible"
       variants={fadeInUp}
     >

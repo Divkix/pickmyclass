@@ -1,6 +1,7 @@
 "use client";
 
 import { Lightbulb, Lock } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,19 +17,19 @@ import {
 } from "@/components/ui/select";
 import { TermSelect } from "@/components/TermSelect";
 import { useClassWatchForm } from "@/lib/class-watches/useClassWatchForm";
-import type { ClassWatchCreationInput } from "@/lib/class-watches/class-watch-creation";
-import type { ClassWatchRow } from "@/lib/types/class-watch";
 
-interface AddClassWatchProps {
-  onCreated: (watch: ClassWatchRow, input: ClassWatchCreationInput) => void | Promise<void>;
-}
-
-export function AddClassWatch({ onCreated }: AddClassWatchProps) {
+/** Creates a watch, then returns to the dashboard. The refresh drops cached dashboard
+ * snapshots, so Back to an earlier dashboard entry doesn't show the list without it. */
+export function AddClassWatch() {
+  const router = useRouter();
   const [university] = useState("asu");
 
   const { terms, term, setTerm, classNbr, setClassNbr, error, isSubmitting, handleSubmit } =
     useClassWatchForm({
-      onCreated,
+      onCreated: () => {
+        router.push("/dashboard");
+        router.refresh();
+      },
       resetOnSuccess: true,
     });
 

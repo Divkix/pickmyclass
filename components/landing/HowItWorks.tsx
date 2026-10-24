@@ -1,32 +1,22 @@
-"use client";
-
-import { m } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { staggerContainer, staggerItem } from "@/lib/animations";
 
 export function HowItWorks() {
   return (
     <section className="px-6 py-20">
-      <m.div
-        className="mx-auto max-w-4xl"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={staggerContainer}
-      >
-        <m.div className="mb-16 text-center" variants={staggerItem}>
+      <div className="mx-auto max-w-4xl">
+        <div className="animation-hidden mb-16 text-center">
           <h2 className="mb-4 text-3xl font-semibold text-foreground sm:text-4xl">How It Works</h2>
           <p className="text-lg text-muted-foreground">
             Three simple steps to never miss a class again
           </p>
-        </m.div>
+        </div>
 
         <div className="relative space-y-12">
           <div className="absolute bottom-5 left-4.5 top-5 w-0.5 bg-primary/25 sm:left-6" />
 
-          <m.div className="relative flex items-start gap-6" variants={staggerItem}>
+          <div className="animation-hidden relative flex items-start gap-6 [animation-delay:100ms]">
             <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground shadow-smooth sm:size-12">
               1
             </div>
@@ -38,9 +28,9 @@ export function HowItWorks() {
                 Search for ASU classes by section number and add them to your watchlist.
               </p>
             </div>
-          </m.div>
+          </div>
 
-          <m.div className="relative flex items-start gap-6" variants={staggerItem}>
+          <div className="animation-hidden relative flex items-start gap-6 [animation-delay:200ms]">
             <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-accent-foreground shadow-smooth sm:size-12">
               2
             </div>
@@ -53,9 +43,9 @@ export function HowItWorks() {
                 instructor changes.
               </p>
             </div>
-          </m.div>
+          </div>
 
-          <m.div className="relative flex items-start gap-6" variants={staggerItem}>
+          <div className="animation-hidden relative flex items-start gap-6 [animation-delay:300ms]">
             <div className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground shadow-smooth sm:size-12">
               3
             </div>
@@ -74,18 +64,18 @@ export function HowItWorks() {
                 .
               </p>
             </div>
-          </m.div>
+          </div>
         </div>
 
-        <m.div className="mt-16 text-center" variants={staggerItem}>
+        <div className="animation-hidden mt-16 text-center [animation-delay:400ms]">
           <Button asChild size="lg" variant="gradient" className="text-base">
             <Link href="/sign-up">
               <Sparkles className="size-5" />
               Join 2,400+ Sun Devils
             </Link>
           </Button>
-        </m.div>
-      </m.div>
+        </div>
+      </div>
     </section>
   );
 }

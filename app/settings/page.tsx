@@ -1,79 +1,22 @@
-"use client";
-
+import { eq } from "drizzle-orm";
 import Link from "next/link";
-import { useState } from "react";
-import { DeleteAccountModal } from "@/components/DeleteAccountModal";
+import { DataControls } from "@/app/settings/DataControls";
 import { Header } from "@/components/Header";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/lib/contexts/AuthContext";
-import { errorFields, log } from "@/lib/log";
-import { trackBrowserAction } from "@/lib/telemetry/browser";
+import { requirePageIdentity } from "@/lib/auth/page-session";
+import { getDbFromEnv } from "@/lib/db";
+import { users } from "@/lib/db/schema";
 import { formatAbsoluteDate } from "@/lib/utils/time-format";
-import { useRequireAuth } from "@/lib/hooks/useRequireAuth";
 
-export default function SettingsPage() {
-  const { user, loading: authLoading } = useAuth();
-  useRequireAuth();
-  const [exportLoading, setExportLoading] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+export default async function SettingsPage() {
+  const identity = await requirePageIdentity();
 
-  const handleExportData = async () => {
-    setExportLoading(true);
-    setMessage(null);
-
-    try {
-      const response = await fetch("/api/user/export", {
-        method: "GET",
-      });
-
-      if (!response.ok) {
-        throw new Error("Export failed");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `pickmyclass-data-${new Date().toISOString().split("T")[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      trackBrowserAction("data_exported", {});
-      setMessage({ type: "success", text: "Data exported successfully!" });
-    } catch (error) {
-      log("Settings").error("Data export failed", errorFields(error));
-      setMessage({ type: "error", text: "Failed to export data. Please try again." });
-    } finally {
-      setExportLoading(false);
-    }
-  };
-
-  if (authLoading) {
-    return (
-      <div className="flex min-h-screen flex-col bg-background">
-        <Header />
-        <main id="main" tabIndex={-1} className="flex flex-1 flex-col p-4 md:p-8">
-          <div className="mx-auto w-full max-w-4xl space-y-6">
-            <Skeleton className="h-9 w-40" />
-            <Skeleton className="h-5 w-64" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-64 w-full rounded-xl" />
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
+  const [account] = await getDbFromEnv()
+    .select({ email: users.email, created_at: users.created_at })
+    .from(users)
+    .where(eq(users.id, identity.userId))
+    .limit(1);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -84,15 +27,6 @@ export default function SettingsPage() {
             <h1 className="text-3xl font-semibold">Settings</h1>
             <p className="text-muted-foreground mt-1">Your account settings and privacy controls</p>
           </div>
-
-          {message && (
-            <Alert
-              variant={message.type === "error" ? "destructive" : "default"}
-              role={message.type === "error" ? "alert" : "status"}
-            >
-              <AlertDescription>{message.text}</AlertDescription>
-            </Alert>
-          )}
 
           <Tabs defaultValue="account" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
@@ -110,7 +44,7 @@ export default function SettingsPage() {
                 <CardContent className="space-y-4">
                   <div>
                     <span className="text-sm font-medium text-muted-foreground">Email Address</span>
-                    <p className="text-lg font-mono">{user?.email}</p>
+                    <p className="text-lg font-mono">{account?.email}</p>
                   </div>
 
                   <div>
@@ -118,7 +52,7 @@ export default function SettingsPage() {
                       Account Created
                     </span>
                     <p className="text-lg">
-                      {user?.created_at ? formatAbsoluteDate(user.created_at) : "N/A"}
+                      {account ? formatAbsoluteDate(account.created_at) : "N/A"}
                     </p>
                   </div>
 
@@ -198,40 +132,13 @@ export default function SettingsPage() {
                   <CardDescription>Export or delete your personal data</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div>
-                    <h3 className="font-medium mb-2">Export Your Data</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Download all your personal data in JSON format. Includes your account info,
-                      class watches, and notification history.
-                    </p>
-                    <Button onClick={handleExportData} disabled={exportLoading} variant="outline">
-                      {exportLoading ? "Exporting..." : "Export Data (JSON)"}
-                    </Button>
-                  </div>
-
-                  <div className="pt-6 border-t border-destructive/20">
-                    <h3 className="font-medium text-destructive mb-2">Danger Zone</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Deleting your account will:
-                    </p>
-                    <ul className="text-sm text-muted-foreground list-disc pl-5 mb-4 space-y-1">
-                      <li>Immediately disable your account and sign you out</li>
-                      <li>Stop all class monitoring and notifications</li>
-                      <li>Retain data for 30 days (business records)</li>
-                      <li>Permanently delete all data after 30 days</li>
-                    </ul>
-                    <Button onClick={() => setShowDeleteModal(true)} variant="destructive">
-                      Delete Account
-                    </Button>
-                  </div>
+                  <DataControls />
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
         </div>
       </main>
-
-      <DeleteAccountModal open={showDeleteModal} onOpenChange={setShowDeleteModal} />
     </div>
   );
 }

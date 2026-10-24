@@ -250,6 +250,7 @@ pnpm run db:studio                            # Drizzle Studio
 ## Tech Stack
 
 - **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4, `@clerk/react` via `ClerkClientProvider`
+- **Animations**: public landing sections use CSS-only on-load entrances with reduced-motion and no-script fallbacks; Framer Motion is scoped to `app/dashboard/layout.tsx` via `MotionProvider`. Shared buttons use a CSS press state.
 - **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (Drizzle ORM over node-postgres) via Hyperdrive, Clerk (`@clerk/backend` edge JWT), Supabase Realtime **removed** (polling only)
 - **Data Source**: ASU Class Search API (direct HTTP)
 - **Email**: Cloudflare Email Service

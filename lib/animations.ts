@@ -28,16 +28,6 @@ export const fadeInUp: Variants = reduceMotion({
   },
 });
 
-export const revealUp: Variants = reduceMotion({
-  hidden: { opacity: 0, y: 28, scale: 0.98 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.7, ease: easeOutExpo },
-  },
-});
-
 export const staggerContainer: Variants = reduceMotion({
   hidden: { opacity: 0 },
   visible: {
@@ -57,8 +47,3 @@ export const staggerItem: Variants = reduceMotion({
     transition: { duration: 0.5, ease: easeOutExpo },
   },
 });
-
-export const buttonTap = {
-  scale: 0.95,
-  transition: { duration: 0.1 },
-};

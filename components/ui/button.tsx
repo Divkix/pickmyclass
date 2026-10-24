@@ -1,19 +1,10 @@
-"use client";
-
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import { type HTMLMotionProps, m } from "framer-motion";
 import type * as React from "react";
-import { buttonTap } from "@/lib/animations";
 import { cn } from "@/lib/utils";
 
-type MotionButtonProps = Omit<
-  HTMLMotionProps<"button">,
-  "onDrag" | "onDragStart" | "onDragEnd" | "onDragTransitionEnd"
->;
-
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all active:scale-[0.97] motion-reduce:active:scale-100 motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
@@ -64,13 +55,11 @@ function Button({
     );
   }
 
-  // SAFETY: Radix Slot polymorphism; props matches MotionButtonProps by component contract
   return (
-    <m.button
+    <button
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
-      whileTap={!props.disabled ? buttonTap : undefined}
-      {...(props as MotionButtonProps)}
+      {...props}
     />
   );
 }

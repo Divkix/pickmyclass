@@ -1,40 +1,10 @@
-"use client";
-
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AddClassWatch } from "@/components/AddClassWatch";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/lib/contexts/AuthContext";
-import { useRequireAuth } from "@/lib/hooks/useRequireAuth";
 
 export default function AddClassPage() {
-  const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
-  useRequireAuth();
-
-  const handleWatchCreated = () => {
-    router.push("/dashboard");
-  };
-
-  if (authLoading) {
-    return (
-      <div className="flex min-h-screen flex-col bg-background">
-        <Header />
-        <main id="main" tabIndex={-1} className="container mx-auto px-4 py-8 max-w-4xl">
-          <Skeleton className="h-8 w-64 mb-6" />
-          <Skeleton className="h-96 w-full" />
-        </main>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
@@ -55,7 +25,7 @@ export default function AddClassPage() {
           </p>
         </div>
 
-        <AddClassWatch onCreated={handleWatchCreated} />
+        <AddClassWatch />
       </main>
     </div>
   );
