@@ -191,6 +191,31 @@ describe("/api/class-watches", () => {
     vi.restoreAllMocks();
   });
 
+  it.each([
+    { handler: GET, request: getRequest, error: "Failed to fetch class watches" },
+    {
+      handler: POST,
+      request: () => postRequest({ term, class_nbr: "12345" }),
+      error: "Failed to create class watch",
+    },
+    {
+      handler: DELETE,
+      request: () => deleteRequest("d0a2b3c1-0000-4000-8000-000000000001"),
+      error: "Failed to delete class watch",
+    },
+  ])(
+    "keeps the JSON error response when authentication fails unexpectedly: $error",
+    async ({ handler, request, error }) => {
+      mockGetSessionIdentity.mockRejectedValueOnce(new Error("Clerk unavailable"));
+
+      const response = await handler(request());
+
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toEqual({ success: false, error });
+      expect(mockGetDbFromEnv).not.toHaveBeenCalled();
+    },
+  );
+
   describe("GET /api/class-watches", () => {
     it("returns 401 for unauthenticated requests without touching the database", async () => {
       mockGetSessionIdentity.mockResolvedValueOnce(null);
@@ -275,6 +300,10 @@ describe("/api/class-watches", () => {
   });
 
   describe("POST /api/class-watches", () => {
+    beforeEach(() => {
+      h.next([{ watchCount: 0, duplicate: false }]);
+    });
+
     it("returns 401 for unauthenticated requests without touching the database", async () => {
       mockGetSessionIdentity.mockResolvedValueOnce(null);
 
@@ -294,6 +323,49 @@ describe("/api/class-watches", () => {
       expect(mockFetchClassFromASU).not.toHaveBeenCalled();
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     });
+
+    it("rejects malformed JSON without logging an error or calling ASU/the database", async () => {
+      const response = await POST(
+        new NextRequest("http://localhost:3000/api/class-watches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{",
+        }),
+      );
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({ success: false, error: "Invalid input" });
+      expect(console.error).not.toHaveBeenCalled();
+      expect(mockFetchClassFromASU).not.toHaveBeenCalled();
+      expect(mockGetDbFromEnv).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { watchCount: 10, duplicate: false, status: 429 },
+      { watchCount: 10, duplicate: true, status: 429 },
+      { watchCount: 1, duplicate: true, status: 409 },
+    ])(
+      "rejects count=$watchCount duplicate=$duplicate before spending an ASU call",
+      async ({ watchCount, duplicate, status }) => {
+        h = createScriptedPostgres();
+        h.next([{ watchCount, duplicate }]);
+
+        const response = await POST(postRequest({ term, class_nbr: "12345" }));
+
+        expect(response.status).toBe(status);
+        await expect(response.json()).resolves.toEqual({
+          success: false,
+          error:
+            status === 429
+              ? "Maximum watches limit reached (10). Delete some watches to add more."
+              : "You are already watching this class",
+        });
+        expect(mockFetchClassFromASU).not.toHaveBeenCalled();
+        expect(h.statements).toHaveLength(1);
+        expect(h.statements[0].params).toEqual(["12345", term, USER_ID]);
+        expect(mockLogEvent).not.toHaveBeenCalled();
+      },
+    );
 
     it("creates the watch atomically, persists state, completes onboarding, and logs the event", async () => {
       const rpcWatch: ClassWatchRow = {
@@ -318,8 +390,8 @@ describe("/api/class-watches", () => {
       expect(data.watch).toEqual(rpcWatch);
       expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
 
-      expect(h.statements[0].sql).toContain("create_class_watch_with_limit");
-      expect(h.statements[0].params).toEqual([USER_ID, term, "CSE", "240", "12345", 10]);
+      expect(h.statements[1].sql).toContain("create_class_watch_with_limit");
+      expect(h.statements[1].params).toEqual([USER_ID, term, "CSE", "240", "12345", 10]);
 
       expect(
         h.statements.some((statement) => statement.sql.includes('insert into "class_states"')),
@@ -348,9 +420,9 @@ describe("/api/class-watches", () => {
 
       expect(response.status).toBe(409);
       expect(data.error).toContain("add deadline has passed");
-      expect(h.statements).toHaveLength(1);
-      expect(h.statements[0].sql).toContain("public.section_alerts_ended(");
-      expect(h.statements[0].params).toEqual(["2026-01-12", "2026-05-01"]);
+      expect(h.statements).toHaveLength(2);
+      expect(h.statements[1].sql).toContain("public.section_alerts_ended(");
+      expect(h.statements[1].params).toEqual(["2026-01-12", "2026-05-01"]);
       expect(mockLogEvent).not.toHaveBeenCalled();
     });
 
@@ -366,10 +438,10 @@ describe("/api/class-watches", () => {
       const response = await POST(postRequest({ term, class_nbr: "12345" }));
 
       expect(response.status).toBe(201);
-      expect(h.statements[1].sql).toContain("create_class_watch_with_limit");
+      expect(h.statements[2].sql).toContain("create_class_watch_with_limit");
     });
 
-    it("maps an ASU not-found miss to 404 without touching the database", async () => {
+    it("maps an ASU not-found miss to 404 without creating a watch", async () => {
       mockFetchClassFromASU.mockRejectedValueOnce(new NotFoundError("missing"));
 
       const response = await POST(postRequest({ term, class_nbr: "12345" }));
@@ -377,7 +449,7 @@ describe("/api/class-watches", () => {
 
       expect(response.status).toBe(404);
       expect(data.error).toBe("Class section not found");
-      expect(mockGetDbFromEnv).not.toHaveBeenCalled();
+      expect(h.statements).toHaveLength(1);
     });
 
     it("maps ASU auth failures to a temporary outage", async () => {

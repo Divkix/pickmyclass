@@ -730,3 +730,20 @@ export async function purgeExpiredData(
     throw new Error(`Failed to purge expired data: ${driverErrorMessage(error)}`, { cause: error });
   }
 }
+
+/** A cheap preflight only; create_class_watch_with_limit still enforces concurrent writes. */
+export async function readClassWatchPreflight(db: Database, userId: string, ref: SectionRef) {
+  const [state] = await db
+    .select({
+      watchCount: count(),
+      duplicate: sql<boolean>`coalesce(bool_or(
+        ${classWatches.class_nbr} = ${ref.class_nbr} AND ${classWatches.term} = ${ref.term}
+      ), false)`,
+    })
+    .from(classWatches)
+    .where(eq(classWatches.user_id, userId));
+
+  if (!state) throw new Error("Failed to read class watch limits");
+
+  return state;
+}

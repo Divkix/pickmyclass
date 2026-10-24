@@ -166,6 +166,10 @@ describe("/api/class-watches onboarding wiring", () => {
   });
 
   describe("POST /api/class-watches", () => {
+    beforeEach(() => {
+      h.next([{ watchCount: 0, duplicate: false }]);
+    });
+
     it("creates the watch, upserts state, and marks onboarding complete via the first-watch guard", async () => {
       h.next([createdWatch]);
       h.next([]);
@@ -178,7 +182,7 @@ describe("/api/class-watches onboarding wiring", () => {
       expect(body.success).toBe(true);
       expect(body.watch).toEqual(createdWatch);
 
-      const rpc = h.statements[0];
+      const rpc = h.statements[1];
       expect(rpc.sql).toContain("create_class_watch_with_limit");
       expect(rpc.params).toEqual([USER_ID, term, "CSE", "240", "12345", 10]);
 
