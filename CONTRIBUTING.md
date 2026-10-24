@@ -115,26 +115,7 @@ When modifying dependencies in `package.json`:
    ```
    If this fails, your lockfile is out of sync. Run `pnpm install` again and commit the updated `pnpm-lock.yaml`.
 
-Policy for this repo:
-
-- Every version is a caret range (`^1.2.3`) — no exact pins, including the `catalog:` entries in
-  `pnpm-workspace.yaml`. `packageManager` is the one deliberate exact pin.
-- pnpm's built-in 1440-minute (1 day) release age applies and stays non-strict. `pnpm-workspace.yaml`
-  pins exact-version `minimumReleaseAgeExclude` entries for the 2026-10-22 one-shot security upgrade,
-  so future releases stay gated; delete them once those versions age in. Don't add name-only excludes.
-- `pnpm update --latest` keeps `catalog:` references and updates the catalog entries in place.
-
-Automation for dependencies:
-
-- Dependabot checks npm and GitHub Actions daily with a 1-day cooldown on version updates (security updates are
-  exempt). Minor and patch PRs squash-merge automatically once every check is green; majors are never
-  auto-merged — the workflow requests a review from `@Divkix` and they are merged by hand (the branch is still
-  deleted automatically).
-- The auto-merge gate is `.github/workflows/dependabot-automerge.yml`. It reads PR metadata only (no PR code is
-  checked out, installed or executed), requires the repo's required checks plus every other reported check and
-  commit status to be an exact `success` (a `skipped` or `neutral` check does not count as green), re-checks the
-  PR's author, base branch, draft state and head commit on every poll and again just before merging, and gives up
-  after 45 minutes. It runs from `main`, so edits to it only take effect after they are merged.
+Dependency policy and automation are maintained in [AGENTS.md → Toolchain](AGENTS.md#toolchain).
 
 ### Testing Changes
 
@@ -164,7 +145,7 @@ Before submitting a PR:
 - All tests are in `tests/integration/` (not colocated with source files); projects are configured in the `test` block of `vite.config.ts`.
 - Test files: `*.test.ts`, `*.test.tsx`, `*.spec.ts`, or `*.spec.tsx`
 - Use `tests/mocks/` for Cloudflare Workers environment mocks
-- Run one test file: `pnpm run test tests/integration/api/onboarding.test.ts`. Use `test:integration` for the integration project, `test:watch` for watch mode, and `DATABASE_URL=… pnpm run test:db` for the opt-in live database project.
+- Run one test file: `pnpm run test tests/integration/api/onboarding.test.ts`. Use `test` for the integration project and `test:watch` for watch mode. Live DB tests are opt-in locally with `DATABASE_URL=… pnpm run test:db` against a disposable migrated Postgres, and required in CI.
 
 ## Pull Request Process
 
@@ -208,13 +189,13 @@ How did you test these changes?
 2. Functions, triggers and data fixes: `pnpm run db:generate -- --custom --name=<name>` and write the SQL. To change a function, `CREATE OR REPLACE` it in a new migration; never edit an applied one.
 3. Commit the new `migrations_pg/` files, including `meta/`. `pnpm run deploy` runs `db:migrate` before `wrangler deploy` (needs the direct PlanetScale `DATABASE_URL`).
 4. `db/migrations/` is frozen pre-drizzle history; don't add to it.
-5. Use Row Level Security (RLS) for all new tables
+5. Enforce server-side ownership filters and use the existing `SECURITY DEFINER` RPCs; `migrations_pg/` does not enable RLS or define policies.
 
 ### API Validation
 
-- Use `lib/api/schemas.ts` for zod schemas
-- Use `lib/api/validation.ts` for input validation
-- Validate all input at API boundaries
+- Define zod schemas in `lib/api/schemas.ts` and validate all input at API boundaries.
+- Use `await parseJsonOrFail(schema, request)` from `lib/api/validation.ts` for JSON bodies (malformed JSON returns 400); use `parseOrFail(schema, data)` for non-body input such as query parameters. Return `parsed.response` when `parsed.success` is false.
+- Respond with `ok(data)` / `fail(message, status, details?)` from `lib/api/response.ts`. `ok` merges object fields with `success: true` (no automatic `data` wrapper); `ok(null)` returns only `{ success: true }`. `fail` returns `{ success: false, error }`, with `details` when supplied.
 
 ### Caching
 
@@ -249,29 +230,27 @@ How did you test these changes?
 
 ### Blog Content
 
-- Place blog post data in `lib/blog/posts.ts`
-- Use TypeScript for blog metadata
+- Keep shared titles, descriptions, publication/modification dates and reading times in the `lib/blog/posts.ts` registry. Page metadata/JSON-LD and some header titles still have local overrides; keep them aligned.
+- Reading time is estimated from article content at 225 words/minute, rounded up, and stored in the registry.
 - Keep blog content separate from presentation logic
 
 ### API Routes
 
 - Place API routes in `app/api/`
-- Use the service role client for operations that bypass RLS
-- Validate all input parameters
-- Return consistent JSON responses:
+- Authenticate with `withAuth` and scope user-owned queries to the authenticated user (see `app/api/class-watches/route.ts`).
+- Use the response helpers from `lib/api/response.ts`:
   ```typescript
-  // Success
-  return Response.json({ success: true, data: result })
+  // Success: { watches: result, success: true }
+  return ok({ watches: result });
 
-  // Error
-  return Response.json({ success: false, error: message }, { status: 400 })
+  // Error: { success: false, error: message }
+  return fail(message, 400);
   ```
 
 ### Cloudflare Workers Considerations
 
-- **No global state**: Workers are stateless; keep shared state in Postgres
-- **Memory limits**: Workers have 128MB memory limit
-- **Execution time**: 30 seconds for HTTP; Workflow steps retry independently
+- **Shared state**: Keep durable shared state in Postgres; per-isolate caches are not authoritative.
+- **Deadlines**: External-call deadlines live in `lib/config.ts`; Workflow step timeout/retry settings live in `lib/workflows/cron-workflows.ts`.
 - **Queue consumers**: `max_concurrency: 20`, `max_batch_size: 5` for queue processing
 - **Scheduled work**: `SectionCheckWorkflow` (every 15 min; each section every 30 min) and `MaintenanceWorkflow` (hourly at :05: notification expiry, past-term watch deletion and the retention purge) run from Workflow `schedules` in `wrangler.jsonc`
 - **Test with preview**: Always test with `pnpm run preview` before deploying
