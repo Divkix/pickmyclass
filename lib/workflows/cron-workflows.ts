@@ -8,7 +8,7 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { getPastTermCodes } from "@/lib/asu/terms";
 import { type Database, getDb } from "@/lib/db";
-import { deletePastTermWatches, getSectionsToCheck } from "@/lib/db/queries";
+import { deletePastTermWatches, getSectionsToCheck, purgeExpiredData } from "@/lib/db/queries";
 import { errorFields, log, logEvent, tagLogs } from "@/lib/log";
 import type { SectionRef } from "@/lib/section-ref";
 import { sendQueueBatch } from "@/lib/queue/transport";
@@ -202,19 +202,23 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
   }
 }
 
-const MAINTENANCE_STEPS = ["expire stale notifications", "sweep past-term watches"] as const;
+const MAINTENANCE_STEPS = [
+  "expire stale notifications",
+  "sweep past-term watches",
+  "purge expired data",
+] as const;
 
 /**
- * Daily at 04:05 UTC: expire stale notification claims and delete watches for
- * past terms. The two steps are independent; either failing errors the instance
- * after the other has run.
+ * Daily at 04:05 UTC: expire stale notification claims, delete watches for past
+ * terms, and purge data past the privacy policy's retention windows. The steps
+ * are independent; any failing errors the instance after the others have run.
  */
 
 export class MaintenanceWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
   async run(_event: Readonly<WorkflowEvent<unknown>>, step: WorkflowStep) {
     tagLogs(this.env.CF_VERSION_METADATA?.id);
 
-    const [expired, swept] = await Promise.allSettled([
+    const [expired, swept, purged] = await Promise.allSettled([
       step.do(MAINTENANCE_STEPS[0], STEP_CONFIG, () =>
         failPermanently(() => expireStaleNotifications(getDb(this.env.HYPERDRIVE))),
       ),
@@ -223,18 +227,26 @@ export class MaintenanceWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
           deletePastTermWatches(getDb(this.env.HYPERDRIVE), getPastTermCodes()),
         ),
       ),
+      step.do(MAINTENANCE_STEPS[2], STEP_CONFIG, () =>
+        purgeExpiredData(getDb(this.env.HYPERDRIVE)),
+      ),
     ]);
 
-    if (expired.status === "rejected" || swept.status === "rejected") {
-      const reasons = rejectedReasons("Maintenance", MAINTENANCE_STEPS, [expired, swept]);
+    if (
+      expired.status === "rejected" ||
+      swept.status === "rejected" ||
+      purged.status === "rejected"
+    ) {
+      const reasons = rejectedReasons("Maintenance", MAINTENANCE_STEPS, [expired, swept, purged]);
       throw new Error(`Maintenance failed: ${reasons.join("; ")}`);
     }
 
     log("Maintenance").info("Maintenance complete", {
       expired: expired.value,
       swept: swept.value,
+      ...purged.value,
     });
 
-    return { expired: expired.value, swept: swept.value };
+    return { expired: expired.value, swept: swept.value, ...purged.value };
   }
 }
