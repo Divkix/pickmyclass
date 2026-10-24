@@ -4,7 +4,8 @@ import { onRequestError } from "@/instrumentation";
 const routeContext = {
   routerKind: "App Router",
   routePath: "/api/unsubscribe",
-  routeType: "middleware",
+  routeType: "proxy",
+  revalidateReason: undefined,
 } as const;
 
 describe("onRequestError", () => {
@@ -12,11 +13,15 @@ describe("onRequestError", () => {
     vi.restoreAllMocks();
   });
 
-  it("logs the stack, method and path without the query string", () => {
+  it("logs the stack, method and path without the query string", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const error = Object.assign(new Error("boom"), { digest: "123" });
 
-    onRequestError(error, { path: "/api/unsubscribe?token=secret", method: "GET" }, routeContext);
+    await onRequestError(
+      error,
+      { path: "/api/unsubscribe?token=secret", method: "GET", headers: {} },
+      routeContext,
+    );
 
     expect(errorSpy).toHaveBeenCalledTimes(1);
     const [line] = errorSpy.mock.calls[0];
@@ -25,7 +30,7 @@ describe("onRequestError", () => {
       scope: "RequestError",
       method: "GET",
       path: "/api/unsubscribe",
-      route_type: "middleware",
+      route_type: "proxy",
       route_path: "/api/unsubscribe",
       digest: "123",
       "error.message": "boom",
@@ -35,13 +40,13 @@ describe("onRequestError", () => {
     expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("secret");
   });
 
-  it("logs a non-Error throw instead of crashing", () => {
+  it("logs a non-Error throw instead of crashing", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     // vinext forwards raw thrown values from route handlers: an Error-shaped plain object here.
     const thrown = { name: "Thrown", message: "nope", toString: () => "thrown: nope" };
 
-    onRequestError(thrown, { path: "/api/x", method: "POST" }, routeContext);
+    await onRequestError(thrown, { path: "/api/x", method: "POST", headers: {} }, routeContext);
 
     expect(errorSpy.mock.calls[0][0]).toMatchObject({
       "error.name": "Thrown",

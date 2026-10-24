@@ -83,7 +83,7 @@ function scrub(text: string): string {
 }
 
 // `instanceof` rather than `typeof`, which the anti-slop lint bans.
-function isText(cause: unknown): cause is string {
+export function isText(cause: unknown): cause is string {
   return Object(cause) instanceof String;
 }
 
