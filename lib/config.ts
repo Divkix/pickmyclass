@@ -20,6 +20,12 @@ export const CLERK_REQUEST_TIMEOUT_MS = 8_000;
  */
 export const CLERK_PURGE_BATCH_SIZE = 25;
 
+/**
+ * Active sessions one sign-out-everywhere revokes. Each revoke is a subrequest and Workers
+ * Free allows 50 per invocation; the recheck reports any session left past this page.
+ */
+export const CLERK_SESSION_REVOKE_LIMIT = 40;
+
 /** Cache API reads and writes are local to the colo; a slow one is skipped, not waited for. */
 export const EDGE_CACHE_TIMEOUT_MS = 3_000;
 

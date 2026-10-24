@@ -34,7 +34,7 @@ import {
   revokeAllUserSessions,
   revokeSession,
 } from "@/lib/auth/clerk-session";
-import { CLERK_REQUEST_TIMEOUT_MS } from "@/lib/config";
+import { CLERK_REQUEST_TIMEOUT_MS, CLERK_SESSION_REVOKE_LIMIT } from "@/lib/config";
 
 async function caught(promise: Promise<unknown>): Promise<Error | undefined> {
   return promise.then(
@@ -106,7 +106,9 @@ describe("clerk-session", () => {
   });
 
   it("revokes every session and reports the ones that stayed active", async () => {
-    getSessionList.mockResolvedValue({ data: [{ id: "s1" }, { id: "s2" }, { id: "s3" }] });
+    getSessionList
+      .mockResolvedValueOnce({ data: [{ id: "s1" }, { id: "s2" }, { id: "s3" }], totalCount: 3 })
+      .mockResolvedValueOnce({ data: [{ id: "s2" }], totalCount: 1 });
     revokeSessionCall
       .mockResolvedValueOnce({})
       .mockRejectedValueOnce(new Error("503"))
@@ -119,8 +121,31 @@ describe("clerk-session", () => {
     expect(error).toMatchObject({ failed: 1, total: 3 });
   });
 
-  it("resolves when every session is revoked", async () => {
-    getSessionList.mockResolvedValue({ data: [{ id: "s1" }] });
+  it("reports sessions past the revoke limit instead of dropping them", async () => {
+    const page = Array.from({ length: CLERK_SESSION_REVOKE_LIMIT }, (_, i) => ({ id: `s${i}` }));
+    const total = CLERK_SESSION_REVOKE_LIMIT + 2;
+
+    getSessionList
+      .mockResolvedValueOnce({ data: page, totalCount: total })
+      .mockResolvedValueOnce({ data: [{ id: "s_late" }], totalCount: 2 });
+    revokeSessionCall.mockResolvedValue({});
+
+    const error = await caught(revokeAllUserSessions("user_1"));
+
+    expect(getSessionList).toHaveBeenNthCalledWith(1, {
+      userId: "user_1",
+      status: "active",
+      limit: CLERK_SESSION_REVOKE_LIMIT,
+    });
+    expect(revokeSessionCall).toHaveBeenCalledTimes(CLERK_SESSION_REVOKE_LIMIT);
+    expect(error).toBeInstanceOf(SessionRevocationIncomplete);
+    expect(error).toMatchObject({ failed: 2, total });
+  });
+
+  it("resolves once no session is left active", async () => {
+    getSessionList
+      .mockResolvedValueOnce({ data: [{ id: "s1" }], totalCount: 1 })
+      .mockResolvedValueOnce({ data: [], totalCount: 0 });
     revokeSessionCall.mockResolvedValue({});
 
     await expect(revokeAllUserSessions("user_1")).resolves.toBeUndefined();
