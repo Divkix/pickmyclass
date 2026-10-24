@@ -8,7 +8,6 @@ const {
   mockGetSessionIdentity,
   mockGetUser,
   mockRepairUserMirror,
-  mockInvalidateAuthorizationState,
 } = vi.hoisted(() => {
   const mockExecute = vi.fn();
   const mockGetUser = vi.fn();
@@ -20,7 +19,6 @@ const {
     mockGetSessionIdentity: vi.fn(),
     mockGetUser,
     mockRepairUserMirror: vi.fn(),
-    mockInvalidateAuthorizationState: vi.fn(),
   };
 });
 
@@ -35,10 +33,6 @@ vi.mock("@/lib/db/users", () => ({
 
 vi.mock("@/lib/db", () => ({
   getDbFromEnv: mockGetDbFromEnv,
-}));
-
-vi.mock("@/lib/auth/authorization-state", () => ({
-  invalidateAuthorizationState: mockInvalidateAuthorizationState,
 }));
 
 import { GET } from "@/app/auth/post-oauth/route";
@@ -82,7 +76,6 @@ describe("GET /auth/post-oauth", () => {
     expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     expect(mockRepairUserMirror).not.toHaveBeenCalled();
     expect(mockExecute).not.toHaveBeenCalled();
-    expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
   it("creates exactly one database handle per request", async () => {
@@ -110,7 +103,6 @@ describe("GET /auth/post-oauth", () => {
 
     expect(locationOf(response)).toBe(`${ORIGIN}/consent?error=save_failed&next=%2Fdashboard`);
     expect(mockExecute).not.toHaveBeenCalled();
-    expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
   it("maps a thrown repair failure to the oauth_failed sign-in redirect", async () => {
@@ -120,7 +112,6 @@ describe("GET /auth/post-oauth", () => {
 
     expect(locationOf(response)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
     expect(mockExecute).not.toHaveBeenCalled();
-    expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
   it("maps a Clerk fetch failure to the oauth_failed sign-in redirect", async () => {
@@ -131,7 +122,6 @@ describe("GET /auth/post-oauth", () => {
     expect(locationOf(response)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
     expect(mockRepairUserMirror).not.toHaveBeenCalled();
     expect(mockExecute).not.toHaveBeenCalled();
-    expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
   it("routes users without recorded consent to /consent using the repaired flag instead of extra SQL", async () => {
@@ -141,7 +131,6 @@ describe("GET /auth/post-oauth", () => {
 
     expect(locationOf(response)).toBe(`${ORIGIN}/consent?next=%2Fdashboard`);
     expect(mockExecute).not.toHaveBeenCalled();
-    expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
   it("sends consented users straight to the safe next destination", async () => {
@@ -151,7 +140,6 @@ describe("GET /auth/post-oauth", () => {
 
     expect(locationOf(response)).toBe(`${ORIGIN}/dashboard`);
     expect(mockExecute).not.toHaveBeenCalled();
-    expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
   it("ignores cross-site GET consent claims and requires the consent form POST", async () => {
@@ -164,7 +152,6 @@ describe("GET /auth/post-oauth", () => {
 
     expect(locationOf(response)).toBe(`${ORIGIN}/consent?next=%2Fdashboard`);
     expect(mockExecute).not.toHaveBeenCalled();
-    expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
   });
 
   it("sanitizes protocol-relative and backslash next values down to the safe fallback", async () => {
