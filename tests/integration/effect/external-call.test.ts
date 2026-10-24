@@ -1,5 +1,7 @@
-import { Effect } from "effect";
-import { describe, expect, it } from "vite-plus/test";
+import { it } from "@effect/vitest";
+import { Effect, Fiber } from "effect";
+import { TestClock } from "effect/testing";
+import { describe, expect } from "vite-plus/test";
 import { externalCall } from "@/lib/effect/external-call";
 
 class Failed {
@@ -20,55 +22,57 @@ const call = (attempt: (signal: AbortSignal) => Promise<string>, timeoutMs: numb
   );
 
 describe("externalCall", () => {
-  it("returns the attempt's value", async () => {
-    await expect(Effect.runPromise(call(() => Promise.resolve("ok"), 1_000))).resolves.toBe("ok");
-  });
+  it.effect("returns the attempt's value", () =>
+    Effect.gen(function* () {
+      expect(yield* call(() => Promise.resolve("ok"), 1_000)).toBe("ok");
+    }),
+  );
 
-  it("types a rejection with the thrown error", async () => {
-    const boom = new Error("boom");
-    const failure = await Effect.runPromise(Effect.flip(call(() => Promise.reject(boom), 1_000)));
+  it.effect("types a rejection with the thrown error", () =>
+    Effect.gen(function* () {
+      const boom = new Error("boom");
 
-    expect(failure).toEqual(new Failed(boom));
-  });
+      expect(yield* Effect.flip(call(() => Promise.reject(boom), 1_000))).toEqual(new Failed(boom));
+    }),
+  );
 
-  it("wraps a non-Error rejection so callers always get an Error", async () => {
-    const failure = await Effect.runPromise(
-      Effect.flip(call(() => Promise.reject("plain string"), 1_000)),
-    );
+  it.effect("wraps a non-Error rejection so callers always get an Error", () =>
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(call(() => Promise.reject("plain string"), 1_000));
 
-    expect(failure).toBeInstanceOf(Failed);
-    expect(failure instanceof Failed && failure.error.message).toBe("plain string");
-  });
+      expect(failure).toBeInstanceOf(Failed);
+      expect(failure instanceof Failed && failure.error.message).toBe("plain string");
+    }),
+  );
 
-  it("gives up with the timeout failure and aborts the signal", async () => {
-    let signal: AbortSignal | undefined;
+  it.effect("gives up with the timeout failure and aborts the signal", () =>
+    Effect.gen(function* () {
+      let signal: AbortSignal | undefined;
 
-    const failure = await Effect.runPromise(
-      Effect.flip(
-        call((received) => {
-          signal = received;
+      const fiber = yield* call((received) => {
+        signal = received;
 
-          return new Promise<string>(() => {});
-        }, 20),
-      ),
-    );
+        return new Promise<string>(() => {});
+      }, 20).pipe(Effect.flip, Effect.forkChild);
 
-    expect(failure).toBeInstanceOf(TimedOut);
-    expect(signal?.aborted).toBe(true);
-  });
+      yield* TestClock.adjust(20);
 
-  it("does not abort a call that finished in time", async () => {
-    let signal: AbortSignal | undefined;
+      expect(yield* Fiber.join(fiber)).toBeInstanceOf(TimedOut);
+      expect(signal?.aborted).toBe(true);
+    }),
+  );
 
-    await Effect.runPromise(
-      call((received) => {
+  it.effect("leaves the signal alone once the call settles in time", () =>
+    Effect.gen(function* () {
+      let signal: AbortSignal | undefined;
+
+      yield* call((received) => {
         signal = received;
 
         return Promise.resolve("done");
-      }, 1_000),
-    );
+      }, 1_000);
 
-    // Released after use either way; the point is that it never fired early.
-    expect(signal).toBeDefined();
-  });
+      expect(signal?.aborted).toBe(false);
+    }),
+  );
 });

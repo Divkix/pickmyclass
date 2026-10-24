@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
 const root = resolve(import.meta.dirname, "../../..");
@@ -23,15 +23,26 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-function resolveLocal(specifier: string): string | undefined {
-  const base = specifier.replace(/^@\//, "");
+/** Root-relative file of a local import (`@/` alias or relative to `importer`); undefined for a package. */
+function resolveLocal(specifier: string, importer: string): string | undefined {
+  const base = specifier.startsWith("@/")
+    ? specifier.slice(2)
+    : specifier.startsWith(".")
+      ? join(dirname(importer), specifier)
+      : undefined;
+
+  if (base === undefined) return undefined;
 
   return [".ts", ".tsx", "/index.ts", "/index.tsx"]
     .map((suffix) => `${base}${suffix}`)
     .find((candidate) => existsSync(join(root, candidate)));
 }
 
-/** Every local file a browser can load: "use client" files, the client instrumentation, and their imports. */
+/**
+ * Every local file a browser can load: "use client" files, the client instrumentation, and their
+ * imports. Local imports are recorded as their resolved `@/` path, so `./errors` and `@/lib/db`
+ * are checked as the files they load.
+ */
 function clientGraph(): Map<string, string[]> {
   const seeds = [...sourceFiles("app"), ...sourceFiles("components"), ...sourceFiles("lib")].filter(
     (file) => /^["']use client["']/.test(readFileSync(join(root, file), "utf8")),
@@ -46,28 +57,33 @@ function clientGraph(): Map<string, string[]> {
     }
 
     const source = readFileSync(join(root, file), "utf8").replace(TYPE_ONLY_IMPORT, "");
-    const specifiers = [...source.matchAll(IMPORT)].map((match) => match[1] ?? "");
 
-    graph.set(file, specifiers);
+    const imports = [...source.matchAll(IMPORT)].map((match) => {
+      const specifier = match[1] ?? "";
+      const local = resolveLocal(specifier, file);
 
-    for (const specifier of specifiers) {
-      const local = specifier.startsWith("@/") ? resolveLocal(specifier) : undefined;
+      if (local === undefined) return specifier;
 
-      if (local) {
-        queue.push(local);
-      }
-    }
+      queue.push(local);
+
+      return `@/${local.replace(/\.tsx?$/, "")}`;
+    });
+
+    graph.set(file, imports);
   }
 
   return graph;
 }
 
 describe("browser boundary", () => {
-  it("finds the client entry points", () => {
+  it("finds the client entry points and follows relative imports", () => {
     const graph = clientGraph();
 
     expect(graph.has("instrumentation-client.ts")).toBe(true);
     expect(graph.size).toBeGreaterThan(10);
+    expect(graph.get("components/admin/ClassesTable.tsx")).toContain(
+      "@/components/admin/SortableHeader",
+    );
   });
 
   it("keeps Effect and server-only modules out of everything the browser loads", () => {

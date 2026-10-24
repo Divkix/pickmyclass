@@ -16,8 +16,9 @@
 import { Effect } from "effect";
 
 /**
- * `attempt` gets an `AbortSignal` that fires on timeout or interruption, so a
- * `fetch` can cancel; attempts that cannot cancel (a driver query) ignore it.
+ * `attempt` gets an `AbortSignal` that fires on timeout or interruption, never
+ * after a call that settled in time, so a `fetch` can cancel; attempts that
+ * cannot cancel (a driver query) ignore it.
  */
 export function externalCall<A, Failed, TimedOut>(
   attempt: (signal: AbortSignal) => Promise<A>,
@@ -25,15 +26,11 @@ export function externalCall<A, Failed, TimedOut>(
   failed: (error: Error) => Failed,
   timedOut: () => TimedOut,
 ): Effect.Effect<A, Failed | TimedOut> {
-  return Effect.acquireUseRelease(
-    Effect.sync(() => new AbortController()),
-    (controller) =>
-      Effect.tryPromise({
-        try: () => attempt(controller.signal),
-        catch: (thrown) => failed(thrown instanceof Error ? thrown : new Error(String(thrown))),
-      }),
-    (controller) => Effect.sync(() => controller.abort()),
-  ).pipe(
+  // tryPromise aborts its signal when interrupted, and the timeout interrupts it.
+  return Effect.tryPromise({
+    try: attempt,
+    catch: (thrown) => failed(thrown instanceof Error ? thrown : new Error(String(thrown))),
+  }).pipe(
     Effect.timeoutOrElse({
       duration: timeoutMs,
       orElse: () => Effect.fail(timedOut()),
