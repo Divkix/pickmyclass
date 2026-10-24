@@ -20,6 +20,9 @@ export const COLLECTOR_TIMEOUT_MS = 10_000;
 
 export const ASSETS_FETCH_TIMEOUT_MS = 10_000;
 
+/** One IndexNow deploy-script request, body included. */
+export const INDEXNOW_TIMEOUT_MS = 15_000;
+
 export const ASU_CACHE_TTL_MS = 2 * 60 * 1000;
 
 export const ADMIN_CACHE_TTL_MS = 600_000;
