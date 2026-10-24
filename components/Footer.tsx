@@ -1,14 +1,23 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { useHydrated } from "@/lib/hooks/useHydrated";
 
 export function Footer() {
+  const pathname = usePathname();
+  const [year] = useState(() => new Date().getFullYear());
+  const mounted = useHydrated();
+
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return null;
+
   return (
     <footer className="border-t border-border/40 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="container mx-auto px-4 py-6">
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex flex-col items-center gap-4 md:flex-row md:gap-6">
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} PickMyClass
-            </p>
+            <p className="text-sm text-muted-foreground">© {mounted ? year : null} PickMyClass</p>
             <div className="flex flex-wrap items-center justify-center gap-3 text-sm sm:gap-4">
               <Link
                 href="/faq"

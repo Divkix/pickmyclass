@@ -10,7 +10,7 @@ export function BottomNav() {
   const { user, loading } = useAuth();
   const pathname = usePathname();
 
-  if (loading || !user) return null;
+  if (loading || !user || pathname === "/admin" || pathname.startsWith("/admin/")) return null;
 
   const navItems = [
     {
