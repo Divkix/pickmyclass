@@ -18,14 +18,18 @@ import {
 import { TermSelect } from "@/components/TermSelect";
 import { useClassWatchForm } from "@/lib/class-watches/useClassWatchForm";
 
-/** Creates a watch, then returns to the dashboard. */
+/** Creates a watch, then returns to the dashboard. The refresh drops cached dashboard
+ * snapshots, so Back to an earlier dashboard entry doesn't show the list without it. */
 export function AddClassWatch() {
   const router = useRouter();
   const [university] = useState("asu");
 
   const { terms, term, setTerm, classNbr, setClassNbr, error, isSubmitting, handleSubmit } =
     useClassWatchForm({
-      onCreated: () => router.push("/dashboard"),
+      onCreated: () => {
+        router.push("/dashboard");
+        router.refresh();
+      },
       resetOnSuccess: true,
     });
 

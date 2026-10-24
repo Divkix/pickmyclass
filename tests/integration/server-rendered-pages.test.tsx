@@ -18,9 +18,11 @@ vi.mock("@/lib/auth/clerk-session", () => ({ getSessionIdentityFromHeaders }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 
+// No app router is mounted under renderToStaticMarkup.
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<typeof Navigation>()),
   redirect,
+  useRouter: () => ({ push: () => {}, refresh: () => {} }),
 }));
 
 // Clerk has not loaded during SSR: the page must not depend on it.

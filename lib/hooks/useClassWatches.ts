@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { Watchlist, WatchWithState } from "@/lib/class-watches/watchlist";
@@ -30,9 +31,11 @@ async function requestWatches(): Promise<Watchlist> {
 /**
  * Dashboard state seeded from the server-rendered `initial` watchlist, so the first view
  * needs no fetch. It refetches on pull-to-refresh, after restore, and when the Clerk user
- * stops matching the one the server rendered for.
+ * stops matching the one the server rendered for. Every change to the watchlist or
+ * onboarding calls `router.refresh()`, so Back never remounts from a stale RSC snapshot.
  */
 export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
+  const router = useRouter();
   const { user } = useAuth();
   const [watches, setWatches] = useState<WatchWithState[]>(initial.watches);
   const [maxWatches, setMaxWatches] = useState(initial.maxWatches);
@@ -85,6 +88,7 @@ export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
             setWatches(data.watches);
             setMaxWatches(data.maxWatches);
             setOnboarding(data.onboarding);
+            router.refresh();
 
             return data;
           },
@@ -98,7 +102,7 @@ export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
           },
         )
         .finally(() => setIsLoadingWatches(false)),
-    [],
+    [router],
   );
 
   const fetchWatches = useCallback(async (): Promise<Watchlist> => {
@@ -144,10 +148,22 @@ export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
     resistance: 2.5,
   });
 
-  const handleOnboardingCompleted = useCallback((watch: ClassWatchRow) => {
-    setWatches((prev) => [{ ...watch, class_state: null }, ...prev]);
-    setOnboarding((prev) => completeOnFirstWatch(prev));
-  }, []);
+  const handleOnboardingCompleted = useCallback(
+    (watch: ClassWatchRow) => {
+      setWatches((prev) => [{ ...watch, class_state: null }, ...prev]);
+      setOnboarding((prev) => completeOnFirstWatch(prev));
+      router.refresh();
+    },
+    [router],
+  );
+
+  const handleOnboardingSkipped = useCallback(
+    (state: OnboardingState) => {
+      setOnboarding(state);
+      router.refresh();
+    },
+    [router],
+  );
 
   const handleDeleteWatch = async (watchId: string) => {
     const response = await fetch(`/api/class-watches?id=${watchId}`, {
@@ -159,6 +175,7 @@ export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
     }
 
     setWatches((prev) => prev.filter((w) => w.id !== watchId));
+    router.refresh();
   };
 
   const filteredWatches = useMemo(() => {
@@ -205,7 +222,7 @@ export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
     searchQuery,
     setSearchQuery,
     onboarding,
-    setOnboarding,
+    handleOnboardingSkipped,
     classStates,
     realtimeLoading,
     realtimeError,

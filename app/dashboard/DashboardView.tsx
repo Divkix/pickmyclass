@@ -34,7 +34,7 @@ export function DashboardView({ initial, ownerClerkUserId }: DashboardViewProps)
     searchQuery,
     setSearchQuery,
     onboarding,
-    setOnboarding,
+    handleOnboardingSkipped,
     classStates,
     realtimeLoading,
     realtimeError,
@@ -59,7 +59,7 @@ export function DashboardView({ initial, ownerClerkUserId }: DashboardViewProps)
       />
       <OnboardingModal
         open={onboarding.needs_onboarding}
-        onSkipped={setOnboarding}
+        onSkipped={handleOnboardingSkipped}
         onCompleted={handleOnboardingCompleted}
         onSkipError={(message) =>
           toast.error("Could not skip onboarding", { description: message })
