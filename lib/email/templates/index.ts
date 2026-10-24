@@ -46,19 +46,37 @@ function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
   };
 }
 
+type ClassEmailVariant = "seat" | "instructor" | "removed";
+
+interface ClassEmailPreset {
+  gradientFrom: string;
+  gradientTo: string;
+  heading: string;
+}
+
+// A new variant does not compile until it has a preset.
+const CLASS_EMAIL_PRESETS = {
+  seat: { gradientFrom: "#8C1D40", gradientTo: "#6E1733", heading: "🎉 Seat Available!" },
+  instructor: {
+    gradientFrom: "#f59e0b",
+    gradientTo: "#ea580c",
+    heading: "👨‍🏫 Instructor Assigned!",
+  },
+  removed: {
+    gradientFrom: "#6b7280",
+    gradientTo: "#374151",
+    heading: "Class Removed from Catalog",
+  },
+} satisfies Record<ClassEmailVariant, ClassEmailPreset>;
+
 export function buildClassEmailShell(opts: {
-  variant: "seat" | "instructor" | "removed";
+  variant: ClassEmailVariant;
   title: string;
   unsubscribeUrl?: string;
   bodyHtml: string;
   preheader: string;
 }): string {
-  const preset =
-    opts.variant === "seat"
-      ? { gradientFrom: "#8C1D40", gradientTo: "#6E1733", heading: "🎉 Seat Available!" }
-      : opts.variant === "instructor"
-        ? { gradientFrom: "#f59e0b", gradientTo: "#ea580c", heading: "👨‍🏫 Instructor Assigned!" }
-        : { gradientFrom: "#6b7280", gradientTo: "#374151", heading: "Class Removed from Catalog" };
+  const preset = CLASS_EMAIL_PRESETS[opts.variant];
 
   const preheaderHtml = opts.preheader
     ? `<span style="display:none!important;visibility:hidden;mso-hide:all;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${escapeHtml(opts.preheader)}</span>`
