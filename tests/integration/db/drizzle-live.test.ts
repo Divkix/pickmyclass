@@ -1056,7 +1056,9 @@ describe("locked section retirement", () => {
       await incrementConsecutiveNotFound(db, ref);
     }
 
-    await recordSectionCheck(db, ref, queueDetails, new Date());
+    // Strikes stamp last_checked_at with the DB's microsecond NOW(); a JS Date from the same
+    // millisecond truncates below it and the observation is rejected as stale.
+    await recordSectionCheck(db, ref, queueDetails, new Date(Date.now() + 1_000));
     expect(await retireSectionIfNotFound(db, ref, AUTO_CLEANUP_THRESHOLD)).toEqual({
       retired: false,
       watches_deleted: 0,
