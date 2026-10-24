@@ -20,6 +20,15 @@ const IGNORE_PATTERNS = [
   "tools/oxlint/anti-slop/**",
 ];
 
+// Dev only. @vitejs/plugin-rsc keeps react-peer packages such as @clerk/shared out of the
+// server pre-bundles, so a pre-bundled @clerk/backend imports @clerk/shared by bare name from
+// node_modules/.vite, which pnpm's strict layout cannot resolve and `vp dev` dies at startup.
+// Serve @clerk/backend from source and pre-bundle only its CommonJS dependency.
+const SERVER_CLERK_OPTIMIZE_DEPS = {
+  exclude: ["@clerk/backend"],
+  include: ["@clerk/backend > standardwebhooks"],
+};
+
 // Workers Builds sets these on every build; production deploys come from main.
 // https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables
 function deploymentEnvironment(): DeploymentEnvironment {
@@ -200,6 +209,12 @@ export default defineConfig(() => {
     optimizeDeps: {
       exclude: ["lucide-react"],
     },
+    environments: isTest
+      ? undefined
+      : {
+          rsc: { optimizeDeps: SERVER_CLERK_OPTIMIZE_DEPS },
+          ssr: { optimizeDeps: SERVER_CLERK_OPTIMIZE_DEPS },
+        },
     define: {
       __DEPLOYMENT_ENVIRONMENT__: JSON.stringify(deploymentEnvironment()),
       __BUILD_COMMIT__: JSON.stringify(process.env.WORKERS_CI_COMMIT_SHA?.slice(0, 12) ?? "dev"),
