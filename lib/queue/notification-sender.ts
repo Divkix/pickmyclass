@@ -4,7 +4,12 @@ import {
   deleteNotificationRecordsByIds,
   getNotificationWatchers,
 } from "@/lib/db/queries";
-import { type ClassInfo, type OutboundEmail, sendBatchEmailsOptimized } from "@/lib/email/send";
+import {
+  type ClassInfo,
+  type EmailResult,
+  type OutboundEmail,
+  sendBatchEmailsOptimized,
+} from "@/lib/email/send";
 import { errorFields, log } from "@/lib/log";
 import type { ChangeResult } from "@/lib/queue/change-detector";
 import {
@@ -22,14 +27,12 @@ export interface SendSectionNotificationsParams {
   changes: ChangeResult;
   emailBinding: SendEmail;
   fromEmail?: string;
-  delivery?: NotificationDelivery;
+  delivery: NotificationDelivery;
 }
 
-export interface SentNotification {
-  success: boolean;
+export interface SentNotification extends EmailResult {
   watchId: string;
   type: NotificationType;
-  error?: string;
 }
 
 interface ActiveClaim extends ClaimedNotification {
@@ -100,7 +103,8 @@ export async function sendSectionNotifications(
       },
       onResult: async (index, result) => {
         const claim = emails[index].claim;
-        // A timed-out send may still deliver: keep the claim in flight so a retry cannot duplicate it.
+        // Keep an unknown outcome unconfirmed, not rolled back. Resuming this intent
+        // re-sends it: at-least-once delivery prefers a possible duplicate to a missed alert.
         claim.status = result.success
           ? "delivered"
           : result.outcomeUnknown
@@ -109,16 +113,14 @@ export async function sendSectionNotifications(
 
         // Confirm before the next send: a Worker that dies mid-batch then only risks the one
         // email in flight, not every email already sent. A failed confirm stops the batch.
-        if (result.success && delivery)
-          await confirmNotificationDelivery(db, [claim.notificationId], delivery);
+        if (result.success) await confirmNotificationDelivery(db, [claim.notificationId], delivery);
       },
     });
 
     const sent = results.map((result, index): SentNotification => ({
-      success: result.success,
+      ...result,
       watchId: emails[index].claim.watchId,
       type: emails[index].type,
-      error: result.error,
     }));
 
     const succeeded = sent.filter((r) => r.success).length;

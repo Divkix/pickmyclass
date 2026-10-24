@@ -177,7 +177,7 @@ export async function processSection(
         success: true,
         classNbr,
         changes: emptyChanges(),
-        emailsSent: 0,
+        emailsSent,
         processingTimeMs: Date.now() - startTime,
       });
     }

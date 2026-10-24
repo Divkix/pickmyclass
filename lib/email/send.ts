@@ -18,10 +18,13 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-interface EmailResult {
+export interface EmailResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  code?: string;
+  retryable?: boolean;
+  cause?: Error;
   /** The send timed out: the provider may still deliver, so never treat it as not sent. */
   outcomeUnknown?: boolean;
 }
@@ -44,18 +47,41 @@ interface EmailFailure {
   message: string;
   fields: ErrorFields;
   outcomeUnknown: boolean;
+  retryable: boolean;
+  cause: Error;
 }
 
 function describeFailure(error: Error): EmailFailure {
   const fields = errorFields(error);
 
   if (error instanceof EmailTimedOut)
-    return { code: "TIMEOUT", message: error.message, fields, outcomeUnknown: true };
+    return {
+      code: "TIMEOUT",
+      message: error.message,
+      fields,
+      outcomeUnknown: true,
+      retryable: true,
+      cause: error,
+    };
 
   if (error instanceof EmailSendFailed)
-    return { code: error.code, message: error.message, fields, outcomeUnknown: false };
+    return {
+      code: error.code,
+      message: error.message,
+      fields,
+      outcomeUnknown: false,
+      retryable: error.retryable,
+      cause: error,
+    };
 
-  return { code: "UNKNOWN", message: "Email send failed", fields, outcomeUnknown: false };
+  return {
+    code: "UNKNOWN",
+    message: "Email send failed",
+    fields,
+    outcomeUnknown: false,
+    retryable: true,
+    cause: error,
+  };
 }
 
 /** Sequential sends with a pause only between full batches. */
@@ -112,6 +138,9 @@ export async function sendBatchEmailsOptimized(
       ? {
           success: false,
           error: `${failure.code}: ${failure.message}`,
+          code: failure.code,
+          retryable: failure.retryable,
+          cause: failure.cause,
           ...(failure.outcomeUnknown && { outcomeUnknown: true }),
         }
       : { success: true, messageId };
@@ -133,7 +162,13 @@ export async function sendBatchEmailsOptimized(
       skipped = emails.length - index - 1;
 
       for (let i = index + 1; i < emails.length; i++)
-        results.push({ success: false, error: `Skipped after ${failure.code}` });
+        results.push({
+          success: false,
+          error: `Skipped after ${failure.code}`,
+          code: failure.code,
+          retryable: failure.retryable,
+          cause: failure.cause,
+        });
       log("Email").warn("Stopped email batch on fatal provider error", {
         "email.code": failure.code,
         position: index + 1,
