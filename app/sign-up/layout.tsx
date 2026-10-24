@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sign Up — PickMyClass",
+  title: { absolute: "Sign Up — PickMyClass" },
   description: "Create a PickMyClass account to get notified when seats open in your ASU classes.",
   robots: {
     index: false,
