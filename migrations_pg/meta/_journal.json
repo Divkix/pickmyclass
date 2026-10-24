@@ -113,6 +113,20 @@
       "when": 1792866341472,
       "tag": "0015_retire_section_locked",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792866459374,
+      "tag": "0016_drop_unused_failed_login_rpc",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792866467225,
+      "tag": "0017_drop_unused_failed_login_table",
+      "breakpoints": true
     }
   ]
 }
