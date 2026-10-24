@@ -1,9 +1,5 @@
-"use client";
-
-import { m } from "framer-motion";
 import { CheckCircle2, Clock, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { staggerContainer, staggerItem } from "@/lib/animations";
 
 const sampleClasses = [
   {
@@ -35,23 +31,17 @@ const sampleClasses = [
 export function DashboardPreview() {
   return (
     <section className="border-b border-border bg-muted/20 px-6 py-20">
-      <m.div
-        className="mx-auto max-w-5xl"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={staggerContainer}
-      >
-        <m.div className="mb-12 text-center" variants={staggerItem}>
+      <div className="mx-auto max-w-5xl">
+        <div className="animation-hidden mb-12 text-center">
           <h2 className="mb-4 text-3xl font-semibold text-foreground sm:text-4xl">
             Your dashboard, <span className="text-emphasis">ready to go</span>
           </h2>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
             Here&apos;s what you get the moment you sign up. No learning curve.
           </p>
-        </m.div>
+        </div>
 
-        <m.div variants={staggerItem}>
+        <div className="animation-hidden [animation-delay:100ms]">
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-lg">
             <div className="flex items-center justify-between border-b border-border bg-muted/50 px-4 py-3 sm:px-6">
               <div className="flex items-center gap-4">
@@ -133,8 +123,8 @@ export function DashboardPreview() {
               </span>
             </div>
           </div>
-        </m.div>
-      </m.div>
+        </div>
+      </div>
     </section>
   );
 }

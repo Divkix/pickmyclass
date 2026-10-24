@@ -265,12 +265,15 @@
     }
   }
 
-  /* Keep the hero readable before hydration; Framer also supplies inline hidden styles. */
+  /* CSS-only entrances finish on load; content stays visible if animations are unavailable. */
   .animation-hidden {
-    animation: hero-atf-appear 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-name: landing-appear;
+    animation-duration: 0.55s;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    animation-fill-mode: both;
   }
 
-  @keyframes hero-atf-appear {
+  @keyframes landing-appear {
     from {
       opacity: 0;
       transform: translateY(20px);

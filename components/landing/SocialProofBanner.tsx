@@ -1,19 +1,9 @@
-"use client";
-
-import { m } from "framer-motion";
 import { GraduationCap } from "lucide-react";
-import { fadeInUp } from "@/lib/animations";
 
 export function SocialProofBanner() {
   return (
     <section className="border-b border-border bg-primary text-primary-foreground">
-      <m.div
-        className="mx-auto flex max-w-5xl flex-col items-center gap-x-8 gap-y-3 px-6 py-5 text-center sm:flex-row sm:justify-center sm:text-left"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        variants={fadeInUp}
-      >
+      <div className="animation-hidden mx-auto flex max-w-5xl flex-col items-center gap-x-8 gap-y-3 px-6 py-5 text-center sm:flex-row sm:justify-center sm:text-left">
         <span className="inline-flex items-center gap-2 text-sm font-medium">
           <GraduationCap className="size-5 text-accent" aria-hidden="true" />
           Trusted across every ASU campus
@@ -24,7 +14,7 @@ export function SocialProofBanner() {
           <strong className="font-semibold text-primary-foreground">15,000+</strong> classes
           monitored · <strong className="font-semibold text-accent">8,500+</strong> seats secured
         </p>
-      </m.div>
+      </div>
     </section>
   );
 }

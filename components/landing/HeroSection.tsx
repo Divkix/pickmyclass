@@ -1,10 +1,6 @@
-"use client";
-
-import { m } from "framer-motion";
 import { Bell, CheckCircle2, Clock, Mail, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { revealUp, staggerContainer, staggerItem } from "@/lib/animations";
 
 export function HeroSection() {
   return (
@@ -14,29 +10,18 @@ export function HeroSection() {
       <div className="pointer-events-none absolute -bottom-40 -right-24 -z-10 size-96 rounded-full bg-accent/20 blur-3xl" />
 
       <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-        <m.div
-          className="animation-hidden space-y-8 text-center lg:text-left"
-          initial="hidden"
-          animate="visible"
-          variants={staggerContainer}
-        >
-          <m.div
-            className="animation-hidden inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-smooth"
-            variants={staggerItem}
-          >
+        <div className="space-y-8 text-center lg:text-left">
+          <div className="animation-hidden inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-smooth">
             <Sparkles className="size-4 text-accent" aria-hidden="true" />
             Built for Sun Devils
-          </m.div>
+          </div>
 
-          <m.h1 className="animation-hidden text-display" variants={staggerItem}>
+          <h1 className="animation-hidden text-display [animation-delay:100ms]">
             Free ASU class seat tracker: stop refreshing MyASU{" "}
             <span className="mark-gold">every 5 minutes</span>
-          </m.h1>
+          </h1>
 
-          <m.p
-            className="animation-hidden mx-auto max-w-xl text-lg text-muted-foreground sm:text-xl lg:mx-0"
-            variants={staggerItem}
-          >
+          <p className="animation-hidden mx-auto max-w-xl text-lg text-muted-foreground [animation-delay:200ms] sm:text-xl lg:mx-0">
             Get timely email alerts when seats open up in full ASU classes. PickMyClass (yep, people
             also call it Pick My Class) checks the{" "}
             <Link
@@ -53,12 +38,9 @@ export function HeroSection() {
               ASU class seat tracker
             </Link>{" "}
             watches full sections for you.
-          </m.p>
+          </p>
 
-          <m.div
-            className="animation-hidden flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start"
-            variants={staggerItem}
-          >
+          <div className="animation-hidden flex flex-col items-center justify-center gap-3 [animation-delay:300ms] sm:flex-row lg:justify-start">
             <Button asChild size="lg" variant="gradient" className="w-full text-base sm:w-auto">
               <Link href="/sign-up">
                 <Mail className="size-5" aria-hidden="true" />
@@ -68,12 +50,9 @@ export function HeroSection() {
             <Button asChild size="lg" variant="outline" className="w-full text-base sm:w-auto">
               <Link href="/sign-in">Sign In</Link>
             </Button>
-          </m.div>
+          </div>
 
-          <m.ul
-            className="animation-hidden flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted-foreground lg:justify-start"
-            variants={staggerItem}
-          >
+          <ul className="animation-hidden flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted-foreground [animation-delay:400ms] lg:justify-start">
             <li className="flex items-center gap-2">
               <CheckCircle2 className="size-4 text-success" aria-hidden="true" />
               <span>Free forever</span>
@@ -86,15 +65,10 @@ export function HeroSection() {
               <Clock className="size-4 text-primary" aria-hidden="true" />
               <span>Checks every 30 min</span>
             </li>
-          </m.ul>
-        </m.div>
+          </ul>
+        </div>
 
-        <m.div
-          className="animation-hidden relative mx-auto w-full max-w-md lg:max-w-none"
-          initial="hidden"
-          animate="visible"
-          variants={revealUp}
-        >
+        <div className="animation-hidden relative mx-auto w-full max-w-md [animation-delay:100ms] lg:max-w-none">
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-smooth-lg">
             <div className="flex items-center gap-3 border-b border-border bg-muted/60 px-5 py-3">
               <span className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -145,7 +119,7 @@ export function HeroSection() {
             </span>
             <span className="text-xs font-medium text-foreground">Checking 24/7</span>
           </div>
-        </m.div>
+        </div>
       </div>
     </section>
   );
