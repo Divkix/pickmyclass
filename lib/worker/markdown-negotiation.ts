@@ -394,7 +394,7 @@ export function markdownResponse({ response, html, url }: MarkdownResponseInput)
  * links, images, emphasis, and fenced code, with scripts and other non-content
  * elements dropped.
  */
-export function htmlToMarkdown(html: string): string {
+function htmlToMarkdown(html: string): string {
   const blocks: string[] = [];
   const listStack: Array<{ ordered: boolean; index: number }> = [];
   const linkStack: Array<{ start: number; href: string }> = [];

@@ -14,7 +14,7 @@ import { escapeHtml } from "@/lib/utils/escape-html";
 import type { ClassWatcher } from "@/lib/db/queries";
 import { buildClassEmailShell } from "./index";
 
-export interface BuildAutoCleanupRemovedEmailParams {
+interface BuildAutoCleanupRemovedEmailParams {
   classNbr: string;
   term: string;
   subject?: string | null;
@@ -23,13 +23,13 @@ export interface BuildAutoCleanupRemovedEmailParams {
   unsubscribeUrl?: string;
 }
 
-export interface AutoCleanupRemovedEmail {
+interface AutoCleanupRemovedEmail {
   html: string;
   text: string;
   subject: string;
 }
 
-export function buildAutoCleanupRemovedEmail(
+function buildAutoCleanupRemovedEmail(
   params: BuildAutoCleanupRemovedEmailParams,
 ): AutoCleanupRemovedEmail {
   const { classNbr, term, subject, catalogNbr, title, unsubscribeUrl } = params;

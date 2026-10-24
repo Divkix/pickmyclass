@@ -41,7 +41,7 @@ async function readPayload(response: Response): Promise<WirePayload | null> {
   }
 }
 
-export function createClassWatchClient(request?: Request) {
+function createClassWatchClient(request?: Request) {
   return {
     getOptions() {
       const terms = getSelectableTerms();

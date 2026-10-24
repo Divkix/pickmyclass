@@ -58,7 +58,7 @@ const GUIDE_SUMMARIES: readonly GuideSummary[] = [
   },
 ];
 
-export const CURATED_GUIDE_SLUGS = GUIDE_SUMMARIES.map((guide) => guide.slug);
+const CURATED_GUIDE_SLUGS = GUIDE_SUMMARIES.map((guide) => guide.slug);
 
 function guidesSection(): string {
   const summaries = new Map(GUIDE_SUMMARIES.map((guide) => [guide.slug, guide.summary]));

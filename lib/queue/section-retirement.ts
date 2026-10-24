@@ -22,7 +22,7 @@ export interface SectionRetirementParams {
   fromEmail?: string;
 }
 
-export type SectionRetirementStatus =
+type SectionRetirementStatus =
   | "tracked"
   | "increment-failed"
   | "suppressed"

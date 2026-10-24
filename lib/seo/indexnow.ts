@@ -43,7 +43,7 @@ const XML_ENTITIES = new Map([
 ]);
 
 /** `<loc>` URLs from a sitemap on our own origin, deduped, in document order. */
-export function sitemapUrls(xml: string): string[] {
+function sitemapUrls(xml: string): string[] {
   const urls = [...xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/g)].map((match) =>
     match[1].replace(/&(?:amp|lt|gt|quot|apos);/g, (entity) => XML_ENTITIES.get(entity) ?? entity),
   );
@@ -51,7 +51,7 @@ export function sitemapUrls(xml: string): string[] {
   return [...new Set(urls.filter((url) => url.startsWith(`${SITE_ORIGIN}/`)))];
 }
 
-export function indexNowBody(urls: readonly string[]): string {
+function indexNowBody(urls: readonly string[]): string {
   return JSON.stringify({
     host: new URL(SITE_ORIGIN).host,
     key: INDEXNOW_KEY,

@@ -7,16 +7,16 @@ import type { ClassDetails } from "@/lib/types/class";
 import type { Env } from "@/lib/types/env";
 import { buildUrl } from "@/lib/utils/url";
 
-export class AsuNotFound extends Data.TaggedError("AsuNotFound")<{ message: string }> {}
+class AsuNotFound extends Data.TaggedError("AsuNotFound")<{ message: string }> {}
 
-export class AsuAuth extends Data.TaggedError("AsuAuth")<{ message: string }> {}
+class AsuAuth extends Data.TaggedError("AsuAuth")<{ message: string }> {}
 
-export class AsuRateLimited extends Data.TaggedError("AsuRateLimited")<{
+class AsuRateLimited extends Data.TaggedError("AsuRateLimited")<{
   message: string;
   retryAfterSeconds?: number;
 }> {}
 
-export class AsuUpstream extends Data.TaggedError("AsuUpstream")<{
+class AsuUpstream extends Data.TaggedError("AsuUpstream")<{
   message: string;
   status?: number;
 }> {}
@@ -24,7 +24,7 @@ export class AsuUpstream extends Data.TaggedError("AsuUpstream")<{
 export class AsuTimedOut extends Data.TaggedError("AsuTimedOut")<{ message: string }> {}
 
 /** A 2xx response whose body does not match the API contract; retrying cannot fix it. */
-export class AsuInvalidResponse extends Data.TaggedError("AsuInvalidResponse")<{
+class AsuInvalidResponse extends Data.TaggedError("AsuInvalidResponse")<{
   message: string;
   status?: number;
 }> {}
