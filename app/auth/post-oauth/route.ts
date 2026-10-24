@@ -1,8 +1,6 @@
-import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { errorFields, log } from "@/lib/log";
 import { safeInternalPath } from "@/lib/auth/safe-redirect";
-import { invalidateAuthorizationState } from "@/lib/auth/authorization-state";
 import { getClerkUser, getSessionIdentity } from "@/lib/auth/clerk-session";
 import { getDbFromEnv } from "@/lib/db";
 import { repairUserMirror } from "@/lib/db/users";
@@ -21,7 +19,6 @@ function consentRedirect(base: string, next: string, saveFailed = false): NextRe
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
-  const consentConfirmed = searchParams.get("consent") === "confirmed";
   const next = safeInternalPath(searchParams.get("next"), "/");
 
   const identity = await getSessionIdentity(request);
@@ -46,16 +43,8 @@ export async function GET(request: Request) {
       return consentRedirect(base, next, true);
     }
 
-    if (consentConfirmed) {
-      try {
-        await db.execute(sql`SELECT public.accept_terms_and_verify_age(${userId}::text)`);
-        invalidateAuthorizationState(userId);
-      } catch (error) {
-        log("Auth").error("Failed to persist consent", errorFields(error));
-
-        return consentRedirect(base, next, true);
-      }
-    } else if (!repairResult.hasConsent) {
+    // Consent is recorded only by the checkbox form's authenticated POST, never a navigation URL.
+    if (!repairResult.hasConsent) {
       return consentRedirect(base, next);
     }
 
