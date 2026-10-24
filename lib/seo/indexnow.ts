@@ -1,3 +1,7 @@
+import { INDEXNOW_TIMEOUT_MS } from "@/lib/config";
+import { Effect } from "effect";
+import { externalCall } from "@/lib/effect/external-call";
+import { IndexNowRequestFailed, IndexNowRequestTimedOut } from "@/lib/seo/errors";
 import { SITE_ORIGIN } from "@/lib/seo/public-pages";
 
 /**
@@ -22,6 +26,8 @@ export interface IndexNowRuntime {
   /** Tries for the live key file and sitemap before giving up. */
   attempts: number;
   delayMs: number;
+  /** Per request, body included; defaults to `INDEXNOW_TIMEOUT_MS`. */
+  timeoutMs?: number;
 }
 
 export type IndexNowOutcome =
@@ -54,31 +60,68 @@ export function indexNowBody(urls: readonly string[]): string {
   });
 }
 
-async function fetchText(runtime: IndexNowRuntime, url: string): Promise<string | null> {
-  try {
-    const response = await runtime.fetch(url, { headers: { "Cache-Control": "no-cache" } });
+interface IndexNowReply {
+  status: number;
+  ok: boolean;
+  text: string;
+}
 
-    return response.ok ? await response.text() : null;
-  } catch {
-    return null;
+/** The status and body of one request, or a typed failure (`IndexNowRequestFailed`/`TimedOut`). */
+function request(runtime: IndexNowRuntime, url: string, init: RequestInit): Promise<IndexNowReply> {
+  const timeoutMs = runtime.timeoutMs ?? INDEXNOW_TIMEOUT_MS;
+
+  return Effect.runPromise(
+    externalCall(
+      async (signal) => {
+        const response = await runtime.fetch(url, { ...init, signal });
+
+        return { status: response.status, ok: response.ok, text: await response.text() };
+      },
+      timeoutMs,
+      (error) => new IndexNowRequestFailed({ message: error.message, url, cause: error }),
+      () =>
+        new IndexNowRequestTimedOut({
+          message: `IndexNow request to ${url} timed out after ${timeoutMs}ms`,
+          url,
+          timeoutMs,
+        }),
+    ),
+  );
+}
+
+/** A read that yields a value, or says why it did not. */
+type Poll<T> = { value: T } | { value: null; why: string };
+
+async function fetchText(runtime: IndexNowRuntime, url: string): Promise<Poll<string>> {
+  try {
+    const reply = await request(runtime, url, { headers: { "Cache-Control": "no-cache" } });
+
+    return reply.ok
+      ? { value: reply.text }
+      : { value: null, why: `${url} answered ${reply.status}` };
+  } catch (error) {
+    return { value: null, why: error instanceof Error ? error.message : String(error) };
   }
 }
 
 /**
- * Retries `read` until it yields a value. The first deploy with a new key only
- * serves the key file once the new version is live, so this also waits out
- * propagation right after `wrangler deploy`.
+ * Retries `read` until it yields a value, returning why the last attempt came
+ * up empty. The first deploy with a new key only serves the key file once the
+ * new version is live, so this also waits out propagation right after
+ * `wrangler deploy`.
  */
-async function poll<T>(runtime: IndexNowRuntime, read: () => Promise<T | null>): Promise<T | null> {
-  for (let attempt = 1; attempt <= runtime.attempts; attempt++) {
-    const value = await read();
+async function poll<T>(runtime: IndexNowRuntime, read: () => Promise<Poll<T>>): Promise<Poll<T>> {
+  let last: Poll<T> = { value: null, why: "no attempts" };
 
-    if (value !== null) return value;
+  for (let attempt = 1; attempt <= runtime.attempts; attempt++) {
+    last = await read();
+
+    if (last.value !== null) return last;
 
     if (attempt < runtime.attempts) await runtime.sleep(runtime.delayMs);
   }
 
-  return null;
+  return last;
 }
 
 /**
@@ -87,37 +130,47 @@ async function poll<T>(runtime: IndexNowRuntime, read: () => Promise<T | null>):
  */
 export async function submitSitemapToIndexNow(runtime: IndexNowRuntime): Promise<IndexNowOutcome> {
   const liveKey = await poll(runtime, async () => {
-    const text = await fetchText(runtime, keyLocation);
+    const read = await fetchText(runtime, keyLocation);
 
-    return text?.trim() === INDEXNOW_KEY ? text : null;
+    if (read.value === null) return read;
+
+    return read.value.trim() === INDEXNOW_KEY
+      ? read
+      : { value: null, why: `${keyLocation} does not hold the key` };
   });
 
-  if (liveKey === null) return { kind: "skipped", reason: `key file not live at ${keyLocation}` };
+  if (liveKey.value === null) {
+    return { kind: "skipped", reason: `key file not live at ${keyLocation}: ${liveKey.why}` };
+  }
 
-  const urls = await poll(runtime, async () => {
-    const xml = await fetchText(runtime, `${SITE_ORIGIN}/sitemap.xml`);
-    const found = xml === null ? [] : sitemapUrls(xml);
+  const urls = await poll(runtime, async (): Promise<Poll<string[]>> => {
+    const read = await fetchText(runtime, `${SITE_ORIGIN}/sitemap.xml`);
 
-    return found.length > 0 ? found : null;
+    if (read.value === null) return read;
+
+    const found = sitemapUrls(read.value);
+
+    return found.length > 0 ? { value: found } : { value: null, why: "sitemap lists no URLs" };
   });
 
-  if (urls === null) return { kind: "skipped", reason: "sitemap unavailable or empty" };
+  if (urls.value === null) return { kind: "skipped", reason: `sitemap unavailable: ${urls.why}` };
 
   try {
-    const response = await runtime.fetch(INDEXNOW_ENDPOINT, {
+    const reply = await request(runtime, INDEXNOW_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8" },
-      body: indexNowBody(urls),
+      body: indexNowBody(urls.value),
     });
 
     // 200 = accepted, 202 = accepted while the engine still validates the key.
-    if (response.status === 200 || response.status === 202) {
-      return { kind: "submitted", httpStatus: response.status, urlCount: urls.length };
+    if (reply.status === 200 || reply.status === 202) {
+      return { kind: "submitted", httpStatus: reply.status, urlCount: urls.value.length };
     }
 
-    const detail = (await response.text()).slice(0, 200);
-
-    return { kind: "skipped", reason: `IndexNow answered ${response.status}: ${detail}` };
+    return {
+      kind: "skipped",
+      reason: `IndexNow answered ${reply.status}: ${reply.text.slice(0, 200)}`,
+    };
   } catch (error) {
     return {
       kind: "skipped",
