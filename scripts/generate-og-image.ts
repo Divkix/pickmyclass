@@ -3,16 +3,28 @@ import * as path from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import type { ReactElement } from "react";
 import satori from "satori";
+import { Effect } from "effect";
+import { externalCall } from "../lib/effect/external-call";
+
+const FONT_URL = "https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.woff";
+const FONT_FETCH_TIMEOUT_MS = 30_000;
 
 async function generateOGImage() {
   // Satori requires woff/ttf (not woff2). Use fontsource woff.
-  const fontData = await fetch(
-    "https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.woff",
-  ).then((r) => {
-    if (!r.ok) throw new Error(`Failed to fetch font: ${r.status}`);
+  const fontData = await Effect.runPromise(
+    externalCall(
+      async (signal) => {
+        const response = await fetch(FONT_URL, { signal });
 
-    return r.arrayBuffer();
-  });
+        if (!response.ok) throw new Error(`Failed to fetch font: ${response.status}`);
+
+        return response.arrayBuffer();
+      },
+      FONT_FETCH_TIMEOUT_MS,
+      (error) => new Error(`Font download failed: ${error.message}`, { cause: error }),
+      () => new Error(`Font download timed out after ${FONT_FETCH_TIMEOUT_MS}ms`),
+    ),
+  );
 
   const element: ReactElement = {
     type: "div",
