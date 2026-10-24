@@ -443,6 +443,8 @@ export type SectionCheckState = {
   last_checked_at?: string;
   /** A pending notification intent (live or expired) exists for this SectionRef. */
   has_pending_intent: boolean;
+  /** False for a NotFound placeholder (NULL title), which is not a prior observation. */
+  observed: boolean;
 };
 
 export async function readSectionCheckState(
@@ -462,6 +464,7 @@ export async function readSectionCheckState(
         // Intents reference class_states, so no row also means no intent.
         has_pending_intent: sql<boolean>`EXISTS (SELECT 1 FROM public.pending_section_notifications
           WHERE class_nbr = ${ref.class_nbr} AND term = ${ref.term})`,
+        observed: sql<boolean>`${classStates.title} IS NOT NULL`,
       })
       .from(classStates)
       .where(and(eq(classStates.class_nbr, ref.class_nbr), eq(classStates.term, ref.term)))

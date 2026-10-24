@@ -74,9 +74,12 @@ describe("processSection", () => {
     expect(pg.statements).toHaveLength(1);
   });
 
-  it("does not notify on the first observation", async () => {
+  it.each([
+    ["with no stored row", undefined],
+    ["after a NotFound placeholder", [{ ...state(), observed: false }]],
+  ])("does not notify or report transitions on the first observation %s", async (_label, row) => {
     const pg = createScriptedPostgres();
-    pg.next();
+    pg.next(row);
     pg.next([recorded(true, false)]);
     const env = environment();
 
