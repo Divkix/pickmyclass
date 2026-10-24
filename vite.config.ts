@@ -77,8 +77,15 @@ export default defineConfig(() => {
       },
       overrides: [
         {
-          // Effect is confined to the ASU client (see AGENTS.md), so its rules are too.
-          files: ["lib/asu/**", "tests/integration/asu/**"],
+          // Effect lives at the server's external-call boundary (see AGENTS.md), so its rules do too.
+          files: [
+            "lib/asu/**",
+            "lib/effect/**",
+            "lib/db/**",
+            "tests/integration/asu/**",
+            "tests/integration/effect/**",
+            "tests/integration/db/**",
+          ],
           rules: {
             "anti-slop-effect/no-manual-effect-error-tag": "error",
             "anti-slop-effect/no-manual-tag-comparison": "error",
