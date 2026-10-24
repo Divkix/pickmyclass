@@ -30,7 +30,7 @@ import {
   ClerkCallTimedOut,
   SessionRevocationIncomplete,
 } from "@/lib/auth/clerk-errors";
-import { CLERK_REQUEST_TIMEOUT_MS } from "@/lib/config";
+import { CLERK_REQUEST_TIMEOUT_MS, CLERK_SESSION_REVOKE_LIMIT } from "@/lib/config";
 import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk/config";
 import { externalCall } from "@/lib/effect/external-call";
 import { errorFields, log } from "@/lib/log";
@@ -176,13 +176,19 @@ export async function getSessionIdentityFromHeaders(
   return getSessionIdentity(request);
 }
 
-/** Attempts every session, then reports the ones that stayed active instead of dropping them. */
+/**
+ * Revokes the user's active sessions, then rechecks: a session still active (a failed revoke,
+ * one created meanwhile, or one past `CLERK_SESSION_REVOKE_LIMIT`) throws instead of being dropped.
+ */
 export async function revokeAllUserSessions(clerkUserId: string): Promise<void> {
   const client = buildClerkClient();
 
-  const sessions = await clerkCall("sessions.getSessionList", () =>
-    client.sessions.getSessionList({ userId: clerkUserId, status: "active" }),
-  );
+  const listActive = (limit: number) =>
+    clerkCall("sessions.getSessionList", () =>
+      client.sessions.getSessionList({ userId: clerkUserId, status: "active", limit }),
+    );
+
+  const sessions = await listActive(CLERK_SESSION_REVOKE_LIMIT);
 
   const results = await Promise.allSettled(
     sessions.data.map((session) =>
@@ -190,22 +196,21 @@ export async function revokeAllUserSessions(clerkUserId: string): Promise<void> 
     ),
   );
 
-  let failed = 0;
-
   for (const result of results) {
     if (result.status === "fulfilled") continue;
-    failed += 1;
     log("Auth").error("Failed to revoke Clerk session", {
       clerk_user_id: clerkUserId,
       ...errorFields(result.reason),
     });
   }
 
-  if (failed > 0) {
+  const { totalCount: left } = await listActive(1);
+
+  if (left > 0) {
     throw new SessionRevocationIncomplete({
-      message: `Revoked ${results.length - failed} of ${results.length} Clerk sessions`,
-      failed,
-      total: results.length,
+      message: `${left} of ${sessions.totalCount} Clerk sessions still active after sign-out`,
+      failed: left,
+      total: sessions.totalCount,
       retryable: true,
     });
   }
