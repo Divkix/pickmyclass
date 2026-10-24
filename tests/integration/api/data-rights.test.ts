@@ -390,7 +390,10 @@ describe("user data rights APIs", () => {
       expect(response.status).toBe(500);
       expect(data.error).toBe("Failed to delete account");
       expect(error).toHaveBeenCalledWith(
-        expect.objectContaining({ msg: "Failed to disable account" }),
+        expect.objectContaining({
+          msg: "Failed to disable account",
+          "error.message": expect.stringContaining("update failed"),
+        }),
       );
       expect(mockInvalidateAuthorizationState).not.toHaveBeenCalled();
       expect(mockLogEvent).not.toHaveBeenCalled();
