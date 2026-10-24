@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth as useClerkAuth, useClerk, useUser } from "@clerk/react";
-import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { errorFields, log } from "@/lib/log";
 import { setTelemetryUser, trackBrowserAction } from "@/lib/telemetry/browser";
 import { claimLoginSession } from "@/lib/telemetry/login-session";
@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { isLoaded: authLoaded, sessionId } = useClerkAuth();
   const clerk = useClerk();
 
+  const [loadedAt] = useState(() => new Date().toISOString());
   const loading = !userLoaded || !authLoaded;
 
   const compatUser: CompatUser | null = useMemo(
@@ -42,13 +43,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
             email_confirmed_at:
               clerkUser.primaryEmailAddress?.verification.status === "verified"
-                ? (clerkUser.createdAt?.toISOString() ?? new Date().toISOString())
+                ? (clerkUser.createdAt?.toISOString() ?? loadedAt)
                 : null,
             created_at: clerkUser.createdAt?.toISOString(),
             last_sign_in_at: clerkUser.lastSignInAt?.toISOString() ?? null,
           }
         : null,
-    [clerkUser],
+    [clerkUser, loadedAt],
   );
 
   const compatSession: CompatSession | null = useMemo(
