@@ -27,17 +27,18 @@ export function Header() {
             <Logo variant="full" size="md" />
           </Link>
           {!loading && user && (
-            <Link href="/dashboard">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="min-h-11 text-base"
-                aria-label="Go to dashboard"
-              >
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="min-h-11 text-base"
+              aria-label="Go to dashboard"
+            >
+              <Link href="/dashboard">
                 <LayoutDashboard className="size-4" aria-hidden="true" />
                 <span className="hidden xs:inline">Dashboard</span>
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           )}
           <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
             {navLinks.map((link) => (

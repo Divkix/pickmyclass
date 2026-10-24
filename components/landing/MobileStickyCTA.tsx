@@ -21,11 +21,9 @@ export function MobileStickyCTA() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 p-4 backdrop-blur sm:hidden">
-      <Link href="/sign-up" className="block">
-        <Button variant="gradient" size="lg" className="w-full">
-          Get Started Free
-        </Button>
-      </Link>
+      <Button asChild variant="gradient" size="lg" className="w-full">
+        <Link href="/sign-up">Get Started Free</Link>
+      </Button>
     </div>
   );
 }

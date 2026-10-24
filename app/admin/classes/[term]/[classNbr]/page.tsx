@@ -61,12 +61,12 @@ export default async function AdminClassDetailPage({ params }: AdminClassDetailP
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="mb-6">
-        <Link href="/admin/classes">
-          <Button variant="ghost" size="sm" className="gap-2">
+        <Button asChild variant="ghost" size="sm" className="gap-2">
+          <Link href="/admin/classes">
             <ArrowLeft className="size-4" />
             Back to All Classes
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       <div className="mb-8">

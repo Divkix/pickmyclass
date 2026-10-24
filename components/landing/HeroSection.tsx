@@ -59,17 +59,15 @@ export function HeroSection() {
             className="animation-hidden flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start"
             variants={staggerItem}
           >
-            <Link href="/sign-up" className="w-full sm:w-auto">
-              <Button size="lg" variant="gradient" className="w-full text-base sm:w-auto">
+            <Button asChild size="lg" variant="gradient" className="w-full text-base sm:w-auto">
+              <Link href="/sign-up">
                 <Mail className="size-5" aria-hidden="true" />
                 Get Started Free
-              </Button>
-            </Link>
-            <Link href="/sign-in" className="w-full sm:w-auto">
-              <Button size="lg" variant="outline" className="w-full text-base sm:w-auto">
-                Sign In
-              </Button>
-            </Link>
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="w-full text-base sm:w-auto">
+              <Link href="/sign-in">Sign In</Link>
+            </Button>
           </m.div>
 
           <m.ul

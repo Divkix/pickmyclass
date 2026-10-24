@@ -44,26 +44,23 @@ export function AdminNavigation() {
         const active = isActive(item.href, item.exact);
 
         return (
-          <Link
+          <Button
             key={item.href}
-            href={item.href}
-            className="block"
-            aria-current={active ? "page" : undefined}
+            asChild
+            variant={active ? "secondary" : "ghost"}
+            size="sm"
+            className={cn(
+              "w-full justify-start gap-3 transition-colors",
+              active
+                ? "bg-primary/10 text-primary hover:bg-primary/20 font-semibold"
+                : "hover:bg-accent",
+            )}
           >
-            <Button
-              variant={active ? "secondary" : "ghost"}
-              size="sm"
-              className={cn(
-                "w-full justify-start gap-3 transition-colors",
-                active
-                  ? "bg-primary/10 text-primary hover:bg-primary/20 font-semibold"
-                  : "hover:bg-accent",
-              )}
-            >
+            <Link href={item.href} aria-current={active ? "page" : undefined}>
               {item.icon}
               {item.label}
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         );
       })}
     </>

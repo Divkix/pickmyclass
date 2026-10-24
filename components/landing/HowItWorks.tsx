@@ -78,12 +78,12 @@ export function HowItWorks() {
         </div>
 
         <m.div className="mt-16 text-center" variants={staggerItem}>
-          <Link href="/sign-up">
-            <Button size="lg" variant="gradient" className="text-base">
+          <Button asChild size="lg" variant="gradient" className="text-base">
+            <Link href="/sign-up">
               <Sparkles className="size-5" />
               Join 2,400+ Sun Devils
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </m.div>
       </m.div>
     </section>
