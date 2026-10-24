@@ -12,16 +12,18 @@ import {
 } from "@/components/blog";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/landing/JsonLd";
+import { getBlogPost } from "@/lib/blog/posts";
+
+const post = getBlogPost("how-to-register-for-classes-at-asu");
 
 export const metadata: Metadata = {
   title: "How to Register for Classes at ASU (2026)",
-  description:
-    "Step-by-step guide to ASU registration: find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block you.",
+  description: post.description,
   alternates: {
     canonical: "/blog/how-to-register-for-classes-at-asu",
   },
   openGraph: {
-    title: "How to Register for Classes at ASU: Step-by-Step (2026)",
+    title: post.title,
     description:
       "Find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block registration.",
     type: "article",
@@ -36,9 +38,8 @@ export const dynamic = "error";
 const articleSchema = {
   "@context": "https://schema.org",
   "@type": "Article",
-  headline: "How to Register for Classes at ASU: Step-by-Step (2026)",
-  description:
-    "Step-by-step guide to ASU registration: find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block you.",
+  headline: post.title,
+  description: post.description,
   datePublished: "2026-06-18T00:00:00Z",
   dateModified: "2026-06-18T00:00:00Z",
   author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
@@ -141,9 +142,9 @@ export default async function HowToRegisterAtASUPost() {
           <BlogPostHeader
             breadcrumb="How to Register for Classes at ASU"
             title="How to Register for Classes at ASU: Step-by-Step"
-            dateTime="2026-06-18"
-            date="June 18, 2026"
-            readTime="8 min read"
+            dateTime={post.publishedAt}
+            dateModified={post.dateModified}
+            readTime={post.readingTime}
           />
 
           <p className="text-lg text-muted-foreground leading-relaxed">

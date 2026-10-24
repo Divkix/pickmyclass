@@ -7,6 +7,7 @@ export interface BlogPost {
   readingTime: string;
 }
 
+// Estimated from article content at 225 words per minute, rounded up.
 export const blogPosts: BlogPost[] = [
   {
     slug: "best-asu-class-seat-tracker",
@@ -15,7 +16,7 @@ export const blogPosts: BlogPost[] = [
       "Compare ASU seat trackers by published price, campus coverage, alert channel, check cadence and limits. Details checked September 28, 2026.",
     publishedAt: "2026-06-18",
     dateModified: "2026-09-28",
-    readingTime: "8 min read",
+    readingTime: "5 min read",
   },
   {
     slug: "asu-class-search",
@@ -24,7 +25,7 @@ export const blogPosts: BlogPost[] = [
       "Use ASU Class Search to review sections and availability. If a section is full, check ASU's options or track it for seat-opening email alerts.",
     publishedAt: "2026-06-18",
     dateModified: "2026-09-28",
-    readingTime: "4 min read",
+    readingTime: "2 min read",
   },
   {
     slug: "how-to-register-for-classes-at-asu",
@@ -33,7 +34,7 @@ export const blogPosts: BlogPost[] = [
       "Step-by-step guide to ASU registration: find your enrollment date, clear holds, add classes in MyASU by section number, and fix the errors that block you.",
     publishedAt: "2026-06-18",
     dateModified: "2026-06-18",
-    readingTime: "8 min read",
+    readingTime: "5 min read",
   },
   {
     slug: "asu-class-seat-tracker",
@@ -42,7 +43,7 @@ export const blogPosts: BlogPost[] = [
       "Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.",
     publishedAt: "2026-03-27",
     dateModified: "2026-06-18",
-    readingTime: "8 min read",
+    readingTime: "5 min read",
   },
   {
     slug: "how-to-get-into-full-asu-classes",
@@ -51,7 +52,7 @@ export const blogPosts: BlogPost[] = [
       "Practical strategies to get into full ASU classes during registration and add/drop period. From waitlist tips to automated seat tracking tools.",
     publishedAt: "2026-03-27",
     dateModified: "2026-06-18",
-    readingTime: "10 min read",
+    readingTime: "7 min read",
   },
   {
     slug: "asu-registration-tips",
@@ -60,7 +61,7 @@ export const blogPosts: BlogPost[] = [
       "Everything you need to know about ASU class registration. Enrollment appointment tips, class search strategies, and tools to help you get the schedule you want.",
     publishedAt: "2026-03-27",
     dateModified: "2026-06-18",
-    readingTime: "9 min read",
+    readingTime: "7 min read",
   },
   {
     slug: "asu-waitlist-guide",
@@ -69,7 +70,7 @@ export const blogPosts: BlogPost[] = [
       "Full ASU class? Check for a waitlist, next steps if none appears, and where to verify deadlines or seat restrictions. ASU guidance checked 28 Sep 2026.",
     publishedAt: "2026-04-26",
     dateModified: "2026-09-28",
-    readingTime: "6 min read",
+    readingTime: "3 min read",
   },
   {
     slug: "asu-transfer-registration",
@@ -78,7 +79,7 @@ export const blogPosts: BlogPost[] = [
       "ASU registration for transfer students: how transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.",
     publishedAt: "2026-04-26",
     dateModified: "2026-06-18",
-    readingTime: "8 min read",
+    readingTime: "7 min read",
   },
   {
     slug: "myasu-search-tips",
@@ -90,3 +91,11 @@ export const blogPosts: BlogPost[] = [
     readingTime: "7 min read",
   },
 ];
+
+export function getBlogPost(slug: string): BlogPost {
+  const post = blogPosts.find((entry) => entry.slug === slug);
+
+  if (!post) throw new Error(`Unknown blog post: ${slug}`);
+
+  return post;
+}
