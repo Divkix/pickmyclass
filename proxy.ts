@@ -68,7 +68,7 @@ const LEGACY_REDIRECTS = new Map([
 function buildProductionCsp(inlineScriptSource: string): string {
   return [
     CSP_DEFAULT_SRC,
-    `script-src 'self' ${inlineScriptSource} https://static.cloudflareinsights.com https://analytics.divkix.me ${CSP_CLERK_SCRIPT_HOSTS}`,
+    `script-src 'self' ${inlineScriptSource} https://analytics.divkix.me ${CSP_CLERK_SCRIPT_HOSTS}`,
     CSP_STYLE_SRC,
     CSP_IMG_SRC,
     CSP_FONT_SRC,
