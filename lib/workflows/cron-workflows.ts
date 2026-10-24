@@ -216,10 +216,12 @@ export class MaintenanceWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
 
     const [expired, swept] = await Promise.allSettled([
       step.do(MAINTENANCE_STEPS[0], STEP_CONFIG, () =>
-        expireStaleNotifications(getDb(this.env.HYPERDRIVE)),
+        failPermanently(() => expireStaleNotifications(getDb(this.env.HYPERDRIVE))),
       ),
       step.do(MAINTENANCE_STEPS[1], STEP_CONFIG, () =>
-        deletePastTermWatches(getDb(this.env.HYPERDRIVE), getPastTermCodes()),
+        failPermanently(() =>
+          deletePastTermWatches(getDb(this.env.HYPERDRIVE), getPastTermCodes()),
+        ),
       ),
     ]);
 
