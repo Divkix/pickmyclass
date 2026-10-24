@@ -22,6 +22,7 @@
   "include": [
     "worker.ts",
     "global.d.ts",
+    "next-env.d.ts",
     "lib/types/queue.ts",
     "lib/asu/asu-client.ts",
     "lib/types/notification.ts",
