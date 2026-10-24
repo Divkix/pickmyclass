@@ -6,7 +6,8 @@ import satori from "satori";
 import { Effect } from "effect";
 import { externalCall } from "../lib/effect/external-call";
 
-const FONT_URL = "https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.woff";
+// Pinned so a regenerated image cannot drift when fontsource ships a new Inter; bump on purpose.
+const FONT_URL = "https://cdn.jsdelivr.net/fontsource/fonts/inter@5.3.0/latin-700-normal.woff";
 const FONT_FETCH_TIMEOUT_MS = 30_000;
 
 async function generateOGImage() {
