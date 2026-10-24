@@ -6,8 +6,7 @@ import {
   NOTIFICATION_FROM_EMAIL,
 } from "@/lib/config";
 import { generateUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
-import { EmailSendFailed, EmailTimedOut } from "@/lib/email/errors";
-import { isFatalEmailCode } from "@/lib/email/send";
+import { EmailSendFailed, EmailTimedOut, isFatalEmailCode } from "@/lib/email/errors";
 import { sendEmailMessage } from "@/lib/email/transport";
 import { errorFields, log } from "@/lib/log";
 import { type SectionRef, sectionFields } from "@/lib/section-ref";
@@ -250,7 +249,7 @@ export async function sendAutoCleanupRemovalEmails(
           results.push({
             success: false,
             watchId: remaining.watch_id,
-            error: `Skipped: ${errorCode} limit reached`,
+            error: `Skipped after ${errorCode}`,
             attempted: false,
           });
         }

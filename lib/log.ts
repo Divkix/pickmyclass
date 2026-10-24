@@ -217,7 +217,14 @@ interface ProductEventMap {
     http_status?: number;
     duration_ms: number;
   };
-  email_batch_sent: { sent: number; failed: number; skipped: number; duration_ms: number };
+  email_batch_sent: {
+    sent: number;
+    failed: number;
+    /** Timed out: the provider may still deliver, so neither sent nor failed. */
+    unknown_outcome: number;
+    skipped: number;
+    duration_ms: number;
+  };
 }
 
 /**

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { EMAIL_SEND_TIMEOUT_MS } from "@/lib/config";
+import { sendAutoCleanupRemovalEmails } from "@/lib/email/templates/auto-cleanup";
 import { retireClassSection } from "@/lib/queue/section-retirement";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
 import { details, environment, ref, watcher } from "./fixtures";
@@ -70,6 +72,47 @@ describe("Section Check retirement", () => {
     });
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({ msg: "Auto-cleanup could not read the class name" }),
+    );
+  });
+});
+
+describe("sendAutoCleanupRemovalEmails", () => {
+  beforeEach(() => {
+    vi.stubEnv("UNSUBSCRIBE_SIGNING_SECRET", "test-signing-secret");
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("counts a timed-out removal email as attempted but not sent, and keeps sending", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const env = environment();
+    env.send.mockImplementationOnce(() => new Promise(() => {}));
+    const second = { ...watcher, user_id: "user-2", watch_id: "watch-2" };
+
+    const pending = sendAutoCleanupRemovalEmails(
+      { ref, classInfo: details, watchers: [watcher, second] },
+      env.EMAIL,
+    );
+
+    await vi.advanceTimersByTimeAsync(EMAIL_SEND_TIMEOUT_MS);
+
+    expect(await pending).toEqual([
+      {
+        success: false,
+        watchId: watcher.watch_id,
+        error: expect.stringContaining("TIMEOUT"),
+        attempted: true,
+      },
+      { success: true, watchId: second.watch_id, attempted: true },
+    ]);
+    expect(env.send).toHaveBeenCalledTimes(2);
+    expect(error).toHaveBeenCalledWith(
+      expect.objectContaining({ msg: "Auto-cleanup email send failed", "email.code": "TIMEOUT" }),
     );
   });
 });
