@@ -6,7 +6,7 @@ import type { NotificationType } from "@/lib/types/notification";
 import { sectionFields } from "@/lib/section-ref";
 import { withSpan } from "@/lib/telemetry/span";
 import { generateUnsubscribeUrl } from "./unsubscribe-token";
-import { EmailSendFailed, EmailTimedOut } from "./errors";
+import { EmailSendFailed, EmailTimedOut, isFatalEmailCode } from "./errors";
 import { sendEmailMessage } from "./transport";
 
 export type { ClassInfo } from "@/lib/types/class";
@@ -37,14 +37,6 @@ export interface OutboundEmail {
   userId: string;
   classInfo: ClassInfo;
   type: NotificationType;
-}
-
-export function isFatalEmailCode(code: string): boolean {
-  return (
-    code === "E_RATE_LIMIT_EXCEEDED" ||
-    code === "E_DAILY_LIMIT_EXCEEDED" ||
-    code === "E_SENDER_NOT_VERIFIED"
-  );
 }
 
 interface EmailFailure {
@@ -141,7 +133,7 @@ export async function sendBatchEmailsOptimized(
       skipped = emails.length - index - 1;
 
       for (let i = index + 1; i < emails.length; i++)
-        results.push({ success: false, error: `Skipped: ${failure.code} limit reached` });
+        results.push({ success: false, error: `Skipped after ${failure.code}` });
       log("Email").warn("Stopped email batch on fatal provider error", {
         "email.code": failure.code,
         position: index + 1,
@@ -153,10 +145,12 @@ export async function sendBatchEmailsOptimized(
 
   if (emails.length > 0) {
     const sent = results.filter((r) => r.success).length;
+    const unknownOutcome = results.filter((r) => r.outcomeUnknown).length;
 
     logEvent("email_batch_sent", {
       sent,
-      failed: emails.length - sent - skipped,
+      failed: emails.length - sent - unknownOutcome - skipped,
+      unknown_outcome: unknownOutcome,
       skipped,
       duration_ms: Date.now() - startTime,
     });
