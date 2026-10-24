@@ -4,12 +4,16 @@ import { sendSectionNotifications } from "@/lib/queue/notification-sender";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
 import { changes, claim, details, environment, ref, watcher } from "./fixtures";
 
+const delivery = { id: "intent-1", leaseId: "lease-1" };
+
 describe("sendSectionNotifications", () => {
   beforeEach(() => {
     vi.stubEnv("UNSUBSCRIBE_SIGNING_SECRET", "test-signing-secret");
   });
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it("rolls back acquired claims when template preparation throws", async () => {
@@ -27,6 +31,7 @@ describe("sendSectionNotifications", () => {
         classInfo: { ...details, ...ref },
         changes,
         emailBinding: env.EMAIL,
+        delivery,
       }),
     ).rejects.toThrow();
     expect(env.send).not.toHaveBeenCalled();
@@ -37,6 +42,7 @@ describe("sendSectionNotifications", () => {
     const pg = createScriptedPostgres();
     pg.next([watcher, { ...watcher, watch_id: "unclaimed" }]);
     pg.next([claim]);
+    pg.next();
     const env = environment();
     expect(
       await sendSectionNotifications({
@@ -45,9 +51,10 @@ describe("sendSectionNotifications", () => {
         classInfo: { ...details, ...ref },
         changes,
         emailBinding: env.EMAIL,
+        delivery,
       }),
     ).toEqual([
-      { success: true, watchId: watcher.watch_id, type: "seat_available", error: undefined },
+      { success: true, watchId: watcher.watch_id, type: "seat_available", messageId: "message-1" },
     ]);
     expect(env.send).toHaveBeenCalledOnce();
   });
@@ -66,8 +73,9 @@ describe("sendSectionNotifications", () => {
         classInfo: { ...details, ...ref },
         changes: { ...changes, instructorAssigned: true },
         emailBinding: env.EMAIL,
+        delivery,
       }),
-    ).rejects.toThrow("claim failed");
+    ).rejects.toMatchObject({ cause: expect.objectContaining({ message: "claim failed" }) });
     expect(pg.statements.at(-1)?.params).toContain("claim-1");
     expect(env.send).not.toHaveBeenCalled();
   });
@@ -78,6 +86,7 @@ describe("sendSectionNotifications", () => {
     pg.next([claim]);
     pg.next([{ notification_id: "instructor-claim", class_watch_id: watcher.watch_id }]);
     pg.next();
+    pg.next();
     const env = environment();
     env.send.mockRejectedValueOnce(new Error("temporary"));
 
@@ -87,6 +96,7 @@ describe("sendSectionNotifications", () => {
       classInfo: { ...details, ...ref },
       changes: { ...changes, instructorAssigned: true },
       emailBinding: env.EMAIL,
+      delivery,
     });
 
     expect(results.map((r) => r.success)).toEqual([false, true]);
@@ -94,41 +104,50 @@ describe("sendSectionNotifications", () => {
     expect(pg.statements.at(-1)?.params).not.toContain("instructor-claim");
   });
 
-  it("keeps the claim in flight when the send times out, since the provider may still deliver", async () => {
+  it("re-sends a timed-out claim when the intent resumes, without rolling it back", async () => {
     vi.useFakeTimers();
     const pg = createScriptedPostgres();
     pg.next([watcher]);
     pg.next([claim]);
-    pg.next();
     const env = environment();
     env.send.mockImplementationOnce(() => new Promise(() => {}));
 
-    const pending = sendSectionNotifications({
+    const params = {
       db: pg.db,
       ref,
       classInfo: { ...details, ...ref },
       changes,
       emailBinding: env.EMAIL,
-    });
+      delivery,
+    };
+
+    const pending = sendSectionNotifications(params);
 
     await vi.advanceTimersByTimeAsync(EMAIL_SEND_TIMEOUT_MS);
-    const results = await pending;
-    vi.useRealTimers();
-
-    expect(results).toEqual([
+    expect(await pending).toMatchObject([
       {
         success: false,
         watchId: watcher.watch_id,
         type: "seat_available",
-        error: expect.stringContaining("TIMEOUT"),
+        code: "TIMEOUT",
+        retryable: true,
+        outcomeUnknown: true,
       },
     ]);
-    // Nothing after the claim: a rollback would have deleted the row a retry must find.
-    expect(pg.statements.flatMap((statement) => statement.params)).not.toContain("claim-1");
+    expect(pg.statements).toHaveLength(2);
+    expect(env.send).toHaveBeenCalledOnce();
+
+    // claim_section_notifications returns this intent's unconfirmed claim again.
+    pg.next([watcher]);
+    pg.next([claim]);
+    pg.next();
+    expect(await sendSectionNotifications(params)).toMatchObject([{ success: true }]);
+    expect(env.send).toHaveBeenCalledTimes(2);
+    expect(pg.statements.some((statement) => statement.sql.startsWith("delete"))).toBe(false);
+    expect(pg.statements.at(-1)?.params).toContain("claim-1");
   });
 
   describe("under a delivery lease", () => {
-    const delivery = { id: "intent-1", leaseId: "lease-1" };
     const second = { ...watcher, watch_id: "watch-2", email: "second@test.com" };
     const secondClaim = { notification_id: "claim-2", class_watch_id: "watch-2" };
 

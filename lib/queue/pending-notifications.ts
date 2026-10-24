@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Data } from "effect";
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { NOTIFICATION_LEASE_SECONDS } from "@/lib/config";
@@ -16,6 +17,14 @@ export class NotificationLeaseBusy extends Error {
     super("Notification delivery is already in progress");
   }
 }
+
+export class NotificationDeliveryIncomplete extends Data.TaggedError(
+  "NotificationDeliveryIncomplete",
+)<{
+  message: string;
+  retryable: true;
+  cause?: Error;
+}> {}
 
 const recordedSchema = z
   .object({ applied: z.boolean(), intent_created: z.boolean() })
@@ -137,11 +146,31 @@ export async function deliverPendingNotifications(
       delivery: { id: owned.intent.id, leaseId: owned.leaseId },
     });
 
-    if (results.some((r) => !r.success)) throw new Error("Notification delivery incomplete");
+    const failures = results.filter((result) => !result.success);
+
+    for (const failure of failures)
+      log("PendingNotifications").error("Notification delivery failed", {
+        ...sectionFields(ref),
+        intent_id: owned.intent.id,
+        watch_id: failure.watchId,
+        notification_type: failure.type,
+        "email.code": failure.code,
+        retryable: failure.retryable,
+        ...errorFields(failure.cause ?? new Error(failure.error)),
+      });
+
+    const retry = failures.find((failure) => failure.retryable !== false || failure.outcomeUnknown);
+
+    if (retry)
+      throw new NotificationDeliveryIncomplete({
+        message: "Notification delivery incomplete",
+        retryable: true,
+        cause: retry.cause,
+      });
     await db.delete(pendingSectionNotifications).where(ownsNotification(ref, owned));
     deleted = true;
 
-    return results.length;
+    return results.length - failures.length;
   } finally {
     // Deleting the row already released the lease; only a failed delete needs
     // the update. A failed release must not mask the delivery error.

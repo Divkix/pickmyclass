@@ -108,6 +108,26 @@ describe("processSection", () => {
     expect(env.send).not.toHaveBeenCalled();
   });
 
+  it("retains the resumed delivery count when a newer observation rejects this check", async () => {
+    const pg = createScriptedPostgres();
+    pg.next([{ ...state(), has_pending_intent: true }]);
+    queuePending(pg);
+    pg.next([watcher]);
+    pg.next([claim]);
+    pg.next();
+    pg.next();
+    pg.next([state(2)]);
+    pg.next([recorded(false, false)]);
+    const env = environment();
+
+    expect(
+      await processSection(pg.db, ref, env, {
+        fetchClass: vi.fn().mockResolvedValue(details),
+      }),
+    ).toMatchObject({ disposition: "ack", result: { emailsSent: 1 } });
+    expect(env.send).toHaveBeenCalledOnce();
+  });
+
   it("retries a thrown upsert and preserves detected changes", async () => {
     const pg = createScriptedPostgres();
     pg.next([state()]);
@@ -252,6 +272,35 @@ describe("processSection", () => {
       pg.statements.some((s) => s.sql.startsWith('delete from "pending_section_notifications"')),
     ).toBe(false);
   });
+
+  it.each([
+    ["E_RECIPIENT_SUPPRESSED", "ack"],
+    ["E_RATE_LIMIT_EXCEEDED", "retry"],
+    ["UNKNOWN", "retry"],
+  ])(
+    "maps notification %s to %s and completes only permanent failures",
+    async (code, disposition) => {
+      const pg = createScriptedPostgres();
+      pg.next([state()]);
+      pg.next([recorded(true, true)]);
+      queuePending(pg);
+      pg.next([watcher]);
+      pg.next([claim]);
+      pg.next();
+      pg.next();
+      const env = environment();
+      env.send.mockRejectedValueOnce(Object.assign(new Error("send failed"), { code }));
+
+      expect(
+        await processSection(pg.db, ref, env, { fetchClass: vi.fn().mockResolvedValue(details) }),
+      ).toMatchObject({ disposition, retryable: disposition === "retry" });
+      expect(
+        pg.statements.some((statement) =>
+          statement.sql.startsWith('delete from "pending_section_notifications"'),
+        ),
+      ).toBe(disposition === "ack");
+    },
+  );
 
   it("checks a section with no pending intent in exactly two queries", async () => {
     const pg = createScriptedPostgres();

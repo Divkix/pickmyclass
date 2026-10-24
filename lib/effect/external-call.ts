@@ -5,8 +5,8 @@
  * can tell "the service said no" from "we gave up waiting".
  *
  * A timeout leaves the outcome unknown: the call may still complete on the
- * other side. Callers that cannot tolerate a duplicate (email) must treat the
- * timed-out failure as in-flight, never as not-sent.
+ * other side. Email keeps the claim unconfirmed, not rolled back; resuming its
+ * intent re-sends it, accepting possible duplicates rather than missed alerts.
  *
  * **Server-only module.** Effect never reaches the browser bundle; a test
  * pins the files the client loads.

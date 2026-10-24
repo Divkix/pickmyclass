@@ -339,56 +339,6 @@ export type ClaimedNotification = {
   watchId: string;
 };
 
-const claimedNotificationSchema = z.object({
-  notification_id: z.string().min(1),
-  class_watch_id: z.string().min(1),
-});
-
-export async function tryRecordNotificationsBatch(
-  db: Database,
-  watchIds: string[],
-  notificationType: NotificationType,
-  expiresHours: number = 24,
-): Promise<ClaimedNotification[]> {
-  if (watchIds.length === 0) return [];
-
-  try {
-    // The uuid[] is composed server-side. The function returns one row per
-    // new claim so the notification id is known at insert time.
-    const idParams = watchIds.map((id) => sql`${id}::uuid`);
-
-    const { rows } = await db.execute<{
-      notification_id: unknown;
-      class_watch_id: unknown;
-    }>(sql`SELECT notification_id, class_watch_id
-        FROM public.try_record_notifications_batch(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text, ${expiresHours}::integer)`);
-
-    // The RPC already committed these claims, so a malformed row must fail the
-    // batch instead of silently dropping a recipient's email.
-    const claimed = rows.map((row) => {
-      const parsed = claimedNotificationSchema.parse(row);
-
-      return { notificationId: parsed.notification_id, watchId: parsed.class_watch_id };
-    });
-
-    log("DB").info("Claimed notifications", {
-      notification_type: notificationType,
-      claimed: claimed.length,
-      watches: watchIds.length,
-    });
-
-    return claimed;
-  } catch (error) {
-    log("DB").error("Error claiming notifications", {
-      notification_type: notificationType,
-      ...errorFields(error),
-    });
-    throw new Error(`Failed to batch record notifications: ${driverErrorMessage(error)}`, {
-      cause: error,
-    });
-  }
-}
-
 const upsertAppliedSchema = z.object({ applied: z.boolean() });
 
 export async function upsertClassState(

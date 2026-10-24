@@ -37,10 +37,11 @@ describe("sendBatchEmailsOptimized", () => {
     expect(info).toHaveBeenCalledWith(
       expect.objectContaining({ event: "email_batch_sent", sent: 0, failed: 1, skipped: 2 }),
     );
-    expect(results).toEqual([
-      { success: false, error: `${code}: fatal` },
-      { success: false, error: `Skipped after ${code}` },
-      { success: false, error: `Skipped after ${code}` },
+    const retryable = code === "E_RATE_LIMIT_EXCEEDED" || code === "E_DAILY_LIMIT_EXCEEDED";
+    expect(results).toMatchObject([
+      { success: false, error: `${code}: fatal`, code, retryable },
+      { success: false, error: `Skipped after ${code}`, code, retryable },
+      { success: false, error: `Skipped after ${code}`, code, retryable },
     ]);
   });
 
@@ -93,9 +94,11 @@ describe("sendBatchEmailsOptimized timeouts", () => {
     await vi.advanceTimersByTimeAsync(EMAIL_SEND_TIMEOUT_MS);
     const results = await pending;
 
-    expect(results[0]).toEqual({
+    expect(results[0]).toMatchObject({
       success: false,
       error: expect.stringContaining("TIMEOUT"),
+      code: "TIMEOUT",
+      retryable: true,
       outcomeUnknown: true,
     });
     expect(results[1]?.success).toBe(true);

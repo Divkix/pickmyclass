@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "@/lib/db";
-import { type ClaimedNotification, tryRecordNotificationsBatch } from "@/lib/db/queries";
+import type { ClaimedNotification } from "@/lib/db/queries";
 import { notificationsSent } from "@/lib/db/schema";
 import type { NotificationType } from "@/lib/types/notification";
 
@@ -16,10 +16,8 @@ export async function claimNotifications(
   db: Database,
   watchIds: string[],
   type: NotificationType,
-  delivery?: NotificationDelivery,
+  delivery: NotificationDelivery,
 ): Promise<ClaimedNotification[]> {
-  if (!delivery) return tryRecordNotificationsBatch(db, watchIds, type);
-
   if (watchIds.length === 0) return [];
   const ids = watchIds.map((id) => sql`${id}::uuid`);
 
