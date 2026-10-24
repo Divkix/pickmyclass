@@ -53,6 +53,7 @@ function legacyError(error: AsuError): ApiError {
     AsuAuth: (e) => new AuthError(e.message),
     AsuRateLimited: (e) => new RateLimitError(e.message, e.retryAfterSeconds),
     AsuUpstream: (e) => new ApiError(e.message, e.status),
+    AsuTimedOut: (e) => new ApiError(e.message, 408),
     AsuInvalidResponse: (e) => new ApiError(e.message, e.status, false),
   });
 }
