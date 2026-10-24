@@ -8,21 +8,18 @@ const {
   mockExecute,
   mockGetDbFromEnv,
   mockGetSessionIdentity,
-  mockGetClerkClient,
   mockGetUser,
   mockRepairUserMirror,
   mockInvalidateAuthorizationState,
 } = vi.hoisted(() => {
   const mockExecute = vi.fn<(query: SQL) => Promise<unknown[]>>();
   const mockGetUser = vi.fn();
-  const mockGetClerkClient = vi.fn(() => ({ users: { getUser: mockGetUser } }));
 
   return {
     dbHandle: { execute: mockExecute },
     mockExecute,
     mockGetDbFromEnv: vi.fn(() => dbHandle),
     mockGetSessionIdentity: vi.fn(),
-    mockGetClerkClient,
     mockGetUser,
     mockRepairUserMirror: vi.fn(),
     mockInvalidateAuthorizationState: vi.fn(),
@@ -31,7 +28,7 @@ const {
 
 vi.mock("@/lib/auth/clerk-session", () => ({
   getSessionIdentity: mockGetSessionIdentity,
-  getClerkClient: mockGetClerkClient,
+  getClerkUser: mockGetUser,
 }));
 
 vi.mock("@/lib/db/users", () => ({

@@ -10,12 +10,13 @@
  * Contract: verify the Standard-Webhooks signature, return 2xx fast, never
  * throw — Svix retries on 4xx/5xx and the dashboard can replay. A 500 here is
  * correct for transient DB errors (Svix redelivers); a 400 is only for bad
- * signatures.
+ * signatures and a 422 for a signed payload that does not match the expected shape.
  */
 import { verifyWebhook } from "@clerk/backend/webhooks";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { fail, ok } from "@/lib/api/response";
+import { clerkWebhookUserSchema } from "@/lib/auth/clerk-webhook-schema";
 import { clearAuthorizationStateCache } from "@/lib/auth/authorization-state";
 import { getDbFromEnv } from "@/lib/db";
 import { softDeleteUserById, syncUserMirrorFromClerkUser } from "@/lib/db/users";
@@ -49,18 +50,34 @@ export async function POST(request: Request) {
     const db = getDbFromEnv();
 
     if (event.type === "user.created" || event.type === "user.updated") {
-      const synced = await syncUserMirrorFromClerkUser(db, event.data);
+      const parsed = clerkWebhookUserSchema.safeParse(event.data);
+
+      if (!parsed.success) {
+        // Redelivery cannot fix a payload shape this code does not know, but a failing endpoint
+        // is visible in the Svix dashboard and the delivery can be replayed after a fix.
+        log("ClerkWebhook").error("Webhook user payload does not match the expected shape", {
+          event_type: event.type,
+          "error.message": parsed.error.issues
+            .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+            .join("; "),
+        });
+
+        return fail("Invalid webhook payload", 422);
+      }
+
+      const user = parsed.data;
+      const synced = await syncUserMirrorFromClerkUser(db, user);
 
       if (!synced) {
         log("ClerkWebhook").warn("Webhook user has no email, skipping", {
           event_type: event.type,
-          clerk_user_id: event.data.id,
+          clerk_user_id: user.id,
         });
       } else if (event.type === "user.created") {
         logEvent("user_registered", {
-          user_id: event.data.external_id ?? event.data.id,
-          clerk_user_id: event.data.id,
-          registered_at: new Date(event.data.created_at).toISOString(),
+          user_id: user.external_id ?? user.id,
+          clerk_user_id: user.id,
+          registered_at: new Date(user.created_at).toISOString(),
         });
       }
 

@@ -1,7 +1,8 @@
-import { type User, type UserJSON } from "@clerk/backend";
+import { type User } from "@clerk/backend";
 import { eq, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import type { ClerkWebhookUser } from "@/lib/auth/clerk-webhook-schema";
 import { TtlCache } from "@/lib/cache/ttl-cache";
 import type { Database } from "@/lib/db";
 import { users, userProfiles } from "@/lib/db/schema";
@@ -119,7 +120,7 @@ function normalizeTimestamp(value: number | null | undefined): number | null {
   return parsed.success ? parsed.data : null;
 }
 
-function normalizeWebhookUser(user: UserJSON): NormalizedClerkUser {
+function normalizeWebhookUser(user: ClerkWebhookUser): NormalizedClerkUser {
   const createdAt = normalizeTimestamp(user.created_at);
   const lastSignInAt = normalizeTimestamp(user.last_sign_in_at);
 
@@ -224,7 +225,10 @@ async function upsertUserMirror(
   return appUserId;
 }
 
-export async function syncUserMirrorFromClerkUser(db: Database, user: UserJSON): Promise<boolean> {
+export async function syncUserMirrorFromClerkUser(
+  db: Database,
+  user: ClerkWebhookUser,
+): Promise<boolean> {
   const normalized = normalizeWebhookUser(user);
   const { email } = normalized;
 
