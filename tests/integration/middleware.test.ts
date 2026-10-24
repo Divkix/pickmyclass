@@ -221,12 +221,16 @@ describe("proxy", () => {
   it("still signs disabled accounts out when session revocation fails", async () => {
     seedAuthenticated(IDENTITY, VERIFIED, DISABLED);
     mockRevokeSession.mockRejectedValueOnce(new Error("backend api down"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const response = await proxy(createRequest("/dashboard", "__session=test-clerk-jwt"));
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(`${ORIGIN}/sign-in?error=account_disabled`);
     expect(response.headers.get("set-cookie")).toContain("__session=");
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ msg: "Failed to revoke Clerk session while signing out" }),
+    );
   });
 
   it("redirects an unknown authorization read without revoking the session", async () => {
