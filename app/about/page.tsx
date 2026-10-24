@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Header } from "@/components/Header";
-import { JsonLd } from "@/components/landing/JsonLd";
 
 export const metadata: Metadata = {
   title: { absolute: "About PickMyClass — Built by ASU Students" },
@@ -26,28 +25,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "error";
-
-const organizationSchema = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "PickMyClass",
-  alternateName: ["Pick My Class", "Pick A Class", "PickAClass", "PickaClass"],
-  url: "https://pickmyclass.app",
-  logo: "https://pickmyclass.app/apple-touch-icon.png",
-  description: "Free ASU class seat notification service built by ASU students",
-  contactPoint: {
-    "@type": "ContactPoint",
-    email: "support@pickmyclass.app",
-    contactType: "customer service",
-  },
-  address: {
-    "@type": "PostalAddress",
-    addressLocality: "Tempe",
-    addressRegion: "AZ",
-    addressCountry: "US",
-  },
-  sameAs: ["https://github.com/Divkix/pickmyclass"],
-};
 
 export default async function AboutPage() {
   return (
@@ -171,8 +148,6 @@ export default async function AboutPage() {
           </div>
         </article>
       </main>
-
-      <JsonLd data={organizationSchema} />
     </div>
   );
 }

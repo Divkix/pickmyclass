@@ -16,20 +16,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     "/go/*",
   ];
 
-  const aiBots = [
-    "GPTBot",
-    "OAI-SearchBot",
-    "ChatGPT-User",
-    "Google-Extended",
-    "PerplexityBot",
-    "Perplexity-User",
-    "ClaudeBot",
-    "Claude-SearchBot",
-    "Claude-User",
-    "anthropic-ai",
-    "Applebot-Extended",
-  ];
-
   return {
     rules: [
       {
@@ -37,11 +23,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         allow: "/",
         disallow,
       },
-      ...aiBots.map((userAgent) => ({
-        userAgent,
-        allow: "/",
-        disallow,
-      })),
     ],
     sitemap: `${baseUrl}/sitemap.xml`,
   };

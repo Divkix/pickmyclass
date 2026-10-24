@@ -4,7 +4,7 @@ import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Page Not Found — PickMyClass",
+  title: { absolute: "Page Not Found — PickMyClass" },
   description:
     "The page you were looking for doesn't exist. Return to PickMyClass, the free ASU class seat notification service.",
   robots: {
@@ -23,9 +23,9 @@ export default function NotFound() {
         <p className="mt-2 max-w-md text-muted-foreground">
           The page you're looking for doesn't exist or has been moved.
         </p>
-        <Link href="/" className="mt-8">
-          <Button size="lg">Back to Home</Button>
-        </Link>
+        <Button asChild size="lg" className="mt-8">
+          <Link href="/">Back to Home</Link>
+        </Button>
       </div>
     </div>
   );
