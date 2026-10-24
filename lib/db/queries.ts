@@ -8,7 +8,6 @@ import { errorFields, log } from "@/lib/log";
 import { type SectionRef, sectionFields } from "@/lib/section-ref";
 import type { ClassDetails } from "@/lib/types/class";
 import type { ClassStateRow } from "@/lib/types/class-watch";
-import type { NotificationType } from "@/lib/types/notification";
 import type { StaggerGroup } from "@/lib/types/stagger";
 
 export interface EligibleWatcherRpcRow {
@@ -224,63 +223,6 @@ export async function getMostWatchedClass(db: Database, term: string): Promise<S
   }
 }
 
-export async function resetNotificationsForSection(
-  db: Database,
-  ref: SectionRef,
-  notificationType: NotificationType = "seat_available",
-): Promise<void> {
-  try {
-    // Single join-scoped DELETE: a SELECT-then-DELETE by watch id list can outlive a
-    // watch row that moved out of the section and delete a foreign active claim.
-    const { rows } = await db.execute<{ deleted: unknown }>(
-      sql`SELECT public.reset_section_notifications(${ref.class_nbr}::text, ${ref.term}::text, ${notificationType}::text) AS deleted`,
-    );
-
-    const deleted = Number(rows[0]?.deleted ?? 0);
-    log("DB").info("Reset section notifications", {
-      ...sectionFields(ref),
-      notification_type: notificationType,
-      deleted,
-    });
-  } catch (error) {
-    log("DB").error("Error resetting notifications", {
-      ...sectionFields(ref),
-      ...errorFields(error),
-    });
-    throw new Error(`Failed to reset notifications: ${driverErrorMessage(error)}`, {
-      cause: error,
-    });
-  }
-}
-
-export async function deleteNotificationRecords(
-  db: Database,
-  watchIds: string[],
-  notificationType: NotificationType,
-): Promise<number> {
-  if (watchIds.length === 0) return 0;
-
-  try {
-    // Compose the uuid[] server-side from separately-bound scalars;
-    // watchIds is guarded non-empty above.
-    const idParams = watchIds.map((id) => sql`${id}::uuid`);
-
-    const { rows } = await db.execute<{ deleted: unknown }>(
-      sql`SELECT public.delete_notification_records(ARRAY[${sql.join(idParams, sql`, `)}], ${notificationType}::text) AS deleted`,
-    );
-
-    const deleted = Number(rows[0]?.deleted ?? 0);
-    log("DB").info("Deleted notification records", { deleted, watches: watchIds.length });
-
-    return deleted;
-  } catch (error) {
-    log("DB").error("Error deleting notification records", errorFields(error));
-    throw new Error(`Failed to delete notification records: ${driverErrorMessage(error)}`, {
-      cause: error,
-    });
-  }
-}
-
 export async function deleteNotificationRecordsByIds(
   db: Database,
   notificationIds: string[],
@@ -338,49 +280,6 @@ export type ClaimedNotification = {
   notificationId: string;
   watchId: string;
 };
-
-const upsertAppliedSchema = z.object({ applied: z.boolean() });
-
-export async function upsertClassState(
-  db: Database,
-  ref: SectionRef,
-  details: ClassDetails,
-  observedAt: Date,
-): Promise<boolean> {
-  let rows: Array<{ applied: unknown }>;
-
-  try {
-    // RPC, not a drizzle upsert: the write takes a SectionRef advisory lock
-    // and applies only when observedAt is at least last_checked_at, so a
-    // slower check cannot clobber a newer observation or its strike count.
-    ({ rows } = await db.execute<{ applied: unknown }>(
-      sql`SELECT public.upsert_class_state_locked(
-      ${ref.class_nbr}::text,
-      ${ref.term}::text,
-      ${details.subject}::text,
-      ${details.catalog_nbr}::text,
-      ${details.title}::text,
-      ${details.instructor_name || null}::text,
-      ${details.seats_available || 0}::integer,
-      ${details.seats_capacity || 0}::integer,
-      ${details.non_reserved_seats ?? null}::integer,
-      ${details.location || null}::text,
-      ${details.meeting_times || null}::text,
-      ${observedAt.toISOString()}::timestamptz
-    ) AS applied`,
-    ));
-  } catch (error) {
-    throw new Error(`Failed to upsert class state: ${driverErrorMessage(error)}`, { cause: error });
-  }
-
-  const parsed = upsertAppliedSchema.safeParse(rows[0]);
-
-  if (!parsed.success) {
-    throw new Error(`Invalid upsert result: ${String(rows[0]?.applied)}`);
-  }
-
-  return parsed.data.applied;
-}
 
 export async function insertClassStateIfMissing(
   db: Database,

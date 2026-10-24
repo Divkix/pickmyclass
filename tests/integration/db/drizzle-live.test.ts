@@ -17,7 +17,6 @@ import {
 } from "@/lib/db/pg-errors";
 import {
   capConsecutiveNotFound,
-  deleteNotificationRecords,
   deletePastTermWatches,
   deleteSectionAndWatches,
   getClassWatchers,
@@ -31,8 +30,7 @@ import {
   readAutoCleanupBreakerCounts,
   readSectionCheckState,
   readSectionRemovalClassInfo,
-  resetNotificationsForSection,
-  upsertClassState,
+
 } from "@/lib/db/queries";
 import {
   getAdminCount,
@@ -57,7 +55,12 @@ import { deliverPendingNotifications, recordSectionCheck } from "@/lib/queue/pen
 import { processSection, retryDelaySeconds } from "@/lib/queue/process-section";
 import { claimNotifications } from "@/lib/queue/notification-claims";
 import { details as queueDetails, environment } from "../queue/fixtures";
-import { tryRecordNotificationsBatch } from "./notification-claims";
+import {
+  deleteNotificationRecords,
+  resetNotificationsForSection,
+  tryRecordNotificationsBatch,
+  upsertClassState,
+} from "./helpers";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
