@@ -128,6 +128,10 @@ export default defineConfig(() => {
       alias: {
         "@": resolve(import.meta.dirname, "./"),
         "cloudflare:workers": resolve(import.meta.dirname, "./tests/mocks/cloudflare-workers.ts"),
+        "cloudflare:workflows": resolve(
+          import.meta.dirname,
+          "./tests/mocks/cloudflare-workflows.ts",
+        ),
         "vinext/server/app-router-entry": resolve(
           import.meta.dirname,
           "./tests/mocks/vinext-app-router-entry.ts",
