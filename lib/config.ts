@@ -10,6 +10,9 @@ export const ASU_REQUEST_TIMEOUT_MS = 10_000;
  */
 export const DB_QUERY_TIMEOUT_MS = 15_000;
 
+/** Longest one Clerk Backend API call may take before the request stops waiting. */
+export const CLERK_REQUEST_TIMEOUT_MS = 8_000;
+
 export const ASU_CACHE_TTL_MS = 2 * 60 * 1000;
 
 export const ADMIN_CACHE_TTL_MS = 600_000;

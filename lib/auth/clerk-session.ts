@@ -20,10 +20,19 @@
  * round-trips versus the old Supabase getUser() call per request.
  */
 
-import { type ClerkClient, createClerkClient } from "@clerk/backend";
+import { type ClerkClient, type User, createClerkClient } from "@clerk/backend";
+import { isClerkAPIResponseError } from "@clerk/backend/errors";
+import { Effect } from "effect";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
+import {
+  ClerkCallFailed,
+  ClerkCallTimedOut,
+  SessionRevocationIncomplete,
+} from "@/lib/auth/clerk-errors";
+import { CLERK_REQUEST_TIMEOUT_MS } from "@/lib/config";
 import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk/config";
+import { externalCall } from "@/lib/effect/external-call";
 import { errorFields, log } from "@/lib/log";
 
 export interface SessionIdentity {
@@ -57,19 +66,12 @@ function getClerkEnv(): Required<Pick<ClerkEnv, "CLERK_SECRET_KEY">> & ClerkEnv 
   return { ...e, CLERK_SECRET_KEY: e.CLERK_SECRET_KEY };
 }
 
-let cachedClient: ClerkClient | null = null;
-
-let cachedClientKey: string | null = null;
-
-export function getClerkClient(): ClerkClient {
+/**
+ * Built per call: the client holds no connection, and a module-level instance
+ * would outlive the request that supplied its keys.
+ */
+function buildClerkClient(): ClerkClient {
   const { CLERK_SECRET_KEY, CLERK_JWT_KEY } = getClerkEnv();
-  // The verifier is built from both keys: dropping CLERK_JWT_KEY (PEM -> JWKS
-  // fallback) or rotating it must not reuse a client pinned to the old key.
-  const clientKey = `${CLERK_SECRET_KEY}\u0000${CLERK_JWT_KEY ?? ""}`;
-
-  if (cachedClient && cachedClientKey === clientKey) {
-    return cachedClient;
-  }
 
   const clientOptions: Parameters<typeof createClerkClient>[0] = {
     secretKey: CLERK_SECRET_KEY,
@@ -77,10 +79,45 @@ export function getClerkClient(): ClerkClient {
   };
 
   if (CLERK_JWT_KEY) clientOptions.jwtKey = CLERK_JWT_KEY;
-  cachedClient = createClerkClient(clientOptions);
-  cachedClientKey = clientKey;
 
-  return cachedClient;
+  return createClerkClient(clientOptions);
+}
+
+/** The Backend API answers with an HTTP status; anything else is a transport failure. */
+function failureStatus(error: Error): number | undefined {
+  return isClerkAPIResponseError(error) ? error.status : undefined;
+}
+
+function isRetryableStatus(status: number | undefined): boolean {
+  return status === undefined || status === 429 || status >= 500;
+}
+
+/** Every Clerk network call goes through here: an explicit timeout and typed failures. */
+function clerkCall<A>(operation: string, attempt: () => Promise<A>): Promise<A> {
+  return Effect.runPromise(
+    externalCall(
+      attempt,
+      CLERK_REQUEST_TIMEOUT_MS,
+      (error) => {
+        const status = failureStatus(error);
+
+        return new ClerkCallFailed({
+          message: error.message,
+          operation,
+          ...(status !== undefined && { status }),
+          retryable: isRetryableStatus(status),
+          cause: error,
+        });
+      },
+      () =>
+        new ClerkCallTimedOut({
+          message: `Clerk ${operation} timed out after ${CLERK_REQUEST_TIMEOUT_MS}ms`,
+          operation,
+          timeoutMs: CLERK_REQUEST_TIMEOUT_MS,
+          retryable: true,
+        }),
+    ),
+  );
 }
 
 function getAuthorizedParties(): string[] {
@@ -102,7 +139,9 @@ export async function getSessionIdentity(request: Request): Promise<SessionIdent
       ? { authorizedParties, jwtKey: CLERK_JWT_KEY }
       : { authorizedParties };
 
-    const auth = await getClerkClient().authenticateRequest(request, authenticateOptions);
+    const auth = await clerkCall("authenticateRequest", () =>
+      buildClerkClient().authenticateRequest(request, authenticateOptions),
+    );
 
     if (!auth.isAuthenticated) {
       return null;
@@ -137,12 +176,47 @@ export async function getSessionIdentityFromHeaders(
   return getSessionIdentity(request);
 }
 
+/** Attempts every session, then reports the ones that stayed active instead of dropping them. */
 export async function revokeAllUserSessions(clerkUserId: string): Promise<void> {
-  const client = getClerkClient();
-  const sessions = await client.sessions.getSessionList({ userId: clerkUserId, status: "active" });
-  await Promise.allSettled(sessions.data.map((s) => client.sessions.revokeSession(s.id)));
+  const client = buildClerkClient();
+
+  const sessions = await clerkCall("sessions.getSessionList", () =>
+    client.sessions.getSessionList({ userId: clerkUserId, status: "active" }),
+  );
+
+  const results = await Promise.allSettled(
+    sessions.data.map((session) =>
+      clerkCall("sessions.revokeSession", () => client.sessions.revokeSession(session.id)),
+    ),
+  );
+
+  let failed = 0;
+
+  for (const result of results) {
+    if (result.status === "fulfilled") continue;
+    failed += 1;
+    log("Auth").error("Failed to revoke Clerk session", {
+      clerk_user_id: clerkUserId,
+      ...errorFields(result.reason),
+    });
+  }
+
+  if (failed > 0) {
+    throw new SessionRevocationIncomplete({
+      message: `Revoked ${results.length - failed} of ${results.length} Clerk sessions`,
+      failed,
+      total: results.length,
+      retryable: true,
+    });
+  }
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {
-  await getClerkClient().sessions.revokeSession(sessionId);
+  await clerkCall("sessions.revokeSession", () =>
+    buildClerkClient().sessions.revokeSession(sessionId),
+  );
+}
+
+export function getClerkUser(clerkUserId: string): Promise<User> {
+  return clerkCall("users.getUser", () => buildClerkClient().users.getUser(clerkUserId));
 }

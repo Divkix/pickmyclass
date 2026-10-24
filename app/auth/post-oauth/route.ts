@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { errorFields, log } from "@/lib/log";
 import { safeInternalPath } from "@/lib/auth/safe-redirect";
 import { invalidateAuthorizationState } from "@/lib/auth/authorization-state";
-import { getClerkClient, getSessionIdentity } from "@/lib/auth/clerk-session";
+import { getClerkUser, getSessionIdentity } from "@/lib/auth/clerk-session";
 import { getDbFromEnv } from "@/lib/db";
 import { repairUserMirror } from "@/lib/db/users";
 
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
   try {
     const db = getDbFromEnv();
-    const clerkUser = await getClerkClient().users.getUser(identity.clerkUserId);
+    const clerkUser = await getClerkUser(identity.clerkUserId);
     const repairResult = await repairUserMirror(db, userId, clerkUser);
 
     if (!repairResult) {

@@ -5,6 +5,7 @@ import { clearClerkCookies, hasClerkSessionCookies } from "@/lib/auth/clerk-cook
 import { getSessionIdentity, revokeSession } from "@/lib/auth/clerk-session";
 import { decideGate, isPublicRoute } from "@/lib/auth/decide-gate";
 import { getDbFromEnv } from "@/lib/db";
+import { errorFields, log } from "@/lib/log";
 import { type UserVerificationState, readUserVerification } from "@/lib/db/users";
 import { CLERK_CSP } from "@/lib/clerk/config";
 
@@ -192,7 +193,10 @@ export async function proxy(request: NextRequest) {
       if (identity?.sessionId) {
         try {
           await revokeSession(identity.sessionId);
-        } catch {}
+        } catch (error) {
+          // The redirect clears the cookies either way; a live session is worth a trace.
+          log("Gate").warn("Failed to revoke Clerk session while signing out", errorFields(error));
+        }
       }
 
       const url = toRedirectUrl(request, decision.to);
