@@ -29,7 +29,7 @@ When you change behaviour, update the comment beside it in the same change. Add 
 
 ## Cross-file rules
 
-- Effect wraps external calls at the leaf only and stays out of browser code (`tests/integration/effect/browser-boundary.test.ts` enforces it). When Effect reaches a new directory, add it to the `anti-slop-effect` override in `vite.config.ts`.
+- Effect wraps external calls at the leaf only and stays out of browser code (`CLIENT_DENIED_SPECIFIERS` in `vite.config.ts` fails the build otherwise). When Effect reaches a new directory, add it to the `anti-slop-effect` override in `vite.config.ts`.
 - Server-only code stays in server functions or server-only modules; Start's import protection fails the build otherwise. Fix the import, keep the protection.
 - Alert cutoff and retention windows exist only in SQL (`public.section_alert_cutoff`, `public.purge_expired_data` in `migrations_pg/`). A retention change also updates `app/routes/legal/privacy.tsx`.
 - Constants go in `lib/config.ts`. `lib/utils.ts` is shadcn's `cn()` only; custom helpers go in `lib/utils/`.
