@@ -11,8 +11,8 @@
  * A timeout leaves the outcome unknown: the call may still complete on the
  * other side. Email's policy lives in lib/queue/notification-sender.ts.
  *
- * **Server-only module.** Effect never reaches the browser bundle; a test
- * pins the files the client loads.
+ * **Server-only module.** Effect never reaches the browser bundle;
+ * `CLIENT_DENIED_SPECIFIERS` in vite.config.ts fails the build if it does.
  *
  * @module lib/effect/external-call
  */
