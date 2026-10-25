@@ -73,3 +73,8 @@ trustPolicy: no-downgrade
 # depends on 6.x; exclude that exact version only.
 trustPolicyExclude:
   - "semver@6.3.1"
+# @hyperdx/browser prebundles its session recorder, whose log batcher flushes on
+# `unload`: Chrome blocks that by default and Lighthouse flags it (deprecated API
+# + console error). The patch listens on `pagehide`. Port or drop it on every bump.
+patchedDependencies:
+  "@hyperdx/browser@0.26.0": patches/@hyperdx__browser@0.26.0.patch
