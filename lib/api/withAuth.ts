@@ -3,11 +3,10 @@ import type { SessionIdentity } from "@/lib/auth/clerk-session";
 import { fail } from "@/lib/api/response";
 
 export async function withAuth(
-  request: Request,
   handler: (user: SessionIdentity) => Promise<Response>,
 ): Promise<Response> {
   try {
-    const { user } = await requireUser(request);
+    const { user } = await requireUser();
 
     return await handler(user);
   } catch (e) {

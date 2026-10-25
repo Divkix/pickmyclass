@@ -30,6 +30,7 @@ const CLIENT_DENIED_SPECIFIERS = [
   /^cloudflare:/,
   /^pg$/,
   /^@clerk\/backend(\/|$)/,
+  /^@clerk\/tanstack-react-start\/(server|webhooks)$/,
 ];
 
 const CLIENT_DENIED_FILES = [

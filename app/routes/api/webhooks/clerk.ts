@@ -13,7 +13,7 @@
  * signatures and a 422 for a signed payload that does not match the expected shape.
  */
 import { createFileRoute } from "@tanstack/react-router";
-import { verifyWebhook } from "@clerk/backend/webhooks";
+import { verifyWebhook } from "@clerk/tanstack-react-start/webhooks";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { methodNotAllowed, fail, ok } from "@/lib/api/response";

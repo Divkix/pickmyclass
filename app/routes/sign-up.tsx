@@ -1,4 +1,4 @@
-import { SignUp } from "@clerk/react";
+import { SignUp } from "@clerk/tanstack-react-start";
 import { createFileRoute } from "@tanstack/react-router";
 import { Header } from "@/components/Header";
 import { pageHead } from "@/lib/seo/head";

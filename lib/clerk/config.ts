@@ -13,7 +13,7 @@ export const CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsucGlja215Y2xhc3MuYXBwJA";
 
 /**
  * Hosts Clerk's client-side script (clerk-js) may load from, for CSP script-src.
- * clerk-react loads clerk-js from the instance's Frontend API (FAPI) host by
+ * Clerk's React SDK loads clerk-js from the instance's Frontend API (FAPI) host by
  * default: *.clerk.accounts.dev in development, the custom FAPI domain in prod.
  */
 export const CLERK_CSP = {

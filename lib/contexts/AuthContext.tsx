@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth as useClerkAuth, useClerk, useUser } from "@clerk/react";
+import { useAuth as useClerkAuth, useClerk, useUser } from "@clerk/tanstack-react-start";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { errorFields, log } from "@/lib/log";
 import { setTelemetryUser, trackBrowserAction } from "@/lib/telemetry/browser";

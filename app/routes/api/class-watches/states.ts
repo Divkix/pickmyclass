@@ -9,7 +9,7 @@ export const Route = createFileRoute("/api/class-watches/states")({
   server: {
     handlers: {
       GET: ({ request }) =>
-        withAuth(request, async (user) => {
+        withAuth(async (user) => {
           try {
             const { searchParams } = new URL(request.url);
 

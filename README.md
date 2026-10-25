@@ -31,7 +31,7 @@ Built with TanStack Start (Vite + TanStack Router), PlanetScale Postgres via Clo
 - **Cloudflare Queues**: Reliable message queue for processing class checks at scale
 - **Workflows**: Scheduled, durable, per-step-retried cron jobs (`SectionCheckWorkflow`, `MaintenanceWorkflow`)
 - **Hyperdrive**: Postgres connection pooling to PlanetScale (request-scoped Drizzle over node-postgres (`pg`) in `lib/db/index.ts`, `--caching-disabled`)
-- **Clerk**: Edge JWT verification (`@clerk/backend` `authenticateRequest` with `jwtKey` PEM, `ext_id` claim) + webhook `user.created/updated/deleted` (`lib/auth/clerk-session.ts`, `lib/db/users.ts` mirror)
+- **Clerk**: Edge JWT verification (`@clerk/tanstack-react-start` `clerkMiddleware` with `jwtKey` PEM, `ext_id` claim) + webhook `user.created/updated/deleted` (`lib/auth/clerk-session.ts`, `lib/db/users.ts` mirror)
 
 ## Architecture
 
@@ -74,7 +74,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/db/index.ts` | Request-scoped Drizzle over node-postgres (`getDb`/`getDbFromEnv` via the `HYPERDRIVE` binding) |
 | `lib/db/queries.ts` | Database query helpers (Drizzle builders for CRUD, typed SQL for SECURITY DEFINER RPCs) |
 | `lib/db/users.ts` | Clerk user mirror (`clerk_user_id`, `syncUserMirrorFromClerkUser`/`repairUserMirror`) |
-| `lib/auth/clerk-session.ts` | Edge JWT verify (`getSessionIdentity`, `revokeSession`, `revokeAllUserSessions`) |
+| `lib/auth/clerk-session.ts` | Session identity from `clerkMiddleware` (`toSessionIdentity`, `getSessionIdentity`) + Clerk Backend calls (`revokeSession`, `revokeAllUserSessions`) |
 | `lib/auth/clerk-cookies.ts` | Clerk cookie prefix detection + `CLERK_COOKIES_TO_CLEAR` |
 | `lib/clerk/config.ts` | Committed `CLERK_PUBLISHABLE_KEY` literal + CSP |
 | `lib/asu/api.ts` | ASU Class Search API client (direct HTTP) |
@@ -249,9 +249,9 @@ pnpm run db:studio                            # Drizzle Studio
 
 ## Tech Stack
 
-- **Frontend**: TanStack Start + TanStack Router, React 19, TypeScript, Tailwind CSS 4, `@clerk/react` via `ClerkClientProvider`
+- **Frontend**: TanStack Start + TanStack Router, React 19, TypeScript, Tailwind CSS 4, `@clerk/tanstack-react-start`
 - **Animations**: public landing sections use CSS-only on-load entrances with reduced-motion and no-script fallbacks; Framer Motion is scoped to the dashboard via `MotionProvider`. Shared buttons use a CSS press state.
-- **Backend**: Cloudflare Workers (TanStack Start server entry), PlanetScale Postgres (Drizzle ORM over node-postgres) via Hyperdrive, Clerk (`@clerk/backend` edge JWT), polling for live class states
+- **Backend**: Cloudflare Workers (TanStack Start server entry), PlanetScale Postgres (Drizzle ORM over node-postgres) via Hyperdrive, Clerk (`clerkMiddleware` with networkless edge JWT verification), polling for live class states
 - **Data Source**: ASU Class Search API (direct HTTP)
 - **Email**: Cloudflare Email Service
 - **Deployment**: Cloudflare Workers + Queues + Workflows
@@ -289,7 +289,7 @@ components/
   ├── blog/                  # Blog components
   ├── landing/               # Landing page components
   ├── ui/                    # shadcn/ui components
-  └── ...                    # Feature components (ClerkClientProvider, AuthButton, watch cards)
+  └── ...                    # Feature components (AuthButton, watch cards)
 
 migrations_pg/               # drizzle-kit migrations + meta/ snapshots (generated; commit them)
 db/

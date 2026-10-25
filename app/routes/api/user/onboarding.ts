@@ -8,9 +8,9 @@ import { readOnboardingState, skipOnboarding } from "@/lib/onboarding";
 export const Route = createFileRoute("/api/user/onboarding")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
+      GET: async () => {
         try {
-          return await withAuth(request, async (user) => {
+          return await withAuth(async (user) => {
             try {
               const payload = await readOnboardingState(getDbFromEnv(), user.userId);
 
@@ -28,9 +28,9 @@ export const Route = createFileRoute("/api/user/onboarding")({
         }
       },
 
-      POST: async ({ request }) => {
+      POST: async () => {
         try {
-          return await withAuth(request, async (user) => {
+          return await withAuth(async (user) => {
             try {
               const payload = await skipOnboarding(getDbFromEnv(), user.userId);
 

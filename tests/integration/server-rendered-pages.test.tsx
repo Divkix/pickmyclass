@@ -17,7 +17,7 @@ const {
   setResponseHeader,
 } = vi.hoisted(() => ({
   getDbFromEnv: vi.fn<() => Database>(),
-  getSessionIdentity: vi.fn<(request: Request) => Promise<SessionIdentity | null>>(),
+  getSessionIdentity: vi.fn<() => Promise<SessionIdentity | null>>(),
   readAuthorizationState: vi.fn<() => Promise<AuthorizationState | null>>(),
   revokeSession: vi.fn<(sessionId: string) => Promise<void>>(),
   setResponseHeader: vi.fn(),

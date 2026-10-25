@@ -32,7 +32,7 @@ const {
   };
 });
 
-vi.mock("@clerk/backend/webhooks", () => ({
+vi.mock("@clerk/tanstack-react-start/webhooks", () => ({
   verifyWebhook: mockVerifyWebhook,
 }));
 

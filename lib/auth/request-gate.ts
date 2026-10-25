@@ -2,14 +2,14 @@ import { isRedirect } from "@tanstack/react-router";
 import { fail } from "@/lib/api/response";
 import { type AuthorizationState, readAuthorizationState } from "@/lib/auth/authorization-state";
 import { clearClerkCookies, hasClerkSessionCookiesInHeader } from "@/lib/auth/clerk-cookies";
-import { type SessionIdentity, getSessionIdentity, revokeSession } from "@/lib/auth/clerk-session";
+import { type SessionIdentity, revokeSession } from "@/lib/auth/clerk-session";
 import { type GateDecision, decideGate, isPublicRoute } from "@/lib/auth/decide-gate";
 import { CLERK_CSP } from "@/lib/clerk/config";
 import { getDbFromEnv } from "@/lib/db";
 import { type UserVerificationState, readUserVerification } from "@/lib/db/users";
 import { errorFields, log } from "@/lib/log";
 
-// Clerk CSP (configured by hand; @clerk/react does not set one):
+// Clerk CSP (configured by hand; the Clerk SDK does not set one):
 // script-src allows the FAPI host plus Turnstile and *.protect.clerk.com
 // (sign-up loads challenges.cloudflare.com/turnstile/v0/api.js; omitting it
 // from script-src fails every signup with captcha_invalid). connect-src uses
@@ -20,7 +20,7 @@ const PERMISSIONS_POLICY =
 
 const CSP_DEFAULT_SRC = "default-src 'self'";
 
-// style-src keeps 'unsafe-inline': clerk-react injects runtime CSS-in-JS and
+// style-src keeps 'unsafe-inline': Clerk's React components inject runtime CSS-in-JS and
 // next-themes' no-flash inline style also needs it. Script nonces stay strict.
 const CSP_STYLE_SRC = "style-src 'self' 'unsafe-inline'";
 
@@ -174,14 +174,12 @@ export async function revokeSessionQuietly(identity: SessionIdentity | null): Pr
   }
 }
 
-/** Who is asking and what `decideGate` says about `pathname` for them. */
+/** What `decideGate` says about `pathname` for `identity`. */
 export async function evaluateGate(
-  request: Request,
   pathname: string,
   search: string,
-): Promise<{ decision: GateDecision; identity: SessionIdentity | null }> {
-  const identity = await getSessionIdentity(request);
-
+  identity: SessionIdentity | null,
+): Promise<GateDecision> {
   let authState: AuthorizationState | null = null;
   let verification: UserVerificationState | null = null;
 
@@ -193,14 +191,12 @@ export async function evaluateGate(
     ]);
   }
 
-  const decision = decideGate({
+  return decideGate({
     pathname,
     search,
     user: identity ? { email_confirmed_at: verification?.email_confirmed_at ?? null } : null,
     authState,
   });
-
-  return { decision, identity };
 }
 
 export type GateOutcome =
@@ -212,7 +208,10 @@ export type GateOutcome =
  * auth/consent routing and the CSP. `render` outcomes carry the nonce the
  * framework stamps on its inline scripts and the CSP for the rendered response.
  */
-export async function gateRequest(request: Request): Promise<GateOutcome> {
+export async function gateRequest(
+  request: Request,
+  identity: SessionIdentity | null,
+): Promise<GateOutcome> {
   const url = new URL(request.url);
   const legacyDestination = LEGACY_REDIRECTS.get(url.pathname);
 
@@ -232,7 +231,7 @@ export async function gateRequest(request: Request): Promise<GateOutcome> {
   // crypto.randomUUID() exists in Node.js 19+ and Workers.
   const nonce = isDevelopment ? undefined : crypto.randomUUID();
   const csp = nonce ? buildProductionCsp(`'nonce-${nonce}'`) : DEV_CSP;
-  const { decision, identity } = await evaluateGate(request, url.pathname, url.search);
+  const decision = await evaluateGate(url.pathname, url.search, identity);
 
   switch (decision.kind) {
     case "signout-and-redirect": {

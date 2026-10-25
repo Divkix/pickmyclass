@@ -1,15 +1,16 @@
 /// <reference types="vite/client" />
+import { ClerkProvider } from "@clerk/tanstack-react-start";
 import { HeadContent, Scripts, createRootRoute, useRouter } from "@tanstack/react-router";
 import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 import { Toaster } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
-import { ClerkClientProvider } from "@/components/ClerkClientProvider";
 import { ErrorPage } from "@/components/ErrorPage";
 import { Footer } from "@/components/Footer";
 import { NotFound } from "@/components/NotFound";
 import { SkipToContent } from "@/components/SkipToContent";
 import { JsonLd } from "@/components/landing/JsonLd";
+import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk/config";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
 import { NOT_FOUND_HEAD, SITE_LINKS, SITE_META } from "@/lib/seo/head";
 import appCss from "../globals.css?url";
@@ -45,14 +46,14 @@ function RootDocument({ children }: { children: ReactNode }) {
           disableTransitionOnChange
           nonce={nonce}
         >
-          <ClerkClientProvider>
+          <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
             <AuthProvider>
               <div className="flex-1 pb-20 md:pb-0">{children}</div>
               <Footer />
               <BottomNav />
               <Toaster position="top-center" richColors />
             </AuthProvider>
-          </ClerkClientProvider>
+          </ClerkProvider>
         </ThemeProvider>
         <script
           src="https://analytics.divkix.me/s.js"
