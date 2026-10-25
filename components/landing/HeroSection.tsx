@@ -11,17 +11,17 @@ export function HeroSection() {
 
       <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
         <div className="space-y-8 text-center lg:text-left">
-          <div className="animation-hidden inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-smooth">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-smooth">
             <Sparkles className="size-4 text-accent" aria-hidden="true" />
             Built for Sun Devils
           </div>
 
-          <h1 className="animation-hidden text-display [animation-delay:100ms]">
+          <h1 className="text-display">
             Free ASU class seat tracker: stop refreshing MyASU{" "}
             <span className="mark-gold">every 5 minutes</span>
           </h1>
 
-          <p className="animation-hidden mx-auto max-w-xl text-lg text-muted-foreground [animation-delay:200ms] sm:text-xl lg:mx-0">
+          <p className="mx-auto max-w-xl text-lg text-muted-foreground sm:text-xl lg:mx-0">
             Get timely email alerts when seats open up in full ASU classes. PickMyClass (yep, people
             also call it Pick My Class) checks the{" "}
             <Link
@@ -40,7 +40,7 @@ export function HeroSection() {
             watches full sections for you.
           </p>
 
-          <div className="animation-hidden flex flex-col items-center justify-center gap-3 [animation-delay:300ms] sm:flex-row lg:justify-start">
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
             <Button asChild size="lg" variant="gradient" className="w-full text-base sm:w-auto">
               <Link to="/sign-up">
                 <Mail className="size-5" aria-hidden="true" />
@@ -52,7 +52,7 @@ export function HeroSection() {
             </Button>
           </div>
 
-          <ul className="animation-hidden flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted-foreground [animation-delay:400ms] lg:justify-start">
+          <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-muted-foreground lg:justify-start">
             <li className="flex items-center gap-2">
               <CheckCircle2 className="size-4 text-success" aria-hidden="true" />
               <span>Free forever</span>
@@ -68,7 +68,7 @@ export function HeroSection() {
           </ul>
         </div>
 
-        <div className="animation-hidden relative mx-auto w-full max-w-md [animation-delay:100ms] lg:max-w-none">
+        <div className="relative mx-auto w-full max-w-md lg:max-w-none">
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-smooth-lg">
             <div className="flex items-center gap-3 border-b border-border bg-muted/60 px-5 py-3">
               <span className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">

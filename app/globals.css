@@ -265,7 +265,8 @@
     }
   }
 
-  /* CSS-only entrances finish on load; content stays visible if animations are unavailable. */
+  /* CSS-only entrances finish on load; content stays visible if animations are unavailable.
+     Never put this on above-the-fold content: a fade-in from opacity 0 delays LCP. */
   .animation-hidden {
     animation-name: landing-appear;
     animation-duration: 0.55s;
