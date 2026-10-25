@@ -21,11 +21,12 @@
   "placement": {
     "mode": "smart",
   },
-  // Schedules live on the Workflow bindings below. The empty list clears the Worker cron
-  // triggers that used to call scheduled(); 'pnpm run deploy' runs 'wrangler triggers deploy'.
+  // Keep crons empty: schedules live on the Workflow bindings below. This clears the old
+  // Worker scheduled() triggers; 'pnpm run deploy' runs 'wrangler triggers deploy'.
   "triggers": {
     "crons": [],
   },
+  // Each class_name must match a class re-exported from worker.ts or deployment fails.
   "workflows": [
     {
       "name": "pickmyclass-section-check",
@@ -40,6 +41,7 @@
       "schedules": ["5 * * * *"],
     },
   ],
+  // Workers Free allows roughly 10k queue operations/day; delivery costs about 3 per message.
   "queues": {
     "producers": [
       {
@@ -71,6 +73,7 @@
     },
     {
       // CronLockDO replaced by Workflow schedules; deleting the class drops its storage.
+      // Never reuse the deleted CronLockDO class name.
       "tag": "v3",
       "deleted_classes": ["CronLockDO"],
     },

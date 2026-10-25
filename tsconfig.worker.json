@@ -19,6 +19,8 @@
       "@/*": ["./*"]
     }
   },
+  // Root files only: TypeScript follows worker.ts imports under these Worker settings,
+  // so adding an imported module does not require another include entry.
   "include": [
     "worker.ts",
     "global.d.ts",

@@ -1,3 +1,9 @@
+# pnpm 12 lockfiles have two YAML documents: environment, then project. Regenerate
+# pnpm-lock.yaml after changing package.json's packageManager or frozen installs fail.
+# pnpm 12 rejects unknown workspace keys; use supported settings rather than old aliases.
+#
+# Keep dependency ranges as carets; only packageManager and @hyperdx/browser are exact pins.
+# `pnpm update --latest` preserves catalog references and updates their entries.
 packages:
   - "."
 
@@ -36,6 +42,9 @@ allowBuilds:
   protobufjs: false
   sharp: true
   workerd: true
+# Bump vite-plus, vite, vitest and @vitest/* together here; solo bumps break types/coverage.
+# Match coverage-v8 to Vite+'s bundled Vitest (`vp --version`), not an independent latest.
+# Avoid `vp migrate`: it replaces the catalog references with exact pins.
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@^1.3.0
   vitest: ^5.0.5
@@ -48,12 +57,12 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
-# Supply-chain hardening: refuse any version whose trust signals (provenance,
-# signatures) regressed versus what we already resolved.
+# Permanent supply-chain policy: refuse regressed provenance/signature trust signals.
+# pnpm's default, non-strict 1440-minute minimumReleaseAge still applies.
 #
 # Exact versions admitted by the 2026-10-22 one-shot security upgrade while
-# younger than pnpm's default 24h window. Version-pinned so future releases of
-# these packages stay gated; safe to delete once these versions age in.
+# younger than that window. Version-pinned so future releases of these packages
+# stay gated; safe to delete once these versions age in.
 minimumReleaseAgeExclude:
   - "@clerk/backend@3.26.1"
   - "caniuse-lite@1.0.30001818"

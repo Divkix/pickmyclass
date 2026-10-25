@@ -25,7 +25,7 @@ Recovering the base for a three-way merge: fetch the upstream tree at the baseli
 | Plugin | Entry point | Registered |
 | --- | --- | --- |
 | `anti-slop` | `tools/oxlint/anti-slop/index.ts` | yes, with 17 generic rules at `error` and `no-module-mocking` explicitly off (tests stub external services), plus native `oxc/no-accumulating-spread`, in `vite.config.ts` |
-| `anti-slop-effect` | `tools/oxlint/anti-slop/effect/index.ts` | yes, plugin loaded globally; all 5 rules at `error` only through a `lint.overrides` entry for `lib/asu/**` and `tests/integration/asu/**` |
+| `anti-slop-effect` | `tools/oxlint/anti-slop/effect/index.ts` | scoped; see below |
 
 ## Dependency pair
 
@@ -38,7 +38,11 @@ There is no direct `oxlint` or `@oxlint/plugins` dependency. `vp lint` runs the 
 
 ## Effect rule scope
 
-Enabled 2026-10-15. `effect` is a direct dependency but `AGENTS.md` confines it to the ASU client, so the Effect rules apply only there. Enabled repo-wide, `prefer-effect-match` flagged chained literal ternaries in non-Effect code (`components/admin/SortableHeader.tsx`, `lib/email/templates/index.ts`, `app/api/monitoring/health/route.ts`), and obeying it would have pulled Effect past that boundary. If Effect spreads to other modules, widen the override's `files` to match.
+Enabled 2026-10-15. The `lint.overrides` files in `vite.config.ts` select server external-call
+modules (`lib/asu`, `lib/auth`, `lib/db`, `lib/effect`, `lib/queue`, `lib/seo`, `lib/worker`,
+and email errors/transport) and their integration tests. Repo-wide, `prefer-effect-match`
+also flags literal ternaries in non-Effect code; widening the scope would pull Effect beyond
+its intended boundary.
 
 ## Updating
 
