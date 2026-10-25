@@ -15,13 +15,15 @@
  *   `user_profiles`, read via lib/auth/authorization-state.ts — NOT in JWT
  *   claims (1.2 KB budget, up to 60 s refresh lag).
  *
- * Verification is networkless: the PEM `jwtKey` verifies RS256 in-isolate
- * (proven under workerd in the §0 spike), so the edge gate adds zero network
- * round-trips versus the old Supabase getUser() call per request.
+ * `clerkMiddleware` (app/start.ts) verifies the session once per request. Verification is
+ * networkless: the PEM `jwtKey` verifies RS256 in-isolate (proven under workerd in the §0
+ * spike), so the edge gate adds zero network round-trips versus the old Supabase getUser()
+ * call per request. An expired session on a page load gets Clerk's handshake redirect instead.
  */
 
-import { type ClerkClient, type User, createClerkClient } from "@clerk/backend";
+import { type AuthObject, type ClerkClient, type User, createClerkClient } from "@clerk/backend";
 import { isClerkAPIResponseError } from "@clerk/backend/errors";
+import { type ClerkMiddlewareOptions, auth } from "@clerk/tanstack-react-start/server";
 import { Effect } from "effect";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
@@ -71,16 +73,10 @@ function getClerkEnv(): Required<Pick<ClerkEnv, "CLERK_SECRET_KEY">> & ClerkEnv 
  * would outlive the request that supplied its keys.
  */
 function buildClerkClient(): ClerkClient {
-  const { CLERK_SECRET_KEY, CLERK_JWT_KEY } = getClerkEnv();
-
-  const clientOptions: Parameters<typeof createClerkClient>[0] = {
-    secretKey: CLERK_SECRET_KEY,
+  return createClerkClient({
+    secretKey: getClerkEnv().CLERK_SECRET_KEY,
     publishableKey: CLERK_PUBLISHABLE_KEY,
-  };
-
-  if (CLERK_JWT_KEY) clientOptions.jwtKey = CLERK_JWT_KEY;
-
-  return createClerkClient(clientOptions);
+  });
 }
 
 /** The Backend API answers with an HTTP status; anything else is a transport failure. */
@@ -129,41 +125,43 @@ function getAuthorizedParties(): string[] {
   return parties;
 }
 
-export async function getSessionIdentity(request: Request): Promise<SessionIdentity | null> {
-  try {
-    const { CLERK_JWT_KEY } = getClerkEnv();
+/** `clerkMiddleware` options, read per request from the Worker's bindings. */
+export function clerkMiddlewareOptions(): ClerkMiddlewareOptions {
+  const { CLERK_SECRET_KEY, CLERK_JWT_KEY } = getClerkEnv();
 
-    const authorizedParties = getAuthorizedParties();
+  return {
+    secretKey: CLERK_SECRET_KEY,
+    publishableKey: CLERK_PUBLISHABLE_KEY,
+    authorizedParties: getAuthorizedParties(),
+    jwtKey: CLERK_JWT_KEY,
+  };
+}
 
-    const authenticateOptions = CLERK_JWT_KEY
-      ? { authorizedParties, jwtKey: CLERK_JWT_KEY }
-      : { authorizedParties };
+/**
+ * This app's identity for a request `clerkMiddleware` verified. The middleware accepts every
+ * token type, so only a signed-in session token counts.
+ */
+export function toSessionIdentity(clerkAuth: AuthObject): SessionIdentity | null {
+  if (clerkAuth.tokenType !== "session_token" || !clerkAuth.userId) return null;
 
-    const auth = await clerkCall("authenticateRequest", () =>
-      buildClerkClient().authenticateRequest(request, authenticateOptions),
-    );
+  // ext_id is this app's own claim-template value, used verbatim (no trim) as the identity PK.
+  const extIdClaim = z.string().min(1).nullish().safeParse(clerkAuth.sessionClaims.ext_id);
+  const extId = extIdClaim.success ? (extIdClaim.data ?? null) : null;
 
-    if (!auth.isAuthenticated) {
-      return null;
-    }
+  return {
+    userId: extId ?? clerkAuth.userId,
+    clerkUserId: clerkAuth.userId,
+    sessionId: clerkAuth.sessionId,
+  };
+}
 
-    const { userId: clerkUserId, sessionId, sessionClaims } = auth.toAuth();
-
-    if (!clerkUserId) {
-      return null;
-    }
-
-    // ext_id is this app's own claim-template value, used verbatim (no trim) as the identity PK.
-    const extIdClaim = z.string().min(1).nullish().safeParse(sessionClaims?.ext_id);
-
-    const extId = extIdClaim.success ? (extIdClaim.data ?? null) : null;
-
-    return { userId: extId ?? clerkUserId, clerkUserId, sessionId: sessionId ?? null };
-  } catch (error) {
-    log("Auth").error("Clerk session verification failed", errorFields(error));
-
-    return null;
-  }
+/**
+ * The verified identity for a server route or server function. Clerk's `auth()` reads Start's
+ * request context, which global request middleware runs before; the gate uses
+ * `toSessionIdentity` on its middleware context instead.
+ */
+export async function getSessionIdentity(): Promise<SessionIdentity | null> {
+  return toSessionIdentity(await auth());
 }
 
 /**

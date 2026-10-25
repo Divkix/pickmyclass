@@ -7,7 +7,6 @@ import type { UserVerificationState } from "@/lib/db/users";
 const {
   dbHandle,
   mockGetDbFromEnv,
-  mockGetSessionIdentity,
   mockReadAuthorizationState,
   mockReadUserVerification,
   mockRevokeSession,
@@ -17,7 +16,6 @@ const {
   return {
     dbHandle: { execute: mockExecute },
     mockGetDbFromEnv: vi.fn(() => dbHandle),
-    mockGetSessionIdentity: vi.fn(),
     mockReadAuthorizationState: vi.fn(),
     mockReadUserVerification: vi.fn(),
     mockRevokeSession: vi.fn(),
@@ -25,7 +23,6 @@ const {
 });
 
 vi.mock("@/lib/auth/clerk-session", () => ({
-  getSessionIdentity: mockGetSessionIdentity,
   revokeSession: mockRevokeSession,
 }));
 
@@ -48,8 +45,11 @@ import {
   withSecurityHeaders,
 } from "@/lib/auth/request-gate";
 
-async function renderRequest(request: Request): Promise<Response> {
-  const outcome = await gateRequest(request);
+async function renderRequest(
+  request: Request,
+  identity: SessionIdentity | null = null,
+): Promise<Response> {
+  const outcome = await gateRequest(request, identity);
 
   if (outcome.kind === "respond") return outcome.response;
 
@@ -92,11 +92,9 @@ function scriptSrcOf(csp: string | null): string {
 }
 
 function seedAuthenticated(
-  identity: SessionIdentity = IDENTITY,
   verification: UserVerificationState = VERIFIED,
   authState: AuthorizationState = CONSENTED,
 ): void {
-  mockGetSessionIdentity.mockResolvedValue(identity);
   mockReadUserVerification.mockResolvedValue(verification);
   mockReadAuthorizationState.mockResolvedValue(authState);
 }
@@ -124,11 +122,10 @@ describe("gateRequest", () => {
     expect(connectSrc).toContain("https://*.protect.clerk.com:*");
   });
 
-  it("fast-paths public routes without session cookies before any session or database work", async () => {
-    const response = await renderRequest(createRequest("/"));
+  it("fast-paths public routes without session cookies before any database work", async () => {
+    const response = await renderRequest(createRequest("/"), IDENTITY);
 
     expect(response.status).toBe(200);
-    expect(mockGetSessionIdentity).not.toHaveBeenCalled();
     expect(mockGetDbFromEnv).not.toHaveBeenCalled();
     expect(mockReadAuthorizationState).not.toHaveBeenCalled();
     expect(mockReadUserVerification).not.toHaveBeenCalled();
@@ -139,11 +136,10 @@ describe("gateRequest", () => {
     ["/register?source=legacy", `${ORIGIN}/sign-up?source=legacy`],
     ["/login?source=legacy", `${ORIGIN}/sign-in?source=legacy`],
   ])("permanently redirects legacy path %s and preserves its query", async (path, target) => {
-    const response = await renderRequest(createRequest(path, "__session=token"));
+    const response = await renderRequest(createRequest(path, "__session=token"), IDENTITY);
 
     expect(response.status).toBe(301);
     expect(response.headers.get("location")).toBe(target);
-    expect(mockGetSessionIdentity).not.toHaveBeenCalled();
     expect(mockGetDbFromEnv).not.toHaveBeenCalled();
   });
 
@@ -169,8 +165,8 @@ describe("gateRequest", () => {
   it("gives session requests a fresh script nonce instead of inline allowance", async () => {
     seedAuthenticated();
 
-    const first = await renderRequest(createRequest("/dashboard", "__session=token"));
-    const second = await renderRequest(createRequest("/dashboard", "__session=token"));
+    const first = await renderRequest(createRequest("/dashboard", "__session=token"), IDENTITY);
+    const second = await renderRequest(createRequest("/dashboard", "__session=token"), IDENTITY);
     const firstScriptSrc = scriptSrcOf(first.headers.get("content-security-policy"));
 
     expect(firstScriptSrc).toMatch(/'nonce-[0-9a-f-]{36}'/);
@@ -181,7 +177,10 @@ describe("gateRequest", () => {
   it("allows consented verified users through and shares one handle across both gate reads", async () => {
     seedAuthenticated();
 
-    const response = await renderRequest(createRequest("/dashboard", "__session=test-clerk-jwt"));
+    const response = await renderRequest(
+      createRequest("/dashboard", "__session=test-clerk-jwt"),
+      IDENTITY,
+    );
 
     expect(response.status).toBe(200);
     expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
@@ -196,9 +195,12 @@ describe("gateRequest", () => {
   });
 
   it("routes verified users without recorded consent to /consent preserving the next path", async () => {
-    seedAuthenticated(IDENTITY, VERIFIED, UNCONSENTED);
+    seedAuthenticated(VERIFIED, UNCONSENTED);
 
-    const response = await renderRequest(createRequest("/dashboard?tab=watching", "__session=t"));
+    const response = await renderRequest(
+      createRequest("/dashboard?tab=watching", "__session=t"),
+      IDENTITY,
+    );
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
@@ -207,18 +209,24 @@ describe("gateRequest", () => {
   });
 
   it("redirects users with unconfirmed emails to sign-in", async () => {
-    seedAuthenticated(IDENTITY, UNVERIFIED, CONSENTED);
+    seedAuthenticated(UNVERIFIED, CONSENTED);
 
-    const response = await renderRequest(createRequest("/dashboard", "__session=test-clerk-jwt"));
+    const response = await renderRequest(
+      createRequest("/dashboard", "__session=test-clerk-jwt"),
+      IDENTITY,
+    );
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(`${ORIGIN}/sign-in`);
   });
 
   it("revokes the session, clears Clerk cookies, and redirects disabled accounts", async () => {
-    seedAuthenticated(IDENTITY, VERIFIED, DISABLED);
+    seedAuthenticated(VERIFIED, DISABLED);
 
-    const response = await renderRequest(createRequest("/dashboard", "__session=test-clerk-jwt"));
+    const response = await renderRequest(
+      createRequest("/dashboard", "__session=test-clerk-jwt"),
+      IDENTITY,
+    );
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(`${ORIGIN}/sign-in?error=account_disabled`);
@@ -232,11 +240,14 @@ describe("gateRequest", () => {
   });
 
   it("still signs disabled accounts out when session revocation fails", async () => {
-    seedAuthenticated(IDENTITY, VERIFIED, DISABLED);
+    seedAuthenticated(VERIFIED, DISABLED);
     mockRevokeSession.mockRejectedValueOnce(new Error("backend api down"));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const response = await renderRequest(createRequest("/dashboard", "__session=test-clerk-jwt"));
+    const response = await renderRequest(
+      createRequest("/dashboard", "__session=test-clerk-jwt"),
+      IDENTITY,
+    );
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(`${ORIGIN}/sign-in?error=account_disabled`);
@@ -247,12 +258,12 @@ describe("gateRequest", () => {
   });
 
   it("redirects an unknown authorization read without revoking the session", async () => {
-    mockGetSessionIdentity.mockResolvedValue(IDENTITY);
     mockReadUserVerification.mockResolvedValue(VERIFIED);
     mockReadAuthorizationState.mockResolvedValue(null);
 
     const response = await renderRequest(
       createRequest("/dashboard?tab=watching", "__session=test-clerk-jwt"),
+      IDENTITY,
     );
 
     expect(response.status).toBe(307);
@@ -264,18 +275,24 @@ describe("gateRequest", () => {
   });
 
   it("sends verified admins hitting sign-in to /admin", async () => {
-    seedAuthenticated(IDENTITY, VERIFIED, ADMIN);
+    seedAuthenticated(VERIFIED, ADMIN);
 
-    const response = await renderRequest(createRequest("/sign-in", "__session=test-clerk-jwt"));
+    const response = await renderRequest(
+      createRequest("/sign-in", "__session=test-clerk-jwt"),
+      IDENTITY,
+    );
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(`${ORIGIN}/admin`);
   });
 
   it("sends consented users who revisit /consent to their role landing page", async () => {
-    seedAuthenticated(IDENTITY, VERIFIED, CONSENTED);
+    seedAuthenticated(VERIFIED, CONSENTED);
 
-    const response = await renderRequest(createRequest("/consent", "__session=test-clerk-jwt"));
+    const response = await renderRequest(
+      createRequest("/consent", "__session=test-clerk-jwt"),
+      IDENTITY,
+    );
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(`${ORIGIN}/dashboard`);
@@ -285,15 +302,18 @@ describe("gateRequest", () => {
     seedAuthenticated();
 
     const request = createRequest("/nonexistent-page", "__session=test-clerk-jwt");
-    const response = await renderRequest(request);
+    const response = await renderRequest(request, IDENTITY);
 
     expect(response.status).toBe(200);
   });
 
   it("denies API access without consent with JSON and security headers", async () => {
-    seedAuthenticated(IDENTITY, VERIFIED, UNCONSENTED);
+    seedAuthenticated(VERIFIED, UNCONSENTED);
 
-    const response = await renderRequest(createRequest("/api/class-watches", "__session=token"));
+    const response = await renderRequest(
+      createRequest("/api/class-watches", "__session=token"),
+      IDENTITY,
+    );
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({ success: false, error: "Consent required" });

@@ -1,22 +1,19 @@
+import type { AuthObject } from "@clerk/backend";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-const {
-  createClerkClient,
-  authenticateRequest,
-  getSessionList,
-  revokeSessionCall,
-  getUser,
-  deleteUser,
-} = vi.hoisted(() => ({
-  createClerkClient: vi.fn(),
-  authenticateRequest: vi.fn(),
-  getSessionList: vi.fn(),
-  revokeSessionCall: vi.fn(),
-  getUser: vi.fn(),
-  deleteUser: vi.fn(),
-}));
+const { createClerkClient, auth, getSessionList, revokeSessionCall, getUser, deleteUser } =
+  vi.hoisted(() => ({
+    createClerkClient: vi.fn(),
+    auth: vi.fn(),
+    getSessionList: vi.fn(),
+    revokeSessionCall: vi.fn(),
+    getUser: vi.fn(),
+    deleteUser: vi.fn(),
+  }));
 
 vi.mock("@clerk/backend", () => ({ createClerkClient }));
+
+vi.mock("@clerk/tanstack-react-start/server", () => ({ auth }));
 
 vi.mock("cloudflare:workers", () => ({
   env: { CLERK_SECRET_KEY: "sk_test_x", NEXT_PUBLIC_SITE_URL: "https://pickmyclass.test" },
@@ -33,6 +30,7 @@ import {
   getSessionIdentity,
   revokeAllUserSessions,
   revokeSession,
+  toSessionIdentity,
 } from "@/lib/auth/clerk-session";
 import { CLERK_REQUEST_TIMEOUT_MS, CLERK_SESSION_REVOKE_LIMIT } from "@/lib/config";
 
@@ -46,7 +44,6 @@ async function caught(promise: Promise<unknown>): Promise<Error | undefined> {
 describe("clerk-session", () => {
   beforeEach(() => {
     createClerkClient.mockImplementation(() => ({
-      authenticateRequest,
       sessions: { getSessionList, revokeSession: revokeSessionCall },
       users: { getUser, deleteUser },
     }));
@@ -173,12 +170,48 @@ describe("clerk-session", () => {
     expect(deleteUser).toHaveBeenNthCalledWith(1, "user_1");
   });
 
-  it("treats a failed verification as signed out and logs it", async () => {
-    authenticateRequest.mockRejectedValue(new Error("jwks unreachable"));
+  it("identifies a session by its ext_id claim, falling back to the Clerk user id", async () => {
+    auth
+      .mockResolvedValueOnce({
+        tokenType: "session_token",
+        userId: "user_clerk",
+        sessionId: "sess_1",
+        sessionClaims: { ext_id: "legacy-uuid" },
+      })
+      .mockResolvedValueOnce({
+        tokenType: "session_token",
+        userId: "user_clerk",
+        sessionId: "sess_2",
+        sessionClaims: {},
+      })
+      .mockResolvedValueOnce({
+        tokenType: "session_token",
+        userId: null,
+        sessionId: null,
+        sessionClaims: null,
+      });
 
-    expect(await getSessionIdentity(new Request("https://pickmyclass.test/"))).toBeNull();
-    expect(console.error).toHaveBeenCalledWith(
-      expect.objectContaining({ msg: "Clerk session verification failed" }),
-    );
+    expect(await getSessionIdentity()).toEqual({
+      userId: "legacy-uuid",
+      clerkUserId: "user_clerk",
+      sessionId: "sess_1",
+    });
+    expect(await getSessionIdentity()).toEqual({
+      userId: "user_clerk",
+      clerkUserId: "user_clerk",
+      sessionId: "sess_2",
+    });
+    expect(await getSessionIdentity()).toBeNull();
+  });
+
+  it("never signs in a machine token, even one owned by a user", () => {
+    // SAFETY: the fields toSessionIdentity reads from an API-key AuthObject.
+    const apiKey = {
+      tokenType: "api_key",
+      userId: "user_clerk",
+      isAuthenticated: true,
+    } as AuthObject;
+
+    expect(toSessionIdentity(apiKey)).toBeNull();
   });
 });

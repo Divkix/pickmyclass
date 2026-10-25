@@ -15,7 +15,7 @@ export const Route = createFileRoute("/api/auth/consent")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          return await withAuth(request, async (user) => {
+          return await withAuth(async (user) => {
             const parsed = await parseJsonOrFail(consentSchema, request);
 
             if (!parsed.success) {

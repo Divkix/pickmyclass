@@ -8,8 +8,8 @@ export class UnauthorizedError extends Error {
   }
 }
 
-export async function requireUser(request: Request): Promise<{ user: SessionIdentity }> {
-  const user = await getSessionIdentity(request);
+export async function requireUser(): Promise<{ user: SessionIdentity }> {
+  const user = await getSessionIdentity();
 
   if (!user) throw new UnauthorizedError();
 

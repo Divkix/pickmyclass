@@ -22,9 +22,9 @@ import { MAX_WATCHES_PER_USER, readWatchlist } from "@/lib/class-watches/watchli
 export const Route = createFileRoute("/api/class-watches/")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
+      GET: async () => {
         try {
-          return await withAuth(request, async (user) =>
+          return await withAuth(async (user) =>
             ok(await readWatchlist(getDbFromEnv(), user.userId)),
           );
         } catch (error) {
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/class-watches/")({
 
       POST: async ({ request }) => {
         try {
-          return await withAuth(request, async (user) => {
+          return await withAuth(async (user) => {
             const parsed = await parseJsonOrFail(createClassWatchSchema, request);
 
             if (!parsed.success) {
@@ -97,13 +97,13 @@ export const Route = createFileRoute("/api/class-watches/")({
             try {
               const { rows } = await db.execute<ClassWatchRow>(
                 sql`SELECT * FROM public.create_class_watch_with_limit(
-        ${user.userId}::text,
-        ${term}::text,
-        ${classDetails.subject.toUpperCase()}::text,
-        ${classDetails.catalog_nbr}::text,
-        ${class_nbr}::text,
-        ${MAX_WATCHES_PER_USER}::int
-      )`,
+                  ${user.userId}::text,
+                  ${term}::text,
+                  ${classDetails.subject.toUpperCase()}::text,
+                  ${classDetails.catalog_nbr}::text,
+                  ${class_nbr}::text,
+                  ${MAX_WATCHES_PER_USER}::int
+                )`,
               );
 
               watchDataRaw = rows[0] ?? null;
@@ -156,7 +156,7 @@ export const Route = createFileRoute("/api/class-watches/")({
 
       DELETE: async ({ request }) => {
         try {
-          return await withAuth(request, async (user) => {
+          return await withAuth(async (user) => {
             const { searchParams } = new URL(request.url);
             const watchId = searchParams.get("id");
 

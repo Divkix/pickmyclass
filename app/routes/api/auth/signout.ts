@@ -7,9 +7,9 @@ import { errorFields, log } from "@/lib/log";
 export const Route = createFileRoute("/api/auth/signout")({
   server: {
     handlers: {
-      POST: async ({ request }) => {
+      POST: async () => {
         try {
-          const identity = await getSessionIdentity(request);
+          const identity = await getSessionIdentity();
 
           if (identity?.sessionId) {
             try {

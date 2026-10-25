@@ -33,9 +33,9 @@ function toIsoTimestamp(value: string | null): string | null {
 export const Route = createFileRoute("/api/user/export")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
+      GET: async () => {
         try {
-          return await withAuth(request, async (user) => {
+          return await withAuth(async (user) => {
             try {
               const db = getDbFromEnv();
 
@@ -63,7 +63,7 @@ export const Route = createFileRoute("/api/user/export")({
           FROM class_states cs
           WHERE cs.class_nbr = ${classWatches.class_nbr} AND cs.term = ${classWatches.term}
           LIMIT 1
-        )`,
+                  )`,
                   })
                   .from(classWatches)
                   .where(eq(classWatches.user_id, user.userId))
@@ -86,7 +86,7 @@ export const Route = createFileRoute("/api/user/export")({
           FROM class_watches cw2
           WHERE cw2.id = ${notificationsSent.class_watch_id}
           LIMIT 1
-        )`,
+                  )`,
                   })
                   .from(notificationsSent)
                   .innerJoin(classWatches, eq(classWatches.id, notificationsSent.class_watch_id))

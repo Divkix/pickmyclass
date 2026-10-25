@@ -25,7 +25,7 @@ export const Route = createFileRoute("/auth/post-oauth")({
         const { searchParams, origin } = new URL(request.url);
         const next = safeInternalPath(searchParams.get("next"), "/");
 
-        const identity = await getSessionIdentity(request);
+        const identity = await getSessionIdentity();
 
         if (!identity) {
           return Response.redirect(`${origin}/sign-in?error=oauth_failed`, 307);

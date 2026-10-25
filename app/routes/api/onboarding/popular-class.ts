@@ -12,8 +12,8 @@ import type { PopularClass } from "@/lib/types/class";
 export const Route = createFileRoute("/api/onboarding/popular-class")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
-        return withAuth(request, async () => {
+      GET: async () => {
+        return withAuth(async () => {
           try {
             const selectableTerms = getSelectableTerms();
             const currentTerm = selectableTerms[0]?.code;

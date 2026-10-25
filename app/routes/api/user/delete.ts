@@ -10,9 +10,9 @@ import { softDeleteUserById } from "@/lib/db/users";
 export const Route = createFileRoute("/api/user/delete")({
   server: {
     handlers: {
-      DELETE: async ({ request }) => {
+      DELETE: async () => {
         try {
-          return await withAuth(request, async (user) => {
+          return await withAuth(async (user) => {
             try {
               const deletionTimestamp = new Date().toISOString();
 

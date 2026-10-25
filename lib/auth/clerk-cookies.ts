@@ -8,7 +8,7 @@
  * a key-derived suffix (`__session_<hash>`), so matching is prefix-based.
  *
  * Detection is a CPU-saving heuristic only: the authoritative check is always
- * `authenticateRequest()` in lib/auth/clerk-session.ts.
+ * `clerkMiddleware` (app/start.ts).
  */
 
 const CLERK_SESSION_COOKIE_PREFIXES = [
