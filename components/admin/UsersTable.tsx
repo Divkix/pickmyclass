@@ -1,8 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -63,7 +62,7 @@ export function UsersTable({
   verified,
   watchCount,
 }: UsersTableProps) {
-  const router = useRouter();
+  const navigateTo = useNavigate();
   const navigate = useTableNavigate();
   const mounted = useHydrated();
 
@@ -88,7 +87,7 @@ export function UsersTable({
     const target = event.target as HTMLElement;
 
     if (target.tagName === "A" || target.closest("a")) return;
-    router.push(`/admin/users/${userId}`);
+    void navigateTo({ to: "/admin/users/$userId", params: { userId } });
   };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -177,7 +176,8 @@ export function UsersTable({
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <Link
-                          href={`/admin/users/${user.id}`}
+                          to="/admin/users/$userId"
+                          params={{ userId: user.id }}
                           className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-sm"
                           onClick={(e) => e.stopPropagation()}
                         >

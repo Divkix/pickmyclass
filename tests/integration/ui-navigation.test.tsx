@@ -1,4 +1,4 @@
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderWithRouter } from "@/tests/helpers/render-with-router";
 import { describe, expect, it } from "vite-plus/test";
 import { FinishSetupCard } from "@/components/FinishSetupCard";
 import { EmptyWatchlist } from "@/components/dashboard/EmptyStates";
@@ -14,12 +14,15 @@ describe("navigation calls to action", () => {
     ["how it works", <HowItWorks key="how-it-works" />, "/sign-up"],
     ["empty watchlist", <EmptyWatchlist key="empty-watchlist" />, "/dashboard/add"],
     ["finish setup", <FinishSetupCard key="finish-setup" />, "/dashboard/add"],
-  ])("renders %s as styled links, not nested interactive elements", (_name, content, href) => {
-    const markup = renderToStaticMarkup(content);
-    expect(markup).toContain(`href="${href}"`);
-    expect(markup).toContain('data-slot="button"');
-    expect(markup).not.toContain("<button");
-  });
+  ])(
+    "renders %s as styled links, not nested interactive elements",
+    async (_name, content, href) => {
+      const markup = await renderWithRouter(content);
+      expect(markup).toContain(`href="${href}"`);
+      expect(markup).toContain('data-slot="button"');
+      expect(markup).not.toContain("<button");
+    },
+  );
 });
 
 describe("public landing sections", () => {
@@ -29,8 +32,8 @@ describe("public landing sections", () => {
     ["how it works", <HowItWorks key="how-it-works" />],
     ["dashboard preview", <DashboardPreview key="preview" />],
     ["social proof", <SocialProofBanner key="social-proof" />],
-  ])("renders %s visible before hydration", (_name, content) => {
-    const markup = renderToStaticMarkup(content);
+  ])("renders %s visible before hydration", async (_name, content) => {
+    const markup = await renderWithRouter(content);
     expect(markup).not.toContain("opacity:0");
   });
 });

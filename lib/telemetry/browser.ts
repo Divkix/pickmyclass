@@ -9,7 +9,7 @@ import { errorFields } from "@/lib/log";
 type HyperDX = (typeof import("@hyperdx/browser"))["default"];
 
 // A type alias, not an interface, so it passes as OTel `Attributes`.
-type BoundaryErrorFields = { boundary: "app" | "global"; digest?: string };
+type BoundaryErrorFields = { boundary: "app" };
 
 /** Product actions and their fields: opaque ids only, never emails or names. */
 interface BrowserActionMap {
@@ -67,7 +67,7 @@ function withSdk(use: (hyperdx: HyperDX) => void): void {
   void sdk?.then(use, () => undefined);
 }
 
-/** Called once from `instrumentation-client.ts`; a no-op everywhere else. */
+/** Called once from `app/client.tsx`; a no-op everywhere else. */
 export function startBrowserTelemetry(): void {
   sdk ??= loadSdk();
 }

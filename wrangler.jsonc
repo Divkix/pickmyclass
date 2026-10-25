@@ -13,8 +13,8 @@
   "assets": {
     "directory": "dist/client",
     "binding": "ASSETS",
-    // vinext renders every page, so a stray public/*.html must never answer an
-    // extensionless route ahead of proxy.ts (auth gate + CSP).
+    // TanStack Start renders every page, so a stray public/*.html must never
+    // answer an extensionless route ahead of the request gate (auth + CSP).
     "html_handling": "none",
     "not_found_handling": "none",
   },

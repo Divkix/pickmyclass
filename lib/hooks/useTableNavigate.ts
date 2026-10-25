@@ -1,21 +1,19 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useTransition } from "react";
+import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useCallback } from "react";
 
 /**
  * Writes admin-table filters into the URL, dropping empty and "all" values so
  * the default view stays bookmarkable. Returns a stable navigate callback.
  */
 export function useTableNavigate(): (updates: Record<string, string>) => void {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [, startTransition] = useTransition();
+  const navigate = useNavigate();
+  const { pathname, searchStr } = useLocation();
 
   return useCallback(
     (updates: Record<string, string>) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(searchStr);
 
       for (const [key, value] of Object.entries(updates)) {
         if (value === "" || value === "all") {
@@ -26,11 +24,8 @@ export function useTableNavigate(): (updates: Record<string, string>) => void {
       }
 
       const query = params.toString();
-
-      startTransition(() => {
-        router.push(query ? `${pathname}?${query}` : pathname);
-      });
+      void navigate({ href: query ? `${pathname}?${query}` : pathname });
     },
-    [router, pathname, searchParams],
+    [navigate, pathname, searchStr],
   );
 }

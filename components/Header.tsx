@@ -1,7 +1,7 @@
 "use client";
 
 import { LayoutDashboard, Menu, X } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { AuthButton } from "@/components/AuthButton";
 import { Logo } from "@/components/Logo";
@@ -13,7 +13,8 @@ const navLinks = [
   { label: "Blog", href: "/blog" },
   { label: "FAQ", href: "/faq" },
   { label: "About", href: "/about" },
-];
+  // SAFETY: Header targets are fixed route literals, not user-provided URLs.
+] as const;
 
 export function Header() {
   const { user, loading } = useAuth();
@@ -23,7 +24,7 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-lg">
       <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex items-center gap-2 sm:gap-4 lg:gap-6">
-          <Link href="/" className="transition-opacity hover:opacity-80">
+          <Link to="/" className="transition-opacity hover:opacity-80">
             <Logo variant="full" size="md" />
           </Link>
           {!loading && user && (
@@ -34,7 +35,7 @@ export function Header() {
               className="min-h-11 text-base"
               aria-label="Go to dashboard"
             >
-              <Link href="/dashboard">
+              <Link to="/dashboard">
                 <LayoutDashboard className="size-4" aria-hidden="true" />
                 <span className="hidden xs:inline">Dashboard</span>
               </Link>
@@ -44,7 +45,7 @@ export function Header() {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                to={link.href}
                 className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 {link.label}
@@ -83,7 +84,7 @@ export function Header() {
           {navLinks.map((link) => (
             <Link
               key={link.href}
-              href={link.href}
+              to={link.href}
               onClick={() => setMobileMenuOpen(false)}
               className="block rounded-md px-3 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
             >

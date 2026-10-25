@@ -1,19 +1,27 @@
 import { Children, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vite-plus/test";
-import * as classSearch from "@/app/blog/asu-class-search/page";
-import * as seatTracker from "@/app/blog/asu-class-seat-tracker/page";
-import * as registrationTips from "@/app/blog/asu-registration-tips/page";
-import * as transferRegistration from "@/app/blog/asu-transfer-registration/page";
-import * as waitlist from "@/app/blog/asu-waitlist-guide/page";
-import * as bestTracker from "@/app/blog/best-asu-class-seat-tracker/page";
-import * as fullClasses from "@/app/blog/how-to-get-into-full-asu-classes/page";
-import * as registration from "@/app/blog/how-to-register-for-classes-at-asu/page";
-import * as searchTips from "@/app/blog/myasu-search-tips/page";
+import { describe, expect, it, vi } from "vite-plus/test";
+import * as classSearch from "@/app/routes/blog/asu-class-search";
+import * as seatTracker from "@/app/routes/blog/asu-class-seat-tracker";
+import * as registrationTips from "@/app/routes/blog/asu-registration-tips";
+import * as transferRegistration from "@/app/routes/blog/asu-transfer-registration";
+import * as waitlist from "@/app/routes/blog/asu-waitlist-guide";
+import * as bestTracker from "@/app/routes/blog/best-asu-class-seat-tracker";
+import * as fullClasses from "@/app/routes/blog/how-to-get-into-full-asu-classes";
+import * as registration from "@/app/routes/blog/how-to-register-for-classes-at-asu";
+import * as searchTips from "@/app/routes/blog/myasu-search-tips";
 import { BlogPostHeader } from "@/components/blog/BlogPostHeader";
 import { ComparisonTable } from "@/components/blog/ComparisonTable";
 import { TableOfContents } from "@/components/blog/TableOfContents";
 import { blogPosts } from "@/lib/blog/posts";
+import { absoluteUrl } from "@/lib/seo/public-pages";
+import type { PageHead } from "@/lib/seo/head";
+import { renderWithRouter } from "../../helpers/render-with-router";
+
+// Public pages render while Clerk is still loading during SSR.
+vi.mock("@/lib/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: null, session: null, loading: true, signOut: async () => {} }),
+}));
 
 const pages = [
   bestTracker,
@@ -41,8 +49,8 @@ function findReadTime(node: ReactNode): string | undefined {
 }
 
 describe("blog rendering", () => {
-  it("formats published and modified ISO dates in UTC", () => {
-    const html = renderToStaticMarkup(
+  it("formats published and modified ISO dates in UTC", async () => {
+    const html = await renderWithRouter(
       <BlogPostHeader
         breadcrumb="ASU Registration"
         title="Registration Guide"
@@ -97,9 +105,15 @@ describe("blog rendering", () => {
 
   it("uses each registry entry for the article reading time and shared description", async () => {
     for (const page of pages) {
-      const post = blogPosts.find(
-        (entry) => `/blog/${entry.slug}` === page.metadata.alternates?.canonical,
-      );
+      const head = page.Route.options.head;
+      const component = page.Route.options.component;
+
+      if (!head || !component) throw new Error("Blog route is missing its head or component");
+
+      // SAFETY: Every static blog head ignores route context and returns pageHead directly.
+      const metadata = (head as () => PageHead)();
+      const canonical = metadata?.links?.find((link) => link?.rel === "canonical")?.href;
+      const post = blogPosts.find((entry) => absoluteUrl(`/blog/${entry.slug}`) === canonical);
 
       expect(post).toBeDefined();
 
@@ -109,8 +123,13 @@ describe("blog rendering", () => {
 
       try {
         post.readingTime = "Registry reading time";
-        expect(findReadTime(await page.default())).toBe(post.readingTime);
-        expect(page.metadata.description).toBe(post.description);
+        // SAFETY: Every blog route component is an ordinary synchronous function with no props.
+        const article = (component as () => ReactNode)();
+        expect(findReadTime(article)).toBe(post.readingTime);
+        expect(
+          metadata?.meta?.find((tag) => tag && "name" in tag && tag.name === "description"),
+        ).toMatchObject({ content: post.description });
+        expect(await renderWithRouter(article)).toContain(post.readingTime);
       } finally {
         post.readingTime = originalReadingTime;
       }

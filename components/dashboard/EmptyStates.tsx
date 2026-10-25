@@ -2,7 +2,7 @@
 
 import { m } from "framer-motion";
 import { Calendar, Plus, Search } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { fadeInUp } from "@/lib/animations";
 
@@ -26,7 +26,7 @@ export function EmptyWatchlist() {
         PickMyClass
       </p>
       <Button asChild variant="gradient">
-        <Link href="/dashboard/add">
+        <Link to="/dashboard/add">
           <Plus className="size-4" />
           Add Your First Class
         </Link>

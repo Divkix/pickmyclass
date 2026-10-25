@@ -1,8 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp, ChevronsUpDown, Clock, Mail, Users } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -51,7 +50,7 @@ export function ClassesTable({
   instructor,
   watcherCount,
 }: ClassesTableProps) {
-  const router = useRouter();
+  const navigateTo = useNavigate();
   const navigate = useTableNavigate();
   const mounted = useHydrated();
 
@@ -186,12 +185,16 @@ export function ClassesTable({
                   key={classItem.id}
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => {
-                    router.push(`/admin/classes/${classItem.term}/${classItem.class_nbr}`);
+                    void navigateTo({
+                      to: "/admin/classes/$term/$classNbr",
+                      params: { term: classItem.term, classNbr: classItem.class_nbr },
+                    });
                   }}
                 >
                   <TableCell className="font-mono font-semibold">
                     <Link
-                      href={`/admin/classes/${classItem.term}/${classItem.class_nbr}`}
+                      to="/admin/classes/$term/$classNbr"
+                      params={{ term: classItem.term, classNbr: classItem.class_nbr }}
                       className="text-primary hover:underline"
                       onClick={(e) => e.stopPropagation()}
                     >

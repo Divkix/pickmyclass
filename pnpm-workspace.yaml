@@ -48,14 +48,6 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
-# Only react-server-dom-webpack's webpack plugin entry imports webpack; the
-# Flight runtime that @vitejs/plugin-rsc loads does not. Marking the peer
-# optional keeps autoInstallPeers from pulling webpack into a Vite app.
-packageExtensions:
-  react-server-dom-webpack:
-    peerDependenciesMeta:
-      webpack:
-        optional: true
 # Supply-chain hardening: refuse any version whose trust signals (provenance,
 # signatures) regressed versus what we already resolved.
 #
@@ -67,3 +59,8 @@ minimumReleaseAgeExclude:
   - "caniuse-lite@1.0.30001818"
   - "lucide-react@1.61.0"
 trustPolicy: no-downgrade
+# semver@6.3.1 predates npm provenance, so it reads as a downgrade next to the
+# provenance-signed 7.x line. Babel (TanStack Start's route compiler) still
+# depends on 6.x; exclude that exact version only.
+trustPolicyExclude:
+  - "semver@6.3.1"

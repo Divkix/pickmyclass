@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalPro
   const [confirmText, setConfirmText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const navigate = useNavigate();
 
   const handleDelete = async () => {
     if (confirmText !== "DELETE") {
@@ -48,7 +48,10 @@ export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalPro
         throw new Error(data.error || "Failed to delete account");
       }
 
-      router.push("/sign-in?message=Account deleted successfully");
+      await navigate({
+        to: "/sign-in",
+        search: { message: "Account deleted successfully" },
+      });
     } catch (err) {
       log("DeleteAccount").error("Account deletion failed", errorFields(err));
       setError(err instanceof Error ? err.message : "Failed to delete account");

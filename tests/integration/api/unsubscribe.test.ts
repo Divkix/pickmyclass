@@ -1,3 +1,4 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { createHash } from "node:crypto";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -5,7 +6,7 @@ import { z } from "zod";
 
 import type { Database } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { GET, POST } from "@/app/api/unsubscribe/route";
+import { Route } from "@/app/routes/api/unsubscribe";
 
 type ScriptedParam = string | number | boolean | null;
 
@@ -106,7 +107,12 @@ describe("/api/unsubscribe", () => {
   });
 
   it("rejects missing GET tokens with an HTML error page", async () => {
-    const response = await GET(request("https://pickmyclass.app/api/unsubscribe"));
+    const response = await callRouteHandler(
+      Route,
+      "GET",
+      request("https://pickmyclass.app/api/unsubscribe"),
+    );
+
     const body = await response.text();
 
     expect(response.status).toBe(400);
@@ -119,7 +125,12 @@ describe("/api/unsubscribe", () => {
   it("rejects invalid GET tokens before touching the database", async () => {
     mockVerifyUnsubscribeToken.mockReturnValue(null);
 
-    const response = await GET(request("https://pickmyclass.app/api/unsubscribe?token=bad"));
+    const response = await callRouteHandler(
+      Route,
+      "GET",
+      request("https://pickmyclass.app/api/unsubscribe?token=bad"),
+    );
+
     const body = await response.text();
 
     expect(response.status).toBe(400);
@@ -128,7 +139,12 @@ describe("/api/unsubscribe", () => {
   });
 
   it("renders a confirmation form for valid GET requests without mutating state", async () => {
-    const response = await GET(request("https://pickmyclass.app/api/unsubscribe?token=good"));
+    const response = await callRouteHandler(
+      Route,
+      "GET",
+      request("https://pickmyclass.app/api/unsubscribe?token=good"),
+    );
+
     const body = await response.text();
 
     expect(response.status).toBe(200);
@@ -137,7 +153,12 @@ describe("/api/unsubscribe", () => {
   });
 
   it("validates one-click POST requests", async () => {
-    const response = await POST(request("https://pickmyclass.app/api/unsubscribe", "POST"));
+    const response = await callRouteHandler(
+      Route,
+      "POST",
+      request("https://pickmyclass.app/api/unsubscribe", "POST"),
+    );
+
     const data = await json(response);
 
     expect(response.status).toBe(400);
@@ -149,7 +170,9 @@ describe("/api/unsubscribe", () => {
   it("rejects invalid one-click POST tokens", async () => {
     mockVerifyUnsubscribeToken.mockReturnValue(null);
 
-    const response = await POST(
+    const response = await callRouteHandler(
+      Route,
+      "POST",
       request("https://pickmyclass.app/api/unsubscribe?token=bad", "POST"),
     );
 
@@ -161,7 +184,9 @@ describe("/api/unsubscribe", () => {
   });
 
   it("unsubscribes valid one-click POST requests via a single profile update", async () => {
-    const response = await POST(
+    const response = await callRouteHandler(
+      Route,
+      "POST",
       request("https://pickmyclass.app/api/unsubscribe?token=good", "POST"),
     );
 
@@ -185,7 +210,9 @@ describe("/api/unsubscribe", () => {
   it("logs no event when one-click POST persistence fails", async () => {
     recorder.outcomes.push(new Error("database down"));
 
-    const response = await POST(
+    const response = await callRouteHandler(
+      Route,
+      "POST",
       request("https://pickmyclass.app/api/unsubscribe?token=good", "POST"),
     );
 

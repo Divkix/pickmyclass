@@ -1,7 +1,7 @@
 "use client";
 
 import { Lightbulb, Lock } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -18,17 +18,17 @@ import {
 import { TermSelect } from "@/components/TermSelect";
 import { useClassWatchForm } from "@/lib/class-watches/useClassWatchForm";
 
-/** Creates a watch, then returns to the dashboard. The refresh drops cached dashboard
- * snapshots, so Back to an earlier dashboard entry doesn't show the list without it. */
+/** Creates a watch, then invalidates cached loaders before returning to the dashboard. */
 export function AddClassWatch() {
   const router = useRouter();
+  const navigate = useNavigate();
   const [university] = useState("asu");
 
   const { terms, term, setTerm, classNbr, setClassNbr, error, isSubmitting, handleSubmit } =
     useClassWatchForm({
-      onCreated: () => {
-        router.push("/dashboard");
-        router.refresh();
+      onCreated: async () => {
+        await router.invalidate();
+        await navigate({ to: "/dashboard" });
       },
       resetOnSuccess: true,
     });

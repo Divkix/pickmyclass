@@ -1,6 +1,6 @@
 import { DrizzleQueryError } from "drizzle-orm/errors";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { errorFields, log, redactEmails, tagLogs } from "@/lib/log";
+import { errorFields, log, logRequestError, redactEmails, tagLogs } from "@/lib/log";
 
 describe("log", () => {
   afterEach(() => {
@@ -107,6 +107,61 @@ describe("errorFields", () => {
     expect(errorFields(undefined)).toEqual({
       "error.message": "undefined",
       "error.name": "NonError",
+    });
+  });
+});
+
+describe("logRequestError", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("logs the stack, method and path without the query string", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    logRequestError(
+      new Error("boom"),
+      new Request("https://pickmyclass.app/api/unsubscribe?token=secret"),
+    );
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const [line] = errorSpy.mock.calls[0];
+    expect(line).toMatchObject({
+      level: "error",
+      scope: "RequestError",
+      method: "GET",
+      path: "/api/unsubscribe",
+      "error.message": "boom",
+    });
+    expect(line.stack).toContain("Error: boom");
+    expect(line.stack).toContain("log.test.ts");
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("secret");
+  });
+
+  it("names the server function that failed", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    logRequestError(
+      new Error("boom"),
+      new Request("https://pickmyclass.app/_serverFn/loadDashboard", { method: "POST" }),
+      "loadDashboard",
+    );
+
+    expect(errorSpy.mock.calls[0][0]).toMatchObject({
+      method: "POST",
+      server_fn: "loadDashboard",
+    });
+  });
+
+  it("logs a non-Error throw instead of crashing", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const thrown = { name: "Thrown", message: "nope", toString: () => "thrown: nope" };
+
+    logRequestError(thrown, new Request("https://pickmyclass.app/api/x", { method: "POST" }));
+
+    expect(errorSpy.mock.calls[0][0]).toMatchObject({
+      "error.name": "Thrown",
+      "error.message": "nope",
     });
   });
 });

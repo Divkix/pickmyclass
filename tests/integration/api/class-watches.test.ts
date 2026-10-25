@@ -1,3 +1,4 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { DatabaseError } from "pg";
 import { DrizzleQueryError } from "drizzle-orm/errors";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
@@ -58,7 +59,7 @@ vi.mock("cloudflare:workers", () => ({
   },
 }));
 
-import { DELETE, GET, POST } from "@/app/api/class-watches/route";
+import { Route } from "@/app/routes/api/class-watches/index";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -190,24 +191,28 @@ describe("/api/class-watches", () => {
     vi.restoreAllMocks();
   });
 
-  it.each([
-    { handler: GET, request: getRequest, error: "Failed to fetch class watches" },
+  it.each<{
+    method: "GET" | "POST" | "DELETE";
+    request: () => Request;
+    error: string;
+  }>([
+    { method: "GET", request: getRequest, error: "Failed to fetch class watches" },
     {
-      handler: POST,
+      method: "POST",
       request: () => postRequest({ term, class_nbr: "12345" }),
       error: "Failed to create class watch",
     },
     {
-      handler: DELETE,
+      method: "DELETE",
       request: () => deleteRequest("d0a2b3c1-0000-4000-8000-000000000001"),
       error: "Failed to delete class watch",
     },
   ])(
     "keeps the JSON error response when authentication fails unexpectedly: $error",
-    async ({ handler, request, error }) => {
+    async ({ method, request, error }) => {
       mockGetSessionIdentity.mockRejectedValueOnce(new Error("Clerk unavailable"));
 
-      const response = await handler(request());
+      const response = await callRouteHandler(Route, method, request());
 
       expect(response.status).toBe(500);
       await expect(response.json()).resolves.toEqual({ success: false, error });
@@ -219,7 +224,7 @@ describe("/api/class-watches", () => {
     it("returns 401 for unauthenticated requests without touching the database", async () => {
       mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-      const response = await GET(getRequest());
+      const response = await callRouteHandler(Route, "GET", getRequest());
 
       expect(response.status).toBe(401);
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
@@ -231,7 +236,7 @@ describe("/api/class-watches", () => {
         statement.sql.includes('"user_profiles"') ? [completedProfile] : [],
       );
 
-      const response = await GET(getRequest());
+      const response = await callRouteHandler(Route, "GET", getRequest());
       const data = await json<GetResponse>(response);
 
       expect(response.status).toBe(200);
@@ -253,7 +258,7 @@ describe("/api/class-watches", () => {
         return [watchRow];
       });
 
-      const response = await GET(getRequest());
+      const response = await callRouteHandler(Route, "GET", getRequest());
       const data = await json<GetResponse>(response);
 
       expect(response.status).toBe(200);
@@ -290,7 +295,7 @@ describe("/api/class-watches", () => {
         throw new Error("Database error");
       });
 
-      const response = await GET(getRequest());
+      const response = await callRouteHandler(Route, "GET", getRequest());
       const data = await json<GetResponse>(response);
 
       expect(response.status).toBe(500);
@@ -306,7 +311,11 @@ describe("/api/class-watches", () => {
     it("returns 401 for unauthenticated requests without touching the database", async () => {
       mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
 
       expect(response.status).toBe(401);
       expect(mockFetchClassFromASU).not.toHaveBeenCalled();
@@ -314,7 +323,7 @@ describe("/api/class-watches", () => {
     });
 
     it("rejects invalid payloads before calling ASU or the database", async () => {
-      const response = await POST(postRequest({ class_nbr: "12345" }));
+      const response = await callRouteHandler(Route, "POST", postRequest({ class_nbr: "12345" }));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(400);
@@ -324,7 +333,9 @@ describe("/api/class-watches", () => {
     });
 
     it("rejects malformed JSON without logging an error or calling ASU/the database", async () => {
-      const response = await POST(
+      const response = await callRouteHandler(
+        Route,
+        "POST",
         new Request("http://localhost:3000/api/class-watches", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -349,7 +360,11 @@ describe("/api/class-watches", () => {
         h = createScriptedPostgres();
         h.next([{ watchCount, duplicate }]);
 
-        const response = await POST(postRequest({ term, class_nbr: "12345" }));
+        const response = await callRouteHandler(
+          Route,
+          "POST",
+          postRequest({ term, class_nbr: "12345" }),
+        );
 
         expect(response.status).toBe(status);
         await expect(response.json()).resolves.toEqual({
@@ -381,7 +396,11 @@ describe("/api/class-watches", () => {
       h.next([]);
       h.next([]);
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
 
       const data = await json<MutationResponse>(response);
 
@@ -414,7 +433,12 @@ describe("/api/class-watches", () => {
       });
       h.next([{ ended: true }]);
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
+
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(409);
@@ -434,7 +458,11 @@ describe("/api/class-watches", () => {
       h.next([{ ended: false }]);
       h.next([{ ...watchRow, user_id: USER_ID }]);
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
 
       expect(response.status).toBe(201);
       expect(h.statements[2].sql).toContain("create_class_watch_with_limit");
@@ -443,7 +471,12 @@ describe("/api/class-watches", () => {
     it("maps an ASU not-found miss to 404 without creating a watch", async () => {
       mockFetchClassFromASU.mockRejectedValueOnce(new NotFoundError("missing"));
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
+
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(404);
@@ -454,7 +487,12 @@ describe("/api/class-watches", () => {
     it("maps ASU auth failures to a temporary outage", async () => {
       mockFetchClassFromASU.mockRejectedValueOnce(new AuthError("expired token"));
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
+
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(503);
@@ -464,7 +502,12 @@ describe("/api/class-watches", () => {
     it("maps unexpected ASU failures to a fetch error", async () => {
       mockFetchClassFromASU.mockRejectedValueOnce(new Error("network down"));
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
+
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(500);
@@ -479,7 +522,12 @@ describe("/api/class-watches", () => {
         ),
       );
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
+
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(409);
@@ -489,7 +537,11 @@ describe("/api/class-watches", () => {
     it("maps a duplicate-watch violation even when the error arrives unwrapped", async () => {
       h.failNext(driverError("23505", "duplicate key value violates unique constraint"));
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
 
       expect(response.status).toBe(409);
     });
@@ -497,7 +549,12 @@ describe("/api/class-watches", () => {
     it("maps the atomic limit-enforcement RAISE EXCEPTION to 429", async () => {
       h.failNext(wrappedDriverError("P0001", "MAX_WATCHES_EXCEEDED"));
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
+
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(429);
@@ -510,7 +567,12 @@ describe("/api/class-watches", () => {
     it("maps unrelated RPC failures to a 500 creation error", async () => {
       h.failNext(wrappedDriverError("08006", "connection failure"));
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
+
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(500);
@@ -532,7 +594,12 @@ describe("/api/class-watches", () => {
       h.failNext(new Error("upsert blew up"));
       h.next([]);
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
+
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(201);
@@ -549,7 +616,11 @@ describe("/api/class-watches", () => {
     it("returns 401 for unauthenticated requests without touching the database", async () => {
       mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-      const response = await DELETE(deleteRequest("d0a2b3c1-0000-4000-8000-000000000001"));
+      const response = await callRouteHandler(
+        Route,
+        "DELETE",
+        deleteRequest("d0a2b3c1-0000-4000-8000-000000000001"),
+      );
 
       expect(response.status).toBe(401);
       expect(mockGetDbFromEnv).not.toHaveBeenCalled();
@@ -559,7 +630,7 @@ describe("/api/class-watches", () => {
       const watchId = "d0a2b3c1-0000-4000-8000-000000000001";
       h.next([]);
 
-      const response = await DELETE(deleteRequest(watchId));
+      const response = await callRouteHandler(Route, "DELETE", deleteRequest(watchId));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(200);
@@ -577,7 +648,7 @@ describe("/api/class-watches", () => {
     });
 
     it("rejects malformed watch ids with a validation error", async () => {
-      const response = await DELETE(deleteRequest("not-a-uuid"));
+      const response = await callRouteHandler(Route, "DELETE", deleteRequest("not-a-uuid"));
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(400);
@@ -588,7 +659,12 @@ describe("/api/class-watches", () => {
     it("maps delete failures to a 500 deletion error", async () => {
       h.failNext(new Error("delete failed"));
 
-      const response = await DELETE(deleteRequest("d0a2b3c1-0000-4000-8000-000000000001"));
+      const response = await callRouteHandler(
+        Route,
+        "DELETE",
+        deleteRequest("d0a2b3c1-0000-4000-8000-000000000001"),
+      );
+
       const data = await json<MutationResponse>(response);
 
       expect(response.status).toBe(500);

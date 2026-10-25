@@ -1,13 +1,11 @@
+import handler from "@tanstack/react-start/server-entry";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import worker from "@/worker";
 import { COLLECTOR_TIMEOUT_MS } from "@/lib/config";
 import type { Env } from "@/lib/types/env";
 import { handleOtelIngest } from "@/lib/worker/otel-ingest";
 
 vi.mock("@/lib/queue/process-section", () => ({ processSection: vi.fn() }));
-
-const worker = (await import("@/worker")).default;
-
-const handler = (await import("vinext/server/app-router-entry")).default;
 
 const pending: Promise<unknown>[] = [];
 

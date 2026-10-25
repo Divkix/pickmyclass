@@ -1,13 +1,12 @@
 "use client";
 
 import { BookOpen, LayoutDashboard, Users } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function AdminNavigation() {
-  const pathname = usePathname();
+  const pathname = useLocation({ select: (location) => location.pathname });
 
   const navItems = [
     {
@@ -28,7 +27,8 @@ export function AdminNavigation() {
       label: "Users",
       exact: false,
     },
-  ];
+    // SAFETY: Admin targets are fixed route literals, not user-provided URLs.
+  ] as const;
 
   const isActive = (href: string, exact: boolean) => {
     if (exact) {
@@ -56,7 +56,7 @@ export function AdminNavigation() {
                 : "hover:bg-accent",
             )}
           >
-            <Link href={item.href} aria-current={active ? "page" : undefined}>
+            <Link to={item.href} aria-current={active ? "page" : undefined}>
               {item.icon}
               {item.label}
             </Link>

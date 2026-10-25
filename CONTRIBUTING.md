@@ -236,8 +236,8 @@ How did you test these changes?
 
 ### API Routes
 
-- Place API routes in `app/api/`
-- Authenticate with `withAuth` and scope user-owned queries to the authenticated user (see `app/api/class-watches/route.ts`).
+- Define API methods in `createFileRoute(...).server.handlers` under `app/routes/api/`, using web-standard `Request` / `Response`.
+- Authenticate with `withAuth` and scope user-owned queries to the authenticated user.
 - Use the response helpers from `lib/api/response.ts`:
   ```typescript
   // Success: { watches: result, success: true }

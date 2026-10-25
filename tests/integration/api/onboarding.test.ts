@@ -1,3 +1,4 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
@@ -23,7 +24,7 @@ vi.mock("@/lib/log", async (importOriginal) => ({
   logEvent: mockLogEvent,
 }));
 
-import { GET, POST } from "@/app/api/user/onboarding/route";
+import { Route } from "@/app/routes/api/user/onboarding";
 
 const identity = { userId: "user-123", clerkUserId: "clerk_123", sessionId: "sess_123" };
 
@@ -64,7 +65,12 @@ describe("/api/user/onboarding", () => {
     it("reports a pending state for a new user with no onboarding timestamps", async () => {
       h.next([{ onboarding_completed_at: null, onboarding_skipped_at: null }]);
 
-      const response = await GET(get("https://pickmyclass.app/api/user/onboarding"));
+      const response = await callRouteHandler(
+        Route,
+        "GET",
+        get("https://pickmyclass.app/api/user/onboarding"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(200);
@@ -83,7 +89,12 @@ describe("/api/user/onboarding", () => {
     it("falls back to not-needed when the profile row is missing", async () => {
       h.next([]);
 
-      const response = await GET(get("https://pickmyclass.app/api/user/onboarding"));
+      const response = await callRouteHandler(
+        Route,
+        "GET",
+        get("https://pickmyclass.app/api/user/onboarding"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(200);
@@ -96,7 +107,12 @@ describe("/api/user/onboarding", () => {
     it("rejects unauthenticated requests without touching the database", async () => {
       mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-      const response = await GET(get("https://pickmyclass.app/api/user/onboarding"));
+      const response = await callRouteHandler(
+        Route,
+        "GET",
+        get("https://pickmyclass.app/api/user/onboarding"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(401);
@@ -109,7 +125,12 @@ describe("/api/user/onboarding", () => {
     it("returns 500 when the profile read fails", async () => {
       h.failNext(new Error("read failed"));
 
-      const response = await GET(get("https://pickmyclass.app/api/user/onboarding"));
+      const response = await callRouteHandler(
+        Route,
+        "GET",
+        get("https://pickmyclass.app/api/user/onboarding"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(500);
@@ -122,7 +143,11 @@ describe("/api/user/onboarding", () => {
     it("skips onboarding via the RPC and logs exactly one event", async () => {
       h.next([{ onboarding_completed_at: null, onboarding_skipped_at: "2026-07-11T12:00:00Z" }]);
 
-      const response = await POST(post("https://pickmyclass.app/api/user/onboarding"));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        post("https://pickmyclass.app/api/user/onboarding"),
+      );
 
       const data = await json(response);
 
@@ -143,7 +168,12 @@ describe("/api/user/onboarding", () => {
     it("returns 500 when the skip RPC produces no rows and logs no event", async () => {
       h.next([]);
 
-      const response = await POST(post("https://pickmyclass.app/api/user/onboarding"));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        post("https://pickmyclass.app/api/user/onboarding"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(500);
@@ -155,7 +185,12 @@ describe("/api/user/onboarding", () => {
     it("returns 500 when the skip RPC fails and logs no event", async () => {
       h.failNext(new Error("rpc failed"));
 
-      const response = await POST(post("https://pickmyclass.app/api/user/onboarding"));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        post("https://pickmyclass.app/api/user/onboarding"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(500);
@@ -167,7 +202,12 @@ describe("/api/user/onboarding", () => {
     it("rejects unauthenticated requests without touching the database or logging an event", async () => {
       mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-      const response = await POST(post("https://pickmyclass.app/api/user/onboarding"));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        post("https://pickmyclass.app/api/user/onboarding"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(401);

@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
 import { useHydrated } from "@/lib/hooks/useHydrated";
 
 export function Footer() {
-  const pathname = usePathname();
+  const pathname = useLocation({ select: (location) => location.pathname });
   const [year] = useState(() => new Date().getFullYear());
   const mounted = useHydrated();
 
@@ -20,49 +19,49 @@ export function Footer() {
             <p className="text-sm text-muted-foreground">© {mounted ? year : null} PickMyClass</p>
             <div className="flex flex-wrap items-center justify-center gap-3 text-sm sm:gap-4">
               <Link
-                href="/faq"
+                to="/faq"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 FAQ
               </Link>
               <span className="text-muted-foreground/50">•</span>
               <Link
-                href="/blog"
+                to="/blog"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 Blog
               </Link>
               <span className="text-muted-foreground/50">•</span>
               <Link
-                href="/about"
+                to="/about"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 About
               </Link>
               <span className="text-muted-foreground/50">•</span>
               <Link
-                href="/contact"
+                to="/contact"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 Contact
               </Link>
               <span className="text-muted-foreground/50">•</span>
               <Link
-                href="/docs"
+                to="/docs"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 Docs
               </Link>
               <span className="text-muted-foreground/50">•</span>
               <Link
-                href="/legal/terms"
+                to="/legal/terms"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 Terms
               </Link>
               <span className="text-muted-foreground/50">•</span>
               <Link
-                href="/legal/privacy"
+                to="/legal/privacy"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 Privacy

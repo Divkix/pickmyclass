@@ -1,5 +1,5 @@
 import { Bell, RefreshCw, TrendingUp, User } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 
 export function FeaturesSection() {
   return (
@@ -64,7 +64,7 @@ export function FeaturesSection() {
                 Someone drops? You know within 30 minutes — and register before the other 200 people
                 even check their inbox. If the section actually has a waitlist, start with the{" "}
                 <Link
-                  href="/blog/asu-waitlist-guide"
+                  to="/blog/asu-waitlist-guide"
                   className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
                 >
                   ASU waitlist guide

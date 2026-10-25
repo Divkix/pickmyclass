@@ -1,3 +1,4 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -18,7 +19,7 @@ vi.mock("@/lib/db", () => ({
   getDbFromEnv: (...args: unknown[]) => mockGetDbFromEnv(...args),
 }));
 
-import { GET } from "@/app/api/class-watches/states/route";
+import { Route } from "@/app/routes/api/class-watches/states";
 
 const USER_ID = "user-123";
 
@@ -82,14 +83,14 @@ describe("GET /api/class-watches/states", () => {
   it("returns 401 for unauthenticated requests without touching the database", async () => {
     mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-    const response = await GET(getRequest("12345"));
+    const response = await callRouteHandler(Route, "GET", getRequest("12345"));
 
     expect(response.status).toBe(401);
     expect(mockGetDbFromEnv).not.toHaveBeenCalled();
   });
 
   it("returns no states and skips the query when classNumbers is empty", async () => {
-    const response = await GET(getRequest());
+    const response = await callRouteHandler(Route, "GET", getRequest());
     const data = await json<StatesResponse>(response);
 
     expect(response.status).toBe(200);
@@ -100,7 +101,7 @@ describe("GET /api/class-watches/states", () => {
   it("scopes states to the caller watch pairs, never to the bare class number", async () => {
     h.next([stateRow]);
 
-    const response = await GET(getRequest("12345"));
+    const response = await callRouteHandler(Route, "GET", getRequest("12345"));
     const data = await json<StatesResponse>(response);
 
     expect(response.status).toBe(200);
@@ -119,7 +120,7 @@ describe("GET /api/class-watches/states", () => {
   it("maps database failures to a 500 fetch error", async () => {
     h.failNext(new Error("Database error"));
 
-    const response = await GET(getRequest("12345"));
+    const response = await callRouteHandler(Route, "GET", getRequest("12345"));
     const data = await json<StatesResponse>(response);
 
     expect(response.status).toBe(500);

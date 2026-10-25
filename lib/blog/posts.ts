@@ -1,5 +1,14 @@
 export interface BlogPost {
-  slug: string;
+  slug:
+    | "best-asu-class-seat-tracker"
+    | "asu-class-search"
+    | "how-to-register-for-classes-at-asu"
+    | "asu-class-seat-tracker"
+    | "how-to-get-into-full-asu-classes"
+    | "asu-registration-tips"
+    | "asu-waitlist-guide"
+    | "asu-transfer-registration"
+    | "myasu-search-tips";
   title: string;
   description: string;
   publishedAt: string;

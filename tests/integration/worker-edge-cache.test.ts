@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import handler from "@tanstack/react-start/server-entry";
 import type { Env } from "@/lib/types/env";
+import worker from "@/worker";
 
 const { cacheGet, cacheIsEligible, cachePut } = vi.hoisted(() => ({
   cacheGet: vi.fn(),
@@ -16,10 +18,6 @@ vi.mock("@/lib/worker/edge-html-cache", () => ({
     put: cachePut,
   },
 }));
-
-const worker = (await import("@/worker")).default;
-
-const handler = (await import("vinext/server/app-router-entry")).default;
 
 const waitUntil = vi.fn();
 
@@ -50,7 +48,7 @@ describe("worker edge HTML cache adapter", () => {
 
     expect(cacheIsEligible).toHaveBeenCalledWith(request);
     expect(cacheGet).not.toHaveBeenCalled();
-    expect(render).toHaveBeenCalledWith(request, env, ctx);
+    expect(render).toHaveBeenCalledWith(request);
   });
 
   it("returns a cache hit without rendering", async () => {
@@ -81,7 +79,7 @@ describe("worker edge HTML cache adapter", () => {
     expect(waitUntil).toHaveBeenCalledWith(write);
   });
 
-  it("serves markdown without reading or writing the edge cache", async () => {
+  it("serves markdown from an HTML render without reading or writing the edge cache", async () => {
     const request = new Request("https://pickmyclass.app/", {
       headers: { accept: "text/markdown" },
     });
@@ -89,9 +87,12 @@ describe("worker edge HTML cache adapter", () => {
     const rendered = new Response("<main><h1>Open seats</h1></main>");
     rendered.headers.set("content-type", "text/html; charset=utf-8");
     cacheIsEligible.mockReturnValue(true);
-    vi.spyOn(handler, "fetch").mockResolvedValue(rendered);
+    const render = vi.spyOn(handler, "fetch").mockResolvedValue(rendered);
 
     const response = await worker.fetch(request, env, ctx);
+
+    // Start answers a request that does not accept HTML with 406.
+    expect(render.mock.calls[0]?.[0].headers.get("accept")).toBe("text/html");
 
     expect(response.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
     await expect(response.text()).resolves.toContain("# Open seats");

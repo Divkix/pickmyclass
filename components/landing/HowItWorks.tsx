@@ -1,5 +1,5 @@
 import { Sparkles } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 
 export function HowItWorks() {
@@ -56,7 +56,7 @@ export function HowItWorks() {
               <p className="text-base text-muted-foreground sm:text-lg">
                 Get an email the moment a seat opens. Beat the crowd. Pair that with{" "}
                 <Link
-                  href="/blog/how-to-get-into-full-asu-classes"
+                  to="/blog/how-to-get-into-full-asu-classes"
                   className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
                 >
                   strategies to get into full ASU classes
@@ -69,7 +69,7 @@ export function HowItWorks() {
 
         <div className="animation-hidden mt-16 text-center [animation-delay:400ms]">
           <Button asChild size="lg" variant="gradient" className="text-base">
-            <Link href="/sign-up">
+            <Link to="/sign-up">
               <Sparkles className="size-5" />
               Join 2,400+ Sun Devils
             </Link>

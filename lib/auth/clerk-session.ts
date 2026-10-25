@@ -1,7 +1,7 @@
 /**
  * Clerk session seam — the only module that talks to Clerk for identity.
  *
- * Server-only: imported by proxy.ts, API routes, and RSC admin gates. Never
+ * Server-only: imported by request middleware, API handlers, and page server functions. Never
  * import this from a client bundle (it reads the secret key).
  *
  * Identity model (issue #351):
@@ -164,16 +164,6 @@ export async function getSessionIdentity(request: Request): Promise<SessionIdent
 
     return null;
   }
-}
-
-export async function getSessionIdentityFromHeaders(
-  headers: Headers,
-): Promise<SessionIdentity | null> {
-  const host = headers.get("host") ?? "localhost";
-  const proto = headers.get("x-forwarded-proto") ?? "https";
-  const request = new Request(`${proto}://${host}/`, { headers });
-
-  return getSessionIdentity(request);
 }
 
 /**

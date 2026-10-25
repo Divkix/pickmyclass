@@ -22,3 +22,8 @@ export function fail(error: string, status: number, details?: JsonValue): Respon
 
   return Response.json(body, { status });
 }
+
+/** Start otherwise renders the app when a server route has no handler for the method. */
+export function methodNotAllowed(): Response {
+  return new Response(null, { status: 405 });
+}

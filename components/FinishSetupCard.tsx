@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, CheckCircle2 } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -19,7 +19,7 @@ export function FinishSetupCard() {
           </div>
         </div>
         <Button asChild variant="gradient" className="gap-2 w-full sm:w-auto">
-          <Link href="/dashboard/add">
+          <Link to="/dashboard/add">
             Add a class
             <ArrowRight className="size-4" />
           </Link>

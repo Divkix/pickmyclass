@@ -23,5 +23,5 @@
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.mts"],
-  "exclude": ["node_modules", "tools"]
+  "exclude": ["node_modules", "tools", "dist", ".tanstack"]
 }

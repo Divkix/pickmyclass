@@ -1,22 +1,18 @@
+import { redirect } from "@tanstack/react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { SessionIdentity } from "@/lib/auth/clerk-session";
 import type { Database } from "@/lib/db";
 import { createScriptedPostgres } from "@/tests/mocks/scripted-postgres";
 
-const { getDbFromEnv, getSessionIdentityFromHeaders, redirect } = vi.hoisted(() => ({
+const { getDbFromEnv, requirePageAccess } = vi.hoisted(() => ({
   getDbFromEnv: vi.fn<() => Database>(),
-  getSessionIdentityFromHeaders: vi.fn<(headers: Headers) => Promise<SessionIdentity | null>>(),
-  redirect: vi.fn<(path: string) => never>(),
+  requirePageAccess: vi.fn<(pathname: string, search?: string) => Promise<SessionIdentity>>(),
 }));
 
 vi.mock("@/lib/db", () => ({ getDbFromEnv }));
 
-vi.mock("@/lib/auth/clerk-session", () => ({ getSessionIdentityFromHeaders }));
-
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("@/lib/auth/page-access", () => ({ requirePageAccess }));
 
 import { verifyAdmin } from "@/lib/auth/admin";
 import {
@@ -45,10 +41,7 @@ describe("verifyAdmin", () => {
     clearAuthorizationStateCache();
     pg = createScriptedPostgres();
     getDbFromEnv.mockReturnValue(pg.db);
-    getSessionIdentityFromHeaders.mockResolvedValue(identity);
-    redirect.mockImplementation((path) => {
-      throw new Error(`NEXT_REDIRECT:${path}`);
-    });
+    requirePageAccess.mockResolvedValue(identity);
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -58,26 +51,25 @@ describe("verifyAdmin", () => {
   });
 
   it("redirects unauthenticated visitors to sign-in before reading authorization", async () => {
-    getSessionIdentityFromHeaders.mockResolvedValue(null);
+    const signInRedirect = redirect({ href: "/sign-in" });
+    requirePageAccess.mockRejectedValue(signInRedirect);
 
-    await expect(verifyAdmin()).rejects.toThrow("NEXT_REDIRECT:/sign-in");
-    expect(redirect).toHaveBeenCalledWith("/sign-in");
+    await expect(verifyAdmin("/admin")).rejects.toBe(signInRedirect);
+    expect(requirePageAccess).toHaveBeenCalledWith("/admin", undefined);
     expect(pg.statements).toHaveLength(0);
   });
 
   it("redirects non-admin users to their dashboard", async () => {
     pg.next([{ ...adminProfile, is_admin: false }]);
 
-    await expect(verifyAdmin()).rejects.toThrow("NEXT_REDIRECT:/dashboard");
-    expect(redirect).toHaveBeenCalledWith("/dashboard");
+    await expect(verifyAdmin("/admin")).rejects.toMatchObject(redirect({ href: "/dashboard" }));
     expect(pg.statements).toHaveLength(1);
   });
 
   it("redirects disabled administrators to sign-in", async () => {
     pg.next([{ ...adminProfile, is_disabled: true }]);
 
-    await expect(verifyAdmin()).rejects.toThrow("NEXT_REDIRECT:/sign-in");
-    expect(redirect).toHaveBeenCalledWith("/sign-in");
+    await expect(verifyAdmin("/admin")).rejects.toMatchObject(redirect({ href: "/sign-in" }));
     expect(pg.statements).toHaveLength(1);
   });
 
@@ -85,16 +77,25 @@ describe("verifyAdmin", () => {
     pg.next([adminProfile]);
     pg.next([{ email: "admin@example.com" }]);
 
-    expect(await verifyAdmin()).toEqual({
+    expect(await verifyAdmin("/admin")).toEqual({
       id: identity.userId,
       clerkUserId: identity.clerkUserId,
       sessionId: identity.sessionId,
       email: "admin@example.com",
     });
-    expect(redirect).not.toHaveBeenCalled();
+    expect(requirePageAccess).toHaveBeenCalledWith("/admin", undefined);
     expect(pg.statements).toHaveLength(2);
     expect(pg.statements[0].params).toContain(identity.userId);
     expect(pg.statements[1].params).toContain(identity.userId);
+  });
+
+  it("forwards the admin page's own pathname and search to page access", async () => {
+    pg.next([adminProfile]);
+    pg.next([{ email: "admin@example.com" }]);
+
+    await verifyAdmin("/admin/users", "?page=2");
+
+    expect(requirePageAccess).toHaveBeenCalledWith("/admin/users", "?page=2");
   });
 
   it("does not grant admin access from a stale cached profile", async () => {
@@ -102,22 +103,21 @@ describe("verifyAdmin", () => {
     await readAuthorizationState(pg.db, identity.userId, { cache: true });
     pg.next([{ ...adminProfile, is_admin: false }]);
 
-    await expect(verifyAdmin()).rejects.toThrow("NEXT_REDIRECT:/dashboard");
+    await expect(verifyAdmin("/admin")).rejects.toMatchObject(redirect({ href: "/dashboard" }));
     expect(pg.statements).toHaveLength(2);
   });
 
   it("denies admin access when the profile is missing", async () => {
     pg.next();
 
-    await expect(verifyAdmin()).rejects.toThrow("NEXT_REDIRECT:/dashboard");
+    await expect(verifyAdmin("/admin")).rejects.toMatchObject(redirect({ href: "/dashboard" }));
     expect(pg.statements).toHaveLength(1);
   });
 
   it("denies admin access when authorization cannot be read", async () => {
     pg.failNext(new Error("authorization connection reset"));
 
-    await expect(verifyAdmin()).rejects.toThrow("NEXT_REDIRECT:/dashboard");
-    expect(redirect).toHaveBeenCalledWith("/dashboard");
+    await expect(verifyAdmin("/admin")).rejects.toMatchObject(redirect({ href: "/dashboard" }));
     expect(pg.statements).toHaveLength(1);
   });
 
@@ -125,16 +125,14 @@ describe("verifyAdmin", () => {
     pg.next([adminProfile]);
     pg.next();
 
-    expect(await verifyAdmin()).toMatchObject({ id: identity.userId, email: "" });
-    expect(redirect).not.toHaveBeenCalled();
+    expect(await verifyAdmin("/admin")).toMatchObject({ id: identity.userId, email: "" });
   });
 
   it("propagates identity failures instead of treating them as sign-in redirects", async () => {
     const failure = new Error("session verification failed");
-    getSessionIdentityFromHeaders.mockRejectedValue(failure);
+    requirePageAccess.mockRejectedValue(failure);
 
-    await expect(verifyAdmin()).rejects.toBe(failure);
-    expect(redirect).not.toHaveBeenCalled();
+    await expect(verifyAdmin("/admin")).rejects.toBe(failure);
     expect(pg.statements).toHaveLength(0);
   });
 
@@ -142,8 +140,7 @@ describe("verifyAdmin", () => {
     pg.next([adminProfile]);
     pg.failNext(new Error("email connection reset"));
 
-    await expect(verifyAdmin()).rejects.toThrow();
-    expect(redirect).not.toHaveBeenCalled();
+    await expect(verifyAdmin("/admin")).rejects.toThrow();
     expect(pg.statements).toHaveLength(2);
   });
 });

@@ -1,4 +1,4 @@
-import handler from "vinext/server/app-router-entry";
+import handler from "@tanstack/react-start/server-entry";
 import {
   type SectionCheckOutcome,
   processSection,
@@ -51,6 +51,14 @@ function withAgentHeaders(response: Response, pathname: string): Response {
   return varied;
 }
 
+/** A Markdown twin is converted from the page's HTML, and Start renders only for HTML requests. */
+function pageRequest(url: URL | string, request: Request): Request {
+  const page = new Request(url, request);
+  page.headers.set("Accept", "text/html");
+
+  return page;
+}
+
 /**
  * Workflow classes are referenced only by `wrangler.jsonc` bindings (their
  * `schedules` replace a `scheduled()` handler), so they must stay exported
@@ -90,7 +98,7 @@ export default {
 
       const target = new URL(request.url);
       target.pathname = markdownPath;
-      const response = await handler.fetch(new Request(target, request), env, ctx);
+      const response = await handler.fetch(pageRequest(target, request));
 
       if (!isHtmlResponse(response)) return response;
 
@@ -100,7 +108,7 @@ export default {
     if (prefersMarkdown(request.headers.get("accept"))) {
       // Markdown requests never touch the edge cache: it stores one HTML
       // representation per path, and the conversion is cheap for agent traffic.
-      const response = await handler.fetch(request, env, ctx);
+      const response = await handler.fetch(pageRequest(request.url, request));
 
       if (!isHtmlResponse(response)) return response;
 
@@ -109,7 +117,7 @@ export default {
 
     if (!edgeHtmlCache.isEligible(request)) {
       return withAgentHeaders(
-        withJsonApiError(await handler.fetch(request, env, ctx), url.pathname, request.method),
+        withJsonApiError(await handler.fetch(request), url.pathname, request.method),
         url.pathname,
       );
     }
@@ -121,7 +129,7 @@ export default {
     }
 
     const response = withAgentHeaders(
-      withJsonApiError(await handler.fetch(request, env, ctx), url.pathname, request.method),
+      withJsonApiError(await handler.fetch(request), url.pathname, request.method),
       url.pathname,
     );
 

@@ -1,3 +1,4 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const {
@@ -34,7 +35,7 @@ vi.mock("@/lib/db", () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));
 
-import { GET } from "@/app/auth/post-oauth/route";
+import { Route } from "@/app/routes/auth/post-oauth";
 
 const ORIGIN = "https://pickmyclass.app";
 
@@ -69,7 +70,7 @@ describe("GET /auth/post-oauth", () => {
   it("redirects unauthenticated requests to sign-in with oauth_failed without touching the mirror", async () => {
     mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-    const response = await GET(getRequest());
+    const response = await callRouteHandler(Route, "GET", getRequest());
 
     expect(locationOf(response)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
     expect(mockGetDbFromEnv).not.toHaveBeenCalled();
@@ -80,14 +81,14 @@ describe("GET /auth/post-oauth", () => {
   it("creates exactly one database handle per request", async () => {
     mockRepairUserMirror.mockResolvedValueOnce({ hasConsent: true });
 
-    const response = await GET(getRequest("?next=/dashboard"));
+    const response = await callRouteHandler(Route, "GET", getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/dashboard`);
     expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
   });
 
   it("fetches the Clerk user then repairs the mirror once with the request-scoped handle", async () => {
-    await GET(getRequest("?next=/dashboard"));
+    await callRouteHandler(Route, "GET", getRequest("?next=/dashboard"));
 
     expect(mockGetUser).toHaveBeenCalledTimes(1);
     expect(mockGetUser).toHaveBeenCalledWith("clerk_user_1");
@@ -98,7 +99,7 @@ describe("GET /auth/post-oauth", () => {
   it("maps a null repair (no email on Clerk user) to the save_failed consent redirect", async () => {
     mockRepairUserMirror.mockResolvedValueOnce(null);
 
-    const response = await GET(getRequest("?next=/dashboard"));
+    const response = await callRouteHandler(Route, "GET", getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/consent?error=save_failed&next=%2Fdashboard`);
     expect(mockExecute).not.toHaveBeenCalled();
@@ -107,7 +108,7 @@ describe("GET /auth/post-oauth", () => {
   it("maps a thrown repair failure to the oauth_failed sign-in redirect", async () => {
     mockRepairUserMirror.mockRejectedValueOnce(new Error("mirror upsert failed"));
 
-    const response = await GET(getRequest("?next=/dashboard"));
+    const response = await callRouteHandler(Route, "GET", getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
     expect(mockExecute).not.toHaveBeenCalled();
@@ -116,7 +117,7 @@ describe("GET /auth/post-oauth", () => {
   it("maps a Clerk fetch failure to the oauth_failed sign-in redirect", async () => {
     mockGetUser.mockRejectedValueOnce(new Error("clerk unavailable"));
 
-    const response = await GET(getRequest("?next=/dashboard"));
+    const response = await callRouteHandler(Route, "GET", getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
     expect(mockRepairUserMirror).not.toHaveBeenCalled();
@@ -126,7 +127,7 @@ describe("GET /auth/post-oauth", () => {
   it("routes users without recorded consent to /consent using the repaired flag instead of extra SQL", async () => {
     mockRepairUserMirror.mockResolvedValueOnce({ hasConsent: false });
 
-    const response = await GET(getRequest("?next=/dashboard"));
+    const response = await callRouteHandler(Route, "GET", getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/consent?next=%2Fdashboard`);
     expect(mockExecute).not.toHaveBeenCalled();
@@ -135,14 +136,16 @@ describe("GET /auth/post-oauth", () => {
   it("sends consented users straight to the safe next destination", async () => {
     mockRepairUserMirror.mockResolvedValueOnce({ hasConsent: true });
 
-    const response = await GET(getRequest("?next=/dashboard"));
+    const response = await callRouteHandler(Route, "GET", getRequest("?next=/dashboard"));
 
     expect(locationOf(response)).toBe(`${ORIGIN}/dashboard`);
     expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it("ignores cross-site GET consent claims and requires the consent form POST", async () => {
-    const response = await GET(
+    const response = await callRouteHandler(
+      Route,
+      "GET",
       getRequest("?next=/dashboard&consent=confirmed", {
         "sec-fetch-site": "cross-site",
         referer: "https://evil.example/",
@@ -156,11 +159,17 @@ describe("GET /auth/post-oauth", () => {
   it("sanitizes protocol-relative and backslash next values down to the safe fallback", async () => {
     mockRepairUserMirror.mockResolvedValue({ hasConsent: true });
 
-    const protocolRelative = await GET(
+    const protocolRelative = await callRouteHandler(
+      Route,
+      "GET",
       getRequest(`?next=${encodeURIComponent("//evil.example/pwn")}`),
     );
 
-    const backslash = await GET(getRequest(`?next=${encodeURIComponent("/\\evil.example/pwn")}`));
+    const backslash = await callRouteHandler(
+      Route,
+      "GET",
+      getRequest(`?next=${encodeURIComponent("/\\evil.example/pwn")}`),
+    );
 
     expect(locationOf(protocolRelative)).toBe(`${ORIGIN}/`);
     expect(locationOf(backslash)).toBe(`${ORIGIN}/`);
@@ -170,13 +179,23 @@ describe("GET /auth/post-oauth", () => {
     const forwardedHost = { "x-forwarded-host": "evil.example" };
 
     mockGetSessionIdentity.mockResolvedValueOnce(null);
-    const unauthenticated = await GET(getRequest("", forwardedHost));
+    const unauthenticated = await callRouteHandler(Route, "GET", getRequest("", forwardedHost));
 
     mockRepairUserMirror.mockResolvedValue({ hasConsent: false });
-    const consentGate = await GET(getRequest("?next=/dashboard", forwardedHost));
+
+    const consentGate = await callRouteHandler(
+      Route,
+      "GET",
+      getRequest("?next=/dashboard", forwardedHost),
+    );
 
     mockRepairUserMirror.mockResolvedValue({ hasConsent: true });
-    const success = await GET(getRequest("?next=/dashboard", forwardedHost));
+
+    const success = await callRouteHandler(
+      Route,
+      "GET",
+      getRequest("?next=/dashboard", forwardedHost),
+    );
 
     expect(locationOf(unauthenticated)).toBe(`${ORIGIN}/sign-in?error=oauth_failed`);
     expect(locationOf(consentGate)).toBe(`${ORIGIN}/consent?next=%2Fdashboard`);

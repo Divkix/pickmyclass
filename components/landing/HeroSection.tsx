@@ -1,5 +1,5 @@
 import { Bell, CheckCircle2, Clock, Mail, Sparkles, Zap } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 
 export function HeroSection() {
@@ -25,14 +25,14 @@ export function HeroSection() {
             Get timely email alerts when seats open up in full ASU classes. PickMyClass (yep, people
             also call it Pick My Class) checks the{" "}
             <Link
-              href="/blog/asu-class-search"
+              to="/blog/asu-class-search"
               className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
             >
               ASU class search
             </Link>{" "}
             every 30 minutes so you don&apos;t have to. Here&apos;s how an{" "}
             <Link
-              href="/blog/asu-class-seat-tracker"
+              to="/blog/asu-class-seat-tracker"
               className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
             >
               ASU class seat tracker
@@ -42,13 +42,13 @@ export function HeroSection() {
 
           <div className="animation-hidden flex flex-col items-center justify-center gap-3 [animation-delay:300ms] sm:flex-row lg:justify-start">
             <Button asChild size="lg" variant="gradient" className="w-full text-base sm:w-auto">
-              <Link href="/sign-up">
+              <Link to="/sign-up">
                 <Mail className="size-5" aria-hidden="true" />
                 Get Started Free
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="w-full text-base sm:w-auto">
-              <Link href="/sign-in">Sign In</Link>
+              <Link to="/sign-in">Sign In</Link>
             </Button>
           </div>
 

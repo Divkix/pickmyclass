@@ -1,7 +1,8 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
-import { GET } from "@/app/api/onboarding/popular-class/route";
+import { Route } from "@/app/routes/api/onboarding/popular-class";
 import type { ClassDetails } from "@/lib/types/class";
 
 const {
@@ -97,7 +98,12 @@ describe("/api/onboarding/popular-class", () => {
   it("rejects unauthenticated requests without querying the database", async () => {
     mockGetSessionIdentity.mockResolvedValueOnce(null);
 
-    const response = await GET(new Request("https://pickmyclass.app/api/onboarding/popular-class"));
+    const response = await callRouteHandler(
+      Route,
+      "GET",
+      new Request("https://pickmyclass.app/api/onboarding/popular-class"),
+    );
+
     const data = await json(response);
 
     expect(response.status).toBe(401);
@@ -109,7 +115,12 @@ describe("/api/onboarding/popular-class", () => {
   it("returns popularClass=null when no term is selectable", async () => {
     mockGetSelectableTerms.mockReturnValue([]);
 
-    const response = await GET(new Request("https://pickmyclass.app/api/onboarding/popular-class"));
+    const response = await callRouteHandler(
+      Route,
+      "GET",
+      new Request("https://pickmyclass.app/api/onboarding/popular-class"),
+    );
+
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -122,7 +133,12 @@ describe("/api/onboarding/popular-class", () => {
   it("returns popularClass=null when no popular class exists for the term", async () => {
     mockGetMostWatchedClass.mockResolvedValue(null);
 
-    const response = await GET(new Request("https://pickmyclass.app/api/onboarding/popular-class"));
+    const response = await callRouteHandler(
+      Route,
+      "GET",
+      new Request("https://pickmyclass.app/api/onboarding/popular-class"),
+    );
+
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -136,7 +152,12 @@ describe("/api/onboarding/popular-class", () => {
     mockGetMostWatchedClass.mockResolvedValue({ class_nbr: "12345", term: "2267" });
     mockFetchClassFromASU.mockResolvedValue(classDetails);
 
-    const response = await GET(new Request("https://pickmyclass.app/api/onboarding/popular-class"));
+    const response = await callRouteHandler(
+      Route,
+      "GET",
+      new Request("https://pickmyclass.app/api/onboarding/popular-class"),
+    );
+
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -155,7 +176,12 @@ describe("/api/onboarding/popular-class", () => {
     mockGetMostWatchedClass.mockResolvedValue({ class_nbr: "12345", term: "2267" });
     mockFetchClassFromASU.mockRejectedValue(new NotFoundError("Section 12345 not found"));
 
-    const response = await GET(new Request("https://pickmyclass.app/api/onboarding/popular-class"));
+    const response = await callRouteHandler(
+      Route,
+      "GET",
+      new Request("https://pickmyclass.app/api/onboarding/popular-class"),
+    );
+
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -166,7 +192,12 @@ describe("/api/onboarding/popular-class", () => {
     mockGetMostWatchedClass.mockResolvedValue({ class_nbr: "12345", term: "2267" });
     mockFetchClassFromASU.mockRejectedValue(new Error("ASU API returned 500"));
 
-    const response = await GET(new Request("https://pickmyclass.app/api/onboarding/popular-class"));
+    const response = await callRouteHandler(
+      Route,
+      "GET",
+      new Request("https://pickmyclass.app/api/onboarding/popular-class"),
+    );
+
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -176,7 +207,12 @@ describe("/api/onboarding/popular-class", () => {
   it("fails open to popularClass=null when the most-watched lookup throws", async () => {
     mockGetMostWatchedClass.mockRejectedValue(new Error("db down"));
 
-    const response = await GET(new Request("https://pickmyclass.app/api/onboarding/popular-class"));
+    const response = await callRouteHandler(
+      Route,
+      "GET",
+      new Request("https://pickmyclass.app/api/onboarding/popular-class"),
+    );
+
     const data = await json(response);
 
     expect(response.status).toBe(200);

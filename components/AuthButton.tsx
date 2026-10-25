@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,10 +34,10 @@ export function AuthButton() {
     return (
       <div className="flex items-center gap-2 sm:gap-4">
         <Button asChild variant="ghost" className="min-h-11">
-          <Link href="/sign-in">Sign in</Link>
+          <Link to="/sign-in">Sign in</Link>
         </Button>
         <Button asChild className="min-h-11">
-          <Link href="/sign-up">Sign up</Link>
+          <Link to="/sign-up">Sign up</Link>
         </Button>
       </div>
     );
