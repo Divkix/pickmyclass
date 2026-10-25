@@ -1,5 +1,3 @@
-"use client";
-
 import { ShieldCheck } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";

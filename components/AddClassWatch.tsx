@@ -1,5 +1,3 @@
-"use client";
-
 import { Lightbulb, Lock } from "lucide-react";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";

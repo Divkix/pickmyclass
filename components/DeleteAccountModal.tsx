@@ -1,5 +1,3 @@
-"use client";
-
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";

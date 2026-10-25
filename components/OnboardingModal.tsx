@@ -1,5 +1,3 @@
-"use client";
-
 import { ArrowRight, CheckCircle2, ExternalLink, Lightbulb, Mail, Sparkles } from "lucide-react";
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react";
 import {

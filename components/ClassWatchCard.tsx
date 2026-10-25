@@ -1,5 +1,3 @@
-"use client";
-
 import { m } from "framer-motion";
 import { Info, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";

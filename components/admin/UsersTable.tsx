@@ -1,5 +1,3 @@
-"use client";
-
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";

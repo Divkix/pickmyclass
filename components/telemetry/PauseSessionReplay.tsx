@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 import { pauseSessionReplay, resumeSessionReplay } from "@/lib/telemetry/browser";
 

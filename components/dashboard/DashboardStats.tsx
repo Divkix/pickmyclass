@@ -1,5 +1,3 @@
-"use client";
-
 import { m } from "framer-motion";
 import { CheckCircle2, Eye, TrendingUp, Users, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";

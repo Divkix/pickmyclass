@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import { Alert, AlertDescription } from "@/components/ui/alert";

@@ -1,5 +1,3 @@
-"use client";
-
 import { LayoutDashboard, Menu, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
