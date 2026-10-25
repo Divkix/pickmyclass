@@ -148,7 +148,7 @@ pnpm install
 
 ### 4. Configure Environment Variables
 
-Copy `.env.example` to `.env.local` (or `.dev.vars` for `wrangler dev`):
+Copy `.env.example` to `.dev.vars` (gitignored). `pnpm run dev` and `pnpm run preview` both read it; while it exists Wrangler ignores `.env*` files. Production uses `wrangler.jsonc` vars plus the secrets below.
 
 | Variable | Description | Where to Get It |
 |----------|-------------|-----------------|
@@ -206,6 +206,8 @@ Local Postgres required for any DB query (pages/APIs open a request-scoped Drizz
 docker run --name pickmyclass-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:18
 # apply migrations:
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pnpm run db:migrate
+# local secrets (once): fill in Clerk development instance keys
+cp .env.example .dev.vars
 
 pnpm run dev              # Vite+ TanStack Start dev server (localhost:3000) — uses wrangler.jsonc localConnectionString by default
 # override if needed:
@@ -215,7 +217,7 @@ CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://postgres:p
 ### Preview with Cloudflare
 
 ```bash
-pnpm run preview          # vp build + wrangler dev (real Worker locally)
+pnpm run preview          # vp build + wrangler dev (real Worker locally, localhost:8787)
 ```
 
 ### Other Commands
