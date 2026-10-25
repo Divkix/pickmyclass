@@ -329,7 +329,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 ### Dependency Updates
 
-See [AGENTS.md → Toolchain](AGENTS.md#toolchain) for the dependency policy and automation gate, and [CONTRIBUTING.md](CONTRIBUTING.md#addingupdating-dependencies) for the update workflow.
+The dependency policy lives in the comments of [`pnpm-workspace.yaml`](pnpm-workspace.yaml) and [`.github/dependabot.yml`](.github/dependabot.yml), and the auto-merge gate in [`.github/workflows/dependabot-automerge.yml`](.github/workflows/dependabot-automerge.yml). See [CONTRIBUTING.md](CONTRIBUTING.md#addingupdating-dependencies) for the update workflow.
 
 ## License
 
