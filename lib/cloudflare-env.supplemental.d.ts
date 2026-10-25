@@ -1,3 +1,7 @@
+/**
+ * Hand-written bindings belong here: `pnpm run cf-typegen` overwrites cloudflare-env.d.ts,
+ * including its runtime types. Commit only generated binding hunks unless updating runtime types.
+ */
 declare namespace Cloudflare {
   interface Env {
     CRON_SECRET: string;

@@ -1,3 +1,13 @@
+/**
+ * Retry/ack decisions belong here; transports only translate SectionCheckOutcome.
+ * Keep orchestration plain async/await: it cannot be interrupted reliably, and
+ * Worker eviction skips finalizers anyway.
+ *
+ * Deliberately no cron lock: overlapping runs are safe only with both the
+ * message's cycle guard and the SQL conditional upsert rejecting stale writes.
+ * The SQL first-observation guard must also remain: a NotFound placeholder
+ * (NULL title) is not an observation, so the first successful check never alerts.
+ */
 import {
   ApiError,
   AuthError,
@@ -72,7 +82,7 @@ function retryOutcome(result: ProcessingResult, httpStatus: 429 | 502 | 500): Se
 }
 
 /**
- * A thrown failure that carries `retryable: false` anywhere in its cause chain
+ * A thrown failure whose nearest `retryable` cause-chain flag is false
  * (a constraint violation, a rejected payload) fails the same way on every
  * delivery, so it is acked; the next Cron Cycle checks the section again.
  */
@@ -149,8 +159,6 @@ export async function processSection(
     const observedAt = new Date();
     const changes = detectChanges(oldState, newData);
 
-    // A NotFound placeholder is no prior observation either; record_section_observation
-    // applies the same rule to alerts, so these flags match what was emailed.
     if (!oldState?.observed) {
       changes.seatBecameAvailable = false;
       changes.instructorAssigned = false;

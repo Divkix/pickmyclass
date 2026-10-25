@@ -54,6 +54,11 @@ function write(level: LogLevel, scope: string, msg: string, fields?: LogFields):
   console[level]({ ...fields, ...resource, level, scope, msg });
 }
 
+/**
+ * Keep `msg` constant so events group in HyperDX; put ids, counts and `duration_ms` in fields
+ * (`sectionFields` for a SectionRef). Spread `errorFields(error)`, never `String(error)`, so caught
+ * values retain structured diagnostics without leaking SQL parameters or email addresses.
+ */
 export function log(scope: string) {
   return {
     info: (msg: string, fields?: LogFields) => write("info", scope, msg, fields),
@@ -243,8 +248,8 @@ interface ProductEventMap {
 }
 
 /**
- * Logs one product event as a single object, so Workers Logs indexes `event`
- * and each field for filtering once it reaches HyperDX.
+ * Add event names and their allowed fields to `ProductEventMap`. Logs one event as a single object,
+ * so Workers Logs indexes `event` and each field for filtering once it reaches HyperDX.
  */
 export function logEvent<E extends keyof ProductEventMap>(
   event: E,

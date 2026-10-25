@@ -2,343 +2,101 @@
 
 <img width="1440" height="900" alt="PickMyClass - free ASU class seat tracker with open-seat email alerts" src=".github/screenshot.png" />
 
-A high-performance, scalable class seat notification system for university students. Monitor class availability, get notified when seats open up, and track instructor assignments.
+Free email alerts for ASU students: watch a class section and get an email when a seat opens or a named instructor replaces "Staff".
 
-Built with TanStack Start (Vite + TanStack Router), PlanetScale Postgres via Cloudflare Hyperdrive + Clerk, and deployed on Cloudflare Workers for edge performance. See `AGENTS.md` (authoritative map).
+Built with TanStack Start (React 19, TypeScript) and deployed as one Cloudflare Worker, with PlanetScale Postgres through Hyperdrive, Clerk auth, Cloudflare Workflows + Queues for seat checks and Cloudflare Email for delivery.
 
-## Features
-
-- **Seat Monitoring** - Track when seats become available in full classes
-- **Instructor Tracking** - Get notified when "Staff" instructors are assigned to specific professors
-- **Polling Live States** - Dashboard polls `GET /api/class-watches/states` every 30–60s (Realtime removed; data only changes on 30-min cron)
-- **Email Notifications** - Instant email alerts via Cloudflare Email Service when changes are detected
-- **Smart Deduplication** - Atomic notification claims retain confirmed sends; at-least-once retries can duplicate an unconfirmed send
-- **Scalable Queue Processing** - Handles 10,000+ users with parallel Cloudflare Queues
-- **30-Minute Checks** - Automated checks via Cloudflare Workers Cron Triggers
-
-## Why Cloudflare Workers?
-
-### Edge-First Architecture
-- **Global Distribution**: Code runs in 300+ data centers worldwide
-- **No Cold Starts**: Workers are always warm, sub-100ms
-- **Smart Placement**: Automatic routing to nearest data center
-
-### Cost Efficiency
-- **Generous Free Tier**: 100,000 requests/day free
-- **Pay-Per-Use**: Only pay for actual compute time
-
-### Native Primitives for Scalability
-- **Cloudflare Queues**: Reliable message queue for processing class checks at scale
-- **Workflows**: Scheduled, durable, per-step-retried cron jobs (`SectionCheckWorkflow`, `MaintenanceWorkflow`)
-- **Hyperdrive**: Postgres connection pooling to PlanetScale (request-scoped Drizzle over node-postgres (`pg`) in `lib/db/index.ts`, `--caching-disabled`)
-- **Clerk**: Edge JWT verification (`@clerk/tanstack-react-start` `clerkMiddleware` with `jwtKey` PEM, `ext_id` claim) + webhook `user.created/updated/deleted` (`lib/auth/clerk-session.ts`, `lib/db/users.ts` mirror)
-
-## Architecture
+## How it works
 
 ```
-User Browser
-      |
-      v
-TanStack Start (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (Drizzle/node-postgres, polling)
-      |         |                               ^
-      |         | Clerk FAPI (clerk.*)          | polling GET /api/class-watches/states
-      v         v                               | (30–60s, sectionRefKey)
-Workflow schedules (every 15 min + hourly maintenance) |
-      |
-      v
-SectionCheckWorkflow (retried steps; enqueues in batches of 100)
-      |
-      v
-Cloudflare Queue (pickmyclass-queue)
-      |
-      v
-Queue Consumers (20 concurrent Workers)
-      |
-      v
-worker.ts queue() -> processSection() (direct call, no HTTP)
-      |
-      v
-ASU Class Search API (direct HTTP calls)
-      |
-      v
-Change Detection --> Cloudflare Email Service --> User Notifications
+Workflow schedule (every 15 min) ─► SectionCheckWorkflow ─► Cloudflare Queue
+                                                                  │
+                                                                  ▼
+             Postgres ◄── change detection ◄── ASU Class Search ◄── queue consumer
+                │
+                └─► notification claim ─► Cloudflare Email ─► student
 ```
 
-### Key Components
+1. A student watches a section from the dashboard.
+2. Every 15 minutes `SectionCheckWorkflow` enqueues half the watched sections, so each one is checked every 30 minutes. An hourly `MaintenanceWorkflow` expires stale notifications and runs the retention purge.
+3. The queue consumer (`worker.ts`) fetches each section from ASU, compares it with the stored state and records the change.
+4. Watchers of a section that gained a seat or an instructor are claimed and emailed. Delivery is at-least-once: a send whose outcome is unknown is retried rather than dropped.
+5. The dashboard polls `/api/class-watches/states` for fresh seat counts.
 
-| Component | Purpose |
-|-----------|---------|
-| `worker.ts` | Custom Cloudflare Worker with fetch and queue handlers; re-exports the Workflow classes |
-| `lib/workflows/cron-workflows.ts` | `SectionCheckWorkflow` (enqueue checks) and `MaintenanceWorkflow` (hourly sweeps and retention purge) |
-| `lib/worker/edge-html-cache.ts` | Edge HTML cache eligibility, keying, lookup, and storage rules |
-| `lib/db/index.ts` | Request-scoped Drizzle over node-postgres (`getDb`/`getDbFromEnv` via the `HYPERDRIVE` binding) |
-| `lib/db/queries.ts` | Database query helpers (Drizzle builders for CRUD, typed SQL for SECURITY DEFINER RPCs) |
-| `lib/db/users.ts` | Clerk user mirror (`clerk_user_id`, `syncUserMirrorFromClerkUser`/`repairUserMirror`) |
-| `lib/auth/clerk-session.ts` | Session identity from `clerkMiddleware` (`toSessionIdentity`, `getSessionIdentity`) + Clerk Backend calls (`revokeSession`, `revokeAllUserSessions`) |
-| `lib/auth/clerk-cookies.ts` | Clerk cookie prefix detection + `CLERK_COOKIES_TO_CLEAR` |
-| `lib/clerk/config.ts` | Clerk CSP hosts |
-| `lib/asu/api.ts` | ASU Class Search API client (direct HTTP) |
-| `lib/queue/process-section.ts` | Section processing orchestrator |
-| `lib/queue/change-detector.ts` | Change detection logic |
-| `lib/queue/notification-sender.ts` | Notification sending with atomic deduplication |
-| `lib/email/send.ts` | Cloudflare Email Service batch sender |
-| `lib/class-watches/class-watch-creation.ts` | Browser-side watch creation policy and transport |
-| `lib/cache/ttl-cache.ts` | TTL cache for ASU API responses |
-| `lib/api/schemas.ts` | API request validation schemas (watches, consent) |
-| `app/start.ts`, `lib/auth/request-gate.ts` | Start request middleware — auth gate (Clerk), redirects, security headers + CSP (see `lib/auth/decide-gate.ts`) |
-| `app/routes/sign-in/$.tsx`, `app/routes/sign-up/$.tsx` | Clerk hosted `<SignIn>`/`<SignUp>` components (`routing="path"`) |
+Where each part lives, and the rules that span files, are in [AGENTS.md](AGENTS.md).
 
-### API Routes
-
-| Route | Methods | Description |
-|-------|---------|-------------|
-| `/api/auth/signout` | POST | Sign out (`revokeSession` + clear Clerk cookies) |
-| `/api/auth/consent` | POST | Only endpoint for recording form consent (`age_verified`/`agreed_to_terms`) |
-| `/api/webhooks/clerk` | POST | Svix `verifyWebhook` (`whsec_...`) → `syncUserMirrorFromClerkUser` (`user.created/updated/deleted`) |
-| `/auth/post-oauth` | GET | Mirror repair (can restore Clerk metadata consent) + consent routing; no query-param consent |
-| `/api/class-watches` | GET, POST, DELETE | Create, read, and delete class watches (no update) |
-| `/api/class-watches/states` | GET | Polling endpoint for live class states |
-| `/api/monitoring/health` | GET | System health check (DB, ASU API, email, config) |
-| `/api/unsubscribe` | GET, POST | CAN-SPAM/RFC 8058 compliant email unsubscribe |
-| `/api/user/delete` | DELETE | Soft-delete account (CCPA, 30-day retention) |
-| `/api/user/export` | GET | Export all user data in JSON (CCPA) |
-| `/api/user/onboarding` | GET, POST | Onboarding state (`pending→skipped→completed`) |
-| `/api/onboarding/popular-class` | GET | `get_most_watched_class` → ASU validate → `popularClass: null` fail-open |
-
-### Workflows
-
-**SectionCheckWorkflow** (`0,15,30,45 * * * *`) and **MaintenanceWorkflow** (`5 * * * *`) run from `schedules` on their bindings in `wrangler.jsonc`. Each step retries on its own; runs are listed in Dashboard → Workers & Pages → Workflows. Trigger one by hand with `wrangler workflows trigger pickmyclass-section-check`.
-
-## Self-Hosting Guide
+## Self-hosting
 
 ### Prerequisites
 
-- [pnpm](https://pnpm.io/) 12.14.0
-- [PlanetScale](https://planetscale.com/) Postgres (PS-5) + Cloudflare Hyperdrive (`--caching-disabled`)
-- [Clerk](https://clerk.com/) (Hobby free ≤50k MRU) — OAuth app for Google, custom domain `clerk.your-domain.com`
-- [Cloudflare Account](https://cloudflare.com/) (Workers, Queues, Workflows, Email Service)
-- ASU API access (`ASU_API_BASE_URL` + `ASU_API_TOKEN`)
+- pnpm (version pinned in `package.json`) and Node (`.node-version`)
+- A Postgres database (PlanetScale in production) and a Cloudflare Hyperdrive config pointing at it
+- A Clerk application
+- A Cloudflare account with Workers, Queues, Workflows and Email Sending
+- ASU Class Search API access
 
-### 1. Clone and Install
+### 1. Install
 
 ```bash
-git clone https://github.com/yourusername/pickmyclass.git
+git clone https://github.com/Divkix/pickmyclass.git
 cd pickmyclass
 pnpm install
 ```
 
-### 2. Set Up PlanetScale + Hyperdrive
+### 2. Database and Hyperdrive
 
-2. Apply migrations with the **direct** PlanetScale URL (drizzle-kit runs in Node, not through Hyperdrive): `DATABASE_URL="postgres://…" pnpm run db:migrate` (applies `migrations_pg/`, tracked in `drizzle.__drizzle_migrations`).
-3. Create Hyperdrive:
-   ```bash
-   wrangler hyperdrive create HYPERDRIVE \
-     --connection-string="postgres://YOUR_PLANETSCALE_CONNECTION_STRING" \
-     --caching-disabled
-   ```
-   Note `binding` `HYPERDRIVE`, id `749d7808...` in `wrangler.jsonc`. Local dev: `wrangler.jsonc` ships `localConnectionString: "postgresql://postgres:postgres@localhost:5432/postgres"` so `pnpm run dev` works out-of-box if local Postgres is running; override via `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (or `DATABASE_URL`).
-
-### 3. Configure Clerk
-
-1. Create Clerk production instance; set its publishable key (`pk_live_...`) as `CLERK_PUBLISHABLE_KEY` in `wrangler.jsonc` `vars` (and `CLERK_CSP` in `lib/clerk/config.ts` if custom domain).
-2. Sessions → Customize token → `{"ext_id":"{{user.external_id || user.id}}"}` (short ID `ext_id` is the app’s `user_id`).
-3. Webhooks → Add Endpoint `https://your-domain.com/api/webhooks/clerk` (events `user.created/updated/deleted`, secret `whsec_...`).
-4. Social Connections → Google → Client ID/Secret (Cloud Console redirect `https://clerk.your-domain.com/v1/oauth_callback`, origins `https://your-domain.com` + `https://clerk.your-domain.com`).
-5. DNS: CNAME `clerk` → `frontend-api.clerk.services` (grey-cloud DNS-only) — verify `dig @1.1.1.1 clerk.your-domain.com CNAME` + `curl --resolve clerk...:443:IP https://clerk.your-domain.com/v1/client` → `405` with `x-clerk-trace-id`.
-
-### 4. Configure Environment Variables
-
-Copy `.env.example` to `.dev.vars` (gitignored). `pnpm run dev` and `pnpm run preview` both read it; while it exists Wrangler ignores `.env*` files. Production uses `wrangler.jsonc` vars plus the secrets below.
-
-| Variable | Description | Where to Get It |
-|----------|-------------|-----------------|
-| `CLERK_PUBLISHABLE_KEY` | Clerk publishable key (`pk_...`); production value is a `wrangler.jsonc` var, override it locally | Clerk Dashboard → API Keys |
-| `CLERK_SECRET_KEY` | Clerk secret key (`sk_live_...`) | Clerk Dashboard → API Keys |
-| `CLERK_JWT_KEY` | Clerk session PEM (`-----BEGIN PUBLIC KEY-----...`) | Clerk Dashboard → API Keys → bottom JWT public key/PEM |
-| `CLERK_WEBHOOK_SIGNING_SECRET` | Svix webhook secret (`whsec_...`) | Clerk Dashboard → Webhooks → Signing Secret |
-| `ASU_API_BASE_URL` | Base URL for ASU Class Search API | ASU API endpoint |
-| `ASU_API_TOKEN` | Auth token for ASU API | ASU (external) |
-| `CRON_SECRET` | Unlocks the detailed `/api/monitoring/health` response | `openssl rand -hex 32` |
-| `NOTIFICATION_FROM_EMAIL` | Sender address for email notifications | Cloudflare Email Service-enabled sender |
-| `UNSUBSCRIBE_SIGNING_SECRET` | Signs unsubscribe tokens (CAN-SPAM, 90-day expiry) | `openssl rand -hex 32` |
-
-### 5. Set Cloudflare Secrets
+Apply migrations with the **direct** database URL (drizzle-kit runs in Node, not through Hyperdrive):
 
 ```bash
-wrangler secret put CLERK_SECRET_KEY
-wrangler secret put CLERK_JWT_KEY
-wrangler secret put CLERK_WEBHOOK_SIGNING_SECRET
-wrangler secret put ASU_API_BASE_URL
-wrangler secret put ASU_API_TOKEN
-wrangler secret put CRON_SECRET
-wrangler secret put UNSUBSCRIBE_SIGNING_SECRET
+DATABASE_URL="postgres://…" pnpm run db:migrate
+wrangler hyperdrive create HYPERDRIVE --connection-string="postgres://…" --caching-disabled
 ```
 
-### 6. Deploy
+Put the new Hyperdrive id in `wrangler.jsonc`.
+
+### 3. Clerk
+
+1. Set the instance's publishable key as `CLERK_PUBLISHABLE_KEY` in `wrangler.jsonc` `vars`, and add its Frontend API host to `CLERK_CSP` in `lib/clerk/config.ts`.
+2. Sessions → Customize session token: `{"ext_id":"{{user.external_id || user.id}}"}`.
+3. Webhooks → add `https://your-domain.com/api/webhooks/clerk` for `user.created`, `user.updated` and `user.deleted`.
+4. Enable Google under Social Connections if you want OAuth sign-in.
+
+### 4. Configuration and secrets
+
+Every variable is listed and explained in `.env.example`. Locally, copy it to `.dev.vars` (gitignored; `dev` and `preview` read it). In production, non-secret values are `vars` in `wrangler.jsonc` and secrets are set with Wrangler:
 
 ```bash
-pnpm run deploy   # vp build + db:migrate + wrangler deploy + triggers deploy + IndexNow ping
+for s in CLERK_SECRET_KEY CLERK_JWT_KEY CLERK_WEBHOOK_SIGNING_SECRET ASU_API_BASE_URL \
+  ASU_API_TOKEN CRON_SECRET UNSUBSCRIBE_SIGNING_SECRET; do wrangler secret put "$s"; done
 ```
 
-App live at `https://your-worker.workers.dev` or custom domain.
+### 5. Deploy
 
-### 7. Set Up Cloudflare Queues
+```bash
+DATABASE_URL="postgres://…" pnpm run deploy   # build, migrate, deploy Worker + Workflow schedules, IndexNow ping
+```
 
-Queues `pickmyclass-queue` + `pickmyclass-dlq` are created by `wrangler deploy` (via `wrangler.jsonc` `queues`). The DLQ has no consumer: failed messages wait there to inspect or redrive. Verify in Dashboard → Workers & Pages → Queues.
-
-### 8. Customize Legal Pages (Optional)
-
-Legal pages under `app/routes/legal/` use `support@pickmyclass.app`. Update their contact emails for your jurisdiction.
-
-### 9. Verify Deployment
-
-- Health: `https://your-domain.com/api/monitoring/health`
-- Smoke: hosted `/sign-up` → email verify in flow → hosted `/sign-in` → Google OAuth lands `/auth/post-oauth` → consent gate → watch create limit (`create_class_watch_with_limit` advisory lock) → cron→queue→processSection→email → unsubscribe HMAC → admin pages → polling
+`wrangler deploy` creates the queue and its dead-letter queue. Legal pages under `app/routes/legal/` name `support@pickmyclass.app`; change them for your deployment. Check `https://your-domain.com/api/monitoring/health` afterwards.
 
 ## Development
 
-### Local Development
-
-Local Postgres required for any DB query (pages/APIs open a request-scoped Drizzle/node-postgres pool via `lib/db/index.ts`); the dev server itself boots even if DB is down, but requests will `ECONNREFUSED`.
-
 ```bash
-# start local Postgres (once):
 docker run --name pickmyclass-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:18
-# apply migrations:
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pnpm run db:migrate
-# local secrets (once): fill in Clerk development instance keys
-cp .env.example .dev.vars
+cp .env.example .dev.vars   # fill in Clerk development instance keys
 
-pnpm run dev              # Vite+ TanStack Start dev server (localhost:3000) — uses wrangler.jsonc localConnectionString by default
-# override if needed:
-CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://postgres:postgres@localhost:5432/postgres pnpm run dev
+pnpm run dev       # localhost:3000
+pnpm run preview   # build + real Worker on localhost:8787
+pnpm run verify    # format, lint, type-check, knip (pre-commit hook and CI)
+pnpm run test      # tests, live database excluded
 ```
 
-### Preview with Cloudflare
-
-```bash
-pnpm run preview          # vp build + wrangler dev (real Worker locally, localhost:8787)
-```
-
-### Other Commands
-
-```bash
-pnpm run build            # Build application
-pnpm run check            # Vite+ format, lint, and app type-check
-pnpm run verify           # check + app/worker type-check + Knip (pre-commit and CI gate)
-pnpm run lint             # Run Oxlint linter
-pnpm run fix              # Fix format and lint issues
-pnpm run format           # Format code with Oxfmt
-pnpm run knip             # Find unused exports/dependencies (no DATABASE_URL needed)
-pnpm run cf-typegen       # Generate TypeScript types for Cloudflare env (lib/cloudflare-env.d.ts)
-pnpm run type-check       # tsc --noEmit && tsc -p tsconfig.worker.json --noEmit
-pnpm run test             # Run integration project (live DB excluded)
-pnpm run test:coverage    # Run integration tests with coverage reports (no minimum threshold)
-pnpm run test:watch       # Watch non-DB projects
-pnpm run test:ui          # Interactive non-DB test UI
-```
-
-Tests and root coverage settings live in the `test` block of `vite.config.ts`. Live database tests are opt-in locally with `DATABASE_URL=… pnpm run test:db`; CI migrates a disposable PostgreSQL 18 database and runs `test:db`, and failures block `CI Success`.
-
-### Database Commands
-
-```bash
-# drizzle-kit; every command except generate needs DATABASE_URL (direct connection, never Hyperdrive)
-pnpm run db:generate                          # schema change in lib/db/schema/ → new SQL file in migrations_pg/
-pnpm run db:generate -- --custom --name=<n>   # empty file for SQL drizzle-kit can't express (functions, triggers, data fixes)
-pnpm run db:migrate                           # apply pending migrations_pg/ files to DATABASE_URL
-pnpm run db:studio                            # Drizzle Studio
-```
-
-## Tech Stack
-
-- **Frontend**: TanStack Start + TanStack Router, React 19, TypeScript, Tailwind CSS 4, `@clerk/tanstack-react-start`
-- **Animations**: public landing sections use CSS-only on-load entrances with reduced-motion and no-script fallbacks; Framer Motion is scoped to the dashboard via `MotionProvider`. Shared buttons use a CSS press state.
-- **Backend**: Cloudflare Workers (TanStack Start server entry), PlanetScale Postgres (Drizzle ORM over node-postgres) via Hyperdrive, Clerk (`clerkMiddleware` with networkless edge JWT verification), polling for live class states
-- **Data Source**: ASU Class Search API (direct HTTP)
-- **Email**: Cloudflare Email Service
-- **Deployment**: Cloudflare Workers + Queues + Workflows
-
-## Project Structure
-
-```
-app/                         # TanStack Start
-  ├── routes/                # File routes: pages, API server.handlers, metadata endpoints
-  │   └── __root.tsx         # Document shell, providers, root head and error boundaries
-  ├── router.tsx             # Router creation and SSR nonce
-  ├── start.ts               # Request and server-function middleware
-  ├── client.tsx             # Browser telemetry and hydration
-  └── routeTree.gen.ts       # Generated route tree (committed)
-
-lib/
-  ├── api/                   # API schemas and validation
-  ├── asu/                   # ASU Class Search API client
-  ├── auth/                  # authorization-state, decide-gate, clerk-session, clerk-cookies, require-user
-  ├── blog/                  # Blog posts data
-  ├── cache/                 # TTL cache utilities
-  ├── clerk/                 # Clerk publishable key literal + CSP
-  ├── class-watches/         # Browser-side watch creation seam
-  ├── contexts/              # React contexts (Auth compat, Theme)
-  ├── db/                    # Drizzle schema + request-scoped accessor + queries + admin-queries + users mirror
-  ├── email/                 # Email templates + Cloudflare Email Service
-  ├── hooks/                 # React hooks (polling useRealtimeClassStates, pull-to-refresh, swipe)
-  ├── queue/                 # Queue processing (change detection, notification sending, section retirement)
-  ├── types/                 # TypeScript type definitions
-  ├── utils/                 # Utility functions (crypto, rate-my-professor, seat badge, time format)
-  └── utils.ts               # shadcn/ui utility (cn function)
-
-components/
-  ├── admin/                 # Admin panel components
-  ├── blog/                  # Blog components
-  ├── landing/               # Landing page components
-  ├── ui/                    # shadcn/ui components
-  └── ...                    # Feature components (AuthButton, watch cards)
-
-migrations_pg/               # drizzle-kit migrations + meta/ snapshots (generated; commit them)
-db/
-  └── migrations/            # Frozen pre-drizzle SQL history; superseded by migrations_pg/0000-0001
-
-worker.ts                    # Custom Cloudflare Worker
-wrangler.jsonc               # Cloudflare Workers config (Hyperdrive, Queues, Workflow schedules)
-```
-
-> **Note:** `lib/utils.ts` is the shadcn/ui utility file (contains the `cn` function), while `lib/utils/` is a directory for custom utility functions. Both coexist by design.
-
-## How It Works
-
-1. **User adds class watch** - Student enters section number on dashboard
-2. **Every 15 minutes** - Workflow schedules enqueue half the watched sections (even/odd stagger), so each section is checked every 30 minutes
-3. **Queue consumers process** - 20 concurrent Workers query ASU API in parallel
-4. **Change detection** - Compare new state with PostgreSQL cached state (`non_reserved_seats ?? seats_available`)
-5. **Atomic deduplication** - `claimNotifications` calls the intent-aware `claim_section_notifications` RPC; an `expire_stale_notifications()` sweep on every `SectionCheckWorkflow` run + the hourly maintenance run frees expired slots
-6. **Email notification** - Cloudflare Email Service sends alerts for available seats
-7. **Dashboard polls** - `useRealtimeClassStates` polls `/api/class-watches/states` (not Realtime)
+The full command list is the `scripts` block of `package.json`.
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Quick Start for Contributors
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make your changes
-4. Run verification with pnpm run verify
-5. Commit with conventional commits: `git commit -m "feat: add new feature"`
-6. Push and open a PR
-
-### Dependency Updates
-
-See [AGENTS.md → Toolchain](AGENTS.md#toolchain) for the dependency policy and automation gate, and [CONTRIBUTING.md](CONTRIBUTING.md#addingupdating-dependencies) for the update workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Branch from `main`, run `pnpm run verify`, use Conventional Commits and open a PR. The dependency policy lives in the comments of [`pnpm-workspace.yaml`](pnpm-workspace.yaml) and [`.github/dependabot.yml`](.github/dependabot.yml); the auto-merge gate is [`.github/workflows/dependabot-automerge.yml`](.github/workflows/dependabot-automerge.yml).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [TanStack Start](https://tanstack.com/start) - Full-stack React with Vite and TanStack Router
-- [PlanetScale](https://planetscale.com/) + [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) - Postgres + pooling
-- [Clerk](https://clerk.com/) - Auth (Backend + react, custom session claims + webhooks)
-- [Cloudflare Email Service](https://developers.cloudflare.com/email/) - Email sending from Workers
-- [shadcn/ui](https://ui.shadcn.com/) - UI component library
+MIT. See [LICENSE](LICENSE).

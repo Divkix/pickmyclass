@@ -3,8 +3,18 @@ name: Dependabot Automerge
 # `pull_request_target`, not `pull_request`: the job must run the copy of this
 # file that lives on the default branch, so a PR cannot edit the gate that
 # decides whether the PR may merge. Nothing here checks out, installs, builds
-# or executes anything from the PR — it only reads the REST API and, when every
-# gate passes, merges the PR through `gh pr merge`.
+# or executes anything from the PR, nor consumes PR artifacts — it only reads
+# the REST API and, when every gate passes, merges through `gh pr merge`.
+# Self-check exclusion uses this workflow's suites, not name alone; namesakes still gate.
+# Changes to this gate take effect only after merging to main.
+#
+# Actions policy #7005 allows pull_request_target only for this file and Dependabot:
+# https://github.com/Divkix/pickmyclass/settings/actions/rules/7005
+# GitHub blocks this event on public repos by default from 2026-11-02. A human-authored
+# synchronize cannot wake the gate; Dependabot must push the update itself.
+#
+# main requires branches to be up to date. This gate never rebases: a behind branch
+# fails the merge call even with green checks. Rebase it (or let Dependabot) for a new run.
 on:
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review]

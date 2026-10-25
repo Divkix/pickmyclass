@@ -1,3 +1,7 @@
+/**
+ * Workers Free gives each Workflow step 10ms CPU and each instance 1,024 steps.
+ * Keep steps small and I/O-bound.
+ */
 import {
   WorkflowEntrypoint,
   type WorkflowEvent,
@@ -34,6 +38,7 @@ interface CronWorkflowEnv {
 
 const expiredRowSchema = z.object({ expired: z.coerce.number().int().nonnegative() });
 
+// Dedup claims must expire for subsequent availability transitions to notify again.
 async function expireStaleNotifications(db: Database): Promise<number> {
   const { rows } = await db.execute(sql`SELECT public.expire_stale_notifications() AS expired`);
 
@@ -86,9 +91,7 @@ function rejectedReasons(
  * section. Each step retries on its own; a batch that still fails after its
  * retries errors the instance after the other batches are enqueued.
  *
- * Overlapping or duplicate instances are safe without a lock: every message
- * carries the `cycle` stamp that `processSection` uses to skip a section already
- * checked this cycle, and the conditional `class_states` upsert rejects stale writes.
+ * Queue overlap invariants live beside processSection in lib/queue/process-section.ts.
  */
 export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
   async run(event: Readonly<WorkflowEvent<unknown>>, step: WorkflowStep) {

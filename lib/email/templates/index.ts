@@ -17,6 +17,7 @@ interface SanitizedClassInfo {
   catalogUrl: string;
 }
 
+// ASU strings are untrusted HTML text; escape before interpolation, not the finished markup.
 function sanitizeClassInfo(classInfo: ClassInfo): SanitizedClassInfo {
   const safeSubject = escapeHtml(classInfo.subject);
   const safeCatalogNbr = escapeHtml(classInfo.catalog_nbr);

@@ -19,6 +19,7 @@ export function clearAuthorizationStateCache(): void {
   authorizationStateCache.clear();
 }
 
+/** Call after consent or admin changes so this isolate's gate does not use stale privileges. */
 export function invalidateAuthorizationState(userId: string): boolean {
   return authorizationStateCache.delete(userId);
 }

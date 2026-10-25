@@ -1,3 +1,5 @@
+# Group order is load-bearing: first match wins, so keep vite-plus-toolchain above
+# all-minor-patch. Coupled Vite+/Vitest/coverage upgrades must arrive in one PR.
 version: 2
 updates:
   - package-ecosystem: "npm"
@@ -14,10 +16,7 @@ updates:
     labels:
       - "dependencies"
     groups:
-      # First match wins, so the Vite+ family is listed before the catch-all:
-      # those packages only work as a set (Vite+ ships its own Vitest and
-      # refuses `--coverage` with a mismatched provider), so they must land in
-      # one PR instead of five that each break CI.
+      # Vite+ ships its own Vitest and refuses coverage with a mismatched provider.
       vite-plus-toolchain:
         patterns:
           - "vite"

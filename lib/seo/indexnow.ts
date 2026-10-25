@@ -8,6 +8,8 @@ import { SITE_ORIGIN } from "@/lib/seo/public-pages";
  * IndexNow (https://www.indexnow.org): after a deploy, tell Bing, Yandex and
  * the other participating engines which URLs to recrawl. The key is public by
  * design; `public/<key>.txt` proves we own the host.
+ * When `INDEXNOW_KEY` changes, rename `public/<key>.txt` and replace its contents with the new key;
+ * a mismatch prevents the engines from verifying ownership.
  */
 export const INDEXNOW_KEY = "ff61d85b3111b2b8363d64994240d005";
 

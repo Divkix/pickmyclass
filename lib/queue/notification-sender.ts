@@ -1,3 +1,11 @@
+/**
+ * At-least-once delivery prefers duplicates to missed alerts: email and the DB
+ * cannot commit atomically, and send_email has no idempotency key (Message-ID is
+ * platform-controlled). Timed-out sends therefore remain unconfirmed for resume.
+ *
+ * Send only claimed watch IDs. Roll back using IDs from that same claim, never
+ * by looking up an active row again: that could delete a newer claim.
+ */
 import type { Database } from "@/lib/db";
 import {
   type ClaimedNotification,
@@ -103,8 +111,6 @@ export async function sendSectionNotifications(
       },
       onResult: async (index, result) => {
         const claim = emails[index].claim;
-        // Keep an unknown outcome unconfirmed, not rolled back. Resuming this intent
-        // re-sends it: at-least-once delivery prefers a possible duplicate to a missed alert.
         claim.status = result.success
           ? "delivered"
           : result.outcomeUnknown

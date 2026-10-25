@@ -1,3 +1,9 @@
+/**
+ * Leases belong to notification intents, not cron runs. The 16-minute lease
+ * outlives a queue consumer but is shorter than the intent's 30-minute lifetime:
+ * a crashed sender can be replaced before an outage's stale alert expires.
+ * Busy retries wait for the owner rather than exhausting attempts behind it.
+ */
 import { randomUUID } from "node:crypto";
 import { Data } from "effect";
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
@@ -32,7 +38,11 @@ const recordedSchema = z
 
 export type RecordedSectionCheck = z.infer<typeof recordedSchema>;
 
-/** `intentCreated`: this observation saved a pending intent that still needs delivery. */
+/**
+ * SQL commits observation, claim resets and intent under the SectionRef lock.
+ * A pending intent must finish or expire before another observation replaces it.
+ * `intentCreated` means delivery is needed; transitions use the locked stored row.
+ */
 export async function recordSectionCheck(
   db: Database,
   ref: SectionRef,

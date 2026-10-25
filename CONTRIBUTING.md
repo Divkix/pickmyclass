@@ -115,7 +115,7 @@ When modifying dependencies in `package.json`:
    ```
    If this fails, your lockfile is out of sync. Run `pnpm install` again and commit the updated `pnpm-lock.yaml`.
 
-Dependency policy and automation are maintained in [AGENTS.md → Toolchain](AGENTS.md#toolchain).
+Dependency policy lives in the comments of [`pnpm-workspace.yaml`](pnpm-workspace.yaml) and [`.github/dependabot.yml`](.github/dependabot.yml); the auto-merge gate is [`.github/workflows/dependabot-automerge.yml`](.github/workflows/dependabot-automerge.yml).
 
 ### Testing Changes
 

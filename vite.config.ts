@@ -97,7 +97,7 @@ export default defineConfig(() => {
       },
       overrides: [
         {
-          // Effect lives at the server's external-call boundary (see AGENTS.md), so its rules do too.
+          // Scope rules to the server's external-call boundary; see lib/effect/external-call.ts.
           files: [
             "lib/asu/**",
             "lib/auth/**",
