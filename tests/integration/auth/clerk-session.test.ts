@@ -16,7 +16,11 @@ vi.mock("@clerk/backend", () => ({ createClerkClient }));
 vi.mock("@clerk/tanstack-react-start/server", () => ({ auth }));
 
 vi.mock("cloudflare:workers", () => ({
-  env: { CLERK_SECRET_KEY: "sk_test_x", NEXT_PUBLIC_SITE_URL: "https://pickmyclass.test" },
+  env: {
+    CLERK_SECRET_KEY: "sk_test_x",
+    CLERK_PUBLISHABLE_KEY: "pk_test_x",
+    NEXT_PUBLIC_SITE_URL: "https://pickmyclass.test",
+  },
 }));
 
 import {
