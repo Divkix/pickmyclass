@@ -1,13 +1,11 @@
-import { type NextRequest, NextResponse } from "next/server";
-
-export async function GET(request: NextRequest, context: { params: Promise<{ uni: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ uni: string }> }) {
   const { uni } = await context.params;
   const { searchParams } = new URL(request.url);
   const classNbr = searchParams.get("classNbr");
   const term = searchParams.get("term");
 
   if (!classNbr || !term) {
-    return NextResponse.json(
+    return Response.json(
       {
         error: "Missing required parameters",
         message: "Both classNbr and term are required",
@@ -22,7 +20,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ uni
       return redirectToASU(classNbr, term);
 
     default:
-      return NextResponse.json(
+      return Response.json(
         {
           error: "University not supported",
           message: `University "${uni}" is not currently supported`,
@@ -33,11 +31,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ uni
   }
 }
 
-function redirectToASU(classNbr: string, term: string): NextResponse {
+function redirectToASU(classNbr: string, term: string): Response {
   const safeClassNbr = classNbr.replace(/[^0-9]/g, "");
   const safeTerm = term.replace(/[^0-9]/g, "");
 
   const asuUrl = `https://catalog.apps.asu.edu/catalog/classes/classlist?keywords=${safeClassNbr}&term=${safeTerm}`;
 
-  return NextResponse.redirect(asuUrl, 302);
+  return Response.redirect(asuUrl, 302);
 }

@@ -1,8 +1,12 @@
 /**
  * Versioned path for the public health endpoint.
  *
- * The handler lives at `/api/monitoring/health`, which stays as a stable
- * unversioned alias; agents integrate against the versioned path so a future
- * breaking change can ship as `/api/v2/...` while `v1` keeps answering.
+ * Both health paths use the shared handler in `lib/monitoring/health.ts`;
+ * agents integrate against the versioned path so a future breaking change
+ * can ship as `/api/v2/...` while `v1` keeps answering.
  */
-export { GET } from "@/app/api/monitoring/health/route";
+import { checkHealth } from "@/lib/monitoring/health";
+
+export function GET(request: Request): Promise<Response> {
+  return checkHealth(request);
+}

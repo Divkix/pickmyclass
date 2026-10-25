@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import type { ZodError, ZodType } from "zod";
 import { fail } from "@/lib/api/response";
 import type { JsonValue } from "@/lib/api/wire";
@@ -15,7 +14,7 @@ function mapValidationIssues(error: ZodError): ValidationIssueDetail[] {
   }));
 }
 
-function validationFail(error: ZodError): NextResponse {
+function validationFail(error: ZodError): Response {
   return fail("Invalid input", 400, mapValidationIssues(error));
 }
 
@@ -34,7 +33,7 @@ export function parseOrFail<T>(
   // SAFETY: `data` is a wire JSON value from the request body; the schema is the decoder
   // at this boundary before any domain use.
   data: JsonValue,
-): { success: true; data: T } | { success: false; response: NextResponse } {
+): { success: true; data: T } | { success: false; response: Response } {
   const parsed = tryParse(schema, data);
 
   if ("error" in parsed) {
@@ -47,7 +46,7 @@ export function parseOrFail<T>(
 export async function parseJsonOrFail<T>(
   schema: ZodType<T>,
   request: Request,
-): Promise<{ success: true; data: T } | { success: false; response: NextResponse }> {
+): Promise<{ success: true; data: T } | { success: false; response: Response }> {
   let body: JsonValue;
 
   try {

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { errorFields, log } from "@/lib/log";
 import { fail } from "@/lib/api/response";
@@ -127,7 +126,7 @@ export async function GET(request: Request) {
         const timestamp = new Date().toISOString().split("T")[0];
         const filename = `pickmyclass-data-${timestamp}.json`;
 
-        return new NextResponse(JSON.stringify(exportData, null, 2), {
+        return new Response(JSON.stringify(exportData, null, 2), {
           status: 200,
           headers: {
             "Content-Type": "application/json",

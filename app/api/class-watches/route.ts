@@ -1,6 +1,5 @@
 import { env } from "cloudflare:workers";
 import { and, eq, sql } from "drizzle-orm";
-import { type NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { withAuth } from "@/lib/api/withAuth";
 import { createClassWatchSchema, deleteClassWatchSchema } from "@/lib/api/schemas";
@@ -19,7 +18,7 @@ import type { ClassWatchRow } from "@/lib/types/class-watch";
 import { applyFirstWatchGuard } from "@/lib/onboarding";
 import { MAX_WATCHES_PER_USER, readWatchlist } from "@/lib/class-watches/watchlist";
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     return await withAuth(request, async (user) =>
       ok(await readWatchlist(getDbFromEnv(), user.userId)),
@@ -31,7 +30,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     return await withAuth(request, async (user) => {
       const parsed = await parseJsonOrFail(createClassWatchSchema, request);
@@ -149,7 +148,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: Request) {
   try {
     return await withAuth(request, async (user) => {
       const { searchParams } = new URL(request.url);

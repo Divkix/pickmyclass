@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { NextRequest } from "next/server";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
@@ -75,8 +74,8 @@ function scriptedDatabase(): Database {
   return drizzle(client as Database["$client"], { schema });
 }
 
-function request(url: string, method = "GET"): NextRequest {
-  return new NextRequest(url, { method });
+function request(url: string, method = "GET"): Request {
+  return new Request(url, { method });
 }
 
 const unsubscribeBody = z.object({

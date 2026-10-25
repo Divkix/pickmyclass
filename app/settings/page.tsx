@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import Link from "next/link";
-import { DataControls } from "@/app/settings/DataControls";
+import { DataControls } from "@/components/settings/DataControls";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

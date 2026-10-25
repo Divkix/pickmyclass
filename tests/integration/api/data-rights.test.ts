@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
@@ -226,7 +225,7 @@ describe("user data rights APIs", () => {
     it("rejects data exports for unauthenticated users without touching the database", async () => {
       mockRequireUser.mockRejectedValueOnce(new UnauthorizedError());
 
-      const response = await GET(new NextRequest("https://pickmyclass.app/api/user/export"));
+      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
       const data = await json(response);
 
       expect(response.status).toBe(401);
@@ -238,7 +237,7 @@ describe("user data rights APIs", () => {
     it("exports account, profile, watch, and notification data as an attachment", async () => {
       scriptExportRows({});
 
-      const response = await GET(new NextRequest("https://pickmyclass.app/api/user/export"));
+      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
       const data = await json(response);
 
       expect(response.status).toBe(200);
@@ -270,7 +269,7 @@ describe("user data rights APIs", () => {
     it("preserves ISO-8601 UTC timestamps and nested jsonb shapes in exported rows", async () => {
       scriptExportRows({});
 
-      const response = await GET(new NextRequest("https://pickmyclass.app/api/user/export"));
+      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
       const data = await json(response);
 
       const watches = exportRows(data.class_watches);
@@ -296,7 +295,7 @@ describe("user data rights APIs", () => {
         },
       });
 
-      const response = await GET(new NextRequest("https://pickmyclass.app/api/user/export"));
+      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
       const data = await json(response);
 
       expect(response.status).toBe(200);
@@ -310,7 +309,7 @@ describe("user data rights APIs", () => {
     it("omits unset profile fields while keeping the account-status key present", async () => {
       scriptExportRows({ profile: null });
 
-      const response = await GET(new NextRequest("https://pickmyclass.app/api/user/export"));
+      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
       const data = await json(response);
 
       expect(response.status).toBe(200);
@@ -327,7 +326,7 @@ describe("user data rights APIs", () => {
         new Error("database rejected query"),
       );
 
-      const response = await GET(new NextRequest("https://pickmyclass.app/api/user/export"));
+      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
       const data = await json(response);
 
       expect(response.status).toBe(500);

@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const {
@@ -43,8 +42,8 @@ const IDENTITY = { userId: "user-1", clerkUserId: "clerk_user_1", sessionId: "se
 
 const CLERK_USER = { id: "clerk_user_1" };
 
-function getRequest(search = "", headers: Record<string, string> = {}): NextRequest {
-  return new NextRequest(`${ORIGIN}/auth/post-oauth${search}`, { headers });
+function getRequest(search = "", headers: Record<string, string> = {}): Request {
+  return new Request(`${ORIGIN}/auth/post-oauth${search}`, { headers });
 }
 
 function locationOf(response: Response): string {

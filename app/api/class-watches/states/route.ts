@@ -1,11 +1,10 @@
-import { type NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { withAuth } from "@/lib/api/withAuth";
 import { getDbFromEnv } from "@/lib/db";
 import { getWatchedClassStates } from "@/lib/db/queries";
 import { errorFields, log } from "@/lib/log";
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   return withAuth(request, async (user) => {
     try {
       const { searchParams } = new URL(request.url);

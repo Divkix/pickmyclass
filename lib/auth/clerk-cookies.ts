@@ -1,5 +1,3 @@
-import type { NextResponse } from "next/server";
-
 /**
  * Clerk session-cookie detection for the edge gate fast path.
  *
@@ -56,8 +54,8 @@ const CLERK_COOKIES_TO_CLEAR = [
   "__clerk_redirect_count",
 ] as const;
 
-export function clearClerkCookies(response: NextResponse): void {
+export function clearClerkCookies(headers: Headers): void {
   for (const name of CLERK_COOKIES_TO_CLEAR) {
-    response.cookies.set(name, "", { path: "/", maxAge: 0 });
+    headers.append("Set-Cookie", `${name}=; Path=/; Max-Age=0`);
   }
 }

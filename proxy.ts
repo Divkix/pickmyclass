@@ -108,7 +108,7 @@ const DEV_CSP = [
   CSP_FORM_ACTION,
 ].join("; ");
 
-function addSecurityHeaders(response: NextResponse, isDevelopment: boolean, csp: string): void {
+function addSecurityHeaders(response: Response, isDevelopment: boolean, csp: string): void {
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -176,7 +176,7 @@ export async function proxy(request: NextRequest) {
     authState,
   });
 
-  let response: NextResponse;
+  let response: Response;
 
   switch (decision.kind) {
     case "signout-and-redirect": {
@@ -191,7 +191,7 @@ export async function proxy(request: NextRequest) {
 
       const url = toRedirectUrl(request, decision.to);
       response = NextResponse.redirect(url);
-      clearClerkCookies(response);
+      clearClerkCookies(response.headers);
       break;
     }
 

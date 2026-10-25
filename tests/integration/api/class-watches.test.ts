@@ -1,7 +1,6 @@
 import { DatabaseError } from "pg";
 import { DrizzleQueryError } from "drizzle-orm/errors";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
-import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { getSelectableTerms } from "@/lib/asu/terms";
@@ -151,25 +150,25 @@ interface MutationResponse {
   details?: ValidationIssueDetail[];
 }
 
-function getRequest(): NextRequest {
-  return new NextRequest("http://localhost:3000/api/class-watches");
+function getRequest(): Request {
+  return new Request("http://localhost:3000/api/class-watches");
 }
 
-function postRequest(body: Record<string, JsonValue>): NextRequest {
-  return new NextRequest("http://localhost:3000/api/class-watches", {
+function postRequest(body: Record<string, JsonValue>): Request {
+  return new Request("http://localhost:3000/api/class-watches", {
     method: "POST",
     body: JSON.stringify(body),
     headers: { "Content-Type": "application/json" },
   });
 }
 
-function deleteRequest(id: string | null): NextRequest {
+function deleteRequest(id: string | null): Request {
   const url =
     id === null
       ? "http://localhost:3000/api/class-watches"
       : `http://localhost:3000/api/class-watches?id=${id}`;
 
-  return new NextRequest(url, { method: "DELETE" });
+  return new Request(url, { method: "DELETE" });
 }
 
 async function json<T extends object>(response: Response): Promise<T> {
@@ -326,7 +325,7 @@ describe("/api/class-watches", () => {
 
     it("rejects malformed JSON without logging an error or calling ASU/the database", async () => {
       const response = await POST(
-        new NextRequest("http://localhost:3000/api/class-watches", {
+        new Request("http://localhost:3000/api/class-watches", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: "{",

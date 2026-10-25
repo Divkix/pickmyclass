@@ -1,5 +1,4 @@
 import type { SessionWebhookEvent, UserDeletedJSON, UserJSON, WebhookEvent } from "@clerk/backend";
-import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const {
@@ -133,8 +132,8 @@ function clerkUserFixture(overrides: Partial<UserJSON> = {}): UserJSON {
   };
 }
 
-function signedRequest(): NextRequest {
-  return new NextRequest("https://pickmyclass.example/api/webhooks/clerk", {
+function signedRequest(): Request {
+  return new Request("https://pickmyclass.example/api/webhooks/clerk", {
     method: "POST",
   });
 }

@@ -1,5 +1,4 @@
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
-import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { ClassStateRow } from "@/lib/types/class-watch";
@@ -53,13 +52,13 @@ interface StatesResponse {
   error?: string;
 }
 
-function getRequest(classNumbers?: string): NextRequest {
+function getRequest(classNumbers?: string): Request {
   const url =
     classNumbers === undefined
       ? "http://localhost:3000/api/class-watches/states"
       : `http://localhost:3000/api/class-watches/states?classNumbers=${encodeURIComponent(classNumbers)}`;
 
-  return new NextRequest(url);
+  return new Request(url);
 }
 
 async function json<T extends object>(response: Response): Promise<T> {

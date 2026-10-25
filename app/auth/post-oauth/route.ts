@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { errorFields, log } from "@/lib/log";
 import { safeInternalPath } from "@/lib/auth/safe-redirect";
 import { getClerkUser, getSessionIdentity } from "@/lib/auth/clerk-session";
@@ -8,13 +7,13 @@ import { repairUserMirror } from "@/lib/db/users";
 // Redirects always resolve against the request origin. `x-forwarded-host` is
 // client-controllable (host-header injection / open redirect), so it must never
 // influence where OAuth callbacks send the user.
-function consentRedirect(base: string, next: string, saveFailed = false): NextResponse {
+function consentRedirect(base: string, next: string, saveFailed = false): Response {
   const url = new URL("/consent", base);
 
   if (saveFailed) url.searchParams.set("error", "save_failed");
   url.searchParams.set("next", next);
 
-  return NextResponse.redirect(url);
+  return Response.redirect(url, 307);
 }
 
 export async function GET(request: Request) {
@@ -24,7 +23,7 @@ export async function GET(request: Request) {
   const identity = await getSessionIdentity(request);
 
   if (!identity) {
-    return NextResponse.redirect(`${origin}/sign-in?error=oauth_failed`);
+    return Response.redirect(`${origin}/sign-in?error=oauth_failed`, 307);
   }
 
   const base = origin;
@@ -48,10 +47,10 @@ export async function GET(request: Request) {
       return consentRedirect(base, next);
     }
 
-    return NextResponse.redirect(`${base}${next}`);
+    return Response.redirect(`${base}${next}`, 307);
   } catch (error) {
     log("Auth").error("post-oauth handling failed", errorFields(error));
 
-    return NextResponse.redirect(`${origin}/sign-in?error=oauth_failed`);
+    return Response.redirect(`${origin}/sign-in?error=oauth_failed`, 307);
   }
 }

@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
@@ -79,7 +78,7 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
 }
 
 function request(auth = "Bearer test-cron-secret") {
-  return new NextRequest("https://pickmyclass.app/api/monitoring/health", {
+  return new Request("https://pickmyclass.app/api/monitoring/health", {
     headers: auth ? { authorization: auth } : {},
   });
 }
