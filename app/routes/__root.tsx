@@ -20,7 +20,18 @@ export const Route = createRootRoute({
     meta: matches.some((match) => match._notFound || match.status === "notFound")
       ? [...SITE_META, ...NOT_FOUND_HEAD.meta]
       : SITE_META,
-    links: [{ rel: "stylesheet", href: appCss }, ...SITE_LINKS],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      // Hero text paints before the font arrives otherwise, and the swap shifts layout (CLS).
+      {
+        rel: "preload",
+        href: "/fonts/Geist-Variable.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
+      ...SITE_LINKS,
+    ],
   }),
   shellComponent: RootDocument,
   errorComponent: ErrorPage,

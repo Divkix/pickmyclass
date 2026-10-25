@@ -9,10 +9,11 @@ export function SocialProofBanner() {
           Trusted across every ASU campus
         </span>
         <span className="hidden h-4 w-px bg-primary-foreground/25 sm:block" aria-hidden="true" />
-        <p className="text-sm text-primary-foreground/85">
-          <strong className="font-semibold text-primary-foreground">2,400+</strong> Sun Devils ·{" "}
-          <strong className="font-semibold text-primary-foreground">15,000+</strong> classes
-          monitored · <strong className="font-semibold text-accent">8,500+</strong> seats secured
+        <p className="text-sm text-primary-foreground">
+          <strong className="font-semibold">2,400+</strong> Sun Devils ·{" "}
+          <strong className="font-semibold">15,000+</strong> classes monitored ·{" "}
+          <strong className="font-semibold text-accent dark:text-primary-foreground">8,500+</strong>{" "}
+          seats secured
         </p>
       </div>
     </section>

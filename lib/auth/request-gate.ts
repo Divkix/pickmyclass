@@ -73,10 +73,13 @@ export function isGateExempt(pathname: string): boolean {
   return GATE_EXEMPT.test(pathname);
 }
 
+// 'wasm-unsafe-eval' allows WebAssembly compilation only, never JS eval: the
+// lazily loaded telemetry SDK (long.js under protobufjs) probes for it, and a
+// blocked probe is reported as a CSP violation.
 function buildProductionCsp(inlineScriptSource: string): string {
   return [
     CSP_DEFAULT_SRC,
-    `script-src 'self' ${inlineScriptSource} https://analytics.divkix.me ${CSP_CLERK_SCRIPT_HOSTS}`,
+    `script-src 'self' ${inlineScriptSource} 'wasm-unsafe-eval' https://analytics.divkix.me ${CSP_CLERK_SCRIPT_HOSTS}`,
     CSP_STYLE_SRC,
     CSP_IMG_SRC,
     CSP_FONT_SRC,
