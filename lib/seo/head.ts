@@ -79,7 +79,11 @@ type PageHeadInput = PageTitle & {
   social?: SocialCard;
 };
 
-/** The `head` of one page: title, description, robots, canonical and social card. */
+/**
+ * The `head` of one page: title, description, robots, canonical and social card.
+ * Keep rendered titles within 60 characters, including ` | PickMyClass` unless `absoluteTitle`
+ * supplies the whole title, and descriptions within 160. These are authoring limits, not truncation.
+ */
 export function pageHead(page: PageHeadInput): PageHead {
   const title = "absoluteTitle" in page ? page.absoluteTitle : `${page.title} | ${SITE_NAME}`;
   const socialTitle = page.social?.title ?? title;
