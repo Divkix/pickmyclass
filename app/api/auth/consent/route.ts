@@ -1,5 +1,4 @@
 import { sql } from "drizzle-orm";
-import { type NextRequest } from "next/server";
 import { consentSchema } from "@/lib/api/schemas";
 import { fail, ok } from "@/lib/api/response";
 import { parseJsonOrFail } from "@/lib/api/validation";
@@ -10,7 +9,7 @@ import { getDbFromEnv } from "@/lib/db";
 import { repairUserMirror } from "@/lib/db/users";
 import { errorFields, log } from "@/lib/log";
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     return await withAuth(request, async (user) => {
       const parsed = await parseJsonOrFail(consentSchema, request);

@@ -1,5 +1,4 @@
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
-import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
@@ -135,12 +134,12 @@ interface PostBody {
   watch?: ClassWatchRow;
 }
 
-function getRequest(): NextRequest {
-  return new NextRequest("http://localhost:3000/api/class-watches");
+function getRequest(): Request {
+  return new Request("http://localhost:3000/api/class-watches");
 }
 
-function postRequest(body: { term: string; class_nbr: string }): NextRequest {
-  return new NextRequest("http://localhost:3000/api/class-watches", {
+function postRequest(body: { term: string; class_nbr: string }): Request {
+  return new Request("http://localhost:3000/api/class-watches", {
     method: "POST",
     body: JSON.stringify(body),
     headers: { "content-type": "application/json" },

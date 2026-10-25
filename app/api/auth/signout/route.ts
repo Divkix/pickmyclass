@@ -1,10 +1,9 @@
-import { type NextRequest } from "next/server";
 import { ok } from "@/lib/api/response";
 import { clearClerkCookies } from "@/lib/auth/clerk-cookies";
 import { getSessionIdentity, revokeSession } from "@/lib/auth/clerk-session";
 import { errorFields, log } from "@/lib/log";
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const identity = await getSessionIdentity(request);
 
@@ -21,7 +20,7 @@ export async function POST(request: NextRequest) {
 
   const response = ok(null);
 
-  clearClerkCookies(response);
+  clearClerkCookies(response.headers);
 
   return response;
 }

@@ -1,5 +1,4 @@
 import { eq } from "drizzle-orm";
-import { type NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { unsubscribeTokenSchema } from "@/lib/api/schemas";
 import { parseOrFail } from "@/lib/api/validation";
@@ -16,7 +15,7 @@ function redactIdentifier(userId: string): string {
   return createHash("sha256").update(userId).digest("hex");
 }
 
-function htmlPage(title: string, content: string, status: number): NextResponse {
+function htmlPage(title: string, content: string, status: number): Response {
   const linkStyles =
     status === 200
       ? `
@@ -24,7 +23,7 @@ function htmlPage(title: string, content: string, status: number): NextResponse 
     a:hover { text-decoration: underline; }`
       : "";
 
-  return new NextResponse(
+  return new Response(
     `<!DOCTYPE html>
 <html>
 <head>
@@ -69,8 +68,8 @@ async function unsubscribeUser(
   logEvent("user_unsubscribed", { user_id_hash: redactIdentifier(userId), method });
 }
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
+export async function GET(request: Request) {
+  const searchParams = new URL(request.url).searchParams;
   const token = searchParams.get("token");
 
   const parsed = parseOrFail(unsubscribeTokenSchema, { token });
@@ -118,8 +117,8 @@ export async function GET(request: NextRequest) {
  * POST handler for one-click unsubscribe (RFC 8058)
  * Used by email clients that support List-Unsubscribe-Post
  */
-export async function POST(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
+export async function POST(request: Request) {
+  const searchParams = new URL(request.url).searchParams;
   const token = searchParams.get("token");
 
   const parsed = parseOrFail(unsubscribeTokenSchema, { token });

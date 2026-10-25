@@ -1,5 +1,4 @@
 import { env } from "cloudflare:workers";
-import { NextResponse } from "next/server";
 import { fetchClassFromASU, NotFoundError } from "@/lib/asu/api";
 import { getDbFromEnv } from "@/lib/db";
 import { classWatches } from "@/lib/db/schema";
@@ -32,7 +31,7 @@ export async function GET(request: Request) {
   const isAuthenticated = verifyCronSecret(request, cronSecret);
 
   if (!isAuthenticated) {
-    return NextResponse.json({ status: "ok" }, { status: 200 });
+    return Response.json({ status: "ok" }, { status: 200 });
   }
 
   const startTime = Date.now();
@@ -134,5 +133,5 @@ export async function GET(request: Request) {
 
   const statusCode = health.status === "healthy" ? 200 : health.status === "degraded" ? 503 : 500;
 
-  return NextResponse.json(health, { status: statusCode });
+  return Response.json(health, { status: statusCode });
 }

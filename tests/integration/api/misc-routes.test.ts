@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
@@ -15,8 +14,8 @@ vi.mock("@/lib/auth/clerk-session", () => ({
 import { POST as postSignout } from "@/app/api/auth/signout/route";
 import { GET as redirectToUniversity } from "@/app/go/[uni]/route";
 
-function get(url: string): NextRequest {
-  return new NextRequest(url);
+function get(url: string): Request {
+  return new Request(url);
 }
 
 const miscBody = z.object({ success: z.boolean().optional(), error: z.string().optional() });
@@ -44,7 +43,7 @@ describe("misc API routes", () => {
   });
 
   it("signs users out by revoking the Clerk session and clearing cookies", async () => {
-    const req = new NextRequest("https://pickmyclass.app/api/auth/signout", {
+    const req = new Request("https://pickmyclass.app/api/auth/signout", {
       method: "POST",
     });
 
@@ -56,12 +55,20 @@ describe("misc API routes", () => {
     expect(mockRevokeSession).toHaveBeenCalledWith("sess_1");
     const setCookie = response.headers.get("set-cookie") ?? "";
     expect(setCookie).toContain("__session=");
+    expect(response.headers.getSetCookie()).toEqual([
+      "__session=; Path=/; Max-Age=0",
+      "__client_uat=; Path=/; Max-Age=0",
+      "__refresh=; Path=/; Max-Age=0",
+      "__clerk_db_jwt=; Path=/; Max-Age=0",
+      "__clerk_handshake=; Path=/; Max-Age=0",
+      "__clerk_redirect_count=; Path=/; Max-Age=0",
+    ]);
   });
 
   it("still returns 200 when session revocation fails", async () => {
     mockRevokeSession.mockRejectedValue(new Error("clerk unreachable"));
 
-    const req = new NextRequest("https://pickmyclass.app/api/auth/signout", {
+    const req = new Request("https://pickmyclass.app/api/auth/signout", {
       method: "POST",
     });
 

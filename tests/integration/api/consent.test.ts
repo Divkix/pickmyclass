@@ -1,6 +1,5 @@
 import { type SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const {
@@ -62,8 +61,8 @@ function builtSql(query: SQL): string {
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
-function request(body: Record<string, JsonValue>): NextRequest {
-  return new NextRequest("https://pickmyclass.app/api/auth/consent", {
+function request(body: Record<string, JsonValue>): Request {
+  return new Request("https://pickmyclass.app/api/auth/consent", {
     method: "POST",
     body: JSON.stringify(body),
     headers: { "content-type": "application/json" },
@@ -93,7 +92,7 @@ describe("POST /api/auth/consent", () => {
     const loggedError = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const response = await POST(
-      new NextRequest("https://pickmyclass.app/api/auth/consent", {
+      new Request("https://pickmyclass.app/api/auth/consent", {
         method: "POST",
         body: "{",
         headers: { "content-type": "application/json" },
@@ -111,7 +110,7 @@ describe("POST /api/auth/consent", () => {
   it("authenticates before reading even a malformed request body", async () => {
     mockRequireUser.mockRejectedValueOnce(new UnauthorizedError());
 
-    const malformed = new NextRequest("https://pickmyclass.app/api/auth/consent", {
+    const malformed = new Request("https://pickmyclass.app/api/auth/consent", {
       method: "POST",
       body: "{",
     });
