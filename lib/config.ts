@@ -57,7 +57,7 @@ export const EMAIL_BATCH_DELAY_MS = 75;
  */
 export const EMAIL_SEND_TIMEOUT_MS = 10_000;
 
-// Longer than the queue consumer's wall-time budget; a crashed owner can be replaced.
+// Lease/lifetime coupling is documented in lib/queue/pending-notifications.ts.
 export const NOTIFICATION_LEASE_SECONDS = 960;
 
 export const AUTO_CLEANUP_THRESHOLD = 3;

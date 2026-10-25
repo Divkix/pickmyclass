@@ -3,6 +3,8 @@
  * with `retryable: false` (a constraint violation, a rejected payload) fail the
  * same way every time, so the layer that owns retries should give up on them.
  * The nearest error in the `cause` chain that carries the flag decides.
+ * Rewrapping a driver error must preserve `{ cause: error }`, or the retry
+ * decision carried through Drizzle's wrapper is lost.
  *
  * @module lib/effect/failure
  */

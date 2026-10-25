@@ -3,10 +3,21 @@
  * failures. Applied once, in `getDb`, to the pool and to the clients it hands
  * out for transactions, so no query helper opts in or out.
  *
- * Client-side only: the abandoned statement keeps running until the server
- * finishes it or the database's 20s `statement_timeout` cancels it (see
- * AGENTS.md). Hyperdrive's handling of a `statement_timeout` startup parameter
- * is undocumented, so none is sent.
+ * Client-side timeouts leave the server statement running; a timeout is an
+ * unknown outcome, not proof that the write did not happen.
+ *
+ * Ops: applied on 2026-10-24; inspect pg_db_role_setting to check:
+ * ALTER DATABASE pickmyclass SET statement_timeout = '20s';
+ * ALTER DATABASE pickmyclass SET idle_in_transaction_session_timeout = '30s';
+ * The 20s cap exceeds DB_QUERY_TIMEOUT_MS (15s), so the client reports
+ * DbQueryTimedOut first. This makes pg-errors.ts retrying 57014 safe: a lower
+ * server cap would cancel the same slow statement on every retry.
+ * The idle cap releases locks left by an abandoned transaction (25P03 is retried).
+ *
+ * PlanetScale recommends role-level caps, but no credential has ADMIN OPTION
+ * on its app role. Database-level caps leave the cluster's other databases alone.
+ * Never send either setting as a Hyperdrive startup parameter: its handling is
+ * undocumented. Migration-author implications live in drizzle.config.ts.
  *
  * @module lib/db/guard
  */

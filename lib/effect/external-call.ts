@@ -4,9 +4,12 @@
  * ...) owns its tagged errors and passes the two constructors in, so a caller
  * can tell "the service said no" from "we gave up waiting".
  *
+ * Keep this at external-call leaves, not around orchestration. Retry policy
+ * belongs to queue consumers and Workflow steps; never add Effect.retry here
+ * beneath those owners.
+ *
  * A timeout leaves the outcome unknown: the call may still complete on the
- * other side. Email keeps the claim unconfirmed, not rolled back; resuming its
- * intent re-sends it, accepting possible duplicates rather than missed alerts.
+ * other side. Email's policy lives in lib/queue/notification-sender.ts.
  *
  * **Server-only module.** Effect never reaches the browser bundle; a test
  * pins the files the client loads.
