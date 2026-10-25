@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": ["**/*.{ts,tsx,css}"],
   "ignore": ["app/routeTree.gen.ts", "tests/mocks/**", "tools/oxlint/anti-slop/**"],
-  "ignoreDependencies": ["cloudflare"],
+  "ignoreDependencies": ["cloudflare", "@tanstack/intent"],
   "ignoreExportsUsedInFile": false,
   "includeEntryExports": false,
   "tanstack-router": {
