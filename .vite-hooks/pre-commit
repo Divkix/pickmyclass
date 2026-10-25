@@ -1,10 +1,5 @@
 set -e
 
-if [ -n "$CI" ]; then
-  echo "CI detected, skipping pre-commit hooks"
-  exit 0
-fi
-
 pnpm run --silent seo:lastmod
 vp staged
 pnpm run verify
