@@ -40,7 +40,7 @@ export function FAQSection() {
         <div className="mt-8 text-center">
           <Link
             to="/faq"
-            className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+            className="text-sm font-medium text-primary hover:text-primary/80 transition-colors dark:text-accent dark:hover:text-accent/80"
           >
             See all frequently asked questions &rarr;
           </Link>

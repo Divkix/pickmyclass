@@ -22,16 +22,16 @@ export function FeaturesSection() {
             </div>
             <div className="space-y-3">
               <h3 className="text-2xl font-semibold">Stop the refresh loop</h3>
-              <p className="max-w-md text-base leading-relaxed text-primary-foreground/85">
+              <p className="max-w-md text-base leading-relaxed text-primary-foreground">
                 You know that thing where you refresh MyASU 47 times during add/drop? We do that for
                 you — every 30 minutes, around the clock, automatically. No timer, no tabs, no
                 stress.
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
-                <span className="rounded-full bg-primary-foreground/10 px-3 py-1 text-xs font-medium">
+                <span className="rounded-full bg-black/10 px-3 py-1 text-xs font-medium">
                   Every 30 minutes
                 </span>
-                <span className="rounded-full bg-primary-foreground/10 px-3 py-1 text-xs font-medium">
+                <span className="rounded-full bg-black/10 px-3 py-1 text-xs font-medium">
                   24/7 monitoring
                 </span>
                 <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground">
