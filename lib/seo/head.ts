@@ -82,7 +82,8 @@ type PageHeadInput = PageTitle & {
 /**
  * The `head` of one page: title, description, robots, canonical and social card.
  * Keep rendered titles within 60 characters, including ` | PickMyClass` unless `absoluteTitle`
- * supplies the whole title, and descriptions within 160. These are authoring limits, not truncation.
+ * supplies the whole title, and descriptions within 160. These are authoring limits, not truncation;
+ * `tests/integration/seo/page-head.test.ts` checks every route's head against them.
  */
 export function pageHead(page: PageHeadInput): PageHead {
   const title = "absoluteTitle" in page ? page.absoluteTitle : `${page.title} | ${SITE_NAME}`;
