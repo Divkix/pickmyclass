@@ -1,5 +1,3 @@
-"use client";
-
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
 import { useHydrated } from "@/lib/hooks/useHydrated";

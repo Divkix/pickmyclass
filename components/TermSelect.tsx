@@ -1,5 +1,3 @@
-"use client";
-
 import { formatTermOption } from "@/lib/asu/terms";
 import type { AsuTerm } from "@/lib/asu/terms";
 import { Alert } from "@/components/ui/alert";

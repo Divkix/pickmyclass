@@ -1,5 +1,3 @@
-"use client";
-
 import { Home, PlusCircle, Settings } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/lib/contexts/AuthContext";

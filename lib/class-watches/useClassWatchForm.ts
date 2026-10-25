@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 import type { AsuTerm } from "@/lib/asu/terms";

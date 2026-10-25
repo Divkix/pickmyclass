@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/contexts/AuthContext";

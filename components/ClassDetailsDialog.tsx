@@ -1,5 +1,3 @@
-"use client";
-
 import type { ClassStateRow, UserClassWatch } from "@/lib/types/class-watch";
 import { getRateMyProfessorUrl } from "@/lib/utils/ratemyprofessor";
 import { formatAbsoluteDate } from "@/lib/utils/time-format";

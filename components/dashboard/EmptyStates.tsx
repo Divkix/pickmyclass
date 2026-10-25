@@ -1,5 +1,3 @@
-"use client";
-
 import { m } from "framer-motion";
 import { Calendar, Plus, Search } from "lucide-react";
 import { Link } from "@tanstack/react-router";

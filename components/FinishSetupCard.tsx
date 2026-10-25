@@ -1,5 +1,3 @@
-"use client";
-
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
