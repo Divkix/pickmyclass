@@ -66,23 +66,26 @@ const gate = createMiddleware()
     return withSecurityHeaders(result.response, outcome.csp);
   });
 
-/** Server functions answer errors as serialized results, so the gate never sees them throw. */
-const logServerFnErrors = createMiddleware({ type: "function" }).server(
+/**
+ * Server functions answer errors as serialized results, so the gate never sees them throw. Start
+ * sends a thrown error's message to the browser, and a failed query's message carries its SQL and
+ * bound parameters, so an unexpected failure is logged here and replaced with a generic error.
+ */
+const maskServerFnErrors = createMiddleware({ type: "function" }).server(
   async ({ next, serverFnMeta }) => {
     try {
       return await next();
     } catch (error) {
       // Redirects and not-found are router control flow, not failures.
-      if (!isRedirect(error) && !isNotFound(error)) {
-        logRequestError(error, getRequest(), serverFnMeta.name);
-      }
+      if (isRedirect(error) || isNotFound(error)) throw error;
 
-      throw error;
+      logRequestError(error, getRequest(), serverFnMeta.name);
+      throw new Error("Internal server error");
     }
   },
 );
 
 export const startInstance = createStart(() => ({
   requestMiddleware: [csrf, logRequestErrors, gate],
-  functionMiddleware: [logServerFnErrors],
+  functionMiddleware: [maskServerFnErrors],
 }));

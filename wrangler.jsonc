@@ -92,6 +92,8 @@
     },
   },
   "vars": {
+    // Public: `clerkMiddleware` sends it to the browser in each page's Clerk init state.
+    "CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsucGlja215Y2xhc3MuYXBwJA",
     "MAX_WATCHES_PER_USER": "10",
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
     "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app",

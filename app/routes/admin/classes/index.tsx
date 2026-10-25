@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -62,6 +62,7 @@ const loadAdminClasses = createServerFn()
 
 export const Route = createFileRoute("/admin/classes/")({
   validateSearch: classesSearchSchema,
+  search: { middlewares: [stripSearchParams(classesSearchSchema.parse({}))] },
   loaderDeps: ({ search }) => search,
   loader: ({ deps }) => loadAdminClasses({ data: deps }),
   component: AdminClassesPage,

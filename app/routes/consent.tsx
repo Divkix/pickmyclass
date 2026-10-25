@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { ConsentForm } from "@/components/consent/ConsentForm";
@@ -23,6 +23,8 @@ const loadConsent = createServerFn()
 export const Route = createFileRoute("/consent")({
   head: () => ({ meta: [{ name: "robots", content: "noindex" }] }),
   validateSearch: consentSearch,
+  // Defaults stay out of the URL, or Start redirects every bare /consent to its canonical form.
+  search: { middlewares: [stripSearchParams(consentSearch.parse({}))] },
   loaderDeps: ({ search }) => search,
   loader: ({ deps }) => loadConsent({ data: deps }),
   component: ConsentPage,

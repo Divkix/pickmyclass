@@ -221,9 +221,15 @@ export default defineConfig(() => {
           viteReact(),
         ],
     resolve: { tsconfigPaths: true },
+    // Clerk's local authorized parties (lib/auth/clerk-session.ts) name this port, so a second
+    // instance exits instead of drifting to one where sign-in fails.
+    server: { port: 3000, strictPort: true },
     optimizeDeps: {
       exclude: ["lucide-react"],
     },
+    // Vite leaves server environments unminified; minifying the Worker (as vinext did) cuts its
+    // upload from ~1.0 MiB to ~0.6 MiB gzip and startup from ~73 ms to ~63 ms (`wrangler check startup`).
+    environments: { ssr: { build: { minify: true } } },
     define: {
       __DEPLOYMENT_ENVIRONMENT__: JSON.stringify(deploymentEnvironment()),
       __BUILD_COMMIT__: JSON.stringify(process.env.WORKERS_CI_COMMIT_SHA?.slice(0, 12) ?? "dev"),

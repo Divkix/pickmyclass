@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -51,6 +51,7 @@ const loadAdminUsers = createServerFn()
 
 export const Route = createFileRoute("/admin/users/")({
   validateSearch: usersSearchSchema,
+  search: { middlewares: [stripSearchParams(usersSearchSchema.parse({}))] },
   loaderDeps: ({ search }) => search,
   loader: ({ deps }) => loadAdminUsers({ data: deps }),
   component: AdminUsersPage,

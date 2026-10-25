@@ -33,7 +33,6 @@ import {
   SessionRevocationIncomplete,
 } from "@/lib/auth/clerk-errors";
 import { CLERK_REQUEST_TIMEOUT_MS, CLERK_SESSION_REVOKE_LIMIT } from "@/lib/config";
-import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk/config";
 import { externalCall } from "@/lib/effect/external-call";
 import { errorFields, log } from "@/lib/log";
 
@@ -45,17 +44,20 @@ export interface SessionIdentity {
 
 interface ClerkEnv {
   CLERK_SECRET_KEY?: string;
+  CLERK_PUBLISHABLE_KEY?: string;
   CLERK_JWT_KEY?: string;
   NEXT_PUBLIC_SITE_URL?: string;
 }
 
 const clerkEnvSchema = z.object({
   CLERK_SECRET_KEY: z.string().optional(),
+  CLERK_PUBLISHABLE_KEY: z.string().optional(),
   CLERK_JWT_KEY: z.string().optional(),
   NEXT_PUBLIC_SITE_URL: z.string().optional(),
 });
 
-function getClerkEnv(): Required<Pick<ClerkEnv, "CLERK_SECRET_KEY">> & ClerkEnv {
+function getClerkEnv(): Required<Pick<ClerkEnv, "CLERK_SECRET_KEY" | "CLERK_PUBLISHABLE_KEY">> &
+  ClerkEnv {
   // SAFETY: bindings are declared in wrangler secrets; see lib/cloudflare-env.supplemental.d.ts.
   const e = clerkEnvSchema.parse(env);
 
@@ -65,7 +67,15 @@ function getClerkEnv(): Required<Pick<ClerkEnv, "CLERK_SECRET_KEY">> & ClerkEnv 
     );
   }
 
-  return { ...e, CLERK_SECRET_KEY: e.CLERK_SECRET_KEY };
+  if (!e.CLERK_PUBLISHABLE_KEY) {
+    throw new Error("CLERK_PUBLISHABLE_KEY is not set. It is a `vars` entry in wrangler.jsonc.");
+  }
+
+  return {
+    ...e,
+    CLERK_SECRET_KEY: e.CLERK_SECRET_KEY,
+    CLERK_PUBLISHABLE_KEY: e.CLERK_PUBLISHABLE_KEY,
+  };
 }
 
 /**
@@ -73,10 +83,9 @@ function getClerkEnv(): Required<Pick<ClerkEnv, "CLERK_SECRET_KEY">> & ClerkEnv 
  * would outlive the request that supplied its keys.
  */
 function buildClerkClient(): ClerkClient {
-  return createClerkClient({
-    secretKey: getClerkEnv().CLERK_SECRET_KEY,
-    publishableKey: CLERK_PUBLISHABLE_KEY,
-  });
+  const { CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY } = getClerkEnv();
+
+  return createClerkClient({ secretKey: CLERK_SECRET_KEY, publishableKey: CLERK_PUBLISHABLE_KEY });
 }
 
 /** The Backend API answers with an HTTP status; anything else is a transport failure. */
@@ -118,16 +127,20 @@ function clerkCall<A>(operation: string, attempt: () => Promise<A>): Promise<A> 
 
 function getAuthorizedParties(): string[] {
   const { NEXT_PUBLIC_SITE_URL } = getClerkEnv();
-  const parties = ["http://localhost:3000", "http://localhost:8788"];
+  // `pnpm run dev` (vite.config.ts) and `pnpm run preview` (wrangler dev's default port).
+  const parties = ["http://localhost:3000", "http://localhost:8787"];
 
   if (NEXT_PUBLIC_SITE_URL) parties.push(NEXT_PUBLIC_SITE_URL);
 
   return parties;
 }
 
-/** `clerkMiddleware` options, read per request from the Worker's bindings. */
+/**
+ * `clerkMiddleware` options, read per request from the Worker's bindings. The middleware hands
+ * the publishable key to `ClerkProvider` through the page's `__clerk_init_state`.
+ */
 export function clerkMiddlewareOptions(): ClerkMiddlewareOptions {
-  const { CLERK_SECRET_KEY, CLERK_JWT_KEY } = getClerkEnv();
+  const { CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY, CLERK_JWT_KEY } = getClerkEnv();
 
   return {
     secretKey: CLERK_SECRET_KEY,

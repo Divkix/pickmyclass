@@ -29,8 +29,8 @@ Be respectful, inclusive, and constructive. We welcome contributors of all exper
 
 3. **Set up environment variables**
    ```bash
-   cp .env.example .env.local
-   # Edit .env.local with your credentials
+   cp .env.example .dev.vars
+   # Edit .dev.vars with Clerk development instance keys
    ```
 
 4. **Start the development server**

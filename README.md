@@ -76,7 +76,7 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/db/users.ts` | Clerk user mirror (`clerk_user_id`, `syncUserMirrorFromClerkUser`/`repairUserMirror`) |
 | `lib/auth/clerk-session.ts` | Session identity from `clerkMiddleware` (`toSessionIdentity`, `getSessionIdentity`) + Clerk Backend calls (`revokeSession`, `revokeAllUserSessions`) |
 | `lib/auth/clerk-cookies.ts` | Clerk cookie prefix detection + `CLERK_COOKIES_TO_CLEAR` |
-| `lib/clerk/config.ts` | Committed `CLERK_PUBLISHABLE_KEY` literal + CSP |
+| `lib/clerk/config.ts` | Clerk CSP hosts |
 | `lib/asu/api.ts` | ASU Class Search API client (direct HTTP) |
 | `lib/queue/process-section.ts` | Section processing orchestrator |
 | `lib/queue/change-detector.ts` | Change detection logic |
@@ -140,7 +140,7 @@ pnpm install
 
 ### 3. Configure Clerk
 
-1. Create Clerk production instance; set the publishable key (`pk_live_...`) literal in `lib/clerk/config.ts` (and `CLERK_CSP` if custom domain).
+1. Create Clerk production instance; set its publishable key (`pk_live_...`) as `CLERK_PUBLISHABLE_KEY` in `wrangler.jsonc` `vars` (and `CLERK_CSP` in `lib/clerk/config.ts` if custom domain).
 2. Sessions → Customize token → `{"ext_id":"{{user.external_id || user.id}}"}` (short ID `ext_id` is the app’s `user_id`).
 3. Webhooks → Add Endpoint `https://your-domain.com/api/webhooks/clerk` (events `user.created/updated/deleted`, secret `whsec_...`).
 4. Social Connections → Google → Client ID/Secret (Cloud Console redirect `https://clerk.your-domain.com/v1/oauth_callback`, origins `https://your-domain.com` + `https://clerk.your-domain.com`).
@@ -148,10 +148,11 @@ pnpm install
 
 ### 4. Configure Environment Variables
 
-Copy `.env.example` to `.env.local` (or `.dev.vars` for `wrangler dev`):
+Copy `.env.example` to `.dev.vars` (gitignored). `pnpm run dev` and `pnpm run preview` both read it; while it exists Wrangler ignores `.env*` files. Production uses `wrangler.jsonc` vars plus the secrets below.
 
 | Variable | Description | Where to Get It |
 |----------|-------------|-----------------|
+| `CLERK_PUBLISHABLE_KEY` | Clerk publishable key (`pk_...`); production value is a `wrangler.jsonc` var, override it locally | Clerk Dashboard → API Keys |
 | `CLERK_SECRET_KEY` | Clerk secret key (`sk_live_...`) | Clerk Dashboard → API Keys |
 | `CLERK_JWT_KEY` | Clerk session PEM (`-----BEGIN PUBLIC KEY-----...`) | Clerk Dashboard → API Keys → bottom JWT public key/PEM |
 | `CLERK_WEBHOOK_SIGNING_SECRET` | Svix webhook secret (`whsec_...`) | Clerk Dashboard → Webhooks → Signing Secret |
@@ -205,6 +206,8 @@ Local Postgres required for any DB query (pages/APIs open a request-scoped Drizz
 docker run --name pickmyclass-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:18
 # apply migrations:
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pnpm run db:migrate
+# local secrets (once): fill in Clerk development instance keys
+cp .env.example .dev.vars
 
 pnpm run dev              # Vite+ TanStack Start dev server (localhost:3000) — uses wrangler.jsonc localConnectionString by default
 # override if needed:
@@ -214,7 +217,7 @@ CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://postgres:p
 ### Preview with Cloudflare
 
 ```bash
-pnpm run preview          # vp build + wrangler dev (real Worker locally)
+pnpm run preview          # vp build + wrangler dev (real Worker locally, localhost:8787)
 ```
 
 ### Other Commands
