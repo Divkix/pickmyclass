@@ -1,8 +1,7 @@
 "use client";
 
 import { ShieldCheck } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -17,7 +16,7 @@ interface ConsentFormProps {
 }
 
 export function ConsentForm({ saveFailed, next }: ConsentFormProps) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [ageVerified, setAgeVerified] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -50,7 +49,7 @@ export function ConsentForm({ saveFailed, next }: ConsentFormProps) {
         return;
       }
 
-      router.replace(safeInternalPath(next, "/dashboard"));
+      await navigate({ href: safeInternalPath(next, "/dashboard"), replace: true });
     } catch {
       setError("Could not save consent");
     } finally {
@@ -112,7 +111,7 @@ export function ConsentForm({ saveFailed, next }: ConsentFormProps) {
                   <Label htmlFor="agreedToTerms" className="cursor-pointer font-normal leading-5">
                     I agree to the{" "}
                     <Link
-                      href="/legal/terms"
+                      to="/legal/terms"
                       className="text-primary underline-offset-4 hover:underline"
                       target="_blank"
                       rel="noreferrer"
@@ -121,7 +120,7 @@ export function ConsentForm({ saveFailed, next }: ConsentFormProps) {
                     </Link>{" "}
                     and{" "}
                     <Link
-                      href="/legal/privacy"
+                      to="/legal/privacy"
                       className="text-primary underline-offset-4 hover:underline"
                       target="_blank"
                       rel="noreferrer"

@@ -4,7 +4,7 @@
 
 A high-performance, scalable class seat notification system for university students. Monitor class availability, get notified when seats open up, and track instructor assignments.
 
-Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hyperdrive + Clerk, and deployed on Cloudflare Workers for edge performance. See `AGENTS.md` (authoritative map).
+Built with TanStack Start (Vite + TanStack Router), PlanetScale Postgres via Cloudflare Hyperdrive + Clerk, and deployed on Cloudflare Workers for edge performance. See `AGENTS.md` (authoritative map).
 
 ## Features
 
@@ -39,7 +39,7 @@ Built with vinext (Vite-based Next.js), PlanetScale Postgres via Cloudflare Hype
 User Browser
       |
       v
-vinext App (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (Drizzle/node-postgres, polling)
+TanStack Start (Cloudflare Workers) <---> PlanetScale Postgres via Hyperdrive (Drizzle/node-postgres, polling)
       |         |                               ^
       |         | Clerk FAPI (clerk.*)          | polling GET /api/class-watches/states
       v         v                               | (30–60s, sectionRefKey)
@@ -85,25 +85,25 @@ Change Detection --> Cloudflare Email Service --> User Notifications
 | `lib/class-watches/class-watch-creation.ts` | Browser-side watch creation policy and transport |
 | `lib/cache/ttl-cache.ts` | TTL cache for ASU API responses |
 | `lib/api/schemas.ts` | API request validation schemas (watches, consent) |
-| `proxy.ts` | vinext middleware — auth gate (Clerk), redirects, security headers + CSP (see `lib/auth/decide-gate.ts`) |
-| `app/sign-in/[[...sign-in]]/page.tsx`, `app/sign-up/[[...sign-up]]/page.tsx` | Clerk hosted `<SignIn>`/`<SignUp>` components (`routing="path"`) |
+| `app/start.ts`, `lib/auth/request-gate.ts` | Start request middleware — auth gate (Clerk), redirects, security headers + CSP (see `lib/auth/decide-gate.ts`) |
+| `app/routes/sign-in/$.tsx`, `app/routes/sign-up/$.tsx` | Clerk hosted `<SignIn>`/`<SignUp>` components (`routing="path"`) |
 
 ### API Routes
 
 | Route | Methods | Description |
 |-------|---------|-------------|
-| `app/api/auth/signout/route.ts` | POST | Sign out (`revokeSession` + clear Clerk cookies) |
-| `app/api/auth/consent/route.ts` | POST | Only endpoint for recording form consent (`age_verified`/`agreed_to_terms`) |
-| `app/api/webhooks/clerk/route.ts` | POST | Svix `verifyWebhook` (`whsec_...`) → `syncUserMirrorFromClerkUser` (`user.created/updated/deleted`) |
-| `app/auth/post-oauth/route.ts` | GET | Mirror repair (can restore Clerk metadata consent) + consent routing; no query-param consent |
-| `app/api/class-watches/route.ts` | GET, POST, DELETE | Create, read, and delete class watches (no update) |
-| `app/api/class-watches/states/route.ts` | GET | Polling endpoint for live class states |
-| `app/api/monitoring/health/route.ts` | GET | System health check (DB, ASU API, email, config) |
-| `app/api/unsubscribe/route.ts` | GET, POST | CAN-SPAM/RFC 8058 compliant email unsubscribe |
-| `app/api/user/delete/route.ts` | DELETE | Soft-delete account (CCPA, 30-day retention) |
-| `app/api/user/export/route.ts` | GET | Export all user data in JSON (CCPA) |
-| `app/api/user/onboarding/route.ts` | GET, POST | Onboarding state (`pending→skipped→completed`) |
-| `app/api/onboarding/popular-class/route.ts` | GET | `get_most_watched_class` → ASU validate → `popularClass: null` fail-open |
+| `/api/auth/signout` | POST | Sign out (`revokeSession` + clear Clerk cookies) |
+| `/api/auth/consent` | POST | Only endpoint for recording form consent (`age_verified`/`agreed_to_terms`) |
+| `/api/webhooks/clerk` | POST | Svix `verifyWebhook` (`whsec_...`) → `syncUserMirrorFromClerkUser` (`user.created/updated/deleted`) |
+| `/auth/post-oauth` | GET | Mirror repair (can restore Clerk metadata consent) + consent routing; no query-param consent |
+| `/api/class-watches` | GET, POST, DELETE | Create, read, and delete class watches (no update) |
+| `/api/class-watches/states` | GET | Polling endpoint for live class states |
+| `/api/monitoring/health` | GET | System health check (DB, ASU API, email, config) |
+| `/api/unsubscribe` | GET, POST | CAN-SPAM/RFC 8058 compliant email unsubscribe |
+| `/api/user/delete` | DELETE | Soft-delete account (CCPA, 30-day retention) |
+| `/api/user/export` | GET | Export all user data in JSON (CCPA) |
+| `/api/user/onboarding` | GET, POST | Onboarding state (`pending→skipped→completed`) |
+| `/api/onboarding/popular-class` | GET | `get_most_watched_class` → ASU validate → `popularClass: null` fail-open |
 
 ### Workflows
 
@@ -187,7 +187,7 @@ Queues `pickmyclass-queue` + `pickmyclass-dlq` are created by `wrangler deploy` 
 
 ### 8. Customize Legal Pages (Optional)
 
-The `app/legal/` directory contains Terms/Privacy with `support@pickmyclass.app`. Update contact emails in `app/legal/page.tsx`, `app/legal/terms/page.tsx`, `app/legal/privacy/page.tsx` for your jurisdiction.
+Legal pages under `app/routes/legal/` use `support@pickmyclass.app`. Update their contact emails for your jurisdiction.
 
 ### 9. Verify Deployment
 
@@ -206,7 +206,7 @@ docker run --name pickmyclass-postgres -e POSTGRES_PASSWORD=postgres -p 5432:543
 # apply migrations:
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pnpm run db:migrate
 
-pnpm run dev              # Vite+ vinext dev server (localhost:3000) — uses wrangler.jsonc localConnectionString by default
+pnpm run dev              # Vite+ TanStack Start dev server (localhost:3000) — uses wrangler.jsonc localConnectionString by default
 # override if needed:
 CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://postgres:postgres@localhost:5432/postgres pnpm run dev
 ```
@@ -249,9 +249,9 @@ pnpm run db:studio                            # Drizzle Studio
 
 ## Tech Stack
 
-- **Frontend**: vinext (App Router), React 19, TypeScript, Tailwind CSS 4, `@clerk/react` via `ClerkClientProvider`
-- **Animations**: public landing sections use CSS-only on-load entrances with reduced-motion and no-script fallbacks; Framer Motion is scoped to `app/dashboard/layout.tsx` via `MotionProvider`. Shared buttons use a CSS press state.
-- **Backend**: Cloudflare Workers (via vinext), PlanetScale Postgres (Drizzle ORM over node-postgres) via Hyperdrive, Clerk (`@clerk/backend` edge JWT), Supabase Realtime **removed** (polling only)
+- **Frontend**: TanStack Start + TanStack Router, React 19, TypeScript, Tailwind CSS 4, `@clerk/react` via `ClerkClientProvider`
+- **Animations**: public landing sections use CSS-only on-load entrances with reduced-motion and no-script fallbacks; Framer Motion is scoped to the dashboard via `MotionProvider`. Shared buttons use a CSS press state.
+- **Backend**: Cloudflare Workers (TanStack Start server entry), PlanetScale Postgres (Drizzle ORM over node-postgres) via Hyperdrive, Clerk (`@clerk/backend` edge JWT), polling for live class states
 - **Data Source**: ASU Class Search API (direct HTTP)
 - **Email**: Cloudflare Email Service
 - **Deployment**: Cloudflare Workers + Queues + Workflows
@@ -259,22 +259,13 @@ pnpm run db:studio                            # Drizzle Studio
 ## Project Structure
 
 ```
-app/                         # App Router
-  ├── about/                 # About page
-  ├── api/                   # API endpoints (see table above)
-  ├── admin/                 # Admin panel (users, classes, dashboard)
-  ├── auth/post-oauth/       # OAuth landing (route.ts: mirror repair + consent routing)
-  ├── blog/                  # Blog pages (9 posts + RSS feed)
-  ├── dashboard/             # Main dashboard with polling updates
-  ├── dashboard/add/         # Add class watch page
-  ├── faq/                   # FAQ page
-  ├── go/[uni]/              # University redirect links
-  ├── legal/                 # Legal pages (terms, privacy)
-  ├── sign-in/[[...sign-in]]/ # Clerk hosted <SignIn> (path routing)
-  ├── sign-up/[[...sign-up]]/ # Clerk hosted <SignUp> (path routing)
-  ├── settings/              # User settings
-  ├── layout.tsx             # Root layout (ClerkClientProvider)
-  └── page.tsx               # Landing page
+app/                         # TanStack Start
+  ├── routes/                # File routes: pages, API server.handlers, metadata endpoints
+  │   └── __root.tsx         # Document shell, providers, root head and error boundaries
+  ├── router.tsx             # Router creation and SSR nonce
+  ├── start.ts               # Request and server-function middleware
+  ├── client.tsx             # Browser telemetry and hydration
+  └── routeTree.gen.ts       # Generated route tree (committed)
 
 lib/
   ├── api/                   # API schemas and validation
@@ -343,7 +334,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [vinext](https://github.com/cloudflare/vinext) - Vite-based Next.js for Cloudflare Workers
+- [TanStack Start](https://tanstack.com/start) - Full-stack React with Vite and TanStack Router
 - [PlanetScale](https://planetscale.com/) + [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) - Postgres + pooling
 - [Clerk](https://clerk.com/) - Auth (Backend + react, custom session claims + webhooks)
 - [Cloudflare Email Service](https://developers.cloudflare.com/email/) - Email sending from Workers

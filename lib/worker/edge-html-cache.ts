@@ -40,11 +40,9 @@ export function createEdgeHtmlCache(resolveCache: () => EdgeCacheStore) {
   return {
     isEligible(request: Request): boolean {
       const url = new URL(request.url);
-      const isRscRequest = request.headers.has("rsc") || url.searchParams.has("_rsc");
 
       return (
         request.method === "GET" &&
-        !isRscRequest &&
         isCacheablePath(url.pathname) &&
         !hasClerkSessionCookiesInHeader(request.headers.get("cookie"))
       );

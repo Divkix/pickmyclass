@@ -1,5 +1,7 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
+import { withJsonApiError } from "@/lib/worker/api-errors";
 
 type JsonValue =
   | string
@@ -67,10 +69,11 @@ async function loadHealthRoute(options: HealthRouteOptions = {}) {
 
   vi.doMock("@/lib/db", () => ({ getDbFromEnv }));
 
-  const mod = await import("@/app/api/monitoring/health/route");
+  // Import after per-test mocks so module initialization uses this test's bindings.
+  const mod = await import("@/app/routes/api/monitoring/health");
 
   return {
-    GET: mod.GET,
+    Route: mod.Route,
     fetchClassFromASU,
     getDbFromEnv,
     dbProbe,
@@ -107,10 +110,34 @@ describe("GET /api/monitoring/health branch coverage", () => {
     vi.doUnmock("@/lib/db");
   });
 
-  it("returns a cheap liveness probe without auth", async () => {
-    const { GET, getDbFromEnv, dbProbe } = await loadHealthRoute();
+  it("keeps the JSON 405 response for unsupported methods", async () => {
+    const { Route, getDbFromEnv, fetchClassFromASU } = await loadHealthRoute();
 
-    const response = await GET(request(""));
+    const request = new Request("https://pickmyclass.app/api/monitoring/health", {
+      method: "POST",
+    });
+
+    const result = await callRouteHandler(Route, "ANY", request);
+    const response = withJsonApiError(result, new URL(request.url).pathname, request.method);
+
+    expect(response.status).toBe(405);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: "POST is not allowed on /api/monitoring/health",
+      details: {
+        code: "method_not_allowed",
+        status: 405,
+        resolution: "Public endpoints are documented at https://pickmyclass.app/openapi.json",
+      },
+    });
+    expect(getDbFromEnv).not.toHaveBeenCalled();
+    expect(fetchClassFromASU).not.toHaveBeenCalled();
+  });
+
+  it("returns a cheap liveness probe without auth", async () => {
+    const { Route, getDbFromEnv, dbProbe } = await loadHealthRoute();
+
+    const response = await callRouteHandler(Route, "GET", request(""));
     const data = livenessResponse.parse(await response.json());
 
     expect(response.status).toBe(200);
@@ -121,9 +148,9 @@ describe("GET /api/monitoring/health branch coverage", () => {
 
   it("reports healthy detailed checks", async () => {
     vi.stubEnv("CRON_SECRET", "");
-    const { GET } = await loadHealthRoute();
+    const { Route } = await loadHealthRoute();
 
-    const response = await GET(request());
+    const response = await callRouteHandler(Route, "GET", request());
 
     const data = healthResponse.parse(await response.json());
 
@@ -137,12 +164,12 @@ describe("GET /api/monitoring/health branch coverage", () => {
   });
 
   it("reports degraded checks when database and ASU checks fail", async () => {
-    const { GET } = await loadHealthRoute({
+    const { Route } = await loadHealthRoute({
       dbResult: { error: { message: "database rejected query" } },
       asuError: new Error("ASU unavailable"),
     });
 
-    const response = await GET(request());
+    const response = await callRouteHandler(Route, "GET", request());
 
     const data = healthResponse.parse(await response.json());
 
@@ -156,7 +183,7 @@ describe("GET /api/monitoring/health branch coverage", () => {
   });
 
   it("reports unhealthy checks for service exceptions and missing config", async () => {
-    const { GET } = await loadHealthRoute({
+    const { Route } = await loadHealthRoute({
       dbThrows: true,
       envOverrides: {
         SUPABASE_SERVICE_ROLE_KEY: undefined,
@@ -168,7 +195,7 @@ describe("GET /api/monitoring/health branch coverage", () => {
       },
     });
 
-    const response = await GET(request());
+    const response = await callRouteHandler(Route, "GET", request());
 
     const data = healthResponse.parse(await response.json());
 

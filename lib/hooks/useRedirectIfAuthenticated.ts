@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/contexts/AuthContext";
 
 export function useRedirectIfAuthenticated(redirectTo = "/dashboard") {
   const { user, loading } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!loading && user?.email_confirmed_at) {
-      router.replace(redirectTo);
+      void navigate({ href: redirectTo, replace: true });
     }
-  }, [user, loading, router, redirectTo]);
+  }, [user, loading, navigate, redirectTo]);
 }

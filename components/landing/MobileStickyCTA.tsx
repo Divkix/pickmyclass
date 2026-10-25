@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -22,7 +22,7 @@ export function MobileStickyCTA() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 p-4 backdrop-blur sm:hidden">
       <Button asChild variant="gradient" size="lg" className="w-full">
-        <Link href="/sign-up">Get Started Free</Link>
+        <Link to="/sign-up">Get Started Free</Link>
       </Button>
     </div>
   );

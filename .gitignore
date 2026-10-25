@@ -14,9 +14,9 @@
 /coverage
 .playwright-mcp/
 
-# framework build output
-/.next/
-/out/
+# TanStack Start / Vite build output and temporary route generation
+/dist/
+/.tanstack/
 
 # production
 /build
@@ -34,12 +34,8 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
-# vercel
-.vercel
-
 # typescript
 *.tsbuildinfo
-next-env.d.ts
 
 # wrangler files
 .wrangler
@@ -47,11 +43,6 @@ worker-configuration.d.ts
 
 # git worktrees
 .worktrees/
-
-# vinext build cache
-.vinext/
-/dist/
-/worker/
 
 # Wrangler local secrets
 .dev.vars

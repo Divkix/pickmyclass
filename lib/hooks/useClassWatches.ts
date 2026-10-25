@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { Watchlist, WatchWithState } from "@/lib/class-watches/watchlist";
@@ -32,7 +32,7 @@ async function requestWatches(): Promise<Watchlist> {
  * Dashboard state seeded from the server-rendered `initial` watchlist, so the first view
  * needs no fetch. It refetches on pull-to-refresh, after restore, and when the Clerk user
  * stops matching the one the server rendered for. Every change to the watchlist or
- * onboarding calls `router.refresh()`, so Back never remounts from a stale RSC snapshot.
+ * onboarding invalidates loaders, so Back never remounts from stale cached loader data.
  */
 export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
   const router = useRouter();
@@ -88,7 +88,7 @@ export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
             setWatches(data.watches);
             setMaxWatches(data.maxWatches);
             setOnboarding(data.onboarding);
-            router.refresh();
+            void router.invalidate();
 
             return data;
           },
@@ -152,7 +152,7 @@ export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
     (watch: ClassWatchRow) => {
       setWatches((prev) => [{ ...watch, class_state: null }, ...prev]);
       setOnboarding((prev) => completeOnFirstWatch(prev));
-      router.refresh();
+      void router.invalidate();
     },
     [router],
   );
@@ -160,7 +160,7 @@ export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
   const handleOnboardingSkipped = useCallback(
     (state: OnboardingState) => {
       setOnboarding(state);
-      router.refresh();
+      void router.invalidate();
     },
     [router],
   );
@@ -175,7 +175,7 @@ export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
     }
 
     setWatches((prev) => prev.filter((w) => w.id !== watchId));
-    router.refresh();
+    void router.invalidate();
   };
 
   const filteredWatches = useMemo(() => {

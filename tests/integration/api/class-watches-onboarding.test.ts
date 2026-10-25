@@ -1,3 +1,4 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { createScriptedPostgres } from "../../mocks/scripted-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
@@ -50,7 +51,7 @@ vi.mock("cloudflare:workers", () => ({
   },
 }));
 
-import { GET, POST } from "@/app/api/class-watches/route";
+import { Route } from "@/app/routes/api/class-watches/index";
 
 const USER_ID = "user-123";
 
@@ -174,7 +175,11 @@ describe("/api/class-watches onboarding wiring", () => {
       h.next([]);
       h.next([]);
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
 
       expect(response.status).toBe(201);
       const body = await json<PostBody>(response);
@@ -210,7 +215,11 @@ describe("/api/class-watches onboarding wiring", () => {
       h.next([]);
       h.failNext(new Error("guard update failed"));
 
-      const response = await POST(postRequest({ term, class_nbr: "12345" }));
+      const response = await callRouteHandler(
+        Route,
+        "POST",
+        postRequest({ term, class_nbr: "12345" }),
+      );
 
       expect(response.status).toBe(201);
       const body = await json<PostBody>(response);
@@ -249,7 +258,7 @@ describe("/api/class-watches onboarding wiring", () => {
         ];
       });
 
-      const response = await GET(getRequest());
+      const response = await callRouteHandler(Route, "GET", getRequest());
 
       expect(response.status).toBe(200);
       const body = await json<GetBody>(response);
@@ -278,7 +287,7 @@ describe("/api/class-watches onboarding wiring", () => {
           : [],
       );
 
-      const response = await GET(getRequest());
+      const response = await callRouteHandler(Route, "GET", getRequest());
 
       expect(response.status).toBe(200);
       const body = await json<GetBody>(response);

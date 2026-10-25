@@ -1,8 +1,6 @@
-import type { MetadataRoute } from "next";
-
 export const SITE_ORIGIN = "https://pickmyclass.app";
 
-type ChangeFrequency = NonNullable<MetadataRoute.Sitemap[number]["changeFrequency"]>;
+type ChangeFrequency = "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
 
 export interface PublicPage {
   path: string;

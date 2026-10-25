@@ -1,3 +1,4 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import type { SessionWebhookEvent, UserDeletedJSON, UserJSON, WebhookEvent } from "@clerk/backend";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -52,7 +53,7 @@ vi.mock("@/lib/db", () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));
 
-import { POST } from "@/app/api/webhooks/clerk/route";
+import { Route } from "@/app/routes/api/webhooks/clerk";
 import {
   clearAuthorizationStateCache,
   readAuthorizationState,
@@ -168,7 +169,7 @@ describe("POST /api/webhooks/clerk", () => {
     const request = signedRequest();
     mockVerifyWebhook.mockRejectedValue(new Error("signature mismatch"));
 
-    const response = await POST(request);
+    const response = await callRouteHandler(Route, "POST", request);
     const data = await responseBody(response);
 
     expect(response.status).toBe(400);
@@ -194,7 +195,7 @@ describe("POST /api/webhooks/clerk", () => {
     mockVerifyWebhook.mockResolvedValue(event);
     mockSyncUserMirrorFromClerkUser.mockResolvedValue(true);
 
-    const response = await POST(signedRequest());
+    const response = await callRouteHandler(Route, "POST", signedRequest());
     const data = await responseBody(response);
 
     expect(response.status).toBe(200);
@@ -222,8 +223,8 @@ describe("POST /api/webhooks/clerk", () => {
     mockVerifyWebhook.mockResolvedValue(event);
     mockSyncUserMirrorFromClerkUser.mockResolvedValue(true);
 
-    await POST(signedRequest());
-    await POST(signedRequest());
+    await callRouteHandler(Route, "POST", signedRequest());
+    await callRouteHandler(Route, "POST", signedRequest());
 
     const registration = [
       "user_registered",
@@ -250,7 +251,7 @@ describe("POST /api/webhooks/clerk", () => {
     mockVerifyWebhook.mockResolvedValue(event);
     mockSyncUserMirrorFromClerkUser.mockResolvedValue(true);
 
-    await POST(signedRequest());
+    await callRouteHandler(Route, "POST", signedRequest());
 
     expect(mockLogEvent).toHaveBeenCalledTimes(1);
     expect(mockLogEvent.mock.calls[0][1]).toMatchObject({
@@ -270,7 +271,7 @@ describe("POST /api/webhooks/clerk", () => {
     mockVerifyWebhook.mockResolvedValue(event);
     mockSyncUserMirrorFromClerkUser.mockResolvedValue(false);
 
-    const response = await POST(signedRequest());
+    const response = await callRouteHandler(Route, "POST", signedRequest());
 
     expect(response.status).toBe(200);
     expect(mockLogEvent).not.toHaveBeenCalled();
@@ -290,7 +291,7 @@ describe("POST /api/webhooks/clerk", () => {
 
     mockVerifyWebhook.mockResolvedValue(event);
 
-    const response = await POST(signedRequest());
+    const response = await callRouteHandler(Route, "POST", signedRequest());
     const data = await responseBody(response);
 
     expect(response.status).toBe(200);
@@ -320,7 +321,7 @@ describe("POST /api/webhooks/clerk", () => {
 
     mockVerifyWebhook.mockResolvedValue(event);
 
-    const response = await POST(signedRequest());
+    const response = await callRouteHandler(Route, "POST", signedRequest());
 
     expect(response.status).toBe(422);
     expect(mockSyncUserMirrorFromClerkUser).not.toHaveBeenCalled();
@@ -340,7 +341,7 @@ describe("POST /api/webhooks/clerk", () => {
     mockVerifyWebhook.mockResolvedValue(event);
     mockSyncUserMirrorFromClerkUser.mockRejectedValue(new Error("users mirror connection reset"));
 
-    const response = await POST(signedRequest());
+    const response = await callRouteHandler(Route, "POST", signedRequest());
     const data = await responseBody(response);
 
     expect(response.status).toBe(500);
@@ -372,7 +373,7 @@ describe("POST /api/webhooks/clerk", () => {
 
     mockVerifyWebhook.mockResolvedValue(event);
 
-    const response = await POST(signedRequest());
+    const response = await callRouteHandler(Route, "POST", signedRequest());
     const data = await responseBody(response);
 
     expect(response.status).toBe(200);
@@ -394,7 +395,7 @@ describe("POST /api/webhooks/clerk", () => {
     mockVerifyWebhook.mockResolvedValue(event);
     mockSyncUserMirrorFromClerkUser.mockResolvedValue(false);
 
-    const response = await POST(signedRequest());
+    const response = await callRouteHandler(Route, "POST", signedRequest());
     const data = await responseBody(response);
 
     expect(response.status).toBe(200);
@@ -441,7 +442,7 @@ describe("POST /api/webhooks/clerk", () => {
     mockVerifyWebhook.mockResolvedValue(event);
     mockSoftDeleteUserById.mockResolvedValue(1);
 
-    const response = await POST(signedRequest());
+    const response = await callRouteHandler(Route, "POST", signedRequest());
     const data = await responseBody(response);
 
     expect(response.status).toBe(200);
@@ -478,7 +479,7 @@ describe("POST /api/webhooks/clerk", () => {
 
     mockVerifyWebhook.mockResolvedValue(event);
 
-    const response = await POST(signedRequest());
+    const response = await callRouteHandler(Route, "POST", signedRequest());
     const data = await responseBody(response);
 
     expect(response.status).toBe(200);
@@ -491,7 +492,7 @@ describe("POST /api/webhooks/clerk", () => {
     webhookEnv.CLERK_WEBHOOK_SIGNING_SECRET = undefined;
 
     try {
-      const response = await POST(signedRequest());
+      const response = await callRouteHandler(Route, "POST", signedRequest());
       const data = await responseBody(response);
 
       expect(response.status).toBe(500);

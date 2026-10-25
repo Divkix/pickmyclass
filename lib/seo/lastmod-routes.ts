@@ -13,7 +13,7 @@ interface ContentSource {
   ignore: readonly string[];
 }
 
-/** Page content that lives outside the route's own `app/` directory. */
+/** Page content that lives outside the route's own `app/routes/` directory. */
 const CONTENT_SOURCES: readonly ContentSource[] = [
   {
     prefix: "components/landing/",
@@ -23,30 +23,20 @@ const CONTENT_SOURCES: readonly ContentSource[] = [
   { prefix: "lib/faqs.ts", route: "/", ignore: [] },
 ];
 
-const ROOT_PAGE_FILE = /^page\.(?:tsx|ts|jsx|js|mdx)$/;
-
-/** `app/(marketing)/faq` -> `/faq`: route groups do not appear in the URL. */
-function routeForAppDirectory(directory: string): string {
-  const segments = directory
-    .split("/")
-    .slice(1)
-    .filter((segment) => !(segment.startsWith("(") && segment.endsWith(")")));
-
-  return `/${segments.join("/")}`;
-}
-
 function routeForAppFile(file: string): string | null {
-  if (!file.startsWith("app/")) return null;
+  if (!file.startsWith("app/routes/")) return null;
 
-  const slash = file.lastIndexOf("/");
-  const route = routeForAppDirectory(file.slice(0, slash));
-  const fileName = file.slice(slash + 1);
+  const routeFile = file.slice("app/routes/".length);
 
-  // Files directly in app/ (layout, sitemap, globals.css, ...) are shared by
-  // every route or by none; only the home page itself belongs to `/`.
-  if (route === "/" && !ROOT_PAGE_FILE.test(fileName)) return null;
+  if (routeFile === "__root.tsx" || !/\.(?:tsx|ts|jsx|js|mdx)$/.test(routeFile)) {
+    return null;
+  }
 
-  return route;
+  const route = routeFile
+    .replace(/\.(?:tsx|ts|jsx|js|mdx)$/, "")
+    .replace(/(?:^|\/)(?:index|route)$/, "");
+
+  return `/${route}`;
 }
 
 function routeForContentSource(file: string): string | null {
@@ -60,7 +50,7 @@ function routeForContentSource(file: string): string | null {
 /**
  * Routes from `trackedRoutes` whose content changed in `files`, sorted.
  * A file in a route's directory belongs to that route only, never to its
- * parent: `app/legal/terms/page.tsx` stamps `/legal/terms`, not `/legal`.
+ * parent: `app/routes/legal/terms.tsx` stamps `/legal/terms`, not `/legal`.
  */
 export function changedStaticRoutes(
   files: readonly string[],

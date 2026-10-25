@@ -83,7 +83,7 @@ function scrub(text: string): string {
 }
 
 // `instanceof` rather than `typeof`, which the anti-slop lint bans.
-export function isText(cause: unknown): cause is string {
+function isText(cause: unknown): cause is string {
   return Object(cause) instanceof String;
 }
 
@@ -155,6 +155,21 @@ export function errorFields(cause: unknown): ErrorFields {
   if (frames.length > 0) fields.stack = [`${name}: ${message}`, ...frames].join("\n");
 
   return fields;
+}
+
+/**
+ * A server error the app did not handle: thrown by a page render, a server
+ * route, the edge gate or a server function (named by `serverFn`). Start only
+ * prints these, so this is where they reach HyperDX as queryable fields.
+ */
+export function logRequestError(cause: unknown, request: Request, serverFn?: string): void {
+  log("RequestError").error("Unhandled request error", {
+    method: request.method,
+    // The query string can hold unsubscribe tokens.
+    path: new URL(request.url).pathname,
+    server_fn: serverFn,
+    ...errorFields(cause),
+  });
 }
 
 /** Which caller spent an ASU request, so UI and probe traffic can be told apart from Section Checks. */

@@ -1,3 +1,4 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { type SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -50,7 +51,7 @@ vi.mock("@/lib/auth/authorization-state", () => ({
   invalidateAuthorizationState: mockInvalidateAuthorizationState,
 }));
 
-import { POST } from "@/app/api/auth/consent/route";
+import { Route } from "@/app/routes/api/auth/consent";
 import { UnauthorizedError } from "@/lib/auth/require-user";
 
 const dialect = new PgDialect();
@@ -91,7 +92,9 @@ describe("POST /api/auth/consent", () => {
   it("rejects malformed JSON as invalid input without logging an internal error", async () => {
     const loggedError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const response = await POST(
+    const response = await callRouteHandler(
+      Route,
+      "POST",
       new Request("https://pickmyclass.app/api/auth/consent", {
         method: "POST",
         body: "{",
@@ -117,7 +120,7 @@ describe("POST /api/auth/consent", () => {
 
     const readBody = vi.spyOn(malformed, "json");
 
-    const response = await POST(malformed);
+    const response = await callRouteHandler(Route, "POST", malformed);
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ success: false, error: "Unauthorized" });
@@ -126,7 +129,11 @@ describe("POST /api/auth/consent", () => {
   });
 
   it("rejects requests that do not explicitly confirm both statements", async () => {
-    const response = await POST(request({ ageVerified: true, agreedToTerms: false }));
+    const response = await callRouteHandler(
+      Route,
+      "POST",
+      request({ ageVerified: true, agreedToTerms: false }),
+    );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
@@ -140,7 +147,7 @@ describe("POST /api/auth/consent", () => {
   it("requires an authenticated user", async () => {
     mockRequireUser.mockRejectedValueOnce(new UnauthorizedError());
 
-    const response = await POST(request(CONSENT_BODY));
+    const response = await callRouteHandler(Route, "POST", request(CONSENT_BODY));
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({
@@ -155,7 +162,7 @@ describe("POST /api/auth/consent", () => {
   it("returns setup-incomplete without recording consent when mirror repair finds no email", async () => {
     mockRepairUserMirror.mockResolvedValueOnce(null);
 
-    const response = await POST(request(CONSENT_BODY));
+    const response = await callRouteHandler(Route, "POST", request(CONSENT_BODY));
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
@@ -171,7 +178,7 @@ describe("POST /api/auth/consent", () => {
   it("does not invalidate access state when mirror repair fails", async () => {
     mockRepairUserMirror.mockRejectedValueOnce(new Error("clerk unavailable"));
 
-    const response = await POST(request(CONSENT_BODY));
+    const response = await callRouteHandler(Route, "POST", request(CONSENT_BODY));
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
@@ -185,7 +192,7 @@ describe("POST /api/auth/consent", () => {
   it("maps a Clerk fetch failure to the existing 500 fail path", async () => {
     mockGetUser.mockRejectedValueOnce(new Error("clerk unavailable"));
 
-    const response = await POST(request(CONSENT_BODY));
+    const response = await callRouteHandler(Route, "POST", request(CONSENT_BODY));
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
@@ -200,7 +207,7 @@ describe("POST /api/auth/consent", () => {
   it("does not invalidate access state when persistence fails", async () => {
     mockExecute.mockRejectedValueOnce(new Error("database unavailable"));
 
-    const response = await POST(request(CONSENT_BODY));
+    const response = await callRouteHandler(Route, "POST", request(CONSENT_BODY));
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
@@ -211,7 +218,7 @@ describe("POST /api/auth/consent", () => {
   });
 
   it("records consent atomically and invalidates the cached access decision afterwards", async () => {
-    const response = await POST(request(CONSENT_BODY));
+    const response = await callRouteHandler(Route, "POST", request(CONSENT_BODY));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ success: true });

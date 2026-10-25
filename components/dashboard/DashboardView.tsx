@@ -2,7 +2,7 @@
 
 import { m } from "framer-motion";
 import { Plus, Search } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ClassWatchCard } from "@/components/ClassWatchCard";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
@@ -115,7 +115,7 @@ export function DashboardView({ initial, ownerClerkUserId }: DashboardViewProps)
           )}
 
           <Button asChild variant="gradient" className="w-full gap-2 sm:w-auto">
-            <Link href="/dashboard/add">
+            <Link to="/dashboard/add">
               <Plus className="size-4" />
               Add Class
             </Link>

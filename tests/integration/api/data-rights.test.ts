@@ -1,3 +1,4 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
@@ -95,8 +96,8 @@ function scriptedDatabase(): Database {
   return drizzle(client as Database["$client"], { schema });
 }
 
-import { DELETE } from "@/app/api/user/delete/route";
-import { GET } from "@/app/api/user/export/route";
+import { Route as DeleteRoute } from "@/app/routes/api/user/delete";
+import { Route as ExportRoute } from "@/app/routes/api/user/export";
 import { UnauthorizedError } from "@/lib/auth/require-user";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -225,7 +226,12 @@ describe("user data rights APIs", () => {
     it("rejects data exports for unauthenticated users without touching the database", async () => {
       mockRequireUser.mockRejectedValueOnce(new UnauthorizedError());
 
-      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
+      const response = await callRouteHandler(
+        ExportRoute,
+        "GET",
+        new Request("https://pickmyclass.app/api/user/export"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(401);
@@ -237,7 +243,12 @@ describe("user data rights APIs", () => {
     it("exports account, profile, watch, and notification data as an attachment", async () => {
       scriptExportRows({});
 
-      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
+      const response = await callRouteHandler(
+        ExportRoute,
+        "GET",
+        new Request("https://pickmyclass.app/api/user/export"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(200);
@@ -269,7 +280,12 @@ describe("user data rights APIs", () => {
     it("preserves ISO-8601 UTC timestamps and nested jsonb shapes in exported rows", async () => {
       scriptExportRows({});
 
-      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
+      const response = await callRouteHandler(
+        ExportRoute,
+        "GET",
+        new Request("https://pickmyclass.app/api/user/export"),
+      );
+
       const data = await json(response);
 
       const watches = exportRows(data.class_watches);
@@ -295,7 +311,12 @@ describe("user data rights APIs", () => {
         },
       });
 
-      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
+      const response = await callRouteHandler(
+        ExportRoute,
+        "GET",
+        new Request("https://pickmyclass.app/api/user/export"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(200);
@@ -309,7 +330,12 @@ describe("user data rights APIs", () => {
     it("omits unset profile fields while keeping the account-status key present", async () => {
       scriptExportRows({ profile: null });
 
-      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
+      const response = await callRouteHandler(
+        ExportRoute,
+        "GET",
+        new Request("https://pickmyclass.app/api/user/export"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(200);
@@ -326,7 +352,12 @@ describe("user data rights APIs", () => {
         new Error("database rejected query"),
       );
 
-      const response = await GET(new Request("https://pickmyclass.app/api/user/export"));
+      const response = await callRouteHandler(
+        ExportRoute,
+        "GET",
+        new Request("https://pickmyclass.app/api/user/export"),
+      );
+
       const data = await json(response);
 
       expect(response.status).toBe(500);
@@ -338,7 +369,9 @@ describe("user data rights APIs", () => {
     it("rejects account deletion for unauthenticated users", async () => {
       mockRequireUser.mockRejectedValueOnce(new UnauthorizedError());
 
-      const response = await DELETE(
+      const response = await callRouteHandler(
+        DeleteRoute,
+        "DELETE",
         new Request("https://pickmyclass.app/api/user/delete", { method: "DELETE" }),
       );
 
@@ -353,7 +386,9 @@ describe("user data rights APIs", () => {
       // Mirror resolution, then the tombstone insert.
       recorder.outcomes.push([{ id: "user-123" }]);
 
-      const response = await DELETE(
+      const response = await callRouteHandler(
+        DeleteRoute,
+        "DELETE",
         new Request("https://pickmyclass.app/api/user/delete", { method: "DELETE" }),
       );
 
@@ -380,7 +415,9 @@ describe("user data rights APIs", () => {
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       recorder.outcomes.push(new Error("update failed"));
 
-      const response = await DELETE(
+      const response = await callRouteHandler(
+        DeleteRoute,
+        "DELETE",
         new Request("https://pickmyclass.app/api/user/delete", { method: "DELETE" }),
       );
 
@@ -402,7 +439,9 @@ describe("user data rights APIs", () => {
     it("still completes account deletion when session revocation fails", async () => {
       mockRevokeAllUserSessions.mockRejectedValueOnce(new Error("signout failed"));
 
-      const response = await DELETE(
+      const response = await callRouteHandler(
+        DeleteRoute,
+        "DELETE",
         new Request("https://pickmyclass.app/api/user/delete", { method: "DELETE" }),
       );
 

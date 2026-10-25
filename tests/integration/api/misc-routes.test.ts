@@ -1,3 +1,4 @@
+import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
@@ -11,8 +12,8 @@ vi.mock("@/lib/auth/clerk-session", () => ({
   revokeSession: mockRevokeSession,
 }));
 
-import { POST as postSignout } from "@/app/api/auth/signout/route";
-import { GET as redirectToUniversity } from "@/app/go/[uni]/route";
+import { Route as SignoutRoute } from "@/app/routes/api/auth/signout";
+import { Route as UniversityRoute } from "@/app/routes/go/$uni";
 
 function get(url: string): Request {
   return new Request(url);
@@ -47,7 +48,7 @@ describe("misc API routes", () => {
       method: "POST",
     });
 
-    const response = await postSignout(req);
+    const response = await callRouteHandler(SignoutRoute, "POST", req);
     const data = await json(response);
 
     expect(response.status).toBe(200);
@@ -72,17 +73,17 @@ describe("misc API routes", () => {
       method: "POST",
     });
 
-    const response = await postSignout(req);
+    const response = await callRouteHandler(SignoutRoute, "POST", req);
 
     expect(response.status).toBe(200);
   });
 
   it("redirects ASU short links after sanitizing parameters", async () => {
-    const response = await redirectToUniversity(
+    const response = await callRouteHandler(
+      UniversityRoute,
+      "GET",
       get("https://pickmyclass.app/go/asu?classNbr=12x345&term=2261abc"),
-      {
-        params: Promise.resolve({ uni: "asu" }),
-      },
+      { uni: "asu" },
     );
 
     expect(response.status).toBe(302);
@@ -92,13 +93,20 @@ describe("misc API routes", () => {
   });
 
   it("rejects unsupported or incomplete university short links", async () => {
-    const missingParams = await redirectToUniversity(get("https://pickmyclass.app/go/asu"), {
-      params: Promise.resolve({ uni: "asu" }),
-    });
+    const missingParams = await callRouteHandler(
+      UniversityRoute,
+      "GET",
+      get("https://pickmyclass.app/go/asu"),
+      {
+        uni: "asu",
+      },
+    );
 
-    const unsupported = await redirectToUniversity(
+    const unsupported = await callRouteHandler(
+      UniversityRoute,
+      "GET",
       get("https://pickmyclass.app/go/uofa?classNbr=12345&term=2261"),
-      { params: Promise.resolve({ uni: "uofa" }) },
+      { uni: "uofa" },
     );
 
     expect(missingParams.status).toBe(400);

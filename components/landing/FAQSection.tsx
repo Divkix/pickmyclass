@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { faqs } from "@/lib/faqs";
 
 export function FAQSection() {
@@ -39,7 +39,7 @@ export function FAQSection() {
 
         <div className="mt-8 text-center">
           <Link
-            href="/faq"
+            to="/faq"
             className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
           >
             See all frequently asked questions &rarr;

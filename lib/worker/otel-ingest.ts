@@ -4,7 +4,7 @@
  * The page posts OTLP to `/otel/v1/{traces,logs}`, and the Worker forwards it
  * to the collector with the ingestion key attached. The key never ships to the
  * browser, and the CSP needs no third-party `connect-src`. This runs ahead of
- * vinext and auth, so a telemetry batch costs one cheap Worker hop.
+ * TanStack Start and auth, so a telemetry batch costs one cheap Worker hop.
  */
 import { z } from "zod";
 import { errorFields, log, redactEmails } from "@/lib/log";

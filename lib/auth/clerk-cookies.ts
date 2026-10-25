@@ -25,7 +25,7 @@ function isClerkSessionCookieName(cookieName: string): boolean {
   );
 }
 
-export function hasClerkSessionCookies(cookieNames: Iterable<string>): boolean {
+function hasClerkSessionCookies(cookieNames: Iterable<string>): boolean {
   for (const cookieName of cookieNames) {
     if (isClerkSessionCookieName(cookieName)) {
       return true;

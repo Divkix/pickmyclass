@@ -1,14 +1,13 @@
 "use client";
 
 import { Home, PlusCircle, Settings } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 export function BottomNav() {
   const { user, loading } = useAuth();
-  const pathname = usePathname();
+  const pathname = useLocation({ select: (location) => location.pathname });
 
   if (loading || !user || pathname === "/admin" || pathname.startsWith("/admin/")) return null;
 
@@ -34,7 +33,8 @@ export function BottomNav() {
       isFab: false,
       active: pathname === "/settings",
     },
-  ];
+    // SAFETY: Navigation targets are fixed route literals, not user-provided URLs.
+  ] as const;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden" aria-label="Mobile navigation">
@@ -51,7 +51,7 @@ export function BottomNav() {
             return (
               <Link
                 key={item.label}
-                href={item.href}
+                to={item.href}
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   item.isFab

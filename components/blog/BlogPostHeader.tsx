@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { formatAbsoluteDate } from "@/lib/utils/time-format";
 
 const dateFormat: Intl.DateTimeFormatOptions = { month: "long", timeZone: "UTC" };
@@ -22,11 +22,11 @@ export function BlogPostHeader({
     <>
       <div className="not-prose mb-4">
         <nav className="text-sm text-muted-foreground">
-          <Link href="/" className="hover:text-foreground transition-colors">
+          <Link to="/" className="hover:text-foreground transition-colors">
             Home
           </Link>
           <span className="mx-2">/</span>
-          <Link href="/blog" className="hover:text-foreground transition-colors">
+          <Link to="/blog" className="hover:text-foreground transition-colors">
             Blog
           </Link>
           <span className="mx-2">/</span>

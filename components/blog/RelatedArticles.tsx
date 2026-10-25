@@ -1,7 +1,8 @@
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
+import type { BlogPost } from "@/lib/blog/posts";
 
 interface RelatedArticle {
-  href: string;
+  href: `/blog/${BlogPost["slug"]}`;
   title: string;
 }
 
@@ -13,7 +14,7 @@ export function RelatedArticles({ articles }: { articles: RelatedArticle[] }) {
         {articles.map((article) => (
           <li key={article.href}>
             <Link
-              href={article.href}
+              to={article.href}
               className="text-primary hover:text-primary/80 transition-colors"
             >
               {article.title}

@@ -5,10 +5,9 @@
  * Supabase anon key). It is not a secret — the Clerk instance is rate-limited
  * and access-controlled in the Clerk dashboard.
  *
- * This must be a real string literal (not process.env.NEXT_PUBLIC_*), because
- * client bundles only get NEXT_PUBLIC_* values that existed at *build* time.
- * Wrangler `vars` alone are runtime-only and would leave the browser with
- * `ClerkProvider publishableKey={undefined}`.
+ * Keep this public key literal so browser builds need no environment setup.
+ * Vite can inline import.meta.env.VITE_* values at build time; Wrangler `vars`
+ * alone are runtime-only and cannot supply a browser publishable key.
  */
 export const CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsucGlja215Y2xhc3MuYXBwJA";
 
