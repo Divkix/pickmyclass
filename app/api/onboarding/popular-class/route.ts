@@ -6,13 +6,7 @@ import { getDbFromEnv } from "@/lib/db";
 import { getMostWatchedClass } from "@/lib/db/queries";
 import { errorFields, log } from "@/lib/log";
 import { getSelectableTerms } from "@/lib/asu/terms";
-
-export interface PopularClass {
-  [key: string]: string | ClassDetails;
-  class_nbr: string;
-  term: string;
-  details: ClassDetails;
-}
+import type { PopularClass } from "@/lib/types/class";
 
 export async function GET(request: Request) {
   return withAuth(request, async () => {
@@ -47,7 +41,13 @@ export async function GET(request: Request) {
         return ok({ popularClass: null });
       }
 
-      return ok({ popularClass: { class_nbr: popular.class_nbr, term: popular.term, details } });
+      return ok({
+        popularClass: {
+          class_nbr: popular.class_nbr,
+          term: popular.term,
+          details,
+        } satisfies PopularClass,
+      });
     } catch (error) {
       // The modal treats a missing popular class as optional, so a lookup
       // failure must not break onboarding.
