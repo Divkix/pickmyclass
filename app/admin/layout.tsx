@@ -7,7 +7,7 @@ import { PauseSessionReplay } from "@/components/telemetry/PauseSessionReplay";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { verifyAdmin } from "@/lib/auth/admin";
-import { AdminNavigation } from "./AdminNavigation";
+import { AdminNavigation } from "@/components/admin/AdminNavigation";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },

@@ -1,4 +1,4 @@
-import { ConsentForm } from "@/app/consent/ConsentForm";
+import { ConsentForm } from "@/components/consent/ConsentForm";
 import { param } from "@/lib/utils/page-params";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;

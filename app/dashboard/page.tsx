@@ -1,4 +1,4 @@
-import { DashboardView } from "@/app/dashboard/DashboardView";
+import { DashboardView } from "@/components/dashboard/DashboardView";
 import { requirePageIdentity } from "@/lib/auth/page-session";
 import { readWatchlist } from "@/lib/class-watches/watchlist";
 import { getDbFromEnv } from "@/lib/db";
