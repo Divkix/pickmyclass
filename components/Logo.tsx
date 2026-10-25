@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
@@ -14,13 +13,12 @@ const sizeClasses = {
 
 export function Logo({ variant = "full", size = "md", className }: LogoProps) {
   const iconContent = (
-    <Image
+    <img
       src="/favicon.svg"
       alt="PickMyClass Logo"
       width={40}
       height={40}
       className={cn(sizeClasses[size], "w-auto", className)}
-      unoptimized
     />
   );
 
