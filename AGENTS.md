@@ -11,7 +11,7 @@ Toolchain is **Vite+ (`vp`)** wrapping Oxlint, Oxfmt and Vitest. Call it through
 | Task | Command |
 | --- | --- |
 | Install | `pnpm install` (pnpm 12.14.0, Node from `.node-version`) |
-| Dev server | `pnpm run dev` (Vite; one instance per checkout: a second one exits and prints the running server's URL) |
+| Dev server | `pnpm run dev` (Vite on `localhost:3000`, `strictPort`: a second instance exits because the port is taken) |
 | Build | `pnpm run build` |
 | Real Worker locally | `pnpm run preview` (build + `wrangler dev`); run before any deploy |
 | All non-DB tests | `pnpm run test` · with coverage reports (no minimum threshold): `pnpm run test:coverage` |
