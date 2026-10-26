@@ -11,12 +11,13 @@ import {
 } from "@/components/ui/select";
 import { useDebouncedSearchParam } from "@/lib/hooks/useDebouncedSearchParam";
 
+// Only declared filter keys and values can update the table's typed router search.
 interface UsersTableFiltersProps {
   search: string;
   role: "all" | "admin" | "user";
   verified: "all" | "verified" | "unverified";
   watchCount: "all" | "none" | "1-5" | "6-10" | "10+";
-  onNavigate: (updates: Record<string, string>) => void;
+  onNavigate: (updates: Partial<Omit<UsersTableFiltersProps, "onNavigate">>) => void;
 }
 
 export function UsersTableFiltersComponent({
@@ -53,7 +54,14 @@ export function UsersTableFiltersComponent({
           />
         </div>
 
-        <Select value={role} onValueChange={(value) => onNavigate({ role: value })}>
+        <Select
+          value={role}
+          onValueChange={(value) => {
+            if (value === "all" || value === "admin" || value === "user") {
+              onNavigate({ role: value });
+            }
+          }}
+        >
           <SelectTrigger>
             <SelectValue placeholder="All Roles" />
           </SelectTrigger>
@@ -64,7 +72,14 @@ export function UsersTableFiltersComponent({
           </SelectContent>
         </Select>
 
-        <Select value={verified} onValueChange={(value) => onNavigate({ verified: value })}>
+        <Select
+          value={verified}
+          onValueChange={(value) => {
+            if (value === "all" || value === "verified" || value === "unverified") {
+              onNavigate({ verified: value });
+            }
+          }}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Email Status" />
           </SelectTrigger>
@@ -75,7 +90,20 @@ export function UsersTableFiltersComponent({
           </SelectContent>
         </Select>
 
-        <Select value={watchCount} onValueChange={(value) => onNavigate({ watchCount: value })}>
+        <Select
+          value={watchCount}
+          onValueChange={(value) => {
+            if (
+              value === "all" ||
+              value === "none" ||
+              value === "1-5" ||
+              value === "6-10" ||
+              value === "10+"
+            ) {
+              onNavigate({ watchCount: value });
+            }
+          }}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Watch Count" />
           </SelectTrigger>

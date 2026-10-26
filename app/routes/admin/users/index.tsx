@@ -11,7 +11,8 @@ import { parsePageParam } from "@/lib/utils/page-params";
 
 const PAGE_SIZE = 25;
 
-const usersSearchSchema = z.object({
+// Router serialization preserves literal search text; validation does not coerce JSON values.
+export const usersSearchSchema = z.object({
   page: z
     .union([z.string(), z.number()])
     .default("")
@@ -29,11 +30,7 @@ const usersSearchSchema = z.object({
     .default("created_at")
     .catch("created_at"),
   dir: z.enum(["asc", "desc"]).default("desc").catch("desc"),
-  search: z
-    .union([z.string(), z.number(), z.boolean(), z.null()])
-    .default("")
-    .catch("")
-    .transform(String),
+  search: z.string().default("").catch(""),
   role: z.enum(["all", "admin", "user"]).default("all").catch("all"),
   verified: z.enum(["all", "verified", "unverified"]).default("all").catch("all"),
   watchCount: z.enum(["all", "none", "1-5", "6-10", "10+"]).default("all").catch("all"),

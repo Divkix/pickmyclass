@@ -1,6 +1,5 @@
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useHydrated, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
-import { useHydrated } from "@/lib/hooks/useHydrated";
 
 export function Footer() {
   const pathname = useLocation({ select: (location) => location.pathname });

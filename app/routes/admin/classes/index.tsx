@@ -12,7 +12,8 @@ import { parsePageParam } from "@/lib/utils/page-params";
 
 const PAGE_SIZE = 25;
 
-const classesSearchSchema = z.object({
+// Router serialization preserves literal search text; validation does not coerce JSON values.
+export const classesSearchSchema = z.object({
   page: z
     .union([z.string(), z.number()])
     .default("")
@@ -31,16 +32,12 @@ const classesSearchSchema = z.object({
     .default("watcher_count")
     .catch("watcher_count"),
   dir: z.enum(["asc", "desc"]).default("desc").catch("desc"),
-  search: z
-    .union([z.string(), z.number(), z.boolean(), z.null()])
-    .default("")
-    .catch("")
-    .transform(String),
+  search: z.string().default("").catch(""),
   subject: z
-    .union([z.string(), z.number(), z.boolean(), z.null()])
+    .string()
     .default("all")
     .catch("all")
-    .transform((value) => String(value) || "all"),
+    .transform((value) => value || "all"),
   seatStatus: z.enum(["all", "full", "limited", "available"]).default("all").catch("all"),
   instructor: z.enum(["all", "staff", "named"]).default("all").catch("all"),
   watcherCount: z.enum(["all", "none", "1-5", "6-10", "10+"]).default("all").catch("all"),

@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 
+// Page-only updates preserve the current filters and use the router's numeric page state.
 interface TablePaginationProps {
   page: number;
   pageSize: number;
@@ -7,7 +8,7 @@ interface TablePaginationProps {
   totalPages: number;
   emptyMessage: string;
   itemNoun: string;
-  onNavigate: (updates: Record<string, string>) => void;
+  onNavigate: (updates: { page: number }) => void;
 }
 
 export function TablePagination({
@@ -37,7 +38,7 @@ export function TablePagination({
             variant="outline"
             size="sm"
             disabled={page <= 1}
-            onClick={() => onNavigate({ page: String(page - 1) })}
+            onClick={() => onNavigate({ page: page - 1 })}
           >
             Previous
           </Button>
@@ -48,7 +49,7 @@ export function TablePagination({
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
-            onClick={() => onNavigate({ page: String(page + 1) })}
+            onClick={() => onNavigate({ page: page + 1 })}
           >
             Next
           </Button>
