@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { useDebouncedSearchParam } from "@/lib/hooks/useDebouncedSearchParam";
 
+// Only declared filter keys and values can update the table's typed router search.
 interface ClassesTableFiltersProps {
   subjects: string[];
   search: string;
@@ -18,7 +19,7 @@ interface ClassesTableFiltersProps {
   seatStatus: "all" | "full" | "limited" | "available";
   instructor: "all" | "staff" | "named";
   watcherCount: "all" | "none" | "1-5" | "6-10" | "10+";
-  onNavigate: (updates: Record<string, string>) => void;
+  onNavigate: (updates: Partial<Omit<ClassesTableFiltersProps, "subjects" | "onNavigate">>) => void;
 }
 
 export function ClassesTableFiltersComponent({
@@ -81,7 +82,19 @@ export function ClassesTableFiltersComponent({
           </SelectContent>
         </Select>
 
-        <Select value={seatStatus} onValueChange={(value) => onNavigate({ seatStatus: value })}>
+        <Select
+          value={seatStatus}
+          onValueChange={(value) => {
+            if (
+              value === "all" ||
+              value === "full" ||
+              value === "limited" ||
+              value === "available"
+            ) {
+              onNavigate({ seatStatus: value });
+            }
+          }}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Seat Status" />
           </SelectTrigger>
@@ -93,7 +106,14 @@ export function ClassesTableFiltersComponent({
           </SelectContent>
         </Select>
 
-        <Select value={instructor} onValueChange={(value) => onNavigate({ instructor: value })}>
+        <Select
+          value={instructor}
+          onValueChange={(value) => {
+            if (value === "all" || value === "staff" || value === "named") {
+              onNavigate({ instructor: value });
+            }
+          }}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Instructor" />
           </SelectTrigger>
@@ -104,7 +124,20 @@ export function ClassesTableFiltersComponent({
           </SelectContent>
         </Select>
 
-        <Select value={watcherCount} onValueChange={(value) => onNavigate({ watcherCount: value })}>
+        <Select
+          value={watcherCount}
+          onValueChange={(value) => {
+            if (
+              value === "all" ||
+              value === "none" ||
+              value === "1-5" ||
+              value === "6-10" ||
+              value === "10+"
+            ) {
+              onNavigate({ watcherCount: value });
+            }
+          }}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Watchers" />
           </SelectTrigger>

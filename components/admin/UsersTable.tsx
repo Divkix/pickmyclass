@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useHydrated, useNavigate } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -10,8 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { UserSortField, UserWithWatchCount } from "@/lib/db/admin-queries";
-import { useHydrated } from "@/lib/hooks/useHydrated";
-import { useTableNavigate } from "@/lib/hooks/useTableNavigate";
 import { formatAbsoluteDate, formatRelativeDate } from "@/lib/utils/time-format";
 import { SortableHeader } from "./SortableHeader";
 import { UsersTableFiltersComponent } from "./UsersTableFilters";
@@ -60,16 +58,19 @@ export function UsersTable({
   verified,
   watchCount,
 }: UsersTableProps) {
-  const navigateTo = useNavigate();
-  const navigate = useTableNavigate();
+  // Typed router search preserves literal text; filters and sorting reset the page.
+  const navigate = useNavigate({ from: "/admin/users/" });
   const mounted = useHydrated();
 
   const handleSortClick = (field: UserSortField) => {
-    if (sort === field) {
-      navigate({ sort: field, dir: dir === "asc" ? "desc" : "asc", page: "1" });
-    } else {
-      navigate({ sort: field, dir: "asc", page: "1" });
-    }
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        sort: field,
+        dir: sort === field && dir === "asc" ? "desc" : "asc",
+        page: 1,
+      }),
+    });
   };
 
   const renderSortIconFromUrl = (field: UserSortField) => {
@@ -85,7 +86,7 @@ export function UsersTable({
     const target = event.target as HTMLElement;
 
     if (target.tagName === "A" || target.closest("a")) return;
-    void navigateTo({ to: "/admin/users/$userId", params: { userId } });
+    void navigate({ to: "/admin/users/$userId", params: { userId } });
   };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -97,7 +98,9 @@ export function UsersTable({
         role={role}
         verified={verified}
         watchCount={watchCount}
-        onNavigate={(updates) => navigate({ ...updates, page: "1" })}
+        onNavigate={(updates) =>
+          void navigate({ search: (prev) => ({ ...prev, ...updates, page: 1 }) })
+        }
       />
 
       <div className="rounded-lg border bg-card">
@@ -237,7 +240,7 @@ export function UsersTable({
         totalPages={totalPages}
         emptyMessage="No users found"
         itemNoun="users"
-        onNavigate={navigate}
+        onNavigate={(updates) => void navigate({ search: (prev) => ({ ...prev, ...updates }) })}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, ChevronsUpDown, Clock, Mail, Users } from "lucide-react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useHydrated, useNavigate } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -11,8 +11,6 @@ import {
 } from "@/components/ui/table";
 import type { ClassSortField } from "@/lib/db/admin-queries";
 import type { ClassWithWatchers } from "@/lib/db/admin-queries";
-import { useHydrated } from "@/lib/hooks/useHydrated";
-import { useTableNavigate } from "@/lib/hooks/useTableNavigate";
 import { getSeatBadgeVariant } from "@/lib/utils/seat-badge";
 import { formatAbsoluteDate, formatRelativeTime } from "@/lib/utils/time-format";
 import { SortableHeader } from "./SortableHeader";
@@ -48,16 +46,19 @@ export function ClassesTable({
   instructor,
   watcherCount,
 }: ClassesTableProps) {
-  const navigateTo = useNavigate();
-  const navigate = useTableNavigate();
+  // Typed router search preserves literal text; filters and sorting reset the page.
+  const navigate = useNavigate({ from: "/admin/classes/" });
   const mounted = useHydrated();
 
   const handleSortClick = (field: ClassSortField) => {
-    if (sort === field) {
-      navigate({ sort: field, dir: dir === "asc" ? "desc" : "asc", page: "1" });
-    } else {
-      navigate({ sort: field, dir: "asc", page: "1" });
-    }
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        sort: field,
+        dir: sort === field && dir === "asc" ? "desc" : "asc",
+        page: 1,
+      }),
+    });
   };
 
   const renderSortIconFromUrl = (field: ClassSortField) => {
@@ -95,7 +96,9 @@ export function ClassesTable({
         seatStatus={seatStatus}
         instructor={instructor}
         watcherCount={watcherCount}
-        onNavigate={(updates) => navigate({ ...updates, page: "1" })}
+        onNavigate={(updates) =>
+          void navigate({ search: (prev) => ({ ...prev, ...updates, page: 1 }) })
+        }
       />
 
       <div className="rounded-lg border bg-card">
@@ -183,7 +186,7 @@ export function ClassesTable({
                   key={classItem.id}
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => {
-                    void navigateTo({
+                    void navigate({
                       to: "/admin/classes/$term/$classNbr",
                       params: { term: classItem.term, classNbr: classItem.class_nbr },
                     });
@@ -258,7 +261,7 @@ export function ClassesTable({
         totalPages={totalPages}
         emptyMessage="No classes match the selected filters"
         itemNoun="classes"
-        onNavigate={navigate}
+        onNavigate={(updates) => void navigate({ search: (prev) => ({ ...prev, ...updates }) })}
       />
     </div>
   );
