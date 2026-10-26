@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { desc, eq } from "drizzle-orm";
 import type { Database } from "@/lib/db";
 import { getWatchedClassStates } from "@/lib/db/queries";
@@ -7,7 +8,10 @@ import { type OnboardingPayload, readOnboardingState, toOnboardingState } from "
 import { sectionRefKey } from "@/lib/section-ref";
 import type { ClassStateRow, UserClassWatch } from "@/lib/types/class-watch";
 
-export const MAX_WATCHES_PER_USER = parseInt(process.env.MAX_WATCHES_PER_USER || "10", 10);
+/** Read the cap per request: Worker bindings are unavailable at module initialization. */
+export function maxWatchesPerUser(): number {
+  return parseInt(env.MAX_WATCHES_PER_USER || "10", 10);
+}
 
 export type WatchWithState = UserClassWatch & { class_state: ClassStateRow | null };
 
@@ -17,7 +21,7 @@ export interface Watchlist {
   onboarding: OnboardingPayload;
 }
 
-/** The dashboard's data: shared by `GET /api/class-watches` and the server-rendered page. */
+/** The dashboard's data and request-time cap, shared by the API and server-rendered page. */
 export async function readWatchlist(db: Database, userId: string): Promise<Watchlist> {
   const [watches, onboarding] = await Promise.all([
     db
@@ -51,7 +55,7 @@ export async function readWatchlist(db: Database, userId: string): Promise<Watch
       ...watch,
       class_state: statesMap[sectionRefKey(watch)] ?? null,
     })),
-    maxWatches: MAX_WATCHES_PER_USER,
+    maxWatches: maxWatchesPerUser(),
     onboarding,
   };
 }

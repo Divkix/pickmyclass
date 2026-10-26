@@ -16,6 +16,7 @@ const {
   mockGetSessionIdentity,
   mockFetchClassFromASU,
   mockLogEvent,
+  workerEnv,
   AuthError,
   NotFoundError,
 } = vi.hoisted(() => {
@@ -28,6 +29,11 @@ const {
     mockGetSessionIdentity: vi.fn(),
     mockFetchClassFromASU: vi.fn(),
     mockLogEvent: vi.fn(),
+    workerEnv: {
+      ASU_API_BASE_URL: "https://mock-asu-api.example.com",
+      ASU_API_TOKEN: "mock-token",
+      MAX_WATCHES_PER_USER: "10",
+    },
     NotFoundError: MockNotFoundError,
     AuthError: MockAuthError,
   };
@@ -53,10 +59,7 @@ vi.mock("@/lib/log", async (importOriginal) => ({
 }));
 
 vi.mock("cloudflare:workers", () => ({
-  env: {
-    ASU_API_BASE_URL: "https://mock-asu-api.example.com",
-    ASU_API_TOKEN: "mock-token",
-  },
+  env: workerEnv,
 }));
 
 import { Route } from "@/app/routes/api/class-watches/index";
@@ -180,6 +183,7 @@ async function json<T extends object>(response: Response): Promise<T> {
 describe("/api/class-watches", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    workerEnv.MAX_WATCHES_PER_USER = "10";
     vi.spyOn(console, "error").mockImplementation(() => {});
     h = createScriptedPostgres();
     mockGetDbFromEnv.mockImplementation(() => h.db);
@@ -247,6 +251,22 @@ describe("/api/class-watches", () => {
       });
       expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
       expect(h.statements).toHaveLength(2);
+    });
+
+    it("reads the active Worker watch cap on each request", async () => {
+      h = createScriptedPostgres((statement) =>
+        statement.sql.includes('"user_profiles"') ? [completedProfile] : [],
+      );
+
+      for (const cap of ["3", "12"]) {
+        workerEnv.MAX_WATCHES_PER_USER = cap;
+
+        const response = await callRouteHandler(Route, "GET", getRequest());
+        const data = await json<GetResponse>(response);
+
+        expect(response.status).toBe(200);
+        expect(data.maxWatches).toBe(Number(cap));
+      }
     });
 
     it("joins persisted class states onto each watch by term and class number", async () => {
@@ -382,6 +402,8 @@ describe("/api/class-watches", () => {
     );
 
     it("creates the watch atomically, persists state, completes onboarding, and logs the event", async () => {
+      workerEnv.MAX_WATCHES_PER_USER = "12";
+
       const rpcWatch: ClassWatchRow = {
         id: "watch-new",
         user_id: USER_ID,
@@ -409,7 +431,7 @@ describe("/api/class-watches", () => {
       expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
 
       expect(h.statements[1].sql).toContain("create_class_watch_with_limit");
-      expect(h.statements[1].params).toEqual([USER_ID, term, "CSE", "240", "12345", 10]);
+      expect(h.statements[1].params).toEqual([USER_ID, term, "CSE", "240", "12345", 12]);
 
       expect(
         h.statements.some((statement) => statement.sql.includes('insert into "class_states"')),

@@ -28,13 +28,10 @@ export const Route = createFileRoute("/api/onboarding/popular-class")({
               return ok({ popularClass: null });
             }
 
-            // SAFETY: ASU base URL and token are required secrets validated at deploy
-            const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
-
             let details: ClassDetails;
 
             try {
-              details = await fetchClassFromASU(popular, asuEnv);
+              details = await fetchClassFromASU(popular, env);
             } catch (error) {
               log("Onboarding").warn("Popular class failed ASU validation", {
                 class_nbr: popular.class_nbr,

@@ -1,3 +1,4 @@
+/** Detailed checks use request-time Worker bindings; public liveness probes skip dependencies. */
 import { env } from "cloudflare:workers";
 import { fetchClassFromASU, NotFoundError } from "@/lib/asu/api";
 import { getDbFromEnv } from "@/lib/db";
@@ -24,11 +25,7 @@ interface HealthStatus {
 }
 
 export async function checkHealth(request: Request): Promise<Response> {
-  const rawEnv: unknown = env;
-  // SAFETY: Workers env is opaque; widened to unknown then narrowed to string record for health checks
-  const cfRecord = rawEnv as Record<string, string | undefined>;
-  const cronSecret = process.env.CRON_SECRET || cfRecord.CRON_SECRET;
-  const isAuthenticated = verifyCronSecret(request, cronSecret);
+  const isAuthenticated = verifyCronSecret(request, env.CRON_SECRET);
 
   if (!isAuthenticated) {
     return Response.json({ status: "ok" }, { status: 200 });
@@ -66,9 +63,7 @@ export async function checkHealth(request: Request): Promise<Response> {
     })(),
     (async () => {
       try {
-        // SAFETY: ASU credentials are required secrets validated at deploy; shape matches wrangler.jsonc contract
-        const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
-        await fetchClassFromASU({ class_nbr: "10001", term: "2251" }, asuEnv, { source: "health" });
+        await fetchClassFromASU({ class_nbr: "10001", term: "2251" }, env, { source: "health" });
 
         return { kind: "asu_ok" as const };
       } catch (error) {
@@ -96,9 +91,9 @@ export async function checkHealth(request: Request): Promise<Response> {
     escalateStatus("degraded");
   }
 
-  const requiredEnvVars = ["ASU_API_BASE_URL", "ASU_API_TOKEN", "CRON_SECRET"];
+  const requiredEnvVars = ["ASU_API_BASE_URL", "ASU_API_TOKEN", "CRON_SECRET"] as const;
 
-  const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key] && !cfRecord[key]);
+  const missingEnvVars = requiredEnvVars.filter((key) => !env[key]);
 
   health.checks.configuration = {
     status: missingEnvVars.length === 0 ? "healthy" : "unhealthy",
@@ -109,10 +104,8 @@ export async function checkHealth(request: Request): Promise<Response> {
     escalateStatus("unhealthy");
   }
 
-  // SAFETY: Email binding is optional; shape matches wrangler.jsonc contract
-  const emailEnv = env as { EMAIL?: SendEmail };
-  const emailConfigured = !!emailEnv.EMAIL;
-  const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || cfRecord.NOTIFICATION_FROM_EMAIL;
+  const emailConfigured = !!env.EMAIL;
+  const fromEmail = env.NOTIFICATION_FROM_EMAIL;
 
   const missingEmailConfig = [
     ...(!emailConfigured ? ["EMAIL binding"] : []),
