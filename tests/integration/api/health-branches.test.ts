@@ -146,8 +146,8 @@ describe("GET /api/monitoring/health branch coverage", () => {
     expect(dbProbe).not.toHaveBeenCalled();
   });
 
-  it("reports healthy detailed checks", async () => {
-    vi.stubEnv("CRON_SECRET", "");
+  it("uses Worker bindings for healthy detailed checks", async () => {
+    vi.stubEnv("CRON_SECRET", "stale-process-secret");
     const { Route } = await loadHealthRoute();
 
     const response = await callRouteHandler(Route, "GET", request());
@@ -183,6 +183,11 @@ describe("GET /api/monitoring/health branch coverage", () => {
   });
 
   it("reports unhealthy checks for service exceptions and missing config", async () => {
+    // Process env must not hide missing Worker bindings.
+    vi.stubEnv("ASU_API_BASE_URL", baseEnv.ASU_API_BASE_URL);
+    vi.stubEnv("ASU_API_TOKEN", baseEnv.ASU_API_TOKEN);
+    vi.stubEnv("NOTIFICATION_FROM_EMAIL", baseEnv.NOTIFICATION_FROM_EMAIL);
+
     const { Route } = await loadHealthRoute({
       dbThrows: true,
       envOverrides: {

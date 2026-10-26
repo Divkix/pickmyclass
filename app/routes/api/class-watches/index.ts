@@ -17,7 +17,7 @@ import { classWatches } from "@/lib/db/schema";
 import { errorFields, log, logEvent } from "@/lib/log";
 import type { ClassWatchRow } from "@/lib/types/class-watch";
 import { applyFirstWatchGuard } from "@/lib/onboarding";
-import { MAX_WATCHES_PER_USER, readWatchlist } from "@/lib/class-watches/watchlist";
+import { maxWatchesPerUser, readWatchlist } from "@/lib/class-watches/watchlist";
 
 export const Route = createFileRoute("/api/class-watches/")({
   server: {
@@ -44,13 +44,15 @@ export const Route = createFileRoute("/api/class-watches/")({
             }
 
             const { term, class_nbr } = parsed.data;
+            // Read once per request so preflight and the atomic RPC use the same cap.
+            const maxWatches = maxWatchesPerUser();
             const db = getDbFromEnv();
             const preflight = await readClassWatchPreflight(db, user.userId, { class_nbr, term });
 
             // Match the RPC's precedence when a duplicate is also at the cap.
-            if (preflight.watchCount >= MAX_WATCHES_PER_USER) {
+            if (preflight.watchCount >= maxWatches) {
               return fail(
-                `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
+                `Maximum watches limit reached (${maxWatches}). Delete some watches to add more.`,
                 429,
               );
             }
@@ -59,14 +61,12 @@ export const Route = createFileRoute("/api/class-watches/")({
               return fail("You are already watching this class", 409);
             }
 
-            // SAFETY: env is Cloudflare Workers bindings; ASU_API_BASE_URL and ASU_API_TOKEN are required secrets validated at deploy
-            const asuEnv = env as { ASU_API_BASE_URL: string; ASU_API_TOKEN: string };
             let classDetails: ClassDetails;
 
             try {
               // Freshness matters: this snapshot seeds a brand-new row, and the
               // pipeline compares against it on the next check.
-              classDetails = await fetchClassFromASU({ class_nbr, term }, asuEnv, {
+              classDetails = await fetchClassFromASU({ class_nbr, term }, env, {
                 useCache: false,
               });
             } catch (error) {
@@ -102,7 +102,7 @@ export const Route = createFileRoute("/api/class-watches/")({
                   ${classDetails.subject.toUpperCase()}::text,
                   ${classDetails.catalog_nbr}::text,
                   ${class_nbr}::text,
-                  ${MAX_WATCHES_PER_USER}::int
+                  ${maxWatches}::int
                 )`,
               );
 
@@ -117,7 +117,7 @@ export const Route = createFileRoute("/api/class-watches/")({
                 getPgError(insertError)?.message?.includes("MAX_WATCHES_EXCEEDED")
               ) {
                 return fail(
-                  `Maximum watches limit reached (${MAX_WATCHES_PER_USER}). Delete some watches to add more.`,
+                  `Maximum watches limit reached (${maxWatches}). Delete some watches to add more.`,
                   429,
                 );
               }
