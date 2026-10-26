@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/landing/JsonLd";
 import { getBlogPost } from "@/lib/blog/posts";
 
+// Keep Open Graph and article JSON-LD dates aligned with the shared post metadata.
 const post = getBlogPost("asu-waitlist-guide");
 
 export const Route = createFileRoute("/blog/asu-waitlist-guide")({
@@ -19,8 +20,8 @@ export const Route = createFileRoute("/blog/asu-waitlist-guide")({
         description:
           "ASU course waitlist guide: verify section-level options, deadlines and seat restrictions. Official ASU guidance checked 28 Sep 2026.",
         type: "article",
-        publishedTime: "2026-04-26T00:00:00Z",
-        modifiedTime: "2026-09-28T00:00:00Z",
+        publishedTime: `${post.publishedAt}T00:00:00Z`,
+        modifiedTime: post.dateModified ? `${post.dateModified}T00:00:00Z` : undefined,
       },
     }),
   component: ASUWaitlistGuidePost,
@@ -31,8 +32,8 @@ const articleSchema = {
   "@type": "Article",
   headline: post.title,
   description: post.description,
-  datePublished: "2026-04-26T00:00:00Z",
-  dateModified: "2026-09-28T00:00:00Z",
+  datePublished: `${post.publishedAt}T00:00:00Z`,
+  dateModified: post.dateModified ? `${post.dateModified}T00:00:00Z` : undefined,
   author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
   publisher: {
     "@type": "Organization",
