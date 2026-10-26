@@ -44,6 +44,8 @@ import {
   withDefaultCacheControl,
   withSecurityHeaders,
 } from "@/lib/auth/request-gate";
+import { needsCsrfCheck } from "@/lib/auth/csrf";
+import { safeInternalPath } from "@/lib/auth/safe-redirect";
 
 async function renderRequest(
   request: Request,
@@ -224,7 +226,10 @@ describe("gateRequest", () => {
     seedAuthenticated(VERIFIED, DISABLED);
 
     const response = await renderRequest(
-      createRequest("/dashboard", "__session=test-clerk-jwt"),
+      createRequest(
+        "/dashboard",
+        "__session=test-clerk-jwt; __session_Ab12=jwt; __client_uat_Ab12=1",
+      ),
       IDENTITY,
     );
 
@@ -234,8 +239,9 @@ describe("gateRequest", () => {
     expect(mockRevokeSession).toHaveBeenCalledWith("sess_1");
     const setCookie = response.headers.getSetCookie().join("\n");
 
-    for (const name of ["__session", "__client_uat"]) {
-      expect(setCookie).toContain(`${name}=`);
+    // Clerk reads the suffixed cookie first, so it must be cleared by its own name.
+    for (const name of ["__session", "__client_uat", "__session_Ab12", "__client_uat_Ab12"]) {
+      expect(setCookie).toContain(`${name}=; Path=/; Max-Age=0`);
     }
   });
 
@@ -347,6 +353,39 @@ describe("gateRequest", () => {
     "does not exempt %s",
     (path) => {
       expect(isGateExempt(path)).toBe(false);
+    },
+  );
+});
+
+describe("needsCsrfCheck", () => {
+  it.each([
+    ["serverFn", "GET", "/_serverFn/x"],
+    ["router", "POST", "/api/auth/consent"],
+    ["router", "DELETE", "/api/class-watches"],
+    ["router", "POST", "/api/auth/signout"],
+  ])("checks %s %s %s", (handlerType, method, path) => {
+    expect(needsCsrfCheck(handlerType, method, path)).toBe(true);
+  });
+
+  it.each([
+    ["router", "GET", "/dashboard"],
+    ["router", "HEAD", "/api/class-watches"],
+    ["router", "POST", "/api/webhooks/clerk"],
+    ["router", "POST", "/api/unsubscribe"],
+  ])("skips %s %s %s", (handlerType, method, path) => {
+    expect(needsCsrfCheck(handlerType, method, path)).toBe(false);
+  });
+});
+
+describe("safeInternalPath", () => {
+  it.each(["/dashboard?x=1", "/settings"])("keeps internal path %s", (path) => {
+    expect(safeInternalPath(path, "/")).toBe(path);
+  });
+
+  it.each(["//evil.com", "/\\evil.com", "/\t/evil.com", "/\n/evil.com", "https://evil.com", null])(
+    "falls back for %j",
+    (path) => {
+      expect(safeInternalPath(path, "/")).toBe("/");
     },
   );
 });

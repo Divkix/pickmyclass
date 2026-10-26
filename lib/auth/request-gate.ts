@@ -240,7 +240,7 @@ export async function gateRequest(
     case "signout-and-redirect": {
       await revokeSessionQuietly(identity);
       const response = redirectTo(request, decision.to);
-      clearClerkCookies(response.headers);
+      clearClerkCookies(response.headers, request.headers.get("cookie"));
       setSecurityHeaders(response.headers, csp);
 
       return { kind: "respond", response };

@@ -54,8 +54,20 @@ const CLERK_COOKIES_TO_CLEAR = [
   "__clerk_redirect_count",
 ] as const;
 
-export function clearClerkCookies(headers: Headers): void {
-  for (const name of CLERK_COOKIES_TO_CLEAR) {
+/**
+ * Expires Clerk's cookies. The request's own suffixed cookies (`__session_<hash>`) are cleared by
+ * name too: Clerk reads the suffixed cookie before the plain one, so leaving it keeps the session.
+ */
+export function clearClerkCookies(headers: Headers, cookieHeader: string | null): void {
+  const names = new Set<string>(CLERK_COOKIES_TO_CLEAR);
+
+  for (const part of cookieHeader?.split(";") ?? []) {
+    const name = part.trim().split("=", 1)[0] ?? "";
+
+    if (isClerkSessionCookieName(name)) names.add(name);
+  }
+
+  for (const name of names) {
     headers.append("Set-Cookie", `${name}=; Path=/; Max-Age=0`);
   }
 }

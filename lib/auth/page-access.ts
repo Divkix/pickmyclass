@@ -1,5 +1,5 @@
 import { redirect } from "@tanstack/react-router";
-import { setResponseHeader } from "@tanstack/react-start/server";
+import { appendResponseHeader, getRequest } from "@tanstack/react-start/server";
 import { clearClerkCookies } from "@/lib/auth/clerk-cookies";
 import { type SessionIdentity, getSessionIdentity } from "@/lib/auth/clerk-session";
 import { evaluateGate, revokeSessionQuietly } from "@/lib/auth/request-gate";
@@ -18,8 +18,9 @@ export async function requirePageAccess(pathname: string, search = ""): Promise<
     case "signout-and-redirect": {
       await revokeSessionQuietly(identity);
       const cleared = new Headers();
-      clearClerkCookies(cleared);
-      setResponseHeader("Set-Cookie", cleared.getSetCookie());
+      clearClerkCookies(cleared, getRequest().headers.get("cookie"));
+      // Append: setting Set-Cookie would drop cookies other middleware already wrote.
+      appendResponseHeader("Set-Cookie", cleared.getSetCookie());
 
       throw redirect({ href: decision.to });
     }
