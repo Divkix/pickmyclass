@@ -14,13 +14,13 @@ const {
   getSessionIdentity,
   readAuthorizationState,
   revokeSession,
-  setResponseHeader,
+  appendResponseHeader,
 } = vi.hoisted(() => ({
   getDbFromEnv: vi.fn<() => Database>(),
   getSessionIdentity: vi.fn<() => Promise<SessionIdentity | null>>(),
   readAuthorizationState: vi.fn<() => Promise<AuthorizationState | null>>(),
   revokeSession: vi.fn<(sessionId: string) => Promise<void>>(),
-  setResponseHeader: vi.fn(),
+  appendResponseHeader: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ getDbFromEnv }));
@@ -38,7 +38,7 @@ vi.mock("@/lib/db/users", () => ({
 
 vi.mock("@tanstack/react-start/server", () => ({
   getRequest: () => new Request("https://pickmyclass.app/_serverFn/page"),
-  setResponseHeader,
+  appendResponseHeader,
 }));
 
 // Run the server handlers directly; the HTTP transport is not part of these page tests.
@@ -204,7 +204,7 @@ describe("server-rendered authenticated pages", () => {
       options: { href: "/sign-in?error=account_disabled" },
     });
     expect(revokeSession).toHaveBeenCalledWith(identity.sessionId);
-    expect(setResponseHeader).toHaveBeenCalledWith("Set-Cookie", expect.any(Array));
+    expect(appendResponseHeader).toHaveBeenCalledWith("Set-Cookie", expect.any(Array));
   });
 
   it("renders the account email from the user's own row in settings", async () => {

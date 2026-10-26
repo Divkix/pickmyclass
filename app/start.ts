@@ -15,9 +15,13 @@ import {
   withDefaultCacheControl,
   withSecurityHeaders,
 } from "@/lib/auth/request-gate";
+import { needsCsrfCheck } from "@/lib/auth/csrf";
 import { logRequestError } from "@/lib/log";
 
-const csrf = createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === "serverFn" });
+const csrf = createCsrfMiddleware({
+  filter: ({ handlerType, request, pathname }) =>
+    needsCsrfCheck(handlerType, request.method, pathname),
+});
 
 /**
  * Clerk verifies the session once per request. Start keeps `requestMiddleware` in the client

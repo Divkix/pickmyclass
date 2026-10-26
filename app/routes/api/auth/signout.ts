@@ -7,7 +7,7 @@ import { errorFields, log } from "@/lib/log";
 export const Route = createFileRoute("/api/auth/signout")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
         try {
           const identity = await getSessionIdentity();
 
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/api/auth/signout")({
 
         const response = ok(null);
 
-        clearClerkCookies(response.headers);
+        clearClerkCookies(response.headers, request.headers.get("cookie"));
 
         return response;
       },
