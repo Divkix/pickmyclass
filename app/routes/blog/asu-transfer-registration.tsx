@@ -15,6 +15,7 @@ import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/landing/JsonLd";
 import { getBlogPost } from "@/lib/blog/posts";
 
+// Keep Open Graph and article JSON-LD dates aligned with the shared post metadata.
 const post = getBlogPost("asu-transfer-registration");
 
 export const Route = createFileRoute("/blog/asu-transfer-registration")({
@@ -28,7 +29,8 @@ export const Route = createFileRoute("/blog/asu-transfer-registration")({
         description:
           "How transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.",
         type: "article",
-        publishedTime: "2026-04-26T00:00:00Z",
+        publishedTime: `${post.publishedAt}T00:00:00Z`,
+        modifiedTime: post.dateModified ? `${post.dateModified}T00:00:00Z` : undefined,
       },
     }),
   component: ASUTransferRegistrationPost,
@@ -39,8 +41,8 @@ const articleSchema = {
   "@type": "Article",
   headline: post.title,
   description: post.description,
-  datePublished: "2026-04-26T00:00:00Z",
-  dateModified: "2026-06-18T00:00:00Z",
+  datePublished: `${post.publishedAt}T00:00:00Z`,
+  dateModified: post.dateModified ? `${post.dateModified}T00:00:00Z` : undefined,
   author: { "@type": "Person", name: "PickMyClass Team", url: "https://pickmyclass.app" },
   publisher: {
     "@type": "Organization",

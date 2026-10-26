@@ -103,7 +103,7 @@ describe("blog rendering", () => {
     expect(html.match(/<td\b/g)).toHaveLength(4);
   });
 
-  it("uses each registry entry for the article reading time and shared description", async () => {
+  it("uses each registry entry for reading time, description and article dates", async () => {
     for (const page of pages) {
       const head = page.Route.options.head;
       const component = page.Route.options.component;
@@ -111,7 +111,8 @@ describe("blog rendering", () => {
       if (!head || !component) throw new Error("Blog route is missing its head or component");
 
       // SAFETY: Every static blog head ignores route context and returns pageHead directly.
-      const metadata = (head as () => PageHead)();
+      const getHead = head as () => PageHead;
+      const metadata = getHead();
       const canonical = metadata?.links?.find((link) => link?.rel === "canonical")?.href;
       const post = blogPosts.find((entry) => absoluteUrl(`/blog/${entry.slug}`) === canonical);
 
@@ -120,6 +121,7 @@ describe("blog rendering", () => {
       if (!post) throw new Error("Blog page is missing from the registry");
 
       const originalReadingTime = post.readingTime;
+      const originalDateModified = post.dateModified;
 
       try {
         post.readingTime = "Registry reading time";
@@ -129,9 +131,41 @@ describe("blog rendering", () => {
         expect(
           metadata?.meta?.find((tag) => tag && "name" in tag && tag.name === "description"),
         ).toMatchObject({ content: post.description });
-        expect(await renderWithRouter(article)).toContain(post.readingTime);
+        // Open Graph and serialized article dates share the registry's UTC dates.
+        const publishedTime = `${post.publishedAt}T00:00:00Z`;
+        const modifiedTime = post.dateModified ? `${post.dateModified}T00:00:00Z` : undefined;
+        expect(
+          metadata.meta.find(
+            (tag) => tag && "property" in tag && tag.property === "article:published_time",
+          ),
+        ).toMatchObject({ content: publishedTime });
+
+        const modifiedTag = metadata.meta.find(
+          (tag) => tag && "property" in tag && tag.property === "article:modified_time",
+        );
+
+        if (modifiedTime) {
+          expect(modifiedTag).toMatchObject({ content: modifiedTime });
+        } else {
+          expect(modifiedTag).toBeUndefined();
+        }
+
+        const html = await renderWithRouter(article);
+        expect(html).toContain(post.readingTime);
+        expect(html).toContain(`"datePublished":"${publishedTime}"`);
+
+        if (modifiedTime) expect(html).toContain(`"dateModified":"${modifiedTime}"`);
+
+        delete post.dateModified;
+        expect(
+          getHead().meta.find(
+            (tag) => tag && "property" in tag && tag.property === "article:modified_time",
+          ),
+        ).toBeUndefined();
       } finally {
         post.readingTime = originalReadingTime;
+
+        if (originalDateModified !== undefined) post.dateModified = originalDateModified;
       }
     }
   });
