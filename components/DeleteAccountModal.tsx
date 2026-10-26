@@ -46,10 +46,8 @@ export function DeleteAccountModal({ open, onOpenChange }: DeleteAccountModalPro
         throw new Error(data.error || "Failed to delete account");
       }
 
-      await navigate({
-        to: "/sign-in",
-        search: { message: "Account deleted successfully" },
-      });
+      // Sign-in has no search state; return directly after deletion.
+      await navigate({ to: "/sign-in" });
     } catch (err) {
       log("DeleteAccount").error("Account deletion failed", errorFields(err));
       setError(err instanceof Error ? err.message : "Failed to delete account");
