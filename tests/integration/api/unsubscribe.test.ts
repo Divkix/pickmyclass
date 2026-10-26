@@ -1,46 +1,17 @@
 import { callRouteHandler } from "@/tests/helpers/route-handler";
 import { createHash } from "node:crypto";
-import { drizzle } from "drizzle-orm/node-postgres";
+import { createScriptedPostgres } from "@/tests/mocks/scripted-postgres";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
-import type { Database } from "@/lib/db";
-import * as schema from "@/lib/db/schema";
 import { Route } from "@/app/routes/api/unsubscribe";
 
-type ScriptedParam = string | number | boolean | null;
+let pg = createScriptedPostgres();
 
-interface CapturedStatement {
-  sql: string;
-  params: ScriptedParam[];
-}
-
-type DriverValue =
-  | string
-  | number
-  | boolean
-  | null
-  | DriverValue[]
-  | { [column: string]: DriverValue };
-
-type DriverRow = { [column: string]: DriverValue };
-
-type ScriptedOutcome = DriverRow[] | Error;
-
-interface TransportRecorder {
-  statements: CapturedStatement[];
-  outcomes: ScriptedOutcome[];
-}
-
-const { recorder, mockVerifyUnsubscribeToken, mockLogEvent } = vi.hoisted(() => {
-  const recorder: TransportRecorder = { statements: [], outcomes: [] };
-
-  return {
-    recorder,
-    mockVerifyUnsubscribeToken: vi.fn(),
-    mockLogEvent: vi.fn(),
-  };
-});
+const { mockVerifyUnsubscribeToken, mockLogEvent } = vi.hoisted(() => ({
+  mockVerifyUnsubscribeToken: vi.fn(),
+  mockLogEvent: vi.fn(),
+}));
 
 vi.mock("@/lib/email/unsubscribe-token", () => ({
   verifyUnsubscribeToken: mockVerifyUnsubscribeToken,
@@ -52,28 +23,8 @@ vi.mock("@/lib/log", async (importOriginal) => ({
 }));
 
 vi.mock("@/lib/db", () => ({
-  getDbFromEnv: () => scriptedDatabase(),
+  getDbFromEnv: () => pg.db,
 }));
-
-function scriptedDatabase(): Database {
-  const client = {
-    async query(
-      query: { text: string; values?: ScriptedParam[]; rowMode?: string },
-      values?: ScriptedParam[],
-    ) {
-      recorder.statements.push({ sql: query.text, params: values ?? query.values ?? [] });
-      const outcome = recorder.outcomes.shift();
-
-      if (outcome instanceof Error) throw outcome;
-      const rows = outcome ?? [];
-
-      return { rows: query.rowMode === "array" ? rows.map((row) => Object.values(row)) : rows };
-    },
-  };
-
-  // SAFETY: the double implements the query surface driven by Drizzle.
-  return drizzle(client as Database["$client"], { schema });
-}
 
 function request(url: string, method = "GET"): Request {
   return new Request(url, { method });
@@ -96,8 +47,7 @@ describe("/api/unsubscribe", () => {
     vi.clearAllMocks();
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    recorder.statements.length = 0;
-    recorder.outcomes.length = 0;
+    pg = createScriptedPostgres();
     mockVerifyUnsubscribeToken.mockReturnValue("user-123");
   });
 
@@ -119,7 +69,7 @@ describe("/api/unsubscribe", () => {
     expect(response.headers.get("content-type")).toContain("text/html");
     expect(body).toContain("Invalid Unsubscribe Link");
     expect(mockVerifyUnsubscribeToken).not.toHaveBeenCalled();
-    expect(recorder.statements).toHaveLength(0);
+    expect(pg.statements).toHaveLength(0);
   });
 
   it("rejects invalid GET tokens before touching the database", async () => {
@@ -135,7 +85,7 @@ describe("/api/unsubscribe", () => {
 
     expect(response.status).toBe(400);
     expect(body).toContain("Invalid or Expired Token");
-    expect(recorder.statements).toHaveLength(0);
+    expect(pg.statements).toHaveLength(0);
   });
 
   it("renders a confirmation form for valid GET requests without mutating state", async () => {
@@ -149,7 +99,7 @@ describe("/api/unsubscribe", () => {
 
     expect(response.status).toBe(200);
     expect(body).toContain("Confirm Unsubscribe");
-    expect(recorder.statements).toHaveLength(0);
+    expect(pg.statements).toHaveLength(0);
   });
 
   it("validates one-click POST requests", async () => {
@@ -164,7 +114,7 @@ describe("/api/unsubscribe", () => {
     expect(response.status).toBe(400);
     expect(data.error).toBe("Invalid input");
     expect(mockVerifyUnsubscribeToken).not.toHaveBeenCalled();
-    expect(recorder.statements).toHaveLength(0);
+    expect(pg.statements).toHaveLength(0);
   });
 
   it("rejects invalid one-click POST tokens", async () => {
@@ -180,7 +130,7 @@ describe("/api/unsubscribe", () => {
 
     expect(response.status).toBe(400);
     expect(data.error).toBe("Invalid or expired token");
-    expect(recorder.statements).toHaveLength(0);
+    expect(pg.statements).toHaveLength(0);
   });
 
   it("unsubscribes valid one-click POST requests via a single profile update", async () => {
@@ -195,8 +145,8 @@ describe("/api/unsubscribe", () => {
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
 
-    expect(recorder.statements).toHaveLength(1);
-    const statement = recorder.statements[0];
+    expect(pg.statements).toHaveLength(1);
+    const statement = pg.statements[0];
     expect(statement.sql).toContain('"user_profiles"');
     expect(statement.params).toEqual(expect.arrayContaining(["user-123"]));
     expect(statement.params).toContain(false);
@@ -207,8 +157,38 @@ describe("/api/unsubscribe", () => {
     });
   });
 
+  // Browser form submissions get a result page; one-click clients keep the JSON tests above.
+  it.each([
+    { token: null, status: 400, message: "Invalid Unsubscribe Link" },
+    { token: "bad", status: 400, message: "Invalid or Expired Token" },
+    { token: "good", status: 200, message: "You have been unsubscribed" },
+    { token: "good", status: 500, message: "Internal server error" },
+  ])("returns HTML for browser POSTs with status $status", async ({ token, status, message }) => {
+    if (token === "bad") mockVerifyUnsubscribeToken.mockReturnValue(null);
+
+    if (status === 500) pg.failNext(new Error("database down"));
+
+    const url = new URL("https://pickmyclass.app/api/unsubscribe");
+
+    if (token) url.searchParams.set("token", token);
+
+    const response = await callRouteHandler(
+      Route,
+      "POST",
+      new Request(url, {
+        method: "POST",
+        headers: { Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" },
+      }),
+    );
+
+    expect(response.status).toBe(status);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(await response.text()).toContain(message);
+    expect(pg.statements).toHaveLength(status === 400 ? 0 : 1);
+  });
+
   it("logs no event when one-click POST persistence fails", async () => {
-    recorder.outcomes.push(new Error("database down"));
+    pg.failNext(new Error("database down"));
 
     const response = await callRouteHandler(
       Route,

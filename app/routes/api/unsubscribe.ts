@@ -118,23 +118,41 @@ export const Route = createFileRoute("/api/unsubscribe")({
       },
 
       /**
-       * POST handler for one-click unsubscribe (RFC 8058)
-       * Used by email clients that support List-Unsubscribe-Post
+       * Browser confirmation POSTs receive HTML when requested; one-click
+       * email clients keep JSON responses for RFC 8058 List-Unsubscribe-Post.
        */
       POST: async ({ request }) => {
+        const acceptsHtml = request.headers.get("Accept")?.includes("text/html");
         const searchParams = new URL(request.url).searchParams;
         const token = searchParams.get("token");
 
         const parsed = parseOrFail(unsubscribeTokenSchema, { token });
 
         if (!parsed.success) {
-          return parsed.response;
+          return acceptsHtml
+            ? htmlPage(
+                "Invalid Unsubscribe Link",
+                `  <h1 class="error">Invalid Unsubscribe Link</h1>
+  <p>This unsubscribe link is invalid or missing required information.</p>
+  <p><a href="/">Return to PickMyClass</a></p>`,
+                400,
+              )
+            : parsed.response;
         }
 
         const userId = verifyUnsubscribeToken(parsed.data.token);
 
         if (!userId) {
-          return fail("Invalid or expired token", 400);
+          return acceptsHtml
+            ? htmlPage(
+                "Invalid Unsubscribe Token",
+                `  <h1 class="error">Invalid or Expired Token</h1>
+  <p>This unsubscribe link is invalid or has expired.</p>
+  <p>You can manage your notification preferences from your account settings.</p>
+  <p><a href="/">Return to PickMyClass</a></p>`,
+                400,
+              )
+            : fail("Invalid or expired token", 400);
         }
 
         const db = getDbFromEnv();
@@ -142,11 +160,27 @@ export const Route = createFileRoute("/api/unsubscribe")({
         try {
           await unsubscribeUser(db, userId, "POST");
 
-          return ok(null);
+          return acceptsHtml
+            ? htmlPage(
+                "Unsubscribed",
+                `  <h1 class="success">Unsubscribed</h1>
+  <p>You have been unsubscribed from all PickMyClass email notifications.</p>
+  <p><a href="/">Return to PickMyClass</a></p>`,
+                200,
+              )
+            : ok(null);
         } catch (error) {
           log("Unsubscribe").error("Error processing unsubscribe", errorFields(error));
 
-          return fail("Internal server error", 500);
+          return acceptsHtml
+            ? htmlPage(
+                "Unsubscribe Failed",
+                `  <h1 class="error">Unsubscribe Failed</h1>
+  <p>Internal server error</p>
+  <p><a href="/">Return to PickMyClass</a></p>`,
+                500,
+              )
+            : fail("Internal server error", 500);
         }
       },
       ANY: methodNotAllowed,
