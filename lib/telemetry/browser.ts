@@ -1,6 +1,6 @@
 /**
- * Browser telemetry through `@hyperdx/browser`: traces, console logs, errors,
- * masked session replay and product actions, posted to the Worker's `/otel`
+ * Browser telemetry through `@hyperdx/browser`: traces, console logs, errors
+ * and product actions (no session replay), posted to the Worker's `/otel`
  * proxy. The SDK is about 190 KB gzipped, so it loads after the page's `load`
  * event in its own chunk. Calls made before then queue on the import.
  */
@@ -44,13 +44,9 @@ async function loadSdk(): Promise<HyperDX> {
     consoleCapture: true,
     // Request and response bodies carry emails and Clerk tokens.
     advancedNetworkCapture: false,
-    maskAllInputs: true,
-    maskAllText: true,
-    // Admin pages show other users' data. The proxy strips URL queries from
-    // traces and logs, but replay is gzipped protobuf it can't scrub, so replay
-    // stays off for admin sessions. The admin layout adds `rr-block` and
-    // PauseSessionReplay for client navigation into /admin.
-    disableReplay: location.pathname.startsWith("/admin"),
+    // Off: admin pages show other users' data, and replay is gzipped protobuf
+    // the proxy can't scrub.
+    disableReplay: true,
     disableIntercom: true,
     // Same build-time tags as the Worker's logs (vite.config.ts `define`).
     otelResourceAttributes: {
@@ -97,12 +93,4 @@ export function recordBrowserError(cause: unknown, attributes: BoundaryErrorFiel
   if (fields.stack) error.stack = fields.stack;
 
   withSdk((hyperdx) => hyperdx.recordException(error, attributes));
-}
-
-export function pauseSessionReplay(): void {
-  withSdk((hyperdx) => hyperdx.stopSessionRecorder());
-}
-
-export function resumeSessionReplay(): void {
-  withSdk((hyperdx) => hyperdx.resumeSessionRecorder());
 }

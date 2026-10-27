@@ -3,7 +3,6 @@ import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { SignOutButton } from "@/components/admin/SignOutButton";
 import { Logo } from "@/components/Logo";
-import { PauseSessionReplay } from "@/components/telemetry/PauseSessionReplay";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { verifyAdmin } from "@/lib/auth/admin";
@@ -26,9 +25,7 @@ function AdminLayout() {
   const { userEmail } = Route.useLoaderData();
 
   return (
-    // `rr-block` keeps admin DOM out of session replay if a recording is live.
-    <div className="rr-block flex min-h-screen bg-background">
-      <PauseSessionReplay />
+    <div className="flex min-h-screen bg-background">
       <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <Link to="/" className="transition-opacity hover:opacity-80">

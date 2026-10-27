@@ -143,8 +143,8 @@ async function gunzip(body: ArrayBuffer): Promise<ArrayBuffer | null> {
  * email addresses and URL query strings before they leave the Worker. A gzipped
  * JSON batch is inflated first and forwarded uncompressed (`headers` loses its
  * `content-encoding`); one that cannot be inflated is dropped, because it
- * cannot be scrubbed. Anything else, such as the gzipped protobuf of session
- * replay, passes through untouched; the SDK masks replay text and inputs.
+ * cannot be scrubbed. Anything else passes through untouched; session replay
+ * is off in the browser SDK because its gzipped protobuf can't be scrubbed here.
  *
  * `null` means drop the batch.
  */
