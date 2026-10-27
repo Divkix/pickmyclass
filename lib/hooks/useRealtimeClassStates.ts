@@ -1,3 +1,4 @@
+import { useAuth } from "@/lib/contexts/AuthContext";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { sectionRefKey } from "@/lib/section-ref";
@@ -34,11 +35,17 @@ class ClassStatesStatusError extends Error {}
 async function requestClassStates(
   key: string,
   signal: AbortSignal,
+  refreshSession: () => Promise<void>,
 ): Promise<Record<string, ClassStateRow>> {
-  const response = await fetch(
-    `/api/class-watches/states?classNumbers=${encodeURIComponent(key)}`,
-    { signal },
-  );
+  const url = `/api/class-watches/states?classNumbers=${encodeURIComponent(key)}`;
+  let response = await fetch(url, { signal });
+
+  // A tab that slept past the 60s session token sends an expired cookie, and a fetch cannot
+  // run Clerk's handshake. Mint a fresh token (Clerk rewrites the cookie) and retry once.
+  if (response.status === 401) {
+    await refreshSession();
+    response = await fetch(url, { signal });
+  }
 
   if (!response.ok) {
     throw new ClassStatesStatusError(`Failed to fetch class states: ${response.status}`);
@@ -106,6 +113,12 @@ export function useRealtimeClassStates({
   const [error, setError] = useState<Error | null>(null);
   const [previousInputs, setPreviousInputs] = useState({ classNumbersKey, enabled });
   const abortControllerRef = useRef<AbortController | null>(null);
+  const { refreshSession } = useAuth();
+  const refreshSessionRef = useRef(refreshSession);
+
+  useEffect(() => {
+    refreshSessionRef.current = refreshSession;
+  }, [refreshSession]);
 
   const seededStates = useMemo(
     () => collectSeedStates(classNumbers, seedStates),
@@ -142,7 +155,7 @@ export function useRealtimeClassStates({
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    return requestClassStates(key, controller.signal)
+    return requestClassStates(key, controller.signal, () => refreshSessionRef.current())
       .then(
         (statesMap) => {
           if (!controller.signal.aborted) {
@@ -191,12 +204,21 @@ export function useRealtimeClassStates({
       void loadClassStates(classNumbersKey);
     }
 
+    // Hidden tabs skip the poll and catch up on return, so they never send a token that
+    // expired while the tab slept.
     const intervalId = setInterval(() => {
-      void fetchClassStates(classNumbersKey);
+      if (document.visibilityState === "visible") void fetchClassStates(classNumbersKey);
     }, POLL_INTERVAL_MS);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void fetchClassStates(classNumbersKey);
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       abortControllerRef.current?.abort();
     };
   }, [enabled, classNumbersKey, fullySeeded, loadClassStates, fetchClassStates]);

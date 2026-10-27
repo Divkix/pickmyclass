@@ -21,13 +21,15 @@ interface AuthContextType {
   session: CompatSession | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  /** Mints a fresh session token; Clerk rewrites the `__session` cookie as a side effect. */
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { isLoaded: userLoaded, user: clerkUser } = useUser();
-  const { isLoaded: authLoaded, sessionId } = useClerkAuth();
+  const { isLoaded: authLoaded, sessionId, getToken } = useClerkAuth();
   const clerk = useClerk();
 
   const [loadedAt] = useState(() => new Date().toISOString());
@@ -79,9 +81,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [clerk]);
 
+  const refreshSession = useCallback(async () => {
+    await getToken({ skipCache: true });
+  }, [getToken]);
+
   const value = useMemo(
-    () => ({ user: compatUser, session: compatSession, loading, signOut }),
-    [compatUser, compatSession, loading, signOut],
+    () => ({ user: compatUser, session: compatSession, loading, signOut, refreshSession }),
+    [compatUser, compatSession, loading, signOut, refreshSession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
