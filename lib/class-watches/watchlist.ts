@@ -23,7 +23,8 @@ export interface Watchlist {
 
 /** The dashboard's data and request-time cap, shared by the API and server-rendered page. */
 export async function readWatchlist(db: Database, userId: string): Promise<Watchlist> {
-  const [watches, onboarding] = await Promise.all([
+  // States read in the same round trip as the watches: the query scopes itself to them.
+  const [watches, onboarding, joinedStates] = await Promise.all([
     db
       .select({
         id: classWatches.id,
@@ -41,10 +42,8 @@ export async function readWatchlist(db: Database, userId: string): Promise<Watch
 
       return toOnboardingState(null);
     }),
+    getWatchedClassStates(db, userId),
   ]);
-
-  const classNumbers = watches.map((watch) => watch.class_nbr);
-  const joinedStates = await getWatchedClassStates(db, userId, classNumbers);
 
   const statesMap: Record<string, ClassStateRow> = Object.fromEntries(
     joinedStates.map((state) => [sectionRefKey(state), state]),

@@ -235,7 +235,7 @@ describe("/api/class-watches", () => {
     });
 
     it("returns empty watches, the max, and onboarding state for a user with no watches", async () => {
-      // The watches read and the onboarding read run concurrently; script by table.
+      // The watches, onboarding and states reads run concurrently; script by table.
       h = createScriptedPostgres((statement) =>
         statement.sql.includes('"user_profiles"') ? [completedProfile] : [],
       );
@@ -250,7 +250,7 @@ describe("/api/class-watches", () => {
         onboarding: { onboarding_completed_at: "2026-01-01T00:00:00Z", needs_onboarding: false },
       });
       expect(mockGetDbFromEnv).toHaveBeenCalledTimes(1);
-      expect(h.statements).toHaveLength(2);
+      expect(h.statements).toHaveLength(3);
     });
 
     it("reads the active Worker watch cap on each request", async () => {
@@ -303,7 +303,7 @@ describe("/api/class-watches", () => {
       expect(statesQuery?.sql).toContain('"class_watches"."term" = "class_states"."term"');
       expect(statesQuery?.sql).toContain('public.section_alerts_ended("start_date", "end_date")');
       expect(statesQuery?.sql).not.toContain('"class_states"."term" in');
-      expect(statesQuery?.params).toEqual(["12345", USER_ID]);
+      expect(statesQuery?.params).toEqual([USER_ID]);
     });
 
     it("maps database failures to a 500 fetch error", async () => {

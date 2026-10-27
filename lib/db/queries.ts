@@ -132,15 +132,16 @@ export async function getSectionsToCheck(
 export const sectionAlertsEnded = sql<boolean>`public.section_alerts_ended(${classStates.start_date}, ${classStates.end_date})`;
 
 /**
- * class_states rows for this user's watched sections among `classNumbers`. The
- * EXISTS keeps the query user-scoped so one user never reads another's state row.
+ * class_states rows for this user's watched sections, narrowed to `classNumbers`
+ * when given. The EXISTS keeps the query user-scoped so one user never reads
+ * another's state row, and lets callers skip listing their watches first.
  */
 export async function getWatchedClassStates(
   db: Database,
   userId: string,
-  classNumbers: string[],
+  classNumbers?: string[],
 ): Promise<ClassStateRow[]> {
-  if (classNumbers.length === 0) return [];
+  if (classNumbers?.length === 0) return [];
 
   const ownership = exists(
     db
@@ -178,7 +179,7 @@ export async function getWatchedClassStates(
       alerts_ended: sectionAlertsEnded,
     })
     .from(classStates)
-    .where(and(inArray(classStates.class_nbr, classNumbers), ownership));
+    .where(classNumbers ? and(inArray(classStates.class_nbr, classNumbers), ownership) : ownership);
 }
 
 const alertsEndedSchema = z.object({ ended: z.boolean() });

@@ -48,7 +48,13 @@ vi.mock("@tanstack/react-start", () => ({
 
 // Clerk has not loaded during SSR: the page must not depend on it.
 vi.mock("@/lib/contexts/AuthContext", () => ({
-  useAuth: () => ({ user: null, session: null, loading: true, signOut: async () => {} }),
+  useAuth: () => ({
+    user: null,
+    session: null,
+    loading: true,
+    signOut: async () => {},
+    refreshSession: async () => {},
+  }),
 }));
 
 import { Route as DashboardRoute } from "@/app/routes/dashboard/index";
