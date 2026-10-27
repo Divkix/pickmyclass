@@ -32,7 +32,7 @@ const POLL_INTERVAL_MS = 60_000;
 
 class ClassStatesStatusError extends Error {}
 
-async function requestClassStates(
+export async function requestClassStates(
   key: string,
   signal: AbortSignal,
   refreshSession: () => Promise<void>,
