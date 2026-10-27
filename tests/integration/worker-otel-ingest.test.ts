@@ -109,7 +109,8 @@ describe("browser telemetry ingest", () => {
     const [url, init] = upstream.mock.calls[0];
     expect(url).toBe("https://otel.example.test/v1/traces");
     const headers = new Headers(init?.headers);
-    expect(headers.get("authorization")).toBe("ingest-key");
+    expect(headers.get("uptrace-dsn")).toBe("ingest-key");
+    expect(headers.get("authorization")).toBeNull();
     expect(headers.get("content-encoding")).toBe("identity");
   });
 
@@ -288,7 +289,7 @@ describe("browser telemetry ingest", () => {
     const logged = JSON.stringify(error.mock.calls);
 
     expect(logged).not.toContain(keyed.OTEL_BROWSER_INGEST_KEY);
-    expect(logged).not.toContain("authorization");
+    expect(logged).not.toContain("uptrace-dsn");
   });
 
   it("gives up on a collector that never answers and aborts the request", async () => {
