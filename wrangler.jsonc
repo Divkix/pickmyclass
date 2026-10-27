@@ -85,13 +85,13 @@
       "enabled": true,
       "persist": false,
       "invocation_logs": true,
-      // Sent only to HyperDX: "persist": false keeps no Cloudflare copy, so it is not billed.
-      "destinations": ["hyperdx-logs"],
+      // Sent only to Uptrace: "persist": false keeps no Cloudflare copy, so it is not billed.
+      "destinations": ["uptrace-logs"],
     },
     "traces": {
       "enabled": true,
       "persist": false,
-      "destinations": ["hyperdx-traces"],
+      "destinations": ["uptrace-traces"],
     },
   },
   "vars": {
@@ -100,7 +100,7 @@
     "MAX_WATCHES_PER_USER": "10",
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
     "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app",
-    "OTEL_COLLECTOR_URL": "https://otel.divkix.me",
+    "OTEL_COLLECTOR_URL": "https://api.uptrace.dev",
   },
   "send_email": [
     {

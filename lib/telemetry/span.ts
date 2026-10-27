@@ -2,7 +2,7 @@
  * Custom spans for the work Workers tracing doesn't instrument itself:
  * Postgres over Hyperdrive, Queue sends, Email sends, ASU fetches and Section
  * Checks. Logs written inside a span are attributed to it by the runtime, so
- * they carry its trace and span ids in HyperDX.
+ * they carry its trace and span ids in Uptrace.
  *
  * **Server-only module**: it imports `cloudflare:workers`.
  */

@@ -47,7 +47,7 @@ export function tagLogs(versionId: string | undefined): void {
 
 /**
  * Logs one object per line (`{ level, scope, msg, ...fields }`), so Workers
- * Logs indexes every key for HyperDX instead of one opaque message string.
+ * Logs indexes every key for Uptrace instead of one opaque message string.
  * The reserved keys are written last so a field can't overwrite them.
  */
 function write(level: LogLevel, scope: string, msg: string, fields?: LogFields): void {
@@ -55,7 +55,7 @@ function write(level: LogLevel, scope: string, msg: string, fields?: LogFields):
 }
 
 /**
- * Keep `msg` constant so events group in HyperDX; put ids, counts and `duration_ms` in fields
+ * Keep `msg` constant so events group in Uptrace; put ids, counts and `duration_ms` in fields
  * (`sectionFields` for a SectionRef). Spread `errorFields(error)`, never `String(error)`, so caught
  * values retain structured diagnostics without leaking SQL parameters or email addresses.
  */
@@ -165,7 +165,7 @@ export function errorFields(cause: unknown): ErrorFields {
 /**
  * A server error the app did not handle: thrown by a page render, a server
  * route, the edge gate or a server function (named by `serverFn`). Start only
- * prints these, so this is where they reach HyperDX as queryable fields.
+ * prints these, so this is where they reach Uptrace as queryable fields.
  */
 export function logRequestError(cause: unknown, request: Request, serverFn?: string): void {
   log("RequestError").error("Unhandled request error", {
@@ -183,7 +183,7 @@ export type AsuRequestSource = "section_check" | "health" | "ui";
 /**
  * Product and pipeline events and their fields: opaque ids, counts and
  * durations only, never emails, names or other PII. The pipeline events are
- * the app's metrics; HyperDX charts their numeric fields.
+ * the app's metrics; Uptrace charts their numeric fields.
  */
 interface ProductEventMap {
   class_watch_created: { user_id: string; term: string; class_nbr: string };
@@ -249,7 +249,7 @@ interface ProductEventMap {
 
 /**
  * Add event names and their allowed fields to `ProductEventMap`. Logs one event as a single object,
- * so Workers Logs indexes `event` and each field for filtering once it reaches HyperDX.
+ * so Workers Logs indexes `event` and each field for filtering once it reaches Uptrace.
  */
 export function logEvent<E extends keyof ProductEventMap>(
   event: E,
