@@ -37,7 +37,7 @@ When you change behaviour, update the comment beside it in the same change. Add 
 - User-facing dates use America/Phoenix (`lib/utils/time-format.ts`).
 - Tests live in `tests/integration/`; API tests script the database with `createScriptedPostgres` (`tests/mocks/scripted-postgres.ts`).
 - Commit generated `app/routeTree.gen.ts`.
-- Vite+ core must match `vite-plus`: the `vite` catalog entry in `pnpm-workspace.yaml` is an `npm:@voidzero-dev/vite-plus-core` alias that Dependabot never bumps, so a `vite-plus`-only bump leaves TanStack Start and the Vite plugins on the old core. `pnpm run check:vite-plus` (first step of `verify`) fails when the lockfile holds more than one core or one that differs from `vite-plus`; fix it on the branch with `pnpm exec vp migrate`, which re-pins the alias, `vite-plus`, `vitest` and `@vitest/coverage-v8` to the same exact release.
+- Vite+ core must match `vite-plus`: the `vite` catalog entry in `pnpm-workspace.yaml` is an `npm:@voidzero-dev/vite-plus-core` alias that Dependabot never bumps, so a `vite-plus`-only bump leaves TanStack Start and the Vite plugins on the old core. `pnpm run check:vite-plus` (first step of `verify`) fails when the lockfile holds more than one core or one that differs from `vite-plus`; fix it on the branch with `pnpm exec vp migrate`, which pins the alias to the installed `vite-plus` version and `vitest`/`@vitest/coverage-v8` to its bundled Vitest (`vp toolchain vitest`). Migrate never upgrades; for a new release, set `vite-plus` in the catalog first.
 
 ## Done
 
