@@ -85,13 +85,13 @@
       "enabled": true,
       "persist": false,
       "invocation_logs": true,
-      // Sent only to Uptrace: "persist": false keeps no Cloudflare copy, so it is not billed.
-      "destinations": ["uptrace-logs"],
+      // Sent only to OpenObserve: "persist": false keeps no Cloudflare copy, so it is not billed.
+      "destinations": ["openobserve-logs"],
     },
     "traces": {
       "enabled": true,
       "persist": false,
-      "destinations": ["uptrace-traces"],
+      "destinations": ["openobserve-traces"],
     },
   },
   "vars": {
@@ -100,7 +100,7 @@
     "MAX_WATCHES_PER_USER": "10",
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
     "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app",
-    "OTEL_COLLECTOR_URL": "https://api.uptrace.dev",
+    "OTEL_COLLECTOR_URL": "https://observe.divkix.me/api/default",
   },
   "send_email": [
     {

@@ -72,7 +72,7 @@ function visitorCountry(request: Request): string | undefined {
 }
 
 /**
- * Stamps the country on every resource so Uptrace can group browser telemetry
+ * Stamps the country on every resource so OpenObserve can group browser telemetry
  * by `ResourceAttributes['geo.country.iso_code']`, replacing any client-sent
  * value. A body that isn't an OTLP object passes through as is.
  */
@@ -237,8 +237,8 @@ export async function handleOtelIngest(
 
   if (body.byteLength > MAX_BODY_BYTES) return new Response(null, { status: 413 });
 
-  // Only the content headers cross over; a client-sent authorization never does.
-  const headers = new Headers({ "uptrace-dsn": key });
+  // Only the content headers cross over; the client's authorization is replaced by the server key.
+  const headers = new Headers({ authorization: key });
 
   for (const name of FORWARDED_HEADERS) {
     const value = request.headers.get(name);
