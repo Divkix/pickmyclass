@@ -34,6 +34,8 @@ overrides:
   postcss: "^8.5.29"
   vite@*: "catalog:"
   vitest@*: "catalog:"
+  # miniflare (via @cloudflare/vite-plugin) pins undici to exactly 7.29.1, which has high advisories; stay on 7.x.
+  "undici@<7.30.1": "^7.30.1"
 
 allowBuilds:
   "@clerk/shared": true
