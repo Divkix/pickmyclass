@@ -43,10 +43,10 @@ allowBuilds:
   protobufjs: false
   sharp: true
   workerd: true
-# Bump vite-plus, vite, vitest and @vitest/* together. `pnpm exec vp migrate` re-pins the
-# vite alias to the installed vite-plus and vitest/coverage-v8 to its bundled Vitest
-# (`vp toolchain vitest`), keeping catalog references. It never upgrades: to move to a new
-# release, set vite-plus here first (or run `pnpm dlx vite-plus@<version> migrate`).
+# Bump vite-plus, vite, vitest and @vitest/* together. `vp migrate` re-pins the vite alias to
+# the version of the CLI running it and vitest/coverage-v8 to that release's bundled Vitest
+# (`vp toolchain vitest`), keeping catalog references. `pnpm exec vp migrate` therefore only
+# realigns; to upgrade, run `pnpm dlx --package=vite-plus@<version> vp migrate --no-interactive`.
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0
   vitest: 5.0.5
