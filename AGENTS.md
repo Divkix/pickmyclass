@@ -37,7 +37,7 @@ When you change behaviour, update the comment beside it in the same change. Add 
 - User-facing dates use America/Phoenix (`lib/utils/time-format.ts`).
 - Tests live in `tests/integration/`; API tests script the database with `createScriptedPostgres` (`tests/mocks/scripted-postgres.ts`).
 - Commit generated `app/routeTree.gen.ts`.
-- Dependabot opens PRs; nothing merges automatically. The owner reads each changelog, migrates code as needed and merges by hand.
+- Dependabot opens PRs weekly (Monday 09:00 UTC, 7-day cooldown; patches grouped, minors and majors one PR per package); nothing merges automatically. The owner reads each changelog, migrates code as needed and merges by hand.
 
 ## Done
 

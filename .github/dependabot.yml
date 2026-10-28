@@ -1,22 +1,26 @@
 # Group order is load-bearing: first match wins, so keep vite-plus-toolchain above
-# all-minor-patch. Coupled Vite+/Vitest/coverage upgrades must arrive in one PR.
+# all-patch. Coupled Vite+/Vitest/coverage upgrades must arrive in one PR.
 version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "daily"
-    # Version updates wait one day after a release (GitHub's default is three
-    # days). Security updates are exempt from cooldown.
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    # Version updates wait seven days after a release. Security updates are
+    # exempt from cooldown.
     cooldown:
-      default-days: 1
+      default-days: 7
     open-pull-requests-limit: 10
     commit-message:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
     groups:
-      # Vite+ ships its own Vitest and refuses coverage with a mismatched provider.
+      # vite, vite-plus, vitest and @vitest/* must move together. Vite+ ships
+      # its own Vitest and refuses coverage with a mismatched provider.
       vite-plus-toolchain:
         patterns:
           - "vite"
@@ -27,23 +31,29 @@ updates:
         update-types:
           - "minor"
           - "patch"
-      all-minor-patch:
+      # Patches ship as one PR. Minors and majors stay ungrouped, one PR per
+      # package, so each carries its own release notes and CI result.
+      all-patch:
         patterns:
           - "*"
         update-types:
-          - "minor"
           - "patch"
-    # Majors are deliberately ungrouped: each one arrives as its own PR and is
-    # merged by hand.
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
     cooldown:
-      default-days: 1
+      default-days: 7
     commit-message:
       prefix: "chore(ci)"
     labels:
       - "ci"
       - "dependencies"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
