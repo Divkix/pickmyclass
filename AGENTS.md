@@ -39,10 +39,11 @@ When you change behaviour, update the comment beside it in the same change. Add 
 - Commit generated `app/routeTree.gen.ts`.
 - Dependabot opens PRs weekly (Monday 09:00 UTC, 7-day cooldown; patches grouped, minors and majors one PR per package); nothing merges automatically. The owner reads each changelog, migrates code as needed and merges by hand.
 - `.github/workflows/audit.yml` runs `pnpm audit` every Monday and fails on high or critical advisories. It stands in for Dependabot alerts, which GitHub cannot raise until its dependency graph reads pnpm 12's two-document lockfile.
+- Vite+ core must match `vite-plus`: the `vite` catalog entry in `pnpm-workspace.yaml` is an `npm:@voidzero-dev/vite-plus-core` alias that Dependabot never bumps, so a `vite-plus`-only bump leaves TanStack Start and the Vite plugins on the old core. `pnpm run check:vite-plus` (first step of `verify`) fails when the lockfile holds more than one core or one that differs from `vite-plus`; fix it on the branch with `pnpm exec vp migrate`, which pins the alias to the installed `vite-plus` version and `vitest`/`@vitest/coverage-v8` to its bundled Vitest (`vp toolchain vitest`). Migrate targets the version of the CLI running it, so to upgrade use `pnpm dlx --package=vite-plus@<version> vp migrate --no-interactive`.
 
 ## Done
 
-1. `pnpm run verify` (check + type-check + knip; the pre-commit hook and CI `quality` job).
+1. `pnpm run verify` (vite-plus lockstep + check + type-check + knip; the pre-commit hook and CI `quality` job).
 2. `pnpm run test:coverage` and `pnpm run build`.
 3. Touched `worker.ts`, `wrangler.jsonc`, Workflows or `lib/queue/`: also `pnpm run preview`.
 4. Touched SQL or migrations: `DATABASE_URL=… pnpm run test:db` against a disposable migrated Postgres.
