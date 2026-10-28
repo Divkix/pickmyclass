@@ -33,8 +33,8 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # Majors are deliberately ungrouped: each one arrives as its own PR, gets a
-    # review request from the automerge workflow, and is merged by hand.
+    # Majors are deliberately ungrouped: each one arrives as its own PR and is
+    # merged by hand.
 
   - package-ecosystem: "github-actions"
     directory: "/"
