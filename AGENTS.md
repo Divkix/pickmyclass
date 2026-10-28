@@ -37,10 +37,11 @@ When you change behaviour, update the comment beside it in the same change. Add 
 - User-facing dates use America/Phoenix (`lib/utils/time-format.ts`).
 - Tests live in `tests/integration/`; API tests script the database with `createScriptedPostgres` (`tests/mocks/scripted-postgres.ts`).
 - Commit generated `app/routeTree.gen.ts`.
+- Vite+ core must match `vite-plus`: the `vite` catalog entry in `pnpm-workspace.yaml` is an `npm:@voidzero-dev/vite-plus-core` alias that Dependabot never bumps, so a `vite-plus`-only bump leaves TanStack Start and the Vite plugins on the old core. `pnpm run check:vite-plus` (first step of `verify`) fails when the lockfile holds more than one core or one that differs from `vite-plus`; fix it on the branch with `pnpm exec vp migrate`, which re-pins the alias, `vite-plus`, `vitest` and `@vitest/coverage-v8` to the same exact release.
 
 ## Done
 
-1. `pnpm run verify` (check + type-check + knip; the pre-commit hook and CI `quality` job).
+1. `pnpm run verify` (vite-plus lockstep + check + type-check + knip; the pre-commit hook and CI `quality` job).
 2. `pnpm run test:coverage` and `pnpm run build`.
 3. Touched `worker.ts`, `wrangler.jsonc`, Workflows or `lib/queue/`: also `pnpm run preview`.
 4. Touched SQL or migrations: `DATABASE_URL=… pnpm run test:db` against a disposable migrated Postgres.
