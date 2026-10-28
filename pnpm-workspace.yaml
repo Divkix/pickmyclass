@@ -2,7 +2,8 @@
 # pnpm-lock.yaml after changing package.json's packageManager or frozen installs fail.
 # pnpm 12 rejects unknown workspace keys; use supported settings rather than old aliases.
 #
-# Keep dependency ranges as carets; only packageManager and @hyperdx/browser are exact pins.
+# Keep dependency ranges as carets; only packageManager, @hyperdx/browser and the
+# Vite+ toolchain catalog entries below are exact pins.
 # `pnpm update --latest` preserves catalog references and updates their entries.
 packages:
   - "."
@@ -42,14 +43,14 @@ allowBuilds:
   protobufjs: false
   sharp: true
   workerd: true
-# Bump vite-plus, vite, vitest and @vitest/* together here; solo bumps break types/coverage.
-# Match coverage-v8 to Vite+'s bundled Vitest (`vp --version`), not an independent latest.
-# Avoid `vp migrate`: it replaces the catalog references with exact pins.
+# Bump vite-plus, vite, vitest and @vitest/* together with `pnpm exec vp migrate`: it keeps
+# the catalog references and re-pins these entries to the same exact Vite+ release.
+# Match coverage-v8 to Vite+'s bundled Vitest (`vp toolchain vitest`), not an independent latest.
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@^1.3.0
-  vitest: ^5.0.5
-  vite-plus: ^1.3.0
-  "@vitest/coverage-v8": ^5.0.5
+  vite: npm:@voidzero-dev/vite-plus-core@1.3.0
+  vitest: 5.0.5
+  vite-plus: 1.3.0
+  "@vitest/coverage-v8": 5.0.5
 peerDependencyRules:
   allowAny:
     - vite
