@@ -95,7 +95,7 @@ The full command list is the `scripts` block of `package.json`.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Branch from `main`, run `pnpm run verify`, use Conventional Commits and open a PR. The dependency policy lives in the comments of [`pnpm-workspace.yaml`](pnpm-workspace.yaml) and [`.github/dependabot.yml`](.github/dependabot.yml); the auto-merge gate is [`.github/workflows/dependabot-automerge.yml`](.github/workflows/dependabot-automerge.yml).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Branch from `main`, run `pnpm run verify`, use Conventional Commits and open a PR. The dependency policy lives in the comments of [`pnpm-workspace.yaml`](pnpm-workspace.yaml) and [`.github/dependabot.yml`](.github/dependabot.yml); Dependabot PRs are reviewed and merged by hand.
 
 ## License
 
