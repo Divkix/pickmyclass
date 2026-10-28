@@ -11,7 +11,7 @@ interface __BaseEnv_CloudflareEnv {
 	MAX_WATCHES_PER_USER: "10";
 	NOTIFICATION_FROM_EMAIL: "notifications@pickmyclass.app";
 	NEXT_PUBLIC_SITE_URL: "https://pickmyclass.app";
-	OTEL_COLLECTOR_URL: "https://api.uptrace.dev";
+	OTEL_COLLECTOR_URL: "https://observe.divkix.me/api/default";
 	SECTION_CHECK_WORKFLOW: Workflow<Parameters<import("../worker").SectionCheckWorkflow['run']>[0]['payload']>;
 	MAINTENANCE_WORKFLOW: Workflow<Parameters<import("../worker").MaintenanceWorkflow['run']>[0]['payload']>;
 }
