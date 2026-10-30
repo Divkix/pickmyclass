@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { methodNotAllowed } from "@/lib/api/response";
 import { errorFields, log } from "@/lib/log";
 import { safeInternalPath } from "@/lib/auth/safe-redirect";
@@ -19,6 +19,12 @@ function consentRedirect(base: string, next: string, saveFailed = false): Respon
 }
 
 export const Route = createFileRoute("/auth/post-oauth")({
+  // Clerk's post-sign-up redirect and the gate's redirects from server functions arrive as
+  // client-side navigations, which never reach the GET handler and rendered the not-found page.
+  // Reload as a document request so the server handler runs; `replace` keeps Back off this hop.
+  beforeLoad: ({ location }) => {
+    throw redirect({ href: location.href, reloadDocument: true, replace: true });
+  },
   server: {
     handlers: {
       GET: async ({ request }) => {
