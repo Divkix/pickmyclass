@@ -31,7 +31,7 @@ const faqCategories = [
       {
         question: "How do I get started?",
         answer:
-          "Getting started takes less than 2 minutes. Create a free account, search for your classes by section number, and add them to your watchlist. That's it — we'll handle the rest and email you when seats open up.",
+          "Create a free account, find your class in ASU Class Search, and enter its 5-digit class number in the PickMyClass dashboard. Choose the term and start watching. We'll email you when we detect an open seat or an instructor assignment.",
       },
       {
         question: "Is PickMyClass really free?",
@@ -51,12 +51,12 @@ const faqCategories = [
       {
         question: "How does PickMyClass track ASU class seat availability?",
         answer:
-          "Our system automatically queries the ASU class search API every 30 minutes. We compare the current seat availability against the last known state for each class on your watchlist. When a change is detected — whether a seat opened up or an instructor was assigned — we send you an email notification.",
+          "Our system automatically queries the ASU class search API every 30 minutes. We compare the current seat availability against the last known state for each class you're watching. When a change is detected — whether a seat opened up or an instructor was assigned — we send you an email notification.",
       },
       {
         question: "How often does PickMyClass check for open seats?",
         answer:
-          "We check every 30 minutes, 24 hours a day, 7 days a week. During busy periods like add/drop week, this means you'll know about an open seat well before most students who are checking manually.",
+          "We check every 30 minutes, 24 hours a day, 7 days a week. This includes add/drop, the first days of the semester when students add and drop classes.",
       },
       {
         question: "How fast will I be notified when a seat opens?",
@@ -66,12 +66,12 @@ const faqCategories = [
       {
         question: 'Will I be notified when a professor is assigned to a "Staff" section?',
         answer:
-          'Yes! Instructor change detection is one of our most popular features. When ASU updates a section from "Staff" to an actual professor name, you\'ll get an email alert so you can look them up on RateMyProfessors before committing to the class.',
+          'ASU shows "Staff" until an instructor is assigned. When ASU replaces "Staff" with an instructor name for a class you\'re watching, we send you an email alert.',
       },
       {
         question: "How is this different from checking the ASU class search manually?",
         answer:
-          "Instead of you manually refreshing the ASU class search page dozens of times a day hoping to catch an open seat, PickMyClass automates that entire process. We check every 30 minutes and email you the moment something changes — so you can focus on studying, working, or literally anything else.",
+          "PickMyClass checks ASU Class Search every 30 minutes and emails you when it detects an open seat or an instructor assignment. You do not need to keep checking the page yourself.",
       },
     ],
   },
@@ -86,7 +86,7 @@ const faqCategories = [
       {
         question: "How many classes can I track at once?",
         answer:
-          "You can track multiple classes simultaneously. Simply add each section number to your watchlist and we'll monitor all of them for you. There's no need to check back — we'll email you when anything changes.",
+          "You can track up to 10 classes at a time. Add each class using its 5-digit class number from ASU Class Search, and we'll email you when we detect a change.",
       },
       {
         question: "Can I track classes for different semesters?",
@@ -116,12 +116,17 @@ const faqCategories = [
       {
         question: "What data does PickMyClass collect?",
         answer:
-          "Your email address for notifications, the class sections you're watching, and diagnostic data about how the site performs (page loads, errors, and session recordings with all text and form input masked). Diagnostics stay on servers we run ourselves. We don't sell your data, don't run ads, and don't share your information with third parties. See our Privacy Policy for full details.",
+          "We collect your email address, the classes you're watching, and browser diagnostics such as errors, performance traces, and console logs. We do not record sessions. Diagnostics stay on servers we run and are deleted after 30 days. We do not sell your information or run ads. Information is shared only with the service providers that run PickMyClass, listed in our Privacy Policy.",
       },
       {
         question: "How do I delete my account?",
         answer:
-          "You can delete your account at any time from the Settings page. This permanently removes all your data including your watchlist, notification history, and account information.",
+          'Request account deletion in Settings, under Data, using "Delete Account". Your account is disabled immediately and all class monitoring and notifications stop. Your data is retained for 30 days for business records, then permanently deleted.',
+      },
+      {
+        question: "How do I stop email alerts?",
+        answer:
+          'To stop alerts for one class, use its "Stop watching" button on the dashboard. To stop all alert emails, turn off "Email alerts" in Settings or use the unsubscribe link in any alert email. You can turn alerts back on in Settings under "Email alerts".',
       },
       {
         question: "Is PickMyClass affiliated with Arizona State University?",

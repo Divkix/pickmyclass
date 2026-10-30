@@ -95,7 +95,7 @@ export const Route = createFileRoute("/api/unsubscribe")({
             "Invalid Unsubscribe Token",
             `  <h1 class="error">Invalid or Expired Token</h1>
   <p>This unsubscribe link is invalid or has expired.</p>
-  <p>You can manage your notification preferences from your account settings.</p>
+  <p>You can turn email alerts on or off in Settings.</p>
   <p><a href="/">Return to PickMyClass</a></p>`,
             400,
           );
@@ -148,7 +148,7 @@ export const Route = createFileRoute("/api/unsubscribe")({
                 "Invalid Unsubscribe Token",
                 `  <h1 class="error">Invalid or Expired Token</h1>
   <p>This unsubscribe link is invalid or has expired.</p>
-  <p>You can manage your notification preferences from your account settings.</p>
+  <p>You can turn email alerts on or off in Settings.</p>
   <p><a href="/">Return to PickMyClass</a></p>`,
                 400,
               )
@@ -165,6 +165,7 @@ export const Route = createFileRoute("/api/unsubscribe")({
                 "Unsubscribed",
                 `  <h1 class="success">Unsubscribed</h1>
   <p>You have been unsubscribed from all PickMyClass email notifications.</p>
+  <p>You can turn email alerts back on in <a href="/settings">Settings → Email alerts</a>.</p>
   <p><a href="/">Return to PickMyClass</a></p>`,
                 200,
               )

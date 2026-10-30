@@ -97,6 +97,7 @@
   "vars": {
     // Public: `clerkMiddleware` sends it to the browser in each page's Clerk init state.
     "CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsucGlja215Y2xhc3MuYXBwJA",
+    // Public limit: lib/faqs.ts, app/routes/faq.tsx, app/routes/docs.tsx, public/pricing.md and lib/seo/llms*.ts state up to 10 classes at a time.
     "MAX_WATCHES_PER_USER": "10",
     "NOTIFICATION_FROM_EMAIL": "notifications@pickmyclass.app",
     "NEXT_PUBLIC_SITE_URL": "https://pickmyclass.app",

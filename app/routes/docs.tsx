@@ -154,11 +154,12 @@ function DocsPage() {
             <Link to="/sign-up" className="text-primary hover:text-primary/80">
               /sign-up
             </Link>
-            : a person searches for a class by its 5-digit section number, adds it to their
-            watchlist, and receives an email when a seat opens or a &ldquo;Staff&rdquo; section gets
-            a named instructor. An agent cannot create or manage watches on someone else&apos;s
-            behalf, and there is no key, token, or endpoint that would let it try. Alerts are
-            email-only: no SMS, no push.
+            : a person creates a free account, finds the 5-digit class number in ASU Class Search,
+            and enters it on the dashboard to start watching. They can track up to 10 classes at a
+            time and receive an email when a seat opens or an instructor is assigned. ASU shows
+            &ldquo;Staff&rdquo; until an instructor is assigned. An agent cannot create or manage
+            watches on someone else&apos;s behalf, and there is no key, token, or endpoint that
+            would let it try. Alerts are email-only: no SMS, no push.
           </p>
           <p className="text-muted-foreground leading-relaxed">
             The sign-up page, the FAQ, and the guides are the supported routes for a human working
