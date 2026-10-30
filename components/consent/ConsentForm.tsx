@@ -93,7 +93,8 @@ export function ConsentForm({ saveFailed, next }: ConsentFormProps) {
                     required
                   />
                   <Label htmlFor="ageVerified" className="cursor-pointer font-normal leading-5">
-                    I am 18 years or older and a resident of the United States
+                    I am 18 years or older and live in the United States. International students
+                    studying in the US qualify.
                   </Label>
                 </div>
                 <div className="flex items-start gap-3">

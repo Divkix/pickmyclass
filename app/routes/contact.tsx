@@ -30,19 +30,25 @@ function ContactPage() {
               Contact PickMyClass
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
-              PickMyClass is run by the same ASU students who built it, so support comes straight
-              from the people who know the code.
+              PickMyClass is run by{" "}
+              <a
+                href="https://github.com/Divkix"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:text-primary/80"
+              >
+                divkix
+              </a>
+              , who handles support through email and GitHub.
             </p>
           </div>
 
           <p className="text-muted-foreground leading-relaxed">
-            There is no phone line and no chat widget. Everything reaches us through email or
-            GitHub, and both go to the same small team. Pick whichever fits what you need — the{" "}
+            There is no phone line and no chat widget. Contact the operator by email or GitHub. The{" "}
             <Link to="/faq" className="text-primary hover:text-primary/80">
               FAQ
             </Link>{" "}
-            answers most questions about how tracking, timing, and campuses work before you write
-            in.
+            explains how tracking, timing, and campuses work.
           </p>
 
           <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
@@ -56,10 +62,15 @@ function ContactPage() {
             >
               support@pickmyclass.app
             </a>{" "}
-            for anything tied to your account: a watch that will not save, alerts that stopped
-            arriving, a change to the email address we notify, or a data export or deletion request.
-            Support is the only channel for account changes, because we never ask for your MyASU
-            password and we will not take account actions from a public issue thread.
+            for help with a watch that will not save, alerts that stopped arriving, or account
+            changes you cannot make yourself in{" "}
+            <Link to="/settings" className="text-primary hover:text-primary/80">
+              Settings
+            </Link>
+            . You can export your data or request account deletion in the Data tab in Settings.
+            Deletion disables your account immediately and permanently deletes your data after 30
+            days. We never ask for your MyASU password or take account actions from a public issue
+            thread.
           </p>
 
           <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
