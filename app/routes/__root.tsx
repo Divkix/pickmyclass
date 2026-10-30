@@ -1,6 +1,12 @@
 /// <reference types="vite/client" />
 import { ClerkProvider } from "@clerk/tanstack-react-start";
-import { HeadContent, Scripts, createRootRoute, useRouter } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Scripts,
+  createRootRoute,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
 import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 import { Toaster } from "sonner";
@@ -38,6 +44,21 @@ export const Route = createRootRoute({
   notFoundComponent: NotFound,
 });
 
+// Router pending state includes lazy chunks. CSS waits 250ms to avoid flashing on fast
+// navigations, then hides immediately on completion; the static bar has no motion.
+function NavigationProgress() {
+  const isPending = useRouterState({ select: (state) => state.status === "pending" });
+
+  return (
+    <progress
+      aria-label="Loading page"
+      aria-hidden={!isPending}
+      data-pending={isPending}
+      className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-1 w-full appearance-none border-0 bg-primary opacity-0 transition-opacity duration-0 data-[pending=true]:opacity-100 data-[pending=true]:delay-250 [&::-moz-progress-bar]:bg-primary [&::-webkit-progress-bar]:bg-primary"
+    />
+  );
+}
+
 function RootDocument({ children }: { children: ReactNode }) {
   // The gate's per-request nonce, for next-themes' inline script; unset in the browser.
   const nonce = useRouter().options.ssr?.nonce;
@@ -49,6 +70,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body className="font-sans antialiased flex flex-col min-h-screen">
         <SkipToContent />
+        <NavigationProgress />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
