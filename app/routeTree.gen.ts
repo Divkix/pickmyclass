@@ -57,6 +57,7 @@ import { Route as ApiClassWatchesStatesRouteImport } from './routes/api/class-wa
 import { Route as ApiMonitoringHealthRouteImport } from './routes/api/monitoring/health'
 import { Route as ApiUserDeleteRouteImport } from './routes/api/user/delete'
 import { Route as ApiUserExportRouteImport } from './routes/api/user/export'
+import { Route as ApiUserNotificationsRouteImport } from './routes/api/user/notifications'
 import { Route as ApiUserOnboardingRouteImport } from './routes/api/user/onboarding'
 import { Route as ApiWebhooksClerkRouteImport } from './routes/api/webhooks/clerk'
 import { Route as AdminClassesTermClassNbrRouteImport } from './routes/admin/classes/$term/$classNbr'
@@ -306,6 +307,11 @@ const ApiUserExportRoute = ApiUserExportRouteImport.update({
   path: '/api/user/export',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUserNotificationsRoute = ApiUserNotificationsRouteImport.update({
+  id: '/api/user/notifications',
+  path: '/api/user/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiUserOnboardingRoute = ApiUserOnboardingRouteImport.update({
   id: '/api/user/onboarding',
   path: '/api/user/onboarding',
@@ -374,6 +380,7 @@ export interface FileRoutesByFullPath {
   '/api/monitoring/health': typeof ApiMonitoringHealthRoute
   '/api/user/delete': typeof ApiUserDeleteRoute
   '/api/user/export': typeof ApiUserExportRoute
+  '/api/user/notifications': typeof ApiUserNotificationsRoute
   '/api/user/onboarding': typeof ApiUserOnboardingRoute
   '/api/webhooks/clerk': typeof ApiWebhooksClerkRoute
   '/admin/classes/': typeof AdminClassesIndexRoute
@@ -426,6 +433,7 @@ export interface FileRoutesByTo {
   '/api/monitoring/health': typeof ApiMonitoringHealthRoute
   '/api/user/delete': typeof ApiUserDeleteRoute
   '/api/user/export': typeof ApiUserExportRoute
+  '/api/user/notifications': typeof ApiUserNotificationsRoute
   '/api/user/onboarding': typeof ApiUserOnboardingRoute
   '/api/webhooks/clerk': typeof ApiWebhooksClerkRoute
   '/admin/classes': typeof AdminClassesIndexRoute
@@ -481,6 +489,7 @@ export interface FileRoutesById {
   '/api/monitoring/health': typeof ApiMonitoringHealthRoute
   '/api/user/delete': typeof ApiUserDeleteRoute
   '/api/user/export': typeof ApiUserExportRoute
+  '/api/user/notifications': typeof ApiUserNotificationsRoute
   '/api/user/onboarding': typeof ApiUserOnboardingRoute
   '/api/webhooks/clerk': typeof ApiWebhooksClerkRoute
   '/admin/classes/': typeof AdminClassesIndexRoute
@@ -537,6 +546,7 @@ export interface FileRouteTypes {
     | '/api/monitoring/health'
     | '/api/user/delete'
     | '/api/user/export'
+    | '/api/user/notifications'
     | '/api/user/onboarding'
     | '/api/webhooks/clerk'
     | '/admin/classes/'
@@ -589,6 +599,7 @@ export interface FileRouteTypes {
     | '/api/monitoring/health'
     | '/api/user/delete'
     | '/api/user/export'
+    | '/api/user/notifications'
     | '/api/user/onboarding'
     | '/api/webhooks/clerk'
     | '/admin/classes'
@@ -643,6 +654,7 @@ export interface FileRouteTypes {
     | '/api/monitoring/health'
     | '/api/user/delete'
     | '/api/user/export'
+    | '/api/user/notifications'
     | '/api/user/onboarding'
     | '/api/webhooks/clerk'
     | '/admin/classes/'
@@ -692,6 +704,7 @@ export interface RootRouteChildren {
   ApiMonitoringHealthRoute: typeof ApiMonitoringHealthRoute
   ApiUserDeleteRoute: typeof ApiUserDeleteRoute
   ApiUserExportRoute: typeof ApiUserExportRoute
+  ApiUserNotificationsRoute: typeof ApiUserNotificationsRoute
   ApiUserOnboardingRoute: typeof ApiUserOnboardingRoute
   ApiWebhooksClerkRoute: typeof ApiWebhooksClerkRoute
   ApiClassWatchesIndexRoute: typeof ApiClassWatchesIndexRoute
@@ -1036,6 +1049,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUserExportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/user/notifications': {
+      id: '/api/user/notifications'
+      path: '/api/user/notifications'
+      fullPath: '/api/user/notifications'
+      preLoaderRoute: typeof ApiUserNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/user/onboarding': {
       id: '/api/user/onboarding'
       path: '/api/user/onboarding'
@@ -1163,6 +1183,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMonitoringHealthRoute: ApiMonitoringHealthRoute,
   ApiUserDeleteRoute: ApiUserDeleteRoute,
   ApiUserExportRoute: ApiUserExportRoute,
+  ApiUserNotificationsRoute: ApiUserNotificationsRoute,
   ApiUserOnboardingRoute: ApiUserOnboardingRoute,
   ApiWebhooksClerkRoute: ApiWebhooksClerkRoute,
   ApiClassWatchesIndexRoute: ApiClassWatchesIndexRoute,

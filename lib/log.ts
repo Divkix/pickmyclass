@@ -190,7 +190,9 @@ interface ProductEventMap {
   class_watch_deleted: { user_id: string; watch_id: string };
   onboarding_skipped: { user_id: string };
   account_deleted: { user_id: string };
-  user_unsubscribed: { user_id_hash: string; method: "GET" | "POST" };
+  /** Settings uses the same hashed identity as token-based email unsubscribe. */
+  user_unsubscribed: { user_id_hash: string; method: "GET" | "POST" | "settings" };
+  user_resubscribed: { user_id_hash: string; method: "settings" };
   user_registered: { user_id: string; clerk_user_id: string; registered_at: string };
   /** One per SectionCheckWorkflow run, once its batches are enqueued. */
   section_check_cycle_enqueued: {

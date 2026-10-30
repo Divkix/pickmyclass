@@ -123,7 +123,15 @@ function loadDashboard() {
 function loadSettings() {
   // SAFETY: This loader ignores its context and calls the mocked server handler directly.
   const loader = SettingsRoute.options.loader as () => Promise<{
-    account: { email: string; created_at: string } | undefined;
+    account:
+      | {
+          email: string;
+          created_at: string;
+          notifications_enabled: boolean;
+          email_bounced: boolean;
+          spam_complained: boolean;
+        }
+      | undefined;
   }>;
 
   return loader();
@@ -215,7 +223,13 @@ describe("server-rendered authenticated pages", () => {
 
   it("renders the account email from the user's own row in settings", async () => {
     const pg = createScriptedPostgres(() => [
-      { email: "sparky@asu.edu", created_at: "2026-01-01T12:00:00Z" },
+      {
+        email: "sparky@asu.edu",
+        created_at: "2026-01-01T12:00:00Z",
+        notifications_enabled: true,
+        email_bounced: false,
+        spam_complained: false,
+      },
     ]);
 
     getDbFromEnv.mockReturnValue(pg.db);
