@@ -8,20 +8,20 @@ const consecutiveCountSchema = z.object({
   consecutive_not_found_count: z.number().nullish(),
 });
 
-interface UseRealtimeClassStatesOptions {
+export interface UseRealtimeClassStatesOptions {
   classNumbers: string[];
   enabled?: boolean;
   /**
    * Class states already in hand for these class numbers — typically the
    * `class_state` on each watch from GET /api/class-watches — keyed by
-   * sectionRefKey. When every class number is covered, the hook seeds its map
-   * and skips the immediate fetch, so the 60s poll is the first
-   * /api/class-watches/states read.
+   * sectionRefKey. When every class number is covered, the hook starts ready
+   * with these states and skips the immediate fetch, so the 60s poll is the
+   * first /api/class-watches/states read.
    */
   seedStates?: Record<string, ClassStateRow>;
 }
 
-interface UseRealtimeClassStatesReturn {
+export interface UseRealtimeClassStatesReturn {
   classStates: Record<string, ClassStateRow>;
   loading: boolean;
   error: Error | null;
@@ -108,8 +108,19 @@ export function useRealtimeClassStates({
   seedStates,
 }: UseRealtimeClassStatesOptions): UseRealtimeClassStatesReturn {
   const classNumbersKey = useMemo(() => classNumbers.join(","), [classNumbers]);
-  const [classStates, setClassStates] = useState<Record<string, ClassStateRow>>({});
-  const [loading, setLoading] = useState(!enabled || Boolean(classNumbersKey));
+
+  const seededStates = useMemo(
+    () => collectSeedStates(classNumbers, seedStates),
+    [classNumbers, seedStates],
+  );
+
+  const fullySeeded = seededStates !== null;
+
+  const [classStates, setClassStates] = useState<Record<string, ClassStateRow>>(
+    () => seededStates ?? {},
+  );
+
+  const [loading, setLoading] = useState(!enabled || (Boolean(classNumbersKey) && !fullySeeded));
   const [error, setError] = useState<Error | null>(null);
   const [previousInputs, setPreviousInputs] = useState({ classNumbersKey, enabled });
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -119,13 +130,6 @@ export function useRealtimeClassStates({
   useEffect(() => {
     refreshSessionRef.current = refreshSession;
   }, [refreshSession]);
-
-  const seededStates = useMemo(
-    () => collectSeedStates(classNumbers, seedStates),
-    [classNumbers, seedStates],
-  );
-
-  const fullySeeded = seededStates !== null;
 
   if (classNumbersKey !== previousInputs.classNumbersKey || enabled !== previousInputs.enabled) {
     setPreviousInputs({ classNumbersKey, enabled });
