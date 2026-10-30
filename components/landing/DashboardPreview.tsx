@@ -119,7 +119,7 @@ export function DashboardPreview() {
 
             <div className="border-t border-dashed border-border bg-muted/30 px-4 py-3 text-center sm:px-6">
               <span className="text-sm text-muted-foreground">
-                + Add more classes by section number
+                + Add more classes by 5-digit class number
               </span>
             </div>
           </div>
