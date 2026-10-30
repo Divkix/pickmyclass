@@ -20,7 +20,6 @@ import {
   capConsecutiveNotFound,
   deletePastTermWatches,
   getClassWatchers,
-  getMostWatchedClass,
   getNotificationWatchers,
   getSectionsToCheck,
   incrementConsecutiveNotFound,
@@ -80,8 +79,6 @@ const RUN = `dlv-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
 const TERM = `${RUN}-t1`;
 
 const TERM_OTHER = `${RUN}-t2`;
-
-const TERM_EMPTY = `${RUN}-t3`;
 
 const SUBJECT = `ZZ${RUN}`;
 
@@ -876,11 +873,6 @@ describe("watcher reads and eligibility RPCs", () => {
       ].sort(),
     );
     expect(mine(await getSectionsToCheck(db, "odd"))).toEqual([`${TERM}:${REF_ODD.class_nbr}`]);
-  });
-
-  it("picks the most-watched class by eligible watchers with deterministic tiebreak", async () => {
-    expect(await getMostWatchedClass(db, TERM)).toEqual(REF_C);
-    expect(await getMostWatchedClass(db, TERM_EMPTY)).toBeNull();
   });
 });
 

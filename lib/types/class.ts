@@ -28,10 +28,3 @@ export interface ClassDetails {
   end_date: string | null;
   session_code: string | null;
 }
-
-export interface PopularClass {
-  [key: string]: string | ClassDetails;
-  class_nbr: string;
-  term: string;
-  details: ClassDetails;
-}

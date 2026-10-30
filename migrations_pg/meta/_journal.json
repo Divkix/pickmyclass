@@ -127,6 +127,13 @@
       "when": 1792866467225,
       "tag": "0017_drop_unused_failed_login_table",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793402617933,
+      "tag": "0018_drop_unused_most_watched_class_rpc",
+      "breakpoints": true
     }
   ]
 }

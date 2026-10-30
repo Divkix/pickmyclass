@@ -15,7 +15,6 @@ type BoundaryErrorFields = { boundary: "app" };
 interface BrowserActionMap {
   onboarding_started: Record<never, never>;
   onboarding_completed: Record<never, never>;
-  onboarding_popular_class_tracked: { class_nbr: string; term: string };
   data_exported: Record<never, never>;
   user_logged_in: Record<never, never>;
   user_logged_out: Record<never, never>;

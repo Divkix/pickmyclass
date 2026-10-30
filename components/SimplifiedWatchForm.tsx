@@ -10,7 +10,6 @@ import type { ClassWatchRow } from "@/lib/types/class-watch";
 interface SimplifiedWatchFormProps {
   onCreated: (watch: ClassWatchRow, input: ClassWatchCreationInput) => void | Promise<void>;
   onSubmittingChange?: (submitting: boolean) => void;
-  defaultClassNbr?: string;
   submitLabel?: string;
   submittingLabel?: string;
 }
@@ -19,13 +18,11 @@ interface SimplifiedWatchFormProps {
 export function SimplifiedWatchForm({
   onCreated,
   onSubmittingChange,
-  defaultClassNbr = "",
   submitLabel = "Start Watching",
   submittingLabel = "Checking ASU's class search...",
 }: SimplifiedWatchFormProps) {
   const { terms, term, setTerm, classNbr, setClassNbr, error, isSubmitting, handleSubmit } =
     useClassWatchForm({
-      defaultClassNbr,
       onCreated,
       onSubmittingChange,
     });

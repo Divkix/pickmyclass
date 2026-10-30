@@ -55,7 +55,6 @@ import { Route as ApiAuthSignoutRouteImport } from './routes/api/auth/signout'
 import { Route as ApiClassWatchesIndexRouteImport } from './routes/api/class-watches/index'
 import { Route as ApiClassWatchesStatesRouteImport } from './routes/api/class-watches/states'
 import { Route as ApiMonitoringHealthRouteImport } from './routes/api/monitoring/health'
-import { Route as ApiOnboardingPopularClassRouteImport } from './routes/api/onboarding/popular-class'
 import { Route as ApiUserDeleteRouteImport } from './routes/api/user/delete'
 import { Route as ApiUserExportRouteImport } from './routes/api/user/export'
 import { Route as ApiUserOnboardingRouteImport } from './routes/api/user/onboarding'
@@ -297,12 +296,6 @@ const ApiMonitoringHealthRoute = ApiMonitoringHealthRouteImport.update({
   path: '/api/monitoring/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiOnboardingPopularClassRoute =
-  ApiOnboardingPopularClassRouteImport.update({
-    id: '/api/onboarding/popular-class',
-    path: '/api/onboarding/popular-class',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiUserDeleteRoute = ApiUserDeleteRouteImport.update({
   id: '/api/user/delete',
   path: '/api/user/delete',
@@ -379,7 +372,6 @@ export interface FileRoutesByFullPath {
   '/api/auth/signout': typeof ApiAuthSignoutRoute
   '/api/class-watches/states': typeof ApiClassWatchesStatesRoute
   '/api/monitoring/health': typeof ApiMonitoringHealthRoute
-  '/api/onboarding/popular-class': typeof ApiOnboardingPopularClassRoute
   '/api/user/delete': typeof ApiUserDeleteRoute
   '/api/user/export': typeof ApiUserExportRoute
   '/api/user/onboarding': typeof ApiUserOnboardingRoute
@@ -432,7 +424,6 @@ export interface FileRoutesByTo {
   '/api/auth/signout': typeof ApiAuthSignoutRoute
   '/api/class-watches/states': typeof ApiClassWatchesStatesRoute
   '/api/monitoring/health': typeof ApiMonitoringHealthRoute
-  '/api/onboarding/popular-class': typeof ApiOnboardingPopularClassRoute
   '/api/user/delete': typeof ApiUserDeleteRoute
   '/api/user/export': typeof ApiUserExportRoute
   '/api/user/onboarding': typeof ApiUserOnboardingRoute
@@ -488,7 +479,6 @@ export interface FileRoutesById {
   '/api/auth/signout': typeof ApiAuthSignoutRoute
   '/api/class-watches/states': typeof ApiClassWatchesStatesRoute
   '/api/monitoring/health': typeof ApiMonitoringHealthRoute
-  '/api/onboarding/popular-class': typeof ApiOnboardingPopularClassRoute
   '/api/user/delete': typeof ApiUserDeleteRoute
   '/api/user/export': typeof ApiUserExportRoute
   '/api/user/onboarding': typeof ApiUserOnboardingRoute
@@ -545,7 +535,6 @@ export interface FileRouteTypes {
     | '/api/auth/signout'
     | '/api/class-watches/states'
     | '/api/monitoring/health'
-    | '/api/onboarding/popular-class'
     | '/api/user/delete'
     | '/api/user/export'
     | '/api/user/onboarding'
@@ -598,7 +587,6 @@ export interface FileRouteTypes {
     | '/api/auth/signout'
     | '/api/class-watches/states'
     | '/api/monitoring/health'
-    | '/api/onboarding/popular-class'
     | '/api/user/delete'
     | '/api/user/export'
     | '/api/user/onboarding'
@@ -653,7 +641,6 @@ export interface FileRouteTypes {
     | '/api/auth/signout'
     | '/api/class-watches/states'
     | '/api/monitoring/health'
-    | '/api/onboarding/popular-class'
     | '/api/user/delete'
     | '/api/user/export'
     | '/api/user/onboarding'
@@ -703,7 +690,6 @@ export interface RootRouteChildren {
   ApiAuthSignoutRoute: typeof ApiAuthSignoutRoute
   ApiClassWatchesStatesRoute: typeof ApiClassWatchesStatesRoute
   ApiMonitoringHealthRoute: typeof ApiMonitoringHealthRoute
-  ApiOnboardingPopularClassRoute: typeof ApiOnboardingPopularClassRoute
   ApiUserDeleteRoute: typeof ApiUserDeleteRoute
   ApiUserExportRoute: typeof ApiUserExportRoute
   ApiUserOnboardingRoute: typeof ApiUserOnboardingRoute
@@ -1036,13 +1022,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMonitoringHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/onboarding/popular-class': {
-      id: '/api/onboarding/popular-class'
-      path: '/api/onboarding/popular-class'
-      fullPath: '/api/onboarding/popular-class'
-      preLoaderRoute: typeof ApiOnboardingPopularClassRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/user/delete': {
       id: '/api/user/delete'
       path: '/api/user/delete'
@@ -1182,7 +1161,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSignoutRoute: ApiAuthSignoutRoute,
   ApiClassWatchesStatesRoute: ApiClassWatchesStatesRoute,
   ApiMonitoringHealthRoute: ApiMonitoringHealthRoute,
-  ApiOnboardingPopularClassRoute: ApiOnboardingPopularClassRoute,
   ApiUserDeleteRoute: ApiUserDeleteRoute,
   ApiUserExportRoute: ApiUserExportRoute,
   ApiUserOnboardingRoute: ApiUserOnboardingRoute,
