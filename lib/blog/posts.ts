@@ -24,7 +24,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Compare ASU seat trackers by published price, campus coverage, alert channel, check cadence and limits. Details checked September 28, 2026.",
     publishedAt: "2026-06-18",
-    dateModified: "2026-09-28",
+    dateModified: "2026-10-30",
     readingTime: "5 min read",
   },
   {
@@ -51,7 +51,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.",
     publishedAt: "2026-03-27",
-    dateModified: "2026-06-18",
+    dateModified: "2026-10-30",
     readingTime: "5 min read",
   },
   {

@@ -77,7 +77,7 @@ const comparisonColumns = [
 const comparisonRows = [
   {
     tool: "PickMyClass",
-    coverage: "ASU; search by section number and add sections to a watchlist.",
+    coverage: "ASU; add sections by 5-digit class number, up to 10 at a time.",
     price: "Free; no paid tiers listed.",
     alerts:
       "Email notifications for seat availability and instructor assignments; no SMS is listed on the pages checked.",

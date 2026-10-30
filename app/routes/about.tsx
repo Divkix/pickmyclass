@@ -37,9 +37,10 @@ function AboutPage() {
             The Problem We Faced
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            It was add/drop week. I needed CSE 240 to stay on track for graduation, but every single
-            section was full. So I did what every ASU student does: I opened MyASU in one tab, set a
-            timer, and started refreshing.
+            It was add/drop week, the first days of the semester when students add and drop classes.
+            I needed CSE 240 to stay on track for graduation, but every single section was full. So
+            I did what every ASU student does: I opened MyASU in one tab, set a timer, and started
+            refreshing.
           </p>
           <p className="text-muted-foreground leading-relaxed">
             Two days later, I was still refreshing. I missed a seat opening because I was in a

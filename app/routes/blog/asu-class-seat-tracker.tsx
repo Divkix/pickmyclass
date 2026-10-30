@@ -112,8 +112,7 @@ const faqItems = [
   },
   {
     question: "How many classes can I track?",
-    answer:
-      "Multiple. We have fair-use limits so one person doesn't break the system for everyone, but most students can track every class they need without hitting a cap.",
+    answer: "Up to 10 classes at a time. Stop watching one in your dashboard to add another.",
   },
   {
     question: "Does this work for ASU Online classes?",
@@ -175,8 +174,8 @@ function ASUClassSeatTrackerPost() {
           <ShortAnswer>
             An ASU class seat tracker watches a full section for you and emails you the moment a
             seat opens. PickMyClass checks ASU Class Search every 30 minutes, alerts you on open
-            seats and instructor changes, and is free. Add the section number, then register in
-            MyASU as soon as the alert hits.
+            seats and instructor changes, and is free. Add the 5-digit class number, then register
+            in MyASU as soon as the alert hits.
           </ShortAnswer>
 
           <KeyTakeaways
@@ -256,11 +255,11 @@ function ASUClassSeatTrackerPost() {
             </div>
             <div className="rounded-lg border border-border bg-card p-6">
               <h3 className="text-lg font-semibold text-foreground mb-2">
-                Step 2: Add Classes to Your Watchlist
+                Step 2: Add the Classes You Want to Watch
               </h3>
               <p className="text-muted-foreground">
-                Search by section number (the 5-digit code from ASU class search) and add them to
-                your watchlist. Track as many as you want.
+                Enter the 5-digit class number from ASU Class Search and pick the term. You can
+                watch up to 10 classes at a time.
               </p>
             </div>
             <div className="rounded-lg border border-border bg-card p-6">
@@ -322,7 +321,7 @@ function ASUClassSeatTrackerPost() {
               the add classes page.
             </li>
             <li>
-              <strong className="text-foreground">Enter the section number</strong>. Have it copied
+              <strong className="text-foreground">Enter the class number</strong>. Have it copied
               and ready to paste.
             </li>
             <li>

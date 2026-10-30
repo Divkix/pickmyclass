@@ -97,7 +97,7 @@ function TermsOfServicePage() {
                     cannot guarantee immediate notifications
                   </li>
                   <li>The Service may be unavailable due to maintenance or technical issues</li>
-                  <li>We may limit the number of classes you can monitor</li>
+                  <li>You can monitor up to 10 classes at a time, and we may change this limit</li>
                 </ul>
               </section>
 

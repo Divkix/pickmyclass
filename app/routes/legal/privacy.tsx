@@ -56,7 +56,7 @@ function PrivacyPolicyPage() {
                   </li>
                   <li>
                     <strong>Class Preferences:</strong> The class sections you choose to monitor
-                    (term, subject, catalog number, section number)
+                    (term, subject, catalog number, class number)
                   </li>
                   <li>
                     <strong>Age Verification:</strong> Confirmation that you are 18 years or older

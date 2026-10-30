@@ -104,9 +104,9 @@ function ContactPage() {
           </h2>
           <ul className="space-y-3 text-muted-foreground list-disc list-inside">
             <li>
-              <strong className="text-foreground">The class section number and term.</strong> The
-              5-digit class number you searched for (for example 12345) and the term, such as Fall
-              2026, plus the campus or ASU Online if it matters.
+              <strong className="text-foreground">The class number and term.</strong> The 5-digit
+              class number you searched for (for example 12345) and the term, such as Fall 2026,
+              plus the campus or ASU Online if it matters.
             </li>
             <li>
               <strong className="text-foreground">What you expected and what happened.</strong> One
@@ -138,8 +138,8 @@ function ContactPage() {
             <Link to="/legal/privacy" className="text-primary hover:text-primary/80">
               privacy policy
             </Link>
-            . During add/drop week, when seat alerts spike, expect us to be slower and your alerts
-            to keep working regardless.
+            . During add/drop week, the first days of the semester when students add and drop
+            classes, seat alerts spike. Expect us to be slower then; your alerts keep working.
           </p>
 
           <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">
