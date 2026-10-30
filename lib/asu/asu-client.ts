@@ -69,6 +69,7 @@ const AsuApiClassItem = Schema.Struct({
   SESSIONCODE: Schema.optionalKey(LenientString),
   STARTDATE: Schema.optionalKey(LenientString),
   ENDDATE: Schema.optionalKey(LenientString),
+  INSTRUCTIONMODE: Schema.optionalKey(LenientString),
 });
 
 type AsuApiClassItem = typeof AsuApiClassItem.Type;
@@ -124,10 +125,19 @@ function composeMeetingTimes(item: AsuApiClassItem): string {
   if (item.FRI === "Y") days.push("F");
 
   if (days.length === 0 || !item.STARTTIME || !item.ENDTIME) {
-    return "TBD";
+    return "Times not listed";
   }
 
   return `${days.join("")} ${formatTime(item.STARTTIME)}-${formatTime(item.ENDTIME)}`;
+}
+
+/** ASU files online and hybrid sections under the "INTRT" facility (DESCR1 "Internet"), not a room. */
+function describeLocation(item: AsuApiClassItem): string {
+  if (item.FACILITYID === "INTRT") {
+    return item.INSTRUCTIONMODE === "HY" ? "Hybrid (online and in person)" : "Online";
+  }
+
+  return item.FACILITYID || "Room not listed";
 }
 
 const ASU_DATE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T]|$)/;
@@ -168,7 +178,7 @@ function mapToClassDetails(item: AsuApiClassItem, seats: SeatCounts): ClassDetai
     seats_available: Math.max(0, seats.capacity - seats.enrolled),
     seats_capacity: seats.capacity,
     non_reserved_seats: Math.max(0, seats.capacity - seats.enrolled - seats.waitlisted),
-    location: item.FACILITYID || "TBD",
+    location: describeLocation(item),
     meeting_times: composeMeetingTimes(item),
     start_date: item.STARTDATE ? parseAsuDate(item.STARTDATE) : null,
     end_date: item.ENDDATE ? parseAsuDate(item.ENDDATE) : null,

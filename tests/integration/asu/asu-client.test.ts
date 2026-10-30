@@ -156,10 +156,26 @@ describe("ASU Promise compatibility", () => {
       seats_available: 5,
       seats_capacity: 30,
       instructor_name: "Staff",
-      meeting_times: "TBD",
-      location: "TBD",
+      meeting_times: "Times not listed",
+      location: "Room not listed",
     });
   });
+
+  it.each([
+    {
+      extra: { FACILITYID: "INTRT", INSTRUCTIONMODE: "HY" },
+      location: "Hybrid (online and in person)",
+    },
+    { extra: { FACILITYID: "INTRT", INSTRUCTIONMODE: "OL" }, location: "Online" },
+    { extra: { FACILITYID: "INTRT", INSTRUCTIONMODE: 7 }, location: "Online" },
+    { extra: { FACILITYID: "COOR195", INSTRUCTIONMODE: "HY" }, location: "COOR195" },
+  ])(
+    "describes ASU's INTRT facility in words and keeps room codes",
+    async ({ extra, location }) => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(body(ref.class_nbr, extra))));
+      expect(await fetchClassFromASU(ref, env, { useCache: false })).toMatchObject({ location });
+    },
+  );
 
   it.each<Record<string, string | number | null>>([
     { ENRLCAP: null },
