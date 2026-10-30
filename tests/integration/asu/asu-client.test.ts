@@ -177,6 +177,20 @@ describe("ASU Promise compatibility", () => {
     },
   );
 
+  it.each([
+    { STARTTIME: "10:30 AM", ENDTIME: "12:05 PM", meeting_times: "MW 10:30 AM-12:05 PM" },
+    {
+      STARTTIME: "1:30 PM<br/>&nbsp;",
+      ENDTIME: "2:45 PM<br/>&nbsp;",
+      meeting_times: "MW 1:30 PM-2:45 PM",
+    },
+    { STARTTIME: "00:05", ENDTIME: "12:50", meeting_times: "MW 12:05 AM-12:50 PM" },
+    { STARTTIME: "TBA", ENDTIME: "2:45 PM", meeting_times: "Times not listed" },
+  ])("reads ASU's 12-hour and 24-hour meeting times", async ({ meeting_times, ...extra }) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(body(ref.class_nbr, extra))));
+    expect(await fetchClassFromASU(ref, env, { useCache: false })).toMatchObject({ meeting_times });
+  });
+
   it.each<Record<string, string | number | null>>([
     { ENRLCAP: null },
     { ENRLTOT: null },
