@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, ExternalLink, Lightbulb, Mail, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, Mail } from "lucide-react";
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
   Dialog,
@@ -13,28 +13,12 @@ import type { OnboardingState } from "@/lib/onboarding";
 import { trackBrowserAction } from "@/lib/telemetry/browser";
 import type { ClassWatchRow } from "@/lib/types/class-watch";
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2;
 
 const stepTitles = {
-  1: "Welcome to PickMyClass",
-  2: "Add your first class",
-  3: "You're all set",
+  1: "Add your first class",
+  2: "Your class is being watched",
 } as const satisfies Record<Step, string>;
-
-interface PopularClassDetails {
-  subject: string;
-  catalog_nbr: string;
-  title: string;
-  instructor_name: string;
-  seats_available: number;
-  seats_capacity: number;
-}
-
-interface PopularClass {
-  class_nbr: string;
-  term: string;
-  details: PopularClassDetails;
-}
 
 interface OnboardingModalProps {
   open: boolean;
@@ -101,46 +85,20 @@ export function OnboardingModal({
   );
 }
 
+/** Starts with class entry, then confirms creation; only completion/skip status is persisted. */
 function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: OnboardingFlowProps) {
   const [step, setStep] = useState<Step>(1);
   const [skipping, setSkipping] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createdWatch, setCreatedWatch] = useState<ClassWatchRow | null>(null);
-  const [popularClass, setPopularClass] = useState<PopularClass | null>(null);
-  const [popularLoading, setPopularLoading] = useState(true);
-  const [prefillClassNbr, setPrefillClassNbr] = useState("");
   const skippingRef = useRef(false);
   const completedRef = useRef(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
-  const announcement = `Step ${step} of 3: ${stepTitles[step]}`;
+  const announcement = `Step ${step} of 2: ${stepTitles[step]}`;
 
   useEffect(() => {
     trackBrowserAction("onboarding_started", {});
-    const controller = new AbortController();
-    fetch("/api/onboarding/popular-class", { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to load popular class");
-        }
-
-        return response.json();
-      })
-      .then((data) => {
-        if (controller.signal.aborted) return;
-        // SAFETY: /api/onboarding/popular-class returns { popularClass?: PopularClass | null } per API contract
-        setPopularClass((data as { popularClass?: PopularClass | null }).popularClass ?? null);
-      })
-      .catch(() => {
-        if (controller.signal.aborted) return;
-        setPopularClass(null);
-      })
-      .finally(() => {
-        if (controller.signal.aborted) return;
-        setPopularLoading(false);
-      });
-
-    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -188,7 +146,7 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
   const handleWatchCreated = (watch: ClassWatchRow) => {
     setCreatedWatch(watch);
     trackBrowserAction("onboarding_completed", {});
-    setStep((current) => (current === 2 ? 3 : current));
+    setStep(2);
   };
 
   const handleConfirmClose = () => {
@@ -200,18 +158,8 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
     }
   };
 
-  const handleTrackPopular = () => {
-    if (!popularClass) return;
-    setPrefillClassNbr(popularClass.class_nbr);
-    trackBrowserAction("onboarding_popular_class_tracked", {
-      class_nbr: popularClass.class_nbr,
-      term: popularClass.term,
-    });
-    setStep(2);
-  };
-
   const requestClose = () => {
-    if (step === 3) {
+    if (step === 2) {
       handleConfirmClose();
 
       return;
@@ -230,51 +178,35 @@ function OnboardingFlow({ ref, onSkipped, onCompleted, onSkipError }: Onboarding
       {step === 1 && (
         <StepOne
           titleRef={titleRef}
-          popularLoading={popularLoading}
-          popularClass={popularClass}
-          skipping={skipping}
-          onSkip={handleSkip}
-          onTrackPopular={handleTrackPopular}
-          onContinue={() => setStep(2)}
-        />
-      )}
-
-      {step === 2 && (
-        <StepTwo
-          titleRef={titleRef}
           skipping={skipping}
           creating={creating}
-          prefillClassNbr={prefillClassNbr}
           onCreated={handleWatchCreated}
           onSubmittingChange={setCreating}
           onSkip={handleSkip}
-          onBack={() => setStep(1)}
         />
       )}
 
-      {step === 3 && <StepThree titleRef={titleRef} onDone={handleConfirmClose} />}
+      {step === 2 && <StepTwo titleRef={titleRef} onDone={handleConfirmClose} />}
     </>
   );
 }
 
 interface StepOneProps {
   titleRef: Ref<HTMLHeadingElement>;
-  popularLoading: boolean;
-  popularClass: PopularClass | null;
   skipping: boolean;
+  creating: boolean;
+  onCreated: (watch: ClassWatchRow) => void;
+  onSubmittingChange: (submitting: boolean) => void;
   onSkip: () => Promise<void>;
-  onTrackPopular: () => void;
-  onContinue: () => void;
 }
 
 function StepOne({
   titleRef,
-  popularLoading,
-  popularClass,
   skipping,
+  creating,
+  onCreated,
+  onSubmittingChange,
   onSkip,
-  onTrackPopular,
-  onContinue,
 }: StepOneProps) {
   return (
     <>
@@ -283,117 +215,7 @@ function StepOne({
           className="text-xs font-medium text-muted-foreground uppercase tracking-wider"
           aria-hidden="true"
         >
-          Step 1 of 3
-        </div>
-        <DialogTitle className="text-2xl" ref={titleRef} tabIndex={-1}>
-          Welcome to PickMyClass
-        </DialogTitle>
-        <DialogDescription id="onboarding-step-description">
-          Let&apos;s set up your first class alert. It takes about 30 seconds.
-        </DialogDescription>
-      </DialogHeader>
-
-      <div className="space-y-4 py-2">
-        {popularLoading ? (
-          <div
-            className="h-28 rounded-md bg-primary/5 border border-primary/20 animate-pulse"
-            aria-hidden="true"
-          />
-        ) : popularClass ? (
-          <div className="rounded-md bg-primary/5 border border-primary/20 p-4 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-primary">
-              <Sparkles className="size-4" aria-hidden="true" />
-              <span>Most-watched class right now</span>
-            </div>
-            <div className="text-sm">
-              <p className="font-medium text-foreground">
-                {popularClass.details.subject} {popularClass.details.catalog_nbr}
-              </p>
-              <p className="text-muted-foreground">{popularClass.details.title}</p>
-              <p className="text-xs text-muted-foreground mt-1">Class #{popularClass.class_nbr}</p>
-            </div>
-            <Button
-              type="button"
-              variant="gradient"
-              className="w-full gap-2"
-              onClick={onTrackPopular}
-            >
-              <Sparkles className="size-4" />
-              Track this class
-            </Button>
-          </div>
-        ) : (
-          <div className="flex gap-3 rounded-md bg-primary/5 border border-primary/20 p-3 text-sm">
-            <Lightbulb className="size-4 shrink-0 text-primary mt-0.5" aria-hidden="true" />
-            <p className="text-foreground">
-              Every ASU class section has a <strong>5-digit class number</strong>. Find it on the{" "}
-              <a
-                href="https://catalog.apps.asu.edu/catalog/classes/classlist"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-primary underline hover:text-primary/80 inline-flex items-center gap-1"
-              >
-                ASU Class Search page
-                <ExternalLink className="size-3" />
-              </a>{" "}
-              in the &quot;Class #&quot; column.
-            </p>
-          </div>
-        )}
-
-        <p className="text-sm text-muted-foreground">
-          Once you have a class number, we&apos;ll start tracking it and email you the moment a seat
-          opens or an instructor is assigned.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center pt-2">
-        <button
-          type="button"
-          onClick={() => void onSkip()}
-          disabled={skipping}
-          className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline disabled:opacity-50"
-        >
-          Skip for now
-        </button>
-        <Button variant="gradient" className="gap-2" disabled={skipping} onClick={onContinue}>
-          I have my class number
-          <ArrowRight className="size-4" />
-        </Button>
-      </div>
-    </>
-  );
-}
-
-interface StepTwoProps {
-  titleRef: Ref<HTMLHeadingElement>;
-  skipping: boolean;
-  creating: boolean;
-  prefillClassNbr: string;
-  onCreated: (watch: ClassWatchRow) => void;
-  onSubmittingChange: (submitting: boolean) => void;
-  onSkip: () => Promise<void>;
-  onBack: () => void;
-}
-
-function StepTwo({
-  titleRef,
-  skipping,
-  creating,
-  prefillClassNbr,
-  onCreated,
-  onSubmittingChange,
-  onSkip,
-  onBack,
-}: StepTwoProps) {
-  return (
-    <>
-      <DialogHeader>
-        <div
-          className="text-xs font-medium text-muted-foreground uppercase tracking-wider"
-          aria-hidden="true"
-        >
-          Step 2 of 3
+          Step 1 of 2
         </div>
         <DialogTitle className="text-2xl" ref={titleRef} tabIndex={-1}>
           Add your first class
@@ -407,7 +229,6 @@ function StepTwo({
         <SimplifiedWatchForm
           onCreated={onCreated}
           onSubmittingChange={onSubmittingChange}
-          defaultClassNbr={prefillClassNbr}
           submitLabel="Add class"
           submittingLabel="Adding your class..."
         />
@@ -422,20 +243,17 @@ function StepTwo({
         >
           Skip for now
         </button>
-        <Button type="button" variant="ghost" disabled={skipping || creating} onClick={onBack}>
-          Back
-        </Button>
       </div>
     </>
   );
 }
 
-interface StepThreeProps {
+interface StepTwoProps {
   titleRef: Ref<HTMLHeadingElement>;
   onDone: () => void;
 }
 
-function StepThree({ titleRef, onDone }: StepThreeProps) {
+function StepTwo({ titleRef, onDone }: StepTwoProps) {
   return (
     <>
       <DialogHeader>
@@ -443,13 +261,13 @@ function StepThree({ titleRef, onDone }: StepThreeProps) {
           className="text-xs font-medium text-muted-foreground uppercase tracking-wider"
           aria-hidden="true"
         >
-          Step 3 of 3
+          Step 2 of 2
         </div>
         <DialogTitle className="text-2xl" ref={titleRef} tabIndex={-1}>
-          You&apos;re all set!
+          Your class is being watched
         </DialogTitle>
         <DialogDescription id="onboarding-step-description">
-          Your first class is being watched. Here&apos;s what happens next.
+          You can view or remove it from your dashboard.
         </DialogDescription>
       </DialogHeader>
 
@@ -459,10 +277,8 @@ function StepThree({ titleRef, onDone }: StepThreeProps) {
             <Mail className="size-5" />
           </div>
           <div>
-            <p className="font-medium text-sm">We&apos;ll email you the moment a seat opens</p>
-            <p className="text-sm text-muted-foreground">
-              We check every 30 minutes, 24/7. No more refreshing MyASU.
-            </p>
+            <p className="font-medium text-sm">We will email you when a seat opens</p>
+            <p className="text-sm text-muted-foreground">We check every 30 minutes, every day.</p>
           </div>
         </div>
         <div className="flex gap-3">
@@ -472,7 +288,7 @@ function StepThree({ titleRef, onDone }: StepThreeProps) {
           <div>
             <p className="font-medium text-sm">Or when an instructor is assigned</p>
             <p className="text-sm text-muted-foreground">
-              You&apos;ll hear from us the instant a &quot;Staff&quot; placeholder is replaced.
+              We will email you when ASU replaces &quot;Staff&quot; with the instructor&apos;s name.
             </p>
           </div>
         </div>
