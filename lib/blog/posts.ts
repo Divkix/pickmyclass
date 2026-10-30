@@ -87,7 +87,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "ASU registration for transfer students: how transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.",
     publishedAt: "2026-04-26",
-    dateModified: "2026-06-18",
+    dateModified: "2026-10-30",
     readingTime: "7 min read",
   },
   {
@@ -96,7 +96,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips to find the perfect classes faster.",
     publishedAt: "2026-04-26",
-    dateModified: "2026-06-18",
+    dateModified: "2026-10-30",
     readingTime: "7 min read",
   },
 ];

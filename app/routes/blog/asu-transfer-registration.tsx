@@ -357,8 +357,8 @@ function ASUTransferRegistrationPost() {
             <Link to="/" className="text-primary hover:text-primary/80 font-medium">
               PickMyClass
             </Link>{" "}
-            checks every 30 minutes and texts you immediately. Manual checking is a pain, and during
-            orientation week you're too busy to babysit the registration page anyway.
+            checks every 30 minutes and emails you when a seat opens. Manual checking is a pain, and
+            during orientation week you're too busy to babysit the registration page anyway.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mt-8 mb-3">
@@ -395,7 +395,7 @@ function ASUTransferRegistrationPost() {
 
           <BlogCTA
             heading="Late registration is rough, but it's not the end"
-            description="PickMyClass checks seats every 30 minutes and texts you the second something opens. A lot of transfer students use it to catch up during add/drop week."
+            description="PickMyClass checks seats every 30 minutes and emails you when one opens. A lot of transfer students use it to catch up during add/drop week."
           />
 
           <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">

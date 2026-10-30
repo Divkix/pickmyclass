@@ -446,7 +446,7 @@ function MyASUSearchTipsPost() {
 
           <BlogCTA
             heading="Full class? Don't just wait and hope"
-            description="PickMyClass checks every 30 minutes and sends you a text when a seat opens. A lot of students get into their must-have classes during add/drop week this way."
+            description="PickMyClass checks every 30 minutes and emails you when a seat opens. A lot of students get into their must-have classes during add/drop week this way."
           />
 
           <h2 id="faq" className="text-2xl font-semibold text-foreground mt-10 mb-4">
