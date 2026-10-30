@@ -1,5 +1,5 @@
-import { isRedirect, redirect } from "@tanstack/react-router";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { isRedirect, notFound, redirect } from "@tanstack/react-router";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { AuthorizationState } from "@/lib/auth/authorization-state";
 import type { SessionIdentity } from "@/lib/auth/clerk-session";
 import type { UserVerificationState } from "@/lib/db/users";
@@ -22,7 +22,13 @@ const {
   };
 });
 
+vi.mock("@clerk/tanstack-react-start/server", () => ({
+  clerkMiddleware: () => ({}),
+}));
+
 vi.mock("@/lib/auth/clerk-session", () => ({
+  clerkMiddlewareOptions: {},
+  toSessionIdentity: vi.fn(),
   revokeSession: mockRevokeSession,
 }));
 
@@ -38,6 +44,7 @@ vi.mock("@/lib/db", () => ({
   getDbFromEnv: mockGetDbFromEnv,
 }));
 
+import { startInstance } from "@/app/start";
 import {
   gateRequest,
   isGateExempt,
@@ -355,6 +362,110 @@ describe("gateRequest", () => {
       expect(isGateExempt(path)).toBe(false);
     },
   );
+});
+
+describe("request error responses", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    seedAuthenticated();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function handleRequest(
+    request: Request,
+    handlerType: "router" | "serverFn" = "router",
+    next = () => renderRequest(request, IDENTITY),
+  ) {
+    const { requestMiddleware } = await startInstance.getOptions();
+    const handler = requestMiddleware?.[1]?.options.server;
+
+    if (!handler) throw new Error("Request error middleware is required");
+
+    const pathname = new URL(request.url).pathname;
+
+    return handler({
+      request,
+      pathname,
+      handlerType,
+      context: undefined,
+      // SAFETY: logRequestErrors calls next() without a context and returns its result as-is.
+      next: (async () => ({
+        request,
+        pathname,
+        context: undefined,
+        response: await next(),
+      })) as Parameters<typeof handler>[0]["next"],
+    });
+  }
+
+  it("renders a safe HTML error page when the gate's database read fails before SSR", async () => {
+    const failure = new Error('Failed query: select "email" from "users" where "id" = $1');
+    mockReadUserVerification.mockRejectedValueOnce(failure);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const request = new Request(`${ORIGIN}/consent`, {
+      headers: { accept: "text/html", cookie: "__session=token" },
+    });
+
+    const response = await handleRequest(request);
+
+    if (!(response instanceof Response)) throw new Error("Expected an HTML error response");
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    const scriptSrc = scriptSrcOf(response.headers.get("content-security-policy"));
+    expect(scriptSrc).not.toContain("'nonce-");
+    const html = await response.text();
+    expect(html).toContain("<html");
+    expect(html).toContain('href=""');
+    expect(html).toContain('href="/"');
+    expect(html).not.toContain('"unhandled"');
+    expect(html).not.toContain("HTTPError");
+    expect(html).not.toContain("Failed query");
+    expect(html).not.toContain("select");
+    expect(logged).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["/api/class-watches", "text/html", "router"],
+    ["/consent", "application/json", "router"],
+    ["/_serverFn/page", "text/html", "serverFn"],
+  ] as const)(
+    "keeps errors from %s (%s, %s) on their existing path",
+    async (path, accept, type) => {
+      const failure = new Error("Database unavailable");
+      mockReadUserVerification.mockRejectedValueOnce(failure);
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const request = new Request(new URL(path, ORIGIN), {
+        headers: { accept, cookie: "__session=token" },
+      });
+
+      await expect(handleRequest(request, type)).rejects.toBe(failure);
+      expect(logged).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([
+    new Response(null, { status: 307, headers: { location: "/" } }),
+    redirect({ href: "/" }),
+    notFound(),
+  ])("passes router control flow through without logging it", async (controlFlow) => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const request = new Request(`${ORIGIN}/consent`, { headers: { accept: "text/html" } });
+
+    await expect(
+      handleRequest(request, "router", async () => {
+        throw controlFlow;
+      }),
+    ).rejects.toBe(controlFlow);
+    expect(logged).not.toHaveBeenCalled();
+  });
 });
 
 describe("needsCsrfCheck", () => {

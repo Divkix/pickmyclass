@@ -162,6 +162,47 @@ export function withDefaultCacheControl(response: Response): Response {
   return copy;
 }
 
+/**
+ * Failures before router SSR cannot reach its error component. Return a script-free page only
+ * for document requests; API, RPC and machine-read errors keep their existing response format.
+ * No nonce is needed: the page has no scripts and uses the existing nonce-free public CSP.
+ */
+export function documentErrorResponse(request: Request): Response | undefined {
+  const { pathname } = new URL(request.url);
+
+  if (
+    (request.method !== "GET" && request.method !== "HEAD") ||
+    !request.headers.get("accept")?.includes("text/html") ||
+    pathname === "/api" ||
+    pathname.startsWith("/api/") ||
+    isGateExempt(pathname)
+  ) {
+    return undefined;
+  }
+
+  return withSecurityHeaders(
+    new Response(
+      `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Something went wrong | PickMyClass</title>
+</head>
+<body>
+  <main>
+    <h1>Something went wrong</h1>
+    <p>PickMyClass could not load this page. Please try again.</p>
+    <nav aria-label="Error recovery"><a href="">Reload</a> <a href="/">Home</a></nav>
+  </main>
+</body>
+</html>`,
+      { status: 500, headers: { "Content-Type": "text/html; charset=utf-8" } },
+    ),
+    process.env.NODE_ENV === "development" ? DEV_CSP : PUBLIC_CSP,
+  );
+}
+
 function redirectTo(request: Request, to: string, status = 307): Response {
   return new Response(null, { status, headers: { Location: new URL(to, request.url).href } });
 }

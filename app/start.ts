@@ -10,6 +10,7 @@ import {
 import { getRequest } from "@tanstack/react-start/server";
 import { clerkMiddlewareOptions, toSessionIdentity } from "@/lib/auth/clerk-session";
 import {
+  documentErrorResponse,
   gateRequest,
   isGateExempt,
   withDefaultCacheControl,
@@ -31,13 +32,26 @@ const clerk = createIsomorphicFn()
   .server(() => clerkMiddleware(clerkMiddlewareOptions))
   .client(() => createMiddleware());
 
-/** The last stop for what a page or server-route request throws, Clerk's verification included. */
-const logRequestErrors = createMiddleware().server(async ({ request, next }) => {
+/**
+ * The last stop for what a page or server-route request throws, Clerk's verification included.
+ * Pre-router document failures need HTML here, before Start's server entry converts them to JSON.
+ * Router redirects/not-found are control flow; unexpected failures are logged exactly once.
+ */
+const logRequestErrors = createMiddleware().server(async ({ request, handlerType, next }) => {
   try {
     return await next();
   } catch (error) {
     // clerkMiddleware throws its handshake redirect as a Response.
-    if (!(error instanceof Response)) logRequestError(error, request);
+    if (error instanceof Response || isRedirect(error) || isNotFound(error)) throw error;
+
+    logRequestError(error, request);
+
+    if (handlerType === "router") {
+      const response = documentErrorResponse(request);
+
+      if (response) return response;
+    }
+
     throw error;
   }
 });
