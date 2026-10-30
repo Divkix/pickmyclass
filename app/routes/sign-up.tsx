@@ -3,7 +3,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Header } from "@/components/Header";
 import { pageHead } from "@/lib/seo/head";
 
-const appearance = { variables: { colorPrimary: "#7a0019", colorBackground: "#fff8e7" } };
+// Keep Clerk's brand colors, with readable fields and touch targets on mobile.
+const appearance = {
+  variables: { colorPrimary: "#7a0019", colorBackground: "#fff8e7", fontSize: "16px" },
+  elements: {
+    formFieldInput: { minHeight: "44px", fontSize: "16px" },
+    formButtonPrimary: { minHeight: "44px", fontSize: "16px" },
+    formFieldInputShowPasswordButton: { minHeight: "44px", minWidth: "44px" },
+    socialButtonsBlockButton: { minHeight: "44px" },
+  },
+};
 
 export const Route = createFileRoute("/sign-up")({
   head: () =>
