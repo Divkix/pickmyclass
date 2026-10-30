@@ -22,7 +22,7 @@ interface DashboardViewProps {
   ownerClerkUserId: string;
 }
 
-/** The interactive dashboard; the server page renders it with the user's watchlist. */
+/** Shows watched classes before stats on mobile, retaining the stats-first desktop layout. */
 export function DashboardView({ initial, ownerClerkUserId }: DashboardViewProps) {
   const {
     watches,
@@ -63,11 +63,15 @@ export function DashboardView({ initial, ownerClerkUserId }: DashboardViewProps)
           toast.error("Could not skip onboarding", { description: message })
         }
       />
-      <main id="main" tabIndex={-1} className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
+      <main
+        id="main"
+        tabIndex={-1}
+        className="container mx-auto flex flex-col px-4 py-6 sm:py-8 max-w-7xl"
+      >
         <m.div className="mb-8" initial={false} animate="visible" variants={fadeInUp}>
           <h1 className="text-3xl font-semibold mb-2 sm:text-4xl">Your Class Watchlist</h1>
           <p className="text-muted-foreground">
-            We're keeping an eye on your ASU classes so you don't have to.
+            We check your ASU classes and email you when seats open or an instructor is assigned.
           </p>
         </m.div>
 
@@ -89,7 +93,13 @@ export function DashboardView({ initial, ownerClerkUserId }: DashboardViewProps)
           !onboarding.onboarding_completed_at && <FinishSetupCard />}
 
         {!isLoadingWatches && watches.length > 0 && (
-          <DashboardStats stats={stats} maxWatches={maxWatches} realtimeLoading={realtimeLoading} />
+          <div className="order-last mt-6 sm:order-none sm:mt-0">
+            <DashboardStats
+              stats={stats}
+              maxWatches={maxWatches}
+              realtimeLoading={realtimeLoading}
+            />
+          </div>
         )}
 
         <m.div

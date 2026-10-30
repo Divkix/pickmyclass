@@ -2,6 +2,7 @@ import { m } from "framer-motion";
 import { Info, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { getTermLabel } from "@/lib/asu/terms";
 import { classWatchCreation } from "@/lib/class-watches/class-watch-creation";
 import { useSwipe } from "@/lib/hooks/useSwipe";
 import { errorFields, log } from "@/lib/log";
@@ -174,7 +175,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
                     {classState?.title && ` - ${classState.title}`}
                   </CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Section {watch.class_nbr} • Term {watch.term}
+                    Class {watch.class_nbr} • {getTermLabel(watch.term)}
                   </p>
                   <div className="flex items-center gap-1.5 mt-2">
                     {classState?.alerts_ended ? (
@@ -212,17 +213,6 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
                   >
                     <Info className="size-4" aria-hidden="true" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    disabled={isDeleting}
-                    className="text-destructive hover:text-destructive/80 hover:bg-destructive/10 size-11"
-                    aria-label={`Stop watching ${classTitle}`}
-                    title="Stop watching this class"
-                  >
-                    <Trash2 className="size-4" aria-hidden="true" />
-                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -233,6 +223,17 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
                   Last checked: {formatAbsoluteDate(classState.last_checked_at)}
                 </p>
               )}
+              <Button
+                variant="ghost"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={isDeleting}
+                className="mt-3 h-11 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
+                aria-label={`Stop watching ${classTitle}`}
+                title="Stop watching this class"
+              >
+                <Trash2 className="size-4" aria-hidden="true" />
+                <span>Stop watching</span>
+              </Button>
             </CardContent>
           </Card>
         </m.div>

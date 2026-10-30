@@ -49,7 +49,7 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
       </output>
 
       <div
-        className={`inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm ${
+        className={`inline-flex flex-wrap items-center gap-2 rounded-md px-3 py-1 text-sm ${
           hasInstructor ? "bg-info/20 text-primary" : "bg-muted text-muted-foreground"
         }`}
       >
@@ -63,12 +63,12 @@ export function ClassStateIndicator({ classState }: ClassStateIndicatorProps) {
             target="_blank"
             rel="noopener noreferrer"
             className="ml-1 inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-            aria-label={`View ${instructor_name} on RateMyProfessor`}
-            title="View on RateMyProfessor"
+            aria-label={`View ${instructor_name} on RateMyProfessors`}
+            title="View on RateMyProfessors"
             onClick={(e) => e.stopPropagation()}
           >
             <ExternalLink className="size-3" aria-hidden="true" />
-            <span className="hover:underline">RMP</span>
+            <span className="hover:underline">RateMyProfessors</span>
           </a>
         )}
       </div>

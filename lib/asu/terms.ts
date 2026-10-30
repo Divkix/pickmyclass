@@ -184,6 +184,11 @@ function findTermByCode(code: string): AsuTerm | undefined {
   return match && season ? generateTerm(2000 + Number(match[1]), season) : undefined;
 }
 
+/** Uses the same season/year label as term options, preserving unknown codes. */
+export function getTermLabel(code: string): string {
+  return findTermByCode(code)?.label ?? code;
+}
+
 export function getSelectableTerms(now: Date = new Date()): AsuTerm[] {
   const today = getPhoenixDateParts(now);
 
