@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { Client, Pool, type PoolClient, type QueryConfig, type QueryResult } from "pg";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { getDb } from "@/lib/db";
@@ -194,6 +195,94 @@ describe("guardPool", () => {
 
 describe("getDb", () => {
   afterEach(() => vi.restoreAllMocks());
+
+  /** Keep pg's real checkout/release lifecycle; only replace the network transport. */
+  function stubTransport() {
+    vi.spyOn(Client.prototype, "connect").mockImplementation((callback?: () => void) => {
+      callback?.();
+
+      return Promise.resolve();
+    });
+
+    const end = vi.spyOn(Client.prototype, "end").mockImplementation((callback?: () => void) => {
+      callback?.();
+
+      return Promise.resolve();
+    });
+
+    // SAFETY: the pool uses the callback overload; guarded transaction queries use promises.
+    vi.spyOn(Client.prototype, "query").mockImplementation(((
+      _config: QueryConfig,
+      _values?: QueryConfig["values"],
+      callback?: (error: Error | undefined, result: QueryResult) => void,
+    ) => {
+      if (callback) {
+        callback(undefined, result);
+
+        return undefined;
+      }
+
+      return Promise.resolve(result);
+    }) as Client["query"]);
+
+    return end;
+  }
+
+  it("closes each statement connection before the invocation can reclaim its socket", async () => {
+    const end = stubTransport();
+    // SAFETY: getDb reads only connectionString; the transport never opens a socket.
+    const db = getDb({ connectionString: "postgres://localhost/test" } as Hyperdrive);
+    const acquired: Client[] = [];
+    db.$client.on("acquire", (client) => acquired.push(client));
+
+    try {
+      await db.execute(sql`SELECT 1`);
+      expect(db.$client.idleCount).toBe(0);
+      expect(db.$client.totalCount).toBe(0);
+      expect(end).toHaveBeenCalledTimes(1);
+
+      await db.execute(sql`SELECT 2`);
+      expect(acquired).toHaveLength(2);
+      expect(acquired[1]).not.toBe(acquired[0]);
+      expect(db.$client.idleCount).toBe(0);
+      expect(db.$client.totalCount).toBe(0);
+      expect(end).toHaveBeenCalledTimes(2);
+    } finally {
+      await db.$client.end();
+    }
+  });
+
+  it.each(["commit", "rollback"])(
+    "keeps a transaction on one connection and closes it after %s",
+    async (outcome) => {
+      const end = stubTransport();
+      // SAFETY: getDb reads only connectionString; the transport never opens a socket.
+      const db = getDb({ connectionString: "postgres://localhost/test" } as Hyperdrive);
+      const acquired = vi.fn();
+      db.$client.on("acquire", acquired);
+      const failure = new Error("abort transaction");
+
+      try {
+        const transaction = db.transaction(async (tx) => {
+          await tx.execute(sql`SELECT 1`);
+          expect(acquired).toHaveBeenCalledTimes(1);
+          expect(db.$client.totalCount).toBe(1);
+          expect(db.$client.idleCount).toBe(0);
+          expect(end).not.toHaveBeenCalled();
+          if (outcome === "rollback") throw failure;
+        });
+
+        if (outcome === "rollback") await expect(transaction).rejects.toBe(failure);
+        else await transaction;
+
+        expect(db.$client.totalCount).toBe(0);
+        expect(db.$client.idleCount).toBe(0);
+        expect(end).toHaveBeenCalledTimes(1);
+      } finally {
+        await db.$client.end();
+      }
+    },
+  );
 
   it("handles and logs an idle pool error without an unhandled event", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
