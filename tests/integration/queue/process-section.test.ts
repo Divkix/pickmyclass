@@ -37,10 +37,12 @@ describe("processSection", () => {
   it("retries an ASU timeout without advancing state, then notifies on redelivery", async () => {
     const pg = createScriptedPostgres();
     const env = environment();
+
     const fetchClass = vi
       .fn()
       .mockRejectedValueOnce(new ApiError("ASU API request timed out", 408))
       .mockResolvedValueOnce(details);
+
     pg.next([state()]);
 
     expect(await processSection(pg.db, ref, env, { fetchClass })).toMatchObject({

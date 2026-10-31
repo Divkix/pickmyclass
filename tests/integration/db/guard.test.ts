@@ -198,16 +198,16 @@ describe("getDb", () => {
 
   /** Keep pg's real checkout/release lifecycle; only replace the network transport. */
   function stubTransport() {
-    vi.spyOn(Client.prototype, "connect").mockImplementation((callback?: () => void) => {
-      callback?.();
-
-      return Promise.resolve();
+    vi.spyOn(Client.prototype, "connect").mockImplementation(function (this: Client, callback) {
+      // SAFETY: pg invokes this callback with a null error and the connected client on success.
+      const connected = callback as (error: null, client: Client) => void;
+      connected(null, this);
     });
 
-    const end = vi.spyOn(Client.prototype, "end").mockImplementation((callback?: () => void) => {
-      callback?.();
-
-      return Promise.resolve();
+    const end = vi.spyOn(Client.prototype, "end").mockImplementation((callback) => {
+      // SAFETY: pg's successful end callback has no error; its type only declares the error case.
+      const disconnected = callback as (error?: Error) => void;
+      disconnected();
     });
 
     // SAFETY: the pool uses the callback overload; guarded transaction queries use promises.
@@ -269,6 +269,7 @@ describe("getDb", () => {
           expect(db.$client.totalCount).toBe(1);
           expect(db.$client.idleCount).toBe(0);
           expect(end).not.toHaveBeenCalled();
+
           if (outcome === "rollback") throw failure;
         });
 

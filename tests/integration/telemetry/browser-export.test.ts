@@ -18,17 +18,21 @@ interface Attribute {
 }
 
 const bundle = readFileSync(new URL(import.meta.resolve("@hyperdx/browser")), "utf8");
+
 // These pinned functions contain no brace literals; count their block/object
 // braces to execute the installed exporter, not a copy of its behavior.
 function serializerSource(name: string): string {
   const start = bundle.indexOf(`function ${name}(`);
+
   if (start < 0) throw new Error("HyperDX OTLP serializer patch needs updating");
   const body = bundle.indexOf("{", start);
   let depth = 0;
 
   for (let index = body; index < bundle.length; index += 1) {
     if (bundle[index] === "{") depth += 1;
+
     if (bundle[index] === "}") depth -= 1;
+
     if (depth === 0) return bundle.slice(start, index + 1);
   }
 
@@ -101,7 +105,9 @@ describe("browser OTLP exporter compatibility", () => {
   });
 
   it("preserves booleans, byte arrays and intentionally empty containers", () => {
-    expect(exported({ enabled: true, bytes: new Uint8Array([1, 2]), array: [], object: {} })).toEqual([
+    expect(
+      exported({ enabled: true, bytes: new Uint8Array([1, 2]), array: [], object: {} }),
+    ).toEqual([
       { key: "enabled", value: { boolValue: true } },
       { key: "bytes", value: { bytesValue: "AQI=" } },
       { key: "array", value: { arrayValue: { values: [] } } },

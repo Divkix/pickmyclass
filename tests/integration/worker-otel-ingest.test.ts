@@ -160,71 +160,84 @@ describe("browser telemetry ingest", () => {
     expect(JSON.stringify(resource)).toContain('"stringValue":"US"');
   });
 
-  it.each([false, true])("removes malformed SDK AnyValues at every OTLP attribute boundary (gzip=%s)", async (gzip) => {
-    const valid = [
-      { key: "metric", value: { doubleValue: 1.25 }, extra: "kept" },
-      { key: "empty-list", value: { arrayValue: { values: [] } } },
-      { key: "bytes", value: { bytesValue: "YWJj" } },
-    ];
-    const attributes = [
-      ...valid,
-      { key: "rum.sessionId", value: {} },
-      { key: "nonfinite", value: { doubleValue: NaN } },
-      { key: "overflow", value: { intValue: "9223372036854775808" } },
-      { key: "bool", value: { boolValue: null } },
-      { key: "string", value: { stringValue: null } },
-      { key: "bytes", value: { bytesValue: "%%%" } },
-      { key: "array", value: { arrayValue: { values: [{}] } } },
-      { key: "map", value: { kvlistValue: { values: [{ key: "empty", value: {} }] } } },
-      null,
-    ];
-    const timestamp = String(BigInt(Date.now()) * 1_000_000n);
-    const span = {
-      traceId: "5b8efff798038103d269b633813fc60c",
-      spanId: "eee19b7ec3c1b174",
-      startTimeUnixNano: timestamp,
-      name: "broken\uD800\uD83D\uDE00",
-      attributes,
-      events: [{ name: "event", attributes }],
-      links: [
-        { traceId: "5b8efff798038103d269b633813fc60c", spanId: "eee19b7ec3c1b175", attributes },
-        { traceId: "not-hex", spanId: "eee19b7ec3c1b175" },
-      ],
-    };
-    const body = JSON.stringify({
-      resourceSpans: [{
-        resource: { attributes },
-        scopeSpans: [{ scope: { attributes }, spans: [span, { ...span, traceId: "not-hex" }] }],
-      }],
-    });
-    const request = gzip
-      ? await gzipped("/otel/v1/traces", body)
-      : otlp("/otel/v1/traces", body);
-    const [resource] = JSON.parse(await forwardedJson(request)).resourceSpans;
-    const [scope] = resource.scopeSpans;
-    const [forwarded] = scope.spans;
+  it.each([false, true])(
+    "removes malformed SDK AnyValues at every OTLP attribute boundary (gzip=%s)",
+    async (gzip) => {
+      const valid = [
+        { key: "metric", value: { doubleValue: 1.25 }, extra: "kept" },
+        { key: "empty-list", value: { arrayValue: { values: [] } } },
+        { key: "bytes", value: { bytesValue: "YWJj" } },
+      ];
 
-    expect(resource.resource.attributes).toEqual(valid);
-    expect(scope.scope.attributes).toEqual(valid);
-    expect(scope.spans).toHaveLength(1);
-    expect(forwarded.attributes).toEqual(valid);
-    expect(forwarded.events[0].attributes).toEqual(valid);
-    expect(forwarded.links).toHaveLength(1);
-    expect(forwarded.links[0].attributes).toEqual(valid);
-    expect(forwarded.name).toBe("broken\uFFFD\uD83D\uDE00");
-  });
+      const attributes = [
+        ...valid,
+        { key: "rum.sessionId", value: {} },
+        { key: "nonfinite", value: { doubleValue: NaN } },
+        { key: "overflow", value: { intValue: "9223372036854775808" } },
+        { key: "bool", value: { boolValue: null } },
+        { key: "string", value: { stringValue: null } },
+        { key: "bytes", value: { bytesValue: "%%%" } },
+        { key: "array", value: { arrayValue: { values: [{}] } } },
+        { key: "map", value: { kvlistValue: { values: [{ key: "empty", value: {} }] } } },
+        null,
+      ];
+
+      const timestamp = String(BigInt(Date.now()) * 1_000_000n);
+
+      const span = {
+        traceId: "5b8efff798038103d269b633813fc60c",
+        spanId: "eee19b7ec3c1b174",
+        startTimeUnixNano: timestamp,
+        name: "broken\uD800\uD83D\uDE00",
+        attributes,
+        events: [{ name: "event", attributes }],
+        links: [
+          { traceId: "5b8efff798038103d269b633813fc60c", spanId: "eee19b7ec3c1b175", attributes },
+          { traceId: "not-hex", spanId: "eee19b7ec3c1b175" },
+        ],
+      };
+
+      const body = JSON.stringify({
+        resourceSpans: [
+          {
+            resource: { attributes },
+            scopeSpans: [{ scope: { attributes }, spans: [span, { ...span, traceId: "not-hex" }] }],
+          },
+        ],
+      });
+
+      const request = gzip ? await gzipped("/otel/v1/traces", body) : otlp("/otel/v1/traces", body);
+      const [resource] = JSON.parse(await forwardedJson(request)).resourceSpans;
+      const [scope] = resource.scopeSpans;
+      const [forwarded] = scope.spans;
+
+      expect(resource.resource.attributes).toEqual(valid);
+      expect(scope.scope.attributes).toEqual(valid);
+      expect(scope.spans).toHaveLength(1);
+      expect(forwarded.attributes).toEqual(valid);
+      expect(forwarded.events[0].attributes).toEqual(valid);
+      expect(forwarded.links).toHaveLength(1);
+      expect(forwarded.links[0].attributes).toEqual(valid);
+      expect(forwarded.name).toBe("broken\uFFFD\uD83D\uDE00");
+    },
+  );
 
   it("removes an invalid log AnyValue body without dropping valid log records", async () => {
     const body = JSON.stringify({
-      resourceLogs: [{
-        scopeLogs: [{
-          logRecords: [
-            { body: { doubleValue: null }, attributes: [{ key: "undefined", value: {} }] },
-            { body: { stringValue: "valid" } },
+      resourceLogs: [
+        {
+          scopeLogs: [
+            {
+              logRecords: [
+                { body: { doubleValue: null }, attributes: [{ key: "undefined", value: {} }] },
+                { body: { stringValue: "valid" } },
+              ],
+            },
           ],
-        }],
-      }],
+        },
+      ],
     });
+
     const forwarded = JSON.parse(await forwardedJson(otlp("/otel/v1/logs", body)));
 
     expect(forwarded.resourceLogs[0].scopeLogs[0].logRecords).toEqual([
@@ -238,11 +251,14 @@ describe("browser telemetry ingest", () => {
     vi.spyOn(Date, "now").mockReturnValue(now);
     const nanos = (ms: number) => BigInt(ms) * 1_000_000n;
     const current = { name: "current", startTimeUnixNano: String(nanos(now)), extra: "kept" };
+
     const oldest = {
       name: "oldest",
       startTimeUnixNano: String(nanos(now - OTEL_BROWSER_MAX_SPAN_AGE_MS)),
     };
+
     const numeric = { name: "numeric", startTimeUnixNano: Number(nanos(now)) };
+
     const body = JSON.stringify({
       resourceSpans: [
         {
@@ -267,9 +283,8 @@ describe("browser telemetry ingest", () => {
         { scopeSpans: [{ spans: [{ startTimeUnixNano: "0" }] }] },
       ],
     });
-    const request = gzip
-      ? await gzipped("/otel/v1/traces", body)
-      : otlp("/otel/v1/traces", body);
+
+    const request = gzip ? await gzipped("/otel/v1/traces", body) : otlp("/otel/v1/traces", body);
     const forwarded = JSON.parse(await forwardedJson(fromCountry(request, "US")));
 
     expect(forwarded.resourceSpans[0].scopeSpans[0]).toEqual({
@@ -468,14 +483,18 @@ describe("browser telemetry ingest", () => {
     const cancelled = vi.fn();
     const token = "secret-collector-token";
     const keyed = { ...env, OTEL_BROWSER_INGEST_KEY: `Basic ${token}` };
+
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(
-          new TextEncoder().encode(`${"x ".repeat(OTEL_COLLECTOR_ERROR_BODY_BYTES / 2 - 3)}${token}`),
+          new TextEncoder().encode(
+            `${"x ".repeat(OTEL_COLLECTOR_ERROR_BODY_BYTES / 2 - 3)}${token}`,
+          ),
         );
       },
       cancel: cancelled,
     });
+
     upstream.mockResolvedValueOnce(new Response(body, { status: 400 }));
 
     await handleOtelIngest(otlp("/otel/v1/traces", "{}"), keyed, ctx);
@@ -489,29 +508,32 @@ describe("browser telemetry ingest", () => {
     ["traces", "rejectedSpans", "2", 200],
     ["logs", "rejectedLogRecords", 3, 200],
     ["traces", "rejectedSpans", "4", 206],
-  ] as const)("reports partial rejections for %s without retrying", async (signal, field, count, status) => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    upstream.mockResolvedValueOnce(
-      Response.json(
-        { partialSuccess: { [field]: count, errorMessage: "outside ingest window" } },
-        { status },
-      ),
-    );
+  ] as const)(
+    "reports partial rejections for %s without retrying",
+    async (signal, field, count, status) => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      upstream.mockResolvedValueOnce(
+        Response.json(
+          { partialSuccess: { [field]: count, errorMessage: "outside ingest window" } },
+          { status },
+        ),
+      );
 
-    await handleOtelIngest(otlp(`/otel/v1/${signal}`, "{}"), env, ctx);
-    await Promise.all(pending);
+      await handleOtelIngest(otlp(`/otel/v1/${signal}`, "{}"), env, ctx);
+      await Promise.all(pending);
 
-    expect(upstream).toHaveBeenCalledTimes(1);
-    expect(error).toHaveBeenCalledWith(
-      expect.objectContaining({
-        msg: "Collector rejected browser telemetry",
-        signal,
-        http_status: status,
-        rejected_records: Number(count),
-        upstream_body: expect.stringContaining("outside ingest window"),
-      }),
-    );
-  });
+      expect(upstream).toHaveBeenCalledTimes(1);
+      expect(error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          msg: "Collector rejected browser telemetry",
+          signal,
+          http_status: status,
+          rejected_records: Number(count),
+          upstream_body: expect.stringContaining("outside ingest window"),
+        }),
+      );
+    },
+  );
 
   it("does not log a clean JSON collector success as a rejection", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

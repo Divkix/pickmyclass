@@ -7,6 +7,7 @@
  * is scrubbed, and stale/skewed spans are dropped rather than re-timestamped.
  */
 import { z } from "zod";
+import type { JsonValue } from "@/lib/api/wire";
 import {
   OTEL_BROWSER_MAX_SPAN_AGE_MS,
   OTEL_BROWSER_MAX_SPAN_FUTURE_MS,
@@ -50,12 +51,14 @@ const NO_COUNTRY = new Set(["T1", "XX"]);
 
 const edgeCountry = z.object({ country: z.string().optional() });
 
+const otlpText = z.string();
+
 // HyperDX 0.26 encodes undefined resource values as {}, non-finite numbers as
 // doubleValue:null, and oversized integers as intValue. OpenObserve v1.1.2
 // rejects the entire batch for any of those, including nested AnyValues.
 const otlpValue: z.ZodType = z.lazy(() =>
   z.union([
-    z.object({ stringValue: z.string() }),
+    z.object({ stringValue: otlpText }),
     z.object({ boolValue: z.boolean() }),
     z.object({ doubleValue: z.number() }),
     z.object({
@@ -91,8 +94,14 @@ const otlpAttribute = z.looseObject({
 });
 
 const otlpIds = z.looseObject({
-  traceId: z.string().regex(/^[\da-f]{32}$/i).optional(),
-  spanId: z.string().regex(/^[\da-f]{16}$/i).optional(),
+  traceId: z
+    .string()
+    .regex(/^[\da-f]{32}$/i)
+    .optional(),
+  spanId: z
+    .string()
+    .regex(/^[\da-f]{16}$/i)
+    .optional(),
 });
 
 // Validate only the fields we inspect, preserving every other OTLP field.
@@ -111,9 +120,7 @@ const otlpSpan = otlpIds.extend({
 });
 
 const otlpTraceBatch = otlpResourceBatch.extend({
-  scopeSpans: z
-    .array(z.looseObject({ spans: z.array(z.unknown()).optional() }))
-    .optional(),
+  scopeSpans: z.array(z.looseObject({ spans: z.array(z.unknown()).optional() })).optional(),
 });
 
 const otlpPayload = z.looseObject({
@@ -141,16 +148,18 @@ function visitorCountry(request: Request): string | undefined {
  * Unknown/non-OTLP bodies retain the existing passthrough behavior.
  */
 function prepareJson(json: string, country: string | undefined): string | null {
-  let body;
+  let body: JsonValue;
   let changed = false;
 
   try {
-    body = JSON.parse(json, (key, value: unknown) => {
-      if (Object(value) instanceof String) {
-        const text = String(value);
+    // JSON.parse produces wire JSON here; the OTLP schemas below decode fields before domain use.
+    body = JSON.parse(json, (key, value: JsonValue) => {
+      const text = otlpText.safeParse(value);
+
+      if (text.success) {
         // Under /u, valid surrogate pairs are one code point and remain intact.
-        const wellFormed = text.replace(/[\uD800-\uDFFF]/gu, "\uFFFD");
-        changed ||= text !== wellFormed;
+        const wellFormed = text.data.replace(/[\uD800-\uDFFF]/gu, "\uFFFD");
+        changed ||= text.data !== wellFormed;
 
         return wellFormed;
       }
@@ -191,6 +200,7 @@ function prepareJson(json: string, country: string | undefined): string | null {
     for (const scope of batch.scopeSpans ?? []) {
       if (!scope.spans) continue;
       spanCount += scope.spans.length;
+
       const spans = scope.spans.filter((span) => {
         const parsedSpan = otlpSpan.safeParse(span);
 
@@ -201,6 +211,7 @@ function prepareJson(json: string, country: string | undefined): string | null {
       });
 
       keptCount += spans.length;
+
       if (spans.length !== scope.spans.length) {
         scope.spans = spans;
         changed = true;
@@ -328,6 +339,7 @@ async function collectorResponseBody(response: Response, key: string): Promise<s
 
   // A key/email/query cut at the byte cap must not leave a sensitive prefix.
   if (truncated) text = text.replace(/\S+$/, "[truncated]");
+
   for (const secret of [key, key.replace(/^\S+\s+/, "")]) {
     if (secret) text = text.replaceAll(secret, "[redacted]");
   }
@@ -338,7 +350,7 @@ async function collectorResponseBody(response: Response, key: string): Promise<s
     .replace(/(https?:\/\/)[^/\s"<>]+@/gi, "$1[redacted]@")
     .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, "[ip]")
     .replace(/(?<![0-9a-f:])(?:[0-9a-f]{0,4}:){2,}[0-9a-f]{0,4}(?![0-9a-f:])/gi, "[ip]")
-    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\p{Cc}/gu, " ")
     .slice(0, OTEL_COLLECTOR_ERROR_BODY_BYTES);
 }
 
@@ -361,13 +373,18 @@ async function forward(
 
       httpStatus = response.status;
       rejected = !response.ok || response.status === 206;
+
       if (!rejected && !response.headers.get("content-type")?.startsWith("application/json")) {
         await response.body?.cancel();
 
         return;
       }
 
-      const upstreamBody = await collectorResponseBody(response, headers.get("authorization") ?? "");
+      const upstreamBody = await collectorResponseBody(
+        response,
+        headers.get("authorization") ?? "",
+      );
+
       let rejectedRecords = 0;
 
       if (response.ok) {
@@ -454,9 +471,12 @@ export async function handleOtelIngest(
   ctx.waitUntil(
     prepareBody(body, headers, country).then((prepared) => {
       if (prepared === null) {
-        ingestLog.warn("Dropped an unreadable, malformed, or out-of-window browser telemetry batch", {
-          signal,
-        });
+        ingestLog.warn(
+          "Dropped an unreadable, malformed, or out-of-window browser telemetry batch",
+          {
+            signal,
+          },
+        );
 
         return;
       }
