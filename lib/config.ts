@@ -31,6 +31,18 @@ export const EDGE_CACHE_TIMEOUT_MS = 3_000;
 
 export const COLLECTOR_TIMEOUT_MS = 10_000;
 
+/**
+ * OpenObserve's default ingest window is five hours old / 24 hours ahead.
+ * Leave one forwarding timeout before the old boundary, so a valid queued span
+ * cannot age out during the request. Drop it rather than inventing a timestamp.
+ */
+export const OTEL_BROWSER_MAX_SPAN_AGE_MS = 5 * 60 * 60 * 1000 - COLLECTOR_TIMEOUT_MS;
+
+export const OTEL_BROWSER_MAX_SPAN_FUTURE_MS = 24 * 60 * 60 * 1000;
+
+/** Read at most this many upstream error bytes; never buffer an unbounded error page. */
+export const OTEL_COLLECTOR_ERROR_BODY_BYTES = 2048;
+
 export const ASSETS_FETCH_TIMEOUT_MS = 10_000;
 
 /** One IndexNow deploy-script request, body included. */

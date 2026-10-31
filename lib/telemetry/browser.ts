@@ -3,6 +3,12 @@
  * and product actions (no session replay), posted to the Worker's `/otel`
  * proxy. The SDK is about 190 KB gzipped, so it loads after the page's `load`
  * event in its own chunk. Calls made before then queue on the import.
+ *
+ * Keep the pnpm SDK exporter patch: its session resource getter can be
+ * undefined, and automatic metrics can contain non-finite numbers. OpenObserve
+ * v1.1.2 rejects their empty/null AnyValues with HTTP 400. The patch filters
+ * them and repairs truncated UTF-16 before serialization; the proxy also
+ * sanitizes old SDK payloads already running in browser tabs.
  */
 import { errorFields } from "@/lib/log";
 

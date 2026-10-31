@@ -198,16 +198,20 @@ describe("worker queue handler — direct processSection call ack/retry mapping"
     );
   });
 
-  it("retries message when processSection returns retry (DB upsert error)", async () => {
-    mockProcessSection.mockResolvedValue(dbFailOutcome("12345"));
+  it.each([1, 4])(
+    "retries a transient failure on delivery %s, leaving final failure to the DLQ",
+    async (attempts) => {
+      mockProcessSection.mockResolvedValue(dbFailOutcome("12345"));
 
-    const msg = makeMessage("12345");
-    await worker.queue(makeBatch([msg]), mockEnv, testCtx);
+      const msg = makeMessage("12345", "2261", attempts);
+      await worker.queue(makeBatch([msg]), mockEnv, testCtx);
 
-    // Non-429 retries fall back to the consumer's configured retry_delay.
-    expect(msg.retry).toHaveBeenCalledWith(undefined);
-    expect(msg.ack).not.toHaveBeenCalled();
-  });
+      // Non-429 retries use retry_delay; retry on delivery 4 dead-letters instead
+      // of acknowledging away the work (max_retries counts the 3 redeliveries).
+      expect(msg.retry).toHaveBeenCalledWith(undefined);
+      expect(msg.ack).not.toHaveBeenCalled();
+    },
+  );
 
   it("acks message when processSection returns ack for AuthError (non-retryable)", async () => {
     mockProcessSection.mockResolvedValue(authErrorOutcome("12345"));

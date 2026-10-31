@@ -6,9 +6,9 @@
  *
  * Each request/page/queue/scheduled entry point creates ONE handle here and
  * passes it to lower helpers; lower layers never read a connection string
- * themselves. Never cache the returned database or `$client` across requests:
- * Workers reclaim invocation-scoped sockets, so a cached client fails
- * immediately on a later invocation. Hyperdrive owns the reusable origin pool.
+ * themselves. Every checkout closes on release (one statement or one complete
+ * transaction), so no idle socket survives its Worker invocation. Never cache
+ * the handle across requests. Hyperdrive owns the reusable origin pool.
  *
  * @module lib/db/index
  */
@@ -97,7 +97,7 @@ export function getDb(hyperdrive: Hyperdrive): Database {
     connectionString: hyperdrive.connectionString,
     max: 5,
     connectionTimeoutMillis: 10_000,
-    idleTimeoutMillis: 20_000,
+    maxUses: 1,
   });
 
   pool.on("error", (error) => {
