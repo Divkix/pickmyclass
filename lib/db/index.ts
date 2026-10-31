@@ -14,7 +14,7 @@
  */
 import { env } from "cloudflare:workers";
 import { type NodePgDatabase, drizzle } from "drizzle-orm/node-postgres";
-import { Pool, type QueryConfig } from "pg";
+import { Pool, type PoolClient, type QueryConfig } from "pg";
 import { guardPool, type PromiseQuery } from "@/lib/db/guard";
 import { errorFields, log } from "@/lib/log";
 import { withSpan } from "@/lib/telemetry/span";
@@ -100,7 +100,16 @@ export function getDb(hyperdrive: Hyperdrive): Database {
     maxUses: 1,
   });
 
-  pool.on("error", (error) => {
+  // maxUses: 1 retires every client on release, and pg-pool ends it right away. On Workers,
+  // pg-cloudflare rejects its pending read when that socket closes, so each retirement
+  // reaches the pool's error event as "This socket has been closed." That close is ours.
+  const retired = new WeakSet<PoolClient>();
+
+  pool.on("release", (_error, client) => retired.add(client));
+
+  pool.on("error", (error, client) => {
+    if (retired.has(client)) return;
+
     log("DB").warn("Idle database client error", { ...errorFields(error) });
   });
 

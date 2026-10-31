@@ -285,6 +285,35 @@ describe("getDb", () => {
     },
   );
 
+  it("does not report the socket close it causes when it retires a client", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // pg-cloudflare rejects the pending read when pg-pool closes a retired socket.
+    stubTransport().mockImplementation(function (this: Client, callback) {
+      this.emit("error", new TypeError("This socket has been closed."));
+      // SAFETY: pg's successful end callback has no error; its type only declares the error case.
+      const disconnected = callback as (error?: Error) => void;
+      disconnected();
+    });
+
+    // SAFETY: getDb reads only connectionString; the transport never opens a socket.
+    const db = getDb({ connectionString: "postgres://localhost/test" } as Hyperdrive);
+    const poolErrors = vi.fn();
+    db.$client.on("error", poolErrors);
+
+    try {
+      await db.execute(sql`SELECT 1`);
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT 2`);
+      });
+
+      expect(poolErrors).toHaveBeenCalledTimes(2);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      await db.$client.end();
+    }
+  });
+
   it("handles and logs an idle pool error without an unhandled event", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     // SAFETY: getDb only reads connectionString; this test never opens a connection.
