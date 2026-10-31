@@ -102,7 +102,7 @@ function AdminClassDetailPage() {
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-4">
               <div>
-                <div className="text-sm font-medium text-muted-foreground mb-1">Section Number</div>
+                <div className="text-sm font-medium text-muted-foreground mb-1">Class Number</div>
                 <div className="font-mono text-lg font-semibold">{classState.class_nbr}</div>
               </div>
 

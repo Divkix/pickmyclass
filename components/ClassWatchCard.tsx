@@ -251,7 +251,7 @@ export function ClassWatchCard({ watch, classState, onDelete, onRestore }: Class
         onOpenChange={setShowDeleteConfirm}
         onConfirm={handleDelete}
         title="Stop watching this class?"
-        description="We'll stop monitoring this section. You can always add it back."
+        description="We'll stop watching this class. You can always add it back."
         confirmText="Stop Watching"
         isDeleting={isDeleting}
       />
