@@ -197,9 +197,9 @@ function ASUClassSeatTrackerPost() {
             The Problem: Refreshing MyASU Is a Full-Time Job
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            During registration and add/drop week, popular classes fill in minutes. If you need a
-            specific class for your major, you're stuck refreshing the class search, praying someone
-            drops.
+            During registration and add/drop week (the first week of classes, when students can
+            still add and drop classes), popular classes fill in minutes. If you need a specific
+            class for your major, you're stuck refreshing the class search, praying someone drops.
           </p>
           <p className="text-muted-foreground leading-relaxed">
             Here's the thing. Seats appear and vanish quickly. If you're in lecture, at work, or
