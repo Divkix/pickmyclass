@@ -105,7 +105,7 @@ export function SeatAvailableEmailTemplate(classInfo: ClassInfo, unsubscribeUrl?
         ${safe.subject} ${safe.catalogNbr}: ${safe.title}
       </h2>
       <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">
-        <strong>Section:</strong> ${safe.classNbr}
+        <strong>Class Number:</strong> ${safe.classNbr}
       </p>
       <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">
         <strong>Instructor:</strong> ${safe.instructor}
@@ -163,7 +163,7 @@ export function InstructorAssignedEmailTemplate(
         ${safe.subject} ${safe.catalogNbr}: ${safe.title}
       </h2>
       <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">
-        <strong>Section:</strong> ${safe.classNbr}
+        <strong>Class Number:</strong> ${safe.classNbr}
       </p>
       <p style="margin: 15px 0 5px 0; font-size: 18px; color: #ea580c; font-weight: bold;">
         Instructor: ${safe.instructor}

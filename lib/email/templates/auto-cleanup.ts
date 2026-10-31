@@ -9,6 +9,7 @@ import { generateUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
 import { EmailSendFailed, EmailTimedOut, isFatalEmailCode } from "@/lib/email/errors";
 import { sendEmailMessage } from "@/lib/email/transport";
 import { errorFields, log } from "@/lib/log";
+import { getTermLabel } from "@/lib/asu/terms";
 import { type SectionRef, sectionFields } from "@/lib/section-ref";
 import { escapeHtml } from "@/lib/utils/escape-html";
 import type { ClassWatcher } from "@/lib/db/queries";
@@ -34,8 +35,9 @@ function buildAutoCleanupRemovedEmail(
 ): AutoCleanupRemovedEmail {
   const { classNbr, term, subject, catalogNbr, title, unsubscribeUrl } = params;
 
+  const termLabel = getTermLabel(term);
   const safeClassNbr = escapeHtml(classNbr);
-  const safeTerm = escapeHtml(term);
+  const safeTerm = escapeHtml(termLabel);
   const safeSubject = subject ? escapeHtml(subject) : "";
   const safeCatalogNbr = catalogNbr ? escapeHtml(catalogNbr) : "";
   const safeTitle = title ? escapeHtml(title) : "";
@@ -77,7 +79,7 @@ function buildAutoCleanupRemovedEmail(
         ${classLabel}${titleLine}
       </h2>
       <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">
-        <strong>Section:</strong> ${safeClassNbr}
+        <strong>Class Number:</strong> ${safeClassNbr}
       </p>
       <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">
         <strong>Term:</strong> ${safeTerm}
@@ -90,7 +92,7 @@ function buildAutoCleanupRemovedEmail(
     </div>
 
     <p style="font-size: 14px; color: #6b7280; margin: 20px 0;">
-      We checked the ASU catalog 3 times and this section could not be found. It may have been
+      We checked the ASU catalog 3 times and this class could not be found. It may have been
       cancelled, renumbered, or removed for this term. Your watch has been removed automatically — no action is needed.
     </p>
 
@@ -119,11 +121,11 @@ function buildAutoCleanupRemovedEmail(
     `A class you were watching is no longer listed in the ASU catalog.`,
     ``,
     `${rawLabel}${rawTitle ? `: ${rawTitle}` : ""}`,
-    `Section: ${classNbr}`,
-    `Term: ${term}`,
+    `Class Number: ${classNbr}`,
+    `Term: ${termLabel}`,
     ...(rawTitle ? [`Title: ${rawTitle}`] : []),
     ``,
-    `We checked the ASU catalog 3 times and this section could not be found. It may have been cancelled, renumbered, or removed for this term. Your watch has been removed automatically — no action is needed.`,
+    `We checked the ASU catalog 3 times and this class could not be found. It may have been cancelled, renumbered, or removed for this term. Your watch has been removed automatically — no action is needed.`,
     ``,
     `Manage your watches: ${dashboardUrl}`,
   ];

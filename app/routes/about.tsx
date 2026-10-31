@@ -37,9 +37,10 @@ function AboutPage() {
             The Problem We Faced
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            It was add/drop week. I needed CSE 240 to stay on track for graduation, but every single
-            section was full. So I did what every ASU student does: I opened MyASU in one tab, set a
-            timer, and started refreshing.
+            It was add/drop week, the first days of the semester when students add and drop classes.
+            I needed CSE 240 to stay on track for graduation, but every single section was full. So
+            I did what every ASU student does: I opened MyASU in one tab, set a timer, and started
+            refreshing.
           </p>
           <p className="text-muted-foreground leading-relaxed">
             Two days later, I was still refreshing. I missed a seat opening because I was in a
@@ -61,10 +62,20 @@ function AboutPage() {
 
           <h2 className="text-2xl font-semibold text-foreground mt-10 mb-4">Who We Are</h2>
           <p className="text-muted-foreground leading-relaxed">
-            PickMyClass was built by current and former ASU students who understand the registration
-            struggle firsthand. We are not a company. We are not affiliated with Arizona State
-            University. We are just students who decided to build something useful instead of
-            complaining about the system.
+            PickMyClass was built by current and former ASU students and is run by{" "}
+            <a
+              href="https://github.com/Divkix"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80"
+            >
+              divkix
+            </a>
+            . The project is not affiliated with Arizona State University. For support, email{" "}
+            <a href="mailto:support@pickmyclass.app" className="text-primary hover:text-primary/80">
+              support@pickmyclass.app
+            </a>
+            .
           </p>
           <p className="text-muted-foreground leading-relaxed">
             The project is{" "}

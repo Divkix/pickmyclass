@@ -38,8 +38,9 @@ function LegalPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Learn about your rights and responsibilities, service limitations, eligibility
-                    requirements (18+, US-only), and our liability disclaimers.
+                    Learn about your rights and responsibilities, service limitations, and liability
+                    disclaimers. You must be 18 or older and live in the United States.
+                    International students studying in the US qualify.
                   </p>
                   <p className="text-sm text-primary mt-3 font-medium">Read Terms →</p>
                 </CardContent>

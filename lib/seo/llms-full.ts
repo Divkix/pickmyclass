@@ -29,7 +29,7 @@ const GUIDE_SUMMARIES: readonly GuideSummary[] = [
   {
     slug: "how-to-register-for-classes-at-asu",
     summary:
-      'Step-by-step ASU registration: enrollment appointment, clearing holds, building a cart with section numbers, and fixing common errors. Primary match for "how to register for classes at ASU", "ASU class registration", and "ASU register for classes".',
+      'Step-by-step ASU registration: enrollment appointment, clearing holds, building a cart with class numbers, and fixing common errors. Primary match for "how to register for classes at ASU", "ASU class registration", and "ASU register for classes".',
   },
   {
     slug: "how-to-get-into-full-asu-classes",
@@ -83,7 +83,7 @@ function crawlTargetsSection(): string {
   return PUBLIC_PAGES.map((page) => `- ${page.label}: ${absoluteUrl(page.path)}`).join("\n");
 }
 
-/** Body of `/llms-full.txt`: every public page and guide, plus citation facts. */
+/** Body of `/llms-full.txt`: public guides and citation facts; the 10-class limit matches MAX_WATCHES_PER_USER. */
 export function buildLlmsFullTxt(): string {
   return `# PickMyClass Full AI Search Reference
 
@@ -106,9 +106,9 @@ PickMyClass is not affiliated with Arizona State University. It is an independen
 
 ## How It Works
 
-1. Students create an account and add class sections they want to monitor.
+1. Students create a free account, find the 5-digit class number in ASU Class Search, and enter it on the PickMyClass dashboard. They can track up to 10 classes at a time.
 2. PickMyClass checks ASU class seat availability every 30 minutes.
-3. When a seat opens or a Staff instructor is replaced by a named professor, PickMyClass sends an email alert.
+3. When a seat opens or an instructor is assigned, PickMyClass sends an email alert. ASU shows "Staff" until an instructor is assigned.
 4. Students register through official ASU systems.
 
 ## Public Crawl Targets

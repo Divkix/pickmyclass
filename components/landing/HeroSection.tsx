@@ -2,28 +2,28 @@ import { Bell, CheckCircle2, Clock, Mail, Sparkles, Zap } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 
+/** Uses compact mobile typography and spacing while retaining the desktop display scale. */
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden border-b border-border px-6 py-20 sm:py-28">
+    <section className="relative overflow-hidden border-b border-border px-6 py-8 sm:py-28">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-grid-pattern opacity-60" />
       <div className="pointer-events-none absolute -left-32 -top-32 -z-10 size-96 rounded-full bg-primary/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-40 -right-24 -z-10 size-96 rounded-full bg-accent/20 blur-3xl" />
 
       <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-        <div className="space-y-8 text-center lg:text-left">
+        <div className="space-y-4 text-center sm:space-y-8 lg:text-left">
           <div className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-smooth">
             <Sparkles className="size-4 text-accent" aria-hidden="true" />
-            Built for Sun Devils
+            For ASU students
           </div>
 
-          <h1 className="text-display">
+          <h1 className="text-balance text-[2rem] font-bold leading-[1.1] tracking-[-0.025em] sm:text-[clamp(2.5rem,5vw,3.5rem)]">
             Free ASU class seat tracker: stop refreshing MyASU{" "}
             <span className="mark-gold">every 5 minutes</span>
           </h1>
 
-          <p className="mx-auto max-w-xl text-lg text-muted-foreground sm:text-xl lg:mx-0">
-            Get timely email alerts when seats open up in full ASU classes. PickMyClass (yep, people
-            also call it Pick My Class) checks the{" "}
+          <p className="mx-auto max-w-xl text-base leading-6 text-muted-foreground sm:text-xl sm:leading-7 lg:mx-0">
+            Get timely email alerts when seats open up in full ASU classes. PickMyClass checks the{" "}
             <Link
               to="/blog/asu-class-search"
               className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
@@ -59,7 +59,7 @@ export function HeroSection() {
             </li>
             <li className="flex items-center gap-2">
               <Zap className="size-4 text-primary" aria-hidden="true" />
-              <span>No spam, just seats</span>
+              <span>Seat and instructor alerts</span>
             </li>
             <li className="flex items-center gap-2">
               <Clock className="size-4 text-primary" aria-hidden="true" />

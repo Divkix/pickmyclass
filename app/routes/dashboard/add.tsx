@@ -32,7 +32,7 @@ function AddClassPage() {
         <div className="mb-6">
           <h1 className="text-3xl font-semibold mb-2">Add a Class to Watch</h1>
           <p className="text-zinc-600 dark:text-zinc-400">
-            Enter your section number and we'll start watching it. Simple as that.
+            Enter the 5-digit class number and pick the term. We will start watching the class.
           </p>
         </div>
 

@@ -1,13 +1,15 @@
+/** Protected account details and global email-alert preferences, loaded together for Settings. */
 import { eq } from "drizzle-orm";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { DataControls } from "@/components/settings/DataControls";
+import { EmailAlerts } from "@/components/settings/EmailAlerts";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requirePageAccess } from "@/lib/auth/page-access";
 import { getDbFromEnv } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { userProfiles, users } from "@/lib/db/schema";
 import { PRIVATE_PAGE_HEAD } from "@/lib/seo/head";
 import { formatAbsoluteDate } from "@/lib/utils/time-format";
 
@@ -15,8 +17,15 @@ const loadSettings = createServerFn().handler(async () => {
   const identity = await requirePageAccess("/settings");
 
   const [account] = await getDbFromEnv()
-    .select({ email: users.email, created_at: users.created_at })
+    .select({
+      email: users.email,
+      created_at: users.created_at,
+      notifications_enabled: userProfiles.notifications_enabled,
+      email_bounced: userProfiles.email_bounced,
+      spam_complained: userProfiles.spam_complained,
+    })
     .from(users)
+    .innerJoin(userProfiles, eq(userProfiles.user_id, users.id))
     .where(eq(users.id, identity.userId))
     .limit(1);
 
@@ -77,6 +86,12 @@ function SettingsPage() {
                   </div>
                 </CardContent>
               </Card>
+              {account && (
+                <EmailAlerts
+                  notificationsEnabled={account.notifications_enabled}
+                  deliveryBlocked={account.email_bounced || account.spam_complained}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="privacy" className="space-y-4">

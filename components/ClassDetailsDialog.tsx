@@ -1,3 +1,4 @@
+import { getTermLabel } from "@/lib/asu/terms";
 import type { ClassStateRow, UserClassWatch } from "@/lib/types/class-watch";
 import { getRateMyProfessorUrl } from "@/lib/utils/ratemyprofessor";
 import { formatAbsoluteDate } from "@/lib/utils/time-format";
@@ -36,7 +37,7 @@ export function ClassDetailsDialog({
             {classState?.title && ` - ${classState.title}`}
           </DialogTitle>
           <DialogDescription>
-            Section {watch.class_nbr} • Term {watch.term}
+            Class {watch.class_nbr} • {getTermLabel(watch.term)}
           </DialogDescription>
         </DialogHeader>
 
@@ -88,10 +89,10 @@ export function ClassDetailsDialog({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2"
-                    aria-label={`View ${classState?.instructor_name} on RateMyProfessor`}
+                    aria-label={`View ${classState?.instructor_name} on RateMyProfessors`}
                   >
                     <ExternalLink className="size-4" aria-hidden="true" />
-                    View on RateMyProfessor
+                    View on RateMyProfessors
                   </a>
                 </Button>
               )}

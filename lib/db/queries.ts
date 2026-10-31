@@ -205,25 +205,6 @@ export async function readSectionAlertsEnded(
   }
 }
 
-export async function getMostWatchedClass(db: Database, term: string): Promise<SectionRef | null> {
-  try {
-    const { rows } = await db.execute<{ class_nbr: string; term: string }>(
-      sql`SELECT class_nbr, term FROM public.get_most_watched_class(${term}::text)`,
-    );
-
-    const row = rows[0];
-
-    if (!row) return null;
-
-    return { class_nbr: row.class_nbr, term: row.term };
-  } catch (error) {
-    log("DB").error("Error fetching most watched class", { term, ...errorFields(error) });
-    throw new Error(`Failed to fetch most watched class: ${driverErrorMessage(error)}`, {
-      cause: error,
-    });
-  }
-}
-
 export async function deleteNotificationRecordsByIds(
   db: Database,
   notificationIds: string[],

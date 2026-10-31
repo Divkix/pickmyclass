@@ -14,6 +14,7 @@ const navLinks = [
   // SAFETY: Header targets are fixed route literals, not user-provided URLs.
 ] as const;
 
+/** Labels signed-in links; the compact menu keeps them usable below desktop widths. */
 export function Header() {
   const { user, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -32,14 +33,15 @@ export function Header() {
               size="sm"
               className="min-h-11 text-base"
               aria-label="Go to dashboard"
+              title="Dashboard"
             >
               <Link to="/dashboard">
                 <LayoutDashboard className="size-4" aria-hidden="true" />
-                <span className="hidden xs:inline">Dashboard</span>
+                <span className="hidden sm:inline">Dashboard</span>
               </Link>
             </Button>
           )}
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
+          <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -53,13 +55,13 @@ export function Header() {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             <AuthButton />
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="min-h-11 md:hidden"
+            className="min-h-11 lg:hidden"
             aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-nav"
@@ -76,7 +78,7 @@ export function Header() {
       {mobileMenuOpen && (
         <nav
           id="mobile-nav"
-          className="border-t border-border/40 px-4 py-2 md:hidden"
+          className="border-t border-border/40 px-4 py-2 lg:hidden"
           aria-label="Mobile navigation"
         >
           {navLinks.map((link) => (

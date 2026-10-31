@@ -24,7 +24,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Compare ASU seat trackers by published price, campus coverage, alert channel, check cadence and limits. Details checked September 28, 2026.",
     publishedAt: "2026-06-18",
-    dateModified: "2026-09-28",
+    dateModified: "2026-10-30",
     readingTime: "5 min read",
   },
   {
@@ -51,7 +51,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Stop refreshing MyASU. Learn how to automatically track ASU class seat availability and get email alerts the moment a seat opens in a full class.",
     publishedAt: "2026-03-27",
-    dateModified: "2026-06-18",
+    dateModified: "2026-10-30",
     readingTime: "5 min read",
   },
   {
@@ -87,7 +87,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "ASU registration for transfer students: how transfer credits affect your registration date, MyPath2ASU articulation, and tips for getting into full classes.",
     publishedAt: "2026-04-26",
-    dateModified: "2026-06-18",
+    dateModified: "2026-10-30",
     readingTime: "7 min read",
   },
   {
@@ -96,7 +96,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Unlock the full power of MyASU class search. Learn advanced filters, hidden shortcuts, and pro tips to find the perfect classes faster.",
     publishedAt: "2026-04-26",
-    dateModified: "2026-06-18",
+    dateModified: "2026-10-30",
     readingTime: "7 min read",
   },
 ];

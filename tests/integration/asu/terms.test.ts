@@ -4,6 +4,7 @@ import {
   generateTerm,
   getPastTermCodes,
   getSelectableTerms,
+  getTermLabel,
   isTermSelectable,
 } from "@/lib/asu/terms";
 
@@ -123,6 +124,16 @@ describe("ASU term calendar", () => {
       expect(isTermSelectable(code, phoenixNoon("2026-10-17"))).toBe(false);
     },
   );
+
+  it.each([
+    ["2271", "Spring 2027"],
+    ["2264", "Summer 2026"],
+    ["2257", "Fall 2025"],
+    ["2262", "2262"],
+    ["unknown", "unknown"],
+  ])("labels term %j without hiding unknown codes", (code, label) => {
+    expect(getTermLabel(code)).toBe(label);
+  });
 
   it("lists every past term since the first served term", () => {
     expect(getPastTermCodes(phoenixNoon("2026-10-17"))).toEqual([

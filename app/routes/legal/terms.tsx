@@ -24,7 +24,7 @@ function TermsOfServicePage() {
           <Card>
             <CardHeader>
               <h1 className="text-3xl leading-none font-semibold">Terms of Service</h1>
-              <p className="text-sm text-muted-foreground">Last Updated: October 24, 2025</p>
+              <p className="text-sm text-muted-foreground">Last Updated: October 30, 2026</p>
             </CardHeader>
             <CardContent className="prose prose-zinc dark:prose-invert max-w-none space-y-6">
               <section>
@@ -41,12 +41,12 @@ function TermsOfServicePage() {
                 <p>You must meet the following requirements to use this Service:</p>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>You must be at least 18 years of age</li>
-                  <li>You must be a resident of the United States</li>
+                  <li>You must live in the United States</li>
                   <li>You must have the legal capacity to enter into this agreement</li>
                 </ul>
                 <p className="font-semibold text-warning">
-                  This Service is available only to users located in the United States. By using
-                  this Service, you represent that you are a US resident.
+                  International students studying in the US qualify. By using this Service, you
+                  confirm that you are at least 18 years old and live in the United States.
                 </p>
               </section>
 
@@ -97,7 +97,7 @@ function TermsOfServicePage() {
                     cannot guarantee immediate notifications
                   </li>
                   <li>The Service may be unavailable due to maintenance or technical issues</li>
-                  <li>We may limit the number of classes you can monitor</li>
+                  <li>You can monitor up to 10 classes at a time, and we may change this limit</li>
                 </ul>
               </section>
 
@@ -114,8 +114,8 @@ function TermsOfServicePage() {
                 <h2 className="text-xl font-semibold">7. Intellectual Property</h2>
                 <p>
                   The Service, including its code, design, and content (excluding ASU data), is
-                  owned by the PickMyClass Team. You may not copy, modify, distribute, or reverse
-                  engineer any part of the Service without permission.
+                  owned by divkix. You may not copy, modify, distribute, or reverse engineer any
+                  part of the Service without permission.
                 </p>
               </section>
 
@@ -151,9 +151,9 @@ function TermsOfServicePage() {
               <section>
                 <h2 className="text-xl font-semibold">10. Limitation of Liability</h2>
                 <p className="font-semibold uppercase">
-                  To the maximum extent permitted by law, PickMyClass Team shall not be liable for
-                  any indirect, incidental, special, consequential, or punitive damages, including
-                  but not limited to:
+                  To the maximum extent permitted by law, divkix shall not be liable for any
+                  indirect, incidental, special, consequential, or punitive damages, including but
+                  not limited to:
                 </p>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>Loss of profits, data, or use</li>
@@ -170,8 +170,8 @@ function TermsOfServicePage() {
               <section>
                 <h2 className="text-xl font-semibold">11. Indemnification</h2>
                 <p>
-                  You agree to indemnify and hold harmless PickMyClass Team from any claims,
-                  damages, or expenses arising from:
+                  You agree to indemnify and hold harmless divkix from any claims, damages, or
+                  expenses arising from:
                 </p>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>Your use of the Service</li>
@@ -200,8 +200,23 @@ function TermsOfServicePage() {
 
               <section>
                 <h2 className="text-xl font-semibold">14. Contact Information</h2>
-                <p>For questions about these Terms, please contact us at:</p>
-                <p className="font-mono text-sm bg-muted p-3 rounded">support@pickmyclass.app</p>
+                <p>
+                  PickMyClass is run by{" "}
+                  <a
+                    href="https://github.com/Divkix"
+                    className="text-primary underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    divkix
+                  </a>
+                  . For questions about these Terms, contact the operator at:
+                </p>
+                <p className="font-mono text-sm bg-muted p-3 rounded">
+                  <a href="mailto:support@pickmyclass.app" className="text-primary underline">
+                    support@pickmyclass.app
+                  </a>
+                </p>
               </section>
 
               <section className="border-t pt-6">

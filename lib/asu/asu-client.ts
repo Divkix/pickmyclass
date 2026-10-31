@@ -69,6 +69,7 @@ const AsuApiClassItem = Schema.Struct({
   SESSIONCODE: Schema.optionalKey(LenientString),
   STARTDATE: Schema.optionalKey(LenientString),
   ENDDATE: Schema.optionalKey(LenientString),
+  INSTRUCTIONMODE: Schema.optionalKey(LenientString),
 });
 
 type AsuApiClassItem = typeof AsuApiClassItem.Type;
@@ -98,16 +99,26 @@ export function parseRetryAfterSeconds(
   return Number.isNaN(date) ? undefined : Math.max(0, Math.ceil((date - now) / 1000));
 }
 
-function formatTime(time: string): string {
-  const [hourStr, minuteStr] = time.split(":");
-  let hour = Number.parseInt(hourStr, 10);
-  const minute = minuteStr || "00";
-  const period = hour >= 12 ? "PM" : "AM";
+// The first clock time in ASU's field: "13:15", "1:15 PM", or "1:15 PM<br/>&nbsp;" on multi-meeting sections.
+const ASU_TIME = /(\d{1,2}):(\d{2})\s*([AP]M)?/i;
+
+/** "1:15 PM" from either ASU time format; null when no clock time is present. */
+function formatTime(time: string): string | null {
+  const match = ASU_TIME.exec(time);
+
+  if (!match) return null;
+
+  const [, hourStr, minute, period] = match;
+  let hour = Number(hourStr);
+
+  if (period) return `${hour}:${minute} ${period.toUpperCase()}`;
+
+  const suffix = hour >= 12 ? "PM" : "AM";
 
   if (hour === 0) hour = 12;
   else if (hour > 12) hour -= 12;
 
-  return `${hour}:${minute} ${period}`;
+  return `${hour}:${minute} ${suffix}`;
 }
 
 function composeMeetingTimes(item: AsuApiClassItem): string {
@@ -123,11 +134,23 @@ function composeMeetingTimes(item: AsuApiClassItem): string {
 
   if (item.FRI === "Y") days.push("F");
 
-  if (days.length === 0 || !item.STARTTIME || !item.ENDTIME) {
-    return "TBD";
+  const start = item.STARTTIME ? formatTime(item.STARTTIME) : null;
+  const end = item.ENDTIME ? formatTime(item.ENDTIME) : null;
+
+  if (days.length === 0 || !start || !end) {
+    return "Times not listed";
   }
 
-  return `${days.join("")} ${formatTime(item.STARTTIME)}-${formatTime(item.ENDTIME)}`;
+  return `${days.join("")} ${start}-${end}`;
+}
+
+/** ASU files online and hybrid sections under the "INTRT" facility (DESCR1 "Internet"), not a room. */
+function describeLocation(item: AsuApiClassItem): string {
+  if (item.FACILITYID === "INTRT") {
+    return item.INSTRUCTIONMODE === "HY" ? "Hybrid (online and in person)" : "Online";
+  }
+
+  return item.FACILITYID || "Room not listed";
 }
 
 const ASU_DATE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T]|$)/;
@@ -168,7 +191,7 @@ function mapToClassDetails(item: AsuApiClassItem, seats: SeatCounts): ClassDetai
     seats_available: Math.max(0, seats.capacity - seats.enrolled),
     seats_capacity: seats.capacity,
     non_reserved_seats: Math.max(0, seats.capacity - seats.enrolled - seats.waitlisted),
-    location: item.FACILITYID || "TBD",
+    location: describeLocation(item),
     meeting_times: composeMeetingTimes(item),
     start_date: item.STARTDATE ? parseAsuDate(item.STARTDATE) : null,
     end_date: item.ENDDATE ? parseAsuDate(item.ENDDATE) : null,

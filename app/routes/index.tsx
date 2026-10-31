@@ -53,13 +53,14 @@ const webApplicationSchema = {
   screenshot: "https://pickmyclass.app/og-image.png",
   featureList: [
     "Email notifications for open ASU class seats",
-    "Instructor change alerts when Staff is assigned",
+    "Alerts when ASU replaces Staff with a named instructor",
     "Automatic checks every 30 minutes",
     "Real-time dashboard with class status",
     "Support for all ASU campuses and online classes",
   ],
 };
 
+// Keep setup steps aligned with HowItWorks: create an account, add class numbers, then get alerts.
 const howToSchema = {
   "@context": "https://schema.org",
   "@type": "HowTo",
@@ -70,18 +71,18 @@ const howToSchema = {
   step: [
     {
       "@type": "HowToStep",
-      name: "Add Your Classes",
-      text: "Search for ASU classes by section number and add them to your watchlist. You can track multiple classes at once.",
+      name: "Create a free account",
+      text: "Sign up for a free PickMyClass account.",
     },
     {
       "@type": "HowToStep",
-      name: "We Monitor For You",
-      text: "Our system checks ASU's class search every 30 minutes for seat availability changes and instructor assignments.",
+      name: "Add your classes",
+      text: "Find the 5-digit class number in ASU Class Search. Choose the term and enter that number in PickMyClass. You can watch up to 10 classes at a time.",
     },
     {
       "@type": "HowToStep",
-      name: "Get Notified Instantly",
-      text: "Receive an email the moment a seat opens up. Register for the class before everyone else on the waitlist.",
+      name: "Get email alerts",
+      text: "We check every 30 minutes and email you when we detect an open seat or a named instructor assignment. Register through MyASU.",
     },
   ],
 };

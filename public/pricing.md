@@ -8,9 +8,9 @@ PickMyClass is a free ASU class seat tracker. There is one plan and it costs not
 - Who it's for: Arizona State University students
 - Includes:
   - Email alerts when a seat opens in a full ASU class
-  - Instructor-change alerts (when a "Staff" section gets a named professor)
+  - Instructor-change alerts (ASU shows "Staff" until an instructor is assigned)
   - Automatic checks of ASU Class Search every 30 minutes
-  - Track multiple class sections at once (fair-use limits apply)
+  - Track up to 10 classes at a time
   - Support for all ASU campuses and ASU Online sections
 - Not included: SMS/text alerts (alerts are email only)
 

@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { errorFields, log } from "@/lib/log";
 
+/** Keeps Settings and sign-out reachable from desktop and mobile header menus. */
 export function AuthButton() {
   const { user, loading, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
@@ -51,6 +52,9 @@ export function AuthButton() {
           {user.email}
         </span>
       </div>
+      <Button asChild variant="ghost" className="min-h-11">
+        <Link to="/settings">Settings</Link>
+      </Button>
       <Button onClick={handleSignOut} disabled={signingOut} variant="outline" className="min-h-11">
         {signingOut ? "Signing out..." : "Sign out"}
       </Button>

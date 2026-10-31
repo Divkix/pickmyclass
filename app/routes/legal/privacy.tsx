@@ -24,7 +24,7 @@ function PrivacyPolicyPage() {
           <Card>
             <CardHeader>
               <h1 className="text-3xl leading-none font-semibold">Privacy Policy</h1>
-              <p className="text-sm text-muted-foreground">Last Updated: October 24, 2025</p>
+              <p className="text-sm text-muted-foreground">Last Updated: October 30, 2026</p>
             </CardHeader>
             <CardContent className="prose prose-zinc dark:prose-invert max-w-none space-y-6">
               <section>
@@ -35,7 +35,8 @@ function PrivacyPolicyPage() {
                   disclose, and safeguard your personal information when you use our Service.
                 </p>
                 <p className="font-semibold text-primary">
-                  This Service is available only to users in the United States. This policy complies
+                  This Service is available only to users who are 18 or older and live in the United
+                  States, including international students studying in the US. This policy complies
                   with US federal laws and the California Consumer Privacy Act (CCPA).
                 </p>
               </section>
@@ -55,7 +56,7 @@ function PrivacyPolicyPage() {
                   </li>
                   <li>
                     <strong>Class Preferences:</strong> The class sections you choose to monitor
-                    (term, subject, catalog number, section number)
+                    (term, subject, catalog number, class number)
                   </li>
                   <li>
                     <strong>Age Verification:</strong> Confirmation that you are 18 years or older
@@ -79,11 +80,10 @@ function PrivacyPolicyPage() {
                     stored long-term)
                   </li>
                   <li>
-                    <strong>Diagnostics:</strong> Page views, load times, errors, the actions you
-                    take in the app, the country you visit from (never your city or IP address), and
-                    session recordings with all text and form input masked. Signed-in records are
-                    linked to an opaque account ID, never your email. They are stored on servers we
-                    operate ourselves, not by a third-party analytics company.
+                    <strong>Diagnostics:</strong> Browser errors, performance traces, and console
+                    logs. Signed-in records are linked to an opaque account ID, never your email.
+                    They are stored on servers we operate ourselves, not by a third-party analytics
+                    company. Session replay is disabled.
                   </li>
                 </ul>
 
@@ -245,18 +245,28 @@ function PrivacyPolicyPage() {
                 <h3 className="text-lg font-semibold mt-4">6.1 How Long We Keep Your Data</h3>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>
-                    <strong>Account Data:</strong> Until you delete your account
+                    <strong>Account Data:</strong> While your account is active and for 30 days
+                    after you request account deletion
                   </li>
                   <li>
-                    <strong>Class Watches:</strong> Until you remove them or delete your account
+                    <strong>Class Watches:</strong> Until you remove them or your account is
+                    permanently deleted
                   </li>
                   <li>
                     <strong>Notification History:</strong> Kept for 1 year, then automatically
                     deleted
                   </li>
                   <li>
-                    <strong>Disabled Accounts:</strong> Account disabled immediately upon request;
-                    data retained for 30 days for business records, then permanently deleted
+                    <strong>Account Deletion:</strong> Request deletion in{" "}
+                    <Link to="/settings" className="text-primary underline">
+                      Settings
+                    </Link>
+                    . Your account is disabled immediately, and your data is permanently deleted
+                    after 30 days.
+                  </li>
+                  <li>
+                    <strong>Diagnostics:</strong> Browser errors, performance traces, and console
+                    logs are deleted after 30 days
                   </li>
                 </ul>
 
@@ -398,13 +408,27 @@ function PrivacyPolicyPage() {
               <section>
                 <h2 className="text-xl font-semibold">11. Contact Us</h2>
                 <p>
-                  If you have questions about this Privacy Policy or want to exercise your privacy
-                  rights, contact us at:
+                  PickMyClass is run by{" "}
+                  <a
+                    href="https://github.com/Divkix"
+                    className="text-primary underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    divkix
+                  </a>
+                  . If you have questions about this Privacy Policy or want to exercise your privacy
+                  rights, contact the operator at:
                 </p>
                 <div className="bg-muted p-4 rounded space-y-2 mt-2">
                   <p>
                     <strong>Support & Legal Inquiries:</strong>{" "}
-                    <span className="font-mono text-sm">support@pickmyclass.app</span>
+                    <a
+                      href="mailto:support@pickmyclass.app"
+                      className="font-mono text-sm text-primary underline"
+                    >
+                      support@pickmyclass.app
+                    </a>
                   </p>
                   <p>
                     <strong>Response Time:</strong> Within 45 days for CCPA requests

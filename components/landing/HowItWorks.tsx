@@ -2,6 +2,7 @@ import { Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 
+/** Keep these account and class-number steps aligned with the homepage HowTo JSON-LD. */
 export function HowItWorks() {
   return (
     <section className="px-6 py-20">
@@ -9,7 +10,7 @@ export function HowItWorks() {
         <div className="animation-hidden mb-16 text-center">
           <h2 className="mb-4 text-3xl font-semibold text-foreground sm:text-4xl">How It Works</h2>
           <p className="text-lg text-muted-foreground">
-            Three simple steps to never miss a class again
+            Three steps to get email alerts for your ASU classes
           </p>
         </div>
 
@@ -22,10 +23,10 @@ export function HowItWorks() {
             </div>
             <div className="flex-1 space-y-2 pt-1">
               <h3 className="text-xl font-semibold text-foreground sm:text-2xl">
-                Add Your Classes
+                Create a free account
               </h3>
               <p className="text-base text-muted-foreground sm:text-lg">
-                Search for ASU classes by section number and add them to your watchlist.
+                Sign up for a free PickMyClass account.
               </p>
             </div>
           </div>
@@ -36,11 +37,11 @@ export function HowItWorks() {
             </div>
             <div className="flex-1 space-y-2 pt-1">
               <h3 className="text-xl font-semibold text-foreground sm:text-2xl">
-                We Handle the Obsessing
+                Add your classes
               </h3>
               <p className="text-base text-muted-foreground sm:text-lg">
-                Our system checks ASU&apos;s class search every 30 minutes for seat availability and
-                instructor changes.
+                Find the 5-digit class number in ASU Class Search. Choose the term and enter that
+                number in PickMyClass. You can watch up to 10 classes at a time.
               </p>
             </div>
           </div>
@@ -51,10 +52,11 @@ export function HowItWorks() {
             </div>
             <div className="flex-1 space-y-2 pt-1">
               <h3 className="text-xl font-semibold text-foreground sm:text-2xl">
-                Register Before Everyone Else
+                Get email alerts
               </h3>
               <p className="text-base text-muted-foreground sm:text-lg">
-                Get an email the moment a seat opens. Beat the crowd. Pair that with{" "}
+                We check every 30 minutes and email you when we detect an open seat or a named
+                instructor assignment. Register through MyASU. Read{" "}
                 <Link
                   to="/blog/how-to-get-into-full-asu-classes"
                   className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 hover:decoration-primary"

@@ -14,7 +14,6 @@ const watchOptionsSchema = z.object({
 });
 
 export type UseClassWatchFormOptions = {
-  defaultClassNbr?: string;
   defaultTerm?: string;
   onCreated?: (watch: ClassWatchRow, input: ClassWatchCreationInput) => void | Promise<void>;
   onSubmittingChange?: (submitting: boolean) => void;
@@ -40,7 +39,6 @@ export function useClassWatchForm(options: UseClassWatchFormOptions = {}) {
   }, []);
 
   const {
-    defaultClassNbr = "",
     defaultTerm = derivedDefaultTerm,
     onCreated,
     onSubmittingChange,
@@ -48,7 +46,7 @@ export function useClassWatchForm(options: UseClassWatchFormOptions = {}) {
   } = options;
 
   const [term, setTerm] = useState(defaultTerm);
-  const [classNbr, setClassNbr] = useState(defaultClassNbr);
+  const [classNbr, setClassNbr] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 

@@ -10,21 +10,19 @@ import type { ClassWatchRow } from "@/lib/types/class-watch";
 interface SimplifiedWatchFormProps {
   onCreated: (watch: ClassWatchRow, input: ClassWatchCreationInput) => void | Promise<void>;
   onSubmittingChange?: (submitting: boolean) => void;
-  defaultClassNbr?: string;
   submitLabel?: string;
   submittingLabel?: string;
 }
 
+/** Preserves pasted digits for validation; only whitespace is removed. */
 export function SimplifiedWatchForm({
   onCreated,
   onSubmittingChange,
-  defaultClassNbr = "",
   submitLabel = "Start Watching",
-  submittingLabel = "Checking ASU's class search... hang tight",
+  submittingLabel = "Checking ASU's class search...",
 }: SimplifiedWatchFormProps) {
   const { terms, term, setTerm, classNbr, setClassNbr, error, isSubmitting, handleSubmit } =
     useClassWatchForm({
-      defaultClassNbr,
       onCreated,
       onSubmittingChange,
     });
@@ -43,15 +41,14 @@ export function SimplifiedWatchForm({
           id="onboarding-class-nbr"
           placeholder="19439"
           value={classNbr}
-          onChange={(e) => setClassNbr(e.target.value)}
+          onChange={(e) => setClassNbr(e.target.value.replace(/\s/g, ""))}
           required
-          maxLength={5}
           pattern="\d{5}"
           inputMode="numeric"
-          title="Must be a 5-digit class number"
+          title="Enter exactly 5 digits for the class number."
         />
         <p className="text-xs text-muted-foreground">
-          The 5-digit number from the ASU catalog &quot;Class #&quot; column.
+          Enter exactly 5 digits from the ASU catalog &quot;Class #&quot; column.
         </p>
       </div>
 

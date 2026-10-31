@@ -16,7 +16,7 @@ import {
 import { TermSelect } from "@/components/TermSelect";
 import { useClassWatchForm } from "@/lib/class-watches/useClassWatchForm";
 
-/** Creates a watch, then invalidates cached loaders before returning to the dashboard. */
+/** Removes pasted whitespace without truncating input, then refreshes loaders after creation. */
 export function AddClassWatch() {
   const router = useRouter();
   const navigate = useNavigate();
@@ -66,16 +66,16 @@ export function AddClassWatch() {
           <TermSelect value={term} onValueChange={setTerm} terms={terms} id="term" />
 
           <div className="space-y-2">
-            <Label htmlFor="section_number">Section Number *</Label>
+            <Label htmlFor="section_number">Class Number *</Label>
             <Input
               id="section_number"
               placeholder="19439"
               value={classNbr}
-              onChange={(e) => setClassNbr(e.target.value)}
+              onChange={(e) => setClassNbr(e.target.value.replace(/\s/g, ""))}
               required
-              maxLength={5}
               pattern="\d{5}"
-              title="Must be a 5-digit section number"
+              inputMode="numeric"
+              title="Enter exactly 5 digits for the class number."
             />
             <div className="flex gap-2.5 rounded-md bg-primary/5 border border-primary/20 p-3 text-sm">
               <Lightbulb className="size-4 shrink-0 text-primary mt-0.5" aria-hidden="true" />
@@ -89,7 +89,7 @@ export function AddClassWatch() {
                 >
                   ASU Class Search page
                 </a>
-                , search for your class, and look for the 5-digit number in the &quot;Class #&quot;
+                , search for your class, and enter exactly 5 digits from the &quot;Class #&quot;
                 column.
               </p>
             </div>
@@ -101,7 +101,7 @@ export function AddClassWatch() {
             disabled={isSubmitting || !term || !classNbr || terms.length === 0}
             className="w-full"
           >
-            {isSubmitting ? "Checking ASU's class search... hang tight" : "Start Watching"}
+            {isSubmitting ? "Checking ASU's class search..." : "Start Watching"}
           </Button>
         </form>
       </CardContent>

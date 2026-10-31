@@ -2,7 +2,7 @@ export const faqs = [
   {
     question: "How does PickMyClass track ASU class seat availability?",
     answer:
-      "PickMyClass automatically checks the ASU class search system every 30 minutes for changes in seat availability and instructor assignments. When a seat opens up in a class you're watching, we send you an email alert so you can register before anyone else.",
+      "PickMyClass automatically checks ASU Class Search every 30 minutes for changes in seat availability and instructor assignments. When a seat opens in a class you're watching, we send you an email alert so you can check ASU Class Search and register.",
   },
   {
     question: "Is PickMyClass free for ASU students?",
@@ -12,12 +12,12 @@ export const faqs = [
   {
     question: "How often does PickMyClass check for open seats?",
     answer:
-      "We check every 30 minutes, around the clock. During high-traffic periods like add/drop week, this means you'll know about an open seat well before most students checking manually.",
+      "We check every 30 minutes, 24 hours a day. This includes add/drop, the first days of the semester when students add and drop classes.",
   },
   {
     question: 'Will I be notified when a professor is assigned to a "Staff" section?',
     answer:
-      'Yes! Instructor change detection is one of our key features. When ASU updates a section from "Staff" to an actual professor name, you\'ll get an email alert so you can look them up on RateMyProfessors before committing.',
+      'ASU shows "Staff" until an instructor is assigned. When ASU replaces "Staff" with an instructor name for a class you\'re watching, we send you an email alert.',
   },
   {
     question: "Does PickMyClass work for all ASU campuses and online classes?",
@@ -27,7 +27,12 @@ export const faqs = [
   {
     question: "How many classes can I track at once?",
     answer:
-      "You can track multiple classes simultaneously. Just add each section number to your watchlist and we'll monitor all of them for you.",
+      "You can track up to 10 classes at a time. Add each class using its 5-digit class number from ASU Class Search, and we'll email you when we detect a change.",
+  },
+  {
+    question: "How do I stop email alerts?",
+    answer:
+      'To stop alerts for one class, use its "Stop watching" button on the dashboard. To stop all alert emails, turn off "Email alerts" in Settings or use the unsubscribe link in any alert email. You can turn alerts back on in Settings under "Email alerts".',
   },
   {
     question: "Is PickMyClass affiliated with Arizona State University?",
@@ -37,6 +42,6 @@ export const faqs = [
   {
     question: "How is this different from checking the ASU class search manually?",
     answer:
-      "Instead of you manually refreshing the ASU class search page hoping to catch an open seat, PickMyClass automates that process. We check every 30 minutes and email you the moment something changes — so you can go about your day without stressing about missing a seat.",
+      "PickMyClass checks ASU Class Search every 30 minutes and emails you when it detects an open seat or an instructor assignment. You do not need to keep checking the page yourself.",
   },
 ];

@@ -5,7 +5,7 @@ const termSchema = z.string().regex(/^\d{4}$/, 'Term must be a 4-digit code (e.g
 
 const classNbrSchema = z
   .string()
-  .regex(/^\d{5}$/, 'Section number must be a 5-digit code (e.g., "12431")');
+  .regex(/^\d{5}$/, 'Class number must be exactly 5 digits (e.g., "12431")');
 
 const uuidSchema = z.string().uuid("ID must be a valid UUID");
 
