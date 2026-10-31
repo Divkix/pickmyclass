@@ -34,6 +34,43 @@ describe("processSection", () => {
     vi.unstubAllEnvs();
   });
 
+  it("retries an ASU timeout without advancing state, then notifies on redelivery", async () => {
+    const pg = createScriptedPostgres();
+    const env = environment();
+    const fetchClass = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError("ASU API request timed out", 408))
+      .mockResolvedValueOnce(details);
+    pg.next([state()]);
+
+    expect(await processSection(pg.db, ref, env, { fetchClass })).toMatchObject({
+      disposition: "retry",
+      httpStatus: 502,
+      retryable: true,
+      result: { success: false, emailsSent: 0, error: "ASU API request timed out" },
+    });
+    expect(pg.statements).toHaveLength(1);
+    expect(env.send).not.toHaveBeenCalled();
+
+    // No observation committed on timeout, so this same-cycle redelivery must
+    // still see the closed-to-open transition rather than trip the cycle guard.
+    pg.next([state()]);
+    pg.next([recorded(true, true)]);
+    queuePending(pg);
+    pg.next([watcher]);
+    pg.next([claim]);
+    pg.next();
+    pg.next();
+
+    expect(await processSection(pg.db, ref, env, { fetchClass })).toMatchObject({
+      disposition: "ack",
+      result: { success: true, changes: { seatBecameAvailable: true }, emailsSent: 1 },
+    });
+    expect(fetchClass).toHaveBeenCalledTimes(2);
+    expect(env.send).toHaveBeenCalledOnce();
+    expect(pg.statements.at(-1)?.sql).toMatch(/^delete from "pending_section_notifications"/);
+  });
+
   it("resumes notification work after a claim fails following a successful state write", async () => {
     const pg = createScriptedPostgres();
     pg.next([state()]);
