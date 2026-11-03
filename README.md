@@ -93,6 +93,8 @@ pnpm run test      # tests, live database excluded
 
 The full command list is the `scripts` block of `package.json`.
 
+CI runs verification, coverage, database tests and the build in parallel on GitHub-hosted runners; the required **CI Success** check aggregates all four. The shared setup caches `node_modules` by runner OS/architecture, Node version, lockfile, workspace configuration, patches and `.npmrc`, and only installs on an exact cache miss. PostgreSQL starts before dependency setup so initialization overlaps it.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Branch from `main`, run `pnpm run verify`, use Conventional Commits and open a PR. The dependency policy lives in the comments of [`pnpm-workspace.yaml`](pnpm-workspace.yaml) and [`.github/dependabot.yml`](.github/dependabot.yml); Dependabot PRs are reviewed and merged by hand.
