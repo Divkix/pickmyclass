@@ -8,9 +8,10 @@ import { verifyAdmin } from "@/lib/auth/admin";
 import {
   getAdminCount,
   getRecentActivity,
-  getTotalClassesWatched,
+  getSectionsCheckedCount,
   getTotalEmailsSent,
   getTotalUsers,
+  getTotalWatches,
 } from "@/lib/db/admin-queries";
 import { getDbFromEnv } from "@/lib/db";
 
@@ -18,19 +19,22 @@ const loadAdminDashboard = createServerFn().handler(async () => {
   const adminUser = await verifyAdmin("/admin");
   const db = getDbFromEnv();
 
-  const [totalEmails, totalUsers, totalClasses, adminCount, recentActivity] = await Promise.all([
-    getTotalEmailsSent(db),
-    getTotalUsers(db),
-    getTotalClassesWatched(db),
-    getAdminCount(db),
-    getRecentActivity(db, 10),
-  ]);
+  const [totalEmails, totalUsers, sectionsChecked, totalWatches, adminCount, recentActivity] =
+    await Promise.all([
+      getTotalEmailsSent(db),
+      getTotalUsers(db),
+      getSectionsCheckedCount(db),
+      getTotalWatches(db),
+      getAdminCount(db),
+      getRecentActivity(db, 10),
+    ]);
 
   return {
     adminEmail: adminUser.email,
     totalEmails,
     totalUsers,
-    totalClasses,
+    sectionsChecked,
+    totalWatches,
     adminCount,
     recentActivity,
   };
@@ -42,10 +46,17 @@ export const Route = createFileRoute("/admin/")({
 });
 
 function AdminDashboardPage() {
-  const { adminEmail, totalEmails, totalUsers, totalClasses, adminCount, recentActivity } =
-    Route.useLoaderData();
+  const {
+    adminEmail,
+    totalEmails,
+    totalUsers,
+    sectionsChecked,
+    totalWatches,
+    adminCount,
+    recentActivity,
+  } = Route.useLoaderData();
 
-  const avgWatchesPerUser = totalUsers > 0 ? (totalClasses / totalUsers).toFixed(1) : "0";
+  const avgWatchesPerUser = totalUsers > 0 ? (totalWatches / totalUsers).toFixed(1) : "0";
   const avgEmailsPerUser = totalUsers > 0 ? (totalEmails / totalUsers).toFixed(1) : "0";
 
   return (
@@ -103,7 +114,7 @@ function AdminDashboardPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Classes Watched
+                Classes Being Checked
               </CardTitle>
               <div className="flex size-10 items-center justify-center rounded-full bg-accent/10">
                 <Eye className="size-5 text-accent" />
@@ -111,8 +122,10 @@ function AdminDashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{totalClasses.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Unique sections monitored</p>
+            <div className="text-3xl font-bold">{sectionsChecked.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Checked every 30 minutes ({totalWatches.toLocaleString()} watches)
+            </p>
           </CardContent>
         </Card>
       </div>
