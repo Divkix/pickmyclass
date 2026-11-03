@@ -1,6 +1,7 @@
 import { and, count, eq, exists, gte, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { getPastTermCodes } from "@/lib/asu/terms";
 import type { Database } from "@/lib/db";
 import { driverErrorMessage } from "@/lib/db/pg-errors";
 import { classStates, classWatches } from "@/lib/db/schema";
@@ -107,6 +108,7 @@ export async function getNotificationWatchers(
   }
 }
 
+/** The SectionRefs a Cron Cycle checks: eligible watchers, alerts still open, current terms. */
 export async function getSectionsToCheck(
   db: Database,
   staggerType: StaggerGroup = "all",
@@ -116,12 +118,19 @@ export async function getSectionsToCheck(
       sql`SELECT class_nbr, term FROM public.get_sections_to_check(${staggerType}::text)`,
     );
 
+    // Past-term watches wait for the hourly purge; skip them until it runs.
+    const pastTerms = new Set(getPastTermCodes());
+
+    const sections = rows.flatMap(({ class_nbr, term }): SectionRef[] =>
+      pastTerms.has(term) ? [] : [{ class_nbr, term }],
+    );
+
     log("DB").info("Found sections to check", {
-      sections: rows.length,
+      sections: sections.length,
       stagger_group: staggerType,
     });
 
-    return rows.map((row) => ({ class_nbr: row.class_nbr, term: row.term }));
+    return sections;
   } catch (error) {
     log("DB").error("Error fetching sections to check", errorFields(error));
     throw new Error(`Failed to fetch sections: ${driverErrorMessage(error)}`, { cause: error });

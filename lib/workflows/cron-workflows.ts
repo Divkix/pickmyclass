@@ -123,12 +123,7 @@ export class SectionCheckWorkflow extends WorkflowEntrypoint<CronWorkflowEnv> {
 
     const sections = await step.do("load sections", STEP_CONFIG, () =>
       failPermanently(async () => {
-        const all = await getSectionsToCheck(getDb(this.env.HYPERDRIVE), staggerGroup);
-        const pastTerms = new Set(getPastTermCodes());
-
-        const current = all.flatMap(({ class_nbr, term }): SectionRef[] =>
-          pastTerms.has(term) ? [] : [{ class_nbr, term }],
-        );
+        const current = await getSectionsToCheck(getDb(this.env.HYPERDRIVE), staggerGroup);
 
         log("SectionCheck").info("Enqueueing sections", {
           cycle,
