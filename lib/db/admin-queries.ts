@@ -4,7 +4,7 @@ import { TtlCache } from "@/lib/cache/ttl-cache";
 import { ADMIN_CACHE_TTL_MS } from "@/lib/config";
 import type { Database } from "@/lib/db";
 import { driverErrorMessage, isUndefinedFunction } from "@/lib/db/pg-errors";
-import { sectionAlertsEnded } from "@/lib/db/queries";
+import { getSectionsToCheck, sectionAlertsEnded } from "@/lib/db/queries";
 import { classStates, classWatches, notificationsSent, userProfiles } from "@/lib/db/schema";
 import { errorFields, log } from "@/lib/log";
 import type { ClassStateRow } from "@/lib/types/class-watch";
@@ -85,27 +85,34 @@ export async function getAdminCount(db: Database): Promise<number> {
   }
 }
 
-export async function getTotalClassesWatched(db: Database): Promise<number> {
+/** Sections the checker covers every 30 minutes, from the same query the Cron Cycle uses. */
+export async function getSectionsCheckedCount(db: Database): Promise<number> {
   // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
-  const cached = adminCache.get("total-classes-watched") as number | undefined;
+  const cached = adminCache.get("sections-checked") as number | undefined;
+
+  if (cached !== undefined) return cached;
+
+  const result = (await getSectionsToCheck(db)).length;
+  adminCache.set("sections-checked", result);
+
+  return result;
+}
+
+export async function getTotalWatches(db: Database): Promise<number> {
+  // SAFETY: adminCache stores unknown; narrowing to number via cache key contract
+  const cached = adminCache.get("total-watches") as number | undefined;
 
   if (cached !== undefined) return cached;
 
   try {
-    const {
-      rows: [row],
-    } = await db.execute<CountRpcRow>(
-      sql`SELECT public.count_distinct_classes_watched()::text AS count`,
-    );
-
-    const result = Number(row?.count ?? 0);
-    log("Admin").info("Counted distinct classes watched", { classes: result });
-    adminCache.set("total-classes-watched", result);
+    const [row] = await db.select({ value: count() }).from(classWatches);
+    const result = Number(row?.value ?? 0);
+    adminCache.set("total-watches", result);
 
     return result;
   } catch (error) {
-    log("Admin").error("Error counting distinct classes watched", errorFields(error));
-    throw new Error(`Failed to fetch class count: ${driverErrorMessage(error)}`);
+    log("Admin").error("Error counting watches", errorFields(error));
+    throw new Error(`Failed to count watches: ${driverErrorMessage(error)}`);
   }
 }
 

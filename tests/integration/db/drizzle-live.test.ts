@@ -35,9 +35,9 @@ import {
   getClassesPage,
   getDistinctSubjects,
   getRecentActivity,
-  getTotalClassesWatched,
   getTotalEmailsSent,
   getTotalUsers,
+  getTotalWatches,
   getUserWatches,
   getUsersPage,
 } from "@/lib/db/admin-queries";
@@ -1247,7 +1247,7 @@ describe("admin queries (representative RPC + builder results)", () => {
     expect(isIsoZ(rowA?.last_changed_at)).toBe(true);
   });
 
-  it("counts emails, users, admins, and distinct classes through BIGINT-safe paths", async () => {
+  it("counts emails, users, admins, and watches through BIGINT-safe paths", async () => {
     const myWatchIds = (
       await db
         .select({ id: classWatches.id })
@@ -1277,16 +1277,7 @@ describe("admin queries (representative RPC + builder results)", () => {
     expect(await getTotalUsers(db)).toBeGreaterThanOrEqual(expectedProfiles);
     expect(await getAdminCount(db)).toBeGreaterThanOrEqual(1);
 
-    const distinctMine = new Set(
-      (
-        await db
-          .select({ class_nbr: classWatches.class_nbr })
-          .from(classWatches)
-          .where(like(classWatches.user_id, `%${RUN}%`))
-      ).map((row) => row.class_nbr),
-    );
-
-    expect(await getTotalClassesWatched(db)).toBeGreaterThanOrEqual(distinctMine.size);
+    expect(await getTotalWatches(db)).toBeGreaterThanOrEqual(myWatchIds.length);
   });
 
   it("reports distinct subjects including the run-scoped fixture", async () => {
