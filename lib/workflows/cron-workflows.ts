@@ -45,7 +45,7 @@ async function expireStaleNotifications(db: Database): Promise<number> {
   return expiredRowSchema.parse(rows[0]).expired;
 }
 
-/** The scheduled fire time, or the manual-trigger time when started with `wrangler workflows trigger`. */
+/** The scheduled fire time, or the manual-trigger time when started from the dashboard. */
 function firedAt(event: Readonly<WorkflowEvent<unknown>>): Date {
   return new Date(event.schedule?.scheduledTime ?? event.timestamp.getTime());
 }
@@ -86,7 +86,7 @@ function rejectedReasons(
 }
 
 /**
- * Every 15 minutes (`schedules` in wrangler.jsonc), so each stagger group is checked every 30 minutes: expire stale notification
+ * Every 15 minutes (`schedules` in alchemy.run.ts), so each stagger group is checked every 30 minutes: expire stale notification
  * claims, load the stagger group's sections, and enqueue one Section Check per
  * section. Each step retries on its own; a batch that still fails after its
  * retries errors the instance after the other batches are enqueued.

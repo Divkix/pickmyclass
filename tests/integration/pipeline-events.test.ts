@@ -1,7 +1,5 @@
-import { readFileSync } from "node:fs";
 import { Pool, type QueryResult } from "pg";
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { QUEUE_MAX_RETRIES } from "@/lib/config";
 import { ClerkIdentityDeletionIncomplete } from "@/lib/auth/clerk-errors";
 import { processSection, type SectionCheckOutcome } from "@/lib/queue/process-section";
 import type { Env } from "@/lib/types/env";
@@ -335,13 +333,5 @@ describe("MaintenanceWorkflow", () => {
 
     for (const failure of stepFailures.values())
       expect(failure instanceof NonRetryableError).toBe(permanent);
-  });
-});
-
-describe("QUEUE_MAX_RETRIES", () => {
-  it("matches the queue consumer's max_retries in wrangler.jsonc", () => {
-    const wrangler = readFileSync(new URL("../../wrangler.jsonc", import.meta.url), "utf8");
-
-    expect(wrangler).toMatch(new RegExp(`"max_retries":\\s*${QUEUE_MAX_RETRIES}\\b`));
   });
 });

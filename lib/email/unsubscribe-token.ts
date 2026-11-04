@@ -9,7 +9,7 @@ function getSigningSecret(): string {
   if (!secret) {
     throw new Error(
       "UNSUBSCRIBE_SIGNING_SECRET is not set. " +
-        "Required for HMAC token signing. Set this via wrangler secret put UNSUBSCRIBE_SIGNING_SECRET.",
+        "Required for HMAC token signing. Set it as a Worker secret (dashboard), or in .env for alchemy dev.",
     );
   }
 

@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/webhooks/clerk")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // SAFETY: provisioned via `wrangler secret put CLERK_WEBHOOK_SIGNING_SECRET`.
+        // SAFETY: a Worker secret (dashboard or Cloudflare API); `.env` under `alchemy dev`.
         const { CLERK_WEBHOOK_SIGNING_SECRET } = clerkWebhookEnvSchema.parse(env);
 
         if (!CLERK_WEBHOOK_SIGNING_SECRET) {

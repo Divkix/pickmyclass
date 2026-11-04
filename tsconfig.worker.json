@@ -39,8 +39,7 @@
     "lib/worker/api-errors.ts",
     "lib/worker/edge-html-cache.ts",
     "lib/worker/markdown-negotiation.ts",
-    "lib/cloudflare-env.d.ts",
-    "lib/cloudflare-env.supplemental.d.ts"
+    "lib/cloudflare-env.d.ts"
   ],
   "exclude": ["node_modules"]
 }

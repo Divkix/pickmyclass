@@ -58,17 +58,17 @@ const clerkEnvSchema = z.object({
 
 function getClerkEnv(): Required<Pick<ClerkEnv, "CLERK_SECRET_KEY" | "CLERK_PUBLISHABLE_KEY">> &
   ClerkEnv {
-  // SAFETY: bindings are declared in wrangler secrets; see lib/cloudflare-env.supplemental.d.ts.
+  // SAFETY: Worker secrets; see lib/cloudflare-env.d.ts.
   const e = clerkEnvSchema.parse(env);
 
   if (!e.CLERK_SECRET_KEY) {
     throw new Error(
-      "CLERK_SECRET_KEY is not set. Provision it with `wrangler secret put CLERK_SECRET_KEY`.",
+      "CLERK_SECRET_KEY is not set. Set it as a Worker secret (dashboard), or in .env for alchemy dev.",
     );
   }
 
   if (!e.CLERK_PUBLISHABLE_KEY) {
-    throw new Error("CLERK_PUBLISHABLE_KEY is not set. It is a `vars` entry in wrangler.jsonc.");
+    throw new Error("CLERK_PUBLISHABLE_KEY is not set. It is a var in alchemy.run.ts.");
   }
 
   return {
@@ -128,10 +128,8 @@ function clerkCall<A>(operation: string, attempt: () => Promise<A>): Promise<A> 
 function getAuthorizedParties(): string[] {
   const { CLERK_PUBLISHABLE_KEY, NEXT_PUBLIC_SITE_URL } = getClerkEnv();
 
-  // Only dev instances allow localhost: `pnpm run dev` and `pnpm run preview`.
-  const parties = CLERK_PUBLISHABLE_KEY.startsWith("pk_test_")
-    ? ["http://localhost:3000", "http://localhost:8787"]
-    : [];
+  // Only dev instances allow localhost: `pnpm run dev` (alchemy.run.ts pins port 3000).
+  const parties = CLERK_PUBLISHABLE_KEY.startsWith("pk_test_") ? ["http://localhost:3000"] : [];
 
   if (NEXT_PUBLIC_SITE_URL) parties.push(NEXT_PUBLIC_SITE_URL);
 
