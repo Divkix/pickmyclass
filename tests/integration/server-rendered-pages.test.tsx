@@ -46,6 +46,10 @@ vi.mock("@tanstack/react-start", () => ({
   createServerFn: () => ({ handler: <T,>(handler: () => T) => handler }),
 }));
 
+vi.mock("@clerk/tanstack-react-start", () => ({
+  SignIn: () => createElement("div", { "data-clerk-sign-in": true }),
+}));
+
 // Clerk has not loaded during SSR: the page must not depend on it.
 vi.mock("@/lib/contexts/AuthContext", () => ({
   useAuth: () => ({
@@ -59,6 +63,7 @@ vi.mock("@/lib/contexts/AuthContext", () => ({
 
 import { Route as DashboardRoute } from "@/app/routes/dashboard/index";
 import { Route as SettingsRoute } from "@/app/routes/settings";
+import { Route as SignInRoute } from "@/app/routes/sign-in";
 import { requirePageAccess } from "@/lib/auth/page-access";
 
 const identity: SessionIdentity = {
@@ -161,6 +166,36 @@ describe("server-rendered authenticated pages", () => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
   });
+
+  it.each(["account_disabled", undefined, "unknown"])(
+    "renders the disabled-account notice only for the matching sign-in error: %s",
+    async (error) => {
+      const validator = SignInRoute.options.validateSearch;
+
+      if (!validator || !("parse" in validator)) throw new Error("Sign-in search must use zod");
+
+      const search = validator.parse(error ? { error } : {});
+
+      vi.spyOn(SignInRoute, "useSearch").mockReturnValue(search);
+      const component = SignInRoute.options.component;
+
+      if (!component) throw new Error("Sign-in route must have a component");
+
+      const html = await renderWithRouter(createElement(component), "/sign-in");
+
+      expect(html).toContain("data-clerk-sign-in");
+
+      if (error === "account_disabled") {
+        expect(html).toContain('role="alert"');
+        expect(html).toContain("This account has been disabled.");
+        expect(html).toContain('href="mailto:support@pickmyclass.app"');
+        expect(html.indexOf('role="alert"')).toBeLessThan(html.indexOf("data-clerk-sign-in"));
+      } else {
+        expect(html).not.toContain('role="alert"');
+        expect(html).not.toContain("This account has been disabled.");
+      }
+    },
+  );
 
   it("renders the user's watch cards into the dashboard HTML before Clerk loads", async () => {
     const pg = createScriptedPostgres((statement) => {
