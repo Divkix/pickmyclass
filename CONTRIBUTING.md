@@ -187,7 +187,7 @@ How did you test these changes?
 
 1. Tables, columns, indexes and constraints: edit `lib/db/schema/`, then `pnpm run db:generate`.
 2. Functions, triggers and data fixes: `pnpm run db:generate -- --custom --name=<name>` and write the SQL. To change a function, `CREATE OR REPLACE` it in a new migration; never edit an applied one.
-3. Commit the new `migrations_pg/` files, including `meta/`. `pnpm run deploy` runs `db:migrate` before `wrangler deploy` (needs the direct PlanetScale `DATABASE_URL`).
+3. Commit the new `migrations_pg/` files, including `meta/`. `pnpm run deploy` runs `db:migrate` before `alchemy deploy` (needs the direct PlanetScale `DATABASE_URL`).
 4. `db/migrations/` is frozen pre-drizzle history; don't add to it.
 5. Enforce server-side ownership filters and use the existing `SECURITY DEFINER` RPCs; `migrations_pg/` does not enable RLS or define policies.
 

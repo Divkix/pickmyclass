@@ -39,6 +39,9 @@ yarn-error.log*
 
 # wrangler files
 .wrangler
+
+# Alchemy working files (state lives in the account's state store)
+.alchemy/
 worker-configuration.d.ts
 
 # git worktrees

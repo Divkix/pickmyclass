@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["alchemy.run.ts"],
   "project": ["**/*.{ts,tsx,css}"],
   "ignore": ["app/routeTree.gen.ts", "tests/mocks/**", "tools/oxlint/anti-slop/**"],
   "ignoreDependencies": ["cloudflare", "@tanstack/intent"],

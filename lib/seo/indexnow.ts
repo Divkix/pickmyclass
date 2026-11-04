@@ -110,7 +110,7 @@ async function fetchText(runtime: IndexNowRuntime, url: string): Promise<Poll<st
  * Retries `read` until it yields a value, returning why the last attempt came
  * up empty. The first deploy with a new key only serves the key file once the
  * new version is live, so this also waits out propagation right after
- * `wrangler deploy`.
+ * `alchemy deploy`.
  */
 async function poll<T>(runtime: IndexNowRuntime, read: () => Promise<Poll<T>>): Promise<Poll<T>> {
   let last: Poll<T> = { value: null, why: "no attempts" };

@@ -18,8 +18,8 @@ describe("log", () => {
       msg: "Section Check failed",
       class_nbr: "12345",
       attempts: 2,
-      "service.version": "dev",
-      "deployment.environment": "development",
+      "service.version": __BUILD_COMMIT__,
+      "deployment.environment": __DEPLOYMENT_ENVIRONMENT__,
     });
   });
 
@@ -33,7 +33,7 @@ describe("log", () => {
 
     expect(infoSpy.mock.calls.map(([line]) => line)).toEqual([
       expect.objectContaining({ msg: "tagged", "service.version": "9f2c1d7e-version" }),
-      expect.objectContaining({ msg: "untagged", "service.version": "dev" }),
+      expect.objectContaining({ msg: "untagged", "service.version": __BUILD_COMMIT__ }),
     ]);
   });
 
