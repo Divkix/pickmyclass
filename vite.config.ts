@@ -40,12 +40,17 @@ const CLIENT_DENIED_FILES = [
   "**/lib/asu/{asu-client,api}.ts",
 ];
 
-// Workers Builds sets these on every build; production deploys come from main.
+// Production builds run in the GitHub Actions deploy workflow (main); Workers Builds still
+// uploads branch preview versions. Both set a branch and commit:
 // https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables
-function deploymentEnvironment(): DeploymentEnvironment {
-  if (!process.env.WORKERS_CI) return "development";
+// https://docs.github.com/en/actions/reference/workflows-and-actions/variables
+const CI_BRANCH = process.env.WORKERS_CI_BRANCH ?? process.env.GITHUB_REF_NAME;
+const CI_COMMIT = process.env.WORKERS_CI_COMMIT_SHA ?? process.env.GITHUB_SHA;
 
-  return process.env.WORKERS_CI_BRANCH === "main" ? "production" : "preview";
+function deploymentEnvironment(): DeploymentEnvironment {
+  if (!CI_BRANCH) return "development";
+
+  return CI_BRANCH === "main" ? "production" : "preview";
 }
 
 export default defineConfig(() => {
@@ -232,7 +237,7 @@ export default defineConfig(() => {
     environments: { ssr: { build: { minify: true } } },
     define: {
       __DEPLOYMENT_ENVIRONMENT__: JSON.stringify(deploymentEnvironment()),
-      __BUILD_COMMIT__: JSON.stringify(process.env.WORKERS_CI_COMMIT_SHA?.slice(0, 12) ?? "dev"),
+      __BUILD_COMMIT__: JSON.stringify(CI_COMMIT?.slice(0, 12) ?? "dev"),
     },
   };
 });
