@@ -24,13 +24,13 @@ vi.mock("@clerk/tanstack-react-start", () => ({
   useClerk: () => ({ signOut: vi.fn() }),
 }));
 
-vi.mock("cloudflare:workers", () => ({
-  env: {
-    CLERK_SECRET_KEY: "sk_test_x",
-    CLERK_PUBLISHABLE_KEY: "pk_test_x",
-    NEXT_PUBLIC_SITE_URL: "https://pickmyclass.test",
-  },
+const clerkEnv = vi.hoisted(() => ({
+  CLERK_SECRET_KEY: "sk_test_x",
+  CLERK_PUBLISHABLE_KEY: "pk_test_x",
+  NEXT_PUBLIC_SITE_URL: "https://pickmyclass.test",
 }));
+
+vi.mock("cloudflare:workers", () => ({ env: clerkEnv }));
 
 import {
   ClerkCallFailed,
@@ -38,6 +38,7 @@ import {
   SessionRevocationIncomplete,
 } from "@/lib/auth/clerk-errors";
 import {
+  clerkMiddlewareOptions,
   deleteClerkUser,
   getClerkUser,
   getSessionIdentity,
@@ -57,6 +58,7 @@ async function caught(promise: Promise<unknown>): Promise<Error | undefined> {
 
 describe("clerk-session", () => {
   beforeEach(() => {
+    clerkEnv.CLERK_PUBLISHABLE_KEY = "pk_test_x";
     createClerkClient.mockImplementation(() => ({
       sessions: { getSessionList, revokeSession: revokeSessionCall },
       users: { getUser, deleteUser },
@@ -76,6 +78,18 @@ describe("clerk-session", () => {
     await revokeSession("sess_2");
 
     expect(createClerkClient).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { key: "pk_live_x", parties: ["https://pickmyclass.test"] },
+    {
+      key: "pk_test_x",
+      parties: ["http://localhost:3000", "http://localhost:8787", "https://pickmyclass.test"],
+    },
+  ])("trusts localhost only for the development instance: $key", ({ key, parties }) => {
+    clerkEnv.CLERK_PUBLISHABLE_KEY = key;
+
+    expect(clerkMiddlewareOptions().authorizedParties).toEqual(parties);
   });
 
   it("times out a Clerk call that never answers", async () => {

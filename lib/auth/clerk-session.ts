@@ -126,9 +126,12 @@ function clerkCall<A>(operation: string, attempt: () => Promise<A>): Promise<A> 
 }
 
 function getAuthorizedParties(): string[] {
-  const { NEXT_PUBLIC_SITE_URL } = getClerkEnv();
-  // `pnpm run dev` (vite.config.ts) and `pnpm run preview` (wrangler dev's default port).
-  const parties = ["http://localhost:3000", "http://localhost:8787"];
+  const { CLERK_PUBLISHABLE_KEY, NEXT_PUBLIC_SITE_URL } = getClerkEnv();
+
+  // Only dev instances allow localhost: `pnpm run dev` and `pnpm run preview`.
+  const parties = CLERK_PUBLISHABLE_KEY.startsWith("pk_test_")
+    ? ["http://localhost:3000", "http://localhost:8787"]
+    : [];
 
   if (NEXT_PUBLIC_SITE_URL) parties.push(NEXT_PUBLIC_SITE_URL);
 

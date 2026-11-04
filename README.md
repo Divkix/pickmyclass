@@ -95,6 +95,8 @@ pnpm run verify    # format, lint, type-check, knip (pre-commit hook and CI)
 pnpm run test      # tests, live database excluded
 ```
 
+Clerk development keys (`pk_test_`) authorize both localhost ports above plus `NEXT_PUBLIC_SITE_URL`. Production keys (`pk_live_`) authorize only `NEXT_PUBLIC_SITE_URL`.
+
 The full command list is the `scripts` block of `package.json`.
 
 CI runs verification, coverage, database tests and the build in parallel on GitHub-hosted runners; the required **CI Success** check aggregates all four. The shared setup caches `node_modules` by runner OS/architecture, Node version, lockfile, workspace configuration, patches and `.npmrc`, and only installs on an exact cache miss. PostgreSQL starts before dependency setup so initialization overlaps it.

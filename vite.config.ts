@@ -221,8 +221,8 @@ export default defineConfig(() => {
           viteReact(),
         ],
     resolve: { tsconfigPaths: true },
-    // Clerk's local authorized parties (lib/auth/clerk-session.ts) name this port, so a second
-    // instance exits instead of drifting to one where sign-in fails.
+    // Clerk dev instances authorize this local port (lib/auth/clerk-session.ts), so a second
+    // instance exits instead of drifting to one where sign-in fails. Live keys trust no localhost.
     server: { port: 3000, strictPort: true },
     optimizeDeps: {
       exclude: ["lucide-react"],
