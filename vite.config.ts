@@ -39,12 +39,10 @@ const CLIENT_DENIED_FILES = [
   "**/lib/asu/{asu-client,api}.ts",
 ];
 
-// Production builds run in the GitHub Actions deploy workflow (main); Workers Builds still
-// uploads branch preview versions. Both set a branch and commit:
-// https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables
-// https://docs.github.com/en/actions/reference/workflows-and-actions/variables
-const CI_BRANCH = process.env.WORKERS_CI_BRANCH ?? process.env.GITHUB_REF_NAME;
-const CI_COMMIT = process.env.WORKERS_CI_COMMIT_SHA ?? process.env.GITHUB_SHA;
+// Production builds run in the GitHub Actions deploy workflow (main), which sets the branch and
+// commit: https://docs.github.com/en/actions/reference/workflows-and-actions/variables
+const CI_BRANCH = process.env.GITHUB_REF_NAME;
+const CI_COMMIT = process.env.GITHUB_SHA;
 
 function deploymentEnvironment(): DeploymentEnvironment {
   if (!CI_BRANCH) return "development";
