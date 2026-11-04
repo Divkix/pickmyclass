@@ -29,8 +29,8 @@ Be respectful, inclusive, and constructive. We welcome contributors of all exper
 
 3. **Set up environment variables**
    ```bash
-   cp .env.example .dev.vars
-   # Edit .dev.vars with Clerk development instance keys
+   cp .env.example .env
+   # Edit .env with Clerk development instance keys
    ```
 
 4. **Start the development server**
@@ -133,7 +133,7 @@ Before submitting a PR:
 
 3. **Test with Cloudflare Workers locally**
    ```bash
-   pnpm run preview
+   pnpm run dev
    ```
 
 4. **Run tests**
@@ -251,9 +251,9 @@ How did you test these changes?
 
 - **Shared state**: Keep durable shared state in Postgres; per-isolate caches are not authoritative.
 - **Deadlines**: External-call deadlines live in `lib/config.ts`; Workflow step timeout/retry settings live in `lib/workflows/cron-workflows.ts`.
-- **Queue consumers**: `max_concurrency: 20`, `max_batch_size: 5` for queue processing
-- **Scheduled work**: `SectionCheckWorkflow` (every 15 min; each section every 30 min) and `MaintenanceWorkflow` (hourly at :05: notification expiry, past-term watch deletion and the retention purge) run from Workflow `schedules` in `wrangler.jsonc`
-- **Test with preview**: Always test with `pnpm run preview` before deploying
+- **Queue consumers**: `maxConcurrency: 20`, `batchSize: 5` for queue processing (`alchemy.run.ts`)
+- **Scheduled work**: `SectionCheckWorkflow` (every 15 min; each section every 30 min) and `MaintenanceWorkflow` (hourly at :05: notification expiry, past-term watch deletion and the retention purge) run from Workflow `schedules` in `alchemy.run.ts`
+- **Test locally**: `pnpm run dev` runs the real Worker in workerd with emulated bindings; exercise changed routes there before deploying
 
 ### Email Templates
 

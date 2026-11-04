@@ -14,7 +14,7 @@ This file holds only rules that span files. Each module's rules live in its head
 | Touching | Read first |
 | --- | --- |
 | Seat checks, notifications, retries | `lib/queue/process-section.ts`, `pending-notifications.ts`, `notification-sender.ts` |
-| Workflows, Free-plan limits | `lib/workflows/cron-workflows.ts`, `wrangler.jsonc` |
+| Workflows, Free-plan limits, bindings | `lib/workflows/cron-workflows.ts`, `alchemy.run.ts` |
 | External calls, timeouts, Effect | `lib/effect/external-call.ts`, `lib/effect/failure.ts`, `lib/db/guard.ts` |
 | Schema or SQL functions | `drizzle.config.ts` (migration workflow) |
 | Auth, CSP, cache headers | `app/start.ts`, `lib/auth/request-gate.ts`, `lib/auth/page-access.ts` |
@@ -22,7 +22,7 @@ This file holds only rules that span files. Each module's rules live in its head
 | Logging and product events | `lib/log.ts` |
 | SEO heads, new public pages | `lib/seo/head.ts`, `lib/seo/public-pages.ts` |
 | Env vars, secrets, local setup | `.env.example` |
-| Binding types | `lib/cloudflare-env.supplemental.d.ts` |
+| Binding types | `lib/cloudflare-env.d.ts` (hand-written; keep in step with `alchemy.run.ts`) |
 | Dependencies, toolchain bumps | `pnpm-workspace.yaml`, `.github/dependabot.yml` |
 
 When you change behaviour, update the comment beside it in the same change. Add a line here only for a rule no single file can own.
@@ -45,7 +45,7 @@ When you change behaviour, update the comment beside it in the same change. Add 
 
 1. `pnpm run verify` (vite-plus lockstep + check + type-check + knip; the pre-commit hook and CI `quality` job).
 2. `pnpm run test:coverage` and `pnpm run build`.
-3. Touched `worker.ts`, `wrangler.jsonc`, Workflows or `lib/queue/`: also `pnpm run preview`.
+3. Touched `worker.ts`, `alchemy.run.ts`, Workflows or `lib/queue/`: also exercise it under `pnpm run dev`.
 4. Touched SQL or migrations: `DATABASE_URL=… pnpm run test:db` against a disposable migrated Postgres.
 5. Conventional Commits: `type(scope): summary`.
 
