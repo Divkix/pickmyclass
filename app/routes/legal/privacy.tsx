@@ -24,7 +24,7 @@ function PrivacyPolicyPage() {
           <Card>
             <CardHeader>
               <h1 className="text-3xl leading-none font-semibold">Privacy Policy</h1>
-              <p className="text-sm text-muted-foreground">Last Updated: October 30, 2026</p>
+              <p className="text-sm text-muted-foreground">Last Updated: November 4, 2026</p>
             </CardHeader>
             <CardContent className="prose prose-zinc dark:prose-invert max-w-none space-y-6">
               <section>
@@ -76,14 +76,20 @@ function PrivacyPolicyPage() {
                     cookies
                   </li>
                   <li>
-                    <strong>Technical Data:</strong> IP address (for security purposes only, not
-                    stored long-term)
+                    <strong>Technical Data:</strong> IP address (not stored long-term), browser and
+                    device information
                   </li>
                   <li>
                     <strong>Diagnostics:</strong> Browser errors, performance traces, and console
                     logs. Signed-in records are linked to an opaque account ID, never your email.
-                    They are stored on servers we operate ourselves, not by a third-party analytics
-                    company. Session replay is disabled.
+                    These diagnostic records are stored on servers we operate ourselves. Session
+                    replay is disabled.
+                  </li>
+                  <li>
+                    <strong>Analytics:</strong> Google Analytics 4 collects page views,
+                    interactions, browser and device information, and approximate location to help
+                    us understand how the Service is used. Google processes this data and uses
+                    cookies to distinguish visitors and sessions.
                   </li>
                 </ul>
 
@@ -167,6 +173,17 @@ function PrivacyPolicyPage() {
                           their privacy policy
                         </a>
                       </li>
+                      <li>
+                        Google Analytics (usage analytics) - see{" "}
+                        <a
+                          href="https://policies.google.com/privacy"
+                          className="text-primary underline"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          their privacy policy
+                        </a>
+                      </li>
                     </ul>
                   </li>
                   <li>
@@ -206,7 +223,7 @@ function PrivacyPolicyPage() {
                   </tbody>
                 </table>
 
-                <h3 className="text-lg font-semibold mt-4">5.2 Cookie Characteristics</h3>
+                <h3 className="text-lg font-semibold mt-4">5.2 Essential Cookie Characteristics</h3>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>
                     <strong>HttpOnly:</strong> Yes (prevents JavaScript access for security)
@@ -226,7 +243,15 @@ function PrivacyPolicyPage() {
                   first-party, and expires after 15 minutes of inactivity.
                 </p>
 
-                <h3 className="text-lg font-semibold mt-4">5.4 What We Do NOT Use</h3>
+                <h3 className="text-lg font-semibold mt-4">5.4 Analytics Cookies</h3>
+                <p>
+                  Google Analytics sets first-party <span className="font-mono text-sm">_ga</span>{" "}
+                  and <span className="font-mono text-sm">_ga_*</span> cookies to distinguish
+                  visitors and sessions. These cookies can last up to two years and may be renewed
+                  when you return.
+                </p>
+
+                <h3 className="text-lg font-semibold mt-4">5.5 What We Do NOT Use</h3>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>No advertising cookies</li>
                   <li>No social media cookies</li>

@@ -131,6 +131,21 @@ describe("gateRequest", () => {
     expect(connectSrc).toContain("https://*.protect.clerk.com:*");
   });
 
+  it.each([
+    { pathname: "/", cookie: undefined },
+    { pathname: "/dashboard", cookie: "__session=token" },
+  ])("allows GA4 scripts and collection on $pathname", async ({ pathname, cookie }) => {
+    seedAuthenticated();
+    const response = await renderRequest(createRequest(pathname, cookie), IDENTITY);
+    const csp = response.headers.get("content-security-policy");
+
+    expect(scriptSrcOf(csp)).toContain("https://www.googletagmanager.com");
+    expect(cspDirective(csp, "connect-src")).toContain("https://www.googletagmanager.com");
+    expect(cspDirective(csp, "connect-src")).toContain("https://*.google-analytics.com");
+    expect(cspDirective(csp, "connect-src")).toContain("https://*.google.com");
+    expect(cspDirective(csp, "img-src")).toBe("img-src 'self' data: https:");
+  });
+
   it("fast-paths public routes without session cookies before any database work", async () => {
     const response = await renderRequest(createRequest("/"), IDENTITY);
 

@@ -44,7 +44,7 @@ async function loadSdk(): Promise<HyperDX> {
     apiKey: "proxy",
     service: "pickmyclass-web",
     // Same-origin requests always carry traceparent. Listing only our own
-    // origin keeps it off Clerk, Umami and every other third party.
+    // origin keeps it off Clerk, Google Analytics and every other third party.
     tracePropagationTargets: [location.origin],
     consoleCapture: true,
     // Request and response bodies carry emails and Clerk tokens.

@@ -15,6 +15,8 @@ import { errorFields, log } from "@/lib/log";
 // from script-src fails every signup with captcha_invalid). connect-src uses
 // the protect host with a trailing :* (those hosts are not on 443). frame-src
 // allows the Turnstile and protect hosts. worker-src is 'self' blob:.
+// GA4 uses googletagmanager.com for scripts and connections, plus
+// *.google-analytics.com and *.google.com for collection (without Google Ads).
 const PERMISSIONS_POLICY =
   "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()";
 
@@ -31,7 +33,9 @@ const CSP_FONT_SRC = "font-src 'self' data:";
 
 const CSP_CONNECT_SRC = [
   "connect-src 'self'",
-  "https://analytics.divkix.me",
+  "https://www.googletagmanager.com",
+  "https://*.google-analytics.com",
+  "https://*.google.com",
   ...CLERK_CSP.fapiHosts,
   ...CLERK_CSP.challengeHosts,
   ...CLERK_CSP.protectConnectHosts,
@@ -79,7 +83,7 @@ export function isGateExempt(pathname: string): boolean {
 function buildProductionCsp(inlineScriptSource: string): string {
   return [
     CSP_DEFAULT_SRC,
-    `script-src 'self' ${inlineScriptSource} 'wasm-unsafe-eval' https://analytics.divkix.me ${CSP_CLERK_SCRIPT_HOSTS}`,
+    `script-src 'self' ${inlineScriptSource} 'wasm-unsafe-eval' https://www.googletagmanager.com ${CSP_CLERK_SCRIPT_HOSTS}`,
     CSP_STYLE_SRC,
     CSP_IMG_SRC,
     CSP_FONT_SRC,
