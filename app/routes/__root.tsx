@@ -60,7 +60,7 @@ function NavigationProgress() {
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
-  // The gate's per-request nonce, for next-themes' inline script; unset in the browser.
+  // The gate's per-request nonce, for theme and analytics inline scripts; unset in the browser.
   const nonce = useRouter().options.ssr?.nonce;
 
   return (
@@ -87,11 +87,16 @@ function RootDocument({ children }: { children: ReactNode }) {
             </AuthProvider>
           </ClerkProvider>
         </ThemeProvider>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-HBQKGDM29Y" />
         <script
-          src="https://analytics.divkix.me/s.js"
-          data-website-id="f2ef7132-055d-4c9a-8040-dcd07f22e84d"
-          data-performance="true"
-          defer
+          nonce={nonce}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-HBQKGDM29Y');`,
+          }}
         />
         <JsonLd
           data={{
