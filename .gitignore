@@ -40,7 +40,7 @@ yarn-error.log*
 # wrangler files
 .wrangler
 
-# Alchemy local state (recover with `alchemy deploy --stage prod --adopt`)
+# Alchemy working files (state lives in the account's state store)
 .alchemy/
 worker-configuration.d.ts
 

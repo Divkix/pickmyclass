@@ -82,7 +82,7 @@ Production deploys go through [Alchemy](https://alchemy.run) (`alchemy.run.ts`),
 DATABASE_URL="postgres://…" pnpm run deploy   # build, migrate, alchemy deploy --stage prod, IndexNow ping
 ```
 
-The first deploy creates the queue, its dead-letter queue and the Workflow schedules. If the Worker or queues already exist (an earlier `wrangler deploy`, or `wrangler secret put` before the first deploy), take them over once with `pnpm exec alchemy deploy --stage prod --adopt` after `pnpm run build`. Alchemy keeps its state in the gitignored `.alchemy/` directory; if it is lost, the same `--adopt` deploy rebuilds it. Legal pages under `app/routes/legal/` name `support@pickmyclass.app`; change them for your deployment. Check `https://your-domain.com/api/monitoring/health` afterwards.
+Production deploys run from `.github/workflows/deploy.yml` on every push to `main` (and on manual dispatch). It needs the repository secrets `CLOUDFLARE_API_TOKEN` and `DATABASE_URL` and the variable `CLOUDFLARE_ACCOUNT_ID`. Workers Builds only uploads preview versions for other branches. The first deploy creates the queue, its dead-letter queue and the Workflow schedules. If the Worker or queues already exist (an earlier `wrangler deploy`, or `wrangler secret put` before the first deploy), take them over once with `pnpm exec alchemy deploy --stage prod --adopt` after `pnpm run build`. Alchemy keeps its state in the account's state store (`pnpm exec alchemy state bootstrap` creates it once per account), shared by laptop and CI deploys; if it is lost, the same `--adopt` deploy rebuilds it. Legal pages under `app/routes/legal/` name `support@pickmyclass.app`; change them for your deployment. Check `https://your-domain.com/api/monitoring/health` afterwards.
 
 ## Development
 

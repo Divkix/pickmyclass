@@ -2,7 +2,7 @@
  * Maps changed repo files to the static sitemap routes whose content they
  * change. The pre-commit hook (`scripts/bump-lastmod.ts`) stamps those routes
  * in `static-page-lastmod.json`, so the sitemap never reads git history at
- * build time (Workers Builds clones shallow).
+ * build time (CI clones shallow).
  */
 
 interface ContentSource {

@@ -80,9 +80,10 @@ if (consumer.queue !== producer.queue) {
 
 export default Alchemy.Stack(
   "pickmyclass",
-  // State lives in the gitignored .alchemy/ directory. Losing it is recoverable with
-  // `alchemy deploy --stage prod --adopt`, since every resource below has a fixed name.
-  { providers: Cloudflare.providers(), state: Alchemy.localState() },
+  // State lives in this account's Alchemy state store (`alchemy state bootstrap`), shared by
+  // laptop and CI deploys. Losing it is recoverable with `alchemy deploy --stage prod --adopt`,
+  // since every resource below has a fixed name.
+  { providers: Cloudflare.providers(), state: Cloudflare.state() },
   Effect.gen(function* () {
     // Every name below is the live production name. Any other stage would fight prod for them.
     if ((yield* Alchemy.Stage) !== STAGE) {
