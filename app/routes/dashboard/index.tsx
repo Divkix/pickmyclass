@@ -10,7 +10,7 @@ const loadDashboard = createServerFn().handler(async () => {
 
   return {
     watchlist: await readWatchlist(getDbFromEnv(), identity.userId),
-    ownerClerkUserId: identity.clerkUserId,
+    ownerUserId: identity.userId,
   };
 });
 
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/dashboard/")({
 });
 
 function DashboardPage() {
-  const { watchlist, ownerClerkUserId } = Route.useLoaderData();
+  const { watchlist, ownerUserId } = Route.useLoaderData();
 
-  return <DashboardView initial={watchlist} ownerClerkUserId={ownerClerkUserId} />;
+  return <DashboardView initial={watchlist} ownerUserId={ownerUserId} />;
 }

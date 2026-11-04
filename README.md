@@ -58,6 +58,8 @@ Put the new Hyperdrive id in `wrangler.jsonc`.
 
 1. Set the instance's publishable key as `CLERK_PUBLISHABLE_KEY` in `wrangler.jsonc` `vars`, and add its Frontend API host to `CLERK_CSP` in `lib/clerk/config.ts`.
 2. Sessions → Customize session token: `{"ext_id":"{{user.external_id || user.id}}"}`.
+
+   The client and server use this app user id for watchlist ownership, preserving migrated users' external ids.
 3. Webhooks → add `https://your-domain.com/api/webhooks/clerk` for `user.created`, `user.updated` and `user.deleted`.
 4. Enable Google under Social Connections if you want OAuth sign-in.
 

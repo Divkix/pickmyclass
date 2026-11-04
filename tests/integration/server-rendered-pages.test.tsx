@@ -119,7 +119,7 @@ function loadDashboard() {
   // SAFETY: This loader ignores its context and calls the mocked server handler directly.
   const loader = DashboardRoute.options.loader as () => Promise<{
     watchlist: Watchlist;
-    ownerClerkUserId: string;
+    ownerUserId: string;
   }>;
 
   return loader();
@@ -143,11 +143,11 @@ function loadSettings() {
 }
 
 async function renderDashboard() {
-  const { watchlist, ownerClerkUserId } = await loadDashboard();
+  const { watchlist, ownerUserId } = await loadDashboard();
 
   return renderWithRouter(
     <MotionProvider>
-      <DashboardView initial={watchlist} ownerClerkUserId={ownerClerkUserId} />
+      <DashboardView initial={watchlist} ownerUserId={ownerUserId} />
     </MotionProvider>,
   );
 }

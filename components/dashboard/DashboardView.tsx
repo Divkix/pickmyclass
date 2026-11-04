@@ -19,11 +19,11 @@ import { sectionRefKey } from "@/lib/section-ref";
 
 interface DashboardViewProps {
   initial: Watchlist;
-  ownerClerkUserId: string;
+  ownerUserId: string;
 }
 
 /** Shows watched classes before stats on mobile, retaining the stats-first desktop layout. */
-export function DashboardView({ initial, ownerClerkUserId }: DashboardViewProps) {
+export function DashboardView({ initial, ownerUserId }: DashboardViewProps) {
   const {
     watches,
     maxWatches,
@@ -44,7 +44,7 @@ export function DashboardView({ initial, ownerClerkUserId }: DashboardViewProps)
     pullDistance,
     isRefreshing,
     containerRef,
-  } = useClassWatches(initial, ownerClerkUserId);
+  } = useClassWatches(initial, ownerUserId);
 
   // initial={false}: the server HTML must show the watchlist at full opacity before hydration.
   return (

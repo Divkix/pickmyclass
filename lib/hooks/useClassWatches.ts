@@ -28,11 +28,11 @@ async function requestWatches(): Promise<Watchlist> {
 
 /**
  * Dashboard state seeded from the server-rendered `initial` watchlist, so the first view
- * needs no fetch. It refetches on pull-to-refresh, after restore, and when the Clerk user
+ * needs no fetch. It refetches on pull-to-refresh, after restore, and when the app user
  * stops matching the one the server rendered for. Every change to the watchlist or
  * onboarding invalidates loaders, so Back never remounts from stale cached loader data.
  */
-export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
+export function useClassWatches(initial: Watchlist, ownerUserId: string) {
   const router = useRouter();
   const { user } = useAuth();
   const [watches, setWatches] = useState<WatchWithState[]>(initial.watches);
@@ -41,7 +41,7 @@ export function useClassWatches(initial: Watchlist, ownerClerkUserId: string) {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [onboarding, setOnboarding] = useState<OnboardingState>(initial.onboarding);
-  const [ownerId, setOwnerId] = useState(ownerClerkUserId);
+  const [ownerId, setOwnerId] = useState(ownerUserId);
   const [ownerChanges, setOwnerChanges] = useState(0);
 
   if (user && user.id !== ownerId) {
