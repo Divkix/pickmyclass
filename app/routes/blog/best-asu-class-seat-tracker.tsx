@@ -282,7 +282,7 @@ function BestASUSeatTrackerPost() {
             PickMyClass’s 30-minute claim was also checked against the repository’s schedule: the
             section workflow runs on 15-minute triggers and alternates two groups, so each group is
             scheduled every 30 minutes. The change detector and notification sender cover newly
-            available seats and assigned instructors. See <code>wrangler.jsonc</code>,{" "}
+            available seats and assigned instructors. See <code>alchemy.run.ts</code>,{" "}
             <code>lib/workflows/cron-workflows.ts</code>, <code>lib/queue/change-detector.ts</code>,
             and <code>lib/queue/notification-sender.ts</code>.
           </p>

@@ -10,10 +10,10 @@ vi.mock("@/lib/queue/process-section", async (importOriginal) => ({
 
 const DB_HANDLE = { __dbHandle: "queue-invocation-db" } as const;
 
-const mockGetDb = vi.fn((_hyperdrive: CloudflareEnv["HYPERDRIVE"]) => DB_HANDLE);
+const mockGetDb = vi.fn((_hyperdrive: Hyperdrive) => DB_HANDLE);
 
 vi.mock("@/lib/db", () => ({
-  getDb: (hyperdrive: CloudflareEnv["HYPERDRIVE"]) => mockGetDb(hyperdrive),
+  getDb: (hyperdrive: Hyperdrive) => mockGetDb(hyperdrive),
 }));
 
 function makeMessage(class_nbr: string, term = "2261", attempts = 1) {
