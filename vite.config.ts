@@ -1,12 +1,11 @@
 import { resolve } from "node:path";
-import { cloudflare } from "@cloudflare/vite-plugin";
+import cloudflare from "@alchemy.run/cloudflare-runtime/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { defineConfig } from "vite-plus";
 
 const IGNORE_PATTERNS = [
   "dist/**",
-  "lib/cloudflare-env.d.ts",
   ".agent/**",
   ".agents/**",
   ".claude/**",
@@ -40,12 +39,10 @@ const CLIENT_DENIED_FILES = [
   "**/lib/asu/{asu-client,api}.ts",
 ];
 
-// Production builds run in the GitHub Actions deploy workflow (main); Workers Builds still
-// uploads branch preview versions. Both set a branch and commit:
-// https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables
-// https://docs.github.com/en/actions/reference/workflows-and-actions/variables
-const CI_BRANCH = process.env.WORKERS_CI_BRANCH ?? process.env.GITHUB_REF_NAME;
-const CI_COMMIT = process.env.WORKERS_CI_COMMIT_SHA ?? process.env.GITHUB_SHA;
+// Production builds run in the GitHub Actions deploy workflow (main), which sets the branch and
+// commit: https://docs.github.com/en/actions/reference/workflows-and-actions/variables
+const CI_BRANCH = process.env.GITHUB_REF_NAME;
+const CI_COMMIT = process.env.GITHUB_SHA;
 
 function deploymentEnvironment(): DeploymentEnvironment {
   if (!CI_BRANCH) return "development";
@@ -149,10 +146,7 @@ export default defineConfig(() => {
           rules: { "no-console": "off" },
         },
       ],
-      ignorePatterns: [
-        ...IGNORE_PATTERNS,
-        "**/cloudflare-env.d.ts", // Generated Cloudflare declarations at any depth.
-      ],
+      ignorePatterns: [...IGNORE_PATTERNS],
     },
     staged: {
       "*.{js,jsx,ts,tsx,json,css}": ["vp check --fix"],
@@ -215,7 +209,16 @@ export default defineConfig(() => {
     plugins: isTest
       ? []
       : [
-          cloudflare({ viteEnvironment: { name: "ssr" } }),
+          // `alchemy dev` / `alchemy deploy` inject this plugin with the stack's bindings; the copy
+          // here only serves a standalone `vp build` (CI). Keep the compatibility settings in step
+          // with alchemy.run.ts.
+          process.env.ALCHEMY_CLOUDFLARE_VITE_INJECTED === "1"
+            ? null
+            : cloudflare({
+                main: "./worker.ts",
+                compatibilityDate: "2026-05-07",
+                compatibilityFlags: ["nodejs_compat", "global_fetch_strictly_public"],
+              }),
           tanstackStart({
             srcDirectory: "app",
             importProtection: {
@@ -233,7 +236,7 @@ export default defineConfig(() => {
       exclude: ["lucide-react"],
     },
     // Vite leaves server environments unminified; minifying the Worker (as vinext did) cuts its
-    // upload from ~1.0 MiB to ~0.6 MiB gzip and startup from ~73 ms to ~63 ms (`wrangler check startup`).
+    // upload from ~1.0 MiB to ~0.6 MiB gzip and startup from ~73 ms to ~63 ms.
     environments: { ssr: { build: { minify: true } } },
     define: {
       __DEPLOYMENT_ENVIRONMENT__: JSON.stringify(deploymentEnvironment()),

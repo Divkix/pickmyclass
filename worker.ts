@@ -60,7 +60,7 @@ function pageRequest(url: URL | string, request: Request): Request {
 }
 
 /**
- * Workflow classes are referenced only by `wrangler.jsonc` bindings (their
+ * Workflow classes are referenced only by the Workflow bindings in alchemy.run.ts (their
  * `schedules` replace a `scheduled()` handler), so they must stay exported
  * from the Worker entry module.
  */

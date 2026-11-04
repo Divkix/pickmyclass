@@ -49,14 +49,13 @@ Apply migrations with the **direct** database URL (drizzle-kit runs in Node, not
 
 ```bash
 DATABASE_URL="postgres://…" pnpm run db:migrate
-wrangler hyperdrive create HYPERDRIVE --connection-string="postgres://…" --caching-disabled
 ```
 
-Put the new Hyperdrive id in `wrangler.jsonc`.
+Create a Hyperdrive config for the same database with caching disabled (dashboard, or the one-off `pnpm dlx wrangler hyperdrive create HYPERDRIVE --connection-string="postgres://…" --caching-disabled`) and put its id in `alchemy.run.ts`.
 
 ### 3. Clerk
 
-1. Set the instance's publishable key as `CLERK_PUBLISHABLE_KEY` in `wrangler.jsonc` `vars`, and add its Frontend API host to `CLERK_CSP` in `lib/clerk/config.ts`.
+1. Set the instance's publishable key as `CLERK_PUBLISHABLE_KEY` in `VARS` in `alchemy.run.ts`, and add its Frontend API host to `CLERK_CSP` in `lib/clerk/config.ts`.
 2. Sessions → Customize session token: `{"ext_id":"{{user.external_id || user.id}}"}`.
 
    The client and server use this app user id for watchlist ownership, preserving migrated users' external ids.
@@ -67,37 +66,33 @@ Disabled accounts are signed out and shown an account-disabled notice on `/sign-
 
 ### 4. Configuration and secrets
 
-Every variable is listed and explained in `.env.example`. Locally, copy it to `.dev.vars` (gitignored; `dev` and `preview` read it). In production, non-secret values are `vars` in `wrangler.jsonc` and secrets are set with Wrangler:
+Every variable is listed and explained in `.env.example`. Locally, copy it to `.env` (gitignored; `alchemy dev` reads it). In production, non-secret values are `VARS` in `alchemy.run.ts`, and secrets are Worker secrets set in the dashboard (or with the one-off `pnpm dlx wrangler secret put <NAME>`). Alchemy leaves secrets it did not upload alone, so deploys never remove them:
 
-```bash
-for s in CLERK_SECRET_KEY CLERK_JWT_KEY CLERK_WEBHOOK_SIGNING_SECRET ASU_API_BASE_URL \
-  ASU_API_TOKEN CRON_SECRET UNSUBSCRIBE_SIGNING_SECRET; do wrangler secret put "$s"; done
-```
+`CLERK_SECRET_KEY CLERK_JWT_KEY CLERK_WEBHOOK_SIGNING_SECRET ASU_API_BASE_URL ASU_API_TOKEN CRON_SECRET UNSUBSCRIBE_SIGNING_SECRET OTEL_BROWSER_INGEST_KEY`
 
 ### 5. Deploy
 
-Production deploys go through [Alchemy](https://alchemy.run) (`alchemy.run.ts`), which reads `wrangler.jsonc`. Connect it to Cloudflare once with `pnpm exec alchemy profile edit --add Cloudflare`, or export `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`.
+Every Cloudflare resource is declared in `alchemy.run.ts` and deployed with [Alchemy](https://alchemy.run). Connect it to Cloudflare once with `pnpm exec alchemy profile edit --add Cloudflare`, or export `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`.
 
 ```bash
 DATABASE_URL="postgres://…" pnpm run deploy   # build, migrate, alchemy deploy --stage prod, IndexNow ping
 ```
 
-Production deploys run from `.github/workflows/deploy.yml` on every push to `main` (and on manual dispatch). It needs the repository secrets `CLOUDFLARE_API_TOKEN` and `DATABASE_URL` and the variable `CLOUDFLARE_ACCOUNT_ID`. Workers Builds only uploads preview versions for other branches. The first deploy creates the queue, its dead-letter queue and the Workflow schedules. If the Worker or queues already exist (an earlier `wrangler deploy`, or `wrangler secret put` before the first deploy), take them over once with `pnpm exec alchemy deploy --stage prod --adopt` after `pnpm run build`. Alchemy keeps its state in the account's state store (`pnpm exec alchemy state bootstrap` creates it once per account), shared by laptop and CI deploys; if it is lost, the same `--adopt` deploy rebuilds it. Legal pages under `app/routes/legal/` name `support@pickmyclass.app`; change them for your deployment. Check `https://your-domain.com/api/monitoring/health` afterwards.
+Production deploys run from `.github/workflows/deploy.yml` on every push to `main` (and on manual dispatch). It needs the repository secrets `CLOUDFLARE_API_TOKEN` and `DATABASE_URL` and the variable `CLOUDFLARE_ACCOUNT_ID`. The first deploy creates the queue, its dead-letter queue and the Workflow schedules. If the Worker or queues already exist, take them over once with `pnpm exec alchemy deploy --stage prod --adopt`. Alchemy keeps its state in the account's state store (`pnpm exec alchemy state bootstrap` creates it once per account), shared by laptop and CI deploys; if it is lost, the same `--adopt` deploy rebuilds it. Legal pages under `app/routes/legal/` name `support@pickmyclass.app`; change them for your deployment. Check `https://your-domain.com/api/monitoring/health` afterwards.
 
 ## Development
 
 ```bash
 docker run --name pickmyclass-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:18
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pnpm run db:migrate
-cp .env.example .dev.vars   # fill in Clerk development instance keys
+cp .env.example .env   # fill in Clerk development instance keys
 
-pnpm run dev       # localhost:3000
-pnpm run preview   # build + real Worker on localhost:8787
+pnpm run dev       # alchemy dev: the Worker in workerd on localhost:3000, bindings emulated
 pnpm run verify    # format, lint, type-check, knip (pre-commit hook and CI)
 pnpm run test      # tests, live database excluded
 ```
 
-Clerk development keys (`pk_test_`) authorize both localhost ports above plus `NEXT_PUBLIC_SITE_URL`. Production keys (`pk_live_`) authorize only `NEXT_PUBLIC_SITE_URL`.
+`pnpm run dev` needs Cloudflare credentials (the profile or env vars above) even though everything runs locally. Its Hyperdrive binding points at `LOCAL_DATABASE_URL` (default: the container above). Clerk development keys (`pk_test_`) authorize `localhost:3000` plus `NEXT_PUBLIC_SITE_URL`. Production keys (`pk_live_`) authorize only `NEXT_PUBLIC_SITE_URL`.
 
 The full command list is the `scripts` block of `package.json`.
 

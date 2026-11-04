@@ -84,7 +84,7 @@ describe("clerk-session", () => {
     { key: "pk_live_x", parties: ["https://pickmyclass.test"] },
     {
       key: "pk_test_x",
-      parties: ["http://localhost:3000", "http://localhost:8787", "https://pickmyclass.test"],
+      parties: ["http://localhost:3000", "https://pickmyclass.test"],
     },
   ])("trusts localhost only for the development instance: $key", ({ key, parties }) => {
     clerkEnv.CLERK_PUBLISHABLE_KEY = key;
