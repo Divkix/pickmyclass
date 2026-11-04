@@ -5,6 +5,7 @@ import { setTelemetryUser, trackBrowserAction } from "@/lib/telemetry/browser";
 import { claimLoginSession } from "@/lib/telemetry/login-session";
 
 interface CompatUser {
+  /** Stable app identity: matches the session's `ext_id` claim, including migrated users. */
   id: string;
   email: string | null;
   email_confirmed_at: string | null;
@@ -39,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () =>
       clerkUser
         ? {
-            id: clerkUser.id,
+            id: clerkUser.externalId || clerkUser.id,
             email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
             email_confirmed_at:
               clerkUser.primaryEmailAddress?.verification.status === "verified"

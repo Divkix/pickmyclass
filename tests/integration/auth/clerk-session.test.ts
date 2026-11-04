@@ -1,7 +1,9 @@
 import type { AuthObject } from "@clerk/backend";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-const { createClerkClient, auth, getSessionList, revokeSessionCall, getUser, deleteUser } =
+const { createClerkClient, auth, getSessionList, revokeSessionCall, getUser, deleteUser, useUser } =
   vi.hoisted(() => ({
     createClerkClient: vi.fn(),
     auth: vi.fn(),
@@ -9,11 +11,18 @@ const { createClerkClient, auth, getSessionList, revokeSessionCall, getUser, del
     revokeSessionCall: vi.fn(),
     getUser: vi.fn(),
     deleteUser: vi.fn(),
+    useUser: vi.fn(),
   }));
 
 vi.mock("@clerk/backend", () => ({ createClerkClient }));
 
 vi.mock("@clerk/tanstack-react-start/server", () => ({ auth }));
+
+vi.mock("@clerk/tanstack-react-start", () => ({
+  useUser,
+  useAuth: () => ({ isLoaded: true, sessionId: "sess_1", getToken: vi.fn() }),
+  useClerk: () => ({ signOut: vi.fn() }),
+}));
 
 vi.mock("cloudflare:workers", () => ({
   env: {
@@ -37,6 +46,7 @@ import {
   toSessionIdentity,
 } from "@/lib/auth/clerk-session";
 import { CLERK_REQUEST_TIMEOUT_MS, CLERK_SESSION_REVOKE_LIMIT } from "@/lib/config";
+import { AuthProvider, useAuth } from "@/lib/contexts/AuthContext";
 
 async function caught(promise: Promise<unknown>): Promise<Error | undefined> {
   return promise.then(
@@ -207,6 +217,35 @@ describe("clerk-session", () => {
     });
     expect(await getSessionIdentity()).toBeNull();
   });
+
+  it.each(["legacy-uuid", null, ""])(
+    "matches the client app user id to the server identity with externalId %s",
+    async (externalId) => {
+      const appUserId = externalId || "user_clerk";
+
+      useUser.mockReturnValue({
+        isLoaded: true,
+        user: { id: "user_clerk", externalId },
+      });
+      auth.mockResolvedValue({
+        tokenType: "session_token",
+        userId: "user_clerk",
+        sessionId: "sess_1",
+        sessionClaims: { ext_id: appUserId },
+      });
+
+      function ClientIdentity() {
+        return useAuth().user?.id;
+      }
+
+      const html = renderToStaticMarkup(
+        createElement(AuthProvider, null, createElement(ClientIdentity)),
+      );
+
+      expect(html).toBe(appUserId);
+      expect(html).toBe((await getSessionIdentity())?.userId);
+    },
+  );
 
   it("never signs in a machine token, even one owned by a user", () => {
     // SAFETY: the fields toSessionIdentity reads from an API-key AuthObject.
