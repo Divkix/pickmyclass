@@ -61,6 +61,8 @@ Put the new Hyperdrive id in `wrangler.jsonc`.
 3. Webhooks → add `https://your-domain.com/api/webhooks/clerk` for `user.created`, `user.updated` and `user.deleted`.
 4. Enable Google under Social Connections if you want OAuth sign-in.
 
+Disabled accounts are signed out and shown an account-disabled notice on `/sign-in` with a support contact.
+
 ### 4. Configuration and secrets
 
 Every variable is listed and explained in `.env.example`. Locally, copy it to `.dev.vars` (gitignored; `dev` and `preview` read it). In production, non-secret values are `vars` in `wrangler.jsonc` and secrets are set with Wrangler:
