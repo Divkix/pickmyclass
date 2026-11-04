@@ -113,6 +113,8 @@ export default Alchemy.Stack(
         date: wrangler.compatibility_date,
         flags: wrangler.compatibility_flags,
       },
+      // Alchemy defaults version preview URLs on; Wrangler had left them off.
+      workersDev: { enabled: true, previewsEnabled: false },
       placement: { mode: "smart" },
       logpush: wrangler.logpush,
       observability: {
