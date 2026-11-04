@@ -21,8 +21,8 @@
   "placement": {
     "mode": "smart",
   },
-  // Keep crons empty: schedules live on the Workflow bindings below. This clears the old
-  // Worker scheduled() triggers; 'pnpm run deploy' runs 'wrangler triggers deploy'.
+  // Keep crons empty: schedules live on the Workflow bindings below. alchemy.run.ts deploys
+  // these crons, so an empty list keeps the Worker free of scheduled() triggers.
   "triggers": {
     "crons": [],
   },

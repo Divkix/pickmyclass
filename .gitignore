@@ -39,6 +39,9 @@ yarn-error.log*
 
 # wrangler files
 .wrangler
+
+# Alchemy local state (recover with `alchemy deploy --stage prod --adopt`)
+.alchemy/
 worker-configuration.d.ts
 
 # git worktrees

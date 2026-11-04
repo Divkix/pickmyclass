@@ -76,11 +76,13 @@ for s in CLERK_SECRET_KEY CLERK_JWT_KEY CLERK_WEBHOOK_SIGNING_SECRET ASU_API_BAS
 
 ### 5. Deploy
 
+Production deploys go through [Alchemy](https://alchemy.run) (`alchemy.run.ts`), which reads `wrangler.jsonc`. Connect it to Cloudflare once with `pnpm exec alchemy profile edit --add Cloudflare`, or export `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`.
+
 ```bash
-DATABASE_URL="postgres://…" pnpm run deploy   # build, migrate, deploy Worker + Workflow schedules, IndexNow ping
+DATABASE_URL="postgres://…" pnpm run deploy   # build, migrate, alchemy deploy --stage prod, IndexNow ping
 ```
 
-`wrangler deploy` creates the queue and its dead-letter queue. Legal pages under `app/routes/legal/` name `support@pickmyclass.app`; change them for your deployment. Check `https://your-domain.com/api/monitoring/health` afterwards.
+The first deploy creates the queue, its dead-letter queue and the Workflow schedules. If the Worker or queues already exist (an earlier `wrangler deploy`, or `wrangler secret put` before the first deploy), take them over once with `pnpm exec alchemy deploy --stage prod --adopt` after `pnpm run build`. Alchemy keeps its state in the gitignored `.alchemy/` directory; if it is lost, the same `--adopt` deploy rebuilds it. Legal pages under `app/routes/legal/` name `support@pickmyclass.app`; change them for your deployment. Check `https://your-domain.com/api/monitoring/health` afterwards.
 
 ## Development
 
