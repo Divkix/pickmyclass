@@ -1,0 +1,163 @@
+{
+  "M": {
+    "home": "g1TbwEcm1j",
+    "about": "p2VhZQW8KX",
+    "contact": "XZ2zRIg85Z",
+    "faq": "df_VKh2ocj",
+    "docs": "nSnezguK4y",
+    "legal": "PecIPPb9b0",
+    "privacy": "HmexQg2eUb",
+    "terms": "Ncg7_eCdHU",
+    "notfound": "z3to-MItrN",
+    "error": "2eMeSO7SQf",
+    "blog": "Y-XHAJGP_N",
+    "post": "Qibq0GGWDr",
+    "signin": "k0Ui_DL_bv",
+    "disabled": "ijSpoP7Ysj",
+    "signup": "E2F5mLoOrh",
+    "verify": "53VS6EIae1",
+    "consent": "NpdGyV2D4z",
+    "dash": "7xVTQ7X3Oh",
+    "empty": "UWGtKXnpy3",
+    "onboard": "_qK59CKhUL",
+    "add": "n3WXTiEFmr",
+    "settings": "Ac3-jmUDal",
+    "data": "zF19LU99aH",
+    "admin": "WLtWi0IKdL",
+    "aclasses": "sDVz1gI__2",
+    "aclass": "k0p_ATL1mG",
+    "ausers": "VpVqKzX-R1",
+    "auser": "RERbXk6jec"
+  },
+  "JOURNEYS": {
+    "new student (Google)": [
+      "home",
+      [
+        ["Watch a class", "signup"],
+        ["Continue with Google", "consent"],
+        ["Save and continue", "onboard"],
+        ["Skip", "empty"],
+        ["Add your first class", "add"],
+        [["sel", "form [type=submit],button[type=submit]"], "dash"]
+      ]
+    ],
+    "new student (email)": [
+      "signup",
+      [
+        ["Continue", "verify"],
+        ["Continue", "consent"],
+        ["Save and continue", "onboard"],
+        ["Add class", "dash"]
+      ]
+    ],
+    "returning student": [
+      "home",
+      [
+        ["Sign in", "signin"],
+        ["Sign up", "signup"],
+        ["Sign in", "signin"],
+        ["Continue with Google", "dash"]
+      ]
+    ],
+    "account disabled": [
+      "disabled",
+      [
+        [
+          [
+            "sel",
+            "[data-doop-action=\"navigate:k0Ui_DL_bv\"]:not(nav *):not(header *):not(footer *)"
+          ],
+          "signin"
+        ]
+      ]
+    ],
+    "manage watches": [
+      "dash",
+      [
+        ["Add Class", "add"],
+        [
+          [
+            "sel",
+            "[data-doop-action=\"navigate:7xVTQ7X3Oh\"]:not(nav *):not(header *):not(footer *):not(.tabbar *)"
+          ],
+          "dash"
+        ],
+        ["Settings", "settings"],
+        ["Data", "data"],
+        ["Cancel", "settings"],
+        ["Data", "data"],
+        ["Delete Account", "home"]
+      ]
+    ],
+    "sign out": [
+      "dash",
+      [
+        [["opt", ".user-menu summary"], null],
+        ["Sign out", "home"]
+      ]
+    ],
+    "learn (blog)": [
+      "home",
+      [
+        ["Blog", "blog"],
+        [["sel", "[data-doop-action=\"navigate:Qibq0GGWDr\"]"], "post"],
+        ["Start Tracking Free", "signup"]
+      ]
+    ],
+    "post breadcrumb + related": [
+      "post",
+      [
+        [["sel", "[data-doop-action=\"navigate:Qibq0GGWDr\"]"], "post"],
+        [["sel", ".breadcrumb [data-doop-action=\"navigate:Y-XHAJGP_N\"]"], "blog"]
+      ]
+    ],
+    "legal": [
+      "home",
+      [
+        ["Privacy", "privacy"],
+        ["Terms", "terms"],
+        ["FAQ", "faq"],
+        ["About", "about"],
+        ["Contact", "contact"],
+        ["Docs", "docs"]
+      ]
+    ],
+    "legal index": [
+      "legal",
+      [[["sel", "main [data-doop-action=\"navigate:HmexQg2eUb\"]"], "privacy"]]
+    ],
+    "consent links": [
+      "consent",
+      [[["sel", "main [data-doop-action=\"navigate:Ncg7_eCdHU\"]"], "terms"]]
+    ],
+    "errors": ["notfound", [["Back to Home", "home"]]],
+    "admin": [
+      "admin",
+      [
+        ["Classes", "aclasses"],
+        [["sel", "tbody [data-doop-action=\"navigate:k0p_ATL1mG\"]"], "aclass"],
+        [["sel", "main [data-doop-action=\"navigate:sDVz1gI__2\"]"], "aclasses"],
+        ["Users", "ausers"],
+        [["sel", "tbody [data-doop-action=\"navigate:RERbXk6jec\"]"], "auser"],
+        [["sel", "main [data-doop-action=\"navigate:k0p_ATL1mG\"]"], "aclass"],
+        ["Sign out", "home"]
+      ]
+    ],
+    "error retry": [
+      "home",
+      [
+        ["GOTO", "error"],
+        ["Try again", "home"],
+        ["GOTO", "error"],
+        ["Back to home", "home"]
+      ]
+    ],
+    "theme toggle": [
+      "home",
+      [
+        [["sel", "[data-pmc-theme-toggle]"], "OTHER:home"],
+        [["sel", "[data-pmc-theme-toggle]"], "home"]
+      ]
+    ]
+  }
+}
